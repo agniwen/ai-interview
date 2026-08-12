@@ -190,7 +190,7 @@ export function ResumeDetailPage() {
                   type="button"
                 >
                   <Icon className="size-4" icon="ph:record" />
-                  新建会议录制
+                  新建录制
                 </Button>
               </div>
             </div>

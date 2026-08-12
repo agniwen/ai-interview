@@ -7,6 +7,7 @@ import type {
   RecoverableMeetingCapture,
 } from "../../../../preload/meeting-capture";
 import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type { LocalMeetingSession } from "../../../../preload/local-meeting-session";
 
 const WRITE_TIMEOUT_MS = 30_000;
 
@@ -18,6 +19,9 @@ const WRITE_TIMEOUT_MS = 30_000;
  * the window.postMessage MessagePort handshake previously dropped fragments silently.
  */
 export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
+  acknowledgeRemoteVisibility(captureId: string): Promise<void> {
+    return window.api.meetingCapture.acknowledgeRemoteVisibility(captureId);
+  }
   begin(input: BeginLocalCaptureInput): Promise<void> {
     return window.api.meetingCapture.begin(input);
   }
@@ -86,7 +90,34 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     return window.api.meetingCapture.markWorkspaceVerified(captureId, recoveryCopyDeleteAfter);
   }
 
+  listLocalSessions(): Promise<LocalMeetingSession[]> {
+    return window.api.meetingCapture.listLocalSessions();
+  }
+
   recover(): Promise<RecoverableMeetingCapture[]> {
     return window.api.meetingCapture.recover();
+  }
+
+  resumeInterrupted(
+    captureId: string,
+    trackContentTypes: Record<"microphone" | "system", string>,
+  ): Promise<void> {
+    return window.api.meetingCapture.resumeInterrupted(captureId, trackContentTypes);
+  }
+
+  rollbackInterruptedResume(captureId: string): Promise<void> {
+    return window.api.meetingCapture.rollbackInterruptedResume(captureId);
+  }
+
+  updateLocalSession(
+    captureId: string,
+    patch: Partial<
+      Pick<
+        LocalMeetingSession,
+        "endedAt" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+      >
+    >,
+  ): Promise<LocalMeetingSession> {
+    return window.api.meetingCapture.updateLocalSession(captureId, patch);
   }
 }

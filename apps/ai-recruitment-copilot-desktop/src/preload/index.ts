@@ -51,6 +51,8 @@ const downloadApi: DownloadApi = {
 };
 
 const meetingCaptureApi: MeetingCaptureApi = {
+  acknowledgeRemoteVisibility: (captureId) =>
+    ipcRenderer.invoke("meeting-capture:acknowledge-remote-visibility", captureId),
   appendFragment: (input, bytes) =>
     ipcRenderer.invoke("meeting-capture:append-fragment", input, bytes),
   begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
@@ -59,6 +61,7 @@ const meetingCaptureApi: MeetingCaptureApi = {
   describeWorkspaceSave: (captureId) =>
     ipcRenderer.invoke("meeting-capture:describe-workspace-save", captureId),
   discard: (captureId) => ipcRenderer.invoke("meeting-capture:discard", captureId),
+  listLocalSessions: () => ipcRenderer.invoke("meeting-capture:list-local-sessions"),
   markWorkspaceVerified: (captureId, recoveryCopyDeleteAfter) =>
     ipcRenderer.invoke(
       "meeting-capture:mark-workspace-verified",
@@ -66,8 +69,14 @@ const meetingCaptureApi: MeetingCaptureApi = {
       recoveryCopyDeleteAfter,
     ),
   recover: () => ipcRenderer.invoke("meeting-capture:recover"),
+  resumeInterrupted: (captureId, trackContentTypes) =>
+    ipcRenderer.invoke("meeting-capture:resume-interrupted", captureId, trackContentTypes),
+  rollbackInterruptedResume: (captureId) =>
+    ipcRenderer.invoke("meeting-capture:rollback-interrupted-resume", captureId),
   save: (captureId, liveTranscriptDraft) =>
     ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft),
+  updateLocalSession: (captureId, patch) =>
+    ipcRenderer.invoke("meeting-capture:update-local-session", captureId, patch),
   uploadMultipart: (captureId, instructions) =>
     ipcRenderer.invoke("meeting-capture:upload-multipart", captureId, instructions),
   uploadSmall: (captureId, instructions) =>

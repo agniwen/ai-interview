@@ -4,7 +4,6 @@ import type {
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
 } from "@arc/shared/meeting-transcription";
-
 export type LiveTranscriptDraftStatus =
   | "idle"
   | "starting"
@@ -227,7 +226,7 @@ function publicError(reason: string): string {
     return "实时字幕授权暂不可用，录音仍在继续";
   }
   if (reason === "capacity") {
-    return "实时字幕容量已满，Meeting Recording 仍在本地继续";
+    return "实时字幕容量已满，录制仍在本地继续";
   }
   return "实时字幕已中断，录音仍在继续";
 }
@@ -280,6 +279,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   let cancelLeaseHeartbeat: (() => void) | null = null;
   let leaseHeartbeatFailures = 0;
   let releasedLeaseCaptureId: string | null = null;
+  let paused = false;
 
   const releaseLeaseBestEffort = async (captureId: string): Promise<void> => {
     try {
@@ -364,6 +364,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     cancelLeaseHeartbeat?.();
     cancelLeaseHeartbeat = null;
     leaseHeartbeatFailures = 0;
+    paused = false;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
       runtime.generation += 1;
@@ -654,11 +655,27 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
 
   const start = async (input: {
     captureId: string;
+    initialDraft?: MeetingLiveTranscriptDraft | null;
     tracks: Record<MeetingLiveTranscriptTrack, MediaStreamTrack>;
   }): Promise<void> => {
     stop();
+    paused = false;
     releasedLeaseCaptureId = null;
-    snapshot = { ...initialSnapshot(), captureId: input.captureId };
+    const initial = initialSnapshot();
+    const seededSections = input.initialDraft?.sections ?? [];
+    snapshot = {
+      ...initial,
+      captureId: input.captureId,
+      droppedAudioMs: input.initialDraft?.droppedAudioMs ?? 0,
+      droppedPcmFrames: input.initialDraft?.droppedPcmFrames ?? 0,
+      error: input.initialDraft?.error ?? null,
+      sections: seededSections,
+      turns: input.initialDraft?.turns ?? [],
+    };
+    sectionSequence = 0;
+    for (const section of seededSections) {
+      sectionSequence = Math.max(sectionSequence, section.sequence + 1);
+    }
     for (const track of TRACKS) {
       const runtime = runtimes[track];
       runtime.mediaTrack = input.tracks[track];
@@ -693,6 +710,77 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     );
   };
 
+  const pause = (): void => {
+    const { captureId } = snapshot;
+    if (!captureId || paused) {
+      return;
+    }
+    paused = true;
+    cancelLeaseHeartbeat?.();
+    cancelLeaseHeartbeat = null;
+    leaseHeartbeatFailures = 0;
+    for (const track of TRACKS) {
+      const runtime = runtimes[track];
+      runtime.generation += 1;
+      runtime.cancelReconnect?.();
+      runtime.cancelReconnect = null;
+      closeConnection(runtime);
+      runtime.pcmTap?.stop();
+      runtime.pcmTap = null;
+      runtime.queue.clear();
+      runtime.reconnectAttempts = 0;
+      runtime.sectionId = null;
+      runtime.status = "idle";
+    }
+    publish({ error: null });
+    releaseLeaseOnce(captureId);
+  };
+
+  const resume = async (): Promise<void> => {
+    const { captureId } = snapshot;
+    if (!(captureId && paused)) {
+      return;
+    }
+    paused = false;
+    releasedLeaseCaptureId = null;
+    for (const track of TRACKS) {
+      runtimes[track].status = "starting";
+    }
+    publish({ error: null });
+    await Promise.all(
+      TRACKS.map(async (track) => {
+        const runtime = runtimes[track];
+        const { mediaTrack } = runtime;
+        if (!mediaTrack) {
+          runtime.status = "interrupted";
+          publish({ error: publicError("interrupted") });
+          return;
+        }
+        const { generation } = runtime;
+        try {
+          const pcmTap = await dependencies.createPcmTap({
+            mediaTrack,
+            onFrame: (frame) => onFrame(track, frame),
+            track,
+          });
+          if (paused || runtime.generation !== generation || snapshot.captureId !== captureId) {
+            pcmTap.stop();
+            return;
+          }
+          runtime.pcmTap = pcmTap;
+          await connectTrack(track, false);
+        } catch {
+          if (paused || runtime.generation !== generation || snapshot.captureId !== captureId) {
+            return;
+          }
+          runtime.status = "interrupted";
+          publish({ error: publicError("authorization") });
+          releaseLeaseWhenAllTracksTerminal(captureId);
+        }
+      }),
+    );
+  };
+
   return {
     getSnapshot: () => snapshot,
     observe: (listener: (next: LiveTranscriptDraftSnapshot) => void) => {
@@ -702,6 +790,8 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
         listeners.delete(listener);
       };
     },
+    pause,
+    resume,
     start,
     stop,
   };

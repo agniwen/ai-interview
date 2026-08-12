@@ -3,8 +3,9 @@ import { execFile } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { normalizeMeetingRecordingSegments } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
 import {
   buildMeetingPlaybackAssetKey,
   deleteMeetingRecordingObject,
@@ -26,6 +27,7 @@ interface PlaybackSourceAsset {
   contentType: string;
   durationMs: number;
   status: string;
+  segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
   storageKey: string;
   track: string;
 }
@@ -52,8 +54,10 @@ export interface MeetingPlaybackDependencies {
   markProcessing: typeof markMeetingPlaybackProcessing;
   mixSources: (input: {
     microphonePath: string;
+    microphoneSegments?: PlaybackSourceAsset["segments"];
     outputPath: string;
     systemPath: string;
+    systemSegments?: PlaybackSourceAsset["segments"];
   }) => Promise<void>;
   publishPlayback: typeof publishMeetingPlaybackAsset;
   registerCleanupKey: typeof registerMeetingPlaybackCleanupKey;
@@ -80,18 +84,34 @@ async function inspectFile(filePath: string): Promise<{ sha256: string; sizeByte
 
 async function runFfmpeg(input: {
   microphonePath: string;
+  microphoneSegments?: PlaybackSourceAsset["segments"];
   outputPath: string;
   systemPath: string;
+  systemSegments?: PlaybackSourceAsset["segments"];
 }): Promise<void> {
+  const [microphonePath, systemPath] = await Promise.all([
+    normalizeMeetingRecordingSegments({
+      ffmpegBin: process.env.FFMPEG_BIN,
+      outputPath: join(dirname(input.outputPath), "microphone-normalized.webm"),
+      segments: input.microphoneSegments,
+      sourcePath: input.microphonePath,
+    }),
+    normalizeMeetingRecordingSegments({
+      ffmpegBin: process.env.FFMPEG_BIN,
+      outputPath: join(dirname(input.outputPath), "system-normalized.webm"),
+      segments: input.systemSegments,
+      sourcePath: input.systemPath,
+    }),
+  ]);
   await execFileAsync(
     process.env.FFMPEG_BIN?.trim() || "ffmpeg",
     [
       "-nostdin",
       "-y",
       "-i",
-      input.microphonePath,
+      microphonePath,
       "-i",
-      input.systemPath,
+      systemPath,
       "-filter_complex",
       "[0:a][1:a]amix=inputs=2:duration=longest:normalize=0[a]",
       "-map",
@@ -184,7 +204,13 @@ export async function runMeetingPlaybackProcessing(
       }),
       dependencies.downloadSource({ filePath: systemPath, storageKey: system.storageKey }),
     ]);
-    await dependencies.mixSources({ microphonePath, outputPath, systemPath });
+    await dependencies.mixSources({
+      microphonePath,
+      microphoneSegments: microphone.segments,
+      outputPath,
+      systemPath,
+      systemSegments: system.segments,
+    });
     const output = await dependencies.inspectOutput(outputPath);
     const storageKey = await dependencies.buildPlaybackStorageKey({ ...input, processingRunId });
     playbackStorageKey = storageKey;

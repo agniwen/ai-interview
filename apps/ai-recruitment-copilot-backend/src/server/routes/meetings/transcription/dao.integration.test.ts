@@ -136,47 +136,7 @@ describe("Meeting transcription publication", () => {
 
   afterEach(clean, 30_000);
 
-  it("replaces an automatic meeting title when the transcript is published", async () => {
-    await db
-      .update(meetingSession)
-      .set({ title: "录制记录-2608121124" })
-      .where(eq(meetingSession.id, MEETING_ID));
-    await expect(
-      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-title") }),
-    ).resolves.toBe("claimed");
-
-    await expect(
-      publishMeetingTranscript({
-        ...job,
-        generatedTitle: "第三季度产品发布计划",
-        processingRunId: runId("run-title"),
-        transcript: {
-          language: "zh",
-          turns: [
-            {
-              confidence: null,
-              endMs: 2000,
-              speakerKey: "local",
-              startMs: 1000,
-              text: "我们来确认后续安排",
-              track: "local",
-            },
-          ],
-        },
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      db
-        .select({ title: meetingSession.title })
-        .from(meetingSession)
-        .where(eq(meetingSession.id, MEETING_ID)),
-    ).resolves.toEqual([{ title: "第三季度产品发布计划" }]);
-    await expect(searchTranscript("第三季度产品")).resolves.toMatchObject([
-      { id: MEETING_ID, match: { kind: "title" }, title: "第三季度产品发布计划" },
-    ]);
-  });
-
-  it("does not overwrite a manually edited meeting title", async () => {
+  it("does not change the recording title when the final transcript is published", async () => {
     await expect(
       claimMeetingTranscriptionRun({
         ...job,
@@ -188,7 +148,6 @@ describe("Meeting transcription publication", () => {
     await expect(
       publishMeetingTranscript({
         ...job,
-        generatedTitle: "模型生成标题",
         processingRunId: runId("run-manual-title"),
         transcript: {
           language: "zh",

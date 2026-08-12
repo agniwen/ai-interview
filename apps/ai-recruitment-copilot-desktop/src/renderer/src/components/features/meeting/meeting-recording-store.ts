@@ -8,6 +8,7 @@ type MeetingRecordingStore = ReturnType<typeof createStore>;
 export const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   active: null,
   error: null,
+  localSessions: [],
   phase: "idle",
   recoverable: [],
   recoveryComplete: false,

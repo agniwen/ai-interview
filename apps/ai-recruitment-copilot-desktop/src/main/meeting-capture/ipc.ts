@@ -1,5 +1,6 @@
 // oxlint-disable promise/prefer-await-to-callbacks -- Electron permission APIs are callback based.
 import { desktopCapturer, ipcMain, session } from "electron";
+import { z } from "zod";
 import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron";
 import type { AppendLocalFragmentInput } from "../../preload/meeting-capture";
 import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
@@ -7,12 +8,33 @@ import type {
   MultipartMeetingUploadInstruction,
   SmallMeetingUploadInstruction,
 } from "@arc/shared/meeting-recording";
+import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 import { getMainWindowWebContents } from "../window";
 
 const MAX_FRAGMENT_BYTES = 32 * 1024 * 1024;
 const CAPTURE_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const localMeetingSessionPatchSchema = z
+  .object({
+    endedAt: z.string().datetime({ offset: true }).nullable().optional(),
+    liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
+    segmentCount: z.number().int().positive().optional(),
+    state: z
+      .enum([
+        "recording",
+        "paused",
+        "interrupted",
+        "finalizing-local",
+        "saved-local",
+        "uploading",
+        "workspace-verified",
+        "sync-failed",
+      ])
+      .optional(),
+    title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH).optional(),
+  })
+  .strict();
 
 function isTrustedApplicationContents(contents: WebContents | null): boolean {
   return Boolean(contents && getMainWindowWebContents() === contents);
@@ -185,6 +207,25 @@ async function logCaptureOperation(
  * Security boundary for capture IPC: only the trusted main frame may cross into disk/network operations after validation.
  */
 export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): void {
+  ipcMain.handle("meeting-capture:list-local-sessions", (event) => {
+    if (!isTrustedMainFrame(event)) {
+      throw new Error("不受信任的录制请求");
+    }
+    return store.listLocalSessions();
+  });
+  ipcMain.handle("meeting-capture:update-local-session", (event, captureId, patch) => {
+    const parsed = localMeetingSessionPatchSchema.safeParse(patch);
+    if (!isTrustedMainFrame(event) || !isCaptureId(captureId) || !parsed.success) {
+      throw new Error("不受信任的本地 Meeting Session 更新请求");
+    }
+    return store.updateLocalSession(captureId, parsed.data);
+  });
+  ipcMain.handle("meeting-capture:acknowledge-remote-visibility", (event, captureId) => {
+    if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
+      throw new Error("不受信任的本地 Meeting Session 确认请求");
+    }
+    return store.acknowledgeRemoteVisibility(captureId);
+  });
   ipcMain.handle("meeting-capture:begin", (event, input) => {
     if (!isTrustedMainFrame(event) || !isBeginRequest(input)) {
       throw new Error("不受信任的录制请求");
@@ -266,6 +307,28 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
       throw new Error("不受信任的录制请求");
     }
     return store.recover();
+  });
+  ipcMain.handle("meeting-capture:resume-interrupted", (event, captureId, trackContentTypes) => {
+    if (
+      !isTrustedMainFrame(event) ||
+      !isCaptureId(captureId) ||
+      !(trackContentTypes && typeof trackContentTypes === "object") ||
+      !isContentType(trackContentTypes.microphone) ||
+      !isContentType(trackContentTypes.system)
+    ) {
+      throw new Error("不受信任的继续录制请求");
+    }
+    return logCaptureOperation("resume-interrupted", () =>
+      store.resumeInterrupted(captureId, trackContentTypes),
+    );
+  });
+  ipcMain.handle("meeting-capture:rollback-interrupted-resume", (event, captureId) => {
+    if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
+      throw new Error("不受信任的继续录制回滚请求");
+    }
+    return logCaptureOperation("rollback-interrupted-resume", () =>
+      store.rollbackInterruptedResume(captureId),
+    );
   });
 
   ipcMain.handle("meeting-capture:append-fragment", async (event, input, bytes) => {

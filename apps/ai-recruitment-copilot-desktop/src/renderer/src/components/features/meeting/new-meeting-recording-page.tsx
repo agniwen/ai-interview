@@ -154,8 +154,8 @@ function MeetingRecruitingLinkSection({
 }
 
 /**
- * 新建会议录制初始化页。仅当 URL 带 `resumeRecordId`（从招聘台跳入）时展示关联招聘记录。
- * Init page for a new meeting recording. Recruiting link UI only when `resumeRecordId` is in the URL.
+ * 新建录制初始化页。仅当 URL 带 `resumeRecordId`（从招聘台跳入）时展示关联招聘记录。
+ * Init page for a new recording. Recruiting link UI only when `resumeRecordId` is in the URL.
  */
 export function NewMeetingRecordingPage({
   linkRecruiting = false,
@@ -294,7 +294,7 @@ export function NewMeetingRecordingPage({
         to: "/meetings/$meetingId",
       });
     } catch (error) {
-      setStartError(error instanceof Error ? error.message : "无法开始会议录制");
+      setStartError(error instanceof Error ? error.message : "无法开始录制");
     } finally {
       setStarting(false);
     }

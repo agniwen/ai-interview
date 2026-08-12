@@ -537,7 +537,6 @@ export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string;
   return (
     <section className="container mx-auto flex min-h-full max-w-3xl flex-col gap-3 px-4 pb-10 sm:px-6">
       <div className="flex items-center gap-1.5">
-        <h2 className="font-medium text-sm">字幕</h2>
         {draftTurns.length > 0 ? (
           <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
             录制草稿

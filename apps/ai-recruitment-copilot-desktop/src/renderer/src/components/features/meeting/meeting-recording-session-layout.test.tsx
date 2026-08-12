@@ -14,6 +14,7 @@ describe("MeetingRecordingSessionLayout", () => {
       'data-overlayscrollbars-contents=""><div class="h-full min-h-full pt-4"',
     );
     expect(html).toContain("pointer-events-none absolute inset-x-0 bottom-0");
+    expect(html).toContain("px-4 pb-5 sm:px-6");
     expect(html).toContain("pointer-events-auto mx-auto w-full max-w-lg");
     expect(html).not.toContain("shrink-0");
     expect(html).not.toContain("container mx-auto");

@@ -1,5 +1,6 @@
-// oxlint-disable promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
+// oxlint-disable max-lines, promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
 import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type { LocalMeetingSession } from "./local-meeting-session";
 
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
 export const MEETING_CAPTURE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
@@ -11,6 +12,7 @@ export type CapturePhase =
   | "idle"
   | "starting"
   | "active"
+  | "paused"
   | "saving"
   | "discarding"
   | "saved-local"
@@ -65,6 +67,7 @@ export interface RecoverableMeetingCapture {
 export interface MeetingCaptureSnapshot {
   active: ActiveMeetingCapture | null;
   error: string | null;
+  localSessions: LocalMeetingSession[];
   phase: CapturePhase;
   recoverable: RecoverableMeetingCapture[];
   recoveryComplete: boolean;
@@ -122,7 +125,12 @@ export interface CaptureSink {
 export interface PreparedCapture {
   dispose: () => Promise<void>;
   getLiveTranscriptDraft?: () => MeetingLiveTranscriptDraft | null;
-  start: (sink: CaptureSink, input: { captureId: string }) => Promise<void>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
+  start: (
+    sink: CaptureSink,
+    input: { captureId: string; initialLiveTranscriptDraft?: MeetingLiveTranscriptDraft | null },
+  ) => Promise<void>;
   stop: () => Promise<void>;
   trackContentTypes: Record<CaptureTrack, string>;
   videoTracksDiscarded: number;
@@ -146,15 +154,31 @@ export interface AppendLocalFragmentInput extends Omit<CaptureFragment, "bytes">
 }
 
 export interface MeetingRecordingStore {
+  acknowledgeRemoteVisibility?: (captureId: string) => Promise<void> | void;
   append: (input: AppendLocalFragmentInput, bytes: Uint8Array) => Promise<void>;
   begin: (input: BeginLocalCaptureInput) => Promise<void>;
   discard: (captureId: string) => Promise<void>;
   markWorkspaceVerified: (captureId: string, recoveryCopyDeleteAfter: string) => Promise<void>;
+  listLocalSessions?: () => LocalMeetingSession[] | Promise<LocalMeetingSession[]>;
   recover: () => Promise<RecoverableMeetingCapture[]>;
+  resumeInterrupted?: (
+    captureId: string,
+    trackContentTypes: Record<CaptureTrack, string>,
+  ) => Promise<void> | void;
+  rollbackInterruptedResume?: (captureId: string) => Promise<void> | void;
   save: (
     captureId: string,
     liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
   ) => Promise<LocalSavedMeeting>;
+  updateLocalSession?: (
+    captureId: string,
+    patch: Partial<
+      Pick<
+        LocalMeetingSession,
+        "endedAt" | "liveTranscriptDraft" | "segmentCount" | "state" | "title"
+      >
+    >,
+  ) => LocalMeetingSession | Promise<LocalMeetingSession>;
 }
 
 export interface StartMeetingCaptureInput {
@@ -172,11 +196,19 @@ export interface SaveMeetingCaptureInput {
 }
 
 export interface MeetingCapture {
+  acknowledgeRemoteVisibility: (captureId: string) => Promise<void>;
+  continueInterrupted: (captureId: string) => Promise<void>;
   discard: (input?: DiscardMeetingCaptureInput) => Promise<void>;
   observe: (listener: (snapshot: MeetingCaptureSnapshot) => void) => () => void;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
   save: (input?: SaveMeetingCaptureInput) => Promise<LocalSavedMeeting>;
   /** Returns the new captureId (also used as the workspace meeting id after upload). */
   start: (input?: StartMeetingCaptureInput) => Promise<{ captureId: string }>;
+  updateLocalSession: (
+    captureId: string,
+    patch: Parameters<NonNullable<MeetingRecordingStore["updateLocalSession"]>>[1],
+  ) => Promise<LocalMeetingSession | null>;
 }
 
 interface CreateMeetingCaptureInput {
@@ -208,6 +240,7 @@ export type MeetingCaptureMetric =
 const initialSnapshot = (): MeetingCaptureSnapshot => ({
   active: null,
   error: null,
+  localSessions: [],
   phase: "idle",
   recoverable: [],
   recoveryComplete: false,
@@ -287,6 +320,12 @@ export function createMeetingCapture({
     publish({ ...snapshot, ...next });
   };
 
+  const refreshLocalSessions = async (): Promise<void> => {
+    if (store.listLocalSessions) {
+      patch({ localSessions: await store.listLocalSessions() });
+    }
+  };
+
   const patchWorkspaceSave = (
     captureId: string,
     next: Omit<WorkspaceSaveState, "captureId" | "recoveryCopyDeleteAfter"> &
@@ -312,6 +351,20 @@ export function createMeetingCapture({
     if (timer) {
       clearTimeout(timer);
       recoveryCleanupTimers.delete(captureId);
+    }
+  };
+
+  const reportRecoveryCopyCleanup = async (
+    captureId: string,
+    manifestSha256: string,
+    status: "deleted" | "failed",
+  ): Promise<void> => {
+    try {
+      await workspace?.reportRecoveryCopyCleanup?.(captureId, manifestSha256, status);
+    } catch (reportError) {
+      console.warn("[meeting-capture] local recovery cleanup report failed", {
+        errorName: reportError instanceof Error ? reportError.name : "UnknownError",
+      });
     }
   };
 
@@ -356,6 +409,10 @@ export function createMeetingCapture({
       return;
     }
     patchWorkspaceSave(saved.captureId, { error: null, state: "waiting-for-network" });
+    const uploadingSession = store.updateLocalSession?.(saved.captureId, { state: "uploading" });
+    if (uploadingSession) {
+      void Promise.resolve(uploadingSession).then(() => refreshLocalSessions());
+    }
     const operation = workspace
       .persist({
         captureId: saved.captureId,
@@ -364,18 +421,25 @@ export function createMeetingCapture({
       })
       .then(async (result) => {
         await store.markWorkspaceVerified(saved.captureId, result.recoveryCopyDeleteAfter);
+        await refreshLocalSessions();
         diagnostics({
           name: "meeting.capture.workspace-verified",
           saveToUploadMs: Math.max(0, now().getTime() - Date.parse(saved.savedAt)),
         });
-        scheduleRecoveryCleanup(saved.captureId, result.recoveryCopyDeleteAfter);
         patchWorkspaceSave(saved.captureId, {
           error: null,
           recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
           state: "workspace-verified",
         });
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        const failedSession = store.updateLocalSession?.(saved.captureId, {
+          state: "sync-failed",
+        });
+        if (failedSession) {
+          await failedSession;
+          await refreshLocalSessions();
+        }
         patchWorkspaceSave(saved.captureId, {
           error: error instanceof Error ? error.message : "保存到工作区失败",
           state: "action-required",
@@ -459,6 +523,7 @@ export function createMeetingCapture({
         }
       }
       patch({ recoverable: retained, recoveryComplete: true });
+      await refreshLocalSessions();
       for (const capture of retained) {
         if (capture.recoveryCopyDeleteAfter) {
           scheduleRecoveryCleanup(capture.captureId, capture.recoveryCopyDeleteAfter);
@@ -556,7 +621,7 @@ export function createMeetingCapture({
       snapshot.phase === "saving" ||
       snapshot.phase === "discarding"
     ) {
-      throw new Error("已有会议正在录制");
+      throw new Error("已有录制正在进行");
     }
 
     patch({
@@ -577,6 +642,7 @@ export function createMeetingCapture({
         trackContentTypes: acquired.trackContentTypes,
         videoTracksDiscarded: acquired.videoTracksDiscarded,
       });
+      await refreshLocalSessions();
       prepared = acquired;
       const active: ActiveMeetingCapture = {
         captureId,
@@ -619,13 +685,14 @@ export function createMeetingCapture({
       }
       try {
         await store.discard(captureId);
+        await refreshLocalSessions();
         clearRecoveryCleanup(captureId);
       } catch {
         // Best effort when begin did not reach durable spool creation.
       }
       prepared = null;
       clearDurationTimer();
-      const message = error instanceof Error ? error.message : "无法开始会议录制";
+      const message = error instanceof Error ? error.message : "无法开始录制";
       console.error("[meeting-capture-renderer] recording start failed", {
         captureId,
         errorMessage: message,
@@ -633,6 +700,141 @@ export function createMeetingCapture({
       patch({ active: null, error: message, phase: "error" });
       throw error;
     }
+  };
+
+  const continueInterrupted = async (captureId: string): Promise<void> => {
+    await ready;
+    const recovered = snapshot.recoverable.find(
+      (item) => item.captureId === captureId && item.status === "interrupted",
+    );
+    if (
+      !recovered ||
+      terminalOperation ||
+      snapshot.active ||
+      snapshot.phase === "starting" ||
+      snapshot.phase === "saving" ||
+      snapshot.phase === "discarding"
+    ) {
+      throw new Error("当前没有可继续的中断录制");
+    }
+    if (!(store.resumeInterrupted && store.rollbackInterruptedResume)) {
+      throw new Error("当前录制存储不支持继续中断录制");
+    }
+
+    patch({ error: null, phase: "starting" });
+    let acquired: PreparedCapture | null = null;
+    let resumedStore = false;
+    try {
+      acquired = await source.acquire();
+      await store.resumeInterrupted(captureId, acquired.trackContentTypes);
+      resumedStore = true;
+      const active: ActiveMeetingCapture = {
+        captureId,
+        recruitingRecordId: recovered.recruitingRecordId,
+        startedAt: recovered.startedAt,
+        tracks: {
+          microphone: { health: "checking", level: 0 },
+          system: { health: "checking", level: 0 },
+        },
+        videoTracksPersisted: 0,
+      };
+      prepared = acquired;
+      patch({
+        active,
+        recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
+      });
+      const continuationSink: CaptureSink = {
+        ...sink,
+        fragment: (fragment) => {
+          const previous = recovered.tracks[fragment.track];
+          return sink.fragment({
+            ...fragment,
+            endedAtMonotonicMs: previous.committedThroughMs + fragment.endedAtMonotonicMs,
+            sequence: previous.fragmentCount + fragment.sequence,
+            startedAtMonotonicMs: previous.committedThroughMs + fragment.startedAtMonotonicMs,
+          });
+        },
+      };
+      const initialLiveTranscriptDraft = snapshot.localSessions.find(
+        (session) => session.id === captureId,
+      )?.liveTranscriptDraft;
+      await acquired.start(continuationSink, { captureId, initialLiveTranscriptDraft });
+      await refreshLocalSessions();
+      patch({ phase: "active" });
+      const committedMs = Math.max(
+        recovered.tracks.microphone.committedThroughMs,
+        recovered.tracks.system.committedThroughMs,
+      );
+      durationTimer = setTimeout(
+        () => {
+          durationTimer = null;
+          // oxlint-disable-next-line no-use-before-define -- Duration guard invokes the same terminal Save path.
+          void save({ captureId }).catch(() => {
+            // Save publishes an actionable error while retaining the durable spool.
+          });
+        },
+        Math.max(1, maxDurationMs - committedMs),
+      );
+      silenceTimer = setTimeout(() => {
+        if (snapshot.active?.tracks.system.health === "checking") {
+          updateTrack("system", { health: "silent" });
+        }
+      }, SYSTEM_SILENCE_WARNING_MS);
+    } catch (error) {
+      let recoverable = snapshot.recoverable.some((item) => item.captureId === captureId)
+        ? snapshot.recoverable
+        : [recovered, ...snapshot.recoverable];
+      if (acquired) {
+        await acquired.dispose().catch(() => {
+          // The original resume error remains primary.
+        });
+      }
+      if (resumedStore) {
+        await Promise.resolve(store.rollbackInterruptedResume(captureId)).catch(() => {
+          // Recovery reconciles a remaining recording manifest on the next app start.
+        });
+        await store
+          .recover()
+          .then((next) => {
+            recoverable = next;
+          })
+          .catch(() => {
+            // Keep the last known recovery entry if the rescan itself fails.
+          });
+      }
+      prepared = null;
+      clearDurationTimer();
+      clearSilenceTimer();
+      await refreshLocalSessions();
+      patch({
+        active: null,
+        error: error instanceof Error ? error.message : "继续中断录制失败",
+        phase: "error",
+        recoverable,
+      });
+      throw error;
+    }
+  };
+
+  const pause = async (): Promise<void> => {
+    if (!(snapshot.active && prepared && snapshot.phase === "active")) {
+      throw new Error("当前没有可暂停的录制");
+    }
+    await prepared.pause();
+    clearSilenceTimer();
+    await store.updateLocalSession?.(snapshot.active.captureId, { state: "paused" });
+    await refreshLocalSessions();
+    patch({ phase: "paused" });
+  };
+
+  const resume = async (): Promise<void> => {
+    if (!(snapshot.active && prepared && snapshot.phase === "paused")) {
+      throw new Error("当前没有可继续的暂停录制");
+    }
+    await prepared.resume();
+    await store.updateLocalSession?.(snapshot.active.captureId, { state: "recording" });
+    await refreshLocalSessions();
+    patch({ phase: "active" });
   };
 
   const save = (input: SaveMeetingCaptureInput = {}): Promise<LocalSavedMeeting> => {
@@ -682,7 +884,7 @@ export function createMeetingCapture({
       return savePromise;
     }
     if (!snapshot.active || !prepared) {
-      return Promise.reject(new Error("当前没有正在录制的会议"));
+      return Promise.reject(new Error("当前没有正在进行的录制"));
     }
 
     if (input.captureId && input.captureId !== snapshot.active.captureId) {
@@ -714,6 +916,7 @@ export function createMeetingCapture({
           elapsedMs: Date.now() - saveStartedAt,
         });
         const saved = await store.save(captureId, liveTranscriptDraft);
+        await refreshLocalSessions();
         console.info("[meeting-capture-renderer] save: local saved", {
           elapsedMs: Date.now() - saveStartedAt,
         });
@@ -765,6 +968,7 @@ export function createMeetingCapture({
           await Promise.allSettled(pendingFragments);
         }
         await store.discard(captureId);
+        await refreshLocalSessions();
         if (captureId === activeId && prepared === capture) {
           prepared = null;
         }
@@ -788,13 +992,37 @@ export function createMeetingCapture({
   };
 
   return {
+    acknowledgeRemoteVisibility: async (captureId) => {
+      const manifestSha256 =
+        snapshot.saved?.captureId === captureId
+          ? snapshot.saved.manifestSha256
+          : snapshot.recoverable.find((item) => item.captureId === captureId)?.manifestSha256;
+      await store.acknowledgeRemoteVisibility?.(captureId);
+      if (manifestSha256) {
+        await reportRecoveryCopyCleanup(captureId, manifestSha256, "deleted");
+      }
+      await refreshLocalSessions();
+      patch({
+        phase: snapshot.active ? snapshot.phase : "idle",
+        recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
+        saved: snapshot.saved?.captureId === captureId ? null : snapshot.saved,
+      });
+    },
+    continueInterrupted,
     discard,
     observe(listener) {
       listeners.add(listener);
       listener(snapshot);
       return () => listeners.delete(listener);
     },
+    pause,
+    resume,
     save,
     start,
+    updateLocalSession: async (captureId, next) => {
+      const updated = (await store.updateLocalSession?.(captureId, next)) ?? null;
+      await refreshLocalSessions();
+      return updated;
+    },
   };
 }

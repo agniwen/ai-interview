@@ -80,7 +80,7 @@ export function MeetingTrashView({
         <p className="text-destructive text-sm">
           {(restoreMutation.error ?? purgeMutation.error) instanceof Error
             ? (restoreMutation.error ?? purgeMutation.error)?.message
-            : "更新会议废纸篓失败"}
+            : "更新录制废纸篓失败"}
         </p>
       ) : null}
     </div>

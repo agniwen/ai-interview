@@ -31,6 +31,7 @@ import { meetingTranscriptionPolicyRouter } from "./routes/transcription-policy/
 import { meetingRestoreRouter } from "./routes/restore/route";
 import { meetingTrashActionRouter } from "./routes/trash-action/route";
 import { meetingTrashRouter } from "./routes/trash/route";
+import { meetingTitleRouter } from "./routes/title/route";
 
 const purgeMeetingQuerySchema = z.object({
   localRecoveryCleanup: z.enum(["deleted", "failed", "not-reported"]).default("not-reported"),
@@ -42,6 +43,7 @@ export const meetingsRouter = factory
   .route("/transcription-policy", meetingTranscriptionPolicyRouter)
   .route("/search", meetingSearchRouter)
   .route("/trash", meetingTrashRouter)
+  .route("/title", meetingTitleRouter)
   .get("/", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {

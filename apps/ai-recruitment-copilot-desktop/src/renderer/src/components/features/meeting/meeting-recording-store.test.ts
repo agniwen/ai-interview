@@ -28,6 +28,7 @@ function observable<Value>(initial: Value) {
 const capture: MeetingCaptureSnapshot = {
   active: null,
   error: null,
+  localSessions: [],
   phase: "idle",
   recoverable: [],
   recoveryComplete: true,

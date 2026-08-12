@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  RECORDING_TITLE_MAX_LENGTH,
   updateMeetingMetadataSchema,
   updateMeetingRecruitingContextSchema,
 } from "./meeting-recording";
@@ -22,6 +23,13 @@ describe("meeting recording contracts", () => {
       title: "产品复盘",
     });
     expect(updateMeetingMetadataSchema.safeParse({ title: "   " }).success).toBe(false);
-    expect(updateMeetingMetadataSchema.safeParse({ title: "a".repeat(121) }).success).toBe(false);
+    expect(
+      updateMeetingMetadataSchema.safeParse({ title: "a".repeat(RECORDING_TITLE_MAX_LENGTH) })
+        .success,
+    ).toBe(true);
+    expect(
+      updateMeetingMetadataSchema.safeParse({ title: "a".repeat(RECORDING_TITLE_MAX_LENGTH + 1) })
+        .success,
+    ).toBe(false);
   });
 });

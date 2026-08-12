@@ -1,9 +1,10 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { toast } from "sonner";
+import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +17,8 @@ import {
 import { meetingCapture } from "@/lib/meeting-capture";
 import { meetingLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft-client";
 import { createDurableLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft";
-import { desktopMeetingKeys } from "@/lib/client/meetings";
+import { desktopMeetingKeys, requestRecordingTitle } from "@/lib/client/meetings";
+import { resolveActiveWorkspace } from "@/lib/client/workspace";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
 import {
@@ -25,6 +27,7 @@ import {
   pendingMeetingDiscardAtom,
   preselectedResumeRecordAtom,
 } from "./meeting-recording-store";
+import { getRecordingTitleCandidate, RECORDING_TITLE_DELAY_MS } from "./meeting-recording-title";
 
 export interface OpenMeetingRecordingOptions {
   /** 预选招聘台记录 id（从卡片点入时传入）。 */
@@ -34,8 +37,11 @@ export interface OpenMeetingRecordingOptions {
 }
 
 interface MeetingRecordingContextValue {
+  continueInterruptedRecording: (captureId: string) => Promise<void>;
   openMeetingRecording: (options?: OpenMeetingRecordingOptions) => void;
+  pauseRecording: () => Promise<void>;
   requestDiscard: (captureId?: string, includeSaved?: boolean) => void;
+  resumeRecording: () => Promise<void>;
   saveRecording: (captureId?: string) => Promise<void>;
   startRecording: (recruitingRecordId: string | null) => Promise<{ captureId: string }>;
 }
@@ -67,8 +73,148 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
   const captureSnapshot = useAtomValue(captureSnapshotAtom);
+  const liveTranscriptDraft = useAtomValue(liveTranscriptDraftAtom);
   const [pendingDiscard, setPendingDiscard] = useAtom(pendingMeetingDiscardAtom);
   const setPreselectedResumeRecord = useSetAtom(preselectedResumeRecordAtom);
+  const titledCaptureIds = useRef(new Set<string>());
+  const titleRequests = useRef(new Set<string>());
+  const titleRetryAfter = useRef(new Map<string, number>());
+  const titleRetryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const localSessionTitles = useRef(new Map<string, string>());
+  const captureSnapshotRef = useRef(captureSnapshot);
+  const liveTranscriptDraftRef = useRef(liveTranscriptDraft);
+  captureSnapshotRef.current = captureSnapshot;
+  liveTranscriptDraftRef.current = liveTranscriptDraft;
+  localSessionTitles.current = new Map(
+    captureSnapshot.localSessions.map((session) => [session.id, session.title]),
+  );
+  const activeCaptureId = captureSnapshot.active?.captureId;
+  const activeStartedAt = captureSnapshot.active?.startedAt;
+
+  useEffect(() => {
+    if (
+      !(activeCaptureId && activeStartedAt && liveTranscriptDraft.captureId === activeCaptureId)
+    ) {
+      return;
+    }
+    const durableDraft = createDurableLiveTranscriptDraft(liveTranscriptDraft, activeCaptureId);
+    if (!durableDraft) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void meetingCapture.updateLocalSession(activeCaptureId, {
+        liveTranscriptDraft: durableDraft,
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [activeCaptureId, activeStartedAt, liveTranscriptDraft]);
+
+  const attemptTitleGenerationRef = useRef<(captureId: string) => Promise<void>>(() =>
+    Promise.resolve(),
+  );
+  const scheduleTitleGenerationRef = useRef<((captureId: string, delayMs: number) => void) | null>(
+    null,
+  );
+
+  scheduleTitleGenerationRef.current = (captureId, delayMs) => {
+    if (titleRetryTimers.current.has(captureId)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      titleRetryTimers.current.delete(captureId);
+      void attemptTitleGenerationRef.current(captureId);
+    }, delayMs);
+    titleRetryTimers.current.set(captureId, timer);
+  };
+
+  attemptTitleGenerationRef.current = async (captureId) => {
+    const session = captureSnapshotRef.current.localSessions.find((item) => item.id === captureId);
+    if (!session || titledCaptureIds.current.has(captureId)) {
+      return;
+    }
+    const latestDraft = createDurableLiveTranscriptDraft(liveTranscriptDraftRef.current, captureId);
+    const candidate = getRecordingTitleCandidate(session, latestDraft, Date.now());
+    if (!candidate) {
+      if (
+        session.title === formatDefaultMeetingTitle(session.startedAt) &&
+        Date.now() - Date.parse(session.startedAt) >= RECORDING_TITLE_DELAY_MS
+      ) {
+        scheduleTitleGenerationRef.current?.(captureId, 5000);
+      }
+      return;
+    }
+    if (
+      titleRequests.current.has(captureId) ||
+      Date.now() < (titleRetryAfter.current.get(captureId) ?? 0)
+    ) {
+      return;
+    }
+
+    titleRequests.current.add(captureId);
+    try {
+      const workspace = await resolveActiveWorkspace();
+      if (!workspace) {
+        throw new Error("当前没有可用工作区");
+      }
+      const title = await requestRecordingTitle(workspace.slug, candidate.transcript);
+      const currentTitle = localSessionTitles.current.get(captureId);
+      if (currentTitle && currentTitle !== formatDefaultMeetingTitle(candidate.startedAt)) {
+        return;
+      }
+      await meetingCapture.updateLocalSession(captureId, { title });
+      titleRetryAfter.current.delete(captureId);
+      titledCaptureIds.current.add(captureId);
+    } catch (error) {
+      titleRetryAfter.current.set(captureId, Date.now() + 30_000);
+      scheduleTitleGenerationRef.current?.(captureId, 30_000);
+      console.warn("[meeting-capture] AI title generation failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    } finally {
+      titleRequests.current.delete(captureId);
+    }
+  };
+
+  useEffect(() => {
+    const sessionsById = new Map(
+      captureSnapshot.localSessions.map((session) => [session.id, session]),
+    );
+    for (const [captureId, timer] of titleRetryTimers.current) {
+      const session = sessionsById.get(captureId);
+      if (!session || session.title !== formatDefaultMeetingTitle(session.startedAt)) {
+        clearTimeout(timer);
+        titleRetryTimers.current.delete(captureId);
+      }
+    }
+    const nowMs = Date.now();
+    for (const session of captureSnapshot.localSessions) {
+      if (
+        session.title !== formatDefaultMeetingTitle(session.startedAt) ||
+        titledCaptureIds.current.has(session.id) ||
+        titleRequests.current.has(session.id)
+      ) {
+        continue;
+      }
+      const startedAtMs = Date.parse(session.startedAt);
+      if (Number.isNaN(startedAtMs)) {
+        continue;
+      }
+      scheduleTitleGenerationRef.current?.(
+        session.id,
+        Math.max(0, startedAtMs + RECORDING_TITLE_DELAY_MS - nowMs),
+      );
+    }
+  }, [captureSnapshot.localSessions]);
+
+  useEffect(
+    () => () => {
+      for (const timer of titleRetryTimers.current.values()) {
+        clearTimeout(timer);
+      }
+      titleRetryTimers.current.clear();
+    },
+    [],
+  );
 
   const verifiedWorkspaceCaptureIds = captureSnapshot.workspaceSaves
     .filter((item) => item.state === "workspace-verified")
@@ -97,20 +243,47 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const startRecording = useCallback(async (recruitingRecordId: string | null) => {
     const result = await meetingCapture.start({ recruitingRecordId });
-    toast.success("会议录制已开始，断网不会中断本地录音");
+    toast.success("录制已开始，断网不会中断本地录音");
     return result;
+  }, []);
+
+  const continueInterruptedRecording = useCallback(async (captureId: string) => {
+    try {
+      await meetingCapture.continueInterrupted(captureId);
+      toast.success("已继续录制");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "继续中断录制失败");
+    }
   }, []);
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
-      const liveTranscriptDraft = createDurableLiveTranscriptDraft(
+      const durableDraft = createDurableLiveTranscriptDraft(
         meetingLiveTranscriptDraft.getSnapshot(),
         captureId,
       );
-      await meetingCapture.save({ captureId, liveTranscriptDraft });
+      await meetingCapture.save({ captureId, liveTranscriptDraft: durableDraft });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存本地录音失败");
+    }
+  }, []);
+
+  const pauseRecording = useCallback(async () => {
+    try {
+      await meetingCapture.pause();
+      toast.success("录制已暂停");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "暂停录制失败");
+    }
+  }, []);
+
+  const resumeRecording = useCallback(async () => {
+    try {
+      await meetingCapture.resume();
+      toast.success("录制已继续");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "继续录制失败");
     }
   }, []);
 
@@ -154,12 +327,23 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const value = useMemo(
     () => ({
+      continueInterruptedRecording,
       openMeetingRecording,
+      pauseRecording,
       requestDiscard,
+      resumeRecording,
       saveRecording,
       startRecording,
     }),
-    [openMeetingRecording, requestDiscard, saveRecording, startRecording],
+    [
+      continueInterruptedRecording,
+      openMeetingRecording,
+      pauseRecording,
+      requestDiscard,
+      resumeRecording,
+      saveRecording,
+      startRecording,
+    ],
   );
 
   const deletingRecoveryCopy = Boolean(

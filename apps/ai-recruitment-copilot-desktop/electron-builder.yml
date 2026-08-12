@@ -11,6 +11,11 @@ files:
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
 asarUnpack:
   - resources/**
+extraResources:
+  - from: drizzle-local
+    to: desktop-db-migrations
+    filter:
+      - "**/migration.sql"
 win:
   executableName: arc-desktop
   icon: icon.ico

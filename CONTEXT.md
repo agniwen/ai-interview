@@ -387,12 +387,12 @@ _Avoid_: Public link, recruiting context link, default workspace visibility
 The permission level granted for a meeting session: Owner controls sharing, deletion, export, and regeneration; Editor may revise notes, speaker names, and corrected transcripts; Viewer may view, play, and ask questions about the meeting.
 _Avoid_: Workspace role, recruiting role, provider permission
 
-**Meeting Recording**:
+**Recording**:
 The source audio captured locally during a meeting session and persisted to the workspace when the user finishes and saves the meeting. It remains available until an authorized user explicitly deletes it.
-_Avoid_: Transcript, meeting session, summary
+_Avoid_: Meeting recording, transcript, meeting session, summary
 
 **Local Recording Recovery Copy**:
-The local copy retained for 24 hours after the server verifies a saved meeting recording, allowing recovery without becoming a second long-term meeting library.
+The temporary local copy retained until a server-verified recording becomes visible in the workspace, then removed after the local-to-online handoff.
 _Avoid_: Unsaved recording, server recording, permanent local archive
 
 **Live Transcript Draft**:

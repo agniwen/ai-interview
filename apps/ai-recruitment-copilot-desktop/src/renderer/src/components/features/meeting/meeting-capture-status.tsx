@@ -263,9 +263,13 @@ function ComposerTrackMetersScroll({ children }: { children: ReactNode }) {
  * 录制中底部 composer：双轨电平 + 结束操作。
  */
 export function MeetingCaptureComposer({
+  onPause,
+  onResume,
   onSave,
   snapshot,
 }: {
+  onPause: () => void;
+  onResume: () => void;
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
 }) {
@@ -288,6 +292,7 @@ export function MeetingCaptureComposer({
     return null;
   }
   const busy = snapshot.phase === "saving" || snapshot.phase === "discarding";
+  const paused = snapshot.phase === "paused";
 
   return (
     <MeetingRecordingComposerFrame>
@@ -295,8 +300,15 @@ export function MeetingCaptureComposer({
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-9 shrink-0 items-center gap-1.5">
             <span className="relative size-2 shrink-0" aria-hidden>
-              <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
-              <span className="absolute inset-0 rounded-full bg-red-500" />
+              {paused ? null : (
+                <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
+              )}
+              <span
+                className={cn(
+                  "absolute inset-0 rounded-full",
+                  paused ? "bg-amber-500" : "bg-red-500",
+                )}
+              />
             </span>
             <span className="font-mono text-[11px] text-muted-foreground tabular-nums leading-none">
               {elapsed}
@@ -319,6 +331,16 @@ export function MeetingCaptureComposer({
           <Button
             className="shrink-0 rounded-full"
             disabled={busy}
+            onClick={paused ? onResume : onPause}
+            size="sm"
+            variant="outline"
+          >
+            <Icon className="size-4" icon={paused ? "ph:play-fill" : "ph:pause-fill"} />
+            {paused ? "继续" : "暂停"}
+          </Button>
+          <Button
+            className="shrink-0 rounded-full"
+            disabled={busy}
             onClick={() => onSave()}
             size="sm"
             variant="destructive"
@@ -333,6 +355,33 @@ export function MeetingCaptureComposer({
         {snapshot.error ? (
           <p className="truncate px-1 text-[11px] text-destructive">{snapshot.error}</p>
         ) : null}
+      </div>
+    </MeetingRecordingComposerFrame>
+  );
+}
+
+export function MeetingInterruptedComposer({
+  onContinue,
+  onSave,
+}: {
+  onContinue: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <MeetingRecordingComposerFrame>
+      <div className="flex h-9 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Icon className="size-4 shrink-0 text-amber-500" icon="ph:warning-circle-fill" />
+          <span className="truncate text-muted-foreground text-xs">录制暂停</span>
+        </div>
+        <Button className="shrink-0 rounded-full" onClick={onContinue} size="sm" variant="outline">
+          <Icon className="size-4" icon="ph:play-fill" />
+          继续
+        </Button>
+        <Button className="shrink-0 rounded-full" onClick={onSave} size="sm" variant="destructive">
+          <Icon className="size-4" icon="ph:stop-fill" />
+          结束
+        </Button>
       </div>
     </MeetingRecordingComposerFrame>
   );

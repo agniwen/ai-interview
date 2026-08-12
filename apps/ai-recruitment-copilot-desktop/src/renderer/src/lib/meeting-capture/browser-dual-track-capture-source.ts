@@ -1,5 +1,6 @@
 // oxlint-disable class-methods-use-this, promise/avoid-new, promise/prefer-await-to-callbacks, promise/prefer-await-to-then -- MediaRecorder and MediaStreamTrack are event APIs; their stop/fragment events are explicitly bridged to promises and an ordered write chain.
 import { CAPTURE_FRAGMENT_DURATION_MS } from "../../../../preload/meeting-capture";
+import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
 import type {
   CaptureSink,
   CaptureTrack,
@@ -55,8 +56,11 @@ export interface MeetingLiveTranscriptSidecar {
   getSnapshot?: () => LiveTranscriptDraftSnapshot;
   start: (input: {
     captureId: string;
+    initialDraft?: MeetingLiveTranscriptDraft | null;
     tracks: Record<CaptureTrack, MediaStreamTrack>;
   }) => Promise<void>;
+  pause?: () => void;
+  resume?: () => Promise<void> | void;
   stop: () => void;
 }
 
@@ -161,7 +165,30 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
           return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
         },
-        start: (sink: CaptureSink, input: { captureId: string }) => {
+        pause: () => {
+          for (const { recorder } of recorders) {
+            if (recorder.state === "recording") {
+              recorder.pause();
+            }
+          }
+          this.liveTranscriptSidecar?.pause?.();
+          return Promise.resolve();
+        },
+        resume: async () => {
+          for (const { recorder } of recorders) {
+            if (recorder.state === "paused") {
+              recorder.resume();
+            }
+          }
+          await this.liveTranscriptSidecar?.resume?.();
+        },
+        start: (
+          sink: CaptureSink,
+          input: {
+            captureId: string;
+            initialLiveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
+          },
+        ) => {
           const startedAt = performance.now();
           const fail = (error: Error) => {
             if (captureError || disposed) {
@@ -280,6 +307,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           void this.liveTranscriptSidecar
             ?.start({
               captureId: input.captureId,
+              initialDraft: input.initialLiveTranscriptDraft,
               tracks: { microphone: microphoneTrack, system: systemTrack },
             })
             .catch(() => {

@@ -1,5 +1,6 @@
-// oxlint-disable promise/prefer-await-to-then -- The per-capture promise chain is the serialization primitive.
+// oxlint-disable max-lines, promise/prefer-await-to-then -- The per-capture promise chain is the serialization primitive.
 import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { mkdir, open, readFile, readdir, rm, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
@@ -14,6 +15,7 @@ import type {
 import { MEETING_MULTIPART_PART_BYTES } from "@arc/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
 import {
   describeLocalMeetingMultipart,
   uploadMeetingObject,
@@ -29,6 +31,8 @@ import type {
   RecordingTrackSummary,
   RecoverableMeetingCapture,
 } from "../../preload/meeting-capture";
+import type { LocalMeetingSession } from "../../preload/local-meeting-session";
+import { LocalMeetingSessionStore } from "./local-meeting-session-store";
 
 const MANIFEST_VERSION = 1;
 const CAPTURE_ID_PATTERN = /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
@@ -36,9 +40,11 @@ const TRACKS = new Set<CaptureTrack>(["microphone", "system"]);
 
 interface LocalMeetingRecordingStoreOptions {
   allowedUploadOrigin?: string;
+  migrationsFolder?: string;
   multipartPartSizeBytes?: number;
   now?: () => Date;
   putObject?: MeetingObjectUploader;
+  sessionStore?: LocalMeetingSessionStore;
 }
 
 const jsonBytes = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
@@ -80,6 +86,7 @@ const storedFragmentSchema = z
     durationMs: z.number().finite().nonnegative(),
     endedAtMonotonicMs: z.number().finite().nonnegative(),
     localPath: z.string(),
+    segmentIndex: z.number().int().nonnegative().optional(),
     sequence: z.number().int().nonnegative(),
     sha256: z.string().regex(/^[a-f\d]{64}$/i),
     sizeBytes: z.number().int().nonnegative(),
@@ -199,6 +206,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   private readonly operations = new Map<string, Promise<unknown>>();
   private readonly putObject: MeetingObjectUploader;
   private readonly root: string;
+  private readonly sessionStore: LocalMeetingSessionStore;
 
   constructor(root: string, options: LocalMeetingRecordingStoreOptions = {}) {
     const configuredOrigin =
@@ -219,6 +227,12 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     this.now = options.now ?? (() => new Date());
     this.putObject = options.putObject ?? uploadMeetingObject;
     this.root = root;
+    mkdirSync(root, { mode: 0o700, recursive: true });
+    this.sessionStore =
+      options.sessionStore ??
+      new LocalMeetingSessionStore(join(root, "db.sqlite"), {
+        migrationsFolder: options.migrationsFolder,
+      });
   }
 
   private capturesRoot() {
@@ -255,6 +269,18 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
 
   private async writeManifest(manifest: StoredManifest): Promise<void> {
     await atomicWrite(this.manifestPath(manifest.captureId), jsonBytes(manifest));
+  }
+
+  private ensureLocalSession(manifest: StoredManifest): LocalMeetingSession {
+    return (
+      this.sessionStore.get(manifest.captureId) ??
+      this.sessionStore.create({
+        id: manifest.captureId,
+        recruitingRecordId: manifest.recruitingRecordId,
+        startedAt: manifest.startedAt,
+        title: formatDefaultMeetingTitle(manifest.startedAt),
+      })
+    );
   }
 
   private enqueue<T>(captureId: string, operation: () => Promise<T>): Promise<T> {
@@ -313,6 +339,12 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     try {
       await mkdir(this.captureDirectory(input.captureId), { mode: 0o700, recursive: false });
       await this.writeManifest(manifest);
+      this.sessionStore.create({
+        id: input.captureId,
+        recruitingRecordId: input.recruitingRecordId,
+        startedAt: input.startedAt,
+        title: formatDefaultMeetingTitle(input.startedAt),
+      });
     } catch (error) {
       try {
         await unlink(this.activeLockPath());
@@ -361,6 +393,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         durationMs: input.durationMs,
         endedAtMonotonicMs: input.endedAtMonotonicMs,
         localPath: relativePath,
+        segmentIndex: Math.max(0, (this.sessionStore.get(input.captureId)?.segmentCount ?? 1) - 1),
         sequence: input.sequence,
         sha256: sha256(bytes),
         sizeBytes: bytes.byteLength,
@@ -435,15 +468,18 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       const savedAt = new Date().toISOString();
       manifest.endedAt = savedAt;
       manifest.fragments = verification.fragments;
-      manifest = parseStoredManifest(
-        { ...manifest, liveTranscriptDraft: liveTranscriptDraft ?? null },
-        captureId,
-      );
+      const durableDraft =
+        liveTranscriptDraft ??
+        manifest.liveTranscriptDraft ??
+        this.sessionStore.get(captureId)?.liveTranscriptDraft ??
+        null;
+      manifest = parseStoredManifest({ ...manifest, liveTranscriptDraft: durableDraft }, captureId);
       manifest.possibleTailGap = manifest.status === "interrupted";
       manifest.savedAt = savedAt;
       manifest.status = "saved-local";
       manifest.manifestSha256 = manifestDigest(manifest);
       await this.writeManifest(manifest);
+      this.ensureLocalSession(manifest);
       const intent: SaveIntent = {
         captureId,
         manifestSha256: manifest.manifestSha256,
@@ -453,6 +489,11 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       };
       await atomicWrite(this.saveIntentPath(captureId), jsonBytes(intent));
       await this.releaseActiveLock(captureId);
+      this.sessionStore.update(captureId, {
+        endedAt: savedAt,
+        liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
+        state: "saved-local",
+      });
       return savedMeeting(manifest);
     });
   }
@@ -473,10 +514,25 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           hash.update(await readFile(join(this.captureDirectory(captureId), fragment.localPath)));
         }
         const summary = summarize(fragments)[track];
+        let offsetBytes = 0;
+        const segments = Map.groupBy(fragments, (fragment) => fragment.segmentIndex ?? 0);
         return {
           contentType: manifest.trackContentTypes[track],
           durationMs: summary.committedThroughMs,
           fragmentCount: summary.fragmentCount,
+          segments: [...segments.values()].map((segmentFragments) => {
+            const sizeBytes = segmentFragments.reduce(
+              (total, fragment) => total + fragment.sizeBytes,
+              0,
+            );
+            const durationMs = segmentFragments.reduce(
+              (total, fragment) => total + fragment.durationMs,
+              0,
+            );
+            const segment = { durationMs, offsetBytes, sizeBytes };
+            offsetBytes += sizeBytes;
+            return segment;
+          }),
           sha256: hash.digest("hex"),
           sizeBytes: summary.bytes,
           track,
@@ -490,6 +546,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       manifestSha256: manifest.manifestSha256,
       savedAt: manifest.savedAt,
       startedAt: manifest.startedAt,
+      title: this.sessionStore.get(captureId)?.title,
     };
   }
 
@@ -662,6 +719,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         throw new TypeError("Local Recording Recovery Copy 清理时间无效");
       }
       const manifest = await this.readManifest(captureId);
+      this.ensureLocalSession(manifest);
       const intent = await this.verifySavedManifestAndIntent(manifest);
       await atomicWrite(
         this.saveIntentPath(captureId),
@@ -671,6 +729,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           status: "workspace-verified",
         } satisfies SaveIntent),
       );
+      this.sessionStore.update(captureId, { state: "workspace-verified" });
     });
   }
 
@@ -679,7 +738,100 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     await this.enqueue(captureId, async () => {
       await rm(this.captureDirectory(captureId), { force: true, recursive: true });
       await this.releaseActiveLock(captureId);
+      this.sessionStore.delete(captureId);
     });
+  }
+
+  resumeInterrupted(
+    captureId: string,
+    trackContentTypes: Record<CaptureTrack, string>,
+  ): Promise<void> {
+    assertCaptureId(captureId);
+    return this.enqueue(captureId, async () => {
+      const manifest = await this.readManifest(captureId);
+      if (manifest.status !== "interrupted") {
+        throw new Error("当前本地录音不是可继续的中断状态");
+      }
+      for (const track of TRACKS) {
+        if (manifest.trackContentTypes[track] !== trackContentTypes[track]) {
+          throw new Error("继续录制的音频格式与原录制不一致");
+        }
+      }
+      const verification = await this.verifiedPrefix(manifest);
+      if (verification.truncated || verification.fragments.length !== manifest.fragments.length) {
+        throw new Error("中断录音分片校验失败，不能继续录制");
+      }
+      let lock: Awaited<ReturnType<typeof open>>;
+      try {
+        lock = await open(this.activeLockPath(), "wx", 0o600);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+          throw new Error("此电脑已有一个正在录制的会议", { cause: error });
+        }
+        throw error;
+      }
+      try {
+        await lock.writeFile(captureId);
+        await lock.sync();
+      } finally {
+        await lock.close();
+      }
+      try {
+        manifest.status = "recording";
+        manifest.possibleTailGap = true;
+        await this.writeManifest(manifest);
+        const session = this.ensureLocalSession(manifest);
+        this.sessionStore.update(captureId, {
+          segmentCount: session.segmentCount + 1,
+          state: "recording",
+        });
+      } catch (error) {
+        await this.releaseActiveLock(captureId);
+        throw error;
+      }
+    });
+  }
+
+  rollbackInterruptedResume(captureId: string): Promise<void> {
+    assertCaptureId(captureId);
+    return this.enqueue(captureId, async () => {
+      const manifest = await this.readManifest(captureId);
+      if (manifest.status === "recording") {
+        manifest.status = "interrupted";
+        manifest.possibleTailGap = true;
+        await this.writeManifest(manifest);
+      }
+      await this.releaseActiveLock(captureId);
+      const session = this.ensureLocalSession(manifest);
+      const currentSegmentIndex = session.segmentCount - 1;
+      const currentSegmentHasFragments = manifest.fragments.some(
+        (fragment) => fragment.segmentIndex === currentSegmentIndex,
+      );
+      this.sessionStore.update(captureId, {
+        segmentCount: currentSegmentHasFragments
+          ? session.segmentCount
+          : Math.max(1, session.segmentCount - 1),
+        state: "interrupted",
+      });
+    });
+  }
+
+  async acknowledgeRemoteVisibility(captureId: string): Promise<void> {
+    if (this.sessionStore.get(captureId)?.state !== "workspace-verified") {
+      return;
+    }
+    await this.discard(captureId);
+  }
+
+  listLocalSessions(): LocalMeetingSession[] {
+    return this.sessionStore.list();
+  }
+
+  updateLocalSession(
+    captureId: string,
+    patch: Parameters<LocalMeetingSessionStore["update"]>[1],
+  ): LocalMeetingSession {
+    return this.sessionStore.update(captureId, patch);
   }
 
   private async releaseActiveLock(captureId: string): Promise<void> {
@@ -732,6 +884,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       try {
         await this.enqueue(entry.name, async () => {
           const manifest = await this.readManifest(entry.name);
+          this.ensureLocalSession(manifest);
           const verification = await this.verifiedPrefix(manifest);
           if (manifest.status === "recording" || manifest.status === "interrupted") {
             const wasRecording = manifest.status === "recording";
@@ -754,9 +907,15 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
                 force: true,
                 recursive: true,
               });
+              this.sessionStore.delete(manifest.captureId);
               await this.releaseActiveLock(manifest.captureId);
               return;
             }
+            this.sessionStore.update(manifest.captureId, {
+              endedAt: manifest.endedAt,
+              liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
+              state: intent.status === "workspace-verified" ? "workspace-verified" : "saved-local",
+            });
             await this.releaseActiveLock(manifest.captureId);
             recoverable.push({
               captureId: manifest.captureId,
@@ -772,6 +931,12 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           }
           await this.releaseActiveLock(manifest.captureId);
           if (manifest.status === "interrupted") {
+            this.sessionStore.update(manifest.captureId, {
+              ...(manifest.liveTranscriptDraft
+                ? { liveTranscriptDraft: manifest.liveTranscriptDraft }
+                : {}),
+              state: "interrupted",
+            });
             recoverable.push({
               captureId: manifest.captureId,
               possibleTailGap: manifest.possibleTailGap || verification.truncated,

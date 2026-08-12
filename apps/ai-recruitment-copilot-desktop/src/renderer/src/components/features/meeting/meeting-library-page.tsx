@@ -113,7 +113,7 @@ function ActiveMeetingLibrary({
     <>
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
         <Input
-          aria-label="搜索会议关键词"
+          aria-label="搜索录制关键词"
           className="col-span-2 min-w-0 sm:w-64"
           onChange={(event) => onSearchChange(event.currentTarget.value)}
           placeholder="搜索标题、转录或 Notes"
@@ -134,7 +134,7 @@ function ActiveMeetingLibrary({
           onValueChange={(value) => onStatusFilterChange(value ?? "all")}
           value={statusFilter}
         >
-          <SelectTrigger aria-label="筛选会议状态" className="w-full sm:w-40">
+          <SelectTrigger aria-label="筛选录制状态" className="w-full sm:w-40">
             <SelectValue placeholder="全部状态" />
           </SelectTrigger>
           <SelectContent>
@@ -147,14 +147,14 @@ function ActiveMeetingLibrary({
           </SelectContent>
         </Select>
         <DatePicker
-          aria-label="筛选会议日期"
+          aria-label="筛选录制日期"
           className="w-full sm:w-44"
           onValueChange={onDateFilterChange}
           placeholder="全部日期"
           value={dateFilter}
         />
         <Button
-          aria-label="重置会议筛选"
+          aria-label="重置录制筛选"
           className="shrink-0"
           disabled={!(searchText || hasStructuredFilters)}
           onClick={onResetFilters}
@@ -173,7 +173,7 @@ function ActiveMeetingLibrary({
       ) : null}
       <MeetingLibraryView
         emptyDescription={isSearching || hasStructuredFilters ? "调整筛选条件后再试" : undefined}
-        emptyTitle={isSearching || hasStructuredFilters ? "没有找到匹配的会议" : undefined}
+        emptyTitle={isSearching || hasStructuredFilters ? "没有找到匹配的录制" : undefined}
         meetings={records}
         renderMeeting={(meeting, content) => {
           const match = isSearching
@@ -246,7 +246,7 @@ export function MeetingLibraryPage() {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
         <p className="text-muted-foreground text-sm">
-          {error instanceof Error ? error.message : "加载会议记录失败"}
+          {error instanceof Error ? error.message : "加载录制记录失败"}
         </p>
         <Button
           onClick={() =>
@@ -304,14 +304,14 @@ export function MeetingLibraryPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="font-medium text-xl tracking-tight">
-            {showTrash ? "会议废纸篓" : "会议记录"}
+            {showTrash ? "录制废纸篓" : "录制记录"}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {showTrash ? "会议保留七天，截止前可恢复" : "浏览和播放你有权访问的私有会议"}
+            {showTrash ? "录制保留七天，截止前可恢复" : "浏览和播放你有权访问的录制"}
           </p>
         </div>
         <Button onClick={() => setShowTrash((current) => !current)} type="button" variant="outline">
-          {showTrash ? "返回会议记录" : "废纸篓"}
+          {showTrash ? "返回录制记录" : "废纸篓"}
         </Button>
       </div>
       {content}

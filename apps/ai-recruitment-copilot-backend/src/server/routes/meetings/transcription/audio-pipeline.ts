@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { createReadStream, createWriteStream } from "node:fs";
+import { readdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
@@ -32,7 +34,60 @@ export async function readMeetingTranscriptionFfmpegVersion(ffmpegBin?: string):
 export interface MeetingTranscriptionChunkSource {
   durationMs: number;
   filePath: string;
+  segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
   track: "microphone" | "system";
+}
+
+export async function normalizeMeetingRecordingSegments(input: {
+  ffmpegBin?: string;
+  ffmpegTimeoutMs?: number;
+  outputPath: string;
+  segments?: { durationMs: number; offsetBytes: number; sizeBytes: number }[] | null;
+  sourcePath: string;
+}): Promise<string> {
+  if (!input.segments || input.segments.length <= 1) {
+    return input.sourcePath;
+  }
+  const segmentPaths: string[] = [];
+  for (const [index, segment] of input.segments.entries()) {
+    const segmentPath = join(dirname(input.outputPath), `source-segment-${index}.webm`);
+    await pipeline(
+      createReadStream(input.sourcePath, {
+        end: segment.offsetBytes + segment.sizeBytes - 1,
+        start: segment.offsetBytes,
+      }),
+      createWriteStream(segmentPath, { mode: 0o600 }),
+    );
+    segmentPaths.push(segmentPath);
+  }
+  const concatPath = `${input.outputPath}.ffconcat`;
+  await writeFile(
+    concatPath,
+    `ffconcat version 1.0\n${segmentPaths.map((path) => `file '${path.replaceAll("'", "'\\''")}'`).join("\n")}\n`,
+    { mode: 0o600 },
+  );
+  await execFileAsync(
+    input.ffmpegBin?.trim() || "ffmpeg",
+    [
+      "-nostdin",
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      concatPath,
+      "-map",
+      "0:a:0",
+      "-c:a",
+      "libopus",
+      "-f",
+      "webm",
+      input.outputPath,
+    ],
+    { timeout: input.ffmpegTimeoutMs ?? 30 * 60 * 1000 },
+  );
+  return input.outputPath;
 }
 
 export async function prepareMeetingTranscriptionAudioChunks(input: {
@@ -43,6 +98,13 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
 }): Promise<FinalTranscriptionAudioChunk[]> {
   const chunks: FinalTranscriptionAudioChunk[] = [];
   for (const source of input.sources) {
+    const normalizedSourcePath = await normalizeMeetingRecordingSegments({
+      ffmpegBin: input.ffmpegBin,
+      ffmpegTimeoutMs: input.ffmpegTimeoutMs,
+      outputPath: join(input.directory, `${source.track}-normalized.webm`),
+      segments: source.segments,
+      sourcePath: source.filePath,
+    });
     const outputPattern = join(input.directory, `${source.track}-%03d.webm`);
     await execFileAsync(
       input.ffmpegBin?.trim() || "ffmpeg",
@@ -50,7 +112,7 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
         "-nostdin",
         "-y",
         "-i",
-        source.filePath,
+        normalizedSourcePath,
         "-map",
         "0:a:0",
         "-ac",

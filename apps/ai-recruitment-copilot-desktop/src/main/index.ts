@@ -14,6 +14,8 @@ import {
 } from "./meeting-capture/ipc";
 import { registerLiveTranscriptIpc } from "./meeting-capture/live-transcript-ipc";
 import { LocalMeetingRecordingStore } from "./meeting-capture/local-meeting-recording-store";
+import { LocalMeetingSessionStore } from "./meeting-capture/local-meeting-session-store";
+import { DesktopDatabase } from "./database";
 import { createMainWindow, getMainWindowWebContents } from "./window";
 
 // 全局未捕获异常/拒绝兜底：主进程任何未捕获错误都落一条带 stack 的日志，
@@ -57,9 +59,19 @@ async function bootstrap(): Promise<void> {
 
   applySettingsAtStartup();
   registerContextMenu();
-  const meetingCaptureStore = new LocalMeetingRecordingStore(
-    join(app.getPath("userData"), "meeting-capture", "default-profile"),
-  );
+  const userDataRoot = app.getPath("userData");
+  const recordingRoot = join(userDataRoot, "meeting-capture", "default-profile");
+  const localDatabase = new DesktopDatabase({
+    legacyPaths: [join(recordingRoot, "db.sqlite"), join(recordingRoot, "sessions.sqlite")],
+    migrationsFolder: app.isPackaged
+      ? join(process.resourcesPath, "desktop-db-migrations")
+      : join(app.getAppPath(), "drizzle-local"),
+    path: join(userDataRoot, "default-profile", "db.sqlite"),
+  });
+  const meetingCaptureStore = new LocalMeetingRecordingStore(recordingRoot, {
+    sessionStore: new LocalMeetingSessionStore(localDatabase),
+  });
+  app.once("will-quit", () => localDatabase.close());
   registerMeetingCaptureIpc(meetingCaptureStore);
   registerMeetingCaptureMediaSession();
   registerLiveTranscriptIpc();

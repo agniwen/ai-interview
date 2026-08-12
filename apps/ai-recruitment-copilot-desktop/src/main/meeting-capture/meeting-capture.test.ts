@@ -17,10 +17,14 @@ import { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
 
 class DeterministicCaptureSource {
   private sink: CaptureSink | null = null;
+  readonly pause = vi.fn(() => Promise.resolve());
+  readonly resume = vi.fn(() => Promise.resolve());
 
   acquire(): Promise<PreparedCapture> {
     const prepared: PreparedCapture = {
       dispose: () => Promise.resolve(),
+      pause: this.pause,
+      resume: this.resume,
       start: (sink: CaptureSink) => {
         this.sink = sink;
         return Promise.resolve();
@@ -132,7 +136,7 @@ describe("MeetingCapture", () => {
       },
       phase: "active",
     });
-    await expect(capture.start()).rejects.toThrow("已有会议正在录制");
+    await expect(capture.start()).rejects.toThrow("已有录制正在进行");
 
     await vi.advanceTimersByTimeAsync(6000);
     expect(observed.read().active?.tracks.system.health).toBe("silent");
@@ -156,6 +160,34 @@ describe("MeetingCapture", () => {
     const afterRestart = latestSnapshot(restarted);
     await waitFor(afterRestart.read, (snapshot) => snapshot.recoveryComplete);
     expect(afterRestart.read().recoverable).toEqual([]);
+  });
+
+  it("pauses and resumes one active capture without ending its local session", async () => {
+    const source = new DeterministicCaptureSource();
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000091",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    const observed = latestSnapshot(capture);
+
+    await capture.start();
+    await capture.pause();
+
+    expect(source.pause).toHaveBeenCalledOnce();
+    expect(observed.read()).toMatchObject({
+      active: { captureId: "00000000-0000-4000-8000-000000000091" },
+      phase: "paused",
+    });
+
+    await capture.resume();
+
+    expect(source.resume).toHaveBeenCalledOnce();
+    expect(observed.read()).toMatchObject({
+      active: { captureId: "00000000-0000-4000-8000-000000000091" },
+      phase: "active",
+    });
+    await capture.discard();
   });
 
   it("stops at the four-hour boundary and durably saves committed audio", async () => {
@@ -249,7 +281,7 @@ describe("MeetingCapture", () => {
     await expect(restarted.save({ captureId: saved.captureId })).resolves.toEqual(saved);
 
     await restarted.discard({ captureId: saved.captureId, includeSaved: true });
-    expect(afterRestart.read()).toMatchObject({ phase: "idle", saved: null });
+    expect(afterRestart.read()).toMatchObject({ localSessions: [], phase: "idle", saved: null });
   });
 
   it("persists only after local Save and keeps repeated Save idempotent", async () => {
@@ -288,15 +320,17 @@ describe("MeetingCapture", () => {
     );
   });
 
-  it("deletes a verified recovery copy on restart after server-side purge", async () => {
+  it("keeps a verified local row until the remote session is visible, then cleans it", async () => {
     const captureId = "00000000-0000-4000-8000-000000000084";
     const source = new DeterministicCaptureSource();
+    const reportRecoveryCopyCleanup = vi.fn(async () => {});
     const firstProcess = createMeetingCapture({
       idFactory: () => captureId,
       source,
       store: new LocalMeetingRecordingStore(root),
       workspace: {
         persist: () => Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" }),
+        reportRecoveryCopyCleanup,
       },
     });
     const firstObserved = latestSnapshot(firstProcess);
@@ -309,20 +343,14 @@ describe("MeetingCapture", () => {
       (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
     );
 
-    const reportRecoveryCopyCleanup = vi.fn(async () => {});
-    const restarted = createMeetingCapture({
-      source: new DeterministicCaptureSource(),
-      store: new LocalMeetingRecordingStore(root),
-      workspace: {
-        persist: vi.fn(),
-        reportRecoveryCopyCleanup,
-        shouldDeleteRecoveryCopy: vi.fn().mockResolvedValue(true),
-      },
-    });
-    const restartedObserved = latestSnapshot(restarted);
-    await waitFor(restartedObserved.read, (snapshot) => snapshot.recoveryComplete);
+    expect(firstObserved.read().localSessions).toEqual([
+      expect.objectContaining({ id: captureId, state: "workspace-verified" }),
+    ]);
+    expect(reportRecoveryCopyCleanup).not.toHaveBeenCalled();
 
-    expect(restartedObserved.read().recoverable).toEqual([]);
+    await firstProcess.acknowledgeRemoteVisibility(captureId);
+
+    expect(firstObserved.read().localSessions).toEqual([]);
     expect(reportRecoveryCopyCleanup).toHaveBeenCalledWith(
       captureId,
       expect.stringMatching(/^[a-f0-9]{64}$/u),
@@ -561,7 +589,7 @@ describe("MeetingCapture", () => {
     expect(persist).toHaveBeenCalledTimes(2);
   });
 
-  it("automatically resumes a pending workspace save after the desktop restarts", async () => {
+  it("retries a completed local save on restart and deletes the local copy last", async () => {
     const source = new DeterministicCaptureSource();
     const first = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000016",
@@ -584,6 +612,10 @@ describe("MeetingCapture", () => {
     const observed = latestSnapshot(restarted);
     await waitFor(observed.read, (snapshot) => snapshot.recoveryComplete);
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
 
     expect(persist).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -591,6 +623,74 @@ describe("MeetingCapture", () => {
         manifestSha256: saved.manifestSha256,
       }),
     );
+    expect(observed.read().localSessions).toEqual([
+      expect.objectContaining({ id: saved.captureId, state: "workspace-verified" }),
+    ]);
+
+    await restarted.acknowledgeRemoteVisibility(saved.captureId);
+
+    expect(observed.read().localSessions).toEqual([]);
+    await expect(new LocalMeetingRecordingStore(root).recover()).resolves.toEqual([]);
+  });
+
+  it("keeps a completed local copy when its startup upload retry fails", async () => {
+    const source = new DeterministicCaptureSource();
+    const first = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000096",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    await first.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    const saved = await first.save();
+    const persist = vi
+      .fn<WorkspaceRecordingPort["persist"]>()
+      .mockRejectedValue(new Error("network unavailable"));
+
+    const restarted = createMeetingCapture({
+      source: new DeterministicCaptureSource(),
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(restarted);
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "action-required",
+    );
+
+    expect(observed.read().localSessions).toEqual([
+      expect.objectContaining({ id: saved.captureId, state: "sync-failed" }),
+    ]);
+    await expect(new LocalMeetingRecordingStore(root).recover()).resolves.toEqual([
+      expect.objectContaining({ captureId: saved.captureId, status: "saved-local" }),
+    ]);
+  });
+
+  it("does not upload an interrupted local session during startup recovery", async () => {
+    const captureId = "00000000-0000-4000-8000-000000000097";
+    const source = new DeterministicCaptureSource();
+    const first = createMeetingCapture({
+      idFactory: () => captureId,
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    await first.start();
+    await source.fragment("microphone", 0, "mic");
+    const persist = vi.fn<WorkspaceRecordingPort["persist"]>();
+
+    const restarted = createMeetingCapture({
+      source: new DeterministicCaptureSource(),
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(restarted);
+    await waitFor(observed.read, (snapshot) => snapshot.recoveryComplete);
+
+    expect(persist).not.toHaveBeenCalled();
+    expect(observed.read().localSessions).toEqual([
+      expect.objectContaining({ id: captureId, state: "interrupted" }),
+    ]);
   });
 
   it("cleans only server-verified recovery copies after their durable deadline", async () => {
@@ -637,7 +737,7 @@ describe("MeetingCapture", () => {
     expect(afterDeadline.map((capture) => capture.captureId)).toEqual([pending.captureId]);
   });
 
-  it("automatically removes a verified recovery copy when its deadline arrives while running", async () => {
+  it("removes a verified recovery copy after remote visibility is acknowledged", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-09T03:00:00.000Z"));
     const source = new DeterministicCaptureSource();
@@ -658,7 +758,7 @@ describe("MeetingCapture", () => {
       expect(observed.read().workspaceSaves[0]?.state).toBe("workspace-verified"),
     );
 
-    await vi.advanceTimersByTimeAsync(1001);
+    await capture.acknowledgeRemoteVisibility("00000000-0000-4000-8000-000000000019");
 
     await vi.waitFor(() => expect(observed.read()).toMatchObject({ phase: "idle", saved: null }));
     expect(await new LocalMeetingRecordingStore(root).recover()).toEqual([]);
@@ -675,6 +775,31 @@ describe("MeetingCapture", () => {
     await source.fragment("microphone", 0, "mic-0");
     await source.fragment("system", 0, "system-0");
     await source.fragment("microphone", 1, "mic-1");
+    await firstProcess.updateLocalSession("00000000-0000-4000-8000-000000000003", {
+      liveTranscriptDraft: {
+        capturedAt: "2026-08-09T01:00:30.000Z",
+        droppedAudioMs: 0,
+        droppedPcmFrames: 0,
+        error: null,
+        sections: [
+          {
+            id: "section-1",
+            sequence: 0,
+            startedAt: "2026-08-09T01:00:00.000Z",
+            track: "microphone",
+          },
+        ],
+        turns: [
+          {
+            final: true,
+            id: "turn-1",
+            sectionId: "section-1",
+            text: "刷新后仍要保留的字幕",
+            track: "microphone",
+          },
+        ],
+      },
+    });
 
     const restarted = createMeetingCapture({
       source: new DeterministicCaptureSource(),
@@ -697,7 +822,53 @@ describe("MeetingCapture", () => {
       captureId: "00000000-0000-4000-8000-000000000003",
     });
     expect(saved).toMatchObject({ possibleTailGap: true, status: "saved-local" });
+    await expect(
+      new LocalMeetingRecordingStore(root).describeWorkspaceSave(saved.captureId),
+    ).resolves.toMatchObject({
+      liveTranscriptDraft: { turns: [expect.objectContaining({ text: "刷新后仍要保留的字幕" })] },
+    });
     expect(observed.read().recoverable).toEqual([]);
+  });
+
+  it("continues an interrupted capture with the same id and appends after its durable prefix", async () => {
+    const captureId = "00000000-0000-4000-8000-000000000093";
+    const firstSource = new DeterministicCaptureSource();
+    const firstProcess = createMeetingCapture({
+      idFactory: () => captureId,
+      source: firstSource,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    await firstProcess.start();
+    await firstSource.fragment("microphone", 0, "first-mic");
+    await firstSource.fragment("system", 0, "first-system");
+
+    const resumedSource = new DeterministicCaptureSource();
+    const restarted = createMeetingCapture({
+      source: resumedSource,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    const observed = latestSnapshot(restarted);
+    await waitFor(observed.read, (snapshot) => snapshot.recoverable.length === 1);
+
+    await restarted.continueInterrupted(captureId);
+    expect(observed.read()).toMatchObject({
+      active: { captureId },
+      phase: "active",
+      recoverable: [],
+    });
+    await resumedSource.fragment("microphone", 0, "second-mic");
+    await resumedSource.fragment("system", 0, "second-system");
+    const saved = await restarted.save({ captureId });
+
+    expect(saved.tracks).toEqual({
+      microphone: { bytes: 19, committedThroughMs: 30_000, fragmentCount: 2 },
+      system: { bytes: 25, committedThroughMs: 30_000, fragmentCount: 2 },
+    });
+    expect(observed.read().localSessions[0]).toMatchObject({
+      id: captureId,
+      segmentCount: 2,
+      state: "saved-local",
+    });
   });
 
   it("makes a concurrent Save/Discard race deterministic", async () => {
@@ -748,7 +919,7 @@ describe("MeetingCapture", () => {
     const saved = await capture.save();
 
     const discarding = capture.discard({ captureId: saved.captureId, includeSaved: true });
-    await expect(capture.start()).rejects.toThrow("已有会议正在录制");
+    await expect(capture.start()).rejects.toThrow("已有录制正在进行");
     finishDiscard();
     await discarding;
 

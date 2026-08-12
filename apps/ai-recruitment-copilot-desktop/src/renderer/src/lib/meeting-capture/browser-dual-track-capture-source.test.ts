@@ -72,6 +72,8 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
   it("keeps both recording tracks advancing when the live draft sidecar fails", async () => {
     const recorders: {
       emit: (event: BlobEvent) => void;
+      pause: () => void;
+      resume: () => void;
       state: RecordingState;
       stop: () => void;
     }[] = [];
@@ -87,6 +89,8 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
               listener(event);
             }
           },
+          pause: () => this.pause(),
+          resume: () => this.resume(),
           get state() {
             return recorder.state;
           },
@@ -103,6 +107,14 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
       }
 
       start() {
+        this.state = "recording";
+      }
+
+      pause() {
+        this.state = "paused";
+      }
+
+      resume() {
         this.state = "recording";
       }
 
@@ -148,6 +160,8 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     );
     vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(15_000);
     const sidecar = {
+      pause: vi.fn(),
+      resume: vi.fn(),
       start: vi.fn().mockRejectedValue(new Error("provider disconnected")),
       stop: vi.fn(),
     };
@@ -168,6 +182,14 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     recorders[0]?.emit({ data: new Blob(["mic"]) } as BlobEvent);
     recorders[1]?.emit({ data: new Blob(["system"]) } as BlobEvent);
     await vi.waitFor(() => expect(committed).toEqual({ microphone: 15_000, system: 15_000 }));
+
+    await prepared.pause();
+    expect(recorders.map((recorder) => recorder.state)).toEqual(["paused", "paused"]);
+    expect(sidecar.pause).toHaveBeenCalledOnce();
+
+    await prepared.resume();
+    expect(recorders.map((recorder) => recorder.state)).toEqual(["recording", "recording"]);
+    expect(sidecar.resume).toHaveBeenCalledOnce();
 
     expect(failure).not.toHaveBeenCalled();
     expect(sidecar.start).toHaveBeenCalledOnce();

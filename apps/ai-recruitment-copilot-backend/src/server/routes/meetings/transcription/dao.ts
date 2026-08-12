@@ -18,7 +18,6 @@ import type {
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
-import { DEFAULT_MEETING_TITLE_PREFIX } from "@arc/shared/utils/time";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
@@ -675,7 +674,6 @@ export async function markMeetingTranscriptionFailed(
 
 export async function publishMeetingTranscript(
   input: MeetingTranscriptionJobData & {
-    generatedTitle?: string | null;
     processingRunId: string;
     transcript: CanonicalMeetingTranscript;
   },
@@ -758,9 +756,6 @@ export async function publishMeetingTranscript(
       .update(meetingSession)
       .set({
         activeTranscriptRevisionId: revisionId,
-        ...(input.generatedTitle && meeting.title.startsWith(DEFAULT_MEETING_TITLE_PREFIX)
-          ? { title: input.generatedTitle }
-          : {}),
         transcriptionError: null,
         transcriptionRunId: null,
         transcriptionStatus: "ready",

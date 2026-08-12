@@ -307,7 +307,7 @@ function MeetingRecordingAction({ onStart, visible }: { onStart?: () => void; vi
         variant="default"
       >
         <Icon className="size-4" icon="ph:record" />
-        新建会议录制
+        新建录制
       </Button>
     </m.div>
   );
@@ -315,7 +315,7 @@ function MeetingRecordingAction({ onStart, visible }: { onStart?: () => void; vi
 
 /**
  * Desktop resume library card. Content layout mirrors web; hover reveals a
- * bottom-right 「新建会议录制」 action that opens the associate-resume modal.
+ * bottom-right 「新建录制」 action that opens the associate-resume modal.
  */
 function ResumeLibraryCardComponent({
   onOpenDetail,

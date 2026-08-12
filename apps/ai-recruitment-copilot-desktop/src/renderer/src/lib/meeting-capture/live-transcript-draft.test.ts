@@ -10,6 +10,108 @@ import type {
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
+  it("keeps durable turns when a recovered capture starts a new transcription segment", async () => {
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: `secret-${track}`,
+          expiresAt: "2026-08-09T01:21:00.000Z",
+          model: "qwen3-asr-flash-realtime",
+          provider: "qwen",
+          track,
+        }),
+      connect: () => Promise.resolve({ close: vi.fn(), sendPcm: vi.fn().mockReturnValue(true) }),
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      initialDraft: {
+        capturedAt: "2026-08-09T01:10:00.000Z",
+        droppedAudioMs: 0,
+        droppedPcmFrames: 0,
+        error: null,
+        sections: [
+          {
+            id: `${CAPTURE_ID}:microphone:0`,
+            sequence: 0,
+            startedAt: "2026-08-09T01:00:00.000Z",
+            track: "microphone",
+          },
+        ],
+        turns: [
+          {
+            final: true,
+            id: "old-turn",
+            sectionId: `${CAPTURE_ID}:microphone:0`,
+            text: "刷新前的字幕",
+            track: "microphone",
+          },
+        ],
+      },
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+
+    expect(draft.getSnapshot().turns).toContainEqual(
+      expect.objectContaining({ id: "old-turn", text: "刷新前的字幕" }),
+    );
+    expect(draft.getSnapshot().sections.map((section) => section.sequence)).toEqual([0, 1, 2]);
+  });
+
+  it("pauses provider resources while retaining turns, then opens new sections on resume", async () => {
+    const connections: LiveTranscriptConnection[] = [];
+    const taps: LiveTranscriptPcmTap[] = [];
+    const release = vi.fn(() => Promise.resolve());
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: `secret-${track}`,
+          expiresAt: "2026-08-09T01:21:00.000Z",
+          model: "qwen3-asr-flash-realtime",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ authorization, onTranscript }) => {
+        onTranscript({
+          itemId: `item-${authorization.track}`,
+          text: "保留的字幕",
+          type: "completed",
+        });
+        const connection = { close: vi.fn(), sendPcm: vi.fn().mockReturnValue(true) };
+        connections.push(connection);
+        return Promise.resolve(connection);
+      },
+      createPcmTap: () => {
+        const tap = { stop: vi.fn() };
+        taps.push(tap);
+        return Promise.resolve(tap);
+      },
+      release,
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    const turnsBeforePause = draft.getSnapshot().turns;
+    draft.pause();
+
+    expect(
+      connections
+        .slice(0, 2)
+        .every((connection) => vi.mocked(connection.close).mock.calls.length === 1),
+    ).toBe(true);
+    expect(taps.slice(0, 2).every((tap) => vi.mocked(tap.stop).mock.calls.length === 1)).toBe(true);
+    expect(draft.getSnapshot().turns).toEqual(turnsBeforePause);
+    expect(release).toHaveBeenCalledWith(CAPTURE_ID);
+
+    await draft.resume();
+
+    expect(connections).toHaveLength(4);
+    expect(taps).toHaveLength(4);
+    expect(draft.getSnapshot().sections).toHaveLength(4);
+  });
+
   it("replaces cumulative provider snapshots instead of appending repeated prefixes", async () => {
     const events = new Map<"microphone" | "system", (event: LiveTranscriptEvent) => void>();
     const draft = createLiveTranscriptDraft({
@@ -357,7 +459,7 @@ describe("Live Transcript Draft", () => {
     });
 
     expect(draft.getSnapshot()).toMatchObject({
-      error: "实时字幕容量已满，Meeting Recording 仍在本地继续",
+      error: "实时字幕容量已满，录制仍在本地继续",
       status: "interrupted",
     });
     await vi.waitFor(() => expect(release).toHaveBeenCalledWith(CAPTURE_ID));

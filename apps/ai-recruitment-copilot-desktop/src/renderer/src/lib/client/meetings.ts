@@ -38,6 +38,7 @@ import type {
 import type { MeetingAudioExportTrack, MeetingExportFormat } from "@arc/shared/meeting-export";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
+import { isApiError } from "./api-error";
 
 /**
  * Meeting Query key 工厂。层级前缀用于在 Note、修订、生命周期等写操作后精确或整组失效。
@@ -101,14 +102,48 @@ export function meetingExportUrl(
 
 export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings`;
-  return apiJson<{ records: MeetingLibraryItem[] }>(apiUrl(path), "加载会议记录失败").then(
+  return apiJson<{ records: MeetingLibraryItem[] }>(apiUrl(path), "加载录制记录失败").then(
     (payload) => payload.records,
   );
 }
 
+export async function requestRecordingTitle(slug: string, transcript: string): Promise<string> {
+  const text = transcript.slice(0, 6000);
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/title`;
+  try {
+    const result = await apiJson<{ title: string }>(apiUrl(path), "生成录制标题失败", {
+      body: JSON.stringify({ transcript: text }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    return result.title;
+  } catch (error) {
+    if (!(isApiError(error) && error.status === 404)) {
+      throw error;
+    }
+  }
+
+  // Compatibility for desktops pointed at a server release that predates the
+  // meeting-specific title route. This is still AI summarization, not a local
+  // substring fallback, and can be removed after that route is fully deployed.
+  const fallback = await apiJson<{ title: string }>(
+    apiUrl("/api/resume/title"),
+    "生成录制标题失败",
+    {
+      body: JSON.stringify({ hasFiles: false, text }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+  if (fallback.title === "新对话") {
+    throw new Error("生成录制标题失败");
+  }
+  return fallback.title;
+}
+
 export function fetchTrashedMeetings(slug: string): Promise<TrashedMeetingItem[]> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/trash`;
-  return apiJson<{ records: TrashedMeetingItem[] }>(apiUrl(path), "加载会议废纸篓失败").then(
+  return apiJson<{ records: TrashedMeetingItem[] }>(apiUrl(path), "加载录制废纸篓失败").then(
     (payload) => payload.records,
   );
 }
@@ -134,7 +169,7 @@ export function renameMeeting(
   title: string,
 ): Promise<{ title: string }> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}`;
-  return apiJson(apiUrl(path), "修改会议名称失败", {
+  return apiJson(apiUrl(path), "修改录制名称失败", {
     body: JSON.stringify({ title }),
     headers: { "Content-Type": "application/json" },
     method: "PATCH",
@@ -165,7 +200,7 @@ export function searchMeetings(
   // timeZone is part of query semantics/cache identity, while AbortSignal cancels superseded in-flight searches.
   const params = new URLSearchParams({ limit: "20", q: query, timeZone });
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/search?${params.toString()}`;
-  return apiJson<MeetingLibrarySearchResponse>(apiUrl(path), "搜索会议记录失败", { signal }).then(
+  return apiJson<MeetingLibrarySearchResponse>(apiUrl(path), "搜索录制记录失败", { signal }).then(
     (payload) => payload.records,
   );
 }

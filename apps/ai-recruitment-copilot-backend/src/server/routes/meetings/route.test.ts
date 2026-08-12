@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   createSmallSavedMeeting: vi.fn(),
   createWorkspaceMeetingLiveTranscriptAuthorization: vi.fn(),
   editMeetingNote: vi.fn(),
+  generateRecordingTitle: vi.fn(),
   getMeetingNotes: vi.fn(),
   getMeetingRecruitingContext: vi.fn(),
   getMeetingRecruitingRecordCandidates: vi.fn(),
@@ -55,6 +56,9 @@ vi.mock("./recruiting-context-service", () => mocks);
 vi.mock("./intelligence/service", () => mocks);
 vi.mock("./answers/service", () => mocks);
 vi.mock("./routes/search/service", () => mocks);
+vi.mock("./routes/title/generator", () => ({
+  generateRecordingTitle: mocks.generateRecordingTitle,
+}));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
   createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
 }));
@@ -148,6 +152,20 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       organizationId: "org-72",
       ownerId: "user-72",
     });
+  });
+
+  it("generates a concise recording title from live transcript content", async () => {
+    mocks.generateRecordingTitle.mockResolvedValue("候选人项目经验沟通");
+
+    const response = await client.meetings.title.$post({
+      json: { transcript: "候选人正在介绍项目经验和技术方案取舍" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ title: "候选人项目经验沟通" });
+    expect(mocks.generateRecordingTitle).toHaveBeenCalledWith(
+      "候选人正在介绍项目经验和技术方案取舍",
+    );
   });
 
   it("rejects an idempotency conflict instead of creating another meeting", async () => {

@@ -7,20 +7,47 @@ export const MEETING_SINGLE_PUT_MAX_BYTES = 100 * 1024 * 1024;
 export const SMALL_MEETING_TRACK_MAX_BYTES = MEETING_SINGLE_PUT_MAX_BYTES;
 export const MEETING_TRACK_MAX_BYTES = 2_000_000_000;
 export const MEETING_TRASH_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+export const RECORDING_TITLE_MAX_LENGTH = 80;
 
 const sha256Schema = z.string().regex(/^[a-f\d]{64}$/i, "SHA-256 格式无效");
-
-export const meetingSourceAssetSchema = z.object({
-  contentType: z
-    .string()
-    .max(256)
-    .refine((value) => value.startsWith("audio/"), "只接受音频 Content-Type"),
+export const meetingSourceSegmentSchema = z.object({
   durationMs: z.number().int().nonnegative(),
-  fragmentCount: z.number().int().nonnegative(),
-  sha256: sha256Schema,
-  sizeBytes: z.number().int().positive().max(MEETING_TRACK_MAX_BYTES),
-  track: z.enum(MEETING_SOURCE_TRACKS),
+  offsetBytes: z.number().int().nonnegative(),
+  sizeBytes: z.number().int().positive(),
 });
+
+export const meetingSourceAssetSchema = z
+  .object({
+    contentType: z
+      .string()
+      .max(256)
+      .refine((value) => value.startsWith("audio/"), "只接受音频 Content-Type"),
+    durationMs: z.number().int().nonnegative(),
+    fragmentCount: z.number().int().nonnegative(),
+    segments: z.array(meetingSourceSegmentSchema).min(1).max(100).optional(),
+    sha256: sha256Schema,
+    sizeBytes: z.number().int().positive().max(MEETING_TRACK_MAX_BYTES),
+    track: z.enum(MEETING_SOURCE_TRACKS),
+  })
+  .superRefine((asset, context) => {
+    if (!asset.segments) {
+      return;
+    }
+    let expectedOffset = 0;
+    for (const [index, segment] of asset.segments.entries()) {
+      if (segment.offsetBytes !== expectedOffset) {
+        context.addIssue({
+          code: "custom",
+          message: "录音段必须连续覆盖音轨",
+          path: ["segments", index],
+        });
+      }
+      expectedOffset += segment.sizeBytes;
+    }
+    if (expectedOffset !== asset.sizeBytes) {
+      context.addIssue({ code: "custom", message: "录音段未完整覆盖音轨", path: ["segments"] });
+    }
+  });
 
 export const createSmallSavedMeetingSchema = z
   .object({
@@ -30,6 +57,7 @@ export const createSmallSavedMeetingSchema = z
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),
+    title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH).optional(),
   })
   .superRefine((input, context) => {
     const tracks = new Set(input.assets.map((asset) => asset.track));
@@ -100,6 +128,7 @@ export const createMultipartSavedMeetingSchema = z
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),
+    title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH).optional(),
   })
   .superRefine((input, context) => {
     const tracks = new Set(input.assets.map((asset) => asset.track));
@@ -117,6 +146,7 @@ export const completeSmallSavedMeetingSchema = z.object({
 export type CreateSmallSavedMeetingInput = z.infer<typeof createSmallSavedMeetingSchema>;
 export type CreateMultipartSavedMeetingInput = z.infer<typeof createMultipartSavedMeetingSchema>;
 export type MeetingSourceAssetInput = z.infer<typeof meetingSourceAssetSchema>;
+export type MeetingSourceSegmentInput = z.infer<typeof meetingSourceSegmentSchema>;
 export type MeetingSourceTrack = (typeof MEETING_SOURCE_TRACKS)[number];
 
 export interface SmallMeetingUploadInstruction {
@@ -171,7 +201,7 @@ export type MeetingGrantRole = "editor" | "viewer";
 export type MeetingVisibility = "restricted" | "workspace";
 
 export const updateMeetingMetadataSchema = z.object({
-  title: z.string().trim().min(1).max(120),
+  title: z.string().trim().min(1).max(RECORDING_TITLE_MAX_LENGTH),
 });
 
 export const updateMeetingShareSchema = z

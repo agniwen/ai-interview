@@ -201,7 +201,7 @@ export async function createOrLoadMeetingSession(input: {
         savedAt: new Date(input.meeting.savedAt),
         startedAt: new Date(input.meeting.startedAt),
         status: "uploading",
-        title: defaultMeetingTitle(input.meeting.startedAt),
+        title: input.meeting.title ?? defaultMeetingTitle(input.meeting.startedAt),
         uploadLeaseExpiresAt: meetingDirectUploadLeaseExpiresAt(now),
       })
       .onConflictDoNothing({ target: meetingSession.id })
@@ -217,6 +217,7 @@ export async function createOrLoadMeetingSession(input: {
         id: `${input.meeting.id}:${asset.track}`,
         meetingId: input.meeting.id,
         multipartParts: asset.multipartParts ?? null,
+        segments: asset.segments ?? null,
         sha256: asset.sha256,
         sizeBytes: asset.sizeBytes,
         status: "uploading",

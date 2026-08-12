@@ -1018,6 +1018,8 @@ export const meetingRecordingAsset = pgTable(
       }[]
     >(),
     multipartUploadId: text("multipart_upload_id"),
+    segments:
+      jsonb("segments").$type<{ durationMs: number; offsetBytes: number; sizeBytes: number }[]>(),
     sha256: text("sha256").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     status: text("status").default("uploading").notNull(),

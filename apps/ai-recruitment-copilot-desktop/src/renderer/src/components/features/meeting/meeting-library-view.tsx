@@ -71,8 +71,8 @@ function MeetingNameCell({
 }
 
 export function MeetingLibraryView({
-  emptyDescription = "结束并保存录制后，会议会出现在这里",
-  emptyTitle = "还没有已保存的会议",
+  emptyDescription = "结束并保存后，录制会出现在这里",
+  emptyTitle = "还没有已保存的录制",
   meetings,
   renderMeeting,
   searchMatches,
@@ -93,10 +93,10 @@ export function MeetingLibraryView({
   }
   return (
     <div className="w-full overflow-hidden rounded-lg border">
-      <Table aria-label="会议记录表格" className="min-w-[680px] table-fixed">
+      <Table aria-label="录制记录表格" className="min-w-[680px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">会议名称</TableHead>
+            <TableHead className="w-[300px]">录制名称</TableHead>
             <TableHead className="w-[160px]">日期</TableHead>
             <TableHead className="w-[120px]">状态</TableHead>
             <TableHead className="w-[150px]">创建者</TableHead>
