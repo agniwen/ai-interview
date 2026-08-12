@@ -20,6 +20,7 @@ export function JobDescriptionEvaluationSection({
   setDeductionRules,
   setRuleDraft,
   setRuleDraftDirty,
+  streamingRuleDraft,
 }: {
   deductionRules: JobDescriptionDeductionRules;
   evaluationFrozen: boolean;
@@ -33,7 +34,12 @@ export function JobDescriptionEvaluationSection({
   setDeductionRules: (rules: JobDescriptionDeductionRules) => void;
   setRuleDraft: (draft: JobEvaluationRuleDraft) => void;
   setRuleDraftDirty: (dirty: boolean) => void;
+  streamingRuleDraft: JobEvaluationRuleDraft | null;
 }) {
+  let displayedRuleDraft = preview && ruleDraft ? ruleDraft : streamingRuleDraft;
+  if (isGeneratingPreview && streamingRuleDraft) {
+    displayedRuleDraft = streamingRuleDraft;
+  }
   return (
     <div className="flex flex-col gap-2">
       <div className="flex min-h-8 items-center justify-between gap-3">
@@ -56,16 +62,16 @@ export function JobDescriptionEvaluationSection({
           </Button>
         )}
       </div>
-      {preview && ruleDraft ? (
+      {displayedRuleDraft ? (
         <div className="flex flex-col gap-2">
-          {ruleDraftDirty ? (
+          {preview && ruleDraftDirty ? (
             <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-800 text-xs dark:bg-amber-950/30 dark:text-amber-300">
               评分规则有未保存修改，保存岗位后才可发布。
             </p>
           ) : null}
           <JobEvaluationBlueprintPreview
             deductionRules={deductionRules}
-            disabled={evaluationFrozen}
+            disabled={evaluationFrozen || isGeneratingPreview}
             onDeductionRulesChange={(nextDeductionRules) => {
               setDeductionRules(nextDeductionRules);
               setRuleDraftDirty(true);
@@ -74,7 +80,7 @@ export function JobDescriptionEvaluationSection({
               setRuleDraft(nextRuleDraft);
               setRuleDraftDirty(true);
             }}
-            ruleDraft={ruleDraft}
+            ruleDraft={displayedRuleDraft}
           />
         </div>
       ) : (

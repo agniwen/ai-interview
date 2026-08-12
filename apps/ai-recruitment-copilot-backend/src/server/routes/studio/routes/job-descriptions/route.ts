@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
+import { streamSSE } from "hono/streaming";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   department,
@@ -179,6 +180,25 @@ function jobLifecycleErrorPayload(error: JobEvaluationLifecycleError) {
     code: error.code,
     error: messages[error.code] ?? "岗位状态冲突，请刷新后重试。",
   };
+}
+
+function evaluationPreviewError(error: unknown): {
+  payload: { code: string; error: string };
+  status: 404 | 409 | 422 | 503;
+} | null {
+  if (error instanceof BlueprintCompilationError) {
+    return { payload: { code: error.code, error: error.message }, status: 422 };
+  }
+  if (error instanceof JobEvaluationLifecycleError) {
+    let status: 404 | 409 | 503 = 409;
+    if (error.code === "JOB_NOT_FOUND") {
+      status = 404;
+    } else if (error.code === "JOB_BLUEPRINT_GENERATION_FAILED") {
+      status = 503;
+    }
+    return { payload: jobLifecycleErrorPayload(error), status };
+  }
+  return null;
 }
 
 function buildReferralUrl(requestUrl: string, token: string): string {
@@ -438,20 +458,59 @@ export const jobDescriptionsRouter = factory
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       return c.json(preview, 200);
     } catch (error) {
-      if (error instanceof BlueprintCompilationError) {
-        return c.json({ code: error.code, error: error.message }, 422);
-      }
-      if (error instanceof JobEvaluationLifecycleError) {
-        let status: 404 | 409 | 503 = 409;
-        if (error.code === "JOB_NOT_FOUND") {
-          status = 404;
-        } else if (error.code === "JOB_BLUEPRINT_GENERATION_FAILED") {
-          status = 503;
-        }
-        return c.json(jobLifecycleErrorPayload(error), status);
+      const failure = evaluationPreviewError(error);
+      if (failure) {
+        return c.json(failure.payload, failure.status);
       }
       throw error;
     }
+  })
+  .post("/:id/evaluation-blueprint-preview-stream", requirePermission("jd", "update"), (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    return streamSSE(c, async (stream) => {
+      try {
+        const preview = await generateStructuredJobBlueprintPreview(
+          {
+            actorId: user.id,
+            jobDescriptionId: c.req.param("id"),
+            organizationId: activeOrg.id,
+          },
+          {
+            onProgress: async (ruleDraft) => {
+              await stream.writeSSE({
+                data: JSON.stringify({ ruleDraft, type: "preview.partial" }),
+                event: "job-evaluation-preview",
+              });
+            },
+          },
+        );
+        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+        await stream.writeSSE({
+          data: JSON.stringify({
+            blueprint: preview.blueprint,
+            blueprintHash: preview.blueprintHash,
+            type: "preview.completed",
+          }),
+          event: "job-evaluation-preview",
+        });
+      } catch (error) {
+        const failure = evaluationPreviewError(error);
+        const payload = failure?.payload ?? {
+          code: "JOB_BLUEPRINT_GENERATION_FAILED",
+          error: "生成评分规则失败",
+        };
+        await stream.writeSSE({
+          data: JSON.stringify({
+            error: { code: payload.code, message: payload.error },
+            type: "preview.failed",
+          }),
+          event: "job-evaluation-preview",
+        });
+      }
+    });
   })
   .put(
     "/:id/evaluation-rule-draft",

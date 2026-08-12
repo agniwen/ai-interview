@@ -111,4 +111,40 @@ describe("generateEvaluationBlueprintCandidate", () => {
     expect(skillPrompt).toContain("优先条件或加分项下的内容不得进入技能");
     expect(experiencePrompt).toContain("优先条件或加分项下的内容不得进入基础评分依据");
   });
+
+  it("reports validated rule-draft snapshots as parallel generation groups complete", async () => {
+    const progress: unknown[] = [];
+    mocks.generate.mockImplementation((prompt: string) => {
+      if (prompt.includes("提取技能与学历评分依据")) {
+        return Promise.resolve({
+          object: {
+            auxiliarySkills: [],
+            coreSkills: [{ normalizedSkill: "React", sourceText: "精通 React" }],
+            educationExpectation: null,
+          },
+          text: "",
+        });
+      }
+      return Promise.resolve({ object: completeExperience, text: "" });
+    });
+
+    await generateEvaluationBlueprintCandidate(
+      {
+        description: null,
+        prompt: "精通 React。8年以上前端研发经验，3年以上团队管理经验。",
+        structuredConfig: createDefaultJobDescriptionStructuredConfig(),
+      },
+      (ruleDraft) => {
+        progress.push(ruleDraft);
+      },
+    );
+
+    expect(progress).toHaveLength(2);
+    expect(progress).toContainEqual(expect.objectContaining({ coreSkills: ["React"] }));
+    expect(progress).toContainEqual(
+      expect.objectContaining({
+        requiredRelevantExperience: expect.objectContaining({ years: 8 }),
+      }),
+    );
+  });
 });

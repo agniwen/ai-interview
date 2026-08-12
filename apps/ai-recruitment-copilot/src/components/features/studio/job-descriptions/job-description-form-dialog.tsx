@@ -67,7 +67,7 @@ export function JobDescriptionFormDialog({
 }) {
   const slug = useWorkspaceSlug();
   const submitRef = useRef<
-    ((value: JobDescriptionFormValues, action: JobDescriptionSubmitAction) => void) | null
+    ((value: JobDescriptionFormValues, action: JobDescriptionSubmitAction) => Promise<void>) | null
   >(null);
   const setActiveTabRef = useRef<((tab: JobDescriptionFormTab) => void) | null>(null);
   const resolvedInitialValues = useMemo(() => {
@@ -82,9 +82,7 @@ export function JobDescriptionFormDialog({
 
   const form = useForm({
     defaultValues: resolvedInitialValues,
-    onSubmit: ({ meta, value }) => {
-      submitRef.current?.(value, meta.action);
-    },
+    onSubmit: ({ meta, value }) => submitRef.current?.(value, meta.action),
     onSubmitInvalid: ({ formApi }) =>
       focusJobDescriptionBasicTabOnInvalidSubmit(
         formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>,
@@ -140,6 +138,7 @@ export function JobDescriptionFormDialog({
     isGeneratingJobDescription,
     isGeneratingPreview,
     isPublishing,
+    streamingRuleDraft,
     submitJobDescription,
   } = useJobDescriptionFormActions({
     currentRecord,
@@ -238,6 +237,11 @@ export function JobDescriptionFormDialog({
   );
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
+  const isBusy = isGeneratingPreview || isSubmitting || isPublishing;
+  let submitLabel = isEdit ? "保存" : "创建草稿";
+  if (isSubmitting) {
+    submitLabel = isEdit ? "保存中" : "创建中";
+  }
 
   return (
     <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
@@ -265,35 +269,47 @@ export function JobDescriptionFormDialog({
         }
         footer={
           <>
-            <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-              取消
+            <Button
+              disabled={isBusy}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              {isBusy ? <IconLoader2 className="size-4 animate-spin" /> : null}
+              {isBusy ? "处理中" : "取消"}
             </Button>
             <form.Subscribe selector={(state) => state.values}>
-              {(values) =>
-                isStructuredDraft && preview ? (
+              {(values) => {
+                const isPreparingPublish = !preview && (isGeneratingPreview || isSubmitting);
+                const publishDisabled =
+                  isBusy ||
+                  missingRefs ||
+                  Boolean(
+                    preview && (hasUnsavedFormChanges(values, savedFormValues) || ruleDraftDirty),
+                  );
+                let publishLabel = preview ? "确认并发布" : "生成评分规则并继续";
+                if (isPreparingPublish) {
+                  publishLabel = "生成中";
+                } else if (isPublishing) {
+                  publishLabel = "发布中";
+                }
+                return isStructuredDraft ? (
                   <Button
-                    disabled={
-                      hasUnsavedFormChanges(values, savedFormValues) ||
-                      ruleDraftDirty ||
-                      isPublishing ||
-                      isSubmitting
-                    }
-                    onClick={handlePublish}
+                    disabled={publishDisabled}
+                    onClick={preview ? handlePublish : handleGeneratePreview}
                     type="button"
                   >
-                    {isPublishing ? <IconLoader2 className="size-4 animate-spin" /> : null}
-                    确认并发布
+                    {isPreparingPublish || isPublishing ? (
+                      <IconLoader2 className="size-4 animate-spin" />
+                    ) : null}
+                    {publishLabel}
                   </Button>
-                ) : null
-              }
+                ) : null;
+              }}
             </form.Subscribe>
-            <Button
-              disabled={isSubmitting || missingRefs}
-              form="job-description-form"
-              type="submit"
-            >
+            <Button disabled={isBusy || missingRefs} form="job-description-form" type="submit">
               {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-              {isEdit ? "保存" : "创建草稿"}
+              {submitLabel}
             </Button>
           </>
         }
@@ -349,6 +365,7 @@ export function JobDescriptionFormDialog({
                       setDeductionRules={setDeductionRules}
                       setRuleDraft={setRuleDraft}
                       setRuleDraftDirty={setRuleDraftDirty}
+                      streamingRuleDraft={streamingRuleDraft}
                     />
                   )}
                 </div>

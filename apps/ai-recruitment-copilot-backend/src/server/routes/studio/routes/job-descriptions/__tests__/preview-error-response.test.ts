@@ -83,4 +83,39 @@ describe("job evaluation blueprint preview errors", () => {
       error: "AI 评估蓝图生成暂时不可用，请稍后重试。",
     });
   });
+
+  it("streams partial rules before the completed preview", async () => {
+    const ruleDraft = {
+      auxiliarySkills: [],
+      coreSkills: ["React"],
+      dimensionExpectations: {
+        educationBackground: [],
+        experienceRelevance: [],
+        potential: [],
+        projectMatch: [],
+        skillMatch: [],
+        stability: [],
+      },
+      educationExpectation: null,
+      requiredRelevantExperience: null,
+    };
+    mocks.generateStructuredJobBlueprintPreview.mockImplementation(
+      async (_input, options: { onProgress?: (value: typeof ruleDraft) => Promise<void> }) => {
+        await options.onProgress?.(ruleDraft);
+        return { blueprint: { schemaVersion: 1 }, blueprintHash: "blueprint-hash" };
+      },
+    );
+
+    const response = await client["job-descriptions"][":id"][
+      "evaluation-blueprint-preview-stream"
+    ].$post({ param: { id: "job-1" } });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body.indexOf('"type":"preview.partial"')).toBeLessThan(
+      body.indexOf('"type":"preview.completed"'),
+    );
+    expect(body).toContain('"coreSkills":["React"]');
+    expect(body).toContain('"blueprintHash":"blueprint-hash"');
+  });
 });

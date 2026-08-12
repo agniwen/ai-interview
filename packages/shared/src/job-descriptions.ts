@@ -2,6 +2,7 @@ import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import type {
   JobEvaluationBlueprint,
   JobEvaluationMode,
+  JobEvaluationRuleDraft,
   JobLifecycleStatus,
 } from "@arc/db-schema/job-description-evaluation";
 import {
@@ -111,6 +112,21 @@ export interface JobDescriptionRecord {
   createdAt: string | Date;
   updatedAt: string | Date;
 }
+
+export type JobEvaluationPreviewStreamEvent =
+  | {
+      ruleDraft: JobEvaluationRuleDraft;
+      type: "preview.partial";
+    }
+  | {
+      blueprint: JobEvaluationBlueprint;
+      blueprintHash: string;
+      type: "preview.completed";
+    }
+  | {
+      error: { code?: string; message: string };
+      type: "preview.failed";
+    };
 
 export interface JobDescriptionListRecord extends JobDescriptionRecord {
   departmentName: string | null;

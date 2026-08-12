@@ -6,7 +6,12 @@ import type {
 } from "@arc/db-schema/job-description-evaluation";
 import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
 import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type {
+  JobDescriptionFormValues,
+  JobDescriptionRecord,
+  JobEvaluationPreviewStreamEvent,
+} from "@arc/shared/job-descriptions";
+import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { rpc } from "@/lib/client/rpc";
 import { withCleanup } from "@/lib/client/async-control";
 import { useState } from "react";
@@ -85,6 +90,7 @@ export function useJobDescriptionFormActions({
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [streamingRuleDraft, setStreamingRuleDraft] = useState<JobEvaluationRuleDraft | null>(null);
 
   async function persistJob(value: JobDescriptionFormValues): Promise<JobDescriptionRecord | null> {
     const structuredBody = {
@@ -144,23 +150,36 @@ export function useJobDescriptionFormActions({
 
   async function requestEvaluationBlueprintPreview(jobDescriptionId: string) {
     const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
-      "evaluation-blueprint-preview"
+      "evaluation-blueprint-preview-stream"
     ].$post({
       param: { id: jobDescriptionId, slug },
     });
-    const payload = (await response.json().catch(() => null)) as {
-      blueprint?: JobEvaluationBlueprint;
-      blueprintHash?: string;
-      error?: string;
-    } | null;
-    if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       toast.error(payload?.error ?? "生成评分规则失败");
       return null;
     }
-    return {
-      blueprint: payload.blueprint,
-      blueprintHash: payload.blueprintHash,
+    const streamState: { error: string | null; preview: EvaluationPreview | null } = {
+      error: null,
+      preview: null,
     };
+    await readAiRunEventStream<JobEvaluationPreviewStreamEvent>(response, (event) => {
+      if (event.type === "preview.partial") {
+        setStreamingRuleDraft(event.ruleDraft);
+      } else if (event.type === "preview.completed") {
+        streamState.preview = {
+          blueprint: event.blueprint,
+          blueprintHash: event.blueprintHash,
+        };
+      } else if (event.type === "preview.failed") {
+        streamState.error = event.error.message;
+      }
+    });
+    if (streamState.error || !streamState.preview) {
+      toast.error(streamState.error ?? "生成评分规则失败");
+      return null;
+    }
+    return streamState.preview;
   }
 
   async function requestSaveEvaluationRuleDraft(
@@ -200,6 +219,7 @@ export function useJobDescriptionFormActions({
         return;
       }
       setIsGeneratingPreview(true);
+      setStreamingRuleDraft(null);
       await withCleanup(
         async () => {
           const submittedPrompt = value.prompt;
@@ -233,7 +253,10 @@ export function useJobDescriptionFormActions({
           onSaved(previewRecord);
           toast.success("当前草稿已保存，评分规则已生成，请确认后发布");
         },
-        () => setIsGeneratingPreview(false),
+        () => {
+          setIsGeneratingPreview(false);
+          setStreamingRuleDraft(null);
+        },
       );
       return;
     }
@@ -405,6 +428,7 @@ export function useJobDescriptionFormActions({
     isGeneratingJobDescription,
     isGeneratingPreview,
     isPublishing,
+    streamingRuleDraft,
     submitJobDescription,
   };
 }

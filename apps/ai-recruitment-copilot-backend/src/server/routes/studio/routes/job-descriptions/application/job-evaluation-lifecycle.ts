@@ -29,6 +29,7 @@ import {
   generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
 } from "../utils/evaluation-blueprint-compiler";
+import type { JobEvaluationRuleDraftProgress } from "../utils/evaluation-blueprint-compiler";
 
 export interface JobEvaluationDraft {
   description: string | null;
@@ -69,7 +70,10 @@ type PublishStoredResult =
   | { status: "already_published" | "not_found" | "stale" };
 
 interface LifecycleDependencies {
-  compile(job: JobEvaluationDraft): Promise<JobEvaluationBlueprint>;
+  compile(
+    job: JobEvaluationDraft,
+    onProgress?: JobEvaluationRuleDraftProgress,
+  ): Promise<JobEvaluationBlueprint>;
   load(input: {
     jobDescriptionId: string;
     organizationId: string;
@@ -227,11 +231,16 @@ export function applyManualRuleDraft(
 
 export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies) {
   return {
-    async generatePreview(input: GeneratePreviewInput): Promise<PreviewResult> {
+    async generatePreview(
+      input: GeneratePreviewInput,
+      options?: { onProgress?: JobEvaluationRuleDraftProgress },
+    ): Promise<PreviewResult> {
       const job = await dependencies.load(input);
       assertDraft(job);
       const inputHash = computeJobEvaluationDraftInputHash(job);
-      const blueprint = jobEvaluationBlueprintSchema.parse(await dependencies.compile(job));
+      const blueprint = jobEvaluationBlueprintSchema.parse(
+        await dependencies.compile(job, options?.onProgress),
+      );
       const blueprintHash = computeJobEvaluationPayloadHash(blueprint);
       const { generatedAt } = blueprint.compiler;
       const saved = await dependencies.savePreview({
@@ -411,13 +420,14 @@ function saveManualPreviewDefault(
 
 export async function compileJobEvaluationDraft(
   job: Pick<JobEvaluationDraft, "description" | "id" | "prompt" | "structuredConfig">,
+  onProgress?: JobEvaluationRuleDraftProgress,
 ): Promise<JobEvaluationBlueprint> {
   const startedAt = Date.now();
   const generatedAt = new Date().toISOString();
   const modelId = getMastraModelIdentifier(mastraModels.structuredModel);
   let modelOutput;
   try {
-    modelOutput = await generateEvaluationBlueprintCandidate(job);
+    modelOutput = await generateEvaluationBlueprintCandidate(job, onProgress);
   } catch (error) {
     console.error("[job-evaluation-blueprint] generation failed", {
       durationMs: Date.now() - startedAt,

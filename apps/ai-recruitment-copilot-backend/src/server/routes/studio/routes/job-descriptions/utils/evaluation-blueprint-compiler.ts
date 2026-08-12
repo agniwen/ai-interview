@@ -1,5 +1,8 @@
 /* oxlint-disable max-lines -- the versioned compiler keeps source validation, deterministic normalization, and AI prompt assembly in one auditable module. */
-import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationRuleDraft,
+} from "@arc/db-schema/job-description-evaluation";
 import {
   JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS,
   JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS_PER_CATEGORY,
@@ -787,8 +790,64 @@ function validateRemainingDimensionsCandidate(
   }
 }
 
-function generateScoringBlueprintCandidate(
+type SkillEducationCandidate = z.infer<typeof skillEducationCandidateSchema>;
+type RemainingDimensionsCandidate = z.infer<
+  typeof experienceProjectPotentialStabilityCandidateSchema
+>;
+
+export type JobEvaluationRuleDraftProgress = (
+  ruleDraft: JobEvaluationRuleDraft,
+) => Promise<void> | void;
+
+function toProgressRuleDraft(
+  skillEducation: SkillEducationCandidate | null,
+  remainingDimensions: RemainingDimensionsCandidate | null,
+): JobEvaluationRuleDraft {
+  const primaryExperience = remainingDimensions?.requiredRelevantExperiences.toSorted(
+    (left, right) => right.years - left.years,
+  )[0];
+  return {
+    auxiliarySkills: skillEducation?.auxiliarySkills.map((skill) => skill.normalizedSkill) ?? [],
+    coreSkills: skillEducation?.coreSkills.map((skill) => skill.normalizedSkill) ?? [],
+    dimensionExpectations: {
+      educationBackground: [],
+      experienceRelevance:
+        remainingDimensions?.dimensionExpectations.experienceRelevance.map(
+          (expectation) => expectation.expectation,
+        ) ?? [],
+      potential:
+        remainingDimensions?.dimensionExpectations.potential.map(
+          (expectation) => expectation.expectation,
+        ) ?? [],
+      projectMatch:
+        remainingDimensions?.dimensionExpectations.projectMatch.map(
+          (expectation) => expectation.expectation,
+        ) ?? [],
+      skillMatch: [],
+      stability:
+        remainingDimensions?.dimensionExpectations.stability.map(
+          (expectation) => expectation.expectation,
+        ) ?? [],
+    },
+    educationExpectation: skillEducation?.educationExpectation
+      ? {
+          degreeLevel: skillEducation.educationExpectation.degreeLevel,
+          majorExpectation: skillEducation.educationExpectation.majorExpectation,
+        }
+      : null,
+    requiredRelevantExperience: primaryExperience
+      ? {
+          relevanceScope: primaryExperience.relevanceScope,
+          scopeDescription: primaryExperience.scopeDescription,
+          years: primaryExperience.years,
+        }
+      : null,
+  };
+}
+
+async function generateScoringBlueprintCandidate(
   input: ScoringBlueprintGenerationInput,
+  onProgress?: JobEvaluationRuleDraftProgress,
 ): Promise<ScoringBlueprintCandidate> {
   const skillEducationInput = {
     ...input,
@@ -812,8 +871,10 @@ function generateScoringBlueprintCandidate(
       ),
     },
   };
-  return Promise.all([
-    generateStructuredWithMastraAgent({
+  let skillEducation: SkillEducationCandidate | null = null;
+  let remainingDimensions: RemainingDimensionsCandidate | null = null;
+  function generateSkillEducation() {
+    return generateStructuredWithMastraAgent({
       agent: jobEvaluationBlueprintJsonAgent,
       maxOutputTokens: 4000,
       prompt: [
@@ -832,8 +893,10 @@ function generateScoringBlueprintCandidate(
       temperature: 0,
       timeoutMs: 120_000,
       validate: (value) => validateScoringCandidateSources(value, skillEducationInput),
-    }),
-    generateStructuredWithMastraAgent({
+    });
+  }
+  function generateRemainingDimensions() {
+    return generateStructuredWithMastraAgent({
       agent: jobEvaluationBlueprintJsonAgent,
       maxOutputTokens: 5000,
       prompt: [
@@ -854,8 +917,35 @@ function generateScoringBlueprintCandidate(
       temperature: 0,
       timeoutMs: 120_000,
       validate: (value) => validateRemainingDimensionsCandidate(value, remainingDimensionsInput),
-    }),
-  ]).then(([skillEducation, remainingDimensions]) => ({
+    });
+  }
+  async function taggedSkillEducation() {
+    return { candidate: await generateSkillEducation(), type: "skill-education" as const };
+  }
+  async function taggedRemainingDimensions() {
+    return { candidate: await generateRemainingDimensions(), type: "remaining" as const };
+  }
+  type TaggedCandidate =
+    | { candidate: RemainingDimensionsCandidate; type: "remaining" }
+    | { candidate: SkillEducationCandidate; type: "skill-education" };
+  const pending = new Map<string, Promise<TaggedCandidate>>([
+    ["skill-education", taggedSkillEducation()],
+    ["remaining", taggedRemainingDimensions()],
+  ]);
+  while (pending.size > 0) {
+    const result = await Promise.race(pending.values());
+    pending.delete(result.type);
+    if (result.type === "skill-education") {
+      skillEducation = result.candidate;
+    } else {
+      remainingDimensions = result.candidate;
+    }
+    await onProgress?.(toProgressRuleDraft(skillEducation, remainingDimensions));
+  }
+  if (!(skillEducation && remainingDimensions)) {
+    throw new Error("评分规则生成结果不完整");
+  }
+  return {
     ...skillEducation,
     dimensionExpectations: {
       educationBackground: [],
@@ -863,7 +953,7 @@ function generateScoringBlueprintCandidate(
       ...remainingDimensions.dimensionExpectations,
     },
     requiredRelevantExperiences: remainingDimensions.requiredRelevantExperiences,
-  }));
+  };
 }
 
 function generateHardGateCompilerCandidate(
@@ -894,9 +984,10 @@ function generateHardGateCompilerCandidate(
 
 export async function generateEvaluationBlueprintCandidate(
   input: EvaluationBlueprintGenerationJob,
+  onProgress?: JobEvaluationRuleDraftProgress,
 ): Promise<BlueprintCompilerCandidate> {
   const [scoringCandidate, hardGateCandidate] = await Promise.all([
-    generateScoringBlueprintCandidate(buildScoringBlueprintGenerationInput(input)),
+    generateScoringBlueprintCandidate(buildScoringBlueprintGenerationInput(input), onProgress),
     generateHardGateCompilerCandidate(input.structuredConfig.hardGates),
   ]);
   return { ...scoringCandidate, ...hardGateCandidate };

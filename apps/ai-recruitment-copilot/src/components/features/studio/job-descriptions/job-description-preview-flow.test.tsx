@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- end-to-end job draft, preview, and publish states share one dialog harness. */
 // @vitest-environment jsdom
 
 import { act, useState } from "react";
@@ -58,10 +59,14 @@ const api = vi.hoisted(() => {
     generatePreview: vi.fn(() => {
       calls.push("preview");
       return Promise.resolve(
-        Response.json({
-          blueprint,
-          blueprintHash: "blueprint-hash",
-        }),
+        new Response(
+          `event: job-evaluation-preview\ndata: ${JSON.stringify({
+            blueprint,
+            blueprintHash: "blueprint-hash",
+            type: "preview.completed",
+          })}\n\n`,
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
       );
     }),
     saveDraft: vi.fn(({ json }: { json: Record<string, unknown> }) => {
@@ -99,6 +104,9 @@ vi.mock("@/lib/client/rpc", () => ({
               ":id": {
                 $patch: api.saveDraft,
                 "evaluation-blueprint-preview": {
+                  $post: api.generatePreview,
+                },
+                "evaluation-blueprint-preview-stream": {
                   $post: api.generatePreview,
                 },
                 "evaluation-rule-draft": {
@@ -165,6 +173,7 @@ vi.mock("./job-evaluation-blueprint-preview", () => ({
   }) => (
     <div>
       <span>可编辑评分规则</span>
+      <span>{JSON.stringify(ruleDraft)}</span>
       <button
         onClick={() => onRuleDraftChange({ ...ruleDraft, coreSkills: ["React"] })}
         type="button"
@@ -280,6 +289,10 @@ describe("structured job description preview flow", () => {
     expect(structuredLabels).not.toContain("岗位 Prompt *");
     expect(structuredContainer.textContent).toContain("新版评分设置");
     expect(structuredContainer.textContent).not.toContain("旧版筛选规则");
+    const publishButton = [...structuredContainer.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("生成评分规则并继续"),
+    );
+    expect(publishButton?.hasAttribute("disabled")).toBe(false);
     const structuredPrompt = structuredContainer.querySelector<HTMLTextAreaElement>(
       'textarea[aria-label="MarkdownEditor"]',
     );
@@ -456,10 +469,39 @@ describe("structured job description preview flow", () => {
     act(() => root.unmount());
   });
 
-  it("validates and saves the current draft before generating its preview", async () => {
+  it("generates missing scoring rules from the publish action before confirmation", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    const encoder = new TextEncoder();
+    let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const partialEvent = `event: job-evaluation-preview\ndata: ${JSON.stringify({
+      ruleDraft: {
+        auxiliarySkills: [],
+        coreSkills: ["React"],
+        dimensionExpectations: {
+          educationBackground: [],
+          experienceRelevance: [],
+          potential: [],
+          projectMatch: [],
+          skillMatch: [],
+          stability: [],
+        },
+        educationExpectation: null,
+        requiredRelevantExperience: null,
+      },
+      type: "preview.partial",
+    })}\n\n`;
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+          controller.enqueue(encoder.encode(partialEvent));
+        },
+      }),
+      { headers: { "Content-Type": "text/event-stream" } },
+    );
+    api.generatePreview.mockResolvedValueOnce(response);
 
     await act(async () => {
       root.render(
@@ -481,17 +523,23 @@ describe("structured job description preview flow", () => {
       await Promise.resolve();
     });
 
-    const button = [...container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("生成评分规则"),
+    const button = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent?.trim() === "生成评分规则并继续",
+    );
+    const cancelButton = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent?.trim() === "取消",
     );
     expect(button).toBeDefined();
 
     await act(async () => {
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
+      await vi.waitFor(() => expect(api.generatePreview).toHaveBeenCalledTimes(1));
     });
 
-    expect(api.calls).toEqual(["save", "preview"]);
+    expect(button?.textContent).toContain("生成中");
+    expect(button?.hasAttribute("disabled")).toBe(true);
+    expect(cancelButton?.hasAttribute("disabled")).toBe(true);
+    expect(api.calls).toEqual(["save"]);
     expect(api.saveDraft).toHaveBeenCalledTimes(1);
     expect(api.saveDraft).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -500,6 +548,33 @@ describe("structured job description preview flow", () => {
           prompt: "岗位要求",
         }),
       }),
+    );
+
+    await act(async () => {
+      await vi.waitFor(() => expect(container.textContent).toContain("React"));
+    });
+    expect(button?.textContent).toContain("生成中");
+    expect(button?.hasAttribute("disabled")).toBe(true);
+
+    await act(async () => {
+      streamController?.enqueue(
+        encoder.encode(
+          `event: job-evaluation-preview\ndata: ${JSON.stringify({
+            blueprint: api.blueprint,
+            blueprintHash: "blueprint-hash",
+            type: "preview.completed",
+          })}\n\n`,
+        ),
+      );
+      streamController?.close();
+      await Promise.resolve();
+    });
+    await vi.waitFor(() =>
+      expect(
+        [...container.querySelectorAll("button")].find((item) =>
+          item.textContent?.includes("确认并发布"),
+        ),
+      ).toBeDefined(),
     );
     expect(container.textContent).toContain("可编辑评分规则");
 
@@ -692,6 +767,8 @@ describe("structured job description preview flow", () => {
     document.body.append(container);
     const root = createRoot(container);
     const onOpenChange = vi.fn();
+    const { promise, resolve } = Promise.withResolvers<Response>();
+    api.saveDraft.mockReturnValueOnce(promise);
 
     await act(async () => {
       root.render(
@@ -716,11 +793,23 @@ describe("structured job description preview flow", () => {
     const saveButton = [...container.querySelectorAll("button")].find(
       (item) => item.textContent?.trim() === "保存",
     );
+    const cancelButton = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent?.trim() === "取消",
+    );
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await vi.waitFor(() => expect(api.saveDraft).toHaveBeenCalledTimes(1));
     });
 
+    expect(saveButton?.textContent).toContain("保存中");
+    expect(saveButton?.hasAttribute("disabled")).toBe(true);
+    expect(cancelButton?.textContent).toContain("处理中");
+    expect(cancelButton?.hasAttribute("disabled")).toBe(true);
+
+    await act(async () => {
+      resolve(Response.json(api.state.savedRecord));
+      await promise;
+    });
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(container.textContent).toContain("编辑在招岗位");
     act(() => root.unmount());
