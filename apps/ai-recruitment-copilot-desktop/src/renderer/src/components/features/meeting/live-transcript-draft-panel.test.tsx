@@ -104,8 +104,10 @@ describe("LiveTranscriptDraftPanel", () => {
     expect(html).toContain('aria-label="实时字幕状态：实时"');
     expect(html).not.toContain(">live<");
     expect(html).toContain(
-      'data-slot="scroll-area"><div class="h-full w-full min-w-0 overflow-auto scroll-fade"><div class="container mx-auto grid max-w-3xl',
+      'data-slot="scroll-area"><div class="h-full w-full min-w-0 overflow-auto scroll-fade"><div class="container mx-auto grid max-w-3xl select-text',
     );
+    expect(html).toContain("cursor-text");
+    expect(html).toContain("hover:bg-foreground/4");
     expect(html).not.toContain("max-w-5xl");
   });
 
@@ -140,7 +142,9 @@ describe("LiveTranscriptDraftPanel", () => {
     );
     const idleHtml = renderToStaticMarkup(<MeetingTranscriptIdleStage />);
 
-    expect(liveHtml).toContain('class="container mx-auto grid max-w-3xl gap-3 px-4 pb-20 sm:px-6"');
+    expect(liveHtml).toContain(
+      'class="container mx-auto grid max-w-3xl select-text px-4 pb-20 sm:px-6"',
+    );
     expect(idleHtml).toContain("pb-20");
   });
 });

@@ -496,6 +496,29 @@ function transcriptStageEmptyHint(
   return "正在加载字幕…";
 }
 
+type MeetingTranscriptStageTurn = Pick<FinalMeetingTranscriptTurn, "id" | "text"> &
+  Partial<Pick<FinalMeetingTranscriptTurn, "speakerDisplayName" | "speakerKey">>;
+
+export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscriptStageTurn[] }) {
+  return (
+    <div className="grid select-text" aria-live="polite">
+      {turns.map((turn) => (
+        <article
+          className="grid cursor-text gap-1 rounded-sm p-1 hover:bg-foreground/4"
+          key={turn.id}
+        >
+          {turn.speakerKey ? (
+            <p className="text-muted-foreground text-xs">
+              {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
+            </p>
+          ) : null}
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 /** Read-only transcript stage used by the session landing page. */
 export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string; slug: string }) {
   const transcriptQuery = useQuery({
@@ -522,18 +545,7 @@ export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string;
         ) : null}
       </div>
       {turns.length > 0 ? (
-        <div className="grid gap-3" aria-live="polite">
-          {turns.map((turn) => (
-            <article className="grid gap-1" key={turn.id}>
-              {"speakerKey" in turn ? (
-                <p className="text-muted-foreground text-xs">
-                  {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
-                </p>
-              ) : null}
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
-            </article>
-          ))}
-        </div>
+        <MeetingTranscriptStageTurns turns={turns} />
       ) : (
         <div className="flex flex-1 items-center justify-center py-16">
           <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>

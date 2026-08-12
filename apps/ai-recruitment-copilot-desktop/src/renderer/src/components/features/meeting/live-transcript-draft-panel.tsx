@@ -131,13 +131,13 @@ export function LiveTranscriptDraftPanel({
       >
         {snapshot.turns.length > 0 ? (
           <div
-            className="container mx-auto grid max-w-3xl gap-3 px-4 pb-20 sm:px-6"
+            className="container mx-auto grid max-w-3xl select-text px-4 pb-20 sm:px-6"
             aria-live="polite"
           >
             {snapshot.turns.map((turn) => (
               <p
                 className={cn(
-                  "text-sm leading-relaxed",
+                  "cursor-text! rounded-sm p-1 text-sm leading-relaxed hover:bg-foreground/4",
                   !turn.final && "text-muted-foreground italic",
                 )}
                 key={turn.id}

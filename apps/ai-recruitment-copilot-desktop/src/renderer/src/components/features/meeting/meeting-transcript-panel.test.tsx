@@ -4,6 +4,7 @@ import type { MeetingTranscriptResult } from "@arc/shared/meeting-transcription"
 import {
   canCorrectMeetingTranscript,
   isTranscriptCorrectionConflict,
+  MeetingTranscriptStageTurns,
   MeetingTranscriptView,
   splitTranscriptTurn,
   transcriptSeekSeconds,
@@ -140,6 +141,19 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
     expect(transcriptSeekSeconds(1250)).toBe(1.25);
+  });
+
+  it("matches the live transcript spacing and hover treatment on the completed page", () => {
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptStageTurns turns={readyTranscript.revision?.turns ?? []} />,
+    );
+
+    expect(html).toContain('class="grid select-text"');
+    expect(html).toContain("cursor-text");
+    expect(html).toContain("hover:bg-foreground/4");
+    expect(html).toContain("rounded-sm");
+    expect(html).toContain("p-1");
+    expect(html).not.toContain("gap-3");
   });
 
   it("distinguishes human display names from stable speaker keys", () => {
