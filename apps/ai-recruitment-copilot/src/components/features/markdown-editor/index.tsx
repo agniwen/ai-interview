@@ -101,11 +101,8 @@ export function MarkdownEditor({
       </div>
 
       <div
-        className={cn(
-          "relative z-10 bg-transparent",
-          typeof height === "number" && "overflow-y-auto",
-        )}
-        style={typeof height === "number" ? { height } : { minHeight }}
+        className={cn("relative z-10 min-h-0 flex-1 bg-transparent overflow-y-auto")}
+        style={{ minHeight: typeof height === "number" ? height : minHeight }}
       >
         {visibleMode === "edit" && (
           <>

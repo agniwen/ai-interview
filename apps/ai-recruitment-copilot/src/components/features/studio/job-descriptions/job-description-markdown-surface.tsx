@@ -13,7 +13,7 @@ export function JobDescriptionMarkdownSurface({
   "aria-label"?: string;
   className?: string;
   content: string;
-  height?: number;
+  height?: number | null;
   id?: string;
 }) {
   return (
@@ -21,7 +21,7 @@ export function JobDescriptionMarkdownSurface({
       aria-label={ariaLabel}
       className={cn(cossFieldSurfaceClass, "overflow-y-auto px-3 py-2 text-sm", className)}
       id={id}
-      style={{ height }}
+      style={height === null ? { minHeight: JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } : { height }}
     >
       <MarkdownView content={content} />
     </div>

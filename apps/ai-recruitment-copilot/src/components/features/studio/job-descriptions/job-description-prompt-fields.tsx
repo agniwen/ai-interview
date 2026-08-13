@@ -11,6 +11,7 @@ import type { JobDescriptionFormApi } from "./job-description-form-values";
 import {
   DESCRIPTION_MAX_LENGTH,
   JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT,
+  JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT,
   PROMPT_MAX_LENGTH,
 } from "./job-description-form-values";
 import { JobDescriptionMarkdownSurface } from "./job-description-markdown-surface";
@@ -64,8 +65,11 @@ export function JobDescriptionPromptFields({
         {(field) => {
           const errors = toFieldErrors(field.state.meta.errors);
           return (
-            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-              <div className="flex items-center justify-between gap-3">
+            <Field
+              className={isLegacyJob ? undefined : "contents"}
+              data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+            >
+              <div className="flex min-h-8 items-center justify-between gap-3">
                 <FieldLabel htmlFor={field.name}>
                   {isLegacyJob ? "岗位 Prompt" : "岗位 JD"}{" "}
                   <span className="text-destructive">*</span>
@@ -85,16 +89,21 @@ export function JobDescriptionPromptFields({
                   </Button>
                 ) : null}
               </div>
-              <FieldContent className="gap-1">
+              <FieldContent
+                className={isLegacyJob ? "gap-1" : "h-full min-h-0 gap-1"}
+                style={isLegacyJob ? undefined : { maxHeight: JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT }}
+              >
                 {evaluationFrozen ? (
                   <JobDescriptionMarkdownSurface
+                    className={isLegacyJob ? undefined : "min-h-0 flex-1"}
                     content={field.state.value}
-                    height={isLegacyJob ? 112 : JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
+                    height={isLegacyJob ? 112 : null}
                     id={field.name}
                   />
                 ) : (
                   <MarkdownEditor
                     aria-invalid={!!errors?.length}
+                    className={isLegacyJob ? undefined : "min-h-0 flex-1"}
                     height={isLegacyJob ? 112 : JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
                     id={field.name}
                     maxLength={PROMPT_MAX_LENGTH}

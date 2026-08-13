@@ -120,17 +120,22 @@ export function serializeEvaluationRules({
 }
 
 export function JobEvaluationBlueprintPreview({
+  className,
   deductionRules,
+  height = JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT,
   ruleDraft,
 }: {
+  className?: string;
   deductionRules: JobDescriptionDeductionRules;
+  height?: number | null;
   ruleDraft: JobEvaluationRuleDraft;
 }) {
   return (
     <JobDescriptionMarkdownSurface
       aria-label="完整评分规则"
+      className={className}
       content={serializeEvaluationRules({ deductionRules, ruleDraft })}
-      height={JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
+      height={height}
     />
   );
 }

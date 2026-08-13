@@ -11,6 +11,7 @@ export const NAME_MAX_LENGTH = 120;
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const PROMPT_MAX_LENGTH = 10_000;
 export const JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT = 320;
+export const JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT = 480;
 export const JOB_SETTING_FIELD_CLASS = "px-3.5 py-2.5 @md/field-group:gap-4";
 export const JOB_SETTING_CONTROL_CLASS =
   "flex w-full flex-col gap-2 @md/field-group:basis-80 @md/field-group:shrink-0";

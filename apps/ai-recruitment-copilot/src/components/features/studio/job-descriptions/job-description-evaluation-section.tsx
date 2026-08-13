@@ -1,11 +1,17 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconHelp, IconLoader2 } from "@tabler/icons-react";
 import type { JobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
 import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
+import { cn } from "@arc/shared/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } from "./job-description-form-values";
+import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
+import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT,
+  JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT,
+} from "./job-description-form-values";
 import { JobEvaluationBlueprintPreview } from "./job-evaluation-blueprint-preview";
 
 export function JobDescriptionEvaluationSection({
@@ -34,15 +40,28 @@ export function JobDescriptionEvaluationSection({
     displayedRuleDraft = streamingRuleDraft;
   }
   return (
-    <div className="flex flex-col gap-2">
+    <Field className="contents">
       <div className="flex min-h-8 items-center justify-between gap-3">
-        <div>
-          <p className="font-medium text-sm">评分规则</p>
-          <p className="text-muted-foreground text-xs">
-            {evaluationFrozen
-              ? "发布后评分规则只读，可滚动查看完整内容。"
-              : "根据岗位 JD 和下方结构化设置生成，核对后发布。"}
-          </p>
+        <div className="flex items-center gap-1.5">
+          <FieldLabel>评分规则</FieldLabel>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  aria-label="查看评分规则说明"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  type="button"
+                >
+                  <IconHelp className="size-3.5" />
+                </button>
+              }
+            />
+            <TooltipContent className="max-w-72" side="top">
+              {evaluationFrozen
+                ? "发布后评分规则只读，可滚动查看完整内容。"
+                : "根据岗位 JD 和下方结构化设置生成，核对后发布。"}
+            </TooltipContent>
+          </Tooltip>
         </div>
         {evaluationFrozen ? null : (
           <Button
@@ -57,21 +76,29 @@ export function JobDescriptionEvaluationSection({
           </Button>
         )}
       </div>
-      {displayedRuleDraft ? (
-        <JobEvaluationBlueprintPreview
-          deductionRules={deductionRules}
-          ruleDraft={displayedRuleDraft}
-        />
-      ) : (
-        <Card className="border-dashed">
-          <CardContent
-            className="flex items-center justify-center p-4 text-center text-muted-foreground text-sm"
-            style={{ height: JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT }}
+      <FieldContent
+        className="h-full min-h-0 gap-1"
+        style={{ maxHeight: JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT }}
+      >
+        {displayedRuleDraft ? (
+          <JobEvaluationBlueprintPreview
+            className="min-h-0 flex-1"
+            deductionRules={deductionRules}
+            height={null}
+            ruleDraft={displayedRuleDraft}
+          />
+        ) : (
+          <div
+            className={cn(
+              cossFieldSurfaceClass,
+              "flex min-h-0 flex-1 items-center justify-center border-dashed p-4 text-center text-muted-foreground text-sm",
+            )}
+            style={{ minHeight: JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT }}
           >
             填写岗位 JD 和结构化设置后，点击“生成评分规则”查看结果。
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+      </FieldContent>
+    </Field>
   );
 }

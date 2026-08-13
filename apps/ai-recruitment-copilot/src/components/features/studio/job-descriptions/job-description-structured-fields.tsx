@@ -207,15 +207,16 @@ function DimensionWeightBar({
           }
           title="权重配置"
         />
-        <span className="font-medium text-emerald-600 text-xs">总计 100%</span>
+        <span className="font-medium text-muted-foreground text-xs">总计 100%</span>
       </div>
 
       <div className="space-y-3">
         <div className="relative py-3" ref={trackRef}>
-          <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
+          <div className="flex h-2.5 gap-px overflow-hidden rounded-full bg-muted">
             {JOB_DESCRIPTION_DIMENSIONS.map(({ color, key }) => (
               <span
                 aria-hidden="true"
+                className="min-w-0"
                 key={key}
                 style={{
                   backgroundColor: weights[key] === 0 ? "transparent" : color,
@@ -275,12 +276,22 @@ function DimensionWeightBar({
               <div
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-md border px-2 py-1.5 text-xs",
-                  isInactive && "bg-muted/50 text-muted-foreground",
+                  isInactive
+                    ? "border-transparent bg-muted/50 text-muted-foreground"
+                    : "text-foreground",
                 )}
                 key={key}
+                style={
+                  isInactive
+                    ? undefined
+                    : {
+                        backgroundColor: `color-mix(in oklab, ${color} var(--job-weight-chip-mix), var(--background))`,
+                        borderColor: `color-mix(in oklab, ${color} var(--job-weight-chip-border-mix), var(--border))`,
+                      }
+                }
               >
                 <span
-                  className="size-2 rounded-sm"
+                  className="size-2 shrink-0 rounded-full"
                   style={{ backgroundColor: isInactive ? "var(--muted-foreground)" : color }}
                 />
                 <span>{label}</span>
@@ -326,19 +337,12 @@ function ScoringConditionList({
       className={cn(
         "flex flex-col gap-3 rounded-lg border p-3",
         accent === "positive"
-          ? "border-emerald-200 bg-emerald-50/50"
-          : "border-red-200 bg-red-50/50",
+          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300"
+          : "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:border-rose-400/25 dark:bg-rose-400/10 dark:text-rose-300",
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <h4
-          className={cn(
-            "font-medium text-sm",
-            accent === "positive" ? "text-emerald-700" : "text-red-700",
-          )}
-        >
-          {title}
-        </h4>
+        <h4 className="font-medium text-sm text-current">{title}</h4>
         {disabled ? null : (
           <Button
             disabled={atLimit}
@@ -363,7 +367,7 @@ function ScoringConditionList({
       </div>
 
       {conditions.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-background/60 px-3 py-3 text-center text-muted-foreground text-xs">
+        <p className="rounded-md border border-dashed border-border bg-background px-3 py-3 text-center text-muted-foreground text-xs">
           {emptyText}
         </p>
       ) : (

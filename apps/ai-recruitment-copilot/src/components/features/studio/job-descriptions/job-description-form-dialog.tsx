@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 
 import { useMemo, useRef } from "react";
+import type { CSSProperties } from "react";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -36,6 +37,7 @@ import {
   emptyJobDescriptionFormValues,
   focusJobDescriptionBasicTabOnInvalidSubmit,
   hasUnsavedFormChanges,
+  JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT,
   toDepartmentScopedFormValues,
   toStructuredDraftValues,
 } from "./job-description-form-values";
@@ -341,7 +343,16 @@ export function JobDescriptionFormDialog({
 
                 <div
                   className={
-                    isLegacyJob ? "flex flex-col gap-5" : "grid items-start gap-3 xl:grid-cols-2"
+                    isLegacyJob
+                      ? "flex flex-col gap-5"
+                      : "flex flex-col gap-3 xl:grid xl:grid-flow-col xl:grid-cols-2 xl:grid-rows-[auto_minmax(0,var(--job-markdown-max-height))]"
+                  }
+                  style={
+                    isLegacyJob
+                      ? undefined
+                      : ({
+                          "--job-markdown-max-height": `${JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT}px`,
+                        } as CSSProperties)
                   }
                 >
                   <JobDescriptionPromptFields

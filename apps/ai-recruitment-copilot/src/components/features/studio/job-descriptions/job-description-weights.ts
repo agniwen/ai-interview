@@ -1,12 +1,12 @@
 import type { JobDescriptionDimensionWeights } from "@arc/db-schema/job-description-structured-config";
 
 export const JOB_DESCRIPTION_DIMENSIONS = [
-  { color: "#3b82f6", key: "skillMatch", label: "技能" },
-  { color: "#14b8a6", key: "experienceRelevance", label: "经验" },
-  { color: "#f59e0b", key: "projectMatch", label: "项目" },
-  { color: "#8b5cf6", key: "educationBackground", label: "学历" },
-  { color: "#ef6c5b", key: "potential", label: "潜力" },
-  { color: "#64748b", key: "stability", label: "稳定" },
+  { color: "var(--job-weight-skill)", key: "skillMatch", label: "技能" },
+  { color: "var(--job-weight-experience)", key: "experienceRelevance", label: "经验" },
+  { color: "var(--job-weight-project)", key: "projectMatch", label: "项目" },
+  { color: "var(--job-weight-education)", key: "educationBackground", label: "学历" },
+  { color: "var(--job-weight-potential)", key: "potential", label: "潜力" },
+  { color: "var(--job-weight-stability)", key: "stability", label: "稳定" },
 ] as const satisfies readonly {
   color: string;
   key: keyof JobDescriptionDimensionWeights;
