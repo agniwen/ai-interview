@@ -88,6 +88,53 @@ describe("JobDescriptionStructuredFields", () => {
     act(() => root.unmount());
   });
 
+  it("keeps hard-gate tabs clickable and freezes published evaluation controls", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const config = createDefaultJobDescriptionStructuredConfig();
+    const workLocation = "上海到岗，每周至少三天";
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionStructuredFields
+          config={{
+            ...config,
+            hardGates: { ...config.hardGates, workLocation },
+            priorityConditions: [{ condition: "具备招聘系统经验", id: "priority-1", points: 10 }],
+          }}
+          disabled
+          onChange={vi.fn()}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const educationInput = container.querySelector<HTMLTextAreaElement>("textarea");
+    expect(educationInput?.readOnly).toBe(true);
+    expect(educationInput?.disabled).toBe(false);
+    expect(container.querySelector('[role="slider"]')).toBeNull();
+    expect(
+      [...container.querySelectorAll("button")].filter((button) => button.textContent === "添加"),
+    ).toHaveLength(0);
+
+    const workLocationTab = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "工作地点",
+    );
+    expect(workLocationTab?.disabled).toBe(false);
+
+    await act(async () => {
+      workLocationTab?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const workLocationInput = container.querySelector<HTMLTextAreaElement>("textarea");
+    expect(workLocationInput?.id).toBe("hard-gate-workLocation");
+    expect(workLocationInput?.readOnly).toBe(true);
+    expect(workLocationInput?.value).toBe(workLocation);
+    act(() => root.unmount());
+  });
+
   it("uses input groups and standard button variants for scoring conditions", () => {
     const container = document.createElement("div");
     const config = createDefaultJobDescriptionStructuredConfig();

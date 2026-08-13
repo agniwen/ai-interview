@@ -20,7 +20,10 @@ export function OverlayScrollbarsBody() {
       cancel: { body: false },
       target: document.body,
     });
-  }, [initialize, getInstance]);
+    return () => {
+      getInstance()?.destroy();
+    };
+  }, [getInstance, initialize]);
 
   return null;
 }

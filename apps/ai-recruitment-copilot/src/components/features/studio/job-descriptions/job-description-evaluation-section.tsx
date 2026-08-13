@@ -5,6 +5,7 @@ import type { JobEvaluationRuleDraft } from "@arc/db-schema/job-description-eval
 import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } from "./job-description-form-values";
 import { JobEvaluationBlueprintPreview } from "./job-evaluation-blueprint-preview";
 
 export function JobDescriptionEvaluationSection({
@@ -16,10 +17,6 @@ export function JobDescriptionEvaluationSection({
   missingRefs,
   preview,
   ruleDraft,
-  ruleDraftDirty,
-  setDeductionRules,
-  setRuleDraft,
-  setRuleDraftDirty,
   streamingRuleDraft,
 }: {
   deductionRules: JobDescriptionDeductionRules;
@@ -30,10 +27,6 @@ export function JobDescriptionEvaluationSection({
   missingRefs: boolean;
   preview: { blueprint: unknown; blueprintHash: string } | null;
   ruleDraft: JobEvaluationRuleDraft | null;
-  ruleDraftDirty: boolean;
-  setDeductionRules: (rules: JobDescriptionDeductionRules) => void;
-  setRuleDraft: (draft: JobEvaluationRuleDraft) => void;
-  setRuleDraftDirty: (dirty: boolean) => void;
   streamingRuleDraft: JobEvaluationRuleDraft | null;
 }) {
   let displayedRuleDraft = preview && ruleDraft ? ruleDraft : streamingRuleDraft;
@@ -46,7 +39,9 @@ export function JobDescriptionEvaluationSection({
         <div>
           <p className="font-medium text-sm">评分规则</p>
           <p className="text-muted-foreground text-xs">
-            根据岗位 JD 和下方结构化设置生成，可继续编辑并核对后发布。
+            {evaluationFrozen
+              ? "发布后评分规则只读，可滚动查看完整内容。"
+              : "根据岗位 JD 和下方结构化设置生成，核对后发布。"}
           </p>
         </div>
         {evaluationFrozen ? null : (
@@ -63,29 +58,16 @@ export function JobDescriptionEvaluationSection({
         )}
       </div>
       {displayedRuleDraft ? (
-        <div className="flex flex-col gap-2">
-          {preview && ruleDraftDirty ? (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-800 text-xs dark:bg-amber-950/30 dark:text-amber-300">
-              评分规则有未保存修改，保存岗位后才可发布。
-            </p>
-          ) : null}
-          <JobEvaluationBlueprintPreview
-            deductionRules={deductionRules}
-            disabled={evaluationFrozen || isGeneratingPreview}
-            onDeductionRulesChange={(nextDeductionRules) => {
-              setDeductionRules(nextDeductionRules);
-              setRuleDraftDirty(true);
-            }}
-            onRuleDraftChange={(nextRuleDraft) => {
-              setRuleDraft(nextRuleDraft);
-              setRuleDraftDirty(true);
-            }}
-            ruleDraft={displayedRuleDraft}
-          />
-        </div>
+        <JobEvaluationBlueprintPreview
+          deductionRules={deductionRules}
+          ruleDraft={displayedRuleDraft}
+        />
       ) : (
         <Card className="border-dashed">
-          <CardContent className="flex min-h-28 items-center justify-center p-4 text-center text-muted-foreground text-sm">
+          <CardContent
+            className="flex items-center justify-center p-4 text-center text-muted-foreground text-sm"
+            style={{ height: JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT }}
+          >
             填写岗位 JD 和结构化设置后，点击“生成评分规则”查看结果。
           </CardContent>
         </Card>

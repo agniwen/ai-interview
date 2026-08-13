@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
+import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 export function useResumeLibraryBulkUpload({
@@ -37,12 +38,7 @@ export function useResumeLibraryBulkUpload({
     enabled: canReadResumeUploadBatch,
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
-    refetchInterval: (query) =>
-      (query.state.data ?? []).some(
-        (batch) => batch.status === "pending" || batch.status === "running",
-      )
-        ? 10_000
-        : false,
+    refetchInterval: (query) => bulkResumeBatchRefetchInterval(query.state.data),
   });
 
   const libraryBatches = useMemo(

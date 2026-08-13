@@ -8,7 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import type { JobDescriptionFormApi } from "./job-description-form-values";
-import { DESCRIPTION_MAX_LENGTH, PROMPT_MAX_LENGTH } from "./job-description-form-values";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT,
+  PROMPT_MAX_LENGTH,
+} from "./job-description-form-values";
+import { JobDescriptionMarkdownSurface } from "./job-description-markdown-surface";
 
 export function JobDescriptionPromptFields({
   evaluationFrozen,
@@ -81,22 +86,29 @@ export function JobDescriptionPromptFields({
                 ) : null}
               </div>
               <FieldContent className="gap-1">
-                <MarkdownEditor
-                  aria-invalid={!!errors?.length}
-                  id={field.name}
-                  disabled={evaluationFrozen}
-                  maxLength={PROMPT_MAX_LENGTH}
-                  minHeight={isLegacyJob ? 112 : 192}
-                  onBlur={field.handleBlur}
-                  onChange={field.handleChange}
-                  placeholder={
-                    isLegacyJob
-                      ? "岗位关键职责、技术栈要求、期望的考察维度……"
-                      : "明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
-                  }
-                  showPreview
-                  value={field.state.value}
-                />
+                {evaluationFrozen ? (
+                  <JobDescriptionMarkdownSurface
+                    content={field.state.value}
+                    height={isLegacyJob ? 112 : JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
+                    id={field.name}
+                  />
+                ) : (
+                  <MarkdownEditor
+                    aria-invalid={!!errors?.length}
+                    height={isLegacyJob ? 112 : JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
+                    id={field.name}
+                    maxLength={PROMPT_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                    placeholder={
+                      isLegacyJob
+                        ? "岗位关键职责、技术栈要求、期望的考察维度……"
+                        : "明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
+                    }
+                    showPreview
+                    value={field.state.value}
+                  />
+                )}
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>

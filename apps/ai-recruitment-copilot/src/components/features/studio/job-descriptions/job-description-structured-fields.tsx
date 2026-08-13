@@ -80,9 +80,11 @@ function SectionHeader({ description, title }: { description: string; title: str
 }
 
 function HardGateFields({
+  disabled = false,
   hardGates,
   onChange,
 }: {
+  disabled?: boolean;
   hardGates: JobDescriptionStructuredConfig["hardGates"];
   onChange: (hardGates: JobDescriptionStructuredConfig["hardGates"]) => void;
 }) {
@@ -116,7 +118,7 @@ function HardGateFields({
             return;
           }
 
-          shouldFocusActiveInput.current = true;
+          shouldFocusActiveInput.current = !disabled;
           setActiveHardGate(nextField.key);
         }}
         orientation="vertical"
@@ -144,13 +146,17 @@ function HardGateFields({
               className="h-56 min-h-56 resize-none"
               id={`hard-gate-${definition.key}`}
               maxLength={JOB_DESCRIPTION_HARD_GATE_MAX_LENGTH}
-              onChange={(event) =>
-                onChange({
-                  ...hardGates,
-                  [definition.key]: event.target.value,
-                })
+              onChange={
+                disabled
+                  ? undefined
+                  : (event) =>
+                      onChange({
+                        ...hardGates,
+                        [definition.key]: event.target.value,
+                      })
               }
               placeholder={definition.placeholder}
+              readOnly={disabled}
               ref={(element) => {
                 textareaRefs.current[definition.key] = element;
               }}
@@ -164,9 +170,11 @@ function HardGateFields({
 }
 
 function DimensionWeightBar({
+  disabled = false,
   onChange,
   weights,
 }: {
+  disabled?: boolean;
   onChange: (weights: JobDescriptionDimensionWeights) => void;
   weights: JobDescriptionDimensionWeights;
 }) {
@@ -192,7 +200,11 @@ function DimensionWeightBar({
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeader
-          description="拖动分界点调整相邻维度；拖到 0% 时该维度停用并置灰。"
+          description={
+            disabled
+              ? "发布后权重已锁定，仅供查看。"
+              : "拖动分界点调整相邻维度；拖到 0% 时该维度停用并置灰。"
+          }
           title="权重配置"
         />
         <span className="font-medium text-emerald-600 text-xs">总计 100%</span>
@@ -212,60 +224,64 @@ function DimensionWeightBar({
               />
             ))}
           </div>
-          {boundaries.map((boundary, index) => {
-            const previousBoundary = boundaries[index - 1] ?? 0;
-            const nextBoundary = boundaries[index + 1] ?? 100;
-            const leftDimension = JOB_DESCRIPTION_DIMENSIONS[index];
-            const overlappingBoundaries = boundaries.filter((value) => value === boundary);
-            const overlapIndex = boundaries
-              .slice(0, index)
-              .filter((value) => value === boundary).length;
-            const verticalOffset =
-              overlappingBoundaries.length > 1
-                ? (overlapIndex - (overlappingBoundaries.length - 1) / 2) * 10
-                : 0;
-            return (
-              <button
-                aria-label={`${leftDimension?.label ?? "维度"}与下一维度的权重分界点`}
-                aria-valuemax={nextBoundary}
-                aria-valuemin={previousBoundary}
-                aria-valuenow={boundary}
-                className="absolute size-4 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border border-input bg-background shadow-sm outline-none hover:border-ring hover:ring-1 hover:ring-ring focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-                key={`${leftDimension?.key ?? index}-boundary`}
-                onKeyDown={(event) => {
-                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-                    return;
-                  }
-                  event.preventDefault();
-                  moveBoundary(index, boundary + (event.key === "ArrowRight" ? 1 : -1));
-                }}
-                onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
-                onPointerMove={(event) => handlePointerMove(index, event)}
-                role="slider"
-                style={{
-                  left: `${boundary}%`,
-                  top: `calc(50% + ${verticalOffset}px)`,
-                }}
-                type="button"
-              />
-            );
-          })}
+          {disabled
+            ? null
+            : boundaries.map((boundary, index) => {
+                const previousBoundary = boundaries[index - 1] ?? 0;
+                const nextBoundary = boundaries[index + 1] ?? 100;
+                const leftDimension = JOB_DESCRIPTION_DIMENSIONS[index];
+                const overlappingBoundaries = boundaries.filter((value) => value === boundary);
+                const overlapIndex = boundaries
+                  .slice(0, index)
+                  .filter((value) => value === boundary).length;
+                const verticalOffset =
+                  overlappingBoundaries.length > 1
+                    ? (overlapIndex - (overlappingBoundaries.length - 1) / 2) * 10
+                    : 0;
+                return (
+                  <button
+                    aria-label={`${leftDimension?.label ?? "维度"}与下一维度的权重分界点`}
+                    aria-valuemax={nextBoundary}
+                    aria-valuemin={previousBoundary}
+                    aria-valuenow={boundary}
+                    className="absolute size-4 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border border-input bg-background shadow-sm outline-none hover:border-ring hover:ring-1 hover:ring-ring focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+                    key={`${leftDimension?.key ?? index}-boundary`}
+                    onKeyDown={(event) => {
+                      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                        return;
+                      }
+                      event.preventDefault();
+                      moveBoundary(index, boundary + (event.key === "ArrowRight" ? 1 : -1));
+                    }}
+                    onPointerDown={(event) =>
+                      event.currentTarget.setPointerCapture(event.pointerId)
+                    }
+                    onPointerMove={(event) => handlePointerMove(index, event)}
+                    role="slider"
+                    style={{
+                      left: `${boundary}%`,
+                      top: `calc(50% + ${verticalOffset}px)`,
+                    }}
+                    type="button"
+                  />
+                );
+              })}
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {JOB_DESCRIPTION_DIMENSIONS.map(({ color, key, label }) => {
-            const disabled = weights[key] === 0;
+            const isInactive = weights[key] === 0;
             return (
               <div
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-md border px-2 py-1.5 text-xs",
-                  disabled && "bg-muted/50 text-muted-foreground",
+                  isInactive && "bg-muted/50 text-muted-foreground",
                 )}
                 key={key}
               >
                 <span
                   className="size-2 rounded-sm"
-                  style={{ backgroundColor: disabled ? "var(--muted-foreground)" : color }}
+                  style={{ backgroundColor: isInactive ? "var(--muted-foreground)" : color }}
                 />
                 <span>{label}</span>
                 <span className="font-semibold tabular-nums">{weights[key]}%</span>
@@ -281,6 +297,7 @@ function DimensionWeightBar({
 function ScoringConditionList({
   accent,
   conditions,
+  disabled = false,
   emptyText,
   onChange,
   sign,
@@ -288,6 +305,7 @@ function ScoringConditionList({
 }: {
   accent: "positive" | "negative";
   conditions: JobDescriptionScoringCondition[];
+  disabled?: boolean;
   emptyText: string;
   onChange: (conditions: JobDescriptionScoringCondition[]) => void;
   sign: "+" | "−";
@@ -321,25 +339,27 @@ function ScoringConditionList({
         >
           {title}
         </h4>
-        <Button
-          disabled={atLimit}
-          onClick={() =>
-            onChange([
-              ...conditions,
-              {
-                condition: "",
-                id: crypto.randomUUID(),
-                points: 1,
-              },
-            ])
-          }
-          size="sm"
-          type="button"
-          variant="secondary"
-        >
-          <IconPlus data-icon="inline-start" />
-          添加
-        </Button>
+        {disabled ? null : (
+          <Button
+            disabled={atLimit}
+            onClick={() =>
+              onChange([
+                ...conditions,
+                {
+                  condition: "",
+                  id: crypto.randomUUID(),
+                  points: 1,
+                },
+              ])
+            }
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <IconPlus data-icon="inline-start" />
+            添加
+          </Button>
+        )}
       </div>
 
       {conditions.length === 0 ? (
@@ -356,8 +376,13 @@ function ScoringConditionList({
                   <InputGroupInput
                     aria-invalid={conditionMissing || undefined}
                     maxLength={JOB_DESCRIPTION_SCORING_CONDITION_MAX_LENGTH}
-                    onChange={(event) => patchCondition(index, { condition: event.target.value })}
+                    onChange={
+                      disabled
+                        ? undefined
+                        : (event) => patchCondition(index, { condition: event.target.value })
+                    }
                     placeholder="输入条件内容"
+                    readOnly={disabled}
                     value={condition.condition}
                   />
                   <InputGroupAddon align="inline-end" className="gap-1">
@@ -367,28 +392,37 @@ function ScoringConditionList({
                       className="w-14 flex-none px-1 text-center"
                       max={100}
                       min={1}
-                      onChange={(event) => {
-                        const nextPoints = Number.parseInt(event.target.value, 10);
-                        if (Number.isFinite(nextPoints)) {
-                          patchCondition(index, {
-                            points: Math.max(1, Math.min(100, nextPoints)),
-                          });
-                        }
-                      }}
+                      onChange={
+                        disabled
+                          ? undefined
+                          : (event) => {
+                              const nextPoints = Number.parseInt(event.target.value, 10);
+                              if (Number.isFinite(nextPoints)) {
+                                patchCondition(index, {
+                                  points: Math.max(1, Math.min(100, nextPoints)),
+                                });
+                              }
+                            }
+                      }
+                      readOnly={disabled}
                       type="number"
                       value={condition.points}
                     />
-                    <Button
-                      aria-label={`删除${title}`}
-                      onClick={() =>
-                        onChange(conditions.filter((_, conditionIndex) => conditionIndex !== index))
-                      }
-                      size="icon-xs"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <IconTrash data-icon="inline-start" />
-                    </Button>
+                    {disabled ? null : (
+                      <Button
+                        aria-label={`删除${title}`}
+                        onClick={() =>
+                          onChange(
+                            conditions.filter((_, conditionIndex) => conditionIndex !== index),
+                          )
+                        }
+                        size="icon-xs"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <IconTrash data-icon="inline-start" />
+                      </Button>
+                    )}
                   </InputGroupAddon>
                 </InputGroup>
                 {conditionMissing ? (
@@ -405,9 +439,11 @@ function ScoringConditionList({
 
 function ScoringConditions({
   config,
+  disabled = false,
   onChange,
 }: {
   config: JobDescriptionStructuredConfig;
+  disabled?: boolean;
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
@@ -420,6 +456,7 @@ function ScoringConditions({
         <ScoringConditionList
           accent="positive"
           conditions={config.priorityConditions}
+          disabled={disabled}
           emptyText="暂无优先条件"
           onChange={(priorityConditions) => onChange({ ...config, priorityConditions })}
           sign="+"
@@ -428,6 +465,7 @@ function ScoringConditions({
         <ScoringConditionList
           accent="negative"
           conditions={config.exclusionConditions}
+          disabled={disabled}
           emptyText="暂无排除条件"
           onChange={(exclusionConditions) => onChange({ ...config, exclusionConditions })}
           sign="−"
@@ -448,7 +486,7 @@ export function JobDescriptionStructuredFields({
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <fieldset className="mt-5 flex flex-col gap-6 border-t pt-4" disabled={disabled}>
+    <div className="mt-5 flex flex-col gap-6 border-t pt-4">
       <div className="flex flex-col gap-0.5">
         <h2 className="font-semibold text-base">JD 结构化</h2>
         <p className="text-muted-foreground text-sm">
@@ -464,14 +502,16 @@ export function JobDescriptionStructuredFields({
       </Alert>
 
       <HardGateFields
+        disabled={disabled}
         hardGates={config.hardGates}
         onChange={(hardGates) => onChange({ ...config, hardGates })}
       />
       <DimensionWeightBar
+        disabled={disabled}
         onChange={(weights) => onChange({ ...config, weights })}
         weights={config.weights}
       />
-      <ScoringConditions config={config} onChange={onChange} />
-    </fieldset>
+      <ScoringConditions config={config} disabled={disabled} onChange={onChange} />
+    </div>
   );
 }

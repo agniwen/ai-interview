@@ -7,8 +7,8 @@ import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
 } from "@arc/shared/structured-resume-scoring";
-import { useEffect, useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import { JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT } from "./job-description-form-values";
+import { JobDescriptionMarkdownSurface } from "./job-description-markdown-surface";
 
 type Dimension = (typeof STRUCTURED_RESUME_DIMENSIONS)[number];
 
@@ -20,10 +20,6 @@ const DIMENSION_LABELS: Record<Dimension, string> = {
   skillMatch: "技能",
   stability: "稳定",
 };
-
-const DIMENSION_BY_LABEL = Object.fromEntries(
-  Object.entries(DIMENSION_LABELS).map(([dimension, label]) => [label, dimension]),
-) as Record<string, Dimension>;
 
 const RULE_LABELS: Record<StructuredResumeRuleId, string> = {
   "education.below_tier": "学历每低于门槛一档",
@@ -51,10 +47,6 @@ const RULE_LABELS: Record<StructuredResumeRuleId, string> = {
   "stability.two_changes_two_years": "近 2 年跳槽 2 次",
 };
 
-const RULE_ID_BY_LABEL = Object.fromEntries(
-  Object.entries(RULE_LABELS).map(([ruleId, label]) => [label, ruleId]),
-) as Record<string, StructuredResumeRuleId>;
-
 const DEGREE_LABELS = {
   associate: "大专及以上",
   bachelor: "本科及以上",
@@ -66,55 +58,12 @@ function experienceValue(value: JobEvaluationRuleDraft["requiredRelevantExperien
   return value ? `${value.years} 年｜${value.scopeDescription}` : "未设置";
 }
 
-function parseExperienceValue(
-  value: string,
-  current: JobEvaluationRuleDraft["requiredRelevantExperience"],
-): JobEvaluationRuleDraft["requiredRelevantExperience"] {
-  const normalized = value.trim();
-  if (!normalized || normalized === "未设置") {
-    return null;
-  }
-  const years = Number(normalized.match(/\d+(?:\.\d+)?/)?.[0] ?? current?.years ?? 0);
-  const scopeDescription =
-    normalized.replace(/^\s*\d+(?:\.\d+)?\s*年(?:以上)?\s*(?:[｜|·,，:：-]\s*)?/, "").trim() ||
-    current?.scopeDescription ||
-    "岗位相关经验";
-  return {
-    relevanceScope: current?.relevanceScope ?? "role",
-    scopeDescription,
-    years,
-  };
-}
-
 function educationValue(value: JobEvaluationRuleDraft["educationExpectation"]): string {
   if (!value) {
     return "未设置";
   }
   const degree = value.degreeLevel ? DEGREE_LABELS[value.degreeLevel] : "";
   return [degree, value.majorExpectation].filter(Boolean).join("，") || "未设置";
-}
-
-function parseEducationValue(value: string): JobEvaluationRuleDraft["educationExpectation"] {
-  const normalized = value.trim();
-  if (!normalized || normalized === "未设置") {
-    return null;
-  }
-  let degreeLevel: NonNullable<JobEvaluationRuleDraft["educationExpectation"]>["degreeLevel"] =
-    null;
-  if (normalized.includes("博士")) {
-    degreeLevel = "doctorate";
-  } else if (normalized.includes("硕士") || normalized.includes("研究生")) {
-    degreeLevel = "master";
-  } else if (normalized.includes("本科")) {
-    degreeLevel = "bachelor";
-  } else if (normalized.includes("大专") || normalized.includes("专科")) {
-    degreeLevel = "associate";
-  }
-  const majorExpectation = normalized
-    .replaceAll(/(?:博士|硕士|研究生|本科|大专|专科)(?:及以上|以上)?/g, "")
-    .replaceAll(/^[\s,，、;；:：|｜·-]+|[\s,，、;；:：|｜·-]+$/g, "")
-    .trim();
-  return { degreeLevel, majorExpectation: majorExpectation || null };
 }
 
 function serializeList(label: string, values: string[]): string[] {
@@ -170,181 +119,18 @@ export function serializeEvaluationRules({
   return lines.join("\n");
 }
 
-const TEXT_SECTION_LABELS = new Set([
-  "核心技能：",
-  "辅助技能：",
-  "岗位判断依据：",
-  "评估项目：",
-  "评分标准：",
-  "计分规则：",
-  "扣分规则：",
-]);
-
-function splitDimensionSections(value: string): Map<Dimension, string[]> {
-  const sections = new Map<Dimension, string[]>();
-  let dimension: Dimension | null = null;
-  for (const rawLine of value.replaceAll("\r\n", "\n").split("\n")) {
-    const line = rawLine.trim();
-    const heading = /^【(.+?)(?:｜权重\s*\d+%)?】$/.exec(line);
-    if (heading) {
-      dimension = DIMENSION_BY_LABEL[heading[1] ?? ""] ?? null;
-      if (dimension) {
-        sections.set(dimension, []);
-      }
-      continue;
-    }
-    if (dimension) {
-      sections.get(dimension)?.push(line);
-    }
-  }
-  return sections;
-}
-
-function isTextSectionStart(line: string): boolean {
-  return (
-    TEXT_SECTION_LABELS.has(line) ||
-    line.startsWith("相关经验要求：") ||
-    line.startsWith("学历与背景要求：")
-  );
-}
-
-function readTextList(lines: string[], label: string): string[] | null {
-  const start = lines.indexOf(label);
-  if (start === -1) {
-    return null;
-  }
-  const values: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (isTextSectionStart(line)) {
-      break;
-    }
-    const content = line.replace(/^[-*]\s*/, "").trim();
-    if (content && content !== "未设置") {
-      values.push(content);
-    }
-  }
-  return values;
-}
-
-function readInlineValue(lines: string[], label: string): string | null {
-  const line = lines.find((item) => item.startsWith(label));
-  return line ? line.slice(label.length).trim() : null;
-}
-
-function applyDeductionRuleLine(line: string, deductionRules: JobDescriptionDeductionRules): void {
-  const content = line.replace(/^[-*]\s*/, "").trim();
-  const separatorIndex = content.indexOf("：");
-  if (separatorIndex === -1) {
-    return;
-  }
-  const ruleId = RULE_ID_BY_LABEL[content.slice(0, separatorIndex).trim()];
-  if (!ruleId) {
-    return;
-  }
-  const setting = content.slice(separatorIndex + 1).trim();
-  if (/关闭|禁用|不启用/.test(setting)) {
-    deductionRules[ruleId] = { ...deductionRules[ruleId], enabled: false };
-    return;
-  }
-  if (STRUCTURED_RESUME_DEDUCTION_CATALOG[ruleId].directZero) {
-    deductionRules[ruleId] = { enabled: true, points: 0 };
-    return;
-  }
-  const points = Number(setting.match(/\d+/)?.[0]);
-  if (Number.isFinite(points)) {
-    deductionRules[ruleId] = {
-      enabled: true,
-      points: Math.max(0, Math.min(100, points)),
-    };
-  }
-}
-
-export function parseEvaluationRules(
-  value: string,
-  currentRuleDraft: JobEvaluationRuleDraft,
-  currentDeductionRules: JobDescriptionDeductionRules,
-): {
-  deductionRules: JobDescriptionDeductionRules;
-  ruleDraft: JobEvaluationRuleDraft;
-} {
-  const ruleDraft: JobEvaluationRuleDraft = structuredClone(currentRuleDraft);
-  const deductionRules: JobDescriptionDeductionRules = structuredClone(currentDeductionRules);
-  const sections = splitDimensionSections(value);
-
-  for (const [dimension, lines] of sections) {
-    const expectations =
-      readTextList(lines, "岗位判断依据：") ??
-      readTextList(lines, "评估项目：") ??
-      readTextList(lines, "评分标准：");
-    if (expectations) {
-      ruleDraft.dimensionExpectations[dimension] = expectations;
-    }
-    const deductions = readTextList(lines, "计分规则：") ?? readTextList(lines, "扣分规则：") ?? [];
-    for (const deduction of deductions) {
-      applyDeductionRuleLine(deduction, deductionRules);
-    }
-  }
-
-  const skillLines = sections.get("skillMatch") ?? [];
-  ruleDraft.coreSkills = readTextList(skillLines, "核心技能：") ?? ruleDraft.coreSkills;
-  ruleDraft.auxiliarySkills = readTextList(skillLines, "辅助技能：") ?? ruleDraft.auxiliarySkills;
-
-  const experience = readInlineValue(sections.get("experienceRelevance") ?? [], "相关经验要求：");
-  if (experience !== null) {
-    ruleDraft.requiredRelevantExperience = parseExperienceValue(
-      experience,
-      currentRuleDraft.requiredRelevantExperience,
-    );
-  }
-
-  const education = readInlineValue(sections.get("educationBackground") ?? [], "学历与背景要求：");
-  if (education !== null) {
-    ruleDraft.educationExpectation = parseEducationValue(education);
-  }
-
-  return { deductionRules, ruleDraft };
-}
-
 export function JobEvaluationBlueprintPreview({
   deductionRules,
-  disabled = false,
-  onDeductionRulesChange,
-  onRuleDraftChange,
   ruleDraft,
 }: {
   deductionRules: JobDescriptionDeductionRules;
-  disabled?: boolean;
-  onDeductionRulesChange: (rules: JobDescriptionDeductionRules) => void;
-  onRuleDraftChange: (draft: JobEvaluationRuleDraft) => void;
   ruleDraft: JobEvaluationRuleDraft;
 }) {
-  const serializedValue = serializeEvaluationRules({ deductionRules, ruleDraft });
-  const [draft, setDraft] = useState(serializedValue);
-
-  useEffect(() => setDraft(serializedValue), [serializedValue]);
-
   return (
-    <div className="space-y-2">
-      <p className="text-muted-foreground text-xs">
-        岗位判断依据说明该维度怎样才算符合岗位；可直接修改依据和计分分值，填写“关闭”可停用计分项。
-      </p>
-      <Textarea
-        aria-label="完整评分规则"
-        className="min-h-[40rem] resize-y whitespace-pre-wrap font-mono leading-relaxed"
-        disabled={disabled}
-        onBlur={() => {
-          const parsed = parseEvaluationRules(draft, ruleDraft, deductionRules);
-          if (JSON.stringify(parsed.ruleDraft) !== JSON.stringify(ruleDraft)) {
-            onRuleDraftChange(parsed.ruleDraft);
-          }
-          if (JSON.stringify(parsed.deductionRules) !== JSON.stringify(deductionRules)) {
-            onDeductionRulesChange(parsed.deductionRules);
-          }
-        }}
-        onChange={(event) => setDraft(event.target.value)}
-        spellCheck={false}
-        value={draft}
-      />
-    </div>
+    <JobDescriptionMarkdownSurface
+      aria-label="完整评分规则"
+      content={serializeEvaluationRules({ deductionRules, ruleDraft })}
+      height={JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT}
+    />
   );
 }

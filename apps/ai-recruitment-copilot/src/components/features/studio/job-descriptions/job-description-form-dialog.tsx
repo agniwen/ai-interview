@@ -361,10 +361,6 @@ export function JobDescriptionFormDialog({
                       missingRefs={missingRefs}
                       preview={preview}
                       ruleDraft={ruleDraft}
-                      ruleDraftDirty={ruleDraftDirty}
-                      setDeductionRules={setDeductionRules}
-                      setRuleDraft={setRuleDraft}
-                      setRuleDraftDirty={setRuleDraftDirty}
                       streamingRuleDraft={streamingRuleDraft}
                     />
                   )}

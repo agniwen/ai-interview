@@ -43,6 +43,7 @@ import {
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { authClient } from "@/lib/client/auth-client";
+import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
@@ -249,7 +250,7 @@ export function ResumePoolPage() {
     enabled: canReadResumeUploadBatch,
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
-    refetchInterval: 10_000,
+    refetchInterval: (query) => bulkResumeBatchRefetchInterval(query.state.data),
   });
   const duplicateMatchesQuery = useQuery({
     enabled: duplicateMatchRecord !== null,

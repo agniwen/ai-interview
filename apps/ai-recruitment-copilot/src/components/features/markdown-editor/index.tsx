@@ -22,9 +22,11 @@ export interface MarkdownEditorProps {
   defaultMode?: EditorMode;
   className?: string;
   minHeight?: number;
+  height?: number;
   id?: string;
   showPreview?: boolean;
   "aria-invalid"?: boolean;
+  "aria-label"?: string;
 }
 
 const editorContentClassName = cn(
@@ -57,9 +59,11 @@ export function MarkdownEditor({
   defaultMode = "edit",
   className,
   minHeight = 240,
+  height,
   id,
   showPreview = true,
   "aria-invalid": ariaInvalid,
+  "aria-label": ariaLabel,
 }: MarkdownEditorProps) {
   const { changeMode, editor, mode } = useMarkdownEditor({
     defaultMode,
@@ -76,6 +80,7 @@ export function MarkdownEditor({
   return (
     <div
       aria-invalid={ariaInvalid}
+      aria-label={ariaLabel}
       className={cn(
         cossFieldSurfaceClass,
         "flex flex-col overflow-hidden",
@@ -95,7 +100,13 @@ export function MarkdownEditor({
         />
       </div>
 
-      <div className="relative z-10 bg-transparent" style={{ minHeight }}>
+      <div
+        className={cn(
+          "relative z-10 bg-transparent",
+          typeof height === "number" && "overflow-y-auto",
+        )}
+        style={typeof height === "number" ? { height } : { minHeight }}
+      >
         {visibleMode === "edit" && (
           <>
             <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />

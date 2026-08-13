@@ -164,22 +164,10 @@ vi.mock("./job-description-screening-fields", () => ({
 }));
 
 vi.mock("./job-evaluation-blueprint-preview", () => ({
-  JobEvaluationBlueprintPreview: ({
-    onRuleDraftChange,
-    ruleDraft,
-  }: {
-    onRuleDraftChange: (draft: Record<string, unknown>) => void;
-    ruleDraft: Record<string, unknown>;
-  }) => (
+  JobEvaluationBlueprintPreview: ({ ruleDraft }: { ruleDraft: Record<string, unknown> }) => (
     <div>
-      <span>可编辑评分规则</span>
+      <span>评分规则预览</span>
       <span>{JSON.stringify(ruleDraft)}</span>
-      <button
-        onClick={() => onRuleDraftChange({ ...ruleDraft, coreSkills: ["React"] })}
-        type="button"
-      >
-        模拟编辑评分规则
-      </button>
     </div>
   ),
 }));
@@ -340,11 +328,8 @@ describe("structured job description preview flow", () => {
     expect(legacyLabels).toContain("岗位 Prompt *");
     expect(legacyContainer.textContent).not.toContain("旧版筛选规则");
     expect(legacyContainer.textContent).not.toContain("新版评分设置");
-    const legacyPrompt = legacyContainer.querySelector<HTMLTextAreaElement>(
-      'textarea[aria-label="MarkdownEditor"]',
-    );
-    expect(legacyPrompt?.dataset.showPreview).toBe("true");
-    expect(legacyPrompt?.disabled).toBe(true);
+    expect(legacyContainer.querySelector('textarea[aria-label="MarkdownEditor"]')).toBeNull();
+    expect(legacyContainer.querySelector(".typeset")?.textContent).toContain("岗位要求");
     act(() => legacyRoot.unmount());
   });
 
@@ -458,7 +443,7 @@ describe("structured job description preview flow", () => {
     });
 
     expect(api.calls).toEqual(["save", "preview"]);
-    expect(container.textContent).toContain("可编辑评分规则");
+    expect(container.textContent).toContain("评分规则预览");
     expect(onSaved).toHaveBeenCalledWith(
       expect.objectContaining({
         evaluationBlueprintPreviewHash: "blueprint-hash",
@@ -576,7 +561,7 @@ describe("structured job description preview flow", () => {
         ),
       ).toBeDefined(),
     );
-    expect(container.textContent).toContain("可编辑评分规则");
+    expect(container.textContent).toContain("评分规则预览");
 
     const publishButton = [...container.querySelectorAll("button")].find((item) =>
       item.textContent?.includes("确认并发布"),
@@ -701,67 +686,6 @@ describe("structured job description preview flow", () => {
     act(() => root.unmount());
   });
 
-  it("persists recruiter edits before allowing publication", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const onOpenChange = vi.fn();
-
-    await act(async () => {
-      root.render(
-        <JobDescriptionFormDialog
-          departments={[{ id: "department-1", name: "研发部" } as never]}
-          interviewers={[
-            {
-              departmentId: "department-1",
-              id: "interviewer-1",
-              name: "面试官",
-            } as never,
-          ]}
-          onOpenChange={onOpenChange}
-          onSaved={vi.fn()}
-          open
-          record={record as never}
-        />,
-      );
-      await Promise.resolve();
-    });
-
-    const generateButton = [...container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("生成评分规则"),
-    );
-    await act(async () => {
-      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await vi.waitFor(() => expect(api.generatePreview).toHaveBeenCalledTimes(1));
-    });
-
-    const editButton = [...container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("模拟编辑评分规则"),
-    );
-    act(() => editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-    expect(container.textContent).toContain("评分规则有未保存修改");
-
-    const saveButton = [...container.querySelectorAll("button")].find(
-      (item) => item.textContent?.trim() === "保存",
-    );
-    await act(async () => {
-      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await vi.waitFor(() => expect(api.saveRuleDraft).toHaveBeenCalledTimes(1));
-    });
-
-    expect(api.saveRuleDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        json: expect.objectContaining({
-          expectedBlueprintHash: "blueprint-hash",
-          ruleDraft: expect.objectContaining({ coreSkills: ["React"] }),
-        }),
-      }),
-    );
-    expect(api.saveDraft).toHaveBeenCalledTimes(1);
-    expect(onOpenChange).not.toHaveBeenCalled();
-    act(() => root.unmount());
-  });
-
   it("saves unchanged job information and keeps the dialog open", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -877,6 +801,49 @@ describe("structured job description preview flow", () => {
     });
 
     expect(nameInput?.value).toBe("已保存的新岗位名");
+
+    act(() => root.unmount());
+  });
+
+  it("renders published job JD as markdown instead of an editor", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const publishedPrompt = "负责前端架构。\n\n- 精通 React";
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={vi.fn()}
+          onSaved={vi.fn()}
+          open
+          record={
+            {
+              ...record,
+              evaluationBlueprint: api.blueprint,
+              evaluationBlueprintHash: "published-hash",
+              lifecycleStatus: "published",
+              prompt: publishedPrompt,
+              publishedAt: new Date(),
+            } as never
+          }
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('textarea[aria-label="MarkdownEditor"]')).toBeNull();
+    expect(container.querySelector(".typeset")?.textContent).toContain("负责前端架构");
+    expect(container.textContent).not.toContain("一键生成 JD");
+    expect(container.textContent).not.toContain("生成评分规则");
 
     act(() => root.unmount());
   });

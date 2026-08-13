@@ -427,7 +427,7 @@ export function JobDescriptionUpgradeDialog({
                     <div>
                       <h2 className="font-semibold text-base">新版评分规则</h2>
                       <p className="text-muted-foreground text-sm">
-                        生成后可人工调整；评分规则和岗位 JD 都保存后才允许发布。
+                        生成后可核对；评分规则和岗位 JD 都保存后才允许发布。
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -462,15 +462,6 @@ export function JobDescriptionUpgradeDialog({
                   {draft.blueprintPreview && ruleDraft ? (
                     <JobEvaluationBlueprintPreview
                       deductionRules={deductionRules}
-                      disabled={isBusy}
-                      onDeductionRulesChange={(nextRules) => {
-                        setDeductionRules(nextRules);
-                        setRuleDraftDirty(true);
-                      }}
-                      onRuleDraftChange={(nextRuleDraft) => {
-                        setRuleDraft(nextRuleDraft);
-                        setRuleDraftDirty(true);
-                      }}
                       ruleDraft={ruleDraft}
                     />
                   ) : (

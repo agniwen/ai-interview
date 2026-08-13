@@ -172,4 +172,29 @@ describe("useBulkUpload", () => {
       root.unmount();
     });
   });
+
+  it("stops polling after the page unmounts", async () => {
+    vi.useFakeTimers();
+    const runningDetail: BulkResumeBatchDetailDto = { batch, items: [item] };
+    apiMocks.resumeBulkResumeBatch.mockResolvedValue(runningDetail);
+    apiMocks.getBulkResumeBatchDetail.mockResolvedValue(runningDetail);
+
+    const { root } = renderHookHarness({ onRecordsChanged: vi.fn() });
+    await flushPromises();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    expect(apiMocks.getBulkResumeBatchDetail).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4500);
+    });
+
+    expect(apiMocks.getBulkResumeBatchDetail).toHaveBeenCalledTimes(1);
+  });
 });
