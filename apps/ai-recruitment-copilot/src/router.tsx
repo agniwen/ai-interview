@@ -5,6 +5,15 @@ import { RoutePendingView } from "@/components/layout/route-pending-view";
 import { getQueryClient } from "@/lib/client/query-client";
 import { routeTree } from "./routeTree.gen";
 
+const RECRUITER_RESUME_DETAIL_PATH = /^\/w\/[^/]+\/studio\/resumes\/[^/]+\/?$/;
+
+function getRecruiterResumeDetailScrollToTopElement() {
+  if (typeof location === "undefined" || !RECRUITER_RESUME_DETAIL_PATH.test(location.pathname)) {
+    return;
+  }
+  return document.querySelector('[data-scroll-restoration-id="studio-main-scroll"]');
+}
+
 function DefaultNotFoundComponent() {
   return <NotFoundPage />;
 }
@@ -25,6 +34,7 @@ export function getRouter() {
     notFoundMode: "root",
     routeTree,
     scrollRestoration: true,
+    scrollToTopSelectors: [getRecruiterResumeDetailScrollToTopElement],
   });
 
   setupRouterSsrQueryIntegration({ queryClient, router });
