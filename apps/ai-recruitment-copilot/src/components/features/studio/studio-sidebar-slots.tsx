@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SidebarBodyPortalContent } from "@/components/layout/app-sidebar/portals";
+import { useSidebarMenuHoverHighlight } from "@/components/layout/app-sidebar/sidebar-menu-hover-highlight";
 import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import {
@@ -186,7 +187,17 @@ export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefin
     .find((item) => studioPath === item.path || studioPath.startsWith(`${item.path}/`));
 }
 
-function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean; href: string }) {
+function SidebarNavItem({
+  item,
+  active,
+  href,
+  onHover,
+}: {
+  item: NavItem;
+  active: boolean;
+  href: string;
+  onHover: (target: HTMLElement) => void;
+}) {
   // Hook must be called unconditionally
   const allowed = useHasPermission(item.resource, item.action);
   const memberRole = useWorkspaceMemberRole();
@@ -197,9 +208,13 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
 
   const Icon = item.icon;
   return (
-    <SidebarMenuItem key={item.path}>
+    <SidebarMenuItem
+      className="relative"
+      key={item.path}
+      onPointerEnter={(event) => onHover(event.currentTarget)}
+    >
       <SidebarMenuButton
-        className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
+        className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/80 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${active ? "" : " hover:bg-transparent!"}`}
         isActive={active}
         render={
           <Link to={href}>
@@ -216,6 +231,8 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
 function StudioSidebarNavigation() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const slug = useWorkspaceSlug();
+  const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
+    useSidebarMenuHoverHighlight();
 
   // 把 nav 表里的 /studio/* 路径包成当前 workspace 的 /w/[slug]/studio/* 链接；
   // 没有 slug (理论上 StudioSidebarSlots 只在 workspace 路由下渲染) 时退回根路径,
@@ -226,23 +243,29 @@ function StudioSidebarNavigation() {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  return navGroups.map((group) => (
-    <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
-      <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {group.items.map((item) => (
-            <SidebarNavItem
-              key={item.path}
-              item={item}
-              active={isActive(item.path)}
-              href={buildHref(item.path)}
-            />
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  ));
+  return (
+    <div className="relative" onPointerLeave={hideMenuHighlight} ref={containerRef}>
+      {hoverHighlight}
+      {navGroups.map((group) => (
+        <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
+          <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {group.items.map((item) => (
+                <SidebarNavItem
+                  key={item.path}
+                  item={item}
+                  active={isActive(item.path)}
+                  href={buildHref(item.path)}
+                  onHover={moveToMenuItem}
+                />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </div>
+  );
 }
 
 export function StudioSidebarSlots({

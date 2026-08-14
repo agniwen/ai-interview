@@ -26,7 +26,7 @@ async function findFirstAllowedStudioPath(slug: string) {
 function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
-      <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)] border border-border">
+      <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
         <ScrollArea
           className="@container/main min-h-0 flex-1 bg-background"
           scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}

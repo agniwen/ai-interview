@@ -13,6 +13,7 @@ import {
   SidebarBodyPortalContent,
   SidebarHeaderPortalContent,
 } from "@/components/layout/app-sidebar/portals";
+import { useSidebarMenuHoverHighlight } from "@/components/layout/app-sidebar/sidebar-menu-hover-highlight";
 import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import {
@@ -378,6 +379,8 @@ function ChatSidebarBody({
 }) {
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
+    useSidebarMenuHoverHighlight();
 
   const closeOnNavigate = useCallback(() => {
     if (isMobile) {
@@ -400,7 +403,12 @@ function ChatSidebarBody({
   if (isCollapsed) {
     return (
       <TooltipProvider>
-        <ul className="space-y-1.5 px-1">
+        <ul
+          className="relative space-y-1.5 px-1"
+          onPointerLeave={hideMenuHighlight}
+          ref={containerRef}
+        >
+          {hoverHighlight}
           {conversations.map((conversation) => {
             const isActive = activeSessionId === conversation.id;
             const visibleTitle = conversation.isTitleGenerating
@@ -414,9 +422,10 @@ function ChatSidebarBody({
                     render={
                       <Link
                         className={cn(
-                          "block cursor-default rounded-md px-1.5 py-1.5 transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-                          isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
+                          "relative z-10 block cursor-default rounded-md px-1.5 py-1.5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+                          isActive ? "bg-sidebar-accent" : "hover:bg-transparent!",
                         )}
+                        onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
                         params={{ sessionId: conversation.id, slug }}
                         to="/w/$slug/agent/$sessionId"
                         onClick={closeOnNavigate}
@@ -443,7 +452,12 @@ function ChatSidebarBody({
   }
 
   return (
-    <ul className="space-y-0.5 px-1.5 py-1">
+    <ul
+      className="relative space-y-0.5 px-1.5 py-1"
+      onPointerLeave={hideMenuHighlight}
+      ref={containerRef}
+    >
+      {hoverHighlight}
       {conversations.map((conversation) => {
         const isActive = activeSessionId === conversation.id;
         const isSelected = selectedIds.has(conversation.id);
@@ -461,12 +475,13 @@ function ChatSidebarBody({
           <li key={conversation.id}>
             <div
               className={cn(
-                "group/session-item flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
+                "group/session-item relative z-10 flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
                 isActive && !editMode
                   ? "border-sidebar-border/80 bg-sidebar-accent"
-                  : "hover:bg-sidebar-accent/60",
+                  : "hover:bg-transparent!",
                 editMode && isSelected ? "border-sidebar-border/80 bg-sidebar-accent" : "",
               )}
+              onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
             >
               {renderSessionItem({
                 closeOnNavigate,

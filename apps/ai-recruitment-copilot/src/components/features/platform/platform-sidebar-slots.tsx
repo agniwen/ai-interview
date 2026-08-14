@@ -24,6 +24,7 @@ import {
   SidebarHeaderPortalContent,
 } from "@/components/layout/app-sidebar/portals";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
+import { useSidebarMenuHoverHighlight } from "@/components/layout/app-sidebar/sidebar-menu-hover-highlight";
 import { Kbd } from "@/components/ui/kbd";
 import {
   SidebarGroup,
@@ -189,6 +190,8 @@ export function PlatformSidebarSlots() {
   const activeTab = resolvePlatformSidebarTab(pathname);
   const navSections = activeTab === "mastra" ? mastraNavSections : manageNavSections;
   const activeNavItem = resolvePlatformSidebarNavItem(pathname);
+  const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
+    useSidebarMenuHoverHighlight();
 
   return (
     <>
@@ -198,34 +201,41 @@ export function PlatformSidebarSlots() {
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
-        {navSections.map((section) => (
-          <SidebarGroup key={section.id}>
-            {section.title ? <SidebarGroupLabel>{section.title}</SidebarGroupLabel> : null}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
-                        isActive={item === activeNavItem}
-                        render={
-                          <Link to={item.path}>
-                            <Icon />
-                            <span>{item.title}</span>
-                          </Link>
-                        }
-                        size="default"
-                        tooltip={item.title}
-                      />
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <div className="relative" onPointerLeave={hideMenuHighlight} ref={containerRef}>
+          {hoverHighlight}
+          {navSections.map((section) => (
+            <SidebarGroup key={section.id}>
+              {section.title ? <SidebarGroupLabel>{section.title}</SidebarGroupLabel> : null}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <SidebarMenuItem
+                        className="relative"
+                        key={item.path}
+                        onPointerEnter={(event) => moveToMenuItem(event.currentTarget)}
+                      >
+                        <SidebarMenuButton
+                          className="relative z-10 cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-transparent! active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
+                          isActive={item === activeNavItem}
+                          render={
+                            <Link to={item.path}>
+                              <Icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          }
+                          size="default"
+                          tooltip={item.title}
+                        />
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </div>
       </SidebarBodyPortalContent>
 
       <SidebarFooterPortalContent>
