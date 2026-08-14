@@ -54,7 +54,7 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
         <TableHeader>
           <TableRow>
             {columnIndexes.map((columnIndex) => (
-              <TableHead key={`header-${columnIndex}`}>
+              <TableHead className="bg-background" key={`header-${columnIndex}`}>
                 <Skeleton
                   className={cn(
                     "h-4",
@@ -327,6 +327,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                     return (
                       <TableHead
                         className={cn(
+                          "bg-background",
                           maxHeight && STICKY_HEADER_CLASS,
                           pin && PINNED_HEADER_CLASS,
                           getPinnedEdgeClassName({

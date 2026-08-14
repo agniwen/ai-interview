@@ -480,9 +480,9 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
           <div className="overflow-x-auto">
             <table className="min-w-max border-collapse text-sm">
               <thead>
-                <tr className="border-b bg-muted">
+                <tr className="border-b bg-background">
                   <th
-                    className="sticky left-0 z-20 min-w-68 border-r bg-muted px-3 py-2 text-left align-middle font-medium"
+                    className="sticky left-0 z-20 min-w-68 border-r bg-background px-3 py-2 text-left align-middle font-medium"
                     rowSpan={2}
                     scope="col"
                   >
@@ -499,7 +499,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
                     </th>
                   ))}
                 </tr>
-                <tr className="border-b bg-muted">
+                <tr className="border-b bg-background">
                   {permissionHeaderGroups.flatMap((group) =>
                     group.items.map((item) => (
                       <th

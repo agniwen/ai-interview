@@ -36,7 +36,7 @@ const markdownComponents = {
     );
   },
   thead({ className, ...props }: ComponentProps<"thead">) {
-    return <thead className={cn("bg-muted/70", className)} {...props} />;
+    return <thead className={cn("bg-background", className)} {...props} />;
   },
   tr({ className, ...props }: ComponentProps<"tr">) {
     return <tr className={cn("even:bg-muted/30", className)} {...props} />;

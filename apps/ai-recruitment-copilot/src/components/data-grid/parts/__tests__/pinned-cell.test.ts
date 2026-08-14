@@ -11,10 +11,9 @@ import {
 } from "../pinned-cell";
 
 describe("pinned table headers", () => {
-  it("uses sidebar fill in light mode and muted in dark for sticky/pinned headers", () => {
-    expect(PINNED_HEADER_CLASS).toBe("bg-sidebar dark:bg-muted");
-    expect(STICKY_HEADER_CLASS).toContain("bg-sidebar");
-    expect(STICKY_HEADER_CLASS).toContain("dark:bg-muted");
+  it("uses the background fill for sticky/pinned headers", () => {
+    expect(PINNED_HEADER_CLASS).toBe("bg-background");
+    expect(STICKY_HEADER_CLASS).toContain("bg-background");
     expect(PINNED_HEADER_CLASS.includes("/")).toBe(false);
   });
 });

@@ -260,7 +260,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
   } else {
     messagesContent = (
       <table className="w-full text-left text-sm [&_td]:py-1.5 [&_td]:pr-6 [&_td]:align-top [&_th]:pr-6 [&_th]:pb-2 [&_th]:font-medium">
-        <thead>
+        <thead className="bg-background">
           <tr className="text-muted-foreground">
             <th>收到时间</th>
             <th>状态</th>

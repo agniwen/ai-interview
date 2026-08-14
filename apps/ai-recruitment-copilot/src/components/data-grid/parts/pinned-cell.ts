@@ -60,7 +60,7 @@ export function getPinningStyles<TData extends RowData>(
   };
 }
 
-const OPAQUE_HEADER_SURFACE = "bg-sidebar dark:bg-muted";
+const OPAQUE_HEADER_SURFACE = "bg-background";
 
 export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
 
@@ -72,7 +72,7 @@ export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
 export const PINNED_CELL_CLASS = "bg-background";
 
 /**
- * Sticky header cells use the same opaque light-mode sidebar / dark muted fill as TableHead.
+ * Sticky header cells use the same opaque background fill as DataGrid headers.
  */
 export const STICKY_HEADER_CLASS = `sticky top-0 z-2 ${OPAQUE_HEADER_SURFACE}`;
 
