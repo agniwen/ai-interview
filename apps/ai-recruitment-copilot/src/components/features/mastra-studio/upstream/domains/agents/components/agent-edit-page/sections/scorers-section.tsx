@@ -1,0 +1,271 @@
+import { Button } from "@mastra/playground-ui/components/Button";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@mastra/playground-ui/components/Collapsible";
+import { Combobox } from "@mastra/playground-ui/components/Combobox";
+import { Input } from "@mastra/playground-ui/components/Input";
+import { Label } from "@mastra/playground-ui/components/Label";
+import { RadioGroup, RadioGroupItem } from "@mastra/playground-ui/components/RadioGroup";
+import { Textarea } from "@mastra/playground-ui/components/Textarea";
+import { Icon } from "@mastra/playground-ui/icons/Icon";
+import { JudgeIcon } from "@mastra/playground-ui/icons/JudgeIcon";
+import { Trash2, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import type { Control } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
+
+import type { AgentFormValues, ScorerConfig } from "../utils/form-validation";
+import { SectionTitle } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-title";
+import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
+
+interface ScorersSectionProps {
+  control: Control<AgentFormValues>;
+  error?: string;
+  readOnly?: boolean;
+}
+
+function ScorerConfigPanel({
+  scorerId,
+  scorerName,
+  description,
+  samplingConfig,
+  onDescriptionChange,
+  onSamplingChange,
+  onRemove,
+  readOnly = false,
+}: ScorerConfigPanelProps) {
+  const samplingType = samplingConfig?.type || "none";
+
+  const handleTypeChange = (type: string) => {
+    if (type === "none") {
+      onSamplingChange();
+    } else if (type === "ratio") {
+      onSamplingChange({ rate: 0.1, type: "ratio" });
+    }
+  };
+
+  const handleRateChange = (rate: number) => {
+    if (samplingConfig?.type === "ratio") {
+      onSamplingChange({ rate, type: "ratio" });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon size="sm">
+            <JudgeIcon className="text-neutral3" />
+          </Icon>
+          <span className="text-xs font-medium text-neutral6">{scorerName}</span>
+        </div>
+        {!readOnly && (
+          <Button
+            type="button"
+            tooltip={`移除 ${scorerName}`}
+            onClick={onRemove}
+            variant="ghost"
+            size="icon-sm"
+          >
+            <Trash2 />
+          </Button>
+        )}
+      </div>
+
+      <Textarea
+        id={`description-${scorerId}`}
+        value={description}
+        onChange={(e) => onDescriptionChange(e.target.value)}
+        placeholder="为此评分器添加自定义描述…"
+        className="min-h-[40px] text-xs bg-surface3 border-dashed px-2 py-1"
+        size="sm"
+        disabled={readOnly}
+      />
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={`sampling-type-${scorerId}`} className="text-xs text-neutral4">
+          采样
+        </Label>
+        <RadioGroup
+          id={`sampling-type-${scorerId}`}
+          value={samplingType}
+          onValueChange={handleTypeChange}
+          className="flex flex-col gap-2"
+          disabled={readOnly}
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="none" id={`${scorerId}-none`} disabled={readOnly} />
+            <Label htmlFor={`${scorerId}-none`} className="text-sm text-neutral5 cursor-pointer">
+              不采样（全部评估）
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="ratio" id={`${scorerId}-ratio`} disabled={readOnly} />
+            <Label htmlFor={`${scorerId}-ratio`} className="text-sm text-neutral5 cursor-pointer">
+              比例（百分比）
+            </Label>
+          </div>
+        </RadioGroup>
+
+        {samplingType === "ratio" && (
+          <div className="flex flex-col gap-1.5 mt-1">
+            <Label htmlFor={`rate-${scorerId}`} className="text-xs text-neutral4">
+              采样率（0–1）
+            </Label>
+            <Input
+              id={`rate-${scorerId}`}
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              value={samplingConfig?.rate ?? 0.1}
+              onChange={(e) => handleRateChange(Number.parseFloat(e.target.value))}
+              className="h-8"
+              disabled={readOnly}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ScorersSection({ control, error, readOnly = false }: ScorersSectionProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: scorers, isLoading } = useScorers();
+  const selectedScorers = useWatch({ control, name: "scorers" });
+  const count = Object.keys(selectedScorers || {}).length;
+
+  const options = useMemo(() => {
+    if (!scorers) {
+      return [];
+    }
+    return Object.entries(scorers).map(([id, scorer]) => ({
+      description:
+        (scorer as { scorer?: { config?: { description?: string } } }).scorer?.config
+          ?.description || "",
+      label: (scorer as { scorer?: { config?: { name?: string } } }).scorer?.config?.name || id,
+      value: id,
+    }));
+  }, [scorers]);
+
+  const getOriginalDescription = (id: string): string => {
+    const option = options.find((opt) => opt.value === id);
+    return option?.description || "";
+  };
+
+  return (
+    <div className="rounded-md border border-border1 bg-surface2">
+      <Controller
+        name="scorers"
+        control={control}
+        render={({ field }) => {
+          const fieldScorers = field.value || {};
+          const selectedIds = Object.keys(fieldScorers);
+          const selectedOptions = options.filter((opt) => selectedIds.includes(opt.value));
+
+          const handleValueChange = (newIds: string[]) => {
+            const newScorers: Record<string, ScorerConfig> = {};
+            for (const id of newIds) {
+              newScorers[id] = fieldScorers[id] || {
+                description: getOriginalDescription(id),
+              };
+            }
+            field.onChange(newScorers);
+          };
+
+          const handleDescriptionChange = (scorerId: string, description: string) => {
+            field.onChange({
+              ...fieldScorers,
+              [scorerId]: { ...fieldScorers[scorerId], description },
+            });
+          };
+
+          const handleSamplingChange = (
+            scorerId: string,
+            samplingConfig: ScorerConfig["sampling"] | undefined,
+          ) => {
+            field.onChange({
+              ...fieldScorers,
+              [scorerId]: { ...fieldScorers[scorerId], sampling: samplingConfig },
+            });
+          };
+
+          const handleRemove = (scorerId: string) => {
+            field.onChange(omitRecordKey(fieldScorers, scorerId));
+          };
+
+          return (
+            <>
+              <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+                <div className="flex items-center justify-between p-3 bg-surface3">
+                  <CollapsibleTrigger className="flex items-center gap-1 w-full">
+                    <ChevronRight className="h-4 w-4 text-neutral3" />
+                    <SectionTitle icon={<JudgeIcon className="text-neutral3" />}>
+                      评分器
+                      {count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
+                    </SectionTitle>
+                  </CollapsibleTrigger>
+                </div>
+
+                <CollapsibleContent>
+                  <div className="p-3 border-t border-border1">
+                    <div className="flex flex-col gap-2">
+                      <Combobox
+                        multiple
+                        options={options}
+                        value={selectedIds}
+                        onValueChange={handleValueChange}
+                        placeholder="选择评分器…"
+                        searchPlaceholder="搜索评分器…"
+                        emptyText="暂无可用评分器"
+                        disabled={isLoading || readOnly}
+                        error={error}
+                      />
+
+                      {selectedOptions.length > 0 && (
+                        <div className="flex flex-col gap-3 mt-2">
+                          {selectedOptions.map((scorer) => (
+                            <ScorerConfigPanel
+                              key={scorer.value}
+                              scorerId={scorer.value}
+                              scorerName={scorer.label}
+                              description={fieldScorers[scorer.value]?.description || ""}
+                              samplingConfig={fieldScorers[scorer.value]?.sampling}
+                              onDescriptionChange={(desc) =>
+                                handleDescriptionChange(scorer.value, desc)
+                              }
+                              onSamplingChange={(config) =>
+                                handleSamplingChange(scorer.value, config)
+                              }
+                              onRemove={() => handleRemove(scorer.value)}
+                              readOnly={readOnly}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+interface ScorerConfigPanelProps {
+  scorerId: string;
+  scorerName: string;
+  description: string;
+  samplingConfig?: ScorerConfig["sampling"];
+  onDescriptionChange: (description: string) => void;
+  onSamplingChange: (config?: ScorerConfig["sampling"]) => void;
+  onRemove: () => void;
+  readOnly?: boolean;
+}

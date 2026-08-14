@@ -15,7 +15,7 @@ export const RESUME_SEMANTIC_INDEX_JOB_NAME = "index-resume-semantic";
 export const resumeSemanticIndexJobSchema = z.object({
   organizationId: z.string().min(1),
   sourceId: z.string().min(1),
-  sourceType: z.enum(["studio_interview", "resume_pool_item"]),
+  sourceType: z.enum(["studio_interview", "resume_pool_item", "job_description"]),
 });
 
 export type ResumeSemanticIndexJobData = z.infer<typeof resumeSemanticIndexJobSchema>;
@@ -51,6 +51,13 @@ export function buildResumeSemanticIndexJobId({
   sourceType,
 }: Pick<ResumeSemanticIndexJobData, "sourceId" | "sourceType">): string {
   return `${sourceType}-${sourceId.replaceAll(":", "-")}`;
+}
+
+export function resolveResumeSemanticIndexWorkerConcurrency(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const value = Number.parseInt(env.RESUME_SEMANTIC_INDEX_WORKER_CONCURRENCY || "9", 10);
+  return Number.isFinite(value) && value > 0 ? value : 9;
 }
 
 export function getResumeSemanticIndexQueue(): Queue<ResumeSemanticIndexJobData> {
@@ -104,7 +111,7 @@ export function createResumeSemanticIndexWorker(
       await processJob(payload);
     },
     {
-      concurrency: Number.parseInt(process.env.RESUME_SEMANTIC_INDEX_WORKER_CONCURRENCY || "2", 10),
+      concurrency: resolveResumeSemanticIndexWorkerConcurrency(),
       connection: createRedisConnection(),
       prefix: buildResumeParseQueuePrefix(),
     },
@@ -112,6 +119,7 @@ export function createResumeSemanticIndexWorker(
 
   worker.on("ready", () => {
     console.info("[resume-semantic-index-worker] ready", {
+      concurrency: resolveResumeSemanticIndexWorkerConcurrency(),
       queue: RESUME_SEMANTIC_INDEX_QUEUE_NAME,
     });
   });

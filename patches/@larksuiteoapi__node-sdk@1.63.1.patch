@@ -1,0 +1,49 @@
+diff --git a/es/index.js b/es/index.js
+index 1f7e71475fcc6a52f8dbb9d9122bc6584b7fdd82..36c484cf62523551b8772a3b0679a842b62400a1 100644
+--- a/es/index.js
++++ b/es/index.js
+@@ -89766,6 +89766,11 @@ class LarkChannel {
+                 }));
+             }),
+         });
++        // Register application-specific events on this exact dispatcher so a
++        // second WebSocket client cannot steal cluster-delivered events.
++        if (this.opts.eventHandlers) {
++            this.dispatcher.register(this.opts.eventHandlers);
++        }
+     }
+     emitError(e) {
+         var _a, _b, _c;
+diff --git a/lib/index.js b/lib/index.js
+index 481f56e1cb8fefd517cdd7dd68dd5a0cde694dc5..cc3ee9a6877c4a731388d6f823985c6636635627 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -89784,6 +89784,11 @@ class LarkChannel {
+                 }));
+             }),
+         });
++        // Register application-specific events on this exact dispatcher so a
++        // second WebSocket client cannot steal cluster-delivered events.
++        if (this.opts.eventHandlers) {
++            this.dispatcher.register(this.opts.eventHandlers);
++        }
+     }
+     emitError(e) {
+         var _a, _b, _c;
+diff --git a/types/index.d.ts b/types/index.d.ts
+index 8cac6ddd41599b525235c17f490a8e02688d1d28..2fd3ee086b9434321cefafc8737344a0ece89404 100644
+--- a/types/index.d.ts
++++ b/types/index.d.ts
+@@ -293493,6 +293493,12 @@ interface LarkChannelOptions {
+     includeRawEvent?: boolean;
+     /** @deprecated Use `includeRawEvent` instead. Retained for backward compatibility. */
+     includeRawInMessage?: boolean;
++    /**
++     * Extra Feishu event handlers registered on this channel's existing
++     * EventDispatcher before its WebSocket connection starts. Handler names
++     * must not overlap with the channel's built-in message/card handlers.
++     */
++    eventHandlers?: IHandles;
+ }
+ interface WebhookOptions {
+     verificationToken?: string;

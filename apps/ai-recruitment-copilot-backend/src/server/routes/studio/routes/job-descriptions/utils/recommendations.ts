@@ -13,10 +13,19 @@ import {
   isResumeSemanticIndexEnabled,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
 import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
-import type { ResumeSemanticTextChunk } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
+import {
+  SEARCH_LIMIT_BY_CHUNK,
+  mergeVectorScores,
+  weightedScore,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/scoring";
+import type { VectorScores } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/scoring";
+import { buildJobDescriptionSemanticTexts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
+import type {
+  JobDescriptionSemanticInput,
+  ResumeSemanticTextChunk,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
-  ResumeVectorSearchResult,
   ResumeVectorStore,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/vector-store";
 import {
@@ -24,13 +33,7 @@ import {
   buildProfileHighlights,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 
-interface RecommendJobDescription {
-  departmentName: string | null;
-  description: string | null;
-  id: string;
-  name: string;
-  prompt: string;
-}
+export type RecommendJobDescription = JobDescriptionSemanticInput;
 
 interface RecommendationCandidateRecord {
   candidateEmail: string | null;
@@ -46,12 +49,6 @@ interface RecommendationCandidateRecord {
   resumeProfile: ResumeProfile | null;
   skillsNormalized: string[];
   targetRole: string | null;
-}
-
-interface VectorScores {
-  resumeOverview?: number;
-  skillRole?: number;
-  workProject?: number;
 }
 
 export interface FacetSimilarity {
@@ -103,83 +100,6 @@ interface RecommendationDeps {
     ids: string[],
   ) => Promise<RecommendationCandidateRecord[]>;
   vectorStore: ResumeVectorStore;
-}
-
-const SEARCH_LIMIT_BY_CHUNK = {
-  resume_overview: 40,
-  skill_role: 50,
-  work_project: 50,
-} as const satisfies Record<ResumeSemanticTextChunk["chunkType"], number>;
-
-function cleanText(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed.replaceAll(/\s+/g, " ") : null;
-}
-
-function section(title: string, lines: (string | null)[]): string {
-  const body = lines.filter((line): line is string => typeof line === "string");
-  return [`## ${title}`, ...body].join("\n");
-}
-
-function buildJobRecommendationQueryTexts(jd: RecommendJobDescription): ResumeSemanticTextChunk[] {
-  const name = cleanText(jd.name);
-  const departmentName = cleanText(jd.departmentName);
-  const description = cleanText(jd.description);
-  const prompt = cleanText(jd.prompt);
-
-  return [
-    {
-      chunkType: "resume_overview",
-      text: section("岗位概览", [
-        name ? `岗位名称：${name}` : null,
-        departmentName ? `所属部门：${departmentName}` : null,
-        description ? `岗位描述：${description}` : null,
-      ]),
-    },
-    {
-      chunkType: "work_project",
-      text: section("职责和业务场景", [
-        description ? `业务描述：${description}` : null,
-        prompt ? `面试官提示：${prompt}` : null,
-      ]),
-    },
-    {
-      chunkType: "skill_role",
-      text: section("岗位和技能要求", [
-        name ? `目标岗位：${name}` : null,
-        prompt ? `能力要求：${prompt}` : null,
-        description ? `补充描述：${description}` : null,
-      ]),
-    },
-  ];
-}
-
-function mergeVectorScores(results: ResumeVectorSearchResult[]): Map<string, VectorScores> {
-  const map = new Map<string, VectorScores>();
-  for (const result of results) {
-    if (result.sourceType !== "studio_interview") {
-      continue;
-    }
-    const current = map.get(result.sourceId) ?? {};
-    if (result.chunkType === "resume_overview") {
-      current.resumeOverview = Math.max(current.resumeOverview ?? 0, result.score);
-    } else if (result.chunkType === "work_project") {
-      current.workProject = Math.max(current.workProject ?? 0, result.score);
-    } else {
-      current.skillRole = Math.max(current.skillRole ?? 0, result.score);
-    }
-    map.set(result.sourceId, current);
-  }
-  return map;
-}
-
-function weightedScore(scores: VectorScores): number {
-  return Math.floor(
-    ((scores.skillRole ?? 0) * 0.45 +
-      (scores.workProject ?? 0) * 0.35 +
-      (scores.resumeOverview ?? 0) * 0.2) *
-      100,
-  );
 }
 
 function normalizeSkill(value: string): string {
@@ -259,7 +179,7 @@ export async function scoreCandidatesForJobDescription(
   // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
   deps: RecommendationDeps = createDefaultRecommendationDeps(),
 ): Promise<ScoreCoreResult> {
-  const chunks = buildJobRecommendationQueryTexts(input.jobDescription);
+  const chunks = buildJobDescriptionSemanticTexts(input.jobDescription);
   const embedded = await deps.embed({
     ...deps.embeddingConfig,
     chunks,
@@ -275,7 +195,7 @@ export async function scoreCandidatesForJobDescription(
       }),
     ),
   );
-  const bySource = mergeVectorScores(resultGroups.flat());
+  const bySource = mergeVectorScores(resultGroups.flat(), "studio_interview");
   const retrievedIds = new Set(bySource.keys());
   const candidates = await deps.loadCandidates(input.organizationId, [...bySource.keys()]);
   const loadedIds = new Set(candidates.map((c) => c.id));

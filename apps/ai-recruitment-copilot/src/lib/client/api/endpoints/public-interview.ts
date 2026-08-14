@@ -44,6 +44,19 @@ export function fetchPublicInterviewRoundReports(
   );
 }
 
+export function fetchPublicInterviewRoundReport(
+  roundId: string,
+  conversationId: string,
+): Promise<StudioInterviewConversationReport | null> {
+  return rpcFetch<StudioInterviewConversationReport>(
+    rpc.api.public["interview-rounds"][":id"].reports[":conversationId"].$get({
+      param: { conversationId, id: roundId },
+    }),
+    "加载面试记录失败",
+    { allow404: true },
+  );
+}
+
 export function fetchPublicInterviewRecordingUrl(
   roundId: string,
   conversationId: string,

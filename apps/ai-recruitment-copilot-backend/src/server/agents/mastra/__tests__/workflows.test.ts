@@ -60,6 +60,7 @@ describe("Mastra recruitment workflows", () => {
       "resumeAnalysisWorkflow",
       "resumeParseWorkflow",
       "resumeReviewWorkflow",
+      "structuredResumeReviewWorkflow",
     ]);
   });
 

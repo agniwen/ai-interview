@@ -47,7 +47,7 @@ function InputOTPSlot({
       data-active={isActive}
       className={cn(
         cossControlOverlayClass,
-        "relative flex h-9 w-9 items-center justify-center border-y border-r border-input bg-background bg-clip-padding text-sm shadow-xs/5 transition-all outline-none first:rounded-l-md first:border-l first:before:rounded-l-[calc(var(--radius-md)-1px)] last:rounded-r-md last:before:rounded-r-[calc(var(--radius-md)-1px)] aria-invalid:border-destructive aria-invalid:before:shadow-none data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-[3px] data-[active=true]:ring-ring/50 data-[active=true]:before:shadow-none data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
+        "relative flex h-9 w-9 items-center justify-center border-y border-r border-input bg-background bg-clip-padding text-sm transition-all outline-none first:rounded-l-md first:border-l first:before:rounded-l-[calc(var(--radius-md)-1px)] last:rounded-r-md last:before:rounded-r-[calc(var(--radius-md)-1px)] aria-invalid:border-destructive data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-1 data-[active=true]:ring-ring data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
         className,
       )}
       {...props}

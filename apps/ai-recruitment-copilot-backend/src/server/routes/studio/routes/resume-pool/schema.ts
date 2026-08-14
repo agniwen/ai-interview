@@ -3,6 +3,7 @@ import { resumePoolCreateSchema, resumePoolImportSchema } from "@arc/shared/resu
 
 export const resumePoolListQuerySchema = z.object({
   scope: z.enum(["private", "public"]).default("private"),
+  uploaderId: z.string().trim().min(1).optional(),
 });
 
 export const resumePoolImportInputSchema = resumePoolImportSchema
@@ -21,3 +22,7 @@ export const resumePoolImportInputSchema = resumePoolImportSchema
   }));
 
 export const resumePoolCreateInputSchema = resumePoolCreateSchema;
+
+export const resumePoolBindSchema = z.object({
+  jobDescriptionId: z.string().trim().min(1),
+});

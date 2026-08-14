@@ -1,14 +1,19 @@
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import {
+  generateResumeStructured,
+  parseResumeFast,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
 import {
   getUserAttachment,
+  updateParseResultByHash,
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const PREVIEW_SUFFIX = "-preview.pdf";
@@ -26,15 +31,43 @@ export const attachmentsRouter = factory
       return c.json({ error: "Not Found" }, 404);
     }
 
-    let resumeProfile = attachment.parsedStructured
-      ? projectAttachmentToResumeProfile(attachment.parsedStructured)
-      : null;
-    if (!resumeProfile && attachment.parsedText?.trim()) {
+    const cacheCompatible = isResumeParseCacheSourceCompatible(attachment.parsedTextSource);
+    let resumeProfile =
+      cacheCompatible && attachment.parsedStructured
+        ? projectAttachmentToResumeProfile(attachment.parsedStructured)
+        : null;
+    if (
+      !resumeProfile &&
+      cacheCompatible &&
+      attachment.parsedTextSource !== "aliyun-docmining" &&
+      attachment.parsedText?.trim()
+    ) {
       const structured = await generateResumeStructured(attachment.parsedText);
       if (attachment.contentHash) {
         await updateStructuredByHash(attachment.contentHash, structured);
       }
       resumeProfile = projectAttachmentToResumeProfile(structured);
+    }
+    if (!resumeProfile) {
+      const object = await getObjectBytes(attachment.storageKey);
+      if (object) {
+        const parsed = await parseResumeFast({
+          bytes: object.bytes,
+          fileName: attachment.filename,
+          mediaType: object.contentType || attachment.mediaType,
+        });
+        if (attachment.contentHash) {
+          await updateParseResultByHash({
+            contentHash: attachment.contentHash,
+            parsedPageCount: parsed.pageCount,
+            parsedStatus: "ready",
+            parsedStructured: parsed.structured,
+            parsedText: parsed.text,
+            parsedTextSource: parsed.textSource,
+          });
+        }
+        resumeProfile = projectAttachmentToResumeProfile(parsed.structured);
+      }
     }
 
     if (!resumeProfile) {
@@ -42,7 +75,7 @@ export const attachmentsRouter = factory
     }
 
     try {
-      const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+      const jobDescriptions = await listRecruitingJobDescriptions(activeOrg.id);
       const match = await resolveJobDescriptionMatchBestEffort({
         jobDescriptions,
         resumeProfile,

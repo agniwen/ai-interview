@@ -13,8 +13,8 @@ import {
 // - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
-import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -22,13 +22,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableRowDivider,
 } from "@/components/ui/table";
+import { cn } from "@arc/shared/utils";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘" }];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘台" }];
 
 // ─────────────────── shared mini Card ───────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -529,15 +529,6 @@ const RESUMES: ResumeRow[] = [
   },
 ];
 
-const LIFECYCLE_TONE_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
-  info: "border-sky-500/20 bg-sky-500/5 text-sky-700/80 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300/80",
-  outline: "border-border bg-muted/40 text-foreground dark:bg-muted/30",
-  success:
-    "border-emerald-500/20 bg-emerald-500/5 text-emerald-700/80 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300/80",
-  warning:
-    "border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300/80",
-};
-
 const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
   info: "hover:ring-sky-500/10",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
@@ -547,30 +538,38 @@ const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
 
 function LifecycleBadge({ row }: { row: ResumeRow }) {
   return (
-    <button
-      aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
-      className={`group/lifecycle inline-flex w-44 max-w-full items-center justify-start gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 pr-1.5 text-left font-normal text-xs whitespace-nowrap transition-shadow duration-200 hover:ring-2 ${LIFECYCLE_TONE_CLASS[row.lifecycleTone]} ${LIFECYCLE_RING_CLASS[row.lifecycleTone]}`}
-      title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
-      type="button"
-    >
-      <span className="shrink-0">{row.lifecycleStage}</span>
-      <span aria-hidden="true" className="shrink-0 opacity-45">
-        ·
-      </span>
-      <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
-      <span
-        aria-hidden="true"
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
-      >
-        <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
-      </span>
-    </button>
+    <Badge
+      className={cn(
+        "group/lifecycle w-44 max-w-full justify-start text-left transition-shadow duration-200 hover:ring-2",
+        LIFECYCLE_RING_CLASS[row.lifecycleTone],
+      )}
+      render={
+        <button
+          aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
+          title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
+          type="button"
+        >
+          <span className="shrink-0">{row.lifecycleStage}</span>
+          <span aria-hidden="true" className="shrink-0 opacity-45">
+            ·
+          </span>
+          <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
+          <span
+            aria-hidden="true"
+            className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
+          >
+            <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
+          </span>
+        </button>
+      }
+      variant={row.lifecycleTone}
+    />
   );
 }
 
 function ResumeTable() {
   return (
-    <Table className="table-fixed">
+    <Table className="table-fixed" variant="card">
       <TableHeader>
         <TableRow>
           <TableHead aria-label="选择" className="w-12">
@@ -589,89 +588,86 @@ function ResumeTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {RESUMES.map((r, index) => (
-          <Fragment key={r.name}>
-            <TableRow key={r.name}>
-              <TableCell aria-label="选择简历">
-                <span
-                  aria-hidden="true"
-                  className="inline-block size-4 rounded-[3px] border border-foreground/30"
-                />
-              </TableCell>
-              <TableCell aria-label={`候选人：${r.name}`}>
-                <div className="flex min-w-0 items-start gap-2">
-                  {r.hasPdf ? (
-                    <span
-                      aria-label="查看简历 PDF"
-                      className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
-                    >
-                      <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
-                    </span>
-                  ) : (
-                    <span
-                      aria-disabled="true"
-                      aria-label="暂无简历 PDF"
-                      className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                    >
-                      <PdfFileIcon className="size-8" />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                      {r.name}
-                    </div>
-                    <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
-                      {r.email}
-                    </div>
+        {RESUMES.map((r) => (
+          <TableRow key={r.name}>
+            <TableCell aria-label="选择简历">
+              <span
+                aria-hidden="true"
+                className="inline-block size-4 rounded-[3px] border border-foreground/30"
+              />
+            </TableCell>
+            <TableCell aria-label={`候选人：${r.name}`}>
+              <div className="flex min-w-0 items-start gap-2">
+                {r.hasPdf ? (
+                  <span
+                    aria-label="查看简历 PDF"
+                    className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                  >
+                    <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
+                  </span>
+                ) : (
+                  <span
+                    aria-disabled="true"
+                    aria-label="暂无简历 PDF"
+                    className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+                  >
+                    <PdfFileIcon className="size-8" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
+                    {r.name}
+                  </div>
+                  <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
+                    {r.email}
                   </div>
                 </div>
-              </TableCell>
-              <TableCell>
-                <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                  {r.jobDepartment} / {r.jobLink}
+              </div>
+            </TableCell>
+            <TableCell>
+              <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
+                {r.jobDepartment} / {r.jobLink}
+              </span>
+            </TableCell>
+            <TableCell>
+              <LifecycleBadge row={r} />
+            </TableCell>
+            <TableCell aria-label={`创建人：${r.creator}`}>
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
+                />
+                <span>{r.creator}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">
+              {r.lastInterviewAt}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-end gap-0.5">
+                <span
+                  aria-label="查看简历"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  查看
                 </span>
-              </TableCell>
-              <TableCell>
-                <LifecycleBadge row={r} />
-              </TableCell>
-              <TableCell aria-label={`创建人：${r.creator}`}>
-                <div className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
-                  />
-                  <span>{r.creator}</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">
-                {r.lastInterviewAt}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center justify-end gap-0.5">
-                  <span
-                    aria-label="查看简历"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    查看
-                  </span>
-                  <span
-                    aria-label="编辑简历"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    编辑
-                  </span>
-                  <span
-                    aria-label="更多简历操作"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    更多
-                  </span>
-                </div>
-              </TableCell>
-            </TableRow>
-            {index < RESUMES.length - 1 ? <TableRowDivider /> : null}
-          </Fragment>
+                <span
+                  aria-label="编辑简历"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  编辑
+                </span>
+                <span
+                  aria-label="更多简历操作"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  更多
+                </span>
+              </div>
+            </TableCell>
+          </TableRow>
         ))}
       </TableBody>
     </Table>
@@ -684,8 +680,8 @@ function ResumesContent() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
-        description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
-        title="招聘"
+        description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
+        title="招聘台"
       />
       <ChartsRow />
       <PipelineStageTabs />

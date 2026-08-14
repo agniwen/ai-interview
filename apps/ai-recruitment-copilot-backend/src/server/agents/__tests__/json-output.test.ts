@@ -57,13 +57,23 @@ describe("parseJsonOutput", () => {
     expect(parseJsonOutput(text, SCHEMA, LABEL)).toEqual({ age: 6, name: "f" });
   });
 
-  it("uses the LAST closing brace, so nested objects survive lastIndexOf slicing", () => {
+  it("preserves nested JSON objects", () => {
     const text = '{"name":"g","age":7,"meta":{"k":"v"}}';
     expect(parseJsonOutput(text, SCHEMA.passthrough(), LABEL)).toMatchObject({
       age: 7,
       meta: { k: "v" },
       name: "g",
     });
+  });
+
+  it("tries multiple JSON objects instead of merging the first opening and last closing brace", () => {
+    const text = '示例：{"name":"x"}，最终结果：{"name":"h","age":8}';
+    expect(parseJsonOutput(text, SCHEMA, LABEL)).toEqual({ age: 8, name: "h" });
+  });
+
+  it("keeps braces inside JSON string values", () => {
+    const text = '{"name":"候选人 {A}","age":9}';
+    expect(parseJsonOutput(text, SCHEMA, LABEL)).toEqual({ age: 9, name: "候选人 {A}" });
   });
 
   it("throws when the parsed object fails schema validation", () => {
@@ -93,5 +103,16 @@ describe("parseJsonOutput", () => {
     // At least one error call should begin with [my-label].
     const calls = errorSpy.mock.calls.map((args) => String(args[0]));
     expect(calls.some((c) => c.startsWith("[my-label]"))).toBe(true);
+  });
+
+  it("does not log raw model output when parsing fails", () => {
+    const sensitiveValue = "候选人敏感公司与项目经历";
+    const errorSpy = vi.mocked(console.error);
+
+    expect(() =>
+      parseJsonOutput(`{"name":"${sensitiveValue}","age":"invalid"}`, SCHEMA, LABEL),
+    ).toThrow();
+
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(sensitiveValue);
   });
 });

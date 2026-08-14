@@ -63,6 +63,7 @@ export interface ContextSnapshotPresetQuestion {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  id: string;
 }
 
 export function buildInterviewContextSnapshotPayload(
@@ -173,6 +174,7 @@ async function buildSnapshotPayloadFromDatabase(
   const [jd] = candidate.jobDescriptionId
     ? await tx
         .select({
+          description: jobDescription.description,
           id: jobDescription.id,
           name: jobDescription.name,
           prompt: jobDescription.prompt,
@@ -182,6 +184,7 @@ async function buildSnapshotPayloadFromDatabase(
           and(
             eq(jobDescription.id, candidate.jobDescriptionId),
             eq(jobDescription.organizationId, candidate.organizationId),
+            eq(jobDescription.lifecycleStatus, "published"),
           ),
         )
         .limit(1)
@@ -272,6 +275,7 @@ async function buildSnapshotPayloadFromDatabase(
     })),
     jobDescription: jd
       ? {
+          description: jd.description,
           id: jd.id,
           name: jd.name,
           prompt: jd.prompt,
@@ -397,6 +401,7 @@ export function flattenPresetQuestionsFromContextSnapshot(
           difficulty: question.difficulty,
           evaluationFocus: question.evaluationFocus ?? null,
           followUpDirections: question.followUpDirections ?? null,
+          id: question.id,
         });
       }
     }

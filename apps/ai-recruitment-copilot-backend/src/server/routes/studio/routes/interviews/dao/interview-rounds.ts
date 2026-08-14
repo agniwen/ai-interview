@@ -26,7 +26,10 @@ import {
 } from "@arc/db-schema/schema";
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
 import { deriveJdRequiredSkills } from "@arc/shared/resume-screening";
-import { scheduleEntryStatusSchema } from "@arc/db-schema/studio-interviews";
+import {
+  buildCandidateInterviewFeedback,
+  scheduleEntryStatusSchema,
+} from "@arc/db-schema/studio-interviews";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -222,6 +225,7 @@ export async function queryPaginatedInterviewRounds(
         resumeStorageKey: studioInterview.resumeStorageKey,
         roundLabel: studioInterviewSchedule.roundLabel,
         scheduledAt: studioInterviewSchedule.scheduledAt,
+        scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
         sortOrder: studioInterviewSchedule.sortOrder,
         status: studioInterviewSchedule.status,
         targetRole: studioInterview.targetRole,
@@ -278,6 +282,7 @@ export async function queryPaginatedInterviewRounds(
     resumeFileName: row.resumeFileName,
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
+    scheduledEndAt: serializeDate(row.scheduledEndAt),
     sortOrder: row.sortOrder,
     status: row.status,
     targetRole: row.targetRole,
@@ -337,6 +342,7 @@ export async function listInterviewRoundsForCandidate(
       resumeStorageKey: studioInterview.resumeStorageKey,
       roundLabel: studioInterviewSchedule.roundLabel,
       scheduledAt: studioInterviewSchedule.scheduledAt,
+      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
       sortOrder: studioInterviewSchedule.sortOrder,
       status: studioInterviewSchedule.status,
       targetRole: studioInterview.targetRole,
@@ -393,6 +399,7 @@ export async function listInterviewRoundsForCandidate(
     resumeFileName: row.resumeFileName,
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
+    scheduledEndAt: serializeDate(row.scheduledEndAt),
     sortOrder: row.sortOrder,
     status: row.status,
     targetRole: row.targetRole,
@@ -423,6 +430,9 @@ export async function loadInterviewRoundDetail(
   const [row] = await db
     .select({
       allowTextInput: studioInterviewSchedule.allowTextInput,
+      candidateFeedbackCategories: studioInterviewSchedule.candidateFeedbackCategories,
+      candidateFeedbackDetail: studioInterviewSchedule.candidateFeedbackDetail,
+      candidateFeedbackSubmittedAt: studioInterviewSchedule.candidateFeedbackSubmittedAt,
       candidateId: studioInterviewSchedule.interviewRecordId,
       conversationId: studioInterviewSchedule.conversationId,
       createdAt: studioInterviewSchedule.createdAt,
@@ -431,6 +441,7 @@ export async function loadInterviewRoundDetail(
       notes: studioInterviewSchedule.notes,
       roundLabel: studioInterviewSchedule.roundLabel,
       scheduledAt: studioInterviewSchedule.scheduledAt,
+      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
       sessionStartedAt: studioInterviewSchedule.sessionStartedAt,
       sortOrder: studioInterviewSchedule.sortOrder,
       status: studioInterviewSchedule.status,
@@ -458,6 +469,7 @@ export async function loadInterviewRoundDetail(
         and(
           eq(jobDescription.id, candidate.jobDescriptionId),
           eq(jobDescription.organizationId, organizationId),
+          eq(jobDescription.lifecycleStatus, "published"),
         ),
       )
       .limit(1);
@@ -473,6 +485,11 @@ export async function loadInterviewRoundDetail(
   return {
     allowTextInput: row.allowTextInput,
     candidate,
+    candidateFeedback: buildCandidateInterviewFeedback({
+      categories: row.candidateFeedbackCategories,
+      detail: row.candidateFeedbackDetail,
+      submittedAt: row.candidateFeedbackSubmittedAt,
+    }),
     conversationId: row.conversationId,
     createdAt: serializeDate(row.createdAt) ?? "",
     disconnectedAt: serializeDate(row.disconnectedAt),
@@ -483,6 +500,7 @@ export async function loadInterviewRoundDetail(
     notes: row.notes,
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),
+    scheduledEndAt: serializeDate(row.scheduledEndAt),
     sessionStartedAt: serializeDate(row.sessionStartedAt),
     sortOrder: row.sortOrder,
     status: row.status,

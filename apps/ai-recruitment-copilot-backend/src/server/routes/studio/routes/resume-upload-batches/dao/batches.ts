@@ -385,7 +385,11 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
   const now = new Date();
   await tx
     .update(resumeUploadBatchItem)
-    .set({ startedAt: now, status: "processing" })
+    .set({
+      attemptCount: row.attemptCount + 1,
+      startedAt: now,
+      status: "processing",
+    })
     .where(eq(resumeUploadBatchItem.id, row.id));
   if (row.resumeRecordId) {
     await tx
@@ -403,7 +407,12 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
     .update(resumeUploadBatch)
     .set({ status: "running", updatedAt: now })
     .where(and(eq(resumeUploadBatch.id, batchId), eq(resumeUploadBatch.status, "pending")));
-  return { ...row, startedAt: now, status: "processing" };
+  return {
+    ...row,
+    attemptCount: row.attemptCount + 1,
+    startedAt: now,
+    status: "processing",
+  };
 }
 
 export async function claimPendingItemById(tx: Tx, itemId: string): Promise<ItemRow | null> {

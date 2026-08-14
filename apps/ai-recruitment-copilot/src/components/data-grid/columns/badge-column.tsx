@@ -1,7 +1,8 @@
 // src/components/data-grid/columns/badge-column.tsx
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import type { ComponentProps, ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import type { DataGridFeatures } from "../table-features";
 
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
@@ -15,7 +16,9 @@ export interface BadgeColumnOptions<TData> {
   size?: number;
 }
 
-export function badgeColumn<TData>(opts: BadgeColumnOptions<TData>): ColumnDef<TData> {
+export function badgeColumn<TData extends RowData>(
+  opts: BadgeColumnOptions<TData>,
+): ColumnDef<DataGridFeatures, TData> {
   return {
     accessorKey: opts.key,
     cell: ({ row }) => {

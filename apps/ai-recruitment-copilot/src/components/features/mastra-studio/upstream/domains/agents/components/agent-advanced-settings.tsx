@@ -1,0 +1,361 @@
+import { jsonLanguage } from "@codemirror/lang-json";
+import { useCodemirrorTheme } from "@mastra/playground-ui/components/CodeEditor";
+import { Input } from "@mastra/playground-ui/components/Input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@mastra/playground-ui/components/Tooltip";
+import { Txt } from "@mastra/playground-ui/components/Txt";
+import { useCopyToClipboard } from "@mastra/playground-ui/hooks/use-copy-to-clipboard";
+import { Icon } from "@mastra/playground-ui/icons/Icon";
+import { formatJSON, isValidJson } from "@mastra/playground-ui/utils/formatting";
+import CodeMirror from "@uiw/react-codemirror";
+import { Braces, CopyIcon, SaveIcon, CheckIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAgentSettings } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-context";
+import { resolveConditional } from "../utils/conditional";
+import { firstDefined } from "../utils/presence";
+
+export interface AgentAdvancedSettingsBodyProps {
+  canEdit?: boolean;
+}
+
+export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSettingsBodyProps) => {
+  const { settings, setSettings } = useAgentSettings();
+  const [providerOptionsValue, setProviderOptionsValue] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const theme = useCodemirrorTheme();
+
+  const { handleCopy } = useCopyToClipboard({ text: providerOptionsValue });
+
+  const modelSettings = settings?.modelSettings;
+  const providerOptionsStr = JSON.stringify(firstDefined(modelSettings?.providerOptions, {}));
+
+  useEffect(() => {
+    const run = async () => {
+      if (!isValidJson(providerOptionsStr)) {
+        setError("JSON 无效");
+        return;
+      }
+
+      const formatted = await formatJSON(providerOptionsStr);
+      setProviderOptionsValue(formatted);
+    };
+
+    void run();
+  }, [providerOptionsStr]);
+
+  const formatProviderOptions = async () => {
+    setError(null);
+    if (!isValidJson(providerOptionsValue)) {
+      setError("JSON 无效");
+      return;
+    }
+    const formatted = await formatJSON(providerOptionsValue);
+    setProviderOptionsValue(formatted);
+  };
+
+  const saveProviderOptions = () => {
+    try {
+      setError(null);
+      const parsedContext = JSON.parse(providerOptionsValue);
+      setSettings({
+        ...settings,
+        modelSettings: {
+          ...modelSettings,
+          providerOptions: parsedContext,
+        },
+      });
+      setSaved(true);
+
+      setTimeout(() => {
+        setSaved(false);
+      }, 1000);
+    } catch (parseError) {
+      console.error("error", parseError);
+      setError("JSON 无效");
+    }
+  };
+
+  const buttonClass = "text-neutral3 hover:text-neutral6";
+
+  return (
+    <TooltipProvider>
+      <div className="@container/advanced">
+        <div className="grid grid-cols-1 gap-2 pb-2 @xs/advanced:grid-cols-2">
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="frequency-penalty">
+              频率惩罚
+            </Txt>
+            <Input
+              id="frequency-penalty"
+              type="number"
+              step="0.1"
+              min="-1"
+              max="1"
+              readOnly={!canEdit}
+              value={settings?.modelSettings?.frequencyPenalty ?? ""}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    frequencyPenalty: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="presence-penalty">
+              存在惩罚
+            </Txt>
+            <Input
+              id="presence-penalty"
+              type="number"
+              step="0.1"
+              min="-1"
+              max="1"
+              readOnly={!canEdit}
+              value={settings?.modelSettings?.presencePenalty ?? ""}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    presencePenalty: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="top-k">
+              Top K
+            </Txt>
+            <Input
+              id="top-k"
+              type="number"
+              readOnly={!canEdit}
+              value={resolveConditional(
+                settings?.modelSettings?.topK,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    topK: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-tokens">
+              最大 Token 数
+            </Txt>
+            <Input
+              id="max-tokens"
+              type="number"
+              readOnly={!canEdit}
+              value={resolveConditional(
+                settings?.modelSettings?.maxTokens,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    maxTokens: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-steps">
+              最大步骤数
+            </Txt>
+            <Input
+              id="max-steps"
+              type="number"
+              readOnly={!canEdit}
+              value={resolveConditional(
+                settings?.modelSettings?.maxSteps,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    maxSteps: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-retries">
+              最大重试次数
+            </Txt>
+            <Input
+              id="max-retries"
+              type="number"
+              readOnly={!canEdit}
+              value={resolveConditional(
+                settings?.modelSettings?.maxRetries,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    maxRetries: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="seed">
+              随机种子
+            </Txt>
+            <Input
+              id="seed"
+              type="number"
+              readOnly={!canEdit}
+              value={resolveConditional(
+                settings?.modelSettings?.seed,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  modelSettings: {
+                    ...settings?.modelSettings,
+                    seed: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="provider-options">
+              提供商选项
+            </Txt>
+
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={formatProviderOptions}
+                    className={buttonClass}
+                    aria-label="格式化提供商选项"
+                  >
+                    <Icon>
+                      <Braces />
+                    </Icon>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>格式化提供商选项 JSON</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className={buttonClass}
+                    aria-label="复制提供商选项"
+                  >
+                    <Icon>
+                      <CopyIcon />
+                    </Icon>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>复制提供商选项</TooltipContent>
+              </Tooltip>
+
+              {resolveConditional(
+                canEdit,
+                () => (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={saveProviderOptions}
+                        className={buttonClass}
+                        aria-label="保存提供商选项"
+                      >
+                        <Icon>
+                          {resolveConditional(
+                            saved,
+                            () => (
+                              <CheckIcon />
+                            ),
+                            () => (
+                              <SaveIcon />
+                            ),
+                          )}
+                        </Icon>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {resolveConditional(
+                        saved,
+                        () => "已保存",
+                        () => "保存提供商选项",
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                ),
+                () => null,
+              )}
+            </div>
+          </div>
+          <CodeMirror
+            value={providerOptionsValue}
+            onChange={setProviderOptionsValue}
+            theme={theme}
+            extensions={[jsonLanguage]}
+            readOnly={!canEdit}
+            className="h-dropdown-max-height overflow-scroll rounded-lg border bg-transparent shadow-sm transition-colors p-2"
+          />
+          {resolveConditional(
+            error,
+            (conditionValue) => (
+              <Txt variant="ui-md" className="text-accent2">
+                {conditionValue}
+              </Txt>
+            ),
+            () => null,
+          )}
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+};

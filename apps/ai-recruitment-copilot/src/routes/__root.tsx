@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LazyMotion, domAnimation } from "motion/react";
 import {
   HeadContent,
   Outlet,
@@ -17,8 +18,8 @@ import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-bo
 import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
 import { env } from "@/env/client";
+import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
 
-const ROOT_TITLE = "招聘 AI 协同工作台 · AI Recruitment Copilot";
 const ROOT_DESCRIPTION =
   "面向招聘场景的 AI 协同工作台，覆盖简历筛选、模拟面试与候选人评估全流程。AI Recruitment Copilot — your end-to-end hiring workflow.";
 const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
@@ -47,15 +48,22 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
-        <QueryProvider queryClient={queryClient}>
-          <TooltipProvider>
-            <Outlet />
-            <AppWatermark />
-            <Toaster />
-          </TooltipProvider>
-        </QueryProvider>
-      </ThemeProvider>
+      <LazyMotion features={domAnimation}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          enableSystem
+        >
+          <QueryProvider queryClient={queryClient}>
+            <TooltipProvider>
+              <Outlet />
+              <AppWatermark />
+              <Toaster />
+            </TooltipProvider>
+          </QueryProvider>
+        </ThemeProvider>
+      </LazyMotion>
     </RootDocument>
   );
 }
@@ -68,7 +76,7 @@ export const Route = createRootRouteWithContext<{
   queryClient: ReturnType<typeof getQueryClient>;
 }>()({
   component: RootComponent,
-  head: () => ({
+  head: ({ matches }) => ({
     links: [
       { href: "/favicon.ico", rel: "icon" },
       {
@@ -107,14 +115,14 @@ export const Route = createRootRouteWithContext<{
         content: ROOT_DESCRIPTION,
         name: "description",
       },
-      { content: ROOT_TITLE, property: "og:title" },
+      { content: ROOT_DOCUMENT_TITLE, property: "og:title" },
       { content: ROOT_DESCRIPTION, property: "og:description" },
       { content: "website", property: "og:type" },
       { content: ROOT_OG_IMAGE_URL, property: "og:image" },
       { content: "1200", property: "og:image:width" },
       { content: "630", property: "og:image:height" },
       { content: "summary_large_image", name: "twitter:card" },
-      { content: ROOT_TITLE, name: "twitter:title" },
+      { content: ROOT_DOCUMENT_TITLE, name: "twitter:title" },
       { content: ROOT_DESCRIPTION, name: "twitter:description" },
       { content: ROOT_OG_IMAGE_URL, name: "twitter:image" },
       {
@@ -127,7 +135,7 @@ export const Route = createRootRouteWithContext<{
         media: "(prefers-color-scheme: dark)",
         name: "theme-color",
       },
-      { title: ROOT_TITLE },
+      ...documentTitleMeta(matches),
     ],
   }),
   notFoundComponent: RootNotFoundComponent,

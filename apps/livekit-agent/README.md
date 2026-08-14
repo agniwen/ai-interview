@@ -9,14 +9,14 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 ## Pipeline
 
-| Stage          | Provider                                          | Notes                           |
-| -------------- | ------------------------------------------------- | ------------------------------- |
-| STT            | ElevenLabs (`scribe_v2_realtime`, language `zh`)  | livekit-plugins-elevenlabs      |
-| LLM            | Aliyun DashScope (`deepseek-v4-flash` by default) | OpenAI-compatible endpoint      |
-| TTS            | Minimax                                           | livekit-plugins-minimax-ai      |
-| VAD            | Silero                                            | downloaded via `download-files` |
-| Turn-detection | LiveKit multilingual model                        | downloaded via `download-files` |
-| Recording      | LiveKit Egress → Cloudflare R2                    | see `src/recording.py`          |
+| Stage          | Provider                                               | Notes                           |
+| -------------- | ------------------------------------------------------ | ------------------------------- |
+| STT            | ElevenLabs (`scribe_v2`, language `zh`)                | livekit-plugins-elevenlabs      |
+| LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
+| TTS            | Minimax                                                | livekit-plugins-minimax-ai      |
+| VAD            | Silero                                                 | downloaded via `download-files` |
+| Turn-detection | LiveKit multilingual model                             | downloaded via `download-files` |
+| Recording      | LiveKit Egress → Cloudflare R2                         | see `src/recording.py`          |
 
 Worker registers with `AGENT_NAME`, defaulting to `giaogiao`. The web side
 dispatches sessions to that name via `AGENT_NAME` / `NEXT_PUBLIC_AGENT_NAME` —
@@ -30,7 +30,7 @@ Python 3.11, [`uv`](https://docs.astral.sh/uv/) required. Do not mix in
 ```bash
 cd apps/livekit-agent
 uv sync                                  # install deps into .venv
-uv run src/agent.py download-files       # Silero VAD + turn-detector models
+uv run -m livekit.agents download-files  # Silero VAD + turn-detector models
 cp .env.example .env                     # then fill in values (see comments inside)
 ```
 
@@ -41,9 +41,12 @@ lives **inside `apps/livekit-agent/`**, separate from the server environment:
 values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
 `RECORDING_R2_*`) must stay in lock-step with whichever server runtime is deployed.
 
-If local `dev` runs print `ai_coustics Missing configuration`, set
-`INTERVIEW_DISABLE_NOISE_CANCELLATION=1` in the local `.env`. Keep it unset in
-deployed LiveKit Cloud workers so Cloud audio enhancement remains active.
+For a self-hosted LiveKit server and agent worker, set
+`INTERVIEW_SELF_HOSTED=1`. This pins the local `v1-mini` turn detector, uses
+VAD interruption handling, and disables Cloud-only noise cancellation. Leave
+it unset for LiveKit Cloud so the full turn detector, adaptive interruption,
+and Cloud audio enhancement remain active. For local troubleshooting, you can
+disable only noise cancellation with `INTERVIEW_DISABLE_NOISE_CANCELLATION=1`.
 
 ## Running
 
@@ -153,7 +156,7 @@ src/
   agent.py        Entrypoint — AgentSession wiring, room handlers, dispatch
   recording.py    LiveKit Egress → R2 recording lifecycle
   report.py       POSTs session summary back to web (CALLBACK_BASE_URL)
-  aliyun_stt.py   Custom DashScope STT helper (kept as a fallback option)
+  aliyun_stt.py   Optional aligned DashScope streaming STT adapter
 tests/            pytest suite
 ```
 

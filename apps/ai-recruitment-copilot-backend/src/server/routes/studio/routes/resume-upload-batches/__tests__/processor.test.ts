@@ -18,6 +18,10 @@ import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-ba
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
+  enqueueResumePoolReviewGenerationBestEffort,
+  enqueueResumeReviewGenerationForRecordBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import {
   member,
   department,
   jobDescription,
@@ -89,6 +93,14 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicat
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer", () => ({
   runResumeSemanticIndexJob: vi.fn(),
 }));
+
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
+  () => ({
+    enqueueResumePoolReviewGenerationBestEffort: vi.fn(),
+    enqueueResumeReviewGenerationForRecordBestEffort: vi.fn(),
+  }),
+);
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
@@ -299,14 +311,16 @@ beforeEach(() => {
     EMPTY_SCREENING_RESULT,
   );
   (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
-    Promise.resolve(),
-  );
+  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   (replaceDuplicateMatchesForSource as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(0),
   );
   (runResumeSemanticIndexJob as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
+  );
+  (enqueueResumePoolReviewGenerationBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+  (enqueueResumeReviewGenerationForRecordBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(
+    true,
   );
 });
 
@@ -385,10 +399,24 @@ describe("processNextItem — happy path", () => {
     expect(interview.candidateName).toBe("Test User");
     expect(interview.candidatePhone).toBe("13800000000");
     expect(interview.targetRole).toBe("Engineer");
-    expect(interview.notes).toBe("自动生成的简历评价");
+    expect(interview.notes).toBeNull();
     expect(interview.resumeParseStatus).toBe("ready");
     expect(interview.resumeParsedAt).toBeTruthy();
     expect(interview.resumeText).toBe("Test User OCR 原文");
+    expect(generateResumeReview).not.toHaveBeenCalled();
+    expect(enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
+      autoMatchJobDescription: false,
+      generationToken: beforeItem.id,
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumeRecordId: recordId,
+      source: "resume_upload",
+    });
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+      organizationId: ORG_A,
+      sourceId: recordId,
+      sourceType: "studio_interview",
+    });
 
     // 验证 batch 计数器更新正确。
     // Verify batch counters are updated correctly.
@@ -434,7 +462,7 @@ describe("processNextItem — cancellation race", () => {
 });
 
 describe("processNextItem — resume pool target", () => {
-  it("target=resume_pool + 绑定 JD → 按该 JD 生成推荐评价并写入备注", async () => {
+  it("target=resume_pool + 绑定 JD → 先可查看，再异步生成岗位评价", async () => {
     const departmentId = `bulk_proc_dept_${crypto.randomUUID()}`;
     const jobDescriptionId = `bulk_proc_jd_${crypto.randomUUID()}`;
     await db.insert(department).values({
@@ -484,24 +512,62 @@ describe("processNextItem — resume pool target", () => {
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
     expect(result?.item?.status).toBe("succeeded");
-    // Review generation now also receives a screening snapshot (even when policy is empty).
-    expect(generateResumeReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        jobDescription: expect.stringContaining("岗位名称：运维总监"),
-        resumeProfile: expect.objectContaining({ name: "Ops User" }),
-        screeningResult: expect.objectContaining({
-          policyEmpty: true,
-          recommendation: "pass",
-        }),
-      }),
-    );
+    expect(generateResumeReview).not.toHaveBeenCalled();
+    expect(enqueueResumePoolReviewGenerationBestEffort).toHaveBeenCalledWith({
+      autoMatchJobDescription: false,
+      generationToken: beforeItem?.id,
+      jobDescriptionId,
+      organizationId: ORG_A,
+      poolItemId: beforeItem?.poolItemId,
+    });
 
     const [poolItem] = await db
       .select()
       .from(resumePoolItem)
       .where(eq(resumePoolItem.id, beforeItem?.poolItemId ?? ""));
     expect(poolItem?.jobDescriptionId).toBe(jobDescriptionId);
-    expect(poolItem?.notes).toBe("自动生成的简历评价");
+    expect(poolItem?.notes).toBeNull();
+    expect(poolItem?.resumeParseStatus).toBe("ready");
+  });
+
+  it("jdMode=auto 时先发布结构化详情，再由评价任务匹配岗位", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "auto",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+    const [beforeItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    mockS3OK();
+    mockParseOK({
+      email: "auto-jd@example.com",
+      name: "Auto JD User",
+      phone: null,
+      targetRoles: ["Engineer"],
+    });
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("succeeded");
+    const [record] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, beforeItem?.resumeRecordId ?? ""));
+    expect(record?.resumeParseStatus).toBe("ready");
+    expect(record?.jobDescriptionId).toBeNull();
+    expect(enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
+      autoMatchJobDescription: true,
+      generationToken: beforeItem?.id,
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumeRecordId: beforeItem?.resumeRecordId,
+      source: "resume_upload",
+    });
   });
 
   it("target=resume_pool → 创建简历池条目，不创建招聘台候选人记录", async () => {
@@ -559,15 +625,16 @@ describe("processNextItem — resume pool target", () => {
     expect(poolItems[0]?.targetRole).toBe("Product Manager");
     expect(poolItems[0]?.resumeParseStatus).toBe("ready");
     expect(poolItems[0]?.resumeText).toBe("Pool User OCR 原文");
-    expect(runResumeSemanticIndexJob).toHaveBeenCalledWith({
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.poolItemId,
       sourceType: "resume_pool_item",
     });
-    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+    expect(runResumeSemanticIndexJob).not.toHaveBeenCalled();
+    expect(enqueueResumePoolReviewGenerationBestEffort).not.toHaveBeenCalled();
   });
 
-  it("私有简历池 target=resume_pool + skip 查重命中时仍然创建并记录疑似重复", async () => {
+  it("私有简历池 target=resume_pool + skip 时先入库并异步查重", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(1),
@@ -585,24 +652,6 @@ describe("processNextItem — resume pool target", () => {
       .where(eq(resumeUploadBatchItem.batchId, batchId));
     await expectQueuedPoolItem(beforeItem?.poolItemId);
 
-    const matches = [
-      {
-        candidateEmail: "existing@example.com",
-        candidateName: "Existing Candidate",
-        candidatePhone: null,
-        conflictingSignals: [],
-        createdAt: NOW.toISOString(),
-        id: "existing_record",
-        jobDescriptionName: null,
-        level: "high",
-        score: 0.96,
-        semanticReasons: ["整体履历高度相似"],
-        similarity: { resumeOverview: 0.96 },
-        status: "active",
-        targetRole: null,
-      },
-    ];
-    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue(matches);
     mockS3OK();
     mockParseOK({
       email: "pool-dup@example.com",
@@ -616,21 +665,13 @@ describe("processNextItem — resume pool target", () => {
     expect(result?.item?.status).toBe("succeeded");
     expect(result?.item?.poolItemId).toBe(beforeItem?.poolItemId);
     expect(result?.batch.skippedCount).toBe(0);
-    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
-    expect(findSemanticResumeDuplicates).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organizationId: ORG_A,
-        poolOwnerUserId: USER_A,
-        poolScope: "private",
-        sourceTypes: ["studio_interview", "resume_pool_item"],
-      }),
-    );
-    expect(replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
-      matches,
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.poolItemId,
       sourceType: "resume_pool_item",
     });
+    expect(findSemanticResumeDuplicates).not.toHaveBeenCalled();
+    expect(replaceDuplicateMatchesForSource).not.toHaveBeenCalled();
 
     const persistedPoolItems = await db
       .select()

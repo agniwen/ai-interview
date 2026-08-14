@@ -1,8 +1,24 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
+import type {
+  ChatContextBindings,
+  RecruitingContextJobBindingMeta,
+} from "@arc/db-schema/chat-context-bindings";
+import {
+  EMPTY_CHAT_CONTEXT_BINDINGS,
+  RECRUITING_CONTEXT_JOB_BINDING_META_KEY,
+  buildContextJobBindingMessageId,
+  deriveChatContextBindingsFromMessages,
+  readRecruitingContextJobBinding,
+} from "@arc/db-schema/chat-context-bindings";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { chatConversation, chatMessage } from "@arc/db-schema/schema";
+import type { RecruitingActionConfirmation } from "../utils/recruiting-action-confirmation";
+import {
+  deriveRecruitingActionConfirmationsFromMessages,
+  patchArcMessageRecruitingActionConfirmation,
+} from "../utils/recruiting-action-confirmation";
 
 export interface ChatConversationSummary {
   id: string;
@@ -230,12 +246,122 @@ export async function upsertChatMessage(input: {
     .where(eq(chatConversation.id, input.conversationId));
 }
 
+export async function loadConversationContextBindings(
+  conversationId: string,
+  organizationId: string,
+): Promise<ChatContextBindings> {
+  const [owned] = await db
+    .select({ id: chatConversation.id })
+    .from(chatConversation)
+    .where(
+      and(
+        eq(chatConversation.id, conversationId),
+        eq(chatConversation.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (!owned) {
+    return EMPTY_CHAT_CONTEXT_BINDINGS;
+  }
+  const messages = await db
+    .select({ content: chatMessage.content })
+    .from(chatMessage)
+    .where(eq(chatMessage.conversationId, conversationId))
+    .orderBy(chatMessage.createdAt);
+  const contents = messages.map((row) => row.content);
+  const bindings = deriveChatContextBindingsFromMessages(contents);
+  const actionConfirmations = deriveRecruitingActionConfirmationsFromMessages(contents);
+  if (Object.keys(actionConfirmations).length === 0) {
+    return bindings;
+  }
+  return { ...bindings, actionConfirmations };
+}
+
 /**
- * Deletes the message identified by `messageId` and every message that was
- * created at or after it within the same conversation. Used by the regenerate
- * flow to prune the assistant message being replaced (and any orphan messages
- * that came after it). The caller must have already verified ownership.
+ * Persist a conversation-scoped person↔job binding as a chat message.
+ * Re-confirming the same person updates the same message id (idempotent).
  */
+export async function upsertConversationContextJobBinding(input: {
+  conversationId: string;
+  jobDescriptionId: string;
+  jobDescriptionName: string;
+  kind: RecruitingContextJobBindingMeta["kind"];
+  organizationId: string;
+  recordId: string;
+  summaryText: string;
+}): Promise<{ previousJobDescriptionId: string | null; status: "noop" | "updated" }> {
+  const messageId = buildContextJobBindingMessageId(input.kind, input.recordId);
+  const [existing] = await db
+    .select({ content: chatMessage.content })
+    .from(chatMessage)
+    .where(and(eq(chatMessage.conversationId, input.conversationId), eq(chatMessage.id, messageId)))
+    .limit(1);
+  const previous = existing ? readRecruitingContextJobBinding(existing.content) : null;
+  if (previous?.jobDescriptionId === input.jobDescriptionId) {
+    return { previousJobDescriptionId: previous.jobDescriptionId, status: "noop" };
+  }
+
+  const binding: RecruitingContextJobBindingMeta = {
+    jobDescriptionId: input.jobDescriptionId,
+    jobDescriptionName: input.jobDescriptionName,
+    kind: input.kind,
+    recordId: input.recordId,
+  };
+  const message: ArcMessage = {
+    id: messageId,
+    metadata: {
+      [RECRUITING_CONTEXT_JOB_BINDING_META_KEY]: binding,
+    },
+    parts: [{ text: input.summaryText, type: "text" }],
+    role: "assistant",
+  };
+  await upsertChatMessage({
+    conversationId: input.conversationId,
+    message,
+    organizationId: input.organizationId,
+  });
+  return {
+    previousJobDescriptionId: previous?.jobDescriptionId ?? null,
+    status: "updated",
+  };
+}
+
+/**
+ * Find tool results that carry this proposal id and stamp confirmation into their
+ * JSON output so action cards stay locked after refresh.
+ */
+export async function patchRecruitingActionConfirmationInConversation(input: {
+  confirmation: RecruitingActionConfirmation;
+  conversationId: string;
+  organizationId: string;
+  proposalId: string;
+}): Promise<number> {
+  const messages = await db
+    .select({ content: chatMessage.content, id: chatMessage.id })
+    .from(chatMessage)
+    .where(eq(chatMessage.conversationId, input.conversationId))
+    .orderBy(chatMessage.createdAt);
+
+  let patched = 0;
+  for (const row of messages) {
+    const next = patchArcMessageRecruitingActionConfirmation(
+      row.content,
+      input.proposalId,
+      input.confirmation,
+    );
+    if (!next) {
+      continue;
+    }
+    await upsertChatMessage({
+      conversationId: input.conversationId,
+      message: next,
+      organizationId: input.organizationId,
+    });
+    patched += 1;
+  }
+  return patched;
+}
+
 export async function deleteMessagesFromId(input: {
   conversationId: string;
   messageId: string;

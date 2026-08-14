@@ -1,6 +1,6 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { agentDebugRouter } from "./routes/agent-debug/route";
 import { departmentsRouter } from "./routes/departments/route";
+import { studioCalendarRouter } from "./routes/calendar/route";
 import { candidateFormsRouter } from "./routes/forms/route";
 import { globalConfigRouter } from "./routes/global-config/route";
 import { interviewQuestionTemplatesRouter } from "./routes/interview-questions/route";
@@ -17,11 +17,11 @@ import { workspaceRouter } from "./routes/workspace/route";
 // All /studio/* sub-routes mount here; the /w/:slug aggregator owns auth and scope.
 export const studioRouter = factory
   .createApp()
+  .route("/calendar", studioCalendarRouter)
   .route("/interviews", studioInterviewsRouter)
   .route("/resume-pool", resumePoolRouter)
   .route("/resumes", resumeLibraryRouter)
   .route("/resume-upload-batches", resumeUploadBatchesRouter)
-  .route("/agent-debug", agentDebugRouter)
   .route("/departments", departmentsRouter)
   .route("/global-config", globalConfigRouter)
   .route("/interviewers", interviewersRouter)

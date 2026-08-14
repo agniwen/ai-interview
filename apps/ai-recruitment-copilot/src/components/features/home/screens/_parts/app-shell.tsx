@@ -5,17 +5,15 @@ import {
   IconFileText,
   IconLayoutSidebarLeftCollapse,
   IconListCheck,
+  IconMessageChatbot,
   IconMoon,
   IconPlus,
   IconRobot,
   IconSelector,
-  IconSettings,
-  IconTrash,
   IconUser,
   IconUserCircle,
   IconUserCog,
   IconUsers,
-  IconX,
 } from "@tabler/icons-react";
 // 用途：复刻真实 Studio 壳（shadcn Sidebar variant="inset"）。所有尺寸严格按真实组件：
 // --sidebar-width 18rem (288px) · --header-height 3rem (48px) · SidebarMenuButton h-8
@@ -50,23 +48,23 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { icon: IconBuilding, label: "部门管理" },
-      { icon: IconUserCircle, label: "面试官管理" },
+      { icon: IconUserCircle, label: "AI面试官管理" },
       { icon: IconFileText, label: "岗位设置" },
     ],
     label: "招聘配置",
   },
   {
     items: [
-      { icon: IconClipboardList, label: "面试表单" },
-      { icon: IconListCheck, label: "面试题" },
+      { icon: IconClipboardList, label: "表单题" },
+      { icon: IconListCheck, label: "沟通题" },
     ],
     label: "题库",
   },
   {
     items: [
-      { icon: IconUser, label: "我的信息" },
+      { icon: IconUser, label: "个人中心" },
       { icon: IconUserCog, label: "工作区管理" },
-      { icon: IconSettings, label: "系统设置" },
+      { icon: IconMessageChatbot, label: "上下文设置" },
     ],
     label: "系统配置",
   },
@@ -313,13 +311,6 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   );
 }
 
-// ─────────────────── Re-exports used by some screens ───────────────────
-export const Icons = {
-  Plus: IconPlus,
-  Trash: IconTrash,
-  X: IconX,
-};
-
 // ─────────────────── App shell ───────────────────
 interface AppShellProps {
   tab?: "agent" | "chat" | "studio";
@@ -369,7 +360,6 @@ export function AppShell({
           <SidebarUserSection />
         </div>
       </aside>
-
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
           + variant=inset: m-3 ml-0 rounded-xl shadow-none
           + layout 上还加了 border border-border */}

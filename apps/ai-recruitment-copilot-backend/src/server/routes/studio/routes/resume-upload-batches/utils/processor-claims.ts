@@ -47,6 +47,19 @@ export async function assertBatchItemNotCancelled(batchId: string, itemId: strin
   }
 }
 
+export async function releaseBatchItemForRetry(batchId: string, itemId: string): Promise<void> {
+  await db
+    .update(resumeUploadBatchItem)
+    .set({ startedAt: null, status: "pending" })
+    .where(
+      and(
+        eq(resumeUploadBatchItem.id, itemId),
+        eq(resumeUploadBatchItem.batchId, batchId),
+        eq(resumeUploadBatchItem.status, "processing"),
+      ),
+    );
+}
+
 type ClaimMissSnapshot = {
   batchId: string;
   startedAt: Date | null;

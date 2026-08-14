@@ -118,6 +118,18 @@ describe("TanStack Start server entry", () => {
     expect(startFetch).not.toHaveBeenCalled();
   });
 
+  it("routes /api/app-version to TanStack Start", async () => {
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+    const request = new Request("https://example.test/api/app-version");
+
+    const response = await entry.fetch(request);
+
+    expect(await response.text()).toBe("start");
+    expect(startFetch).toHaveBeenCalledWith(request);
+    expect(createServerApp).not.toHaveBeenCalled();
+  });
+
   it("serves the Open Graph image before loading API routers", async () => {
     const serverModule = await import("../server");
     const entry = serverModule.default;
@@ -143,6 +155,29 @@ describe("TanStack Start server entry", () => {
     await entry.fetch(second);
 
     expect(initializeFeishuBots).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts Feishu websocket connections when human interview integration is enabled", async () => {
+    vi.stubEnv("FEISHU_HUMAN_INTERVIEW_ENABLED", "true");
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+
+    await entry.fetch(new Request("https://example.test/api/rpc/health"));
+
+    expect(initializeFeishuBots).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start Feishu bot websocket connections while prerendering", async () => {
+    vi.stubEnv("FEISHU_BOT_ENABLED", "true");
+    vi.stubEnv("TSS_PRERENDERING", "true");
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+
+    await entry.fetch(new Request("https://example.test/"));
+    await vi.dynamicImportSettled();
+
+    expect(initializeFeishuBots).not.toHaveBeenCalled();
+    expect(startFetch).toHaveBeenCalledTimes(1);
   });
 
   it("routes /api requests to the Hono app", async () => {

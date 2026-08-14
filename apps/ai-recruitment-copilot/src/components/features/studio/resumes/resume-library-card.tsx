@@ -1,13 +1,19 @@
-import { IconBriefcase, IconMail, IconPhone, IconUpload } from "@tabler/icons-react";
+import { IconBriefcase, IconSparkles, IconUpload } from "@tabler/icons-react";
 import AvvvatarsModule from "avvvatars-react";
-import { memo } from "react";
+import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
+import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
+import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
   ResumeLibraryListRecord,
@@ -136,10 +142,12 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
-function formatResumeCardContact(value: string | null | undefined, fallback: string) {
-  const text = value?.trim();
-  return text || fallback;
-}
+const REVIEW_ACTION_TONE_CLASS: Record<ResumeReviewActionTone, string> = {
+  danger: "text-rose-700 dark:text-rose-300",
+  muted: "text-muted-foreground",
+  success: "text-emerald-700 dark:text-emerald-300",
+  warning: "text-amber-700 dark:text-amber-300",
+};
 
 function isResumeCardInteractiveClick(event: ReactMouseEvent<HTMLElement>) {
   const { target } = event;
@@ -149,10 +157,31 @@ function isResumeCardInteractiveClick(event: ReactMouseEvent<HTMLElement>) {
 
   return Boolean(
     target.closest(
-      "a,button,input,label,select,textarea,[role='button'],[role='menuitem'],[data-resume-card-interactive='true']",
+      [
+        "a",
+        "button",
+        "input",
+        "label",
+        "select",
+        "textarea",
+        "[role='button']",
+        "[role='menuitem']",
+        "[data-resume-card-interactive='true']",
+        // HoverCard 内容经 Portal 挂到 body，DOM 上不在卡片内，但 React 合成事件仍会冒泡到卡片。
+        "[data-slot='hover-card-trigger']",
+        "[data-slot='hover-card-content']",
+      ].join(","),
     ),
   );
 }
+
+/** True when the user dragged to select text rather than issuing a plain click. */
+function isResumeCardTextSelectionClick() {
+  const selection = window.getSelection();
+  return Boolean(selection && !selection.isCollapsed && selection.toString().trim());
+}
+
+const CARD_CLICK_MOVE_THRESHOLD_PX = 6;
 
 function getCreatorInitial(name: string | null | undefined) {
   return name?.trim().slice(0, 1).toUpperCase() || "?";
@@ -184,35 +213,56 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
   if (!record.duplicateMatch) {
     return null;
   }
-  const label =
-    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
-  return onClick ? (
-    <Badge
-      className="shrink-0 cursor-pointer"
-      render={
-        <button
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClick();
-          }}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-      variant={variant}
-    />
-  ) : (
-    <Badge className="shrink-0" variant={variant}>
-      {label}
-    </Badge>
-  );
+  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
 }
 
 function getResumeAvatarValue(record: ResumeLibraryListRecord) {
   return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
+}
+
+function describeStructuredReviewCard(record: ResumeLibraryListRecord): {
+  label: string;
+  tone: ResumeReviewActionTone;
+} {
+  if (record.resumeEvaluationStatus === "pass") {
+    return { label: "HR 已通过", tone: "success" };
+  }
+  if (record.resumeEvaluationStatus === "fail") {
+    return { label: "HR 未通过", tone: "danger" };
+  }
+  if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
+    return { label: "AI 评估中", tone: "muted" };
+  }
+  if (record.structuredGateStatus === "failed") {
+    return {
+      label:
+        record.structuredCompositeScore === null
+          ? "未通过门槛"
+          : `未通过门槛 · ${record.structuredCompositeScore} 分`,
+      tone: "danger",
+    };
+  }
+  if (record.structuredGateStatus === "needs_verification") {
+    return { label: "门槛待核实", tone: "warning" };
+  }
+  if (record.structuredCompositeScore !== null) {
+    const gradeLabel = {
+      matched: "匹配",
+      recommended: "推荐",
+      unmatched: "不匹配",
+    }[record.structuredScoreGrade ?? "unmatched"];
+    let tone: ResumeReviewActionTone = "danger";
+    if (record.structuredScoreGrade === "recommended") {
+      tone = "success";
+    } else if (record.structuredScoreGrade === "matched") {
+      tone = "warning";
+    }
+    return {
+      label: `${gradeLabel} · ${record.structuredCompositeScore} 分`,
+      tone,
+    };
+  }
+  return { label: "待 AI 评估", tone: "muted" };
 }
 
 function ResumeCardMetaItem({
@@ -284,47 +334,53 @@ function renderResumeCardProfileSnapshotMoreRow(key: string) {
 }
 
 function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
-  const workLines = snapshot.work.slice(0, 3);
-  const educationLines = snapshot.education.slice(0, 3);
+  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
+  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
   const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
   const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
 
   if (!(hasWorkGroup || hasEducationGroup)) {
-    return <div className="hidden xl:block" />;
+    return null;
   }
 
   return (
-    <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
-      {workLines.map(renderResumeCardProfileSnapshotLine)}
-      {snapshot.workHasMore ? renderResumeCardProfileSnapshotMoreRow("work-more") : null}
-      {hasWorkGroup && hasEducationGroup ? (
-        <div className="my-0.5 border-border/60 border-t" />
-      ) : null}
-      {educationLines.map(renderResumeCardProfileSnapshotLine)}
-      {snapshot.educationHasMore ? renderResumeCardProfileSnapshotMoreRow("education-more") : null}
+    <div className="min-w-0 xl:border-border/60 xl:border-l xl:border-dashed xl:pl-8">
+      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
+        {workLines.map(renderResumeCardProfileSnapshotLine)}
+        {snapshot.workHasMore ? renderResumeCardProfileSnapshotMoreRow("work-more") : null}
+        {hasWorkGroup && hasEducationGroup ? (
+          <div className="my-0.5 border-border/60 border-t" />
+        ) : null}
+        {educationLines.map(renderResumeCardProfileSnapshotLine)}
+        {snapshot.educationHasMore
+          ? renderResumeCardProfileSnapshotMoreRow("education-more")
+          : null}
+      </div>
     </div>
   );
 }
 
 function ResumeLibraryCardComponent({
-  canCreateChat,
   canCreateInterview,
   canDeleteResumeLibrary,
+  canForceReparse,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   currentMemberRole,
   currentUserId,
   onCopyDetailLink,
   onDelete,
   onEdit,
-  onLaunchChat,
+  onForceReparse,
   onLaunchInterview,
   onOpenDetail,
   onPreviewResume,
+  onRetryParse,
   onSelectChange,
   onShowDuplicateMatches,
   onTransition,
-  onViewJobDescription,
   record,
+  retrying,
   selected,
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
@@ -334,23 +390,81 @@ function ResumeLibraryCardComponent({
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
+  const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
+  const hasRetainedLegacyReview =
+    artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
+  const baseReviewCard =
+    artifactMode === "structured"
+      ? describeStructuredReviewCard(record)
+      : describeResumeLibraryReviewCard({
+          baseScore: record.resumeReviewBaseScore,
+          nextStepAction: record.resumeReviewNextStepAction,
+          status: hasRetainedLegacyReview ? "ready" : record.resumeReviewStatus,
+        });
+  const reviewCard = hasRetainedLegacyReview
+    ? { ...baseReviewCard, label: `老版本结果 · ${baseReviewCard.label}` }
+    : baseReviewCard;
+  let replacementAttemptLabel: string | null = null;
+  if (hasRetainedLegacyReview && record.resumeEvaluationAttemptMode === "structured") {
+    if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
+      replacementAttemptLabel = "新版重评中";
+    } else if (record.resumeReviewStatus === "failed") {
+      replacementAttemptLabel = "新版重评失败";
+    }
+  }
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
-  const toggleSelected = () => onSelectChange(!selected);
+  const toggleSelected = () => onSelectChange(record.id, !selected);
+  const pointerGestureRef = useRef<{
+    moved: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
-    <article
+    <Card
       className={cn(
-        "relative rounded-2xl border border-input bg-background bg-clip-padding p-4 shadow-xs/5 transition-colors before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:shadow-[0_1px_--theme(--color-black/4%)] hover:border-border/80 hover:bg-muted/30 dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-        selected && "border-primary/40 bg-primary/5 hover:bg-primary/5 hover:border-primary/60",
+        "h-full overflow-hidden transition-colors hover:border-border hover:bg-muted/30",
+        selected
+          ? "border-primary/40 bg-primary/5 hover:border-primary/60 hover:bg-primary/5"
+          : "dark:bg-background dark:hover:bg-input/30",
       )}
       onClick={(event) => {
         if (isResumeCardInteractiveClick(event)) {
           return;
         }
+        if (pointerGestureRef.current?.moved || isResumeCardTextSelectionClick()) {
+          return;
+        }
         onOpenDetail(record, "overview");
       }}
+      onPointerCancel={() => {
+        pointerGestureRef.current = null;
+      }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) {
+          pointerGestureRef.current = null;
+          return;
+        }
+        pointerGestureRef.current = {
+          moved: false,
+          x: event.clientX,
+          y: event.clientY,
+        };
+      }}
+      onPointerMove={(event) => {
+        const gesture = pointerGestureRef.current;
+        if (!gesture || gesture.moved) {
+          return;
+        }
+        const dx = Math.abs(event.clientX - gesture.x);
+        const dy = Math.abs(event.clientY - gesture.y);
+        if (dx > CARD_CLICK_MOVE_THRESHOLD_PX || dy > CARD_CLICK_MOVE_THRESHOLD_PX) {
+          gesture.moved = true;
+        }
+      }}
+      render={<article />}
     >
       <button
         aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
@@ -364,7 +478,7 @@ function ResumeLibraryCardComponent({
         }}
         type="button"
       />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+      <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="flex min-w-0 gap-3">
           <Checkbox
             aria-label={`选择 ${record.candidateName}`}
@@ -374,21 +488,24 @@ function ResumeLibraryCardComponent({
             onClick={(event) => {
               event.stopPropagation();
             }}
-            onCheckedChange={(value) => onSelectChange(Boolean(value))}
+            onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
           />
           <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
             <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]">
+            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
               <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
                 <button
                   className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
                   onClick={() => onOpenDetail(record, "overview")}
                   type="button"
                 >
-                  {record.candidateName}
+                  <span>{record.candidateName}</span>{" "}
+                  <span className="font-normal text-muted-foreground/60 text-xs">
+                    ({formatResumeRecordDisplayId(record.id)})
+                  </span>
                 </button>
                 {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
                 <ResumeLifecycleBadge
@@ -412,18 +529,11 @@ function ResumeLibraryCardComponent({
                     label="关联岗位"
                   >
                     {jobDescriptionId && jobDescriptionLabel ? (
-                      <button
+                      <JobDescriptionHoverCard
                         className={jobDescriptionTextClass}
-                        onClick={() => {
-                          if (!jobDescriptionId) {
-                            return;
-                          }
-                          onViewJobDescription(jobDescriptionId);
-                        }}
-                        type="button"
-                      >
-                        {jobDescriptionLabel}
-                      </button>
+                        jobDescriptionId={jobDescriptionId}
+                        name={jobDescriptionLabel}
+                      />
                     ) : (
                       <span className={cn(jobDescriptionTextClass, "text-muted-foreground")}>
                         未绑定岗位
@@ -436,11 +546,29 @@ function ResumeLibraryCardComponent({
                   <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
                     <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
                   </span>
-                  <ResumeCardMetaItem icon={<IconMail className="size-3.5" />} label="邮箱">
-                    {formatResumeCardContact(record.candidateEmail, "未填写邮箱")}
-                  </ResumeCardMetaItem>
-                  <ResumeCardMetaItem icon={<IconPhone className="size-3.5" />} label="电话">
-                    {formatResumeCardContact(record.candidatePhone, "未填写电话")}
+                  <ResumeCardMetaItem
+                    icon={
+                      <span className={REVIEW_ACTION_TONE_CLASS[reviewCard.tone]}>
+                        <IconSparkles className="size-3.5" />
+                      </span>
+                    }
+                    label="下一步建议"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "min-w-0 truncate font-medium",
+                          REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                        )}
+                      >
+                        {reviewCard.label}
+                      </span>
+                      {replacementAttemptLabel ? (
+                        <span className="shrink-0 text-muted-foreground">
+                          {replacementAttemptLabel}
+                        </span>
+                      ) : null}
+                    </span>
                   </ResumeCardMetaItem>
                 </div>
 
@@ -451,9 +579,9 @@ function ResumeLibraryCardComponent({
                 ) : null}
 
                 {skills.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
                     {skills.map((item) => (
-                      <Badge className="max-w-52 truncate" key={item} variant="secondary">
+                      <Badge className="max-w-52 truncate" key={item} variant="outline">
                         {item}
                       </Badge>
                     ))}
@@ -468,34 +596,25 @@ function ResumeLibraryCardComponent({
 
         <ResumeLibraryCardActions
           canCopyLink={canCopyLink}
-          canCreateChat={canCreateChat}
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canForceReparse={canForceReparse}
+          canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
           onEdit={onEdit}
-          onLaunchChat={onLaunchChat}
+          onForceReparse={onForceReparse}
           onLaunchInterview={onLaunchInterview}
-          onOpenDetail={onOpenDetail}
           onPreviewResume={onPreviewResume}
+          onRetryParse={onRetryParse}
           onTransition={onTransition}
           record={record}
+          retrying={retrying}
         />
-      </div>
-    </article>
+      </CardPanel>
+    </Card>
   );
 }
 
-export const ResumeLibraryCard = memo(
-  ResumeLibraryCardComponent,
-  (prev, next) =>
-    prev.canCreateChat === next.canCreateChat &&
-    prev.canCreateInterview === next.canCreateInterview &&
-    prev.canDeleteResumeLibrary === next.canDeleteResumeLibrary &&
-    prev.canUpdateResumeLibrary === next.canUpdateResumeLibrary &&
-    prev.currentMemberRole === next.currentMemberRole &&
-    prev.currentUserId === next.currentUserId &&
-    prev.record === next.record &&
-    prev.selected === next.selected,
-);
+export const ResumeLibraryCard = memo(ResumeLibraryCardComponent);

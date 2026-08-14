@@ -1,66 +1,147 @@
 // src/components/data-grid/parts/pinned-cell.ts
-import type { Cell, Header } from "@tanstack/react-table";
+import type { Cell, Header, RowData } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
 
+import { cn } from "@arc/shared/utils";
+import type { DataGridFeatures } from "../table-features";
+
 /**
- * Compute sticky positioning for a pinned column.
- * Pin-left 用 `left: column.getStart('left')`，pin-right 用 `right: column.getAfter('right')`。
+ * Compute layout styles for pinned and/or fixed-width columns.
+ *
+ * Pin-start uses `insetInlineStart: column.getStart('start')`,
+ * pin-end uses `insetInlineEnd: column.getAfter('end')` (TanStack Table V9
+ * logical pinning).
  *
  * 关键：同时强制设置 `width` / `minWidth` = `column.getSize()`。
- * tanstack 的 `getStart('left')` 是对前面所有 pinned-left 列 `getSize()` 求和，
- * 如果实际渲染宽度（由 padding + 内容决定）跟 `getSize()` 不一致，
- * 后续固定列的 `left:` 偏移就会和视觉边界错开 4-Npx，
- * 横向滚动时表现为"列与列之间有余量/重叠"。
+ * getStart('start') sums prior pinned-start column sizes; if rendered width
+ * diverges from getSize(), sticky offsets drift.
  *
- * 把宽度从 CSS 这边钉死成 `getSize()`，让数学恒等于布局。
+ * Fixed-width columns (`minSize === maxSize`, e.g. actions / select) also get an
+ * explicit width lock when unpinned, so they don't absorb leftover table space.
  *
- * Forcing `width` / `minWidth` to `column.getSize()` keeps tanstack's
- * `getStart()` math (which positions subsequent pinned cells) in lockstep
- * with actual rendered width. Without this, padding/content can grow the
- * cell beyond the declared `size`, leaving a gap when scrolling horizontally.
- *
- * z-index 分层（与 sticky 表头协作）/ z-index layering (works with sticky thead):
- *   - 普通 body 单元格 / regular body cell:  auto (0)
- *   - 固定 body 单元格 / pinned body cell:    1
- *   - 普通 header 单元格 / regular thead cell: 2
- *   - 固定 header 单元格(交叉处) / pinned thead cell (corner): 3
+ * z-index layering (works with sticky thead):
+ *   - regular body cell: auto (0)
+ *   - pinned body cell: 1
+ *   - regular thead cell: 2
+ *   - pinned thead cell (corner): 3
  */
-export function getPinningStyles<TData>(
-  column: Header<TData, unknown>["column"] | Cell<TData, unknown>["column"],
+export function getPinningStyles<TData extends RowData>(
+  column:
+    | Header<DataGridFeatures, TData, unknown>["column"]
+    | Cell<DataGridFeatures, TData, unknown>["column"],
   options: { isHeader?: boolean; stickToTop?: boolean } = {},
 ): CSSProperties {
   const isPinned = column.getIsPinned();
+  const { maxSize, minSize } = column.columnDef;
+  const isFixedWidth =
+    typeof minSize === "number" && typeof maxSize === "number" && minSize === maxSize;
 
-  if (!isPinned) {
+  if (!(isPinned || isFixedWidth)) {
     return {};
   }
 
   const size = column.getSize();
+  let zIndex: number | undefined;
+  if (isPinned) {
+    zIndex = options.isHeader ? 3 : 1;
+  }
 
   return {
     boxSizing: "border-box",
-    left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
+    // Logical insets track RTL; LTR maps start→left, end→right.
+    insetInlineEnd: isPinned === "end" ? `${column.getAfter("end")}px` : undefined,
+    insetInlineStart: isPinned === "start" ? `${column.getStart("start")}px` : undefined,
     maxWidth: `${size}px`,
     minWidth: `${size}px`,
-    position: "sticky",
-    right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    top: options.stickToTop ? 0 : undefined,
+    position: isPinned ? "sticky" : undefined,
+    top: isPinned && options.stickToTop ? 0 : undefined,
     width: `${size}px`,
-    zIndex: options.isHeader ? 3 : 1,
+    zIndex,
   };
 }
 
-/**
- * className for pinned body cells. Pinned cells need an opaque base because
- * they sit above horizontally-scrolled content, then mirror the row hover and
- * selected states from the table primitives.
- */
-export const PINNED_CELL_CLASS =
-  "bg-background transition-colors group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted";
+const OPAQUE_HEADER_SURFACE = "bg-sidebar dark:bg-muted";
 
-export const PINNED_HEADER_CLASS = "bg-muted";
+export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
 
 /**
- * Sticky header cells use the same muted surface as the AlignUI-style header.
+ * Opaque resting fill for sticky body cells. Row hover/selected fills come from
+ * TableCell `group-hover/row` / `group-data-[state=selected]/row` so the whole
+ * row (including pinned columns) shares one background.
  */
-export const STICKY_HEADER_CLASS = "sticky top-0 z-2 bg-muted";
+export const PINNED_CELL_CLASS = "bg-background";
+
+/**
+ * Sticky header cells use the same opaque light-mode sidebar / dark muted fill as TableHead.
+ */
+export const STICKY_HEADER_CLASS = `sticky top-0 z-2 ${OPAQUE_HEADER_SURFACE}`;
+
+/**
+ * Pin-edge divider — only applied while horizontal scroll has content under the pin.
+ * Uses ::before so the line stays with the sticky cell (collapse borders would scroll away).
+ * `border-*-0` clears the native cell border on that edge to avoid a double line.
+ */
+export const PINNED_EDGE_START_BORDER_CLASS =
+  "relative border-e-0 before:pointer-events-none before:absolute before:inset-y-0 before:end-0 before:z-[1] before:w-px before:bg-border";
+
+export const PINNED_EDGE_END_BORDER_CLASS =
+  "relative before:pointer-events-none before:absolute before:inset-y-0 before:start-0 before:z-[1] before:w-px before:bg-border";
+
+/** @deprecated Use PINNED_EDGE_START_BORDER_CLASS */
+export const PINNED_EDGE_LEFT_BORDER_CLASS = PINNED_EDGE_START_BORDER_CLASS;
+/** @deprecated Use PINNED_EDGE_END_BORDER_CLASS */
+export const PINNED_EDGE_RIGHT_BORDER_CLASS = PINNED_EDGE_END_BORDER_CLASS;
+
+/**
+ * Pin-edge columns (without columnOrderingFeature):
+ * - start group: last leaf is the inner edge
+ * - end group: first leaf is the inner edge
+ */
+export function getPinnedEdgeSides<TData extends RowData>(
+  column:
+    | Header<DataGridFeatures, TData, unknown>["column"]
+    | Cell<DataGridFeatures, TData, unknown>["column"],
+): { isEndEdge: boolean; isStartEdge: boolean } {
+  const pin = column.getIsPinned();
+  if (pin === "start") {
+    const startCols = column.table.getStartLeafColumns();
+    const last = startCols.at(-1);
+    return { isEndEdge: false, isStartEdge: last?.id === column.id };
+  }
+  if (pin === "end") {
+    const [first] = column.table.getEndLeafColumns();
+    return { isEndEdge: first?.id === column.id, isStartEdge: false };
+  }
+  return { isEndEdge: false, isStartEdge: false };
+}
+
+/**
+ * Edge divider only when scroll has content under that pin side.
+ * At rest, return empty so the table keeps its normal cell borders.
+ */
+export function getPinnedEdgeClassName(options: {
+  isEndEdge: boolean;
+  isStartEdge: boolean;
+  showEndEdge?: boolean;
+  showStartEdge?: boolean;
+}): string {
+  return cn(
+    options.isStartEdge && options.showStartEdge && PINNED_EDGE_START_BORDER_CLASS,
+    options.isEndEdge && options.showEndEdge && PINNED_EDGE_END_BORDER_CLASS,
+  );
+}
+
+export function readHorizontalScrollOverflow(element: HTMLElement): {
+  canScrollEnd: boolean;
+  canScrollStart: boolean;
+} {
+  const { clientWidth, scrollLeft, scrollWidth } = element;
+  const maxScrollLeft = scrollWidth - clientWidth;
+  // Sub-pixel tolerance so near-end scroll doesn't flicker the edge divider.
+  const epsilon = 1;
+
+  return {
+    canScrollEnd: maxScrollLeft > epsilon && scrollLeft < maxScrollLeft - epsilon,
+    canScrollStart: scrollLeft > epsilon,
+  };
+}

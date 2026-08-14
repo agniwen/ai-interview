@@ -28,6 +28,11 @@ import {
   verifyCandidateInviteToken,
   verifyInterviewerInviteToken,
 } from "./human-interview-meeting-access";
+import { validateHumanInterviewMeetingInput } from "./human-interview-meeting-input";
+import {
+  applyHumanInterviewMeetingLifecycleEvent,
+  forceEndHumanInterviewMeeting,
+} from "./human-interview-meeting-lifecycle";
 
 export {
   HumanInterviewMeetingError,
@@ -36,9 +41,7 @@ export {
 } from "./human-interview-meeting-access";
 
 type MeetingRow = typeof studioHumanInterviewMeeting.$inferSelect;
-function serializeDate(value: Date | null): string | null {
-  return value ? value.toISOString() : null;
-}
+const serializeDate = (value: Date | null): string | null => value?.toISOString() ?? null;
 
 function toRecord({
   meeting,
@@ -54,8 +57,20 @@ function toRecord({
     createdAt: serializeDate(meeting.createdAt) ?? new Date().toISOString(),
     createdBy: meeting.createdBy,
     endedAt: serializeDate(meeting.endedAt),
+    feishu:
+      meeting.feishuProviderId && meeting.feishuSyncStatus
+        ? {
+            appLink: meeting.feishuAppLink,
+            calendarEventUrl: meeting.feishuCalendarEventUrl,
+            meetingUrl: meeting.feishuMeetingUrl,
+            providerId: meeting.feishuProviderId,
+            status: meeting.feishuSyncStatus,
+          }
+        : null,
     id: meeting.id,
     interviewers,
+    lifecycleOccurredAt: serializeDate(meeting.lifecycleOccurredAt),
+    lifecycleSource: meeting.lifecycleSource,
     liveKitRoomName: meeting.liveKitRoomName,
     notes: meeting.notes,
     organizationId: meeting.organizationId,
@@ -228,32 +243,20 @@ export async function createHumanInterviewMeeting({
   input,
   organizationId,
   createdBy,
+  feishuProviderId = null,
 }: {
   input: HumanInterviewMeetingInput;
   organizationId: string;
   createdBy: string | null;
+  feishuProviderId?: MeetingRow["feishuProviderId"];
 }): Promise<HumanInterviewMeetingRecord> {
   const uniqueRoundIds = uniq(input.roundIds);
   const uniqueInterviewerIds = uniq(input.interviewerIds);
-  const rounds = await db
-    .select({
-      id: studioHumanInterviewRound.id,
-      status: studioHumanInterviewRound.status,
-    })
-    .from(studioHumanInterviewRound)
-    .where(
-      and(
-        inArray(studioHumanInterviewRound.id, uniqueRoundIds),
-        eq(studioHumanInterviewRound.organizationId, organizationId),
-      ),
-    );
-
-  if (rounds.length !== uniqueRoundIds.length) {
-    throw new HumanInterviewMeetingError("存在不属于当前组织的真人复面轮次。", 404);
-  }
-  if (rounds.some((round) => round.status !== "pending")) {
-    throw new HumanInterviewMeetingError("只有待进行的真人复面轮次可以加入会议。", 400);
-  }
+  await validateHumanInterviewMeetingInput({
+    interviewerIds: uniqueInterviewerIds,
+    organizationId,
+    roundIds: uniqueRoundIds,
+  });
 
   const existingLinks = await db
     .select({ roundId: studioHumanInterviewMeetingRound.roundId })
@@ -286,6 +289,8 @@ export async function createHumanInterviewMeeting({
     await tx.insert(studioHumanInterviewMeeting).values({
       createdAt: now,
       createdBy,
+      feishuProviderId,
+      feishuSyncStatus: feishuProviderId ? "pending" : null,
       id,
       liveKitRoomName: buildHumanInterviewRoomName(id),
       notes: input.notes ?? null,
@@ -405,6 +410,7 @@ export async function issueHumanInterviewMeetingLinks({
   const interviewerExpiresAt = buildInviteExpiry(now);
   return {
     candidateLinks,
+    feishu: meeting.feishu,
     interviewerLinks: meeting.interviewers.map((interviewer) => ({
       name: interviewer.name,
       role: interviewer.role,
@@ -558,62 +564,42 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
   };
 }
 
+async function loadMeetingIdByRoomName(roomName: string): Promise<string | null> {
+  const [meeting] = await db
+    .select({ id: studioHumanInterviewMeeting.id })
+    .from(studioHumanInterviewMeeting)
+    .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
+    .limit(1);
+  return meeting?.id ?? null;
+}
+
 export async function markHumanInterviewMeetingInProgress(meetingId: string): Promise<void> {
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({ startedAt: now, status: "in_progress", updatedAt: now })
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.id, meetingId),
-        eq(studioHumanInterviewMeeting.status, "scheduled"),
-      ),
-    );
+  await applyHumanInterviewMeetingLifecycleEvent({
+    meetingId,
+    occurredAt: new Date(),
+    provider: "livekit",
+    status: "in_progress",
+    type: "livekit.manual-start",
+  });
 }
 
 export async function markHumanInterviewMeetingInProgressByRoomName(
   roomName: string,
 ): Promise<void> {
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({ startedAt: now, status: "in_progress", updatedAt: now })
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.liveKitRoomName, roomName),
-        eq(studioHumanInterviewMeeting.status, "scheduled"),
-      ),
-    );
+  const meetingId = await loadMeetingIdByRoomName(roomName);
+  if (meetingId) {
+    await markHumanInterviewMeetingInProgress(meetingId);
+  }
 }
 
-export async function endHumanInterviewMeeting({
+export function endHumanInterviewMeeting({
   meetingId,
   organizationId,
 }: {
   meetingId: string;
   organizationId?: string;
 }): Promise<string | null> {
-  const conditions = [eq(studioHumanInterviewMeeting.id, meetingId)];
-  if (organizationId) {
-    conditions.push(eq(studioHumanInterviewMeeting.organizationId, organizationId));
-  }
-
-  const [meeting] = await db
-    .select({ liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName })
-    .from(studioHumanInterviewMeeting)
-    .where(and(...conditions))
-    .limit(1);
-
-  if (!meeting) {
-    throw new HumanInterviewMeetingError("真人复面会议不存在。", 404);
-  }
-
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({ endedAt: now, status: "ended", updatedAt: now })
-    .where(and(...conditions, ne(studioHumanInterviewMeeting.status, "cancelled")));
-  return meeting.liveKitRoomName;
+  return forceEndHumanInterviewMeeting({ meetingId, organizationId });
 }
 
 export async function endHumanInterviewMeetingsByRound({
@@ -645,27 +631,24 @@ export async function endHumanInterviewMeetingsByRound({
     return [];
   }
 
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({ endedAt: now, status: "ended", updatedAt: now })
-    .where(
-      and(
-        eq(studioHumanInterviewMeeting.organizationId, organizationId),
-        inArray(studioHumanInterviewMeeting.id, meetingIds),
-        inArray(studioHumanInterviewMeeting.status, ["scheduled", "in_progress"]),
-      ),
-    );
+  await Promise.all(
+    meetingIds.map((meetingId) => forceEndHumanInterviewMeeting({ meetingId, organizationId })),
+  );
 
   return uniq(meetingRows.map((meeting) => meeting.liveKitRoomName));
 }
 
 export async function endHumanInterviewMeetingByRoomName(roomName: string): Promise<void> {
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({ endedAt: now, status: "ended", updatedAt: now })
-    .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName));
+  const meetingId = await loadMeetingIdByRoomName(roomName);
+  if (meetingId) {
+    await applyHumanInterviewMeetingLifecycleEvent({
+      meetingId,
+      occurredAt: new Date(),
+      provider: "livekit",
+      status: "ended",
+      type: "livekit.room_finished",
+    });
+  }
 }
 
 export async function deleteHumanInterviewMeeting({
@@ -696,8 +679,16 @@ export async function deleteHumanInterviewMeeting({
     throw new HumanInterviewMeetingError("进行中的会议不能删除，请先结束会议。", 400);
   }
 
+  const now = new Date();
   const deleted = await db
-    .delete(studioHumanInterviewMeeting)
+    .update(studioHumanInterviewMeeting)
+    .set({
+      cancelledAt: now,
+      lifecycleOccurredAt: now,
+      lifecycleSource: "manual",
+      status: "cancelled",
+      updatedAt: now,
+    })
     .where(
       and(
         eq(studioHumanInterviewMeeting.id, meetingId),
@@ -710,15 +701,6 @@ export async function deleteHumanInterviewMeeting({
     throw new HumanInterviewMeetingError("进行中的会议不能删除，请先结束会议。", 400);
   }
   return meeting.liveKitRoomName;
-}
-
-async function loadMeetingIdByRoomName(roomName: string): Promise<string | null> {
-  const [meeting] = await db
-    .select({ id: studioHumanInterviewMeeting.id })
-    .from(studioHumanInterviewMeeting)
-    .where(eq(studioHumanInterviewMeeting.liveKitRoomName, roomName))
-    .limit(1);
-  return meeting?.id ?? null;
 }
 
 export async function markHumanInterviewParticipantJoined({

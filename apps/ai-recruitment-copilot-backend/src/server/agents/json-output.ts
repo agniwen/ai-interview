@@ -2,6 +2,47 @@ import type { z } from "zod";
 
 const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
 
+function extractJsonObjects(text: string): string[] {
+  const objects: string[] = [];
+  let depth = 0;
+  let escaped = false;
+  let inString = false;
+  let start = -1;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (start === -1) {
+      if (character === "{") {
+        depth = 1;
+        start = index;
+      }
+      continue;
+    }
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        objects.push(text.slice(start, index + 1));
+        start = -1;
+      }
+    }
+  }
+  return objects;
+}
+
 /**
  * Extract and validate JSON from model text output.
  * Models without native structured output often wrap JSON in markdown code
@@ -12,27 +53,27 @@ export function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: st
   const trimmed = text.trim();
 
   const blockMatch = JSON_BLOCK_RE.exec(trimmed);
-  const candidates = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
+  const sources = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
+  const candidates = [...new Set(sources.flatMap(extractJsonObjects))];
 
   let lastJsonError: unknown;
   for (const candidate of candidates) {
     if (!candidate) {
       continue;
     }
-    const start = candidate.indexOf("{");
-    const end = candidate.lastIndexOf("}");
-    if (start === -1 || end === -1) {
-      continue;
-    }
-
-    const slice = candidate.slice(start, end + 1);
     try {
-      const raw = JSON.parse(slice);
+      const raw = JSON.parse(candidate);
       const parsed = schema.safeParse(raw);
       if (parsed.success) {
         return parsed.data;
       }
-      console.error(`[${label}] Schema validation failed:`, parsed.error.issues.slice(0, 3));
+      console.error(
+        `[${label}] Schema validation failed:`,
+        parsed.error.issues.slice(0, 3).map((issue) => ({
+          code: issue.code,
+          path: issue.path,
+        })),
+      );
     } catch (error) {
       // 记下 JSON.parse 失败原因，便于区分"截断"vs"schema 不匹配"vs"格式异常"。
       // Capture parse failures so we can distinguish truncation vs schema vs format issues.
@@ -40,11 +81,10 @@ export function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: st
     }
   }
 
-  console.error(
-    `[${label}] Failed to parse JSON from text (len=${trimmed.length}):`,
-    `\n  parseError: ${lastJsonError instanceof Error ? lastJsonError.message : String(lastJsonError ?? "n/a")}`,
-    `\n  head: ${trimmed.slice(0, 200)}`,
-    `\n  tail: ${trimmed.slice(-200)}`,
-  );
+  console.error(`[${label}] Failed to parse JSON from model response.`, {
+    candidateCount: candidates.length,
+    hasJsonParseError: lastJsonError !== undefined,
+    textLength: trimmed.length,
+  });
   throw new Error("Failed to parse structured output from model response.");
 }

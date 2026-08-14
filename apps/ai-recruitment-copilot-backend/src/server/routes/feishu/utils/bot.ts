@@ -1,9 +1,15 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createLarkAdapter } from "@larksuite/vercel-chat-adapter";
+import { createLarkChannel } from "@larksuiteoapi/node-sdk";
 import { cardChildToFallbackText, Chat, isCardElement, toCardElement } from "chat";
 import type { AdapterPostableMessage, CardChild, CardElement } from "chat";
 import type { FeishuProviderId } from "./provider";
-import { FEISHU_PROVIDER_IDS } from "./provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  getFeishuAppCredentials,
+  isFeishuHumanInterviewEnabled,
+} from "./provider";
+import { createFeishuMeetingLifecycleEventHandlers } from "./meeting-lifecycle";
 import { routeDM, routeGroupMention } from "./router";
 
 type LarkAdapter = ReturnType<typeof createLarkAdapter>;
@@ -84,28 +90,6 @@ type LarkInteractiveAction =
     };
 
 const cached = new Map<FeishuProviderId, { adapter: LarkAdapter; bot: FeishuBot }>();
-
-const FEISHU_BOT_CONFIG: Record<
-  FeishuProviderId,
-  {
-    appIdEnv: string;
-    appSecretEnv: string;
-  }
-> = {
-  feishu: {
-    appIdEnv: "FEISHU_APP_ID",
-    appSecretEnv: "FEISHU_APP_SECRET",
-  },
-  "feishu-jiguang-hr": {
-    appIdEnv: "FEISHU_APP_ID2",
-    appSecretEnv: "FEISHU_APP_SECRET2",
-  },
-};
-
-function getEnv(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
 
 function resolveCardElement(card: CardElement | unknown): CardElement {
   if (isCardElement(card)) {
@@ -338,16 +322,18 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
     throw new Error("DATABASE_URL is required for the Feishu bot state adapter");
   }
 
-  const config = FEISHU_BOT_CONFIG[providerId];
-  const appId = getEnv(config.appIdEnv);
-  const appSecret = getEnv(config.appSecretEnv);
-  if (!appId || !appSecret) {
-    throw new Error(`${config.appIdEnv} and ${config.appSecretEnv} are required`);
-  }
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
 
   const adapter = createLarkAdapter({
     appId,
     appSecret,
+    channelFactory: (options) =>
+      createLarkChannel({
+        ...options,
+        ...(isFeishuHumanInterviewEnabled()
+          ? { eventHandlers: createFeishuMeetingLifecycleEventHandlers(providerId) }
+          : {}),
+      }),
     userName: "resume-bot",
   });
 
@@ -392,16 +378,27 @@ async function ensureFeishuBotInitialized(providerId: FeishuProviderId): Promise
   return entry;
 }
 
-export async function initializeFeishuBots(): Promise<void> {
-  await Promise.all(
-    FEISHU_PROVIDER_IDS.map((providerId) => ensureFeishuBotInitialized(providerId)),
-  );
-}
-
 export async function shutdownFeishuBots(): Promise<void> {
   const entries = [...cached.values()];
   await Promise.all(entries.map(({ bot }) => bot.shutdown()));
   cached.clear();
+}
+
+export async function initializeFeishuBots(): Promise<void> {
+  try {
+    await Promise.all(
+      FEISHU_PROVIDER_IDS.map((providerId) => ensureFeishuBotInitialized(providerId)),
+    );
+  } catch (initializationError) {
+    try {
+      await shutdownFeishuBots();
+    } catch (shutdownError) {
+      throw new Error("Feishu bot initialization failed and rollback was incomplete.", {
+        cause: shutdownError,
+      });
+    }
+    throw initializationError;
+  }
 }
 
 export async function postFeishuDirectMessage(
@@ -415,17 +412,29 @@ export async function postFeishuDirectMessage(
   return { id: sent.id };
 }
 
+export async function trySendFeishuDirectCard(
+  send: () => Promise<{ messageId: string }>,
+): Promise<{ id: string | null }> {
+  try {
+    const sent = await send();
+    return { id: sent.messageId };
+  } catch {
+    return { id: null };
+  }
+}
+
 export async function postFeishuDirectCard(
   providerId: FeishuProviderId,
   openId: string,
   card: CardElement | unknown,
-): Promise<{ id: string }> {
-  const { adapter } = await ensureFeishuBotInitialized(providerId);
-  const channel = adapter._getChannel();
-  if (!channel) {
-    throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
-  }
-  const cardElement = resolveCardElement(card);
-  const sent = await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
-  return { id: sent.messageId };
+): Promise<{ id: string | null }> {
+  return await trySendFeishuDirectCard(async () => {
+    const { adapter } = await ensureFeishuBotInitialized(providerId);
+    const channel = adapter._getChannel();
+    if (!channel) {
+      throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
+    }
+    const cardElement = resolveCardElement(card);
+    return await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
+  });
 }

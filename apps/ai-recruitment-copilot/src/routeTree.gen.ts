@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaitRouteImport } from './routes/wait'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as SelectWorkspaceRouteImport } from './routes/select-workspace'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as LoginRouteImport } from './routes/login'
@@ -21,25 +22,39 @@ import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
 import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-pool'
 import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
+import { Route as StudioCalendarRouteImport } from './routes/studio.calendar'
 import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
+import { Route as PlatformResumeParseCacheRouteImport } from './routes/platform.resume-parse-cache'
 import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
 import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
+import { Route as PlatformMastraStudioRouteImport } from './routes/platform.mastra-studio'
 import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
+import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
+import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as PlatformLivekitIndexRouteImport } from './routes/platform.livekit.index'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
 import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
 import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-review.$slug.$recordId'
+import { Route as PlatformMastraStudioAgentBuilderRouteImport } from './routes/platform.mastra-studio.agent-builder'
+import { Route as PlatformMastraStudioMinimalRouteImport } from './routes/platform.mastra-studio._minimal'
+import { Route as PlatformMastraStudioMainRouteImport } from './routes/platform.mastra-studio._main'
+import { Route as PlatformLivekitRoomsRouteImport } from './routes/platform.livekit.rooms'
+import { Route as PlatformLivekitOverviewRouteImport } from './routes/platform.livekit.overview'
+import { Route as PlatformLivekitMetricsRouteImport } from './routes/platform.livekit.metrics'
 import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
 import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './routes/human-interview.interviewer.$inviteToken'
 import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
 import { Route as WSlugAgentIndexRouteImport } from './routes/w.$slug.agent.index'
+import { Route as PlatformMastraStudioAgentBuilderIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.index'
+import { Route as PlatformMastraStudioMainIndexRouteImport } from './routes/platform.mastra-studio._main.index'
 import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
 import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
@@ -54,15 +69,124 @@ import { Route as WSlugStudioGlobalConfigRouteImport } from './routes/w.$slug.st
 import { Route as WSlugStudioFormsRouteImport } from './routes/w.$slug.studio.forms'
 import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.studio.departments'
 import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
-import { Route as WSlugStudioAgentDebugRouteImport } from './routes/w.$slug.studio.agent-debug'
+import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio.calendar'
 import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
 import { Route as WSlugAgentSessionIdRouteImport } from './routes/w.$slug.agent.$sessionId'
+import { Route as PlatformMastraStudioAgentBuilderSkillsRouteImport } from './routes/platform.mastra-studio.agent-builder.skills'
+import { Route as PlatformMastraStudioAgentBuilderLibraryRouteImport } from './routes/platform.mastra-studio.agent-builder.library'
+import { Route as PlatformMastraStudioAgentBuilderInfrastructureRouteImport } from './routes/platform.mastra-studio.agent-builder.infrastructure'
+import { Route as PlatformMastraStudioAgentBuilderFavoriteRouteImport } from './routes/platform.mastra-studio.agent-builder.favorite'
+import { Route as PlatformMastraStudioAgentBuilderAgentsRouteImport } from './routes/platform.mastra-studio.agent-builder.agents'
+import { Route as PlatformMastraStudioMinimalSignupRouteImport } from './routes/platform.mastra-studio._minimal.signup'
+import { Route as PlatformMastraStudioMinimalLoginRouteImport } from './routes/platform.mastra-studio._minimal.login'
+import { Route as PlatformMastraStudioMainWorkspacesRouteImport } from './routes/platform.mastra-studio._main.workspaces'
+import { Route as PlatformMastraStudioMainWorkflowsRouteImport } from './routes/platform.mastra-studio._main.workflows'
+import { Route as PlatformMastraStudioMainToolsRouteImport } from './routes/platform.mastra-studio._main.tools'
+import { Route as PlatformMastraStudioMainTemplatesRouteImport } from './routes/platform.mastra-studio._main.templates'
+import { Route as PlatformMastraStudioMainSettingsRouteImport } from './routes/platform.mastra-studio._main.settings'
+import { Route as PlatformMastraStudioMainScorersRouteImport } from './routes/platform.mastra-studio._main.scorers'
+import { Route as PlatformMastraStudioMainResourcesRouteImport } from './routes/platform.mastra-studio._main.resources'
+import { Route as PlatformMastraStudioMainRequestContextRouteImport } from './routes/platform.mastra-studio._main.request-context'
+import { Route as PlatformMastraStudioMainPromptsRouteImport } from './routes/platform.mastra-studio._main.prompts'
+import { Route as PlatformMastraStudioMainProcessorsRouteImport } from './routes/platform.mastra-studio._main.processors'
+import { Route as PlatformMastraStudioMainObservabilityRouteImport } from './routes/platform.mastra-studio._main.observability'
+import { Route as PlatformMastraStudioMainMetricsRouteImport } from './routes/platform.mastra-studio._main.metrics'
+import { Route as PlatformMastraStudioMainMcpsRouteImport } from './routes/platform.mastra-studio._main.mcps'
+import { Route as PlatformMastraStudioMainLogsRouteImport } from './routes/platform.mastra-studio._main.logs'
+import { Route as PlatformMastraStudioMainIntegrationsRouteImport } from './routes/platform.mastra-studio._main.integrations'
+import { Route as PlatformMastraStudioMainExperimentsRouteImport } from './routes/platform.mastra-studio._main.experiments'
+import { Route as PlatformMastraStudioMainEvaluationRouteImport } from './routes/platform.mastra-studio._main.evaluation'
+import { Route as PlatformMastraStudioMainDatasetsRouteImport } from './routes/platform.mastra-studio._main.datasets'
+import { Route as PlatformMastraStudioMainAgentsRouteImport } from './routes/platform.mastra-studio._main.agents'
+import { Route as PlatformMastraStudioAgentBuilderLibraryIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.library.index'
+import { Route as PlatformMastraStudioAgentBuilderInfrastructureIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.infrastructure.index'
+import { Route as PlatformMastraStudioAgentBuilderFavoriteIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.favorite.index'
 import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
+import { Route as WSlugStudioMailIngestAccountsIdRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts.$id'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
+import { Route as PlatformMastraStudioAgentBuilderSkillsListingRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._listing'
+import { Route as PlatformMastraStudioAgentBuilderSkillsEditionRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._edition'
+import { Route as PlatformMastraStudioAgentBuilderAgentsListingRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._listing'
+import { Route as PlatformMastraStudioAgentBuilderAgentsEditionRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._edition'
+import { Route as PlatformMastraStudioMainWorkspacesWorkspaceIdRouteImport } from './routes/platform.mastra-studio._main.workspaces_.$workspaceId'
+import { Route as PlatformMastraStudioMainWorkflowsSchedulesRouteImport } from './routes/platform.mastra-studio._main.workflows_.schedules'
+import { Route as PlatformMastraStudioMainWorkflowsWorkflowIdRouteImport } from './routes/platform.mastra-studio._main.workflows_.$workflowId'
+import { Route as PlatformMastraStudioMainTracesTraceIdRouteImport } from './routes/platform.mastra-studio._main.traces.$traceId'
+import { Route as PlatformMastraStudioMainToolsToolIdRouteImport } from './routes/platform.mastra-studio._main.tools_.$toolId'
+import { Route as PlatformMastraStudioMainTemplatesTemplateSlugRouteImport } from './routes/platform.mastra-studio._main.templates_.$templateSlug'
+import { Route as PlatformMastraStudioMainScorersScorerIdRouteImport } from './routes/platform.mastra-studio._main.scorers_.$scorerId'
+import { Route as PlatformMastraStudioMainProcessorsProcessorIdRouteImport } from './routes/platform.mastra-studio._main.processors_.$processorId'
+import { Route as PlatformMastraStudioMainMcpsServerIdRouteImport } from './routes/platform.mastra-studio._main.mcps_.$serverId'
+import { Route as PlatformMastraStudioMainExperimentsExperimentIdRouteImport } from './routes/platform.mastra-studio._main.experiments_.$experimentId'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId'
+import { Route as PlatformMastraStudioMainAgentsAgentIdRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId'
+import { Route as PlatformMastraStudioAgentBuilderSkillsListingIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._listing.index'
+import { Route as PlatformMastraStudioAgentBuilderAgentsListingIndexRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._listing.index'
+import { Route as PlatformMastraStudioMainWorkflowsWorkflowIdIndexRouteImport } from './routes/platform.mastra-studio._main.workflows_.$workflowId.index'
+import { Route as PlatformMastraStudioMainAgentsAgentIdIndexRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.index'
+import { Route as PlatformMastraStudioAgentBuilderSkillsEditionCreateRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._edition.create'
+import { Route as PlatformMastraStudioAgentBuilderSkillsEditionIdRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._edition.$id'
+import { Route as PlatformMastraStudioAgentBuilderAgentsEditionCreateRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._edition.create'
+import { Route as PlatformMastraStudioAgentBuilderAgentsEditionIdRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._edition.$id'
+import { Route as PlatformMastraStudioMinimalAgentsAgentIdSessionRouteImport } from './routes/platform.mastra-studio._minimal.agents.$agentId.session'
+import { Route as PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRouteImport } from './routes/platform.mastra-studio._main.workflows_.schedules_.$scheduleId'
+import { Route as PlatformMastraStudioMainWorkflowsWorkflowIdGraphRouteImport } from './routes/platform.mastra-studio._main.workflows_.$workflowId.graph'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdVersionsRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.versions'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdItemsRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.items'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdExperimentsRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.experiments'
+import { Route as PlatformMastraStudioMainCmsScorersCreateRouteImport } from './routes/platform.mastra-studio._main.cms.scorers.create'
+import { Route as PlatformMastraStudioMainCmsPromptsCreateRouteImport } from './routes/platform.mastra-studio._main.cms.prompts.create'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create'
+import { Route as PlatformMastraStudioMainAgentsAgentIdTracesRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.traces'
+import { Route as PlatformMastraStudioMainAgentsAgentIdSettingsRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.settings'
+import { Route as PlatformMastraStudioMainAgentsAgentIdReviewRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.review'
+import { Route as PlatformMastraStudioMainAgentsAgentIdEvaluateRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.evaluate'
+import { Route as PlatformMastraStudioMainAgentsAgentIdEditorRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.editor'
+import { Route as PlatformMastraStudioMainAgentsAgentIdChatRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.chat'
+import { Route as PlatformMastraStudioMainAgentsAgentIdChannelsRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.channels'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateIndexRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.index'
+import { Route as PlatformMastraStudioAgentBuilderSkillsEditionIdViewRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._edition.$id_.view'
+import { Route as PlatformMastraStudioAgentBuilderSkillsEditionIdEditRouteImport } from './routes/platform.mastra-studio.agent-builder.skills._edition.$id_.edit'
+import { Route as PlatformMastraStudioAgentBuilderAgentsEditionIdViewRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._edition.$id_.view'
+import { Route as PlatformMastraStudioAgentBuilderAgentsEditionIdEditRouteImport } from './routes/platform.mastra-studio.agent-builder.agents._edition.$id_.edit'
+import { Route as PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRouteImport } from './routes/platform.mastra-studio._minimal.agents.$agentId.session_.$threadId'
+import { Route as PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRouteImport } from './routes/platform.mastra-studio._main.workspaces_.$workspaceId_.skills.$skillName'
+import { Route as PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRouteImport } from './routes/platform.mastra-studio._main.workflows_.$workflowId.graph_.$runId'
+import { Route as PlatformMastraStudioMainMcpsServerIdToolsToolIdRouteImport } from './routes/platform.mastra-studio._main.mcps_.$serverId_.tools.$toolId'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.items_.$itemId'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.experiments_.$experimentId'
+import { Route as PlatformMastraStudioMainCmsScorersScorerIdEditRouteImport } from './routes/platform.mastra-studio._main.cms.scorers.$scorerId.edit'
+import { Route as PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRouteImport } from './routes/platform.mastra-studio._main.cms.prompts.$promptBlockId.edit'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateWorkflowsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.workflows'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateVariablesRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.variables'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateToolsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.tools'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateSkillsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.skills'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateScorersRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.scorers'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateMemoryRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.memory'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.instruction-blocks'
+import { Route as PlatformMastraStudioMainCmsAgentsCreateAgentsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.create.agents'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit'
+import { Route as PlatformMastraStudioMainAgentsAgentIdToolsToolIdRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId_.tools.$toolId'
+import { Route as PlatformMastraStudioMainAgentsAgentIdChatThreadIdRouteImport } from './routes/platform.mastra-studio._main.agents_.$agentId.chat_.$threadId'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.index'
+import { Route as PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRouteImport } from './routes/platform.mastra-studio._main.datasets_.$datasetId_.items_.$itemId_.versions'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.workflows'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.variables'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.tools'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.skills'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.scorers'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.memory'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.instruction-blocks'
+import { Route as PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRouteImport } from './routes/platform.mastra-studio._main.cms.agents.$agentId.edit.agents'
 
 const WaitRoute = WaitRouteImport.update({
   id: '/wait',
   path: '/wait',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SelectWorkspaceRoute = SelectWorkspaceRouteImport.update({
@@ -106,19 +230,24 @@ const WSlugRoute = WSlugRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioResumesRoute = StudioResumesRouteImport.update({
-  id: '/studio/resumes',
-  path: '/studio/resumes',
-  getParentRoute: () => rootRouteImport,
+  id: '/resumes',
+  path: '/resumes',
+  getParentRoute: () => StudioRoute,
 } as any)
 const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
-  id: '/studio/resume-pool',
-  path: '/studio/resume-pool',
-  getParentRoute: () => rootRouteImport,
+  id: '/resume-pool',
+  path: '/resume-pool',
+  getParentRoute: () => StudioRoute,
 } as any)
 const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
-  id: '/studio/interviews',
-  path: '/studio/interviews',
-  getParentRoute: () => rootRouteImport,
+  id: '/interviews',
+  path: '/interviews',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioCalendarRoute = StudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => StudioRoute,
 } as any)
 const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
   id: '/referrals/$token',
@@ -135,6 +264,12 @@ const PlatformUsersRoute = PlatformUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformResumeParseCacheRoute =
+  PlatformResumeParseCacheRouteImport.update({
+    id: '/resume-parse-cache',
+    path: '/resume-parse-cache',
+    getParentRoute: () => PlatformRoute,
+  } as any)
 const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
   id: '/queues',
   path: '/queues',
@@ -150,12 +285,22 @@ const PlatformNotificationsRoute = PlatformNotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformMastraStudioRoute = PlatformMastraStudioRouteImport.update({
+  id: '/mastra-studio',
+  path: '/mastra-studio',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const PlatformMailIngestAccountsRoute =
   PlatformMailIngestAccountsRouteImport.update({
     id: '/mail-ingest-accounts',
     path: '/mail-ingest-accounts',
     getParentRoute: () => PlatformRoute,
   } as any)
+const PlatformLivekitRoute = PlatformLivekitRouteImport.update({
+  id: '/livekit',
+  path: '/livekit',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const JoinCodeRoute = JoinCodeRouteImport.update({
   id: '/join/$code',
   path: '/join/$code',
@@ -177,6 +322,16 @@ const HumanInterviewInviteTokenRoute =
     path: '/human-interview/$inviteToken',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
+  id: '/api/app-version',
+  path: '/api/app-version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformLivekitIndexRoute = PlatformLivekitIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
 const WSlugStudioRoute = WSlugStudioRouteImport.update({
   id: '/studio',
   path: '/studio',
@@ -198,6 +353,37 @@ const ResumeReviewSlugRecordIdRoute =
     path: '/resume-review/$slug/$recordId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PlatformMastraStudioAgentBuilderRoute =
+  PlatformMastraStudioAgentBuilderRouteImport.update({
+    id: '/agent-builder',
+    path: '/agent-builder',
+    getParentRoute: () => PlatformMastraStudioRoute,
+  } as any)
+const PlatformMastraStudioMinimalRoute =
+  PlatformMastraStudioMinimalRouteImport.update({
+    id: '/_minimal',
+    getParentRoute: () => PlatformMastraStudioRoute,
+  } as any)
+const PlatformMastraStudioMainRoute =
+  PlatformMastraStudioMainRouteImport.update({
+    id: '/_main',
+    getParentRoute: () => PlatformMastraStudioRoute,
+  } as any)
+const PlatformLivekitRoomsRoute = PlatformLivekitRoomsRouteImport.update({
+  id: '/rooms',
+  path: '/rooms',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitOverviewRoute = PlatformLivekitOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitMetricsRoute = PlatformLivekitMetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
 const InterviewIdRoundIdRoute = InterviewIdRoundIdRouteImport.update({
   id: '/$roundId',
   path: '/$roundId',
@@ -219,6 +405,18 @@ const WSlugAgentIndexRoute = WSlugAgentIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WSlugAgentRoute,
 } as any)
+const PlatformMastraStudioAgentBuilderIndexRoute =
+  PlatformMastraStudioAgentBuilderIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioMainIndexRoute =
+  PlatformMastraStudioMainIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
 const WSlugStudioResumesRoute = WSlugStudioResumesRouteImport.update({
   id: '/resumes',
   path: '/resumes',
@@ -292,9 +490,9 @@ const WSlugStudioDashboardRoute = WSlugStudioDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioAgentDebugRoute = WSlugStudioAgentDebugRouteImport.update({
-  id: '/agent-debug',
-  path: '/agent-debug',
+const WSlugStudioCalendarRoute = WSlugStudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
 const WSlugChatSessionIdRoute = WSlugChatSessionIdRouteImport.update({
@@ -307,17 +505,645 @@ const WSlugAgentSessionIdRoute = WSlugAgentSessionIdRouteImport.update({
   path: '/$sessionId',
   getParentRoute: () => WSlugAgentRoute,
 } as any)
+const PlatformMastraStudioAgentBuilderSkillsRoute =
+  PlatformMastraStudioAgentBuilderSkillsRouteImport.update({
+    id: '/skills',
+    path: '/skills',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderLibraryRoute =
+  PlatformMastraStudioAgentBuilderLibraryRouteImport.update({
+    id: '/library',
+    path: '/library',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderInfrastructureRoute =
+  PlatformMastraStudioAgentBuilderInfrastructureRouteImport.update({
+    id: '/infrastructure',
+    path: '/infrastructure',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderFavoriteRoute =
+  PlatformMastraStudioAgentBuilderFavoriteRouteImport.update({
+    id: '/favorite',
+    path: '/favorite',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsRoute =
+  PlatformMastraStudioAgentBuilderAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderRoute,
+  } as any)
+const PlatformMastraStudioMinimalSignupRoute =
+  PlatformMastraStudioMinimalSignupRouteImport.update({
+    id: '/signup',
+    path: '/signup',
+    getParentRoute: () => PlatformMastraStudioMinimalRoute,
+  } as any)
+const PlatformMastraStudioMinimalLoginRoute =
+  PlatformMastraStudioMinimalLoginRouteImport.update({
+    id: '/login',
+    path: '/login',
+    getParentRoute: () => PlatformMastraStudioMinimalRoute,
+  } as any)
+const PlatformMastraStudioMainWorkspacesRoute =
+  PlatformMastraStudioMainWorkspacesRouteImport.update({
+    id: '/workspaces',
+    path: '/workspaces',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsRoute =
+  PlatformMastraStudioMainWorkflowsRouteImport.update({
+    id: '/workflows',
+    path: '/workflows',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainToolsRoute =
+  PlatformMastraStudioMainToolsRouteImport.update({
+    id: '/tools',
+    path: '/tools',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainTemplatesRoute =
+  PlatformMastraStudioMainTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainSettingsRoute =
+  PlatformMastraStudioMainSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainScorersRoute =
+  PlatformMastraStudioMainScorersRouteImport.update({
+    id: '/scorers',
+    path: '/scorers',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainResourcesRoute =
+  PlatformMastraStudioMainResourcesRouteImport.update({
+    id: '/resources',
+    path: '/resources',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainRequestContextRoute =
+  PlatformMastraStudioMainRequestContextRouteImport.update({
+    id: '/request-context',
+    path: '/request-context',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainPromptsRoute =
+  PlatformMastraStudioMainPromptsRouteImport.update({
+    id: '/prompts',
+    path: '/prompts',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainProcessorsRoute =
+  PlatformMastraStudioMainProcessorsRouteImport.update({
+    id: '/processors',
+    path: '/processors',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainObservabilityRoute =
+  PlatformMastraStudioMainObservabilityRouteImport.update({
+    id: '/observability',
+    path: '/observability',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainMetricsRoute =
+  PlatformMastraStudioMainMetricsRouteImport.update({
+    id: '/metrics',
+    path: '/metrics',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainMcpsRoute =
+  PlatformMastraStudioMainMcpsRouteImport.update({
+    id: '/mcps',
+    path: '/mcps',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainLogsRoute =
+  PlatformMastraStudioMainLogsRouteImport.update({
+    id: '/logs',
+    path: '/logs',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainIntegrationsRoute =
+  PlatformMastraStudioMainIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainExperimentsRoute =
+  PlatformMastraStudioMainExperimentsRouteImport.update({
+    id: '/experiments',
+    path: '/experiments',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainEvaluationRoute =
+  PlatformMastraStudioMainEvaluationRouteImport.update({
+    id: '/evaluation',
+    path: '/evaluation',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsRoute =
+  PlatformMastraStudioMainDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsRoute =
+  PlatformMastraStudioMainAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderLibraryIndexRoute =
+  PlatformMastraStudioAgentBuilderLibraryIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderLibraryRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderInfrastructureIndexRoute =
+  PlatformMastraStudioAgentBuilderInfrastructureIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderInfrastructureRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderFavoriteIndexRoute =
+  PlatformMastraStudioAgentBuilderFavoriteIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderFavoriteRoute,
+  } as any)
 const WSlugStudioResumesRecordIdRoute =
   WSlugStudioResumesRecordIdRouteImport.update({
     id: '/$recordId',
     path: '/$recordId',
     getParentRoute: () => WSlugStudioResumesRoute,
   } as any)
+const WSlugStudioMailIngestAccountsIdRoute =
+  WSlugStudioMailIngestAccountsIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => WSlugStudioMailIngestAccountsRoute,
+  } as any)
 const WSlugStudioInterviewsRoundIdRoute =
   WSlugStudioInterviewsRoundIdRouteImport.update({
     id: '/$roundId',
     path: '/$roundId',
     getParentRoute: () => WSlugStudioInterviewsRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsListingRoute =
+  PlatformMastraStudioAgentBuilderSkillsListingRouteImport.update({
+    id: '/_listing',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsEditionRoute =
+  PlatformMastraStudioAgentBuilderSkillsEditionRouteImport.update({
+    id: '/_edition',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsListingRoute =
+  PlatformMastraStudioAgentBuilderAgentsListingRouteImport.update({
+    id: '/_listing',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsEditionRoute =
+  PlatformMastraStudioAgentBuilderAgentsEditionRouteImport.update({
+    id: '/_edition',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsRoute,
+  } as any)
+const PlatformMastraStudioMainWorkspacesWorkspaceIdRoute =
+  PlatformMastraStudioMainWorkspacesWorkspaceIdRouteImport.update({
+    id: '/workspaces_/$workspaceId',
+    path: '/workspaces/$workspaceId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsSchedulesRoute =
+  PlatformMastraStudioMainWorkflowsSchedulesRouteImport.update({
+    id: '/workflows_/schedules',
+    path: '/workflows/schedules',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsWorkflowIdRoute =
+  PlatformMastraStudioMainWorkflowsWorkflowIdRouteImport.update({
+    id: '/workflows_/$workflowId',
+    path: '/workflows/$workflowId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainTracesTraceIdRoute =
+  PlatformMastraStudioMainTracesTraceIdRouteImport.update({
+    id: '/traces/$traceId',
+    path: '/traces/$traceId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainToolsToolIdRoute =
+  PlatformMastraStudioMainToolsToolIdRouteImport.update({
+    id: '/tools_/$toolId',
+    path: '/tools/$toolId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainTemplatesTemplateSlugRoute =
+  PlatformMastraStudioMainTemplatesTemplateSlugRouteImport.update({
+    id: '/templates_/$templateSlug',
+    path: '/templates/$templateSlug',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainScorersScorerIdRoute =
+  PlatformMastraStudioMainScorersScorerIdRouteImport.update({
+    id: '/scorers_/$scorerId',
+    path: '/scorers/$scorerId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainProcessorsProcessorIdRoute =
+  PlatformMastraStudioMainProcessorsProcessorIdRouteImport.update({
+    id: '/processors_/$processorId',
+    path: '/processors/$processorId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainMcpsServerIdRoute =
+  PlatformMastraStudioMainMcpsServerIdRouteImport.update({
+    id: '/mcps_/$serverId',
+    path: '/mcps/$serverId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainExperimentsExperimentIdRoute =
+  PlatformMastraStudioMainExperimentsExperimentIdRouteImport.update({
+    id: '/experiments_/$experimentId',
+    path: '/experiments/$experimentId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdRouteImport.update({
+    id: '/datasets_/$datasetId',
+    path: '/datasets/$datasetId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdRoute =
+  PlatformMastraStudioMainAgentsAgentIdRouteImport.update({
+    id: '/agents_/$agentId',
+    path: '/agents/$agentId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsListingIndexRoute =
+  PlatformMastraStudioAgentBuilderSkillsListingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsListingRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsListingIndexRoute =
+  PlatformMastraStudioAgentBuilderAgentsListingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsListingRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute =
+  PlatformMastraStudioMainWorkflowsWorkflowIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioMainWorkflowsWorkflowIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdIndexRoute =
+  PlatformMastraStudioMainAgentsAgentIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute =
+  PlatformMastraStudioAgentBuilderSkillsEditionCreateRouteImport.update({
+    id: '/create',
+    path: '/create',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsEditionIdRoute =
+  PlatformMastraStudioAgentBuilderSkillsEditionIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute =
+  PlatformMastraStudioAgentBuilderAgentsEditionCreateRouteImport.update({
+    id: '/create',
+    path: '/create',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsEditionIdRoute =
+  PlatformMastraStudioAgentBuilderAgentsEditionIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsEditionRoute,
+  } as any)
+const PlatformMastraStudioMinimalAgentsAgentIdSessionRoute =
+  PlatformMastraStudioMinimalAgentsAgentIdSessionRouteImport.update({
+    id: '/agents/$agentId/session',
+    path: '/agents/$agentId/session',
+    getParentRoute: () => PlatformMastraStudioMinimalRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute =
+  PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRouteImport.update({
+    id: '/workflows_/schedules_/$scheduleId',
+    path: '/workflows/schedules/$scheduleId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute =
+  PlatformMastraStudioMainWorkflowsWorkflowIdGraphRouteImport.update({
+    id: '/graph',
+    path: '/graph',
+    getParentRoute: () => PlatformMastraStudioMainWorkflowsWorkflowIdRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdVersionsRouteImport.update({
+    id: '/datasets_/$datasetId_/versions',
+    path: '/datasets/$datasetId/versions',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdItemsRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdItemsRouteImport.update({
+    id: '/datasets_/$datasetId_/items',
+    path: '/datasets/$datasetId/items',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdExperimentsRouteImport.update({
+    id: '/datasets_/$datasetId_/experiments',
+    path: '/datasets/$datasetId/experiments',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainCmsScorersCreateRoute =
+  PlatformMastraStudioMainCmsScorersCreateRouteImport.update({
+    id: '/cms/scorers/create',
+    path: '/cms/scorers/create',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainCmsPromptsCreateRoute =
+  PlatformMastraStudioMainCmsPromptsCreateRouteImport.update({
+    id: '/cms/prompts/create',
+    path: '/cms/prompts/create',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateRoute =
+  PlatformMastraStudioMainCmsAgentsCreateRouteImport.update({
+    id: '/cms/agents/create',
+    path: '/cms/agents/create',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdTracesRoute =
+  PlatformMastraStudioMainAgentsAgentIdTracesRouteImport.update({
+    id: '/traces',
+    path: '/traces',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdSettingsRoute =
+  PlatformMastraStudioMainAgentsAgentIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdReviewRoute =
+  PlatformMastraStudioMainAgentsAgentIdReviewRouteImport.update({
+    id: '/review',
+    path: '/review',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdEvaluateRoute =
+  PlatformMastraStudioMainAgentsAgentIdEvaluateRouteImport.update({
+    id: '/evaluate',
+    path: '/evaluate',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdEditorRoute =
+  PlatformMastraStudioMainAgentsAgentIdEditorRouteImport.update({
+    id: '/editor',
+    path: '/editor',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdChatRoute =
+  PlatformMastraStudioMainAgentsAgentIdChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdChannelsRoute =
+  PlatformMastraStudioMainAgentsAgentIdChannelsRouteImport.update({
+    id: '/channels',
+    path: '/channels',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateIndexRoute =
+  PlatformMastraStudioMainCmsAgentsCreateIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute =
+  PlatformMastraStudioAgentBuilderSkillsEditionIdViewRouteImport.update({
+    id: '/$id_/view',
+    path: '/$id/view',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute =
+  PlatformMastraStudioAgentBuilderSkillsEditionIdEditRouteImport.update({
+    id: '/$id_/edit',
+    path: '/$id/edit',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderSkillsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute =
+  PlatformMastraStudioAgentBuilderAgentsEditionIdViewRouteImport.update({
+    id: '/$id_/view',
+    path: '/$id/view',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsEditionRoute,
+  } as any)
+const PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute =
+  PlatformMastraStudioAgentBuilderAgentsEditionIdEditRouteImport.update({
+    id: '/$id_/edit',
+    path: '/$id/edit',
+    getParentRoute: () => PlatformMastraStudioAgentBuilderAgentsEditionRoute,
+  } as any)
+const PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute =
+  PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRouteImport.update({
+    id: '/agents/$agentId/session_/$threadId',
+    path: '/agents/$agentId/session/$threadId',
+    getParentRoute: () => PlatformMastraStudioMinimalRoute,
+  } as any)
+const PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute =
+  PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRouteImport.update(
+    {
+      id: '/workspaces_/$workspaceId_/skills/$skillName',
+      path: '/workspaces/$workspaceId/skills/$skillName',
+      getParentRoute: () => PlatformMastraStudioMainRoute,
+    } as any,
+  )
+const PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute =
+  PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRouteImport.update({
+    id: '/graph_/$runId',
+    path: '/graph/$runId',
+    getParentRoute: () => PlatformMastraStudioMainWorkflowsWorkflowIdRoute,
+  } as any)
+const PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute =
+  PlatformMastraStudioMainMcpsServerIdToolsToolIdRouteImport.update({
+    id: '/mcps_/$serverId_/tools/$toolId',
+    path: '/mcps/$serverId/tools/$toolId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRouteImport.update({
+    id: '/datasets_/$datasetId_/items_/$itemId',
+    path: '/datasets/$datasetId/items/$itemId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRouteImport.update(
+    {
+      id: '/datasets_/$datasetId_/experiments_/$experimentId',
+      path: '/datasets/$datasetId/experiments/$experimentId',
+      getParentRoute: () => PlatformMastraStudioMainRoute,
+    } as any,
+  )
+const PlatformMastraStudioMainCmsScorersScorerIdEditRoute =
+  PlatformMastraStudioMainCmsScorersScorerIdEditRouteImport.update({
+    id: '/cms/scorers/$scorerId/edit',
+    path: '/cms/scorers/$scorerId/edit',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute =
+  PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRouteImport.update({
+    id: '/cms/prompts/$promptBlockId/edit',
+    path: '/cms/prompts/$promptBlockId/edit',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute =
+  PlatformMastraStudioMainCmsAgentsCreateWorkflowsRouteImport.update({
+    id: '/workflows',
+    path: '/workflows',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateVariablesRoute =
+  PlatformMastraStudioMainCmsAgentsCreateVariablesRouteImport.update({
+    id: '/variables',
+    path: '/variables',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateToolsRoute =
+  PlatformMastraStudioMainCmsAgentsCreateToolsRouteImport.update({
+    id: '/tools',
+    path: '/tools',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateSkillsRoute =
+  PlatformMastraStudioMainCmsAgentsCreateSkillsRouteImport.update({
+    id: '/skills',
+    path: '/skills',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateScorersRoute =
+  PlatformMastraStudioMainCmsAgentsCreateScorersRouteImport.update({
+    id: '/scorers',
+    path: '/scorers',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateMemoryRoute =
+  PlatformMastraStudioMainCmsAgentsCreateMemoryRouteImport.update({
+    id: '/memory',
+    path: '/memory',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute =
+  PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRouteImport.update({
+    id: '/instruction-blocks',
+    path: '/instruction-blocks',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsCreateAgentsRoute =
+  PlatformMastraStudioMainCmsAgentsCreateAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsCreateRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditRouteImport.update({
+    id: '/cms/agents/$agentId/edit',
+    path: '/cms/agents/$agentId/edit',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute =
+  PlatformMastraStudioMainAgentsAgentIdToolsToolIdRouteImport.update({
+    id: '/agents_/$agentId_/tools/$toolId',
+    path: '/agents/$agentId/tools/$toolId',
+    getParentRoute: () => PlatformMastraStudioMainRoute,
+  } as any)
+const PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute =
+  PlatformMastraStudioMainAgentsAgentIdChatThreadIdRouteImport.update({
+    id: '/chat_/$threadId',
+    path: '/chat/$threadId',
+    getParentRoute: () => PlatformMastraStudioMainAgentsAgentIdRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute =
+  PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRouteImport.update(
+    {
+      id: '/datasets_/$datasetId_/items_/$itemId_/versions',
+      path: '/datasets/$datasetId/items/$itemId/versions',
+      getParentRoute: () => PlatformMastraStudioMainRoute,
+    } as any,
+  )
+const PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRouteImport.update({
+    id: '/workflows',
+    path: '/workflows',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRouteImport.update({
+    id: '/variables',
+    path: '/variables',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRouteImport.update({
+    id: '/tools',
+    path: '/tools',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRouteImport.update({
+    id: '/skills',
+    path: '/skills',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRouteImport.update({
+    id: '/scorers',
+    path: '/scorers',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRouteImport.update({
+    id: '/memory',
+    path: '/memory',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+  } as any)
+const PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRouteImport.update(
+    {
+      id: '/instruction-blocks',
+      path: '/instruction-blocks',
+      getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
+    } as any,
+  )
+const PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => PlatformMastraStudioMainCmsAgentsAgentIdEditRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -328,31 +1154,68 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/mastra-studio': typeof PlatformMastraStudioRouteWithChildren
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
+  '/platform/mastra-studio/agent-builder': typeof PlatformMastraStudioAgentBuilderRouteWithChildren
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit/': typeof PlatformLivekitIndexRoute
+  '/platform/mastra-studio/agents': typeof PlatformMastraStudioMainAgentsRoute
+  '/platform/mastra-studio/datasets': typeof PlatformMastraStudioMainDatasetsRoute
+  '/platform/mastra-studio/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
+  '/platform/mastra-studio/experiments': typeof PlatformMastraStudioMainExperimentsRoute
+  '/platform/mastra-studio/integrations': typeof PlatformMastraStudioMainIntegrationsRoute
+  '/platform/mastra-studio/logs': typeof PlatformMastraStudioMainLogsRoute
+  '/platform/mastra-studio/mcps': typeof PlatformMastraStudioMainMcpsRoute
+  '/platform/mastra-studio/metrics': typeof PlatformMastraStudioMainMetricsRoute
+  '/platform/mastra-studio/observability': typeof PlatformMastraStudioMainObservabilityRoute
+  '/platform/mastra-studio/processors': typeof PlatformMastraStudioMainProcessorsRoute
+  '/platform/mastra-studio/prompts': typeof PlatformMastraStudioMainPromptsRoute
+  '/platform/mastra-studio/request-context': typeof PlatformMastraStudioMainRequestContextRoute
+  '/platform/mastra-studio/resources': typeof PlatformMastraStudioMainResourcesRoute
+  '/platform/mastra-studio/scorers': typeof PlatformMastraStudioMainScorersRoute
+  '/platform/mastra-studio/settings': typeof PlatformMastraStudioMainSettingsRoute
+  '/platform/mastra-studio/templates': typeof PlatformMastraStudioMainTemplatesRoute
+  '/platform/mastra-studio/tools': typeof PlatformMastraStudioMainToolsRoute
+  '/platform/mastra-studio/workflows': typeof PlatformMastraStudioMainWorkflowsRoute
+  '/platform/mastra-studio/workspaces': typeof PlatformMastraStudioMainWorkspacesRoute
+  '/platform/mastra-studio/login': typeof PlatformMastraStudioMinimalLoginRoute
+  '/platform/mastra-studio/signup': typeof PlatformMastraStudioMinimalSignupRoute
+  '/platform/mastra-studio/agent-builder/agents': typeof PlatformMastraStudioAgentBuilderAgentsRouteWithChildren
+  '/platform/mastra-studio/agent-builder/favorite': typeof PlatformMastraStudioAgentBuilderFavoriteRouteWithChildren
+  '/platform/mastra-studio/agent-builder/infrastructure': typeof PlatformMastraStudioAgentBuilderInfrastructureRouteWithChildren
+  '/platform/mastra-studio/agent-builder/library': typeof PlatformMastraStudioAgentBuilderLibraryRouteWithChildren
+  '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsRouteWithChildren
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
-  '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -361,16 +1224,92 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
-  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
+  '/platform/mastra-studio/': typeof PlatformMastraStudioMainIndexRoute
+  '/platform/mastra-studio/agent-builder/': typeof PlatformMastraStudioAgentBuilderIndexRoute
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
+  '/platform/mastra-studio/agents/$agentId': typeof PlatformMastraStudioMainAgentsAgentIdRouteWithChildren
+  '/platform/mastra-studio/datasets/$datasetId': typeof PlatformMastraStudioMainDatasetsDatasetIdRoute
+  '/platform/mastra-studio/experiments/$experimentId': typeof PlatformMastraStudioMainExperimentsExperimentIdRoute
+  '/platform/mastra-studio/mcps/$serverId': typeof PlatformMastraStudioMainMcpsServerIdRoute
+  '/platform/mastra-studio/processors/$processorId': typeof PlatformMastraStudioMainProcessorsProcessorIdRoute
+  '/platform/mastra-studio/scorers/$scorerId': typeof PlatformMastraStudioMainScorersScorerIdRoute
+  '/platform/mastra-studio/templates/$templateSlug': typeof PlatformMastraStudioMainTemplatesTemplateSlugRoute
+  '/platform/mastra-studio/tools/$toolId': typeof PlatformMastraStudioMainToolsToolIdRoute
+  '/platform/mastra-studio/traces/$traceId': typeof PlatformMastraStudioMainTracesTraceIdRoute
+  '/platform/mastra-studio/workflows/$workflowId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdRouteWithChildren
+  '/platform/mastra-studio/workflows/schedules': typeof PlatformMastraStudioMainWorkflowsSchedulesRoute
+  '/platform/mastra-studio/workspaces/$workspaceId': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
+  '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/platform/mastra-studio/agent-builder/favorite/': typeof PlatformMastraStudioAgentBuilderFavoriteIndexRoute
+  '/platform/mastra-studio/agent-builder/infrastructure/': typeof PlatformMastraStudioAgentBuilderInfrastructureIndexRoute
+  '/platform/mastra-studio/agent-builder/library/': typeof PlatformMastraStudioAgentBuilderLibraryIndexRoute
+  '/platform/mastra-studio/agents/$agentId/channels': typeof PlatformMastraStudioMainAgentsAgentIdChannelsRoute
+  '/platform/mastra-studio/agents/$agentId/chat': typeof PlatformMastraStudioMainAgentsAgentIdChatRoute
+  '/platform/mastra-studio/agents/$agentId/editor': typeof PlatformMastraStudioMainAgentsAgentIdEditorRoute
+  '/platform/mastra-studio/agents/$agentId/evaluate': typeof PlatformMastraStudioMainAgentsAgentIdEvaluateRoute
+  '/platform/mastra-studio/agents/$agentId/review': typeof PlatformMastraStudioMainAgentsAgentIdReviewRoute
+  '/platform/mastra-studio/agents/$agentId/settings': typeof PlatformMastraStudioMainAgentsAgentIdSettingsRoute
+  '/platform/mastra-studio/agents/$agentId/traces': typeof PlatformMastraStudioMainAgentsAgentIdTracesRoute
+  '/platform/mastra-studio/cms/agents/create': typeof PlatformMastraStudioMainCmsAgentsCreateRouteWithChildren
+  '/platform/mastra-studio/cms/prompts/create': typeof PlatformMastraStudioMainCmsPromptsCreateRoute
+  '/platform/mastra-studio/cms/scorers/create': typeof PlatformMastraStudioMainCmsScorersCreateRoute
+  '/platform/mastra-studio/datasets/$datasetId/experiments': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute
+  '/platform/mastra-studio/datasets/$datasetId/items': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsRoute
+  '/platform/mastra-studio/datasets/$datasetId/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute
+  '/platform/mastra-studio/workflows/$workflowId/graph': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute
+  '/platform/mastra-studio/workflows/schedules/$scheduleId': typeof PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute
+  '/platform/mastra-studio/agents/$agentId/session': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionRoute
+  '/platform/mastra-studio/agent-builder/agents/$id': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/agents/create': typeof PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute
+  '/platform/mastra-studio/agent-builder/skills/$id': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/skills/create': typeof PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute
+  '/platform/mastra-studio/agents/$agentId/': typeof PlatformMastraStudioMainAgentsAgentIdIndexRoute
+  '/platform/mastra-studio/workflows/$workflowId/': typeof PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute
+  '/platform/mastra-studio/agent-builder/agents/': typeof PlatformMastraStudioAgentBuilderAgentsListingIndexRoute
+  '/platform/mastra-studio/agent-builder/skills/': typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRoute
+  '/platform/mastra-studio/agents/$agentId/chat/$threadId': typeof PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute
+  '/platform/mastra-studio/agents/$agentId/tools/$toolId': typeof PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRouteWithChildren
+  '/platform/mastra-studio/cms/agents/create/agents': typeof PlatformMastraStudioMainCmsAgentsCreateAgentsRoute
+  '/platform/mastra-studio/cms/agents/create/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute
+  '/platform/mastra-studio/cms/agents/create/memory': typeof PlatformMastraStudioMainCmsAgentsCreateMemoryRoute
+  '/platform/mastra-studio/cms/agents/create/scorers': typeof PlatformMastraStudioMainCmsAgentsCreateScorersRoute
+  '/platform/mastra-studio/cms/agents/create/skills': typeof PlatformMastraStudioMainCmsAgentsCreateSkillsRoute
+  '/platform/mastra-studio/cms/agents/create/tools': typeof PlatformMastraStudioMainCmsAgentsCreateToolsRoute
+  '/platform/mastra-studio/cms/agents/create/variables': typeof PlatformMastraStudioMainCmsAgentsCreateVariablesRoute
+  '/platform/mastra-studio/cms/agents/create/workflows': typeof PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute
+  '/platform/mastra-studio/cms/prompts/$promptBlockId/edit': typeof PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute
+  '/platform/mastra-studio/cms/scorers/$scorerId/edit': typeof PlatformMastraStudioMainCmsScorersScorerIdEditRoute
+  '/platform/mastra-studio/datasets/$datasetId/experiments/$experimentId': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute
+  '/platform/mastra-studio/datasets/$datasetId/items/$itemId': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute
+  '/platform/mastra-studio/mcps/$serverId/tools/$toolId': typeof PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute
+  '/platform/mastra-studio/workflows/$workflowId/graph/$runId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute
+  '/platform/mastra-studio/workspaces/$workspaceId/skills/$skillName': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute
+  '/platform/mastra-studio/agents/$agentId/session/$threadId': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute
+  '/platform/mastra-studio/agent-builder/agents/$id/edit': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/agents/$id/view': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute
+  '/platform/mastra-studio/agent-builder/skills/$id/edit': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/skills/$id/view': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute
+  '/platform/mastra-studio/cms/agents/create/': typeof PlatformMastraStudioMainCmsAgentsCreateIndexRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/agents': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/memory': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/scorers': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/skills': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/tools': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/variables': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/workflows': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute
+  '/platform/mastra-studio/datasets/$datasetId/items/$itemId/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -380,29 +1319,61 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/mastra-studio': typeof PlatformMastraStudioMainIndexRoute
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit': typeof PlatformLivekitIndexRoute
+  '/platform/mastra-studio/agents': typeof PlatformMastraStudioMainAgentsRoute
+  '/platform/mastra-studio/datasets': typeof PlatformMastraStudioMainDatasetsRoute
+  '/platform/mastra-studio/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
+  '/platform/mastra-studio/experiments': typeof PlatformMastraStudioMainExperimentsRoute
+  '/platform/mastra-studio/integrations': typeof PlatformMastraStudioMainIntegrationsRoute
+  '/platform/mastra-studio/logs': typeof PlatformMastraStudioMainLogsRoute
+  '/platform/mastra-studio/mcps': typeof PlatformMastraStudioMainMcpsRoute
+  '/platform/mastra-studio/metrics': typeof PlatformMastraStudioMainMetricsRoute
+  '/platform/mastra-studio/observability': typeof PlatformMastraStudioMainObservabilityRoute
+  '/platform/mastra-studio/processors': typeof PlatformMastraStudioMainProcessorsRoute
+  '/platform/mastra-studio/prompts': typeof PlatformMastraStudioMainPromptsRoute
+  '/platform/mastra-studio/request-context': typeof PlatformMastraStudioMainRequestContextRoute
+  '/platform/mastra-studio/resources': typeof PlatformMastraStudioMainResourcesRoute
+  '/platform/mastra-studio/scorers': typeof PlatformMastraStudioMainScorersRoute
+  '/platform/mastra-studio/settings': typeof PlatformMastraStudioMainSettingsRoute
+  '/platform/mastra-studio/templates': typeof PlatformMastraStudioMainTemplatesRoute
+  '/platform/mastra-studio/tools': typeof PlatformMastraStudioMainToolsRoute
+  '/platform/mastra-studio/workflows': typeof PlatformMastraStudioMainWorkflowsRoute
+  '/platform/mastra-studio/workspaces': typeof PlatformMastraStudioMainWorkspacesRoute
+  '/platform/mastra-studio/login': typeof PlatformMastraStudioMinimalLoginRoute
+  '/platform/mastra-studio/signup': typeof PlatformMastraStudioMinimalSignupRoute
+  '/platform/mastra-studio/agent-builder/agents': typeof PlatformMastraStudioAgentBuilderAgentsListingIndexRoute
+  '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRoute
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
-  '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -411,16 +1382,85 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
-  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
+  '/platform/mastra-studio/agent-builder': typeof PlatformMastraStudioAgentBuilderIndexRoute
   '/w/$slug/agent': typeof WSlugAgentIndexRoute
   '/w/$slug/chat': typeof WSlugChatIndexRoute
+  '/platform/mastra-studio/datasets/$datasetId': typeof PlatformMastraStudioMainDatasetsDatasetIdRoute
+  '/platform/mastra-studio/experiments/$experimentId': typeof PlatformMastraStudioMainExperimentsExperimentIdRoute
+  '/platform/mastra-studio/mcps/$serverId': typeof PlatformMastraStudioMainMcpsServerIdRoute
+  '/platform/mastra-studio/processors/$processorId': typeof PlatformMastraStudioMainProcessorsProcessorIdRoute
+  '/platform/mastra-studio/scorers/$scorerId': typeof PlatformMastraStudioMainScorersScorerIdRoute
+  '/platform/mastra-studio/templates/$templateSlug': typeof PlatformMastraStudioMainTemplatesTemplateSlugRoute
+  '/platform/mastra-studio/tools/$toolId': typeof PlatformMastraStudioMainToolsToolIdRoute
+  '/platform/mastra-studio/traces/$traceId': typeof PlatformMastraStudioMainTracesTraceIdRoute
+  '/platform/mastra-studio/workflows/schedules': typeof PlatformMastraStudioMainWorkflowsSchedulesRoute
+  '/platform/mastra-studio/workspaces/$workspaceId': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
+  '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/platform/mastra-studio/agent-builder/favorite': typeof PlatformMastraStudioAgentBuilderFavoriteIndexRoute
+  '/platform/mastra-studio/agent-builder/infrastructure': typeof PlatformMastraStudioAgentBuilderInfrastructureIndexRoute
+  '/platform/mastra-studio/agent-builder/library': typeof PlatformMastraStudioAgentBuilderLibraryIndexRoute
+  '/platform/mastra-studio/agents/$agentId/channels': typeof PlatformMastraStudioMainAgentsAgentIdChannelsRoute
+  '/platform/mastra-studio/agents/$agentId/chat': typeof PlatformMastraStudioMainAgentsAgentIdChatRoute
+  '/platform/mastra-studio/agents/$agentId/editor': typeof PlatformMastraStudioMainAgentsAgentIdEditorRoute
+  '/platform/mastra-studio/agents/$agentId/evaluate': typeof PlatformMastraStudioMainAgentsAgentIdEvaluateRoute
+  '/platform/mastra-studio/agents/$agentId/review': typeof PlatformMastraStudioMainAgentsAgentIdReviewRoute
+  '/platform/mastra-studio/agents/$agentId/settings': typeof PlatformMastraStudioMainAgentsAgentIdSettingsRoute
+  '/platform/mastra-studio/agents/$agentId/traces': typeof PlatformMastraStudioMainAgentsAgentIdTracesRoute
+  '/platform/mastra-studio/cms/prompts/create': typeof PlatformMastraStudioMainCmsPromptsCreateRoute
+  '/platform/mastra-studio/cms/scorers/create': typeof PlatformMastraStudioMainCmsScorersCreateRoute
+  '/platform/mastra-studio/datasets/$datasetId/experiments': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute
+  '/platform/mastra-studio/datasets/$datasetId/items': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsRoute
+  '/platform/mastra-studio/datasets/$datasetId/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute
+  '/platform/mastra-studio/workflows/$workflowId/graph': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute
+  '/platform/mastra-studio/workflows/schedules/$scheduleId': typeof PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute
+  '/platform/mastra-studio/agents/$agentId/session': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionRoute
+  '/platform/mastra-studio/agent-builder/agents/$id': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/agents/create': typeof PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute
+  '/platform/mastra-studio/agent-builder/skills/$id': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/skills/create': typeof PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute
+  '/platform/mastra-studio/agents/$agentId': typeof PlatformMastraStudioMainAgentsAgentIdIndexRoute
+  '/platform/mastra-studio/workflows/$workflowId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute
+  '/platform/mastra-studio/agents/$agentId/chat/$threadId': typeof PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute
+  '/platform/mastra-studio/agents/$agentId/tools/$toolId': typeof PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute
+  '/platform/mastra-studio/cms/agents/create/agents': typeof PlatformMastraStudioMainCmsAgentsCreateAgentsRoute
+  '/platform/mastra-studio/cms/agents/create/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute
+  '/platform/mastra-studio/cms/agents/create/memory': typeof PlatformMastraStudioMainCmsAgentsCreateMemoryRoute
+  '/platform/mastra-studio/cms/agents/create/scorers': typeof PlatformMastraStudioMainCmsAgentsCreateScorersRoute
+  '/platform/mastra-studio/cms/agents/create/skills': typeof PlatformMastraStudioMainCmsAgentsCreateSkillsRoute
+  '/platform/mastra-studio/cms/agents/create/tools': typeof PlatformMastraStudioMainCmsAgentsCreateToolsRoute
+  '/platform/mastra-studio/cms/agents/create/variables': typeof PlatformMastraStudioMainCmsAgentsCreateVariablesRoute
+  '/platform/mastra-studio/cms/agents/create/workflows': typeof PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute
+  '/platform/mastra-studio/cms/prompts/$promptBlockId/edit': typeof PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute
+  '/platform/mastra-studio/cms/scorers/$scorerId/edit': typeof PlatformMastraStudioMainCmsScorersScorerIdEditRoute
+  '/platform/mastra-studio/datasets/$datasetId/experiments/$experimentId': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute
+  '/platform/mastra-studio/datasets/$datasetId/items/$itemId': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute
+  '/platform/mastra-studio/mcps/$serverId/tools/$toolId': typeof PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute
+  '/platform/mastra-studio/workflows/$workflowId/graph/$runId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute
+  '/platform/mastra-studio/workspaces/$workspaceId/skills/$skillName': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute
+  '/platform/mastra-studio/agents/$agentId/session/$threadId': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute
+  '/platform/mastra-studio/agent-builder/agents/$id/edit': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/agents/$id/view': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute
+  '/platform/mastra-studio/agent-builder/skills/$id/edit': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/skills/$id/view': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute
+  '/platform/mastra-studio/cms/agents/create': typeof PlatformMastraStudioMainCmsAgentsCreateIndexRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/agents': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/memory': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/scorers': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/skills': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/tools': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/variables': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit/workflows': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute
+  '/platform/mastra-studio/datasets/$datasetId/items/$itemId/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute
+  '/platform/mastra-studio/cms/agents/$agentId/edit': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -431,31 +1471,70 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/mastra-studio': typeof PlatformMastraStudioRouteWithChildren
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
+  '/platform/mastra-studio/_main': typeof PlatformMastraStudioMainRouteWithChildren
+  '/platform/mastra-studio/_minimal': typeof PlatformMastraStudioMinimalRouteWithChildren
+  '/platform/mastra-studio/agent-builder': typeof PlatformMastraStudioAgentBuilderRouteWithChildren
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit/': typeof PlatformLivekitIndexRoute
+  '/platform/mastra-studio/_main/agents': typeof PlatformMastraStudioMainAgentsRoute
+  '/platform/mastra-studio/_main/datasets': typeof PlatformMastraStudioMainDatasetsRoute
+  '/platform/mastra-studio/_main/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
+  '/platform/mastra-studio/_main/experiments': typeof PlatformMastraStudioMainExperimentsRoute
+  '/platform/mastra-studio/_main/integrations': typeof PlatformMastraStudioMainIntegrationsRoute
+  '/platform/mastra-studio/_main/logs': typeof PlatformMastraStudioMainLogsRoute
+  '/platform/mastra-studio/_main/mcps': typeof PlatformMastraStudioMainMcpsRoute
+  '/platform/mastra-studio/_main/metrics': typeof PlatformMastraStudioMainMetricsRoute
+  '/platform/mastra-studio/_main/observability': typeof PlatformMastraStudioMainObservabilityRoute
+  '/platform/mastra-studio/_main/processors': typeof PlatformMastraStudioMainProcessorsRoute
+  '/platform/mastra-studio/_main/prompts': typeof PlatformMastraStudioMainPromptsRoute
+  '/platform/mastra-studio/_main/request-context': typeof PlatformMastraStudioMainRequestContextRoute
+  '/platform/mastra-studio/_main/resources': typeof PlatformMastraStudioMainResourcesRoute
+  '/platform/mastra-studio/_main/scorers': typeof PlatformMastraStudioMainScorersRoute
+  '/platform/mastra-studio/_main/settings': typeof PlatformMastraStudioMainSettingsRoute
+  '/platform/mastra-studio/_main/templates': typeof PlatformMastraStudioMainTemplatesRoute
+  '/platform/mastra-studio/_main/tools': typeof PlatformMastraStudioMainToolsRoute
+  '/platform/mastra-studio/_main/workflows': typeof PlatformMastraStudioMainWorkflowsRoute
+  '/platform/mastra-studio/_main/workspaces': typeof PlatformMastraStudioMainWorkspacesRoute
+  '/platform/mastra-studio/_minimal/login': typeof PlatformMastraStudioMinimalLoginRoute
+  '/platform/mastra-studio/_minimal/signup': typeof PlatformMastraStudioMinimalSignupRoute
+  '/platform/mastra-studio/agent-builder/agents': typeof PlatformMastraStudioAgentBuilderAgentsRouteWithChildren
+  '/platform/mastra-studio/agent-builder/favorite': typeof PlatformMastraStudioAgentBuilderFavoriteRouteWithChildren
+  '/platform/mastra-studio/agent-builder/infrastructure': typeof PlatformMastraStudioAgentBuilderInfrastructureRouteWithChildren
+  '/platform/mastra-studio/agent-builder/library': typeof PlatformMastraStudioAgentBuilderLibraryRouteWithChildren
+  '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsRouteWithChildren
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
-  '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -464,16 +1543,96 @@ export interface FileRoutesById {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
-  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRouteWithChildren
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
+  '/platform/mastra-studio/_main/': typeof PlatformMastraStudioMainIndexRoute
+  '/platform/mastra-studio/agent-builder/': typeof PlatformMastraStudioAgentBuilderIndexRoute
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
+  '/platform/mastra-studio/_main/agents_/$agentId': typeof PlatformMastraStudioMainAgentsAgentIdRouteWithChildren
+  '/platform/mastra-studio/_main/datasets_/$datasetId': typeof PlatformMastraStudioMainDatasetsDatasetIdRoute
+  '/platform/mastra-studio/_main/experiments_/$experimentId': typeof PlatformMastraStudioMainExperimentsExperimentIdRoute
+  '/platform/mastra-studio/_main/mcps_/$serverId': typeof PlatformMastraStudioMainMcpsServerIdRoute
+  '/platform/mastra-studio/_main/processors_/$processorId': typeof PlatformMastraStudioMainProcessorsProcessorIdRoute
+  '/platform/mastra-studio/_main/scorers_/$scorerId': typeof PlatformMastraStudioMainScorersScorerIdRoute
+  '/platform/mastra-studio/_main/templates_/$templateSlug': typeof PlatformMastraStudioMainTemplatesTemplateSlugRoute
+  '/platform/mastra-studio/_main/tools_/$toolId': typeof PlatformMastraStudioMainToolsToolIdRoute
+  '/platform/mastra-studio/_main/traces/$traceId': typeof PlatformMastraStudioMainTracesTraceIdRoute
+  '/platform/mastra-studio/_main/workflows_/$workflowId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdRouteWithChildren
+  '/platform/mastra-studio/_main/workflows_/schedules': typeof PlatformMastraStudioMainWorkflowsSchedulesRoute
+  '/platform/mastra-studio/_main/workspaces_/$workspaceId': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdRoute
+  '/platform/mastra-studio/agent-builder/agents/_edition': typeof PlatformMastraStudioAgentBuilderAgentsEditionRouteWithChildren
+  '/platform/mastra-studio/agent-builder/agents/_listing': typeof PlatformMastraStudioAgentBuilderAgentsListingRouteWithChildren
+  '/platform/mastra-studio/agent-builder/skills/_edition': typeof PlatformMastraStudioAgentBuilderSkillsEditionRouteWithChildren
+  '/platform/mastra-studio/agent-builder/skills/_listing': typeof PlatformMastraStudioAgentBuilderSkillsListingRouteWithChildren
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
+  '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/platform/mastra-studio/agent-builder/favorite/': typeof PlatformMastraStudioAgentBuilderFavoriteIndexRoute
+  '/platform/mastra-studio/agent-builder/infrastructure/': typeof PlatformMastraStudioAgentBuilderInfrastructureIndexRoute
+  '/platform/mastra-studio/agent-builder/library/': typeof PlatformMastraStudioAgentBuilderLibraryIndexRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/channels': typeof PlatformMastraStudioMainAgentsAgentIdChannelsRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/chat': typeof PlatformMastraStudioMainAgentsAgentIdChatRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/editor': typeof PlatformMastraStudioMainAgentsAgentIdEditorRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/evaluate': typeof PlatformMastraStudioMainAgentsAgentIdEvaluateRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/review': typeof PlatformMastraStudioMainAgentsAgentIdReviewRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/settings': typeof PlatformMastraStudioMainAgentsAgentIdSettingsRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/traces': typeof PlatformMastraStudioMainAgentsAgentIdTracesRoute
+  '/platform/mastra-studio/_main/cms/agents/create': typeof PlatformMastraStudioMainCmsAgentsCreateRouteWithChildren
+  '/platform/mastra-studio/_main/cms/prompts/create': typeof PlatformMastraStudioMainCmsPromptsCreateRoute
+  '/platform/mastra-studio/_main/cms/scorers/create': typeof PlatformMastraStudioMainCmsScorersCreateRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/items': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute
+  '/platform/mastra-studio/_main/workflows_/$workflowId/graph': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute
+  '/platform/mastra-studio/_main/workflows_/schedules_/$scheduleId': typeof PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute
+  '/platform/mastra-studio/_minimal/agents/$agentId/session': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionRoute
+  '/platform/mastra-studio/agent-builder/agents/_edition/$id': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/agents/_edition/create': typeof PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute
+  '/platform/mastra-studio/agent-builder/skills/_edition/$id': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdRoute
+  '/platform/mastra-studio/agent-builder/skills/_edition/create': typeof PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/': typeof PlatformMastraStudioMainAgentsAgentIdIndexRoute
+  '/platform/mastra-studio/_main/workflows_/$workflowId/': typeof PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute
+  '/platform/mastra-studio/agent-builder/agents/_listing/': typeof PlatformMastraStudioAgentBuilderAgentsListingIndexRoute
+  '/platform/mastra-studio/agent-builder/skills/_listing/': typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRoute
+  '/platform/mastra-studio/_main/agents_/$agentId/chat_/$threadId': typeof PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute
+  '/platform/mastra-studio/_main/agents_/$agentId_/tools/$toolId': typeof PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRouteWithChildren
+  '/platform/mastra-studio/_main/cms/agents/create/agents': typeof PlatformMastraStudioMainCmsAgentsCreateAgentsRoute
+  '/platform/mastra-studio/_main/cms/agents/create/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute
+  '/platform/mastra-studio/_main/cms/agents/create/memory': typeof PlatformMastraStudioMainCmsAgentsCreateMemoryRoute
+  '/platform/mastra-studio/_main/cms/agents/create/scorers': typeof PlatformMastraStudioMainCmsAgentsCreateScorersRoute
+  '/platform/mastra-studio/_main/cms/agents/create/skills': typeof PlatformMastraStudioMainCmsAgentsCreateSkillsRoute
+  '/platform/mastra-studio/_main/cms/agents/create/tools': typeof PlatformMastraStudioMainCmsAgentsCreateToolsRoute
+  '/platform/mastra-studio/_main/cms/agents/create/variables': typeof PlatformMastraStudioMainCmsAgentsCreateVariablesRoute
+  '/platform/mastra-studio/_main/cms/agents/create/workflows': typeof PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute
+  '/platform/mastra-studio/_main/cms/prompts/$promptBlockId/edit': typeof PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute
+  '/platform/mastra-studio/_main/cms/scorers/$scorerId/edit': typeof PlatformMastraStudioMainCmsScorersScorerIdEditRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments_/$experimentId': typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute
+  '/platform/mastra-studio/_main/mcps_/$serverId_/tools/$toolId': typeof PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute
+  '/platform/mastra-studio/_main/workflows_/$workflowId/graph_/$runId': typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute
+  '/platform/mastra-studio/_main/workspaces_/$workspaceId_/skills/$skillName': typeof PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute
+  '/platform/mastra-studio/_minimal/agents/$agentId/session_/$threadId': typeof PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute
+  '/platform/mastra-studio/agent-builder/agents/_edition/$id_/edit': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/agents/_edition/$id_/view': typeof PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute
+  '/platform/mastra-studio/agent-builder/skills/_edition/$id_/edit': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute
+  '/platform/mastra-studio/agent-builder/skills/_edition/$id_/view': typeof PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute
+  '/platform/mastra-studio/_main/cms/agents/create/': typeof PlatformMastraStudioMainCmsAgentsCreateIndexRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/agents': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/instruction-blocks': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/memory': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/scorers': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/skills': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/tools': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/variables': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/workflows': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute
+  '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId_/versions': typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute
+  '/platform/mastra-studio/_main/cms/agents/$agentId/edit/': typeof PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -485,31 +1644,68 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
+    | '/platform/mastra-studio'
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
+    | '/platform/mastra-studio/agent-builder'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/platform/livekit/'
+    | '/platform/mastra-studio/agents'
+    | '/platform/mastra-studio/datasets'
+    | '/platform/mastra-studio/evaluation'
+    | '/platform/mastra-studio/experiments'
+    | '/platform/mastra-studio/integrations'
+    | '/platform/mastra-studio/logs'
+    | '/platform/mastra-studio/mcps'
+    | '/platform/mastra-studio/metrics'
+    | '/platform/mastra-studio/observability'
+    | '/platform/mastra-studio/processors'
+    | '/platform/mastra-studio/prompts'
+    | '/platform/mastra-studio/request-context'
+    | '/platform/mastra-studio/resources'
+    | '/platform/mastra-studio/scorers'
+    | '/platform/mastra-studio/settings'
+    | '/platform/mastra-studio/templates'
+    | '/platform/mastra-studio/tools'
+    | '/platform/mastra-studio/workflows'
+    | '/platform/mastra-studio/workspaces'
+    | '/platform/mastra-studio/login'
+    | '/platform/mastra-studio/signup'
+    | '/platform/mastra-studio/agent-builder/agents'
+    | '/platform/mastra-studio/agent-builder/favorite'
+    | '/platform/mastra-studio/agent-builder/infrastructure'
+    | '/platform/mastra-studio/agent-builder/library'
+    | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
-    | '/w/$slug/studio/agent-debug'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -524,10 +1720,86 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/platform/mastra-studio/'
+    | '/platform/mastra-studio/agent-builder/'
     | '/w/$slug/agent/'
     | '/w/$slug/chat/'
+    | '/platform/mastra-studio/agents/$agentId'
+    | '/platform/mastra-studio/datasets/$datasetId'
+    | '/platform/mastra-studio/experiments/$experimentId'
+    | '/platform/mastra-studio/mcps/$serverId'
+    | '/platform/mastra-studio/processors/$processorId'
+    | '/platform/mastra-studio/scorers/$scorerId'
+    | '/platform/mastra-studio/templates/$templateSlug'
+    | '/platform/mastra-studio/tools/$toolId'
+    | '/platform/mastra-studio/traces/$traceId'
+    | '/platform/mastra-studio/workflows/$workflowId'
+    | '/platform/mastra-studio/workflows/schedules'
+    | '/platform/mastra-studio/workspaces/$workspaceId'
     | '/w/$slug/studio/interviews/$roundId'
+    | '/w/$slug/studio/mail-ingest-accounts/$id'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/platform/mastra-studio/agent-builder/favorite/'
+    | '/platform/mastra-studio/agent-builder/infrastructure/'
+    | '/platform/mastra-studio/agent-builder/library/'
+    | '/platform/mastra-studio/agents/$agentId/channels'
+    | '/platform/mastra-studio/agents/$agentId/chat'
+    | '/platform/mastra-studio/agents/$agentId/editor'
+    | '/platform/mastra-studio/agents/$agentId/evaluate'
+    | '/platform/mastra-studio/agents/$agentId/review'
+    | '/platform/mastra-studio/agents/$agentId/settings'
+    | '/platform/mastra-studio/agents/$agentId/traces'
+    | '/platform/mastra-studio/cms/agents/create'
+    | '/platform/mastra-studio/cms/prompts/create'
+    | '/platform/mastra-studio/cms/scorers/create'
+    | '/platform/mastra-studio/datasets/$datasetId/experiments'
+    | '/platform/mastra-studio/datasets/$datasetId/items'
+    | '/platform/mastra-studio/datasets/$datasetId/versions'
+    | '/platform/mastra-studio/workflows/$workflowId/graph'
+    | '/platform/mastra-studio/workflows/schedules/$scheduleId'
+    | '/platform/mastra-studio/agents/$agentId/session'
+    | '/platform/mastra-studio/agent-builder/agents/$id'
+    | '/platform/mastra-studio/agent-builder/agents/create'
+    | '/platform/mastra-studio/agent-builder/skills/$id'
+    | '/platform/mastra-studio/agent-builder/skills/create'
+    | '/platform/mastra-studio/agents/$agentId/'
+    | '/platform/mastra-studio/workflows/$workflowId/'
+    | '/platform/mastra-studio/agent-builder/agents/'
+    | '/platform/mastra-studio/agent-builder/skills/'
+    | '/platform/mastra-studio/agents/$agentId/chat/$threadId'
+    | '/platform/mastra-studio/agents/$agentId/tools/$toolId'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit'
+    | '/platform/mastra-studio/cms/agents/create/agents'
+    | '/platform/mastra-studio/cms/agents/create/instruction-blocks'
+    | '/platform/mastra-studio/cms/agents/create/memory'
+    | '/platform/mastra-studio/cms/agents/create/scorers'
+    | '/platform/mastra-studio/cms/agents/create/skills'
+    | '/platform/mastra-studio/cms/agents/create/tools'
+    | '/platform/mastra-studio/cms/agents/create/variables'
+    | '/platform/mastra-studio/cms/agents/create/workflows'
+    | '/platform/mastra-studio/cms/prompts/$promptBlockId/edit'
+    | '/platform/mastra-studio/cms/scorers/$scorerId/edit'
+    | '/platform/mastra-studio/datasets/$datasetId/experiments/$experimentId'
+    | '/platform/mastra-studio/datasets/$datasetId/items/$itemId'
+    | '/platform/mastra-studio/mcps/$serverId/tools/$toolId'
+    | '/platform/mastra-studio/workflows/$workflowId/graph/$runId'
+    | '/platform/mastra-studio/workspaces/$workspaceId/skills/$skillName'
+    | '/platform/mastra-studio/agents/$agentId/session/$threadId'
+    | '/platform/mastra-studio/agent-builder/agents/$id/edit'
+    | '/platform/mastra-studio/agent-builder/agents/$id/view'
+    | '/platform/mastra-studio/agent-builder/skills/$id/edit'
+    | '/platform/mastra-studio/agent-builder/skills/$id/view'
+    | '/platform/mastra-studio/cms/agents/create/'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/agents'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/instruction-blocks'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/memory'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/scorers'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/skills'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/tools'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/variables'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/workflows'
+    | '/platform/mastra-studio/datasets/$datasetId/items/$itemId/versions'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -537,29 +1809,61 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
     | '/platform/mail-ingest-accounts'
+    | '/platform/mastra-studio'
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/studio'
+    | '/platform/livekit'
+    | '/platform/mastra-studio/agents'
+    | '/platform/mastra-studio/datasets'
+    | '/platform/mastra-studio/evaluation'
+    | '/platform/mastra-studio/experiments'
+    | '/platform/mastra-studio/integrations'
+    | '/platform/mastra-studio/logs'
+    | '/platform/mastra-studio/mcps'
+    | '/platform/mastra-studio/metrics'
+    | '/platform/mastra-studio/observability'
+    | '/platform/mastra-studio/processors'
+    | '/platform/mastra-studio/prompts'
+    | '/platform/mastra-studio/request-context'
+    | '/platform/mastra-studio/resources'
+    | '/platform/mastra-studio/scorers'
+    | '/platform/mastra-studio/settings'
+    | '/platform/mastra-studio/templates'
+    | '/platform/mastra-studio/tools'
+    | '/platform/mastra-studio/workflows'
+    | '/platform/mastra-studio/workspaces'
+    | '/platform/mastra-studio/login'
+    | '/platform/mastra-studio/signup'
+    | '/platform/mastra-studio/agent-builder/agents'
+    | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
-    | '/w/$slug/studio/agent-debug'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -574,10 +1878,79 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/platform/mastra-studio/agent-builder'
     | '/w/$slug/agent'
     | '/w/$slug/chat'
+    | '/platform/mastra-studio/datasets/$datasetId'
+    | '/platform/mastra-studio/experiments/$experimentId'
+    | '/platform/mastra-studio/mcps/$serverId'
+    | '/platform/mastra-studio/processors/$processorId'
+    | '/platform/mastra-studio/scorers/$scorerId'
+    | '/platform/mastra-studio/templates/$templateSlug'
+    | '/platform/mastra-studio/tools/$toolId'
+    | '/platform/mastra-studio/traces/$traceId'
+    | '/platform/mastra-studio/workflows/schedules'
+    | '/platform/mastra-studio/workspaces/$workspaceId'
     | '/w/$slug/studio/interviews/$roundId'
+    | '/w/$slug/studio/mail-ingest-accounts/$id'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/platform/mastra-studio/agent-builder/favorite'
+    | '/platform/mastra-studio/agent-builder/infrastructure'
+    | '/platform/mastra-studio/agent-builder/library'
+    | '/platform/mastra-studio/agents/$agentId/channels'
+    | '/platform/mastra-studio/agents/$agentId/chat'
+    | '/platform/mastra-studio/agents/$agentId/editor'
+    | '/platform/mastra-studio/agents/$agentId/evaluate'
+    | '/platform/mastra-studio/agents/$agentId/review'
+    | '/platform/mastra-studio/agents/$agentId/settings'
+    | '/platform/mastra-studio/agents/$agentId/traces'
+    | '/platform/mastra-studio/cms/prompts/create'
+    | '/platform/mastra-studio/cms/scorers/create'
+    | '/platform/mastra-studio/datasets/$datasetId/experiments'
+    | '/platform/mastra-studio/datasets/$datasetId/items'
+    | '/platform/mastra-studio/datasets/$datasetId/versions'
+    | '/platform/mastra-studio/workflows/$workflowId/graph'
+    | '/platform/mastra-studio/workflows/schedules/$scheduleId'
+    | '/platform/mastra-studio/agents/$agentId/session'
+    | '/platform/mastra-studio/agent-builder/agents/$id'
+    | '/platform/mastra-studio/agent-builder/agents/create'
+    | '/platform/mastra-studio/agent-builder/skills/$id'
+    | '/platform/mastra-studio/agent-builder/skills/create'
+    | '/platform/mastra-studio/agents/$agentId'
+    | '/platform/mastra-studio/workflows/$workflowId'
+    | '/platform/mastra-studio/agents/$agentId/chat/$threadId'
+    | '/platform/mastra-studio/agents/$agentId/tools/$toolId'
+    | '/platform/mastra-studio/cms/agents/create/agents'
+    | '/platform/mastra-studio/cms/agents/create/instruction-blocks'
+    | '/platform/mastra-studio/cms/agents/create/memory'
+    | '/platform/mastra-studio/cms/agents/create/scorers'
+    | '/platform/mastra-studio/cms/agents/create/skills'
+    | '/platform/mastra-studio/cms/agents/create/tools'
+    | '/platform/mastra-studio/cms/agents/create/variables'
+    | '/platform/mastra-studio/cms/agents/create/workflows'
+    | '/platform/mastra-studio/cms/prompts/$promptBlockId/edit'
+    | '/platform/mastra-studio/cms/scorers/$scorerId/edit'
+    | '/platform/mastra-studio/datasets/$datasetId/experiments/$experimentId'
+    | '/platform/mastra-studio/datasets/$datasetId/items/$itemId'
+    | '/platform/mastra-studio/mcps/$serverId/tools/$toolId'
+    | '/platform/mastra-studio/workflows/$workflowId/graph/$runId'
+    | '/platform/mastra-studio/workspaces/$workspaceId/skills/$skillName'
+    | '/platform/mastra-studio/agents/$agentId/session/$threadId'
+    | '/platform/mastra-studio/agent-builder/agents/$id/edit'
+    | '/platform/mastra-studio/agent-builder/agents/$id/view'
+    | '/platform/mastra-studio/agent-builder/skills/$id/edit'
+    | '/platform/mastra-studio/agent-builder/skills/$id/view'
+    | '/platform/mastra-studio/cms/agents/create'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/agents'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/instruction-blocks'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/memory'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/scorers'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/skills'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/tools'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/variables'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit/workflows'
+    | '/platform/mastra-studio/datasets/$datasetId/items/$itemId/versions'
+    | '/platform/mastra-studio/cms/agents/$agentId/edit'
   id:
     | '__root__'
     | '/'
@@ -587,31 +1960,70 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
+    | '/platform/mastra-studio'
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
+    | '/platform/mastra-studio/_main'
+    | '/platform/mastra-studio/_minimal'
+    | '/platform/mastra-studio/agent-builder'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/platform/livekit/'
+    | '/platform/mastra-studio/_main/agents'
+    | '/platform/mastra-studio/_main/datasets'
+    | '/platform/mastra-studio/_main/evaluation'
+    | '/platform/mastra-studio/_main/experiments'
+    | '/platform/mastra-studio/_main/integrations'
+    | '/platform/mastra-studio/_main/logs'
+    | '/platform/mastra-studio/_main/mcps'
+    | '/platform/mastra-studio/_main/metrics'
+    | '/platform/mastra-studio/_main/observability'
+    | '/platform/mastra-studio/_main/processors'
+    | '/platform/mastra-studio/_main/prompts'
+    | '/platform/mastra-studio/_main/request-context'
+    | '/platform/mastra-studio/_main/resources'
+    | '/platform/mastra-studio/_main/scorers'
+    | '/platform/mastra-studio/_main/settings'
+    | '/platform/mastra-studio/_main/templates'
+    | '/platform/mastra-studio/_main/tools'
+    | '/platform/mastra-studio/_main/workflows'
+    | '/platform/mastra-studio/_main/workspaces'
+    | '/platform/mastra-studio/_minimal/login'
+    | '/platform/mastra-studio/_minimal/signup'
+    | '/platform/mastra-studio/agent-builder/agents'
+    | '/platform/mastra-studio/agent-builder/favorite'
+    | '/platform/mastra-studio/agent-builder/infrastructure'
+    | '/platform/mastra-studio/agent-builder/library'
+    | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
-    | '/w/$slug/studio/agent-debug'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -626,10 +2038,90 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/platform/mastra-studio/_main/'
+    | '/platform/mastra-studio/agent-builder/'
     | '/w/$slug/agent/'
     | '/w/$slug/chat/'
+    | '/platform/mastra-studio/_main/agents_/$agentId'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId'
+    | '/platform/mastra-studio/_main/experiments_/$experimentId'
+    | '/platform/mastra-studio/_main/mcps_/$serverId'
+    | '/platform/mastra-studio/_main/processors_/$processorId'
+    | '/platform/mastra-studio/_main/scorers_/$scorerId'
+    | '/platform/mastra-studio/_main/templates_/$templateSlug'
+    | '/platform/mastra-studio/_main/tools_/$toolId'
+    | '/platform/mastra-studio/_main/traces/$traceId'
+    | '/platform/mastra-studio/_main/workflows_/$workflowId'
+    | '/platform/mastra-studio/_main/workflows_/schedules'
+    | '/platform/mastra-studio/_main/workspaces_/$workspaceId'
+    | '/platform/mastra-studio/agent-builder/agents/_edition'
+    | '/platform/mastra-studio/agent-builder/agents/_listing'
+    | '/platform/mastra-studio/agent-builder/skills/_edition'
+    | '/platform/mastra-studio/agent-builder/skills/_listing'
     | '/w/$slug/studio/interviews/$roundId'
+    | '/w/$slug/studio/mail-ingest-accounts/$id'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/platform/mastra-studio/agent-builder/favorite/'
+    | '/platform/mastra-studio/agent-builder/infrastructure/'
+    | '/platform/mastra-studio/agent-builder/library/'
+    | '/platform/mastra-studio/_main/agents_/$agentId/channels'
+    | '/platform/mastra-studio/_main/agents_/$agentId/chat'
+    | '/platform/mastra-studio/_main/agents_/$agentId/editor'
+    | '/platform/mastra-studio/_main/agents_/$agentId/evaluate'
+    | '/platform/mastra-studio/_main/agents_/$agentId/review'
+    | '/platform/mastra-studio/_main/agents_/$agentId/settings'
+    | '/platform/mastra-studio/_main/agents_/$agentId/traces'
+    | '/platform/mastra-studio/_main/cms/agents/create'
+    | '/platform/mastra-studio/_main/cms/prompts/create'
+    | '/platform/mastra-studio/_main/cms/scorers/create'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/items'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/versions'
+    | '/platform/mastra-studio/_main/workflows_/$workflowId/graph'
+    | '/platform/mastra-studio/_main/workflows_/schedules_/$scheduleId'
+    | '/platform/mastra-studio/_minimal/agents/$agentId/session'
+    | '/platform/mastra-studio/agent-builder/agents/_edition/$id'
+    | '/platform/mastra-studio/agent-builder/agents/_edition/create'
+    | '/platform/mastra-studio/agent-builder/skills/_edition/$id'
+    | '/platform/mastra-studio/agent-builder/skills/_edition/create'
+    | '/platform/mastra-studio/_main/agents_/$agentId/'
+    | '/platform/mastra-studio/_main/workflows_/$workflowId/'
+    | '/platform/mastra-studio/agent-builder/agents/_listing/'
+    | '/platform/mastra-studio/agent-builder/skills/_listing/'
+    | '/platform/mastra-studio/_main/agents_/$agentId/chat_/$threadId'
+    | '/platform/mastra-studio/_main/agents_/$agentId_/tools/$toolId'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit'
+    | '/platform/mastra-studio/_main/cms/agents/create/agents'
+    | '/platform/mastra-studio/_main/cms/agents/create/instruction-blocks'
+    | '/platform/mastra-studio/_main/cms/agents/create/memory'
+    | '/platform/mastra-studio/_main/cms/agents/create/scorers'
+    | '/platform/mastra-studio/_main/cms/agents/create/skills'
+    | '/platform/mastra-studio/_main/cms/agents/create/tools'
+    | '/platform/mastra-studio/_main/cms/agents/create/variables'
+    | '/platform/mastra-studio/_main/cms/agents/create/workflows'
+    | '/platform/mastra-studio/_main/cms/prompts/$promptBlockId/edit'
+    | '/platform/mastra-studio/_main/cms/scorers/$scorerId/edit'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments_/$experimentId'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId'
+    | '/platform/mastra-studio/_main/mcps_/$serverId_/tools/$toolId'
+    | '/platform/mastra-studio/_main/workflows_/$workflowId/graph_/$runId'
+    | '/platform/mastra-studio/_main/workspaces_/$workspaceId_/skills/$skillName'
+    | '/platform/mastra-studio/_minimal/agents/$agentId/session_/$threadId'
+    | '/platform/mastra-studio/agent-builder/agents/_edition/$id_/edit'
+    | '/platform/mastra-studio/agent-builder/agents/_edition/$id_/view'
+    | '/platform/mastra-studio/agent-builder/skills/_edition/$id_/edit'
+    | '/platform/mastra-studio/agent-builder/skills/_edition/$id_/view'
+    | '/platform/mastra-studio/_main/cms/agents/create/'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/agents'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/instruction-blocks'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/memory'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/scorers'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/skills'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/tools'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/variables'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/workflows'
+    | '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId_/versions'
+    | '/platform/mastra-studio/_main/cms/agents/$agentId/edit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -640,15 +2132,14 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlatformRoute: typeof PlatformRouteWithChildren
   SelectWorkspaceRoute: typeof SelectWorkspaceRoute
+  StudioRoute: typeof StudioRouteWithChildren
   WaitRoute: typeof WaitRoute
+  ApiAppVersionRoute: typeof ApiAppVersionRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
   RRoundIdRoute: typeof RRoundIdRoute
   ReferralsTokenRoute: typeof ReferralsTokenRoute
-  StudioInterviewsRoute: typeof StudioInterviewsRoute
-  StudioResumePoolRoute: typeof StudioResumePoolRoute
-  StudioResumesRoute: typeof StudioResumesRoute
   WSlugRoute: typeof WSlugRouteWithChildren
   HumanInterviewInterviewerInviteTokenRoute: typeof HumanInterviewInterviewerInviteTokenRoute
   ResumeReviewSlugRecordIdRoute: typeof ResumeReviewSlugRecordIdRoute
@@ -661,6 +2152,13 @@ declare module '@tanstack/react-router' {
       path: '/wait'
       fullPath: '/wait'
       preLoaderRoute: typeof WaitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/select-workspace': {
@@ -721,24 +2219,31 @@ declare module '@tanstack/react-router' {
     }
     '/studio/resumes': {
       id: '/studio/resumes'
-      path: '/studio/resumes'
+      path: '/resumes'
       fullPath: '/studio/resumes'
       preLoaderRoute: typeof StudioResumesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/studio/resume-pool': {
       id: '/studio/resume-pool'
-      path: '/studio/resume-pool'
+      path: '/resume-pool'
       fullPath: '/studio/resume-pool'
       preLoaderRoute: typeof StudioResumePoolRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/studio/interviews': {
       id: '/studio/interviews'
-      path: '/studio/interviews'
+      path: '/interviews'
       fullPath: '/studio/interviews'
       preLoaderRoute: typeof StudioInterviewsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/calendar': {
+      id: '/studio/calendar'
+      path: '/calendar'
+      fullPath: '/studio/calendar'
+      preLoaderRoute: typeof StudioCalendarRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/referrals/$token': {
       id: '/referrals/$token'
@@ -759,6 +2264,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/platform/users'
       preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/resume-parse-cache': {
+      id: '/platform/resume-parse-cache'
+      path: '/resume-parse-cache'
+      fullPath: '/platform/resume-parse-cache'
+      preLoaderRoute: typeof PlatformResumeParseCacheRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/platform/queues': {
@@ -782,11 +2294,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformNotificationsRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/platform/mastra-studio': {
+      id: '/platform/mastra-studio'
+      path: '/mastra-studio'
+      fullPath: '/platform/mastra-studio'
+      preLoaderRoute: typeof PlatformMastraStudioRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/platform/mail-ingest-accounts': {
       id: '/platform/mail-ingest-accounts'
       path: '/mail-ingest-accounts'
       fullPath: '/platform/mail-ingest-accounts'
       preLoaderRoute: typeof PlatformMailIngestAccountsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/livekit': {
+      id: '/platform/livekit'
+      path: '/livekit'
+      fullPath: '/platform/livekit'
+      preLoaderRoute: typeof PlatformLivekitRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/join/$code': {
@@ -817,6 +2343,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HumanInterviewInviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/app-version': {
+      id: '/api/app-version'
+      path: '/api/app-version'
+      fullPath: '/api/app-version'
+      preLoaderRoute: typeof ApiAppVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform/livekit/': {
+      id: '/platform/livekit/'
+      path: '/'
+      fullPath: '/platform/livekit/'
+      preLoaderRoute: typeof PlatformLivekitIndexRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
     '/w/$slug/studio': {
       id: '/w/$slug/studio'
       path: '/studio'
@@ -845,6 +2385,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResumeReviewSlugRecordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/platform/mastra-studio/agent-builder': {
+      id: '/platform/mastra-studio/agent-builder'
+      path: '/agent-builder'
+      fullPath: '/platform/mastra-studio/agent-builder'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderRouteImport
+      parentRoute: typeof PlatformMastraStudioRoute
+    }
+    '/platform/mastra-studio/_minimal': {
+      id: '/platform/mastra-studio/_minimal'
+      path: ''
+      fullPath: '/platform/mastra-studio'
+      preLoaderRoute: typeof PlatformMastraStudioMinimalRouteImport
+      parentRoute: typeof PlatformMastraStudioRoute
+    }
+    '/platform/mastra-studio/_main': {
+      id: '/platform/mastra-studio/_main'
+      path: ''
+      fullPath: '/platform/mastra-studio'
+      preLoaderRoute: typeof PlatformMastraStudioMainRouteImport
+      parentRoute: typeof PlatformMastraStudioRoute
+    }
+    '/platform/livekit/rooms': {
+      id: '/platform/livekit/rooms'
+      path: '/rooms'
+      fullPath: '/platform/livekit/rooms'
+      preLoaderRoute: typeof PlatformLivekitRoomsRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
+    '/platform/livekit/overview': {
+      id: '/platform/livekit/overview'
+      path: '/overview'
+      fullPath: '/platform/livekit/overview'
+      preLoaderRoute: typeof PlatformLivekitOverviewRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
+    '/platform/livekit/metrics': {
+      id: '/platform/livekit/metrics'
+      path: '/metrics'
+      fullPath: '/platform/livekit/metrics'
+      preLoaderRoute: typeof PlatformLivekitMetricsRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
     '/interview/$id/$roundId': {
       id: '/interview/$id/$roundId'
       path: '/$roundId'
@@ -872,6 +2454,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/agent/'
       preLoaderRoute: typeof WSlugAgentIndexRouteImport
       parentRoute: typeof WSlugAgentRoute
+    }
+    '/platform/mastra-studio/agent-builder/': {
+      id: '/platform/mastra-studio/agent-builder/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/_main/': {
+      id: '/platform/mastra-studio/_main/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/'
+      preLoaderRoute: typeof PlatformMastraStudioMainIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
     }
     '/w/$slug/studio/resumes': {
       id: '/w/$slug/studio/resumes'
@@ -971,11 +2567,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioDashboardRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/studio/agent-debug': {
-      id: '/w/$slug/studio/agent-debug'
-      path: '/agent-debug'
-      fullPath: '/w/$slug/studio/agent-debug'
-      preLoaderRoute: typeof WSlugStudioAgentDebugRouteImport
+    '/w/$slug/studio/calendar': {
+      id: '/w/$slug/studio/calendar'
+      path: '/calendar'
+      fullPath: '/w/$slug/studio/calendar'
+      preLoaderRoute: typeof WSlugStudioCalendarRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
     '/w/$slug/chat/$sessionId': {
@@ -992,6 +2588,209 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugAgentSessionIdRouteImport
       parentRoute: typeof WSlugAgentRoute
     }
+    '/platform/mastra-studio/agent-builder/skills': {
+      id: '/platform/mastra-studio/agent-builder/skills'
+      path: '/skills'
+      fullPath: '/platform/mastra-studio/agent-builder/skills'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/agent-builder/library': {
+      id: '/platform/mastra-studio/agent-builder/library'
+      path: '/library'
+      fullPath: '/platform/mastra-studio/agent-builder/library'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderLibraryRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/agent-builder/infrastructure': {
+      id: '/platform/mastra-studio/agent-builder/infrastructure'
+      path: '/infrastructure'
+      fullPath: '/platform/mastra-studio/agent-builder/infrastructure'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderInfrastructureRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/agent-builder/favorite': {
+      id: '/platform/mastra-studio/agent-builder/favorite'
+      path: '/favorite'
+      fullPath: '/platform/mastra-studio/agent-builder/favorite'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderFavoriteRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents': {
+      id: '/platform/mastra-studio/agent-builder/agents'
+      path: '/agents'
+      fullPath: '/platform/mastra-studio/agent-builder/agents'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderRoute
+    }
+    '/platform/mastra-studio/_minimal/signup': {
+      id: '/platform/mastra-studio/_minimal/signup'
+      path: '/signup'
+      fullPath: '/platform/mastra-studio/signup'
+      preLoaderRoute: typeof PlatformMastraStudioMinimalSignupRouteImport
+      parentRoute: typeof PlatformMastraStudioMinimalRoute
+    }
+    '/platform/mastra-studio/_minimal/login': {
+      id: '/platform/mastra-studio/_minimal/login'
+      path: '/login'
+      fullPath: '/platform/mastra-studio/login'
+      preLoaderRoute: typeof PlatformMastraStudioMinimalLoginRouteImport
+      parentRoute: typeof PlatformMastraStudioMinimalRoute
+    }
+    '/platform/mastra-studio/_main/workspaces': {
+      id: '/platform/mastra-studio/_main/workspaces'
+      path: '/workspaces'
+      fullPath: '/platform/mastra-studio/workspaces'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkspacesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/workflows': {
+      id: '/platform/mastra-studio/_main/workflows'
+      path: '/workflows'
+      fullPath: '/platform/mastra-studio/workflows'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/tools': {
+      id: '/platform/mastra-studio/_main/tools'
+      path: '/tools'
+      fullPath: '/platform/mastra-studio/tools'
+      preLoaderRoute: typeof PlatformMastraStudioMainToolsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/templates': {
+      id: '/platform/mastra-studio/_main/templates'
+      path: '/templates'
+      fullPath: '/platform/mastra-studio/templates'
+      preLoaderRoute: typeof PlatformMastraStudioMainTemplatesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/settings': {
+      id: '/platform/mastra-studio/_main/settings'
+      path: '/settings'
+      fullPath: '/platform/mastra-studio/settings'
+      preLoaderRoute: typeof PlatformMastraStudioMainSettingsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/scorers': {
+      id: '/platform/mastra-studio/_main/scorers'
+      path: '/scorers'
+      fullPath: '/platform/mastra-studio/scorers'
+      preLoaderRoute: typeof PlatformMastraStudioMainScorersRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/resources': {
+      id: '/platform/mastra-studio/_main/resources'
+      path: '/resources'
+      fullPath: '/platform/mastra-studio/resources'
+      preLoaderRoute: typeof PlatformMastraStudioMainResourcesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/request-context': {
+      id: '/platform/mastra-studio/_main/request-context'
+      path: '/request-context'
+      fullPath: '/platform/mastra-studio/request-context'
+      preLoaderRoute: typeof PlatformMastraStudioMainRequestContextRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/prompts': {
+      id: '/platform/mastra-studio/_main/prompts'
+      path: '/prompts'
+      fullPath: '/platform/mastra-studio/prompts'
+      preLoaderRoute: typeof PlatformMastraStudioMainPromptsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/processors': {
+      id: '/platform/mastra-studio/_main/processors'
+      path: '/processors'
+      fullPath: '/platform/mastra-studio/processors'
+      preLoaderRoute: typeof PlatformMastraStudioMainProcessorsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/observability': {
+      id: '/platform/mastra-studio/_main/observability'
+      path: '/observability'
+      fullPath: '/platform/mastra-studio/observability'
+      preLoaderRoute: typeof PlatformMastraStudioMainObservabilityRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/metrics': {
+      id: '/platform/mastra-studio/_main/metrics'
+      path: '/metrics'
+      fullPath: '/platform/mastra-studio/metrics'
+      preLoaderRoute: typeof PlatformMastraStudioMainMetricsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/mcps': {
+      id: '/platform/mastra-studio/_main/mcps'
+      path: '/mcps'
+      fullPath: '/platform/mastra-studio/mcps'
+      preLoaderRoute: typeof PlatformMastraStudioMainMcpsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/logs': {
+      id: '/platform/mastra-studio/_main/logs'
+      path: '/logs'
+      fullPath: '/platform/mastra-studio/logs'
+      preLoaderRoute: typeof PlatformMastraStudioMainLogsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/integrations': {
+      id: '/platform/mastra-studio/_main/integrations'
+      path: '/integrations'
+      fullPath: '/platform/mastra-studio/integrations'
+      preLoaderRoute: typeof PlatformMastraStudioMainIntegrationsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/experiments': {
+      id: '/platform/mastra-studio/_main/experiments'
+      path: '/experiments'
+      fullPath: '/platform/mastra-studio/experiments'
+      preLoaderRoute: typeof PlatformMastraStudioMainExperimentsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/evaluation': {
+      id: '/platform/mastra-studio/_main/evaluation'
+      path: '/evaluation'
+      fullPath: '/platform/mastra-studio/evaluation'
+      preLoaderRoute: typeof PlatformMastraStudioMainEvaluationRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets': {
+      id: '/platform/mastra-studio/_main/datasets'
+      path: '/datasets'
+      fullPath: '/platform/mastra-studio/datasets'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/agents': {
+      id: '/platform/mastra-studio/_main/agents'
+      path: '/agents'
+      fullPath: '/platform/mastra-studio/agents'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/agent-builder/library/': {
+      id: '/platform/mastra-studio/agent-builder/library/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/library/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderLibraryIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderLibraryRoute
+    }
+    '/platform/mastra-studio/agent-builder/infrastructure/': {
+      id: '/platform/mastra-studio/agent-builder/infrastructure/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/infrastructure/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderInfrastructureIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderInfrastructureRoute
+    }
+    '/platform/mastra-studio/agent-builder/favorite/': {
+      id: '/platform/mastra-studio/agent-builder/favorite/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/favorite/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderFavoriteIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderFavoriteRoute
+    }
     '/w/$slug/studio/resumes/$recordId': {
       id: '/w/$slug/studio/resumes/$recordId'
       path: '/$recordId'
@@ -999,12 +2798,537 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioResumesRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumesRoute
     }
+    '/w/$slug/studio/mail-ingest-accounts/$id': {
+      id: '/w/$slug/studio/mail-ingest-accounts/$id'
+      path: '/$id'
+      fullPath: '/w/$slug/studio/mail-ingest-accounts/$id'
+      preLoaderRoute: typeof WSlugStudioMailIngestAccountsIdRouteImport
+      parentRoute: typeof WSlugStudioMailIngestAccountsRoute
+    }
     '/w/$slug/studio/interviews/$roundId': {
       id: '/w/$slug/studio/interviews/$roundId'
       path: '/$roundId'
       fullPath: '/w/$slug/studio/interviews/$roundId'
       preLoaderRoute: typeof WSlugStudioInterviewsRoundIdRouteImport
       parentRoute: typeof WSlugStudioInterviewsRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_listing': {
+      id: '/platform/mastra-studio/agent-builder/skills/_listing'
+      path: ''
+      fullPath: '/platform/mastra-studio/agent-builder/skills'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsListingRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_edition': {
+      id: '/platform/mastra-studio/agent-builder/skills/_edition'
+      path: ''
+      fullPath: '/platform/mastra-studio/agent-builder/skills'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_listing': {
+      id: '/platform/mastra-studio/agent-builder/agents/_listing'
+      path: ''
+      fullPath: '/platform/mastra-studio/agent-builder/agents'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsListingRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_edition': {
+      id: '/platform/mastra-studio/agent-builder/agents/_edition'
+      path: ''
+      fullPath: '/platform/mastra-studio/agent-builder/agents'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsRoute
+    }
+    '/platform/mastra-studio/_main/workspaces_/$workspaceId': {
+      id: '/platform/mastra-studio/_main/workspaces_/$workspaceId'
+      path: '/workspaces/$workspaceId'
+      fullPath: '/platform/mastra-studio/workspaces/$workspaceId'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkspacesWorkspaceIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/schedules': {
+      id: '/platform/mastra-studio/_main/workflows_/schedules'
+      path: '/workflows/schedules'
+      fullPath: '/platform/mastra-studio/workflows/schedules'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsSchedulesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/$workflowId': {
+      id: '/platform/mastra-studio/_main/workflows_/$workflowId'
+      path: '/workflows/$workflowId'
+      fullPath: '/platform/mastra-studio/workflows/$workflowId'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/traces/$traceId': {
+      id: '/platform/mastra-studio/_main/traces/$traceId'
+      path: '/traces/$traceId'
+      fullPath: '/platform/mastra-studio/traces/$traceId'
+      preLoaderRoute: typeof PlatformMastraStudioMainTracesTraceIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/tools_/$toolId': {
+      id: '/platform/mastra-studio/_main/tools_/$toolId'
+      path: '/tools/$toolId'
+      fullPath: '/platform/mastra-studio/tools/$toolId'
+      preLoaderRoute: typeof PlatformMastraStudioMainToolsToolIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/templates_/$templateSlug': {
+      id: '/platform/mastra-studio/_main/templates_/$templateSlug'
+      path: '/templates/$templateSlug'
+      fullPath: '/platform/mastra-studio/templates/$templateSlug'
+      preLoaderRoute: typeof PlatformMastraStudioMainTemplatesTemplateSlugRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/scorers_/$scorerId': {
+      id: '/platform/mastra-studio/_main/scorers_/$scorerId'
+      path: '/scorers/$scorerId'
+      fullPath: '/platform/mastra-studio/scorers/$scorerId'
+      preLoaderRoute: typeof PlatformMastraStudioMainScorersScorerIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/processors_/$processorId': {
+      id: '/platform/mastra-studio/_main/processors_/$processorId'
+      path: '/processors/$processorId'
+      fullPath: '/platform/mastra-studio/processors/$processorId'
+      preLoaderRoute: typeof PlatformMastraStudioMainProcessorsProcessorIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/mcps_/$serverId': {
+      id: '/platform/mastra-studio/_main/mcps_/$serverId'
+      path: '/mcps/$serverId'
+      fullPath: '/platform/mastra-studio/mcps/$serverId'
+      preLoaderRoute: typeof PlatformMastraStudioMainMcpsServerIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/experiments_/$experimentId': {
+      id: '/platform/mastra-studio/_main/experiments_/$experimentId'
+      path: '/experiments/$experimentId'
+      fullPath: '/platform/mastra-studio/experiments/$experimentId'
+      preLoaderRoute: typeof PlatformMastraStudioMainExperimentsExperimentIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId'
+      path: '/datasets/$datasetId'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId'
+      path: '/agents/$agentId'
+      fullPath: '/platform/mastra-studio/agents/$agentId'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_listing/': {
+      id: '/platform/mastra-studio/agent-builder/skills/_listing/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/skills/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsListingRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_listing/': {
+      id: '/platform/mastra-studio/agent-builder/agents/_listing/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agent-builder/agents/'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsListingIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsListingRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/$workflowId/': {
+      id: '/platform/mastra-studio/_main/workflows_/$workflowId/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/workflows/$workflowId/'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/agents/$agentId/'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_edition/create': {
+      id: '/platform/mastra-studio/agent-builder/skills/_edition/create'
+      path: '/create'
+      fullPath: '/platform/mastra-studio/agent-builder/skills/create'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionCreateRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_edition/$id': {
+      id: '/platform/mastra-studio/agent-builder/skills/_edition/$id'
+      path: '/$id'
+      fullPath: '/platform/mastra-studio/agent-builder/skills/$id'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_edition/create': {
+      id: '/platform/mastra-studio/agent-builder/agents/_edition/create'
+      path: '/create'
+      fullPath: '/platform/mastra-studio/agent-builder/agents/create'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionCreateRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_edition/$id': {
+      id: '/platform/mastra-studio/agent-builder/agents/_edition/$id'
+      path: '/$id'
+      fullPath: '/platform/mastra-studio/agent-builder/agents/$id'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRoute
+    }
+    '/platform/mastra-studio/_minimal/agents/$agentId/session': {
+      id: '/platform/mastra-studio/_minimal/agents/$agentId/session'
+      path: '/agents/$agentId/session'
+      fullPath: '/platform/mastra-studio/agents/$agentId/session'
+      preLoaderRoute: typeof PlatformMastraStudioMinimalAgentsAgentIdSessionRouteImport
+      parentRoute: typeof PlatformMastraStudioMinimalRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/schedules_/$scheduleId': {
+      id: '/platform/mastra-studio/_main/workflows_/schedules_/$scheduleId'
+      path: '/workflows/schedules/$scheduleId'
+      fullPath: '/platform/mastra-studio/workflows/schedules/$scheduleId'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/$workflowId/graph': {
+      id: '/platform/mastra-studio/_main/workflows_/$workflowId/graph'
+      path: '/graph'
+      fullPath: '/platform/mastra-studio/workflows/$workflowId/graph'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRouteImport
+      parentRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/versions': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/versions'
+      path: '/datasets/$datasetId/versions'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/versions'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdVersionsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/items': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/items'
+      path: '/datasets/$datasetId/items'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/items'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments'
+      path: '/datasets/$datasetId/experiments'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/experiments'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/scorers/create': {
+      id: '/platform/mastra-studio/_main/cms/scorers/create'
+      path: '/cms/scorers/create'
+      fullPath: '/platform/mastra-studio/cms/scorers/create'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsScorersCreateRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/prompts/create': {
+      id: '/platform/mastra-studio/_main/cms/prompts/create'
+      path: '/cms/prompts/create'
+      fullPath: '/platform/mastra-studio/cms/prompts/create'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsPromptsCreateRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create': {
+      id: '/platform/mastra-studio/_main/cms/agents/create'
+      path: '/cms/agents/create'
+      fullPath: '/platform/mastra-studio/cms/agents/create'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/traces': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/traces'
+      path: '/traces'
+      fullPath: '/platform/mastra-studio/agents/$agentId/traces'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdTracesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/settings': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/settings'
+      path: '/settings'
+      fullPath: '/platform/mastra-studio/agents/$agentId/settings'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdSettingsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/review': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/review'
+      path: '/review'
+      fullPath: '/platform/mastra-studio/agents/$agentId/review'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdReviewRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/evaluate': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/evaluate'
+      path: '/evaluate'
+      fullPath: '/platform/mastra-studio/agents/$agentId/evaluate'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdEvaluateRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/editor': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/editor'
+      path: '/editor'
+      fullPath: '/platform/mastra-studio/agents/$agentId/editor'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdEditorRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/chat': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/chat'
+      path: '/chat'
+      fullPath: '/platform/mastra-studio/agents/$agentId/chat'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdChatRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/channels': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/channels'
+      path: '/channels'
+      fullPath: '/platform/mastra-studio/agents/$agentId/channels'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdChannelsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/cms/agents/create/'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_edition/$id_/view': {
+      id: '/platform/mastra-studio/agent-builder/skills/_edition/$id_/view'
+      path: '/$id/view'
+      fullPath: '/platform/mastra-studio/agent-builder/skills/$id/view'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdViewRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/skills/_edition/$id_/edit': {
+      id: '/platform/mastra-studio/agent-builder/skills/_edition/$id_/edit'
+      path: '/$id/edit'
+      fullPath: '/platform/mastra-studio/agent-builder/skills/$id/edit'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdEditRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_edition/$id_/view': {
+      id: '/platform/mastra-studio/agent-builder/agents/_edition/$id_/view'
+      path: '/$id/view'
+      fullPath: '/platform/mastra-studio/agent-builder/agents/$id/view'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdViewRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRoute
+    }
+    '/platform/mastra-studio/agent-builder/agents/_edition/$id_/edit': {
+      id: '/platform/mastra-studio/agent-builder/agents/_edition/$id_/edit'
+      path: '/$id/edit'
+      fullPath: '/platform/mastra-studio/agent-builder/agents/$id/edit'
+      preLoaderRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdEditRouteImport
+      parentRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRoute
+    }
+    '/platform/mastra-studio/_minimal/agents/$agentId/session_/$threadId': {
+      id: '/platform/mastra-studio/_minimal/agents/$agentId/session_/$threadId'
+      path: '/agents/$agentId/session/$threadId'
+      fullPath: '/platform/mastra-studio/agents/$agentId/session/$threadId'
+      preLoaderRoute: typeof PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMinimalRoute
+    }
+    '/platform/mastra-studio/_main/workspaces_/$workspaceId_/skills/$skillName': {
+      id: '/platform/mastra-studio/_main/workspaces_/$workspaceId_/skills/$skillName'
+      path: '/workspaces/$workspaceId/skills/$skillName'
+      fullPath: '/platform/mastra-studio/workspaces/$workspaceId/skills/$skillName'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/workflows_/$workflowId/graph_/$runId': {
+      id: '/platform/mastra-studio/_main/workflows_/$workflowId/graph_/$runId'
+      path: '/graph/$runId'
+      fullPath: '/platform/mastra-studio/workflows/$workflowId/graph/$runId'
+      preLoaderRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdRoute
+    }
+    '/platform/mastra-studio/_main/mcps_/$serverId_/tools/$toolId': {
+      id: '/platform/mastra-studio/_main/mcps_/$serverId_/tools/$toolId'
+      path: '/mcps/$serverId/tools/$toolId'
+      fullPath: '/platform/mastra-studio/mcps/$serverId/tools/$toolId'
+      preLoaderRoute: typeof PlatformMastraStudioMainMcpsServerIdToolsToolIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId'
+      path: '/datasets/$datasetId/items/$itemId'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/items/$itemId'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments_/$experimentId': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/experiments_/$experimentId'
+      path: '/datasets/$datasetId/experiments/$experimentId'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/experiments/$experimentId'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/scorers/$scorerId/edit': {
+      id: '/platform/mastra-studio/_main/cms/scorers/$scorerId/edit'
+      path: '/cms/scorers/$scorerId/edit'
+      fullPath: '/platform/mastra-studio/cms/scorers/$scorerId/edit'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsScorersScorerIdEditRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/prompts/$promptBlockId/edit': {
+      id: '/platform/mastra-studio/_main/cms/prompts/$promptBlockId/edit'
+      path: '/cms/prompts/$promptBlockId/edit'
+      fullPath: '/platform/mastra-studio/cms/prompts/$promptBlockId/edit'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/workflows': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/workflows'
+      path: '/workflows'
+      fullPath: '/platform/mastra-studio/cms/agents/create/workflows'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateWorkflowsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/variables': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/variables'
+      path: '/variables'
+      fullPath: '/platform/mastra-studio/cms/agents/create/variables'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateVariablesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/tools': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/tools'
+      path: '/tools'
+      fullPath: '/platform/mastra-studio/cms/agents/create/tools'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateToolsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/skills': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/skills'
+      path: '/skills'
+      fullPath: '/platform/mastra-studio/cms/agents/create/skills'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateSkillsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/scorers': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/scorers'
+      path: '/scorers'
+      fullPath: '/platform/mastra-studio/cms/agents/create/scorers'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateScorersRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/memory': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/memory'
+      path: '/memory'
+      fullPath: '/platform/mastra-studio/cms/agents/create/memory'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateMemoryRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/instruction-blocks': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/instruction-blocks'
+      path: '/instruction-blocks'
+      fullPath: '/platform/mastra-studio/cms/agents/create/instruction-blocks'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/create/agents': {
+      id: '/platform/mastra-studio/_main/cms/agents/create/agents'
+      path: '/agents'
+      fullPath: '/platform/mastra-studio/cms/agents/create/agents'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsCreateAgentsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit'
+      path: '/cms/agents/$agentId/edit'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId_/tools/$toolId': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId_/tools/$toolId'
+      path: '/agents/$agentId/tools/$toolId'
+      fullPath: '/platform/mastra-studio/agents/$agentId/tools/$toolId'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdToolsToolIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/agents_/$agentId/chat_/$threadId': {
+      id: '/platform/mastra-studio/_main/agents_/$agentId/chat_/$threadId'
+      path: '/chat/$threadId'
+      fullPath: '/platform/mastra-studio/agents/$agentId/chat/$threadId'
+      preLoaderRoute: typeof PlatformMastraStudioMainAgentsAgentIdChatThreadIdRouteImport
+      parentRoute: typeof PlatformMastraStudioMainAgentsAgentIdRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/'
+      path: '/'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId_/versions': {
+      id: '/platform/mastra-studio/_main/datasets_/$datasetId_/items_/$itemId_/versions'
+      path: '/datasets/$datasetId/items/$itemId/versions'
+      fullPath: '/platform/mastra-studio/datasets/$datasetId/items/$itemId/versions'
+      preLoaderRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/workflows': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/workflows'
+      path: '/workflows'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/workflows'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/variables': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/variables'
+      path: '/variables'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/variables'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/tools': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/tools'
+      path: '/tools'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/tools'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/skills': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/skills'
+      path: '/skills'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/skills'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/scorers': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/scorers'
+      path: '/scorers'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/scorers'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/memory': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/memory'
+      path: '/memory'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/memory'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/instruction-blocks': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/instruction-blocks'
+      path: '/instruction-blocks'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/instruction-blocks'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
+    }
+    '/platform/mastra-studio/_main/cms/agents/$agentId/edit/agents': {
+      id: '/platform/mastra-studio/_main/cms/agents/$agentId/edit/agents'
+      path: '/agents'
+      fullPath: '/platform/mastra-studio/cms/agents/$agentId/edit/agents'
+      preLoaderRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRouteImport
+      parentRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRoute
     }
   }
 }
@@ -1033,25 +3357,582 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
   InterviewRouteChildren,
 )
 
+interface PlatformLivekitRouteChildren {
+  PlatformLivekitMetricsRoute: typeof PlatformLivekitMetricsRoute
+  PlatformLivekitOverviewRoute: typeof PlatformLivekitOverviewRoute
+  PlatformLivekitRoomsRoute: typeof PlatformLivekitRoomsRoute
+  PlatformLivekitIndexRoute: typeof PlatformLivekitIndexRoute
+}
+
+const PlatformLivekitRouteChildren: PlatformLivekitRouteChildren = {
+  PlatformLivekitMetricsRoute: PlatformLivekitMetricsRoute,
+  PlatformLivekitOverviewRoute: PlatformLivekitOverviewRoute,
+  PlatformLivekitRoomsRoute: PlatformLivekitRoomsRoute,
+  PlatformLivekitIndexRoute: PlatformLivekitIndexRoute,
+}
+
+const PlatformLivekitRouteWithChildren = PlatformLivekitRoute._addFileChildren(
+  PlatformLivekitRouteChildren,
+)
+
+interface PlatformMastraStudioMainAgentsAgentIdRouteChildren {
+  PlatformMastraStudioMainAgentsAgentIdChannelsRoute: typeof PlatformMastraStudioMainAgentsAgentIdChannelsRoute
+  PlatformMastraStudioMainAgentsAgentIdChatRoute: typeof PlatformMastraStudioMainAgentsAgentIdChatRoute
+  PlatformMastraStudioMainAgentsAgentIdEditorRoute: typeof PlatformMastraStudioMainAgentsAgentIdEditorRoute
+  PlatformMastraStudioMainAgentsAgentIdEvaluateRoute: typeof PlatformMastraStudioMainAgentsAgentIdEvaluateRoute
+  PlatformMastraStudioMainAgentsAgentIdReviewRoute: typeof PlatformMastraStudioMainAgentsAgentIdReviewRoute
+  PlatformMastraStudioMainAgentsAgentIdSettingsRoute: typeof PlatformMastraStudioMainAgentsAgentIdSettingsRoute
+  PlatformMastraStudioMainAgentsAgentIdTracesRoute: typeof PlatformMastraStudioMainAgentsAgentIdTracesRoute
+  PlatformMastraStudioMainAgentsAgentIdIndexRoute: typeof PlatformMastraStudioMainAgentsAgentIdIndexRoute
+  PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute: typeof PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute
+}
+
+const PlatformMastraStudioMainAgentsAgentIdRouteChildren: PlatformMastraStudioMainAgentsAgentIdRouteChildren =
+  {
+    PlatformMastraStudioMainAgentsAgentIdChannelsRoute:
+      PlatformMastraStudioMainAgentsAgentIdChannelsRoute,
+    PlatformMastraStudioMainAgentsAgentIdChatRoute:
+      PlatformMastraStudioMainAgentsAgentIdChatRoute,
+    PlatformMastraStudioMainAgentsAgentIdEditorRoute:
+      PlatformMastraStudioMainAgentsAgentIdEditorRoute,
+    PlatformMastraStudioMainAgentsAgentIdEvaluateRoute:
+      PlatformMastraStudioMainAgentsAgentIdEvaluateRoute,
+    PlatformMastraStudioMainAgentsAgentIdReviewRoute:
+      PlatformMastraStudioMainAgentsAgentIdReviewRoute,
+    PlatformMastraStudioMainAgentsAgentIdSettingsRoute:
+      PlatformMastraStudioMainAgentsAgentIdSettingsRoute,
+    PlatformMastraStudioMainAgentsAgentIdTracesRoute:
+      PlatformMastraStudioMainAgentsAgentIdTracesRoute,
+    PlatformMastraStudioMainAgentsAgentIdIndexRoute:
+      PlatformMastraStudioMainAgentsAgentIdIndexRoute,
+    PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute:
+      PlatformMastraStudioMainAgentsAgentIdChatThreadIdRoute,
+  }
+
+const PlatformMastraStudioMainAgentsAgentIdRouteWithChildren =
+  PlatformMastraStudioMainAgentsAgentIdRoute._addFileChildren(
+    PlatformMastraStudioMainAgentsAgentIdRouteChildren,
+  )
+
+interface PlatformMastraStudioMainWorkflowsWorkflowIdRouteChildren {
+  PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute
+  PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute
+  PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute
+}
+
+const PlatformMastraStudioMainWorkflowsWorkflowIdRouteChildren: PlatformMastraStudioMainWorkflowsWorkflowIdRouteChildren =
+  {
+    PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute:
+      PlatformMastraStudioMainWorkflowsWorkflowIdGraphRoute,
+    PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute:
+      PlatformMastraStudioMainWorkflowsWorkflowIdIndexRoute,
+    PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute:
+      PlatformMastraStudioMainWorkflowsWorkflowIdGraphRunIdRoute,
+  }
+
+const PlatformMastraStudioMainWorkflowsWorkflowIdRouteWithChildren =
+  PlatformMastraStudioMainWorkflowsWorkflowIdRoute._addFileChildren(
+    PlatformMastraStudioMainWorkflowsWorkflowIdRouteChildren,
+  )
+
+interface PlatformMastraStudioMainCmsAgentsCreateRouteChildren {
+  PlatformMastraStudioMainCmsAgentsCreateAgentsRoute: typeof PlatformMastraStudioMainCmsAgentsCreateAgentsRoute
+  PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute: typeof PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute
+  PlatformMastraStudioMainCmsAgentsCreateMemoryRoute: typeof PlatformMastraStudioMainCmsAgentsCreateMemoryRoute
+  PlatformMastraStudioMainCmsAgentsCreateScorersRoute: typeof PlatformMastraStudioMainCmsAgentsCreateScorersRoute
+  PlatformMastraStudioMainCmsAgentsCreateSkillsRoute: typeof PlatformMastraStudioMainCmsAgentsCreateSkillsRoute
+  PlatformMastraStudioMainCmsAgentsCreateToolsRoute: typeof PlatformMastraStudioMainCmsAgentsCreateToolsRoute
+  PlatformMastraStudioMainCmsAgentsCreateVariablesRoute: typeof PlatformMastraStudioMainCmsAgentsCreateVariablesRoute
+  PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute: typeof PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute
+  PlatformMastraStudioMainCmsAgentsCreateIndexRoute: typeof PlatformMastraStudioMainCmsAgentsCreateIndexRoute
+}
+
+const PlatformMastraStudioMainCmsAgentsCreateRouteChildren: PlatformMastraStudioMainCmsAgentsCreateRouteChildren =
+  {
+    PlatformMastraStudioMainCmsAgentsCreateAgentsRoute:
+      PlatformMastraStudioMainCmsAgentsCreateAgentsRoute,
+    PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute:
+      PlatformMastraStudioMainCmsAgentsCreateInstructionBlocksRoute,
+    PlatformMastraStudioMainCmsAgentsCreateMemoryRoute:
+      PlatformMastraStudioMainCmsAgentsCreateMemoryRoute,
+    PlatformMastraStudioMainCmsAgentsCreateScorersRoute:
+      PlatformMastraStudioMainCmsAgentsCreateScorersRoute,
+    PlatformMastraStudioMainCmsAgentsCreateSkillsRoute:
+      PlatformMastraStudioMainCmsAgentsCreateSkillsRoute,
+    PlatformMastraStudioMainCmsAgentsCreateToolsRoute:
+      PlatformMastraStudioMainCmsAgentsCreateToolsRoute,
+    PlatformMastraStudioMainCmsAgentsCreateVariablesRoute:
+      PlatformMastraStudioMainCmsAgentsCreateVariablesRoute,
+    PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute:
+      PlatformMastraStudioMainCmsAgentsCreateWorkflowsRoute,
+    PlatformMastraStudioMainCmsAgentsCreateIndexRoute:
+      PlatformMastraStudioMainCmsAgentsCreateIndexRoute,
+  }
+
+const PlatformMastraStudioMainCmsAgentsCreateRouteWithChildren =
+  PlatformMastraStudioMainCmsAgentsCreateRoute._addFileChildren(
+    PlatformMastraStudioMainCmsAgentsCreateRouteChildren,
+  )
+
+interface PlatformMastraStudioMainCmsAgentsAgentIdEditRouteChildren {
+  PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute
+}
+
+const PlatformMastraStudioMainCmsAgentsAgentIdEditRouteChildren: PlatformMastraStudioMainCmsAgentsAgentIdEditRouteChildren =
+  {
+    PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditAgentsRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditInstructionBlocksRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditMemoryRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditScorersRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditSkillsRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditToolsRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditVariablesRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditWorkflowsRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditIndexRoute,
+  }
+
+const PlatformMastraStudioMainCmsAgentsAgentIdEditRouteWithChildren =
+  PlatformMastraStudioMainCmsAgentsAgentIdEditRoute._addFileChildren(
+    PlatformMastraStudioMainCmsAgentsAgentIdEditRouteChildren,
+  )
+
+interface PlatformMastraStudioMainRouteChildren {
+  PlatformMastraStudioMainAgentsRoute: typeof PlatformMastraStudioMainAgentsRoute
+  PlatformMastraStudioMainDatasetsRoute: typeof PlatformMastraStudioMainDatasetsRoute
+  PlatformMastraStudioMainEvaluationRoute: typeof PlatformMastraStudioMainEvaluationRoute
+  PlatformMastraStudioMainExperimentsRoute: typeof PlatformMastraStudioMainExperimentsRoute
+  PlatformMastraStudioMainIntegrationsRoute: typeof PlatformMastraStudioMainIntegrationsRoute
+  PlatformMastraStudioMainLogsRoute: typeof PlatformMastraStudioMainLogsRoute
+  PlatformMastraStudioMainMcpsRoute: typeof PlatformMastraStudioMainMcpsRoute
+  PlatformMastraStudioMainMetricsRoute: typeof PlatformMastraStudioMainMetricsRoute
+  PlatformMastraStudioMainObservabilityRoute: typeof PlatformMastraStudioMainObservabilityRoute
+  PlatformMastraStudioMainProcessorsRoute: typeof PlatformMastraStudioMainProcessorsRoute
+  PlatformMastraStudioMainPromptsRoute: typeof PlatformMastraStudioMainPromptsRoute
+  PlatformMastraStudioMainRequestContextRoute: typeof PlatformMastraStudioMainRequestContextRoute
+  PlatformMastraStudioMainResourcesRoute: typeof PlatformMastraStudioMainResourcesRoute
+  PlatformMastraStudioMainScorersRoute: typeof PlatformMastraStudioMainScorersRoute
+  PlatformMastraStudioMainSettingsRoute: typeof PlatformMastraStudioMainSettingsRoute
+  PlatformMastraStudioMainTemplatesRoute: typeof PlatformMastraStudioMainTemplatesRoute
+  PlatformMastraStudioMainToolsRoute: typeof PlatformMastraStudioMainToolsRoute
+  PlatformMastraStudioMainWorkflowsRoute: typeof PlatformMastraStudioMainWorkflowsRoute
+  PlatformMastraStudioMainWorkspacesRoute: typeof PlatformMastraStudioMainWorkspacesRoute
+  PlatformMastraStudioMainIndexRoute: typeof PlatformMastraStudioMainIndexRoute
+  PlatformMastraStudioMainAgentsAgentIdRoute: typeof PlatformMastraStudioMainAgentsAgentIdRouteWithChildren
+  PlatformMastraStudioMainDatasetsDatasetIdRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdRoute
+  PlatformMastraStudioMainExperimentsExperimentIdRoute: typeof PlatformMastraStudioMainExperimentsExperimentIdRoute
+  PlatformMastraStudioMainMcpsServerIdRoute: typeof PlatformMastraStudioMainMcpsServerIdRoute
+  PlatformMastraStudioMainProcessorsProcessorIdRoute: typeof PlatformMastraStudioMainProcessorsProcessorIdRoute
+  PlatformMastraStudioMainScorersScorerIdRoute: typeof PlatformMastraStudioMainScorersScorerIdRoute
+  PlatformMastraStudioMainTemplatesTemplateSlugRoute: typeof PlatformMastraStudioMainTemplatesTemplateSlugRoute
+  PlatformMastraStudioMainToolsToolIdRoute: typeof PlatformMastraStudioMainToolsToolIdRoute
+  PlatformMastraStudioMainTracesTraceIdRoute: typeof PlatformMastraStudioMainTracesTraceIdRoute
+  PlatformMastraStudioMainWorkflowsWorkflowIdRoute: typeof PlatformMastraStudioMainWorkflowsWorkflowIdRouteWithChildren
+  PlatformMastraStudioMainWorkflowsSchedulesRoute: typeof PlatformMastraStudioMainWorkflowsSchedulesRoute
+  PlatformMastraStudioMainWorkspacesWorkspaceIdRoute: typeof PlatformMastraStudioMainWorkspacesWorkspaceIdRoute
+  PlatformMastraStudioMainCmsAgentsCreateRoute: typeof PlatformMastraStudioMainCmsAgentsCreateRouteWithChildren
+  PlatformMastraStudioMainCmsPromptsCreateRoute: typeof PlatformMastraStudioMainCmsPromptsCreateRoute
+  PlatformMastraStudioMainCmsScorersCreateRoute: typeof PlatformMastraStudioMainCmsScorersCreateRoute
+  PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute
+  PlatformMastraStudioMainDatasetsDatasetIdItemsRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsRoute
+  PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute
+  PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute: typeof PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute
+  PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute: typeof PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute
+  PlatformMastraStudioMainCmsAgentsAgentIdEditRoute: typeof PlatformMastraStudioMainCmsAgentsAgentIdEditRouteWithChildren
+  PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute: typeof PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute
+  PlatformMastraStudioMainCmsScorersScorerIdEditRoute: typeof PlatformMastraStudioMainCmsScorersScorerIdEditRoute
+  PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute
+  PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute
+  PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute: typeof PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute
+  PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute: typeof PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute
+  PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute: typeof PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute
+}
+
+const PlatformMastraStudioMainRouteChildren: PlatformMastraStudioMainRouteChildren =
+  {
+    PlatformMastraStudioMainAgentsRoute: PlatformMastraStudioMainAgentsRoute,
+    PlatformMastraStudioMainDatasetsRoute:
+      PlatformMastraStudioMainDatasetsRoute,
+    PlatformMastraStudioMainEvaluationRoute:
+      PlatformMastraStudioMainEvaluationRoute,
+    PlatformMastraStudioMainExperimentsRoute:
+      PlatformMastraStudioMainExperimentsRoute,
+    PlatformMastraStudioMainIntegrationsRoute:
+      PlatformMastraStudioMainIntegrationsRoute,
+    PlatformMastraStudioMainLogsRoute: PlatformMastraStudioMainLogsRoute,
+    PlatformMastraStudioMainMcpsRoute: PlatformMastraStudioMainMcpsRoute,
+    PlatformMastraStudioMainMetricsRoute: PlatformMastraStudioMainMetricsRoute,
+    PlatformMastraStudioMainObservabilityRoute:
+      PlatformMastraStudioMainObservabilityRoute,
+    PlatformMastraStudioMainProcessorsRoute:
+      PlatformMastraStudioMainProcessorsRoute,
+    PlatformMastraStudioMainPromptsRoute: PlatformMastraStudioMainPromptsRoute,
+    PlatformMastraStudioMainRequestContextRoute:
+      PlatformMastraStudioMainRequestContextRoute,
+    PlatformMastraStudioMainResourcesRoute:
+      PlatformMastraStudioMainResourcesRoute,
+    PlatformMastraStudioMainScorersRoute: PlatformMastraStudioMainScorersRoute,
+    PlatformMastraStudioMainSettingsRoute:
+      PlatformMastraStudioMainSettingsRoute,
+    PlatformMastraStudioMainTemplatesRoute:
+      PlatformMastraStudioMainTemplatesRoute,
+    PlatformMastraStudioMainToolsRoute: PlatformMastraStudioMainToolsRoute,
+    PlatformMastraStudioMainWorkflowsRoute:
+      PlatformMastraStudioMainWorkflowsRoute,
+    PlatformMastraStudioMainWorkspacesRoute:
+      PlatformMastraStudioMainWorkspacesRoute,
+    PlatformMastraStudioMainIndexRoute: PlatformMastraStudioMainIndexRoute,
+    PlatformMastraStudioMainAgentsAgentIdRoute:
+      PlatformMastraStudioMainAgentsAgentIdRouteWithChildren,
+    PlatformMastraStudioMainDatasetsDatasetIdRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdRoute,
+    PlatformMastraStudioMainExperimentsExperimentIdRoute:
+      PlatformMastraStudioMainExperimentsExperimentIdRoute,
+    PlatformMastraStudioMainMcpsServerIdRoute:
+      PlatformMastraStudioMainMcpsServerIdRoute,
+    PlatformMastraStudioMainProcessorsProcessorIdRoute:
+      PlatformMastraStudioMainProcessorsProcessorIdRoute,
+    PlatformMastraStudioMainScorersScorerIdRoute:
+      PlatformMastraStudioMainScorersScorerIdRoute,
+    PlatformMastraStudioMainTemplatesTemplateSlugRoute:
+      PlatformMastraStudioMainTemplatesTemplateSlugRoute,
+    PlatformMastraStudioMainToolsToolIdRoute:
+      PlatformMastraStudioMainToolsToolIdRoute,
+    PlatformMastraStudioMainTracesTraceIdRoute:
+      PlatformMastraStudioMainTracesTraceIdRoute,
+    PlatformMastraStudioMainWorkflowsWorkflowIdRoute:
+      PlatformMastraStudioMainWorkflowsWorkflowIdRouteWithChildren,
+    PlatformMastraStudioMainWorkflowsSchedulesRoute:
+      PlatformMastraStudioMainWorkflowsSchedulesRoute,
+    PlatformMastraStudioMainWorkspacesWorkspaceIdRoute:
+      PlatformMastraStudioMainWorkspacesWorkspaceIdRoute,
+    PlatformMastraStudioMainCmsAgentsCreateRoute:
+      PlatformMastraStudioMainCmsAgentsCreateRouteWithChildren,
+    PlatformMastraStudioMainCmsPromptsCreateRoute:
+      PlatformMastraStudioMainCmsPromptsCreateRoute,
+    PlatformMastraStudioMainCmsScorersCreateRoute:
+      PlatformMastraStudioMainCmsScorersCreateRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdExperimentsRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdItemsRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdItemsRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdVersionsRoute,
+    PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute:
+      PlatformMastraStudioMainWorkflowsSchedulesScheduleIdRoute,
+    PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute:
+      PlatformMastraStudioMainAgentsAgentIdToolsToolIdRoute,
+    PlatformMastraStudioMainCmsAgentsAgentIdEditRoute:
+      PlatformMastraStudioMainCmsAgentsAgentIdEditRouteWithChildren,
+    PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute:
+      PlatformMastraStudioMainCmsPromptsPromptBlockIdEditRoute,
+    PlatformMastraStudioMainCmsScorersScorerIdEditRoute:
+      PlatformMastraStudioMainCmsScorersScorerIdEditRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdExperimentsExperimentIdRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdRoute,
+    PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute:
+      PlatformMastraStudioMainMcpsServerIdToolsToolIdRoute,
+    PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute:
+      PlatformMastraStudioMainWorkspacesWorkspaceIdSkillsSkillNameRoute,
+    PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute:
+      PlatformMastraStudioMainDatasetsDatasetIdItemsItemIdVersionsRoute,
+  }
+
+const PlatformMastraStudioMainRouteWithChildren =
+  PlatformMastraStudioMainRoute._addFileChildren(
+    PlatformMastraStudioMainRouteChildren,
+  )
+
+interface PlatformMastraStudioMinimalRouteChildren {
+  PlatformMastraStudioMinimalLoginRoute: typeof PlatformMastraStudioMinimalLoginRoute
+  PlatformMastraStudioMinimalSignupRoute: typeof PlatformMastraStudioMinimalSignupRoute
+  PlatformMastraStudioMinimalAgentsAgentIdSessionRoute: typeof PlatformMastraStudioMinimalAgentsAgentIdSessionRoute
+  PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute: typeof PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute
+}
+
+const PlatformMastraStudioMinimalRouteChildren: PlatformMastraStudioMinimalRouteChildren =
+  {
+    PlatformMastraStudioMinimalLoginRoute:
+      PlatformMastraStudioMinimalLoginRoute,
+    PlatformMastraStudioMinimalSignupRoute:
+      PlatformMastraStudioMinimalSignupRoute,
+    PlatformMastraStudioMinimalAgentsAgentIdSessionRoute:
+      PlatformMastraStudioMinimalAgentsAgentIdSessionRoute,
+    PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute:
+      PlatformMastraStudioMinimalAgentsAgentIdSessionThreadIdRoute,
+  }
+
+const PlatformMastraStudioMinimalRouteWithChildren =
+  PlatformMastraStudioMinimalRoute._addFileChildren(
+    PlatformMastraStudioMinimalRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderAgentsEditionRouteChildren {
+  PlatformMastraStudioAgentBuilderAgentsEditionIdRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdRoute
+  PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute
+  PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute
+  PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute
+}
+
+const PlatformMastraStudioAgentBuilderAgentsEditionRouteChildren: PlatformMastraStudioAgentBuilderAgentsEditionRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderAgentsEditionIdRoute:
+      PlatformMastraStudioAgentBuilderAgentsEditionIdRoute,
+    PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute:
+      PlatformMastraStudioAgentBuilderAgentsEditionCreateRoute,
+    PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute:
+      PlatformMastraStudioAgentBuilderAgentsEditionIdEditRoute,
+    PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute:
+      PlatformMastraStudioAgentBuilderAgentsEditionIdViewRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderAgentsEditionRouteWithChildren =
+  PlatformMastraStudioAgentBuilderAgentsEditionRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderAgentsEditionRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderAgentsListingRouteChildren {
+  PlatformMastraStudioAgentBuilderAgentsListingIndexRoute: typeof PlatformMastraStudioAgentBuilderAgentsListingIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderAgentsListingRouteChildren: PlatformMastraStudioAgentBuilderAgentsListingRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderAgentsListingIndexRoute:
+      PlatformMastraStudioAgentBuilderAgentsListingIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderAgentsListingRouteWithChildren =
+  PlatformMastraStudioAgentBuilderAgentsListingRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderAgentsListingRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderAgentsRouteChildren {
+  PlatformMastraStudioAgentBuilderAgentsEditionRoute: typeof PlatformMastraStudioAgentBuilderAgentsEditionRouteWithChildren
+  PlatformMastraStudioAgentBuilderAgentsListingRoute: typeof PlatformMastraStudioAgentBuilderAgentsListingRouteWithChildren
+}
+
+const PlatformMastraStudioAgentBuilderAgentsRouteChildren: PlatformMastraStudioAgentBuilderAgentsRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderAgentsEditionRoute:
+      PlatformMastraStudioAgentBuilderAgentsEditionRouteWithChildren,
+    PlatformMastraStudioAgentBuilderAgentsListingRoute:
+      PlatformMastraStudioAgentBuilderAgentsListingRouteWithChildren,
+  }
+
+const PlatformMastraStudioAgentBuilderAgentsRouteWithChildren =
+  PlatformMastraStudioAgentBuilderAgentsRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderAgentsRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderFavoriteRouteChildren {
+  PlatformMastraStudioAgentBuilderFavoriteIndexRoute: typeof PlatformMastraStudioAgentBuilderFavoriteIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderFavoriteRouteChildren: PlatformMastraStudioAgentBuilderFavoriteRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderFavoriteIndexRoute:
+      PlatformMastraStudioAgentBuilderFavoriteIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderFavoriteRouteWithChildren =
+  PlatformMastraStudioAgentBuilderFavoriteRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderFavoriteRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderInfrastructureRouteChildren {
+  PlatformMastraStudioAgentBuilderInfrastructureIndexRoute: typeof PlatformMastraStudioAgentBuilderInfrastructureIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderInfrastructureRouteChildren: PlatformMastraStudioAgentBuilderInfrastructureRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderInfrastructureIndexRoute:
+      PlatformMastraStudioAgentBuilderInfrastructureIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderInfrastructureRouteWithChildren =
+  PlatformMastraStudioAgentBuilderInfrastructureRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderInfrastructureRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderLibraryRouteChildren {
+  PlatformMastraStudioAgentBuilderLibraryIndexRoute: typeof PlatformMastraStudioAgentBuilderLibraryIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderLibraryRouteChildren: PlatformMastraStudioAgentBuilderLibraryRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderLibraryIndexRoute:
+      PlatformMastraStudioAgentBuilderLibraryIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderLibraryRouteWithChildren =
+  PlatformMastraStudioAgentBuilderLibraryRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderLibraryRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderSkillsEditionRouteChildren {
+  PlatformMastraStudioAgentBuilderSkillsEditionIdRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdRoute
+  PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute
+  PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute
+  PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute
+}
+
+const PlatformMastraStudioAgentBuilderSkillsEditionRouteChildren: PlatformMastraStudioAgentBuilderSkillsEditionRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderSkillsEditionIdRoute:
+      PlatformMastraStudioAgentBuilderSkillsEditionIdRoute,
+    PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute:
+      PlatformMastraStudioAgentBuilderSkillsEditionCreateRoute,
+    PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute:
+      PlatformMastraStudioAgentBuilderSkillsEditionIdEditRoute,
+    PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute:
+      PlatformMastraStudioAgentBuilderSkillsEditionIdViewRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderSkillsEditionRouteWithChildren =
+  PlatformMastraStudioAgentBuilderSkillsEditionRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderSkillsEditionRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderSkillsListingRouteChildren {
+  PlatformMastraStudioAgentBuilderSkillsListingIndexRoute: typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderSkillsListingRouteChildren: PlatformMastraStudioAgentBuilderSkillsListingRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderSkillsListingIndexRoute:
+      PlatformMastraStudioAgentBuilderSkillsListingIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderSkillsListingRouteWithChildren =
+  PlatformMastraStudioAgentBuilderSkillsListingRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderSkillsListingRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderSkillsRouteChildren {
+  PlatformMastraStudioAgentBuilderSkillsEditionRoute: typeof PlatformMastraStudioAgentBuilderSkillsEditionRouteWithChildren
+  PlatformMastraStudioAgentBuilderSkillsListingRoute: typeof PlatformMastraStudioAgentBuilderSkillsListingRouteWithChildren
+}
+
+const PlatformMastraStudioAgentBuilderSkillsRouteChildren: PlatformMastraStudioAgentBuilderSkillsRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderSkillsEditionRoute:
+      PlatformMastraStudioAgentBuilderSkillsEditionRouteWithChildren,
+    PlatformMastraStudioAgentBuilderSkillsListingRoute:
+      PlatformMastraStudioAgentBuilderSkillsListingRouteWithChildren,
+  }
+
+const PlatformMastraStudioAgentBuilderSkillsRouteWithChildren =
+  PlatformMastraStudioAgentBuilderSkillsRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderSkillsRouteChildren,
+  )
+
+interface PlatformMastraStudioAgentBuilderRouteChildren {
+  PlatformMastraStudioAgentBuilderAgentsRoute: typeof PlatformMastraStudioAgentBuilderAgentsRouteWithChildren
+  PlatformMastraStudioAgentBuilderFavoriteRoute: typeof PlatformMastraStudioAgentBuilderFavoriteRouteWithChildren
+  PlatformMastraStudioAgentBuilderInfrastructureRoute: typeof PlatformMastraStudioAgentBuilderInfrastructureRouteWithChildren
+  PlatformMastraStudioAgentBuilderLibraryRoute: typeof PlatformMastraStudioAgentBuilderLibraryRouteWithChildren
+  PlatformMastraStudioAgentBuilderSkillsRoute: typeof PlatformMastraStudioAgentBuilderSkillsRouteWithChildren
+  PlatformMastraStudioAgentBuilderIndexRoute: typeof PlatformMastraStudioAgentBuilderIndexRoute
+}
+
+const PlatformMastraStudioAgentBuilderRouteChildren: PlatformMastraStudioAgentBuilderRouteChildren =
+  {
+    PlatformMastraStudioAgentBuilderAgentsRoute:
+      PlatformMastraStudioAgentBuilderAgentsRouteWithChildren,
+    PlatformMastraStudioAgentBuilderFavoriteRoute:
+      PlatformMastraStudioAgentBuilderFavoriteRouteWithChildren,
+    PlatformMastraStudioAgentBuilderInfrastructureRoute:
+      PlatformMastraStudioAgentBuilderInfrastructureRouteWithChildren,
+    PlatformMastraStudioAgentBuilderLibraryRoute:
+      PlatformMastraStudioAgentBuilderLibraryRouteWithChildren,
+    PlatformMastraStudioAgentBuilderSkillsRoute:
+      PlatformMastraStudioAgentBuilderSkillsRouteWithChildren,
+    PlatformMastraStudioAgentBuilderIndexRoute:
+      PlatformMastraStudioAgentBuilderIndexRoute,
+  }
+
+const PlatformMastraStudioAgentBuilderRouteWithChildren =
+  PlatformMastraStudioAgentBuilderRoute._addFileChildren(
+    PlatformMastraStudioAgentBuilderRouteChildren,
+  )
+
+interface PlatformMastraStudioRouteChildren {
+  PlatformMastraStudioMainRoute: typeof PlatformMastraStudioMainRouteWithChildren
+  PlatformMastraStudioMinimalRoute: typeof PlatformMastraStudioMinimalRouteWithChildren
+  PlatformMastraStudioAgentBuilderRoute: typeof PlatformMastraStudioAgentBuilderRouteWithChildren
+}
+
+const PlatformMastraStudioRouteChildren: PlatformMastraStudioRouteChildren = {
+  PlatformMastraStudioMainRoute: PlatformMastraStudioMainRouteWithChildren,
+  PlatformMastraStudioMinimalRoute:
+    PlatformMastraStudioMinimalRouteWithChildren,
+  PlatformMastraStudioAgentBuilderRoute:
+    PlatformMastraStudioAgentBuilderRouteWithChildren,
+}
+
+const PlatformMastraStudioRouteWithChildren =
+  PlatformMastraStudioRoute._addFileChildren(PlatformMastraStudioRouteChildren)
+
 interface PlatformRouteChildren {
+  PlatformLivekitRoute: typeof PlatformLivekitRouteWithChildren
   PlatformMailIngestAccountsRoute: typeof PlatformMailIngestAccountsRoute
+  PlatformMastraStudioRoute: typeof PlatformMastraStudioRouteWithChildren
   PlatformNotificationsRoute: typeof PlatformNotificationsRoute
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
   PlatformQueuesRoute: typeof PlatformQueuesRoute
+  PlatformResumeParseCacheRoute: typeof PlatformResumeParseCacheRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformLivekitRoute: PlatformLivekitRouteWithChildren,
   PlatformMailIngestAccountsRoute: PlatformMailIngestAccountsRoute,
+  PlatformMastraStudioRoute: PlatformMastraStudioRouteWithChildren,
   PlatformNotificationsRoute: PlatformNotificationsRoute,
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
   PlatformQueuesRoute: PlatformQueuesRoute,
+  PlatformResumeParseCacheRoute: PlatformResumeParseCacheRoute,
   PlatformUsersRoute: PlatformUsersRoute,
 }
 
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
   PlatformRouteChildren,
 )
+
+interface StudioRouteChildren {
+  StudioCalendarRoute: typeof StudioCalendarRoute
+  StudioInterviewsRoute: typeof StudioInterviewsRoute
+  StudioResumePoolRoute: typeof StudioResumePoolRoute
+  StudioResumesRoute: typeof StudioResumesRoute
+}
+
+const StudioRouteChildren: StudioRouteChildren = {
+  StudioCalendarRoute: StudioCalendarRoute,
+  StudioInterviewsRoute: StudioInterviewsRoute,
+  StudioResumePoolRoute: StudioResumePoolRoute,
+  StudioResumesRoute: StudioResumesRoute,
+}
+
+const StudioRouteWithChildren =
+  StudioRoute._addFileChildren(StudioRouteChildren)
 
 interface WSlugAgentRouteChildren {
   WSlugAgentSessionIdRoute: typeof WSlugAgentSessionIdRoute
@@ -1094,6 +3975,20 @@ const WSlugStudioInterviewsRouteWithChildren =
     WSlugStudioInterviewsRouteChildren,
   )
 
+interface WSlugStudioMailIngestAccountsRouteChildren {
+  WSlugStudioMailIngestAccountsIdRoute: typeof WSlugStudioMailIngestAccountsIdRoute
+}
+
+const WSlugStudioMailIngestAccountsRouteChildren: WSlugStudioMailIngestAccountsRouteChildren =
+  {
+    WSlugStudioMailIngestAccountsIdRoute: WSlugStudioMailIngestAccountsIdRoute,
+  }
+
+const WSlugStudioMailIngestAccountsRouteWithChildren =
+  WSlugStudioMailIngestAccountsRoute._addFileChildren(
+    WSlugStudioMailIngestAccountsRouteChildren,
+  )
+
 interface WSlugStudioResumesRouteChildren {
   WSlugStudioResumesRecordIdRoute: typeof WSlugStudioResumesRecordIdRoute
 }
@@ -1106,7 +4001,7 @@ const WSlugStudioResumesRouteWithChildren =
   WSlugStudioResumesRoute._addFileChildren(WSlugStudioResumesRouteChildren)
 
 interface WSlugStudioRouteChildren {
-  WSlugStudioAgentDebugRoute: typeof WSlugStudioAgentDebugRoute
+  WSlugStudioCalendarRoute: typeof WSlugStudioCalendarRoute
   WSlugStudioDashboardRoute: typeof WSlugStudioDashboardRoute
   WSlugStudioDepartmentsRoute: typeof WSlugStudioDepartmentsRoute
   WSlugStudioFormsRoute: typeof WSlugStudioFormsRoute
@@ -1115,7 +4010,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioInterviewersRoute: typeof WSlugStudioInterviewersRoute
   WSlugStudioInterviewsRoute: typeof WSlugStudioInterviewsRouteWithChildren
   WSlugStudioJobDescriptionsRoute: typeof WSlugStudioJobDescriptionsRoute
-  WSlugStudioMailIngestAccountsRoute: typeof WSlugStudioMailIngestAccountsRoute
+  WSlugStudioMailIngestAccountsRoute: typeof WSlugStudioMailIngestAccountsRouteWithChildren
   WSlugStudioMeRoute: typeof WSlugStudioMeRoute
   WSlugStudioMembersRoute: typeof WSlugStudioMembersRoute
   WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
@@ -1124,7 +4019,7 @@ interface WSlugStudioRouteChildren {
 }
 
 const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
-  WSlugStudioAgentDebugRoute: WSlugStudioAgentDebugRoute,
+  WSlugStudioCalendarRoute: WSlugStudioCalendarRoute,
   WSlugStudioDashboardRoute: WSlugStudioDashboardRoute,
   WSlugStudioDepartmentsRoute: WSlugStudioDepartmentsRoute,
   WSlugStudioFormsRoute: WSlugStudioFormsRoute,
@@ -1133,7 +4028,8 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
   WSlugStudioInterviewersRoute: WSlugStudioInterviewersRoute,
   WSlugStudioInterviewsRoute: WSlugStudioInterviewsRouteWithChildren,
   WSlugStudioJobDescriptionsRoute: WSlugStudioJobDescriptionsRoute,
-  WSlugStudioMailIngestAccountsRoute: WSlugStudioMailIngestAccountsRoute,
+  WSlugStudioMailIngestAccountsRoute:
+    WSlugStudioMailIngestAccountsRouteWithChildren,
   WSlugStudioMeRoute: WSlugStudioMeRoute,
   WSlugStudioMembersRoute: WSlugStudioMembersRoute,
   WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
@@ -1167,15 +4063,14 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlatformRoute: PlatformRouteWithChildren,
   SelectWorkspaceRoute: SelectWorkspaceRoute,
+  StudioRoute: StudioRouteWithChildren,
   WaitRoute: WaitRoute,
+  ApiAppVersionRoute: ApiAppVersionRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,
   RRoundIdRoute: RRoundIdRoute,
   ReferralsTokenRoute: ReferralsTokenRoute,
-  StudioInterviewsRoute: StudioInterviewsRoute,
-  StudioResumePoolRoute: StudioResumePoolRoute,
-  StudioResumesRoute: StudioResumesRoute,
   WSlugRoute: WSlugRouteWithChildren,
   HumanInterviewInterviewerInviteTokenRoute:
     HumanInterviewInterviewerInviteTokenRoute,

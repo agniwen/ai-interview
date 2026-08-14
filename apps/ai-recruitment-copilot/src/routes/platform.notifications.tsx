@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { NotificationsGrid } from "@/components/features/platform/notifications/notifications-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformNotificationsState } from "@/lib/start/platform/notifications.functions";
 import type { PlatformNotificationsState } from "@/lib/start/platform/notifications.functions";
 import type { PlatformNotificationFilters } from "@/lib/start/platform/notifications.server";
@@ -77,10 +78,7 @@ function PlatformNotificationsRoute() {
 }
 
 export const Route = createFileRoute("/platform/notifications")({
-  component: PlatformNotificationsRoute,
-  head: () => ({
-    meta: [{ title: "平台 · 飞书通知" }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -97,6 +95,9 @@ export const Route = createFileRoute("/platform/notifications")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 飞书通知") }],
+  }),
+  component: PlatformNotificationsRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

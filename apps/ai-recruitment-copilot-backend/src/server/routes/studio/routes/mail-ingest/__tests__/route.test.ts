@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   },
   createMailIngestAccount: vi.fn(),
   getMailIngestAccountLoginConfig: vi.fn(),
+  getWorkspaceMailIngestAccount: vi.fn(),
   isWorkspaceMember: vi.fn(),
   listAccountMailMessages: vi.fn(),
   mailIngestAccountExistsInOrg: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-in
   createMailIngestAccount: mocks.createMailIngestAccount,
   deleteMailIngestAccount: vi.fn(),
   getMailIngestAccountLoginConfig: mocks.getMailIngestAccountLoginConfig,
+  getWorkspaceMailIngestAccount: mocks.getWorkspaceMailIngestAccount,
   isWorkspaceMember: mocks.isWorkspaceMember,
   listAccountMailMessages: mocks.listAccountMailMessages,
   listMailIngestAccounts: vi.fn(),
@@ -108,6 +110,9 @@ describe("mailIngestRouter", () => {
       username: "listener@example.com",
     });
     mocks.isWorkspaceMember.mockResolvedValue(true);
+    mocks.getWorkspaceMailIngestAccount.mockResolvedValue({
+      account: { emailAddress: "listener@example.com", id: "account_1" },
+    });
     mocks.createMailIngestAccount.mockResolvedValue({ id: "account_1" });
     mocks.listAccountMailMessages.mockResolvedValue({ records: [], total: 0 });
     mocks.mailIngestAccountExistsInOrg.mockResolvedValue(true);
@@ -242,6 +247,24 @@ describe("mailIngestRouter", () => {
         pageSize: 20,
       }),
     );
+  });
+
+  it("returns the managed account detail used by the log page", async () => {
+    const res = await app.request("/mail-ingest-accounts/managed/account_1");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      account: { emailAddress: "listener@example.com", id: "account_1" },
+    });
+    expect(mocks.getWorkspaceMailIngestAccount).toHaveBeenCalledWith("org_1", "account_1");
+  });
+
+  it("returns 404 when the managed account detail is outside the workspace", async () => {
+    mocks.getWorkspaceMailIngestAccount.mockResolvedValue(null);
+
+    const res = await app.request("/mail-ingest-accounts/managed/account_x");
+
+    expect(res.status).toBe(404);
   });
 
   it("managed messages: 404 when account not in org", async () => {

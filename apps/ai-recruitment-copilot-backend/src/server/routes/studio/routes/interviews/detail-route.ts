@@ -64,6 +64,40 @@ function loadVisibilityScope(
   return resolveRecruitingVisibilityScope({ currentRole, organizationId, userId });
 }
 
+function resolveScheduledWindow(
+  input: {
+    scheduledAt?: string | null;
+    scheduledEndAt?: string | null;
+  },
+  existing: {
+    scheduledAt: string | null;
+    scheduledEndAt: string | null;
+  },
+):
+  | { endAt: string | null; error: null; startAt: string | null }
+  | { endAt: null; error: string; startAt: null } {
+  const startAt =
+    input.scheduledAt === undefined ? existing.scheduledAt : input.scheduledAt || null;
+  const endAt =
+    input.scheduledEndAt === undefined ? existing.scheduledEndAt : input.scheduledEndAt || null;
+
+  if (Boolean(startAt) !== Boolean(endAt)) {
+    return {
+      endAt: null,
+      error: "面试开始时间和结束时间需要同时填写。",
+      startAt: null,
+    };
+  }
+  if (startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)) {
+    return {
+      endAt: null,
+      error: "面试结束时间必须晚于开始时间。",
+      startAt: null,
+    };
+  }
+  return { endAt, error: null, startAt };
+}
+
 export const studioInterviewDetailRouter = factory
   .createApp()
   .get(
@@ -366,13 +400,14 @@ export const studioInterviewDetailRouter = factory
         allowTextInput: z.boolean().optional(),
         notes: z.string().trim().max(1000).optional().or(z.literal("")),
         scheduledAt: nullableInstantDateTimeInputSchema,
+        scheduledEndAt: nullableInstantDateTimeInputSchema,
         status: scheduleEntryStatusSchema.optional(),
       }),
       jsonValidatorError("请求参数无效。"),
     ),
     async (c) => {
-      // 轮次级 PATCH：仅更新 round 字段（allowTextInput / notes / scheduledAt / status）。
-      // Round-level PATCH: updates only round fields (allowTextInput / notes / scheduledAt / status).
+      // 轮次级 PATCH：仅更新 round 字段。
+      // Round-level PATCH: updates only round fields.
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
@@ -428,9 +463,15 @@ export const studioInterviewDetailRouter = factory
       if (body.notes !== undefined) {
         update.notes = body.notes || null;
       }
+      const scheduledWindow = resolveScheduledWindow(body, existingRound);
+      if (scheduledWindow.error) {
+        return c.json({ error: scheduledWindow.error }, 400);
+      }
       if (body.scheduledAt !== undefined) {
-        update.scheduledAt =
-          body.scheduledAt && body.scheduledAt.length > 0 ? new Date(body.scheduledAt) : null;
+        update.scheduledAt = scheduledWindow.startAt ? new Date(scheduledWindow.startAt) : null;
+      }
+      if (body.scheduledEndAt !== undefined) {
+        update.scheduledEndAt = scheduledWindow.endAt ? new Date(scheduledWindow.endAt) : null;
       }
       if (body.status !== undefined) {
         update.status = body.status;

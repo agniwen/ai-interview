@@ -2,8 +2,8 @@ import type { MastraModelConfig as CoreMastraModelConfig } from "@mastra/core/ll
 
 const ALIBABA_CODING_PLAN_PREFIX = "alibaba-coding-plan/";
 const ALIBABA_PROVIDER_ID = "alibaba";
-const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-pro";
-const DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL = "deepseek-v4-flash";
+const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-flash-0731";
+const DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL = "deepseek-v4-flash-0731";
 
 export const DEFAULT_CHAT_MODEL = `${ALIBABA_CODING_PLAN_PREFIX}MiniMax-M2.5`;
 
@@ -106,6 +106,22 @@ export function getMastraModelApiKey(env: EnvLike = process.env): string | undef
     return getAlibabaCompatibleApiKey(env);
   }
   return getAlibabaCodingPlanApiKey(env);
+}
+
+export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
+  if (typeof model === "string") {
+    return model;
+  }
+  if ("providerId" in model && "modelId" in model) {
+    return `${model.providerId}/${model.modelId}`;
+  }
+  if ("id" in model && typeof model.id === "string") {
+    return model.id;
+  }
+  if ("provider" in model && "modelId" in model) {
+    return `${model.provider}/${model.modelId}`;
+  }
+  throw new Error("Unable to derive Mastra model identifier.");
 }
 
 export function getMastraModelConfig(env: EnvLike = process.env): MastraModelConfig {

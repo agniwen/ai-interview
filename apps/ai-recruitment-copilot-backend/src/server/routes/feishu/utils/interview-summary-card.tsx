@@ -70,7 +70,7 @@ export function InterviewSummaryCard({
       <Divider />
       <Actions>
         <LinkButton style="primary" url={detailUrl}>
-          查看完整报告
+          查看飞书评价表
         </LinkButton>
       </Actions>
     </Card>

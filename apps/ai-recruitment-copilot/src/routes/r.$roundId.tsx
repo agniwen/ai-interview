@@ -1,5 +1,6 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 // 公开访问入口：候选人面试详情独立页（无需登录）。
 // 与 /w/[slug]/studio/interviews/[roundId] 共享同一份 StudioPersonDetailPanel
@@ -39,6 +40,6 @@ function PublicInterviewRoundRoute() {
 export const Route = createFileRoute("/r/$roundId")({
   component: PublicInterviewRoundRoute,
   head: () => ({
-    meta: [{ title: "面试详情" }],
+    meta: [{ title: formatDocumentTitle("面试详情") }],
   }),
 });

@@ -1,7 +1,13 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 import {
   SidebarBodyPortalTarget,
   SidebarFooterPortalTarget,
@@ -12,7 +18,6 @@ import {
   SidebarFooterSkeleton,
   SidebarSlotHydrationFallback,
 } from "@/components/layout/app-sidebar/sidebar-slot-skeleton";
-import { PlatformLogo } from "./platform-logo";
 
 type PlatformSidebarProps = ComponentProps<typeof Sidebar>;
 
@@ -20,7 +25,6 @@ export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader className="gap-3">
-        <PlatformLogo />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
       <SidebarContent>
@@ -35,6 +39,7 @@ export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
           <SidebarFooterSkeleton />
         </SidebarSlotHydrationFallback>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { IconExternalLink, IconX } from "@tabler/icons-react";
+import { IconChevronRight, IconExternalLink, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
@@ -11,38 +12,58 @@ import type {
   RecruitingActionProposal,
 } from "./recruiting-copilot-context";
 
-function citationHref(slug: string, citation: CopilotCitation) {
-  if (citation.recordType === "job_description") {
-    return `/w/${slug}/studio/job-descriptions`;
-  }
-  if (citation.recordType === "resume_pool_item") {
-    return `/w/${slug}/studio/resume-pool`;
-  }
-  return `/w/${slug}/studio/resumes`;
-}
-
 function CitationList({ citations }: { citations: CopilotCitation[] }) {
   const slug = useWorkspaceSlug();
+  const { openCandidateDetail } = useRecruitingCopilotContext();
   if (citations.length === 0) {
     return <p className="text-muted-foreground text-sm">当前会话还没有引用系统记录。</p>;
   }
   return (
     <div className="grid gap-2">
-      {citations.map((citation) => (
-        <a
-          className="group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
-          href={citationHref(slug, citation)}
-          key={`${citation.recordType}:${citation.id}`}
-        >
-          <span className="min-w-0">
-            <span className="block truncate font-medium">{citation.label}</span>
-            <span className="block truncate text-muted-foreground text-xs">
-              {citation.secondaryLabel ?? citation.recordType}
+      {citations.map((citation) => {
+        const content = (
+          <>
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{citation.label}</span>
+              <span className="block truncate text-muted-foreground text-xs">
+                {citation.secondaryLabel ?? citation.recordType}
+              </span>
             </span>
-          </span>
-          <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
-        </a>
-      ))}
+            {citation.recordType === "job_description" ? (
+              <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+            ) : (
+              <IconChevronRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+            )}
+          </>
+        );
+        const className =
+          "group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+        const key = `${citation.recordType}:${citation.id}`;
+
+        if (citation.recordType === "job_description") {
+          return (
+            <a className={className} href={`/w/${slug}/studio/job-descriptions`} key={key}>
+              {content}
+            </a>
+          );
+        }
+
+        return (
+          <button
+            className={className}
+            key={key}
+            onClick={() =>
+              openCandidateDetail({
+                id: citation.id,
+                kind: citation.recordType === "resume_pool_item" ? "resume_pool" : "resume_record",
+              })
+            }
+            type="button"
+          >
+            {content}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -63,9 +84,9 @@ function ProposalList({
         <div className="rounded-lg border bg-background px-3 py-2 text-sm" key={proposal.id}>
           <div className="flex items-start justify-between gap-2">
             <p className="min-w-0 truncate font-medium">{proposal.title}</p>
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+            <Badge className="shrink-0" variant="outline">
               {statuses[proposal.id] ?? "pending"}
-            </span>
+            </Badge>
           </div>
           <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">{proposal.explanation}</p>
         </div>
@@ -112,7 +133,7 @@ export function RecruitingContextPanel() {
   return (
     <>
       {desktopOpen ? (
-        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-xl shadow-black/8 backdrop-blur lg:flex">
+        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur lg:flex">
           <div className="flex h-full min-h-0 flex-1 flex-col">
             <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
               <h2 className="font-medium text-sm">上下文</h2>
@@ -135,7 +156,7 @@ export function RecruitingContextPanel() {
       ) : (
         <Button
           aria-label="展开上下文"
-          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:inline-flex"
+          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:inline-flex"
           onClick={() => setDesktopOpen(true)}
           size="sm"
           type="button"
@@ -146,7 +167,7 @@ export function RecruitingContextPanel() {
         </Button>
       )}
       <Button
-        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:hidden"
+        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:hidden"
         onClick={() => setMobileOpen(true)}
         size="sm"
         type="button"

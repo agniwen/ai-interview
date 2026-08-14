@@ -1,5 +1,5 @@
 import { DetailRow } from "./detail-row";
-import { cn } from "@arc/shared/utils";
+import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 
 /**
  * Agent 端 metrics_collected 聚合后落库的形状。与 agent.py 中的 metrics_state 对齐:
@@ -159,30 +159,21 @@ function safeAvg(sum: number | undefined, count: number | undefined): number | n
  * metrics_collected listener. Falls back to a friendly empty state for
  * conversations that predate the metrics column.
  */
-export function InterviewMetricsPanel({
-  metrics,
-  surface = "card",
-}: {
-  metrics: Record<string, unknown>;
-  surface?: "card" | "section";
-}) {
+export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unknown> }) {
   const m = metrics as MetricsShape;
 
   if (isEmptyMetrics(m)) {
-    const Component = surface === "card" ? "div" : "section";
     return (
-      <Component
-        className={cn(
-          surface === "card"
-            ? "rounded-2xl border border-border bg-background p-4"
-            : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
-        )}
-      >
-        <h4 className="font-medium text-sm">通话指标</h4>
-        <p className="mt-3 text-muted-foreground text-sm leading-normal">
-          本场面试未上报性能指标（可能是 agent 升级前的历史会话）。
-        </p>
-      </Component>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">通话指标</CardTitle>
+        </CardHeader>
+        <CardPanel>
+          <p className="text-muted-foreground text-sm leading-normal">
+            本场面试未上报性能指标（可能是 agent 升级前的历史会话）。
+          </p>
+        </CardPanel>
+      </Card>
     );
   }
 
@@ -200,85 +191,80 @@ export function InterviewMetricsPanel({
   const e2eLatencies = computeTurnE2eLatencies(m.turns ?? {});
   const e2eP50 = quantile(e2eLatencies, 0.5);
   const e2eP95 = quantile(e2eLatencies, 0.95);
-  const Component = surface === "card" ? "div" : "section";
-
   return (
-    <Component
-      className={cn(
-        surface === "card"
-          ? "rounded-2xl border border-border bg-background p-4"
-          : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
-      )}
-    >
-      <h4 className="font-medium text-sm">通话指标</h4>
-      <p className="mt-1 text-muted-foreground text-xs leading-normal">
-        从 user 说完到 agent 开口的端到端延迟，以及各 pipeline 段累计用量。
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">通话指标</CardTitle>
+        <p className="text-muted-foreground text-xs leading-normal">
+          从 user 说完到 agent 开口的端到端延迟，以及各 pipeline 段累计用量。
+        </p>
+      </CardHeader>
+      <CardPanel>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <section className="space-y-2 text-sm">
+            <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">
+              端到端延迟
+            </h5>
+            <DetailRow label="样本数" value={`${e2eLatencies.length} 轮`} />
+            <DetailRow label="p50" value={formatSeconds(e2eP50)} />
+            <DetailRow label="p95" value={formatSeconds(e2eP95)} />
+            <DetailRow
+              label="EOU 平均"
+              value={formatSeconds(eouAvg)}
+              valueClassName="text-muted-foreground"
+            />
+            <DetailRow
+              label="转写平均"
+              value={formatSeconds(transcriptionAvg)}
+              valueClassName="text-muted-foreground"
+            />
+          </section>
 
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <section className="space-y-2 text-sm">
-          <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">
-            端到端延迟
-          </h5>
-          <DetailRow label="样本数" value={`${e2eLatencies.length} 轮`} />
-          <DetailRow label="p50" value={formatSeconds(e2eP50)} />
-          <DetailRow label="p95" value={formatSeconds(e2eP95)} />
-          <DetailRow
-            label="EOU 平均"
-            value={formatSeconds(eouAvg)}
-            valueClassName="text-muted-foreground"
-          />
-          <DetailRow
-            label="转写平均"
-            value={formatSeconds(transcriptionAvg)}
-            valueClassName="text-muted-foreground"
-          />
-        </section>
+          <section className="space-y-2 text-sm">
+            <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">LLM</h5>
+            <DetailRow label="请求数" value={formatNumber(llm.request_count)} />
+            <DetailRow label="首 token 平均" value={formatSeconds(llmAvgTtft)} />
+            <DetailRow label="累计 token" value={formatNumber(llm.total_tokens)} />
+            <DetailRow
+              label="prompt / completion"
+              value={`${formatNumber(llm.total_prompt_tokens)} / ${formatNumber(
+                llm.total_completion_tokens,
+              )}`}
+              valueClassName="text-muted-foreground"
+            />
+          </section>
 
-        <section className="space-y-2 text-sm">
-          <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">LLM</h5>
-          <DetailRow label="请求数" value={formatNumber(llm.request_count)} />
-          <DetailRow label="首 token 平均" value={formatSeconds(llmAvgTtft)} />
-          <DetailRow label="累计 token" value={formatNumber(llm.total_tokens)} />
-          <DetailRow
-            label="prompt / completion"
-            value={`${formatNumber(llm.total_prompt_tokens)} / ${formatNumber(
-              llm.total_completion_tokens,
-            )}`}
-            valueClassName="text-muted-foreground"
-          />
-        </section>
+          <section className="space-y-2 text-sm">
+            <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">TTS</h5>
+            <DetailRow label="请求数" value={formatNumber(tts.request_count)} />
+            <DetailRow label="首音平均" value={formatSeconds(ttsAvgTtfb)} />
+            <DetailRow label="累计字符" value={formatNumber(tts.total_characters)} />
+            <DetailRow
+              label="累计音频"
+              value={formatSeconds(tts.total_audio_duration)}
+              valueClassName="text-muted-foreground"
+            />
+          </section>
 
-        <section className="space-y-2 text-sm">
-          <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">TTS</h5>
-          <DetailRow label="请求数" value={formatNumber(tts.request_count)} />
-          <DetailRow label="首音平均" value={formatSeconds(ttsAvgTtfb)} />
-          <DetailRow label="累计字符" value={formatNumber(tts.total_characters)} />
-          <DetailRow
-            label="累计音频"
-            value={formatSeconds(tts.total_audio_duration)}
-            valueClassName="text-muted-foreground"
-          />
-        </section>
-
-        <section className="space-y-2 text-sm">
-          <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">
-            STT / 打断
-          </h5>
-          <DetailRow label="STT 请求数" value={formatNumber(stt.request_count)} />
-          <DetailRow
-            label="STT 累计音频"
-            value={formatSeconds(stt.total_audio_duration)}
-            valueClassName="text-muted-foreground"
-          />
-          <DetailRow label="打断次数" value={formatNumber(interruption.num_interruptions)} />
-          <DetailRow
-            label="附和(backchannel)"
-            value={formatNumber(interruption.num_backchannels)}
-            valueClassName="text-muted-foreground"
-          />
-        </section>
-      </div>
-    </Component>
+          <section className="space-y-2 text-sm">
+            <h5 className="font-medium text-foreground text-xs uppercase tracking-wide">
+              STT / 打断
+            </h5>
+            <DetailRow label="STT 请求数" value={formatNumber(stt.request_count)} />
+            <DetailRow
+              label="STT 累计音频"
+              value={formatSeconds(stt.total_audio_duration)}
+              valueClassName="text-muted-foreground"
+            />
+            <DetailRow label="打断次数" value={formatNumber(interruption.num_interruptions)} />
+            <DetailRow
+              label="附和(backchannel)"
+              value={formatNumber(interruption.num_backchannels)}
+              valueClassName="text-muted-foreground"
+            />
+          </section>
+        </div>
+      </CardPanel>
+    </Card>
   );
 }

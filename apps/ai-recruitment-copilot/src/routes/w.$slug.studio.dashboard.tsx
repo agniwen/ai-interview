@@ -7,19 +7,22 @@ import {
 } from "@tanstack/react-router";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { PageHeader } from "@/components/features/studio/page-header";
+import { DashboardPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { useMemo } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { barY, defineChart, group } from "@tanstack/charts";
+import { scaleBand, scaleLinear } from "d3-scale";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Chart, ChartContainer, chartColor, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { defineDonutChart } from "@/lib/client/charts/donut";
 
 type PipelineBucket =
   | "screening"
@@ -308,11 +311,79 @@ function ActionQueueCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
   );
 }
 
+const ACTIVITY_SERIES = [
+  { colorKey: "resumesAdded", key: "resumesAdded", label: "新增简历" },
+  { colorKey: "aiCompleted", key: "aiCompleted", label: "AI 完成" },
+  { colorKey: "humanCompleted", key: "humanCompleted", label: "复面完成" },
+  { colorKey: "offersSent", key: "offersSent", label: "Offer 发出" },
+] as const;
+
 function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
   const totalActivity = metrics.activity.reduce(
     (sum, row) => sum + row.resumesAdded + row.aiCompleted + row.humanCompleted + row.offersSent,
     0,
   );
+
+  const longRows = useMemo(
+    () =>
+      metrics.activity.flatMap((row) =>
+        ACTIVITY_SERIES.map((series) => ({
+          day: row.day,
+          label: series.label,
+          series: series.key,
+          value: row[series.key],
+        })),
+      ),
+    [metrics.activity],
+  );
+
+  const definition = useMemo(() => {
+    if (totalActivity <= 0) {
+      return null;
+    }
+    const days = metrics.activity.map((row) => row.day);
+    const tickValues = days.filter((_, index) => index % 7 === 0);
+    return defineChart({
+      marks: [
+        barY(longRows, {
+          x: "day",
+          y: "value",
+          z: "series",
+          fill: (row) => chartColor(row.series),
+          layout: group({ padding: 0.12 }),
+          radius: 4,
+          key: (row) => `${row.day}:${row.series}`,
+        }),
+      ],
+      x: {
+        scale: () => scaleBand().padding(0.18),
+        axis: {
+          ticks: {
+            values: tickValues,
+            format: (value) => String(value).slice(5),
+          },
+        },
+      },
+      y: {
+        scale: scaleLinear,
+        nice: true,
+        grid: true,
+        axis: {
+          ticks: {
+            format: (value) => String(Math.round(Number(value))),
+          },
+        },
+      },
+      margin: { bottom: 28, left: 28, right: 8, top: 8 },
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof longRows)[number];
+          return `${row.day} · ${row.label}: ${row.value}`;
+        },
+      },
+    });
+  }, [longRows, metrics.activity, totalActivity]);
 
   return (
     <Card>
@@ -321,41 +392,15 @@ function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
         <CardDescription>新增简历、AI 面试完成、真人复面完成和 Offer 发出趋势。</CardDescription>
       </CardHeader>
       <CardContent>
-        {totalActivity > 0 ? (
+        {totalActivity > 0 && definition ? (
           <ClientOnly fallback={<ChartSkeleton className="h-72 w-full" />}>
             <ChartContainer className="aspect-auto h-72 w-full" config={activityChartConfig}>
-              <BarChart accessibilityLayer data={metrics.activity} margin={{ left: 0, right: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  axisLine={false}
-                  dataKey="day"
-                  interval={6}
-                  tickFormatter={(value: string) => value.slice(5)}
-                  tickLine={false}
-                  tickMargin={8}
-                />
-                <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={28} />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      indicator="dot"
-                      labelFormatter={(value: unknown) => (typeof value === "string" ? value : "")}
-                    />
-                  }
-                />
-                <Bar
-                  dataKey="resumesAdded"
-                  fill="var(--color-resumesAdded)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar dataKey="aiCompleted" fill="var(--color-aiCompleted)" radius={[4, 4, 0, 0]} />
-                <Bar
-                  dataKey="humanCompleted"
-                  fill="var(--color-humanCompleted)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar dataKey="offersSent" fill="var(--color-offersSent)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+              <Chart
+                ariaLabel="近 30 天招聘活动"
+                className="h-72 w-full"
+                definition={definition}
+                height={288}
+              />
             </ChartContainer>
           </ClientOnly>
         ) : (
@@ -418,12 +463,30 @@ function JobPipelineCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
 }
 
 function OfferStatusCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
-  const data = metrics.offerStatuses.map((row) => ({
-    ...row,
-    fill: offerDraftStatusMeta[row.status].tone === "success" ? "var(--chart-5)" : "var(--chart-4)",
-    label: offerDraftStatusMeta[row.status].label,
-  }));
-  const total = data.reduce((sum, row) => sum + row.count, 0);
+  const data = useMemo(
+    () =>
+      metrics.offerStatuses.map((row, index) => {
+        let fill = "var(--chart-2)";
+        if (index % 2 === 0) {
+          fill =
+            offerDraftStatusMeta[row.status].tone === "success"
+              ? "var(--chart-5)"
+              : "var(--chart-4)";
+        }
+        return {
+          fill,
+          key: row.status,
+          label: offerDraftStatusMeta[row.status].label,
+          value: row.count,
+        };
+      }),
+    [metrics.offerStatuses],
+  );
+  const total = data.reduce((sum, row) => sum + row.value, 0);
+  const definition = useMemo(
+    () => (total > 0 ? defineDonutChart(data, { innerRatio: 0.63 }) : null),
+    [data, total],
+  );
 
   return (
     <Card>
@@ -432,38 +495,23 @@ function OfferStatusCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
         <CardDescription>展示 Offer 草稿、发送、接受、拒绝和过期状态。</CardDescription>
       </CardHeader>
       <CardContent>
-        {total > 0 ? (
+        {total > 0 && definition ? (
           <div className="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
             <ClientOnly fallback={<ChartSkeleton className="size-48" />}>
               <ChartContainer className="aspect-square size-48" config={offerChartConfig}>
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent indicator="dot" nameKey="label" />} />
-                  <Pie
-                    cornerRadius={8}
-                    data={data}
-                    dataKey="count"
-                    innerRadius={48}
-                    nameKey="label"
-                    outerRadius={76}
-                    paddingAngle={2}
-                    stroke="var(--background)"
-                    strokeWidth={3}
-                  >
-                    {data.map((entry, index) => (
-                      <Cell
-                        fill={index % 2 === 0 ? entry.fill : "var(--chart-2)"}
-                        key={entry.status}
-                      />
-                    ))}
-                  </Pie>
-                </PieChart>
+                <Chart
+                  ariaLabel="Offer 状态"
+                  className="size-full"
+                  definition={definition}
+                  height={192}
+                />
               </ChartContainer>
             </ClientOnly>
             <div className="flex flex-col gap-2">
               {data.map((row) => (
-                <div className="flex items-center justify-between gap-3 text-sm" key={row.status}>
+                <div className="flex items-center justify-between gap-3 text-sm" key={row.key}>
                   <span className="text-muted-foreground">{row.label}</span>
-                  <span className="font-mono font-semibold tabular-nums">{row.count}</span>
+                  <span className="font-mono font-semibold tabular-nums">{row.value}</span>
                 </div>
               ))}
             </div>
@@ -484,7 +532,7 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4 md:gap-6">
       <PageHeader
         title="数据看板"
-        description="从候选人漏斗、待办队列、招聘活动、岗位分布和 Offer 状态观察当前招聘运营。"
+        description="看看候选人漏斗、待办、岗位分布和 Offer 进度，了解这阵子招聘做得怎么样。"
       />
       <StudioSummaryCards
         items={[
@@ -566,16 +614,7 @@ function StudioDashboardRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/dashboard")({
-  component: StudioDashboardRoute,
-  head: () => ({
-    meta: [{ title: "数据看板" }],
-  }),
   loader: async ({ params }) => {
-    await requireStudioPageAccess({
-      action: "dashboard",
-      pathname: `/w/${params.slug}/studio/dashboard`,
-      slug: params.slug,
-    });
     const state = await loadStudioDashboardState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -587,4 +626,9 @@ export const Route = createFileRoute("/w/$slug/studio/dashboard")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("数据看板") }],
+  }),
+  component: StudioDashboardRoute,
+  pendingComponent: DashboardPageSkeleton,
 });

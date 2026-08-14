@@ -5,23 +5,40 @@ import type {
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
+import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 
-export interface ResumeAssessment {
-  review: string;
-  screeningResult: ResumeScreeningResult;
-  structuredReview: ResumeReview;
-}
+export type GeneratedResumeAssessment =
+  | {
+      mode: "legacy";
+      resumeReview: ResumeReview;
+      review: string;
+      screeningResult: ResumeScreeningResult;
+    }
+  | {
+      evaluation: StructuredResumeEvaluationV1;
+      mode: "structured";
+      summaries: StructuredResumeSummaryFields;
+    };
 
 export interface ResumeAssessmentRecord {
   jobDescriptionId: string | null;
+  evaluationMode: "legacy" | "structured" | null;
+  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
+  resumeEvaluationAttemptMode: "legacy" | "structured" | null;
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
   resumeParseStatus: ResumeParseStatus;
+  resumeContentHash: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReview: ResumeReview | null;
+  resumeReviewQueuedAt: Date | null;
+  resumeReviewRunId: string | null;
   resumeScreeningResult: ResumeScreeningResult | null;
   resumeText: string | null;
+  structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
 }
 
 interface ResumeAssessmentLifecycleKey {
@@ -36,28 +53,37 @@ interface ResumeAssessmentGuard {
 
 export interface ResumeAssessmentLifecycleDeps {
   generate: (input: {
-    jobDescriptionId: string | null;
+    evaluationAsOf: string;
+    jobDescriptionId: string;
     organizationId: string;
+    resumeContentHash: string | null;
     resumeProfile: ResumeProfile;
+    resumeInputHash: string;
     resumeText: string | null;
-  }) => Promise<ResumeAssessment>;
+    runId: string;
+  }) => Promise<GeneratedResumeAssessment>;
   loadRecord: (input: ResumeAssessmentLifecycleKey) => Promise<ResumeAssessmentRecord | null>;
   markExistingReady: (
     input: ResumeAssessmentLifecycleKey & {
       expectedJobDescriptionId: string | null;
       hasScreeningResult: boolean;
+      mode: "legacy" | "structured";
     },
   ) => Promise<boolean>;
   markFailed: (
     input: ResumeAssessmentLifecycleKey & {
       errorMessage: string;
       expectedJobDescriptionId: string | null;
+      mode: "legacy" | "structured";
       runId?: string;
     },
   ) => Promise<boolean>;
-  markProcessing: (input: ResumeAssessmentLifecycleKey & ResumeAssessmentGuard) => Promise<boolean>;
+  markProcessing: (
+    input: ResumeAssessmentLifecycleKey & ResumeAssessmentGuard & { mode: "legacy" | "structured" },
+  ) => Promise<boolean>;
   markReady: (
-    input: ResumeAssessmentLifecycleKey & ResumeAssessmentGuard & { assessment: ResumeAssessment },
+    input: ResumeAssessmentLifecycleKey &
+      ResumeAssessmentGuard & { assessment: GeneratedResumeAssessment },
   ) => Promise<boolean>;
 }
 
@@ -69,28 +95,32 @@ export type ResumeAssessmentLifecycleResult =
       status: "skipped";
     };
 
-async function resolveExistingAssessment(input: {
+function resolveExistingAssessment(input: {
   deps: ResumeAssessmentLifecycleDeps;
   force: boolean;
   key: ResumeAssessmentLifecycleKey;
   record: ResumeAssessmentRecord;
-}): Promise<Extract<ResumeAssessmentLifecycleResult, { status: "skipped" }> | null> {
-  if (input.force || !input.record.resumeReview) {
+}): Extract<ResumeAssessmentLifecycleResult, { status: "skipped" }> | null {
+  let hasCurrentArtifact: boolean;
+  if (input.record.resumeEvaluationArtifactMode === "structured") {
+    hasCurrentArtifact = Boolean(input.record.structuredResumeEvaluation);
+  } else if (input.record.resumeEvaluationArtifactMode === "legacy") {
+    hasCurrentArtifact = Boolean(input.record.resumeReview);
+  } else {
+    hasCurrentArtifact =
+      Boolean(input.record.structuredResumeEvaluation) || Boolean(input.record.resumeReview);
+  }
+  if (input.force || !hasCurrentArtifact || !input.record.evaluationMode) {
     return null;
   }
-  const marked = await input.deps.markExistingReady({
-    ...input.key,
-    expectedJobDescriptionId: input.record.jobDescriptionId,
-    hasScreeningResult: Boolean(input.record.resumeScreeningResult),
-  });
-  return marked
-    ? { reason: "already_ready", status: "skipped" }
-    : { reason: "stale_job_description", status: "skipped" };
+  return { reason: "already_ready", status: "skipped" };
 }
 
+// oxlint-disable-next-line complexity -- guards explicitly encode the persisted evaluation state machine.
 export async function runResumeAssessmentLifecycle(
   input: ResumeAssessmentLifecycleKey & {
     expectedJobDescriptionId?: string | null;
+    expectedRunId?: string;
     force: boolean;
   },
   deps: ResumeAssessmentLifecycleDeps,
@@ -109,6 +139,9 @@ export async function runResumeAssessmentLifecycle(
   ) {
     return { reason: "stale_job_description", status: "skipped" };
   }
+  if (input.expectedRunId !== undefined && record.resumeReviewRunId !== input.expectedRunId) {
+    return { reason: "superseded", status: "skipped" };
+  }
   const existingAssessment = await resolveExistingAssessment({
     deps,
     force: input.force,
@@ -124,6 +157,7 @@ export async function runResumeAssessmentLifecycle(
       ...key,
       errorMessage: error.message,
       expectedJobDescriptionId: record.jobDescriptionId,
+      mode: record.resumeEvaluationAttemptMode ?? record.evaluationMode ?? "legacy",
     });
     if (!marked) {
       return { reason: "stale_job_description", status: "skipped" };
@@ -136,29 +170,56 @@ export async function runResumeAssessmentLifecycle(
   if (input.force && (record.pipelineStage === "closed" || record.outcome !== "in_pipeline")) {
     throw new Error("已结案候选人不能重新评估。");
   }
-  if (input.force && !record.jobDescriptionId) {
+  if (!record.jobDescriptionId || !record.evaluationMode) {
     throw new Error("请先关联在招岗位后再重新评估。");
+  }
+  if (!record.resumeReviewRunId || !record.resumeReviewQueuedAt) {
+    throw new Error("评估任务缺少已持久化的运行标识。");
   }
 
   const guard = {
     expectedJobDescriptionId: record.jobDescriptionId,
-    runId: crypto.randomUUID(),
+    runId: record.resumeReviewRunId,
   };
-  if (!(await deps.markProcessing({ ...key, ...guard }))) {
+  const attemptMode = record.resumeEvaluationAttemptMode ?? record.evaluationMode;
+  if (
+    !(await deps.markProcessing({
+      ...key,
+      ...guard,
+      mode: attemptMode,
+    }))
+  ) {
     return { reason: "stale_job_description", status: "skipped" };
   }
   try {
-    const assessment = await deps.generate({
-      jobDescriptionId: record.jobDescriptionId,
-      organizationId: input.organizationId,
+    const resumeInputHash = computeResumeEvaluationInputHash({
+      resumeContentHash: record.resumeContentHash,
       resumeProfile: record.resumeProfile,
       resumeText: record.resumeText,
     });
+    const assessment = await deps.generate({
+      evaluationAsOf: record.resumeReviewQueuedAt.toISOString().slice(0, 10),
+      jobDescriptionId: record.jobDescriptionId,
+      organizationId: input.organizationId,
+      resumeContentHash: record.resumeContentHash,
+      resumeInputHash,
+      resumeProfile: record.resumeProfile,
+      resumeText: record.resumeText,
+      runId: record.resumeReviewRunId,
+    });
+    if (assessment.mode !== attemptMode) {
+      throw new Error("评估结果模式与本次评估模式不一致。");
+    }
     const committed = await deps.markReady({ ...key, ...guard, assessment });
     return committed ? { status: "ready" } : { reason: "superseded", status: "skipped" };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const committed = await deps.markFailed({ ...key, ...guard, errorMessage });
+    const committed = await deps.markFailed({
+      ...key,
+      ...guard,
+      errorMessage,
+      mode: attemptMode,
+    });
     if (!committed) {
       return { reason: "superseded", status: "skipped" };
     }

@@ -209,6 +209,8 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.departmentId,
       to: r.department.id,
     }),
+    evaluationUpgradeAudits: r.many.jobDescriptionEvaluationUpgradeAudit(),
+    evaluationUpgradeDraft: r.one.jobDescriptionEvaluationUpgradeDraft(),
     interviewQuestionTemplateLinks: r.many.interviewQuestionTemplateJobDescription(),
     interviewerLinks: r.many.jobDescriptionInterviewer(),
     organization: r.one.organization({
@@ -221,6 +223,30 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  jobDescriptionEvaluationUpgradeAudit: {
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionEvaluationUpgradeAudit.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionEvaluationUpgradeAudit.organizationId,
+      to: r.organization.id,
+    }),
+    user: r.one.user({
+      from: r.jobDescriptionEvaluationUpgradeAudit.upgradedBy,
+      to: r.user.id,
+    }),
+  },
+  jobDescriptionEvaluationUpgradeDraft: {
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionEvaluationUpgradeDraft.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionEvaluationUpgradeDraft.organizationId,
+      to: r.organization.id,
+    }),
+  },
   jobDescriptionInterviewer: {
     interviewer: r.one.interviewer({
       from: r.jobDescriptionInterviewer.interviewerId,
@@ -229,6 +255,199 @@ export const relations = defineRelations(schema, (r) => ({
     jobDescription: r.one.jobDescription({
       from: r.jobDescriptionInterviewer.jobDescriptionId,
       to: r.jobDescription.id,
+    }),
+  },
+  meetingAccessGrant: {
+    meeting: r.one.meetingSession({
+      from: r.meetingAccessGrant.meetingId,
+      to: r.meetingSession.id,
+    }),
+    member: r.one.member({
+      from: r.meetingAccessGrant.memberId,
+      to: r.member.id,
+    }),
+  },
+  meetingIntelligenceRevision: {
+    createdByUser: r.one.user({
+      from: r.meetingIntelligenceRevision.createdBy,
+      to: r.user.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingIntelligenceRevision.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingIntelligenceRevision.organizationId,
+      to: r.organization.id,
+    }),
+    processingRun: r.one.meetingProcessingRun({
+      from: r.meetingIntelligenceRevision.processingRunId,
+      to: r.meetingProcessingRun.id,
+    }),
+    transcriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingIntelligenceRevision.transcriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  meetingNote: {
+    author: r.one.user({
+      from: r.meetingNote.authorId,
+      to: r.user.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingNote.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
+  meetingProcessingRun: {
+    inputTranscriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingProcessingRun.inputTranscriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+    intelligenceRevision: r.one.meetingIntelligenceRevision({
+      from: r.meetingProcessingRun.id,
+      to: r.meetingIntelligenceRevision.processingRunId,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingProcessingRun.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingProcessingRun.organizationId,
+      to: r.organization.id,
+    }),
+    transcriptRevisions: r.many.meetingTranscriptRevision(),
+  },
+  meetingQuestionExchange: {
+    creator: r.one.user({
+      from: r.meetingQuestionExchange.createdBy,
+      to: r.user.id,
+    }),
+    intelligenceRevision: r.one.meetingIntelligenceRevision({
+      from: r.meetingQuestionExchange.inputIntelligenceRevisionId,
+      to: r.meetingIntelligenceRevision.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingQuestionExchange.meetingId,
+      to: r.meetingSession.id,
+    }),
+    thread: r.one.meetingQuestionThread({
+      from: r.meetingQuestionExchange.threadId,
+      to: r.meetingQuestionThread.id,
+    }),
+    transcriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingQuestionExchange.inputTranscriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  meetingQuestionThread: {
+    creator: r.one.user({
+      from: r.meetingQuestionThread.createdBy,
+      to: r.user.id,
+    }),
+    exchanges: r.many.meetingQuestionExchange(),
+    meeting: r.one.meetingSession({
+      from: r.meetingQuestionThread.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
+  meetingRecordingAsset: {
+    meeting: r.one.meetingSession({
+      from: r.meetingRecordingAsset.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
+  meetingRecruitingContext: {
+    meeting: r.one.meetingSession({
+      from: r.meetingRecruitingContext.meetingId,
+      to: r.meetingSession.id,
+    }),
+    recruitingRecord: r.one.studioInterview({
+      from: r.meetingRecruitingContext.recruitingRecordId,
+      to: r.studioInterview.id,
+    }),
+  },
+  meetingSearchProjection: {
+    meeting: r.one.meetingSession({
+      from: r.meetingSearchProjection.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingSearchProjection.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  meetingSession: {
+    accessGrants: r.many.meetingAccessGrant(),
+    assets: r.many.meetingRecordingAsset(),
+    custodian: r.one.user({
+      from: r.meetingSession.custodianId,
+      to: r.user.id,
+    }),
+    intelligenceRevisions: r.many.meetingIntelligenceRevision(),
+    notes: r.many.meetingNote(),
+    organization: r.one.organization({
+      from: r.meetingSession.organizationId,
+      to: r.organization.id,
+    }),
+    owner: r.one.user({
+      from: r.meetingSession.ownerId,
+      to: r.user.id,
+    }),
+    processingRuns: r.many.meetingProcessingRun(),
+    questionExchanges: r.many.meetingQuestionExchange(),
+    questionThreads: r.many.meetingQuestionThread(),
+    recruitingContext: r.one.meetingRecruitingContext({
+      from: r.meetingSession.id,
+      to: r.meetingRecruitingContext.meetingId,
+    }),
+    searchProjection: r.one.meetingSearchProjection({
+      from: r.meetingSession.id,
+      to: r.meetingSearchProjection.meetingId,
+    }),
+    transcriptRevisions: r.many.meetingTranscriptRevision(),
+    transcriptionChunks: r.many.meetingTranscriptionChunk(),
+  },
+  meetingTranscriptRevision: {
+    intelligenceRevisions: r.many.meetingIntelligenceRevision(),
+    meeting: r.one.meetingSession({
+      from: r.meetingTranscriptRevision.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingTranscriptRevision.organizationId,
+      to: r.organization.id,
+    }),
+    processingRun: r.one.meetingProcessingRun({
+      from: r.meetingTranscriptRevision.processingRunId,
+      to: r.meetingProcessingRun.id,
+    }),
+    turns: r.many.meetingTranscriptTurn(),
+  },
+  meetingTranscriptTurn: {
+    revision: r.one.meetingTranscriptRevision({
+      from: r.meetingTranscriptTurn.revisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  meetingTranscriptionChunk: {
+    meeting: r.one.meetingSession({
+      from: r.meetingTranscriptionChunk.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingTranscriptionChunk.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  meetingTranscriptionPolicy: {
+    organization: r.one.organization({
+      from: r.meetingTranscriptionPolicy.organizationId,
+      to: r.organization.id,
+    }),
+    updatedByUser: r.one.user({
+      from: r.meetingTranscriptionPolicy.updatedBy,
+      to: r.user.id,
     }),
   },
   member: {
@@ -263,6 +482,10 @@ export const relations = defineRelations(schema, (r) => ({
     interviewers: r.many.interviewer(),
     invitations: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),
+    meetingProcessingRuns: r.many.meetingProcessingRun(),
+    meetingTranscriptRevisions: r.many.meetingTranscriptRevision(),
+    meetingTranscriptionChunks: r.many.meetingTranscriptionChunk(),
+    meetingTranscriptionPolicies: r.many.meetingTranscriptionPolicy(),
     members: r.many.member(),
     organizationRoles: r.many.organizationRole(),
     studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
@@ -349,12 +572,19 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioHumanInterviewMeeting.createdBy,
       to: r.user.id,
     }),
+    events: r.many.studioHumanInterviewMeetingEvent(),
     interviewers: r.many.studioHumanInterviewMeetingInterviewer(),
     organization: r.one.organization({
       from: r.studioHumanInterviewMeeting.organizationId,
       to: r.organization.id,
     }),
     rounds: r.many.studioHumanInterviewMeetingRound(),
+  },
+  studioHumanInterviewMeetingEvent: {
+    meeting: r.one.studioHumanInterviewMeeting({
+      from: r.studioHumanInterviewMeetingEvent.meetingId,
+      to: r.studioHumanInterviewMeeting.id,
+    }),
   },
   studioHumanInterviewMeetingInterviewer: {
     meeting: r.one.studioHumanInterviewMeeting({
@@ -407,6 +637,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioInterview.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    meetingContexts: r.many.meetingRecruitingContext(),
     offerDrafts: r.many.studioOfferDraft(),
     organization: r.one.organization({
       from: r.studioInterview.organizationId,

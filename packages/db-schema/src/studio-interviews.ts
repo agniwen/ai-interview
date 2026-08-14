@@ -1,6 +1,74 @@
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
+export const candidateInterviewFeedbackCategoryValues = [
+  "audio",
+  "video",
+  "network",
+  "ai_conversation",
+  "question_content",
+  "page_operation",
+  "other",
+] as const;
+
+export const candidateInterviewFeedbackCategorySchema = z.enum(
+  candidateInterviewFeedbackCategoryValues,
+);
+export type CandidateInterviewFeedbackCategory = z.infer<
+  typeof candidateInterviewFeedbackCategorySchema
+>;
+
+export const candidateInterviewFeedbackCategoryMeta: Record<
+  CandidateInterviewFeedbackCategory,
+  { label: string }
+> = {
+  ai_conversation: { label: "AI 对话" },
+  audio: { label: "音频" },
+  network: { label: "网络连接" },
+  other: { label: "其他" },
+  page_operation: { label: "页面操作" },
+  question_content: { label: "题目内容" },
+  video: { label: "视频" },
+};
+
+export const candidateInterviewFeedbackInputSchema = z.object({
+  categories: z
+    .array(candidateInterviewFeedbackCategorySchema)
+    .min(1, "请至少选择一个问题分类。")
+    .max(candidateInterviewFeedbackCategoryValues.length)
+    .refine((categories) => new Set(categories).size === categories.length, "问题分类不能重复。"),
+  detail: z
+    .string()
+    .trim()
+    .min(10, "请至少填写 10 个字的问题描述。")
+    .max(2000, "问题描述不能超过 2000 个字。"),
+});
+
+export type CandidateInterviewFeedbackInput = z.infer<typeof candidateInterviewFeedbackInputSchema>;
+
+export interface CandidateInterviewFeedback extends CandidateInterviewFeedbackInput {
+  submittedAt: string;
+}
+
+export function buildCandidateInterviewFeedback(input: {
+  categories: CandidateInterviewFeedbackCategory[] | null;
+  detail: string | null;
+  submittedAt: Date | string | null;
+}): CandidateInterviewFeedback | null {
+  if (!(input.categories && input.detail && input.submittedAt)) {
+    return null;
+  }
+  const submittedAt = new Date(input.submittedAt);
+  if (Number.isNaN(submittedAt.getTime())) {
+    return null;
+  }
+  return {
+    categories: input.categories,
+    detail: input.detail,
+    submittedAt: submittedAt.toISOString(),
+  };
+}
+
 // ── 新模型：pipelineStage（候选人在 pipeline 哪个阶段）+ outcome（最终结论）──
 // Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
 // plus a separate "what's the verdict" outcome.
@@ -192,6 +260,34 @@ export const humanInterviewMeetingStatusValues = [
 export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
 export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
 
+// 生命周期事件由 LiveKit 或飞书提供。两者都可以报告同一场真人复面的状态。
+export const humanInterviewMeetingProviderValues = ["feishu", "livekit"] as const;
+export const humanInterviewMeetingProviderSchema = z.enum(humanInterviewMeetingProviderValues);
+export type HumanInterviewMeetingProvider = z.infer<typeof humanInterviewMeetingProviderSchema>;
+
+// 来源只记录“谁最后确认了会议状态”，不与飞书预约创建状态混用。
+export const humanInterviewMeetingLifecycleSourceValues = ["feishu", "livekit", "manual"] as const;
+export const humanInterviewMeetingLifecycleSourceSchema = z.enum(
+  humanInterviewMeetingLifecycleSourceValues,
+);
+export type HumanInterviewMeetingLifecycleSource = z.infer<
+  typeof humanInterviewMeetingLifecycleSourceSchema
+>;
+
+export const feishuHumanInterviewProviderIdValues = ["feishu", "feishu-jiguang-hr"] as const;
+export const feishuHumanInterviewProviderIdSchema = z.enum(feishuHumanInterviewProviderIdValues);
+export type FeishuHumanInterviewProviderId = z.infer<typeof feishuHumanInterviewProviderIdSchema>;
+
+export const feishuHumanInterviewSyncStatusValues = [
+  "pending",
+  "creating",
+  "ready",
+  "failed",
+  "unknown",
+] as const;
+export const feishuHumanInterviewSyncStatusSchema = z.enum(feishuHumanInterviewSyncStatusValues);
+export type FeishuHumanInterviewSyncStatus = z.infer<typeof feishuHumanInterviewSyncStatusSchema>;
+
 export const humanInterviewMeetingInterviewerRoleValues = [
   "host",
   "interviewer",
@@ -230,7 +326,7 @@ export const humanInterviewMeetingInputSchema = z.object({
   interviewerIds: z
     .array(z.string().trim().min(1))
     .min(1, "至少添加 1 位面试官")
-    .max(20, "面试官最多 20 人"),
+    .max(10, "面试官最多 10 人"),
   notes: z.string().trim().max(1000, "会议备注不能超过 1000 字").nullable().optional(),
   roundIds: z
     .array(z.string().trim().min(1))
@@ -241,6 +337,18 @@ export const humanInterviewMeetingInputSchema = z.object({
   validUntil: nullableInstantDateTimeInputSchema,
 });
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
+
+export const humanInterviewMeetingScheduleUpdateSchema = z.object({
+  scheduledAt: z
+    .string()
+    .trim()
+    .min(1, "请输入面试时间")
+    .refine(isExplicitTimezoneDateTimeString, "时间必须包含明确的时区信息。"),
+  validUntil: nullableInstantDateTimeInputSchema,
+});
+export type HumanInterviewMeetingScheduleUpdate = z.infer<
+  typeof humanInterviewMeetingScheduleUpdateSchema
+>;
 
 // ── Offer 阶段 / Offer Stage ──
 
@@ -396,6 +504,7 @@ export const studioInterviewScheduleEntrySchema = z.object({
   notes: z.string().trim().max(1000, "轮次备注不能超过 1000 字").optional().or(z.literal("")),
   roundLabel: z.string().trim().min(1, "请输入面试轮次").max(100, "面试轮次不能超过 100 个字符"),
   scheduledAt: z.string().trim().optional().or(z.literal("")),
+  scheduledEndAt: z.string().trim().optional().or(z.literal("")),
   sortOrder: z.number().int().min(0),
 });
 
@@ -415,7 +524,7 @@ export const studioInterviewBaseSchema = z.object({
     .superRefine((entries, context) => {
       const seenOrder = new Set<number>();
 
-      for (const entry of entries) {
+      for (const [index, entry] of entries.entries()) {
         if (seenOrder.has(entry.sortOrder)) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
@@ -429,7 +538,39 @@ export const studioInterviewBaseSchema = z.object({
         if (entry.scheduledAt && Number.isNaN(Date.parse(entry.scheduledAt))) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "请输入有效的面试时间",
+            message: "请输入有效的面试开始时间",
+            path: [index, "scheduledAt"],
+          });
+          return;
+        }
+
+        if (entry.scheduledEndAt && Number.isNaN(Date.parse(entry.scheduledEndAt))) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "请输入有效的面试结束时间",
+            path: [index, "scheduledEndAt"],
+          });
+          return;
+        }
+
+        if (Boolean(entry.scheduledAt) !== Boolean(entry.scheduledEndAt)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "面试开始时间和结束时间需要同时填写",
+            path: [index, entry.scheduledAt ? "scheduledEndAt" : "scheduledAt"],
+          });
+          return;
+        }
+
+        if (
+          entry.scheduledAt &&
+          entry.scheduledEndAt &&
+          Date.parse(entry.scheduledEndAt) <= Date.parse(entry.scheduledAt)
+        ) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "面试结束时间必须晚于开始时间",
+            path: [index, "scheduledEndAt"],
           });
           return;
         }
@@ -448,6 +589,13 @@ function validateScheduleEntryInstants(
         code: z.ZodIssueCode.custom,
         message: "面试时间必须包含明确的时区信息。",
         path: ["scheduleEntries", index, "scheduledAt"],
+      });
+    }
+    if (entry.scheduledEndAt && !isExplicitTimezoneDateTimeString(entry.scheduledEndAt)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "面试结束时间必须包含明确的时区信息。",
+        path: ["scheduleEntries", index, "scheduledEndAt"],
       });
     }
   }
@@ -491,6 +639,7 @@ export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewSchedu
     notes: "",
     roundLabel: sortOrder === 0 ? "一面" : `第 ${sortOrder + 1} 轮`,
     scheduledAt: "",
+    scheduledEndAt: "",
     sortOrder,
   };
 }

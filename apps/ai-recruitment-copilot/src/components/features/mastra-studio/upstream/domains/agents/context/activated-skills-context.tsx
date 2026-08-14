@@ -1,0 +1,83 @@
+import type { ReactNode } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
+
+export interface ActivatedSkillsContextValue {
+  /** Set of currently activated skill names */
+  activatedSkills: ReadonlySet<string>;
+  /** Add a skill to the activated set */
+  activateSkill: (skillName: string) => void;
+  /** Remove a skill from the activated set */
+  deactivateSkill: (skillName: string) => void;
+  /** Check if a skill is activated */
+  isSkillActivated: (skillName: string) => boolean;
+  /** Clear all activated skills */
+  clearActivatedSkills: () => void;
+}
+
+const ActivatedSkillsContext = createContext<ActivatedSkillsContextValue | null>(null);
+
+export interface ActivatedSkillsProviderProps {
+  children: ReactNode;
+}
+
+export function ActivatedSkillsProvider({ children }: ActivatedSkillsProviderProps) {
+  const [activatedSkills, setActivatedSkills] = useState<Set<string>>(new Set());
+
+  const activateSkill = useCallback((skillName: string) => {
+    setActivatedSkills((prev) => {
+      if (prev.has(skillName)) {
+        return prev;
+      }
+      return new Set([...prev, skillName]);
+    });
+  }, []);
+
+  const deactivateSkill = useCallback((skillName: string) => {
+    setActivatedSkills((prev) => {
+      const next = new Set(prev);
+      next.delete(skillName);
+      return next;
+    });
+  }, []);
+
+  const isSkillActivated = useCallback(
+    (skillName: string) => activatedSkills.has(skillName),
+    [activatedSkills],
+  );
+
+  const clearActivatedSkills = useCallback(() => {
+    setActivatedSkills(new Set());
+  }, []);
+
+  return (
+    <ActivatedSkillsContext.Provider
+      value={{
+        activateSkill,
+        activatedSkills,
+        clearActivatedSkills,
+        deactivateSkill,
+        isSkillActivated,
+      }}
+    >
+      {children}
+    </ActivatedSkillsContext.Provider>
+  );
+}
+
+const FALLBACK_CONTEXT: ActivatedSkillsContextValue = {
+  activateSkill: () => {
+    /* empty */
+  },
+  activatedSkills: new Set<string>(),
+  clearActivatedSkills: () => {
+    /* empty */
+  },
+  deactivateSkill: () => {
+    /* empty */
+  },
+  isSkillActivated: () => false,
+};
+
+export function useActivatedSkills(): ActivatedSkillsContextValue {
+  return useContext(ActivatedSkillsContext) ?? FALLBACK_CONTEXT;
+}

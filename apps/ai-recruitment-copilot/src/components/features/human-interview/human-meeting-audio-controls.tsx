@@ -11,6 +11,7 @@ import { LocalAudioTrack, Track } from "livekit-client";
 import type { Room } from "livekit-client";
 import { useState } from "react";
 import { toast } from "sonner";
+import { runAsyncAction } from "@/lib/client/async-control";
 
 import {
   DropdownMenu,
@@ -136,23 +137,25 @@ export function VoiceEffectMenu() {
       return;
     }
     setIsApplying(true);
-    try {
-      if (effect === "none") {
-        await getLocalMicrophoneTrack(room)?.stopProcessor();
-        setSelectedEffect("none");
-        toast.success("已恢复原声");
-        return;
-      }
+    await runAsyncAction({
+      cleanup: () => setIsApplying(false),
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : "开启声音效果失败");
+      },
+      operation: async () => {
+        if (effect === "none") {
+          await getLocalMicrophoneTrack(room)?.stopProcessor();
+          setSelectedEffect("none");
+          toast.success("已恢复原声");
+          return;
+        }
 
-      const track = await getOrCreateLocalMicrophoneTrack(room);
-      await track.setProcessor(createVoiceEffectProcessor(effect));
-      setSelectedEffect(effect);
-      toast.success(`已启用${getVoiceEffectLabel(effect)}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "开启声音效果失败");
-    } finally {
-      setIsApplying(false);
-    }
+        const track = await getOrCreateLocalMicrophoneTrack(room);
+        await track.setProcessor(createVoiceEffectProcessor(effect));
+        setSelectedEffect(effect);
+        toast.success(`已启用${getVoiceEffectLabel(effect)}`);
+      },
+    });
   }
 
   let triggerIcon = <IconWaveSine className="size-4" />;

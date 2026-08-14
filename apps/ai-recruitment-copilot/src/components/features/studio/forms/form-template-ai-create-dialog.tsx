@@ -3,6 +3,7 @@
 import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -73,38 +74,40 @@ export function FormTemplateAiCreateDialog({
     }
 
     setGenerating(true);
-    try {
-      const result = await rpcFetch<{ questions: CandidateFormQuestionInput[] }>(
-        rpc.api.w[":slug"].studio.forms["ai-generate-questions"].$post({
-          json: {
-            jobDescriptionId,
-            prompt: prompt.trim(),
-          },
-          param: { slug },
-        }),
-        "AI 生成题目失败",
-      );
+    await runAsyncAction({
+      cleanup: () => setGenerating(false),
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : "AI 生成失败");
+      },
+      operation: async () => {
+        const result = await rpcFetch<{ questions: CandidateFormQuestionInput[] }>(
+          rpc.api.w[":slug"].studio.forms["ai-generate-questions"].$post({
+            json: {
+              jobDescriptionId,
+              prompt: prompt.trim(),
+            },
+            param: { slug },
+          }),
+          "AI 生成题目失败",
+        );
 
-      if (result.questions.length === 0) {
-        toast.error("未生成任何题目，请调整指令后重试");
-        return;
-      }
+        if (result.questions.length === 0) {
+          toast.error("未生成任何题目，请调整指令后重试");
+          return;
+        }
 
-      onGenerated({
-        jobDescriptionId,
-        questions: result.questions,
-      });
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI 生成失败");
-    } finally {
-      setGenerating(false);
-    }
+        onGenerated({
+          jobDescriptionId,
+          questions: result.questions,
+        });
+        onOpenChange(false);
+      },
+    });
   }
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成题目并打开「新建面试表单」供你确认与保存。"
+      description="选择岗位并填写指令，AI 将生成题目并打开「新建表单题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>
@@ -133,7 +136,7 @@ export function FormTemplateAiCreateDialog({
       }}
       open={open}
       size="lg"
-      title="AI 创建面试表单"
+      title="AI 创建表单题"
     >
       <FieldGroup className="gap-4">
         <Field>

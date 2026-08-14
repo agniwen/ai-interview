@@ -48,6 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MicrophoneDeviceMenu, VoiceEffectMenu } from "./human-meeting-audio-controls";
 
@@ -521,10 +522,10 @@ function HumanMeetingStage({
           <h1 className="font-medium text-xl text-white tracking-normal">{title}</h1>
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/70 text-xs">
-          <IconUsers className="size-3.5" />
+        <Badge variant="inverse">
+          <IconUsers data-icon="inline-start" />
           {participants.length}
-        </div>
+        </Badge>
       </header>
 
       <div
@@ -636,17 +637,13 @@ function HumanParticipantTile() {
         )}
         trackRef={trackRef}
       />
-      <div
-        className={cn(
-          "pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate rounded-md px-2.5 py-1 font-medium text-xs shadow-sm backdrop-blur",
-          badge.tone === "candidate"
-            ? "border border-sky-300/45 bg-sky-400/90 text-sky-950"
-            : "border border-white/15 bg-black/55 text-white",
-        )}
+      <Badge
+        className="pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate shadow-sm backdrop-blur"
         title={badge.label}
+        variant={badge.tone === "candidate" ? "info" : "inverse"}
       >
         {badge.label}
-      </div>
+      </Badge>
     </div>
   );
 }

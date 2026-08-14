@@ -18,6 +18,7 @@ export interface InterviewContextSnapshotCandidate {
 }
 
 export interface InterviewContextSnapshotJobDescription {
+  description?: string | null;
   id: string;
   name: string;
   prompt: string | null;

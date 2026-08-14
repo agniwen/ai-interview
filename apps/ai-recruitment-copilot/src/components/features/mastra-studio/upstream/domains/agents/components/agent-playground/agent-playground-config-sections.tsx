@@ -1,0 +1,730 @@
+import { Badge } from "@mastra/playground-ui/components/Badge";
+import { CopyButton } from "@mastra/playground-ui/components/CopyButton";
+import { Spinner } from "@mastra/playground-ui/components/Spinner";
+import { Tab, TabContent, TabList, Tabs } from "@mastra/playground-ui/components/Tabs";
+import { Txt } from "@mastra/playground-ui/components/Txt";
+import { Icon } from "@mastra/playground-ui/icons/Icon";
+import { cn } from "@mastra/playground-ui/utils/cn";
+import type { JsonSchemaProperty } from "@mastra/playground-ui/utils/json-schema";
+import { Braces, Wrench, Cpu } from "lucide-react";
+import { useMemo } from "react";
+
+import { useCompareAgentVersions } from "../../hooks/use-agent-versions";
+import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
+import { useStoredPromptBlock } from "@/components/features/mastra-studio/upstream/domains/prompt-blocks";
+import { resolveConditional } from "../../utils/conditional";
+
+type AgentConfigTab = "variables" | "instructions" | "tools";
+
+function ConfigTabLabel({
+  title,
+  icon,
+  badge,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  badge?: React.ReactNode;
+}) {
+  return (
+    <>
+      <Icon size="sm" className="text-inherit">
+        {icon}
+      </Icon>
+      <Txt as="span" variant="ui-sm" className="text-inherit">
+        {title}
+      </Txt>
+      {badge}
+    </>
+  );
+}
+
+export function VariableProperty({
+  name,
+  prop,
+  depth,
+}: {
+  name: string;
+  prop: JsonSchemaProperty;
+  depth: number;
+}) {
+  const typeLabel = Array.isArray(prop.type)
+    ? prop.type.filter((t: string) => t !== "null").join(" | ")
+    : prop.type;
+  const hasChildren =
+    prop.type === "object" && prop.properties && Object.keys(prop.properties).length > 0;
+
+  return (
+    <div style={depth > 0 ? { paddingLeft: depth * 12 } : undefined}>
+      <div className="flex items-center gap-2 py-1">
+        <code className="text-xs text-accent1">{name}</code>
+        <span className="text-[11px] text-neutral3">{typeLabel}</span>
+        {prop.description && (
+          <span className="text-[11px] text-neutral3 italic truncate">— {prop.description}</span>
+        )}
+      </div>
+      {hasChildren && (
+        <div className="border-l border-border1 ml-1">
+          {Object.entries(prop.properties ?? {}).map(([childName, childProp]) => (
+            <VariableProperty key={childName} name={childName} prop={childProp} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Line-level diff algorithm
+// ---------------------------------------------------------------------------
+
+interface DiffLine {
+  type: "equal" | "added" | "removed";
+  text: string;
+}
+
+function computeLineDiff(oldText: string, newText: string): DiffLine[] {
+  const oldLines = oldText.split("\n");
+  const newLines = newText.split("\n");
+
+  // Build LCS table
+  const m = oldLines.length;
+  const n = newLines.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    Array.from({ length: n + 1 }, () => 0),
+  );
+
+  for (let i = 1; i <= m; i += 1) {
+    for (let j = 1; j <= n; j += 1) {
+      dp[i][j] =
+        oldLines[i - 1] === newLines[j - 1]
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+
+  // Backtrack to produce diff
+  const result: DiffLine[] = [];
+  let i = m;
+  let j = n;
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      result.push({ text: oldLines[i - 1], type: "equal" });
+      i -= 1;
+      j -= 1;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.push({ text: newLines[j - 1], type: "added" });
+      j -= 1;
+    } else {
+      result.push({ text: oldLines[i - 1], type: "removed" });
+      i -= 1;
+    }
+  }
+
+  return result.toReversed();
+}
+
+// ---------------------------------------------------------------------------
+// Diff-aware read-only views
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Per-block content helpers (raw template text, not resolved)
+// ---------------------------------------------------------------------------
+
+function getRawBlockContent(block: Record<string, unknown>): string | null {
+  if (block.type === "prompt_block" && typeof block.content === "string") {
+    return block.content;
+  }
+  return null;
+}
+
+function RefBlockCopyContent({ promptBlockId }: { promptBlockId: string }) {
+  const { data: promptBlock } = useStoredPromptBlock(promptBlockId);
+  const content = promptBlock?.content ?? "";
+  if (!content) {
+    return null;
+  }
+  return <CopyButton content={content} tooltip="复制提示词块文本" size="sm" />;
+}
+
+function BlockCopyButton({ block }: { block: Record<string, unknown> }) {
+  const rawContent = getRawBlockContent(block);
+  if (rawContent) {
+    return <CopyButton content={rawContent} tooltip="复制提示词文本" size="sm" />;
+  }
+  if (
+    block.type === "prompt_block_ref" &&
+    (typeof block.promptBlockId === "string" || typeof block.id === "string")
+  ) {
+    return (
+      <RefBlockCopyContent
+        promptBlockId={(block.promptBlockId as string) ?? (block.id as string)}
+      />
+    );
+  }
+  return null;
+}
+
+function InstructionsDiffView({
+  previousBlocks,
+  currentBlocks,
+}: {
+  previousBlocks: unknown;
+  currentBlocks: unknown;
+}) {
+  const prevBlocksArr = Array.isArray(previousBlocks) ? previousBlocks : [];
+  const currBlocksArr = Array.isArray(currentBlocks) ? currentBlocks : [];
+
+  // Build a map of current blocks by position for per-block comparison
+  const currContentByIdx = currBlocksArr.map(
+    (b: Record<string, unknown>) => getRawBlockContent(b) ?? "",
+  );
+  const prevContentByIdx = prevBlocksArr.map(
+    (b: Record<string, unknown>) => getRawBlockContent(b) ?? "",
+  );
+
+  // If only one block on each side, show a simple diff
+  if (prevBlocksArr.length <= 1 && currBlocksArr.length <= 1) {
+    const oldStr = prevContentByIdx[0] ?? "";
+    const newStr = currContentByIdx[0] ?? "";
+    const block = prevBlocksArr[0] as Record<string, unknown> | undefined;
+
+    if (oldStr === newStr) {
+      return (
+        <div className="relative rounded-md border border-border1 bg-surface2 p-3">
+          {block && (
+            <div className="absolute top-2 right-2">
+              <BlockCopyButton block={block} />
+            </div>
+          )}
+          <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
+            {oldStr || "(empty)"}
+          </Txt>
+        </div>
+      );
+    }
+
+    const diffLines = computeLineDiff(oldStr, newStr);
+    return (
+      <div className="relative rounded-md border border-border1 overflow-hidden font-mono text-sm">
+        {block && (
+          <div className="absolute top-2 right-2 z-10">
+            <BlockCopyButton block={block} />
+          </div>
+        )}
+        {diffLines.map((line, idx) => (
+          <div
+            key={idx}
+            className={cn(
+              "px-3 py-0.5 whitespace-pre-wrap wrap-break-word",
+              line.type === "removed" && "bg-red-950/20 text-red-300",
+              line.type === "added" && "bg-green-950/20 text-green-300",
+              line.type === "equal" && "text-neutral4",
+            )}
+          >
+            <span className="inline-block w-4 shrink-0 text-neutral3/50 select-none mr-2">
+              {resolveConditional(
+                line.type === "removed",
+                () => "−",
+                () => (line.type === "added" ? "+" : " "),
+              )}
+            </span>
+            {line.text || "\u00A0"}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Multiple blocks: show per-block with individual copy buttons
+  const maxLen = Math.max(prevBlocksArr.length, currBlocksArr.length);
+  return (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: maxLen }, (_, idx) => {
+        const prevBlock = prevBlocksArr[idx] as Record<string, unknown> | undefined;
+        const currBlock = currBlocksArr[idx] as Record<string, unknown> | undefined;
+        const oldStr = prevContentByIdx[idx] ?? "";
+        const newStr = currContentByIdx[idx] ?? "";
+
+        if (!prevBlock && currBlock) {
+          return (
+            <div
+              key={idx}
+              className="rounded-md border border-green-900/30 bg-green-950/10 p-3 font-mono text-sm"
+            >
+              <Txt variant="ui-xs" className="text-green-400 mb-1">
+                + 已添加块
+              </Txt>
+              <Txt variant="ui-sm" className="text-green-300 whitespace-pre-wrap">
+                {newStr}
+              </Txt>
+            </div>
+          );
+        }
+
+        if (prevBlock && !currBlock) {
+          return (
+            <div
+              key={idx}
+              className="relative rounded-md border border-red-900/30 bg-red-950/10 p-3 font-mono text-sm"
+            >
+              <div className="absolute top-2 right-2">
+                <BlockCopyButton block={prevBlock} />
+              </div>
+              <Txt variant="ui-xs" className="text-red-400 mb-1">
+                − 已在最新版本中移除
+              </Txt>
+              <Txt variant="ui-sm" className="text-red-300 whitespace-pre-wrap">
+                {oldStr}
+              </Txt>
+            </div>
+          );
+        }
+
+        if (oldStr === newStr) {
+          return (
+            <div key={idx} className="relative rounded-md border border-border1 bg-surface2 p-3">
+              {prevBlock && (
+                <div className="absolute top-2 right-2">
+                  <BlockCopyButton block={prevBlock} />
+                </div>
+              )}
+              <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
+                {oldStr || "（空）"}
+              </Txt>
+            </div>
+          );
+        }
+
+        const diffLines = computeLineDiff(oldStr, newStr);
+        return (
+          <div
+            key={idx}
+            className="relative rounded-md border border-border1 overflow-hidden font-mono text-sm"
+          >
+            {prevBlock && (
+              <div className="absolute top-2 right-2 z-10">
+                <BlockCopyButton block={prevBlock} />
+              </div>
+            )}
+            {diffLines.map((line, lidx) => (
+              <div
+                key={lidx}
+                className={cn(
+                  "px-3 py-0.5 whitespace-pre-wrap wrap-break-word",
+                  line.type === "removed" && "bg-red-950/20 text-red-300",
+                  line.type === "added" && "bg-green-950/20 text-green-300",
+                  line.type === "equal" && "text-neutral4",
+                )}
+              >
+                <span className="inline-block w-4 shrink-0 text-neutral3/50 select-none mr-2">
+                  {resolveConditional(
+                    line.type === "removed",
+                    () => "−",
+                    () => (line.type === "added" ? "+" : " "),
+                  )}
+                </span>
+                {line.text || "\u00A0"}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RefBlockPreview({ promptBlockId }: { promptBlockId: string }) {
+  const { data: promptBlock, isLoading } = useStoredPromptBlock(promptBlockId);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Spinner className="h-4 w-4" />
+      </div>
+    );
+  }
+
+  const content = promptBlock?.content ?? "";
+  return (
+    <div className="relative rounded-md border border-border1 bg-surface2 p-3">
+      {content && (
+        <div className="absolute top-2 right-2">
+          <CopyButton content={content} tooltip="复制提示词块文本" size="sm" />
+        </div>
+      )}
+      {promptBlock?.name && (
+        <Txt variant="ui-xs" className="text-neutral3 mb-1 font-medium">
+          {promptBlock.name}
+        </Txt>
+      )}
+      <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
+        {content || "（空）"}
+      </Txt>
+    </div>
+  );
+}
+
+export function ReadOnlyInstructions({ blocks }: { blocks: unknown }) {
+  const blocksArr = Array.isArray(blocks) ? blocks : [];
+
+  if (blocksArr.length === 0) {
+    return (
+      <Txt variant="ui-sm" className="text-neutral3 py-2">
+        尚未配置指令块
+      </Txt>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {blocksArr.map((block: Record<string, unknown>, idx: number) => {
+        if (block.type === "prompt_block_ref") {
+          const refId = (block.promptBlockId as string) ?? (block.id as string);
+          return <RefBlockPreview key={refId ?? idx} promptBlockId={refId} />;
+        }
+
+        const content = typeof block.content === "string" ? block.content : "";
+        return (
+          <div
+            key={(block.id as string) ?? idx}
+            className="relative rounded-md border border-border1 bg-surface2 p-3"
+          >
+            {content && (
+              <div className="absolute top-2 right-2">
+                <CopyButton content={content} tooltip="复制提示词文本" size="sm" />
+              </div>
+            )}
+            <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
+              {content || "（空）"}
+            </Txt>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToolsDiffView({
+  previousTools,
+  currentTools,
+}: {
+  previousTools: Record<string, unknown> | undefined;
+  currentTools: Record<string, unknown> | undefined;
+}) {
+  const prevKeys = new Set(previousTools ? Object.keys(previousTools) : []);
+  const currKeys = new Set(currentTools ? Object.keys(currentTools) : []);
+
+  const allKeys = [...new Set([...prevKeys, ...currKeys])].toSorted();
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {allKeys.map((tool) => {
+        const inPrev = prevKeys.has(tool);
+        const inCurr = currKeys.has(tool);
+
+        let status: "same" | "added" | "removed";
+        if (inPrev && inCurr) {
+          status = "same";
+        } else if (inPrev) {
+          status = "removed";
+        } else {
+          status = "added";
+        }
+
+        return (
+          <div
+            key={tool}
+            className={cn(
+              "flex items-center gap-2 rounded-md border px-3 py-1.5",
+              status === "removed" && "border-red-900/30 bg-red-950/10",
+              status === "added" && "border-green-900/30 bg-green-950/10",
+              status === "same" && "border-border1 bg-surface2",
+            )}
+          >
+            <Txt
+              variant="ui-sm"
+              className={cn(
+                "font-mono",
+                status === "removed" && "text-red-300 line-through",
+                status === "added" && "text-green-300",
+                status === "same" && "text-neutral5",
+              )}
+            >
+              {tool}
+            </Txt>
+            {status === "removed" && (
+              <Badge variant="error" className="ml-auto">
+                已在最新版本中移除
+              </Badge>
+            )}
+            {status === "added" && (
+              <Badge variant="success" className="ml-auto">
+                已在最新版本中添加
+              </Badge>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReadOnlyTools({ tools }: { tools: Record<string, unknown> | undefined }) {
+  const entries = tools ? Object.entries(tools) : [];
+
+  if (entries.length === 0) {
+    return (
+      <Txt variant="ui-sm" className="text-neutral3 py-2">
+        尚未配置工具
+      </Txt>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {entries.map(([id, config]) => (
+        <div key={id} className="rounded-md border border-border1 bg-surface2 px-3 py-1.5">
+          <Txt variant="ui-sm" className="text-neutral5 font-mono">
+            {id}
+          </Txt>
+          {(config as Record<string, unknown>)?.description ? (
+            <Txt variant="ui-xs" className="text-neutral3 mt-0.5">
+              {String((config as Record<string, unknown>).description)}
+            </Txt>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VariablesDiffView({
+  previousVars,
+  currentVars,
+}: {
+  previousVars: Record<string, unknown> | undefined;
+  currentVars: Record<string, unknown> | undefined;
+}) {
+  const prevProps =
+    (previousVars as Record<string, Record<string, unknown>> | undefined)?.properties ?? {};
+  const currProps =
+    (currentVars as Record<string, Record<string, unknown>> | undefined)?.properties ?? {};
+
+  const prevKeys = new Set(Object.keys(prevProps));
+  const currKeys = new Set(Object.keys(currProps));
+  const allKeys = [...new Set([...prevKeys, ...currKeys])].toSorted();
+
+  if (allKeys.length === 0) {
+    return (
+      <Txt variant="ui-sm" className="text-neutral3 py-2">
+        尚未配置变量
+      </Txt>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {allKeys.map((name) => {
+        const inPrev = prevKeys.has(name);
+        const inCurr = currKeys.has(name);
+
+        let status: "same" | "added" | "removed";
+        if (inPrev && inCurr) {
+          status = "same";
+        } else if (inPrev) {
+          status = "removed";
+        } else {
+          status = "added";
+        }
+
+        return (
+          <div
+            key={name}
+            className={cn(
+              "flex items-center gap-2 rounded-md border px-3 py-1.5",
+              status === "removed" && "border-red-900/30 bg-red-950/10",
+              status === "added" && "border-green-900/30 bg-green-950/10",
+              status === "same" && "border-border1 bg-surface2",
+            )}
+          >
+            <Txt
+              variant="ui-sm"
+              className={cn(
+                "font-mono",
+                status === "removed" && "text-red-300 line-through",
+                status === "added" && "text-green-300",
+                status === "same" && "text-neutral5",
+              )}
+            >
+              {`{{${name}}}`}
+            </Txt>
+            {status === "removed" && (
+              <Badge variant="error" className="ml-auto">
+                已在最新版本中移除
+              </Badge>
+            )}
+            {status === "added" && (
+              <Badge variant="success" className="ml-auto">
+                已在最新版本中添加
+              </Badge>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReadOnlyVariables({ variables }: { variables: Record<string, unknown> | undefined }) {
+  const props =
+    (variables as Record<string, Record<string, unknown>> | undefined)?.properties ?? {};
+  const entries = Object.entries(props);
+
+  if (entries.length === 0) {
+    return (
+      <Txt variant="ui-sm" className="text-neutral3 py-2">
+        尚未配置变量
+      </Txt>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {entries.map(([name, schema]) => (
+        <div
+          key={name}
+          className="flex items-center gap-2 rounded-md border border-border1 bg-surface2 px-3 py-1.5"
+        >
+          <Txt variant="ui-sm" className="text-neutral5 font-mono">
+            {`{{${name}}}`}
+          </Txt>
+          {(schema as Record<string, unknown>)?.type ? (
+            <Badge variant="default">{String((schema as Record<string, unknown>).type)}</Badge>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Read-only config with diff highlighting
+// ---------------------------------------------------------------------------
+
+export function ReadOnlyConfigWithDiff({
+  agentId,
+  selectedVersionId,
+  latestVersionId,
+}: {
+  agentId: string;
+  selectedVersionId: string;
+  latestVersionId: string;
+}) {
+  const { form } = useAgentEditFormContext();
+  const tools = form.watch("tools");
+  const variables = form.watch("variables");
+  const instructionBlocks = form.watch("instructionBlocks");
+  const toolCount = tools ? Object.keys(tools).length : 0;
+
+  const { data: compareData, isLoading: isLoadingCompare } = useCompareAgentVersions({
+    agentId,
+    fromVersionId: selectedVersionId,
+    toVersionId: latestVersionId,
+  });
+
+  const diffMap = useMemo(() => {
+    const map = new Map<string, { previousValue: unknown; currentValue: unknown }>();
+    if (compareData?.diffs) {
+      for (const diff of compareData.diffs) {
+        map.set(diff.field, { currentValue: diff.currentValue, previousValue: diff.previousValue });
+      }
+    }
+    return map;
+  }, [compareData]);
+
+  const instructionsDiff = diffMap.get("instructions");
+  const toolsDiff = diffMap.get("tools");
+  const variablesDiff = diffMap.get("requestContextSchema");
+
+  const instructionsBadge = instructionsDiff ? (
+    <Badge variant="warning" size="sm">
+      已修改
+    </Badge>
+  ) : null;
+  const toolsBadge = resolveConditional(
+    toolsDiff,
+    () => (
+      <Badge variant="warning" size="sm">
+        已修改
+      </Badge>
+    ),
+    () => (toolCount > 0 ? <Badge variant="default" size="sm">{`${toolCount}`}</Badge> : null),
+  );
+  const variablesBadge = variablesDiff ? (
+    <Badge variant="warning" size="sm">
+      已修改
+    </Badge>
+  ) : null;
+
+  if (isLoadingCompare) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Spinner className="h-5 w-5" />
+      </div>
+    );
+  }
+
+  return (
+    <Tabs<AgentConfigTab>
+      defaultTab="variables"
+      className="flex min-h-full flex-col overflow-visible"
+    >
+      <TabList variant="pill-ghost" className="shrink-0">
+        <Tab value="variables">
+          <ConfigTabLabel title="变量" icon={<Braces />} badge={variablesBadge} />
+        </Tab>
+        <Tab value="instructions">
+          <ConfigTabLabel title="系统提示词" icon={<Cpu />} badge={instructionsBadge} />
+        </Tab>
+        <Tab value="tools">
+          <ConfigTabLabel title="工具" icon={<Wrench />} badge={toolsBadge} />
+        </Tab>
+      </TabList>
+
+      <TabContent value="variables" className="px-4 py-4">
+        {variablesDiff ? (
+          <VariablesDiffView
+            previousVars={variablesDiff.previousValue as Record<string, unknown> | undefined}
+            currentVars={variablesDiff.currentValue as Record<string, unknown> | undefined}
+          />
+        ) : (
+          <ReadOnlyVariables variables={variables as Record<string, unknown> | undefined} />
+        )}
+      </TabContent>
+
+      <TabContent value="instructions" className="px-4 py-4">
+        {instructionsDiff ? (
+          <InstructionsDiffView
+            previousBlocks={instructionsDiff.previousValue}
+            currentBlocks={instructionsDiff.currentValue}
+          />
+        ) : (
+          <ReadOnlyInstructions blocks={instructionBlocks} />
+        )}
+      </TabContent>
+
+      <TabContent value="tools" className="px-4 py-4">
+        {toolsDiff ? (
+          <ToolsDiffView
+            previousTools={toolsDiff.previousValue as Record<string, unknown> | undefined}
+            currentTools={toolsDiff.currentValue as Record<string, unknown> | undefined}
+          />
+        ) : (
+          <ReadOnlyTools tools={tools as Record<string, unknown> | undefined} />
+        )}
+      </TabContent>
+    </Tabs>
+  );
+}

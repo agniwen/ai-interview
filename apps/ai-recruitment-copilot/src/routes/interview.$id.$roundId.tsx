@@ -1,5 +1,6 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import InterviewRoom from "@/components/features/interview/interview-room";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 function InterviewRoundRoute() {
   const { id, roundId } = useParams({ from: "/interview/$id/$roundId" });
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/interview/$id/$roundId")({
         content: "根据候选人专属链接发起语音面试，并实时查看追问过程与作答记录。",
         name: "description",
       },
-      { title: "AI 面试" },
+      { title: formatDocumentTitle("AI 面试") },
     ],
   }),
 });

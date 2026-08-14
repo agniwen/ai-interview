@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt, or } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -14,8 +14,15 @@ import {
   notifyInterviewSummaryReady,
   retryFailedInterviewSummaryNotifications,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
+import { runKeyInformationJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-key-information-job";
 import { runSummaryJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
+import {
+  interviewDataCollectionResultsSchema,
+  mergeInterviewQuestionOutcome,
+  parseInterviewDataCollectionResults,
+} from "@arc/shared/interview/question-outcomes";
+import { questionCheckpointPayloadSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/question-checkpoint";
 
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
   const [row] = await db
@@ -48,6 +55,7 @@ const reportPayloadSchema = z.object({
   agentId: z.string().nullish(),
   callSuccessful: z.string().nullish(),
   conversationId: z.string().min(1),
+  dataCollectionResults: interviewDataCollectionResultsSchema.nullish(),
   endedAt: z.string().nullish(),
   interviewRecordId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).nullish(),
@@ -75,8 +83,243 @@ const RECOVERY_STALE_MINUTES = 10;
 const RECOVERY_BATCH_SIZE = 20;
 const RECOVERY_MAX_ATTEMPTS = 5;
 
+function isUndefinedColumnError(error: unknown) {
+  let current = error;
+  while (current && typeof current === "object") {
+    if ("code" in current && current.code === "42703") {
+      return true;
+    }
+    current = "cause" in current ? current.cause : null;
+  }
+  return false;
+}
+
+async function hasKeyInformationColumns(): Promise<boolean> {
+  try {
+    await db
+      .select({ keyInformationStatus: interviewConversation.keyInformationStatus })
+      .from(interviewConversation)
+      .limit(0);
+    return true;
+  } catch (error) {
+    if (isUndefinedColumnError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+type ReportPayload = z.infer<typeof reportPayloadSchema>;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+interface UpsertInterviewConversationOptions {
+  data: ReportPayload;
+  isNewTranscript: boolean;
+  keyInformationColumnsAvailable: boolean;
+  now: Date;
+  organizationId: string;
+}
+
+async function upsertMigratedInterviewConversation(
+  tx: Tx,
+  options: UpsertInterviewConversationOptions,
+) {
+  const { data, isNewTranscript, now, organizationId } = options;
+  const summaryResetFields = isNewTranscript
+    ? {
+        evaluationCriteriaResults: {},
+        keyInformation: null,
+        keyInformationAttempts: 0,
+        keyInformationError: null,
+        keyInformationStartedAt: null,
+        keyInformationStatus: "pending" as const,
+        summaryAttempts: 0,
+        summaryError: null,
+        summaryStartedAt: null,
+        summaryStatus: "pending" as const,
+        transcriptSummary: null,
+      }
+    : {};
+  const recordingFields = data.recording
+    ? {
+        recordingDurationSecs: data.recording.durationSecs ?? null,
+        recordingEgressId: data.recording.egressId,
+        recordingFileKey: data.recording.fileKey,
+        recordingStatus: data.recording.status,
+      }
+    : {};
+  const dataCollectionFields = data.dataCollectionResults
+    ? { dataCollectionResults: data.dataCollectionResults }
+    : {};
+
+  await tx
+    .insert(interviewConversation)
+    .values({
+      agentId: data.agentId ?? null,
+      callSuccessful: data.callSuccessful ?? null,
+      conversationId: data.conversationId,
+      dataCollectionResults: data.dataCollectionResults ?? {},
+      dynamicVariables: {},
+      endedAt: data.endedAt ? new Date(data.endedAt) : null,
+      interviewRecordId: data.interviewRecordId,
+      lastSyncedAt: now,
+      metadata: data.metadata ?? {},
+      metrics: data.metrics ?? {},
+      mode: "voice",
+      organizationId,
+      scheduleEntryId: data.scheduleEntryId,
+      startedAt: data.startedAt ? new Date(data.startedAt) : null,
+      status: data.status,
+      summaryStatus: "pending",
+      transcript: data.transcript,
+      webhookReceivedAt: now,
+      ...recordingFields,
+    })
+    .onConflictDoUpdate({
+      set: {
+        callSuccessful: data.callSuccessful ?? null,
+        endedAt: data.endedAt ? new Date(data.endedAt) : null,
+        lastSyncedAt: now,
+        metadata: data.metadata ?? {},
+        metrics: data.metrics ?? {},
+        startedAt: data.startedAt ? new Date(data.startedAt) : null,
+        status: data.status,
+        transcript: data.transcript,
+        webhookReceivedAt: now,
+        ...summaryResetFields,
+        ...recordingFields,
+        ...dataCollectionFields,
+      },
+      target: interviewConversation.conversationId,
+    });
+}
+
+async function upsertLegacyInterviewConversation(
+  tx: Tx,
+  options: UpsertInterviewConversationOptions,
+) {
+  const { data, isNewTranscript, now, organizationId } = options;
+  await tx.execute(sql`
+    insert into "interview_conversation" (
+      "agent_id",
+      "conversation_id",
+      "interview_record_id",
+      "mode",
+      "organization_id",
+      "schedule_entry_id"
+    )
+    values (
+      ${data.agentId ?? null},
+      ${data.conversationId},
+      ${data.interviewRecordId},
+      'voice',
+      ${organizationId},
+      ${data.scheduleEntryId}
+    )
+    on conflict ("conversation_id") do nothing
+  `);
+
+  await tx
+    .update(interviewConversation)
+    .set({
+      callSuccessful: data.callSuccessful ?? null,
+      endedAt: data.endedAt ? new Date(data.endedAt) : null,
+      lastSyncedAt: now,
+      metadata: data.metadata ?? {},
+      metrics: data.metrics ?? {},
+      startedAt: data.startedAt ? new Date(data.startedAt) : null,
+      status: data.status,
+      transcript: data.transcript,
+      webhookReceivedAt: now,
+      ...(isNewTranscript
+        ? {
+            evaluationCriteriaResults: {},
+            summaryAttempts: 0,
+            summaryError: null,
+            summaryStartedAt: null,
+            summaryStatus: "pending" as const,
+            transcriptSummary: null,
+          }
+        : {}),
+      ...(data.recording
+        ? {
+            recordingDurationSecs: data.recording.durationSecs ?? null,
+            recordingEgressId: data.recording.egressId,
+            recordingFileKey: data.recording.fileKey,
+            recordingStatus: data.recording.status,
+          }
+        : {}),
+      ...(data.dataCollectionResults ? { dataCollectionResults: data.dataCollectionResults } : {}),
+    })
+    .where(eq(interviewConversation.conversationId, data.conversationId));
+}
+
+async function upsertInterviewConversation(tx: Tx, options: UpsertInterviewConversationOptions) {
+  if (options.keyInformationColumnsAvailable) {
+    await upsertMigratedInterviewConversation(tx, options);
+    return;
+  }
+  await upsertLegacyInterviewConversation(tx, options);
+}
+
 export const agentRouter = factory
   .createApp()
+  .post("/checkpoint", async (c) => {
+    const secret = c.req.header("X-Agent-Secret");
+    const expectedSecret = process.env.AGENT_CALLBACK_SECRET;
+    if (!expectedSecret || secret !== expectedSecret) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const body = questionCheckpointPayloadSchema.safeParse(await c.req.json());
+    if (!body.success) {
+      return c.json({ details: body.error.flatten(), error: "Invalid payload" }, 400);
+    }
+
+    const { data } = body;
+    const now = new Date();
+    const orgId = await resolveOrgFromInterview(data.interviewRecordId);
+
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ dataCollectionResults: interviewConversation.dataCollectionResults })
+        .from(interviewConversation)
+        .where(eq(interviewConversation.conversationId, data.conversationId))
+        .for("update")
+        .limit(1);
+      const current = parseInterviewDataCollectionResults(existing?.dataCollectionResults) ?? {
+        questions: [],
+        schemaVersion: 2 as const,
+      };
+      const merged = mergeInterviewQuestionOutcome(current, data.outcome);
+
+      if (existing) {
+        await tx
+          .update(interviewConversation)
+          .set({
+            dataCollectionResults: merged,
+            lastSyncedAt: now,
+          })
+          .where(eq(interviewConversation.conversationId, data.conversationId));
+        return;
+      }
+
+      await tx.insert(interviewConversation).values({
+        conversationId: data.conversationId,
+        dataCollectionResults: merged,
+        interviewRecordId: data.interviewRecordId,
+        lastSyncedAt: now,
+        mode: "voice",
+        organizationId: orgId,
+        scheduleEntryId: data.scheduleEntryId,
+        status: "in_progress",
+      });
+    });
+
+    safeUpdateTag(cacheTags.interviewConversations);
+    safeUpdateTag(cacheTags.interviewConversationsByRecord(data.interviewRecordId));
+    return c.json({ success: true }, 201);
+  })
   .post("/report", async (c) => {
     const secret = c.req.header("X-Agent-Secret");
     const expectedSecret = process.env.AGENT_CALLBACK_SECRET;
@@ -111,73 +354,19 @@ export const agentRouter = factory
 
     const isNewTranscript =
       !existing || JSON.stringify(existing.transcript ?? []) !== JSON.stringify(data.transcript);
+    const keyInformationColumnsAvailable = await hasKeyInformationColumns();
 
     await db.transaction(async (tx) => {
       // 1. Upsert interviewConversation with raw transcript.
       //    summaryStatus is reset to `pending` only when the transcript
       //    actually changed; see the comment above.
-      const summaryResetFields = isNewTranscript
-        ? {
-            evaluationCriteriaResults: {},
-            summaryAttempts: 0,
-            summaryError: null,
-            summaryStartedAt: null,
-            summaryStatus: "pending" as const,
-            transcriptSummary: null,
-          }
-        : {};
-
-      // 录像字段：仅当 agent 上报了 recording 才写入，避免重传清空已有元数据。
-      // Recording columns: only set when the report carries recording info, so an
-      // idempotent retransmit doesn't blank out previously stored metadata.
-      const recordingFields = data.recording
-        ? {
-            recordingDurationSecs: data.recording.durationSecs ?? null,
-            recordingEgressId: data.recording.egressId,
-            recordingFileKey: data.recording.fileKey,
-            recordingStatus: data.recording.status,
-          }
-        : {};
-
-      await tx
-        .insert(interviewConversation)
-        .values({
-          agentId: data.agentId ?? null,
-          callSuccessful: data.callSuccessful ?? null,
-          conversationId: data.conversationId,
-          dataCollectionResults: {},
-          dynamicVariables: {},
-          endedAt: data.endedAt ? new Date(data.endedAt) : null,
-          interviewRecordId: data.interviewRecordId,
-          lastSyncedAt: now,
-          metadata: data.metadata ?? {},
-          metrics: data.metrics ?? {},
-          mode: "voice",
-          organizationId: orgId,
-          scheduleEntryId: data.scheduleEntryId,
-          startedAt: data.startedAt ? new Date(data.startedAt) : null,
-          status: data.status,
-          summaryStatus: "pending",
-          transcript: data.transcript,
-          webhookReceivedAt: now,
-          ...recordingFields,
-        })
-        .onConflictDoUpdate({
-          set: {
-            callSuccessful: data.callSuccessful ?? null,
-            endedAt: data.endedAt ? new Date(data.endedAt) : null,
-            lastSyncedAt: now,
-            metadata: data.metadata ?? {},
-            metrics: data.metrics ?? {},
-            startedAt: data.startedAt ? new Date(data.startedAt) : null,
-            status: data.status,
-            transcript: data.transcript,
-            webhookReceivedAt: now,
-            ...summaryResetFields,
-            ...recordingFields,
-          },
-          target: interviewConversation.conversationId,
-        });
+      await upsertInterviewConversation(tx, {
+        data,
+        isNewTranscript,
+        keyInformationColumnsAvailable,
+        now,
+        organizationId: orgId,
+      });
 
       // 2. Replace turns
       await tx
@@ -270,6 +459,12 @@ export const agentRouter = factory
         conversationId: data.conversationId,
         interviewRecordId: data.interviewRecordId,
       });
+      if (keyInformationColumnsAvailable) {
+        void runKeyInformationJob({
+          conversationId: data.conversationId,
+          interviewRecordId: data.interviewRecordId,
+        });
+      }
     }
 
     return c.json({ conversationId: data.conversationId, success: true }, 201);
@@ -307,13 +502,38 @@ export const agentRouter = factory
             ),
           ),
           lt(interviewConversation.updatedAt, staleThreshold),
+          isNotNull(interviewConversation.interviewRecordId),
+          lt(interviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS),
         ),
       )
       .limit(RECOVERY_BATCH_SIZE);
 
-    const retryable = candidates.filter(
-      (row) => row.interviewRecordId && row.summaryAttempts < RECOVERY_MAX_ATTEMPTS,
-    );
+    const retryable = candidates;
+
+    const keyInformationCandidates = await db
+      .select({
+        conversationId: interviewConversation.conversationId,
+        interviewRecordId: interviewConversation.interviewRecordId,
+        keyInformationAttempts: interviewConversation.keyInformationAttempts,
+      })
+      .from(interviewConversation)
+      .where(
+        and(
+          or(
+            inArray(interviewConversation.keyInformationStatus, ["pending", "failed"]),
+            and(
+              eq(interviewConversation.keyInformationStatus, "running"),
+              lt(interviewConversation.keyInformationStartedAt, staleThreshold),
+            ),
+          ),
+          lt(interviewConversation.updatedAt, staleThreshold),
+          isNotNull(interviewConversation.interviewRecordId),
+          lt(interviewConversation.keyInformationAttempts, RECOVERY_MAX_ATTEMPTS),
+        ),
+      )
+      .limit(RECOVERY_BATCH_SIZE);
+
+    const keyInformationRetryable = keyInformationCandidates;
 
     for (const row of retryable) {
       if (!row.interviewRecordId) {
@@ -325,7 +545,22 @@ export const agentRouter = factory
       });
     }
 
+    for (const row of keyInformationRetryable) {
+      if (!row.interviewRecordId) {
+        continue;
+      }
+      void runKeyInformationJob({
+        conversationId: row.conversationId,
+        interviewRecordId: row.interviewRecordId,
+      });
+    }
+
     return c.json({
+      keyInformation: {
+        retried: keyInformationRetryable.length,
+        scanned: keyInformationCandidates.length,
+        skipped: keyInformationCandidates.length - keyInformationRetryable.length,
+      },
       retried: retryable.length,
       scanned: candidates.length,
       skipped: candidates.length - retryable.length,

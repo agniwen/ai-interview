@@ -1,0 +1,69 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { validateJSONData } from "../utils/json-validation";
+import type { ImportableItem, JSONValidationError } from "../utils/json-validation";
+
+/** Result of parsing a JSON file */
+export interface ParsedJSON {
+  items: ImportableItem[];
+  errors: JSONValidationError[];
+  rawData: unknown;
+}
+
+/**
+ * Hook for parsing JSON files for dataset import
+ */
+export function useJSONParser() {
+  const [isParsing, setIsParsing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const parseFile = useCallback(async (file: File): Promise<ParsedJSON> => {
+    setIsParsing(true);
+    setError(null);
+
+    try {
+      // Read file content
+      const text = await file.text();
+
+      // Parse JSON
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("JSON 格式无效，请检查文件语法。");
+      }
+
+      // Validate structure
+      const validation = validateJSONData(data);
+
+      if (!validation.valid) {
+        // Return with errors for display, but don't throw
+        return {
+          errors: validation.errors,
+          items: validation.items,
+          rawData: data,
+        };
+      }
+
+      return {
+        errors: [],
+        items: validation.items,
+        rawData: data,
+      };
+    } catch (caughtError) {
+      const parseError =
+        caughtError instanceof Error ? caughtError : new Error("解析 JSON 文件失败");
+      setError(parseError);
+      throw parseError;
+    } finally {
+      setIsParsing(false);
+    }
+  }, []);
+
+  return {
+    error,
+    isParsing,
+    parseFile,
+  };
+}

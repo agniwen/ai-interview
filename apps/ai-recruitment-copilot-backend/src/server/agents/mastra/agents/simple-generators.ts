@@ -1,13 +1,16 @@
 import { Agent } from "@mastra/core/agent";
+import { setTimeout as delay } from "node:timers/promises";
 import type { z } from "zod";
 import {
   configureAlibabaCodingPlanApiKey,
   mastraModels,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
+import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
 
 configureAlibabaCodingPlanApiKey();
 
 export interface MastraGenerateOptions {
+  abortSignal?: AbortSignal;
   modelSettings?: {
     maxOutputTokens?: number;
     temperature?: number;
@@ -45,10 +48,18 @@ export const titleAgent = new Agent({
 
 export const jobDescriptionDraftAgent = new Agent({
   id: "job-description-draft-agent",
-  instructions: "你是 HR 岗位配置助手，负责生成岗位描述和 AI 面试 Prompt。",
+  instructions: "你是招聘岗位文案助手，负责在保留原始格式的前提下优化可对外发布的岗位 JD。",
   maxRetries: 1,
   model: mastraModels.structuredModel,
   name: "JobDescriptionDraftAgent",
+});
+
+export const jobEvaluationBlueprintAgent = new Agent({
+  id: "job-evaluation-blueprint-agent",
+  instructions: "你是岗位评估蓝图编译助手，只提取有原文依据的结构化要求。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "JobEvaluationBlueprintAgent",
 });
 
 export const interviewQuestionAgent = new Agent({
@@ -131,6 +142,38 @@ export const resumeReviewMarkdownAgent = new Agent({
   name: "ResumeReviewMarkdownAgent",
 });
 
+export const structuredResumeGateAgent = new Agent({
+  id: "structured-resume-gate-agent",
+  instructions: "逐项判断冻结岗位门槛，只返回状态、证据和原因。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeGateAgent",
+});
+
+export const structuredResumeDimensionAgent = new Agent({
+  id: "structured-resume-dimension-agent",
+  instructions: "提取简历的语义事实和月级时间线，不做任何评分或时长计算。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeDimensionAgent",
+});
+
+export const structuredResumeAdjustmentAgent = new Agent({
+  id: "structured-resume-adjustment-agent",
+  instructions: "逐项判断岗位优先和排除条件是否有明确简历证据。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeAdjustmentAgent",
+});
+
+export const structuredResumeNarrativeAgent = new Agent({
+  id: "structured-resume-narrative-agent",
+  instructions: "解释代码已经完成的简历评分结果，不得重算或改变结果。",
+  maxRetries: 1,
+  model: mastraModels.fastModel,
+  name: "StructuredResumeNarrativeAgent",
+});
+
 export const interviewReportSummaryAgent = new Agent({
   id: "interview-report-summary-agent",
   instructions: "你是面试报告撰写助手，负责根据面试 transcript 生成摘要。",
@@ -139,12 +182,47 @@ export const interviewReportSummaryAgent = new Agent({
   name: "InterviewReportSummaryAgent",
 });
 
+export const interviewKeyInformationAgent = new Agent({
+  id: "interview-key-information-agent",
+  instructions: "你是面试重点信息提取助手，只提取候选人对话中的关键技能证据、量化信息和风险。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "InterviewKeyInformationAgent",
+});
+
 export const interviewReportEvaluationAgent = new Agent({
   id: "interview-report-evaluation-agent",
   instructions: "你是专业面试评估专家，负责根据面试 transcript 和题目生成结构化评价。",
   maxRetries: 1,
   model: mastraModels.structuredModel,
   name: "InterviewReportEvaluationAgent",
+});
+
+export const meetingIntelligenceAgent = new Agent({
+  id: "meeting-intelligence-agent",
+  instructions:
+    "你是 Meeting Buddy 的会议信息整理助手，只能根据带稳定 turn ID 的转录生成结构化结果，并为每条事实保留原文证据。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingIntelligenceAgent",
+});
+
+export const meetingIntelligenceDecisionPolicyAgent = new Agent({
+  id: "meeting-intelligence-decision-policy-agent",
+  instructions:
+    "你是招聘决定政策分类器。识别任何由系统作出的录用、拒绝、通过、不通过、推进候选人、进入下一轮或结束招聘流程的结论或建议；候选人的事实陈述不属于系统决定。只返回结构化分类。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingIntelligenceDecisionPolicyAgent",
+});
+
+export const meetingAnswerAgent = new Agent({
+  id: "meeting-answer-agent",
+  instructions:
+    "你是 Meeting Buddy 的单会议问答助手。只能使用本次请求提供的当前会议资料；事实回答必须引用输入中的稳定 transcript turn ID，证据不足时明确返回 insufficient-evidence。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingAnswerAgent",
 });
 
 export const resumeEducationBackfillAgent = new Agent({
@@ -211,6 +289,42 @@ function isReadableStream(value: unknown): value is ReadableStream<string> {
   return typeof value === "object" && value !== null && "getReader" in value;
 }
 
+function isRetryableStructuredOutputError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("structured output") ||
+    message.includes("structured_output") ||
+    message.includes("schema validation") ||
+    message.includes("schema_validation")
+  );
+}
+
+export class StructuredOutputValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StructuredOutputValidationError";
+  }
+}
+
+async function throwAfterTimeout(timeoutMs: number, signal: AbortSignal): Promise<never> {
+  await delay(timeoutMs, undefined, { signal });
+  const error = new Error(`AI generation timed out after ${timeoutMs}ms`);
+  error.name = "TimeoutError";
+  throw error;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number | undefined): Promise<T> {
+  if (!timeoutMs) {
+    return promise;
+  }
+  const controller = new AbortController();
+  try {
+    return await Promise.race([promise, throwAfterTimeout(timeoutMs, controller.signal)]);
+  } finally {
+    controller.abort();
+  }
+}
+
 export async function* streamTextWithMastraAgent({
   agent,
   maxOutputTokens,
@@ -232,30 +346,92 @@ export async function* streamTextWithMastraAgent({
   }
 }
 
+// oxlint-disable-next-line complexity -- retries, schema fallback, and semantic validation share one generation attempt loop.
 export async function generateStructuredWithMastraAgent<TSchema extends z.ZodType>({
   agent,
   maxOutputTokens,
   prompt,
+  retryOnInvalid,
   schema,
   temperature,
+  timeoutMs,
+  validate,
 }: {
   agent: MastraGeneratorLike;
   maxOutputTokens?: number;
   prompt: string;
+  retryOnInvalid?: boolean;
   schema: TSchema;
   temperature?: number;
+  timeoutMs?: number;
+  validate?: (value: z.infer<TSchema>) => void;
 }): Promise<z.infer<TSchema>> {
-  const result = await agent.generate(prompt, {
-    modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
-    structuredOutput: { schema },
-  });
-  if (result.error) {
-    throw result.error;
+  let attemptPrompt = prompt;
+  let lastError = new Error("AI 生成的结构化内容校验失败。");
+  const maxAttempts = retryOnInvalid ? 2 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
+    try {
+      result = await withTimeout(
+        agent.generate(attemptPrompt, {
+          ...(timeoutMs ? { abortSignal: AbortSignal.timeout(timeoutMs) } : {}),
+          modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+          structuredOutput: { schema },
+        }),
+        timeoutMs,
+      );
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (!isRetryableStructuredOutputError(lastError)) {
+        throw lastError;
+      }
+      lastError = new StructuredOutputValidationError(lastError.message);
+      if (attempt + 1 < maxAttempts) {
+        attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+      }
+      continue;
+    }
+    if (result.error) {
+      lastError = result.error;
+      if (!isRetryableStructuredOutputError(lastError)) {
+        throw lastError;
+      }
+      lastError = new StructuredOutputValidationError(lastError.message);
+    } else {
+      const parsed = schema.safeParse(result.object);
+      if (parsed.success) {
+        try {
+          validate?.(parsed.data);
+          return parsed.data;
+        } catch (error) {
+          lastError = new StructuredOutputValidationError(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      } else {
+        lastError = new StructuredOutputValidationError(
+          parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。",
+        );
+        if (result.text.trim()) {
+          try {
+            const fallback = parseJsonOutput(
+              result.text,
+              schema as z.ZodType<z.infer<TSchema>>,
+              "structured-output-fallback",
+            );
+            validate?.(fallback);
+            return fallback;
+          } catch (error) {
+            lastError = new StructuredOutputValidationError(
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        }
+      }
+    }
+    if (attempt + 1 < maxAttempts) {
+      attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+    }
   }
-
-  const parsed = schema.safeParse(result.object);
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
-  }
-  return parsed.data;
+  throw lastError;
 }

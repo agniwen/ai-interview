@@ -14,6 +14,37 @@ import {
   closeResumeReviewGenerationQueue,
   createResumeReviewGenerationWorker,
 } from "@arc/resume-parse-queue/resume-review-generation";
+import {
+  closeMeetingAnswerQueue,
+  createMeetingAnswerWorker,
+  enqueueMeetingAnswerJobs,
+  isMeetingAnswerQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-answer";
+import {
+  closeMeetingIntelligenceQueue,
+  createMeetingIntelligenceWorker,
+  enqueueMeetingIntelligenceJobs,
+  isMeetingIntelligenceQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-intelligence";
+import {
+  closeMeetingPlaybackQueue,
+  createMeetingPlaybackWorker,
+  enqueueMeetingPlaybackJobs,
+  isMeetingProcessingQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-playback";
+import {
+  closeMeetingPurgeQueue,
+  createMeetingPurgeWorker,
+  enqueueMeetingPurgeJobs,
+  isMeetingPurgeQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-purge";
+import {
+  closeMeetingTranscriptionQueue,
+  createMeetingTranscriptionWorker,
+  enqueueMeetingTranscriptionJobs,
+  isMeetingTranscriptionQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-transcription";
+import { listMeetingTranscriptionProviderCandidates } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-registry";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -57,6 +88,170 @@ async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
+  const { listRecoverableMeetingPlaybackJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/dao");
+  const jobs = await listRecoverableMeetingPlaybackJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-playback-worker] startup recovery found no pending meetings");
+    return;
+  }
+  await enqueueMeetingPlaybackJobs(jobs);
+  console.info("[meeting-playback-worker] startup recovery enqueued meetings", {
+    count: jobs.length,
+  });
+}
+
+async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
+  const { listRecoverableMeetingPurgeJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-dao");
+  const jobs = await listRecoverableMeetingPurgeJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-purge-worker] recovery found no due meetings");
+    return;
+  }
+  await enqueueMeetingPurgeJobs(jobs);
+  console.info("[meeting-purge-worker] recovery enqueued meetings", { count: jobs.length });
+}
+
+async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
+  const { listRecoverableMeetingAnswerJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/dao");
+  const jobs = await listRecoverableMeetingAnswerJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-answer-worker] recovery found no pending exchanges");
+    return;
+  }
+  await enqueueMeetingAnswerJobs(jobs);
+  console.info("[meeting-answer-worker] recovery enqueued exchanges", { count: jobs.length });
+}
+
+async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
+  const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/dao");
+  const { requestAutomaticMeetingIntelligence } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service");
+  const missing = await listMeetingsNeedingAutomaticIntelligence();
+  for (const meeting of missing) {
+    try {
+      await requestAutomaticMeetingIntelligence(meeting);
+    } catch (error) {
+      console.error("[meeting-intelligence-worker] failed to recover missing meeting", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        meetingId: meeting.meetingId,
+        organizationId: meeting.organizationId,
+      });
+    }
+  }
+  const jobs = await listRecoverableMeetingIntelligenceJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-intelligence-worker] recovery found no pending runs");
+    return;
+  }
+  await enqueueMeetingIntelligenceJobs(jobs);
+  console.info("[meeting-intelligence-worker] recovery enqueued runs", { count: jobs.length });
+}
+
+async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
+  const { listRecoverableMeetingTranscriptionJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao");
+  const jobs = await listRecoverableMeetingTranscriptionJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-transcription-worker] recovery found no pending meetings");
+    return;
+  }
+  await enqueueMeetingTranscriptionJobs(jobs);
+  console.info("[meeting-transcription-worker] recovery enqueued meetings", {
+    count: jobs.length,
+  });
+}
+
+let meetingPlaybackRecoveryRunning = false;
+let meetingPurgeRecoveryRunning = false;
+let meetingAnswerRecoveryRunning = false;
+let meetingIntelligenceRecoveryRunning = false;
+let meetingTranscriptionRecoveryRunning = false;
+
+async function reconcileMeetingIntelligenceJobs(): Promise<void> {
+  if (meetingIntelligenceRecoveryRunning) {
+    return;
+  }
+  meetingIntelligenceRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingIntelligenceJobs();
+  } catch (error) {
+    console.error("[meeting-intelligence-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingIntelligenceRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingAnswerJobs(): Promise<void> {
+  if (meetingAnswerRecoveryRunning) {
+    return;
+  }
+  meetingAnswerRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingAnswerJobs();
+  } catch (error) {
+    console.error("[meeting-answer-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingAnswerRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingPlaybackJobs(): Promise<void> {
+  if (meetingPlaybackRecoveryRunning) {
+    return;
+  }
+  meetingPlaybackRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingPlaybackJobs();
+  } catch (error) {
+    console.error("[meeting-playback-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingPlaybackRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingPurgeJobs(): Promise<void> {
+  if (meetingPurgeRecoveryRunning) {
+    return;
+  }
+  meetingPurgeRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingPurgeJobs();
+  } catch (error) {
+    console.error("[meeting-purge-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingPurgeRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingTranscriptionJobs(): Promise<void> {
+  if (meetingTranscriptionRecoveryRunning) {
+    return;
+  }
+  meetingTranscriptionRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingTranscriptionJobs();
+  } catch (error) {
+    console.error("[meeting-transcription-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingTranscriptionRecoveryRunning = false;
+  }
+}
+
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const app = createWorkerApp();
@@ -69,7 +264,7 @@ async function main() {
     if (error.code === "EADDRINUSE") {
       console.error(`[worker] ${hostname}:${port} is already in use.`);
     } else {
-      console.error("[worker] server error:", error);
+      console.error("[worker] server error", { errorName: error.name });
     }
     process.exit(1);
   });
@@ -79,19 +274,98 @@ async function main() {
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
+  let meetingAnswerWorker: ReturnType<typeof createMeetingAnswerWorker> | null = null;
+  let meetingAnswerRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingIntelligenceWorker: ReturnType<typeof createMeetingIntelligenceWorker> | null = null;
+  let meetingIntelligenceRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
+  let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingPurgeWorker: ReturnType<typeof createMeetingPurgeWorker> | null = null;
+  let meetingPurgeRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
+  let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
+  if (isMeetingAnswerQueueConfigured()) {
+    meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
+      const { runMeetingAnswerProcessing } = await import("./meeting-answer/processor");
+      await runMeetingAnswerProcessing(payload, context);
+    });
+    await reconcileMeetingAnswerJobs();
+    meetingAnswerRecoveryTimer = setInterval(() => {
+      void reconcileMeetingAnswerJobs();
+    }, 60_000);
+    meetingAnswerRecoveryTimer.unref();
+  }
+  if (isMeetingProcessingQueueConfigured()) {
+    meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
+      const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
+      await runMeetingPlaybackProcessing(payload);
+    });
+    await reconcileMeetingPlaybackJobs();
+    meetingPlaybackRecoveryTimer = setInterval(() => {
+      void reconcileMeetingPlaybackJobs();
+    }, 60_000);
+    meetingPlaybackRecoveryTimer.unref();
+  }
+  if (isMeetingPurgeQueueConfigured()) {
+    meetingPurgeWorker = createMeetingPurgeWorker(async (payload) => {
+      const { runMeetingPurgeProcessing } = await import("./meeting-purge/processor");
+      await runMeetingPurgeProcessing(payload);
+    });
+    await reconcileMeetingPurgeJobs();
+    meetingPurgeRecoveryTimer = setInterval(() => {
+      void reconcileMeetingPurgeJobs();
+    }, 60_000);
+    meetingPurgeRecoveryTimer.unref();
+  }
+  if (isMeetingIntelligenceQueueConfigured()) {
+    meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
+      const { runMeetingIntelligenceProcessing } = await import("./meeting-intelligence/processor");
+      await runMeetingIntelligenceProcessing(payload, context);
+    });
+    await reconcileMeetingIntelligenceJobs();
+    meetingIntelligenceRecoveryTimer = setInterval(() => {
+      void reconcileMeetingIntelligenceJobs();
+    }, 60_000);
+    meetingIntelligenceRecoveryTimer.unref();
+  }
+  if (
+    isMeetingTranscriptionQueueConfigured() &&
+    listMeetingTranscriptionProviderCandidates().length > 0
+  ) {
+    const { reapStaleMeetingTranscriptionDirectories, validateMeetingTranscriptionRuntime } =
+      await import("./meeting-transcription/processor");
+    await reapStaleMeetingTranscriptionDirectories();
+    await validateMeetingTranscriptionRuntime();
+    meetingTranscriptionWorker = createMeetingTranscriptionWorker(async (payload, context) => {
+      const { runMeetingTranscriptionProcessing } =
+        await import("./meeting-transcription/processor");
+      await runMeetingTranscriptionProcessing(payload, context);
+    });
+    await reconcileMeetingTranscriptionJobs();
+    meetingTranscriptionRecoveryTimer = setInterval(() => {
+      void reconcileMeetingTranscriptionJobs();
+    }, 60_000);
+    meetingTranscriptionRecoveryTimer.unref();
+  }
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
-    worker = createResumeParseWorker(async ({ itemId }) => {
+    worker = createResumeParseWorker(async ({ bypassCache, itemId }) => {
       const { runBulkResumeUploadWorkflow } =
         await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/bulk-resume-upload-workflow");
-      await runBulkResumeUploadWorkflow({ itemId });
+      await runBulkResumeUploadWorkflow({ bypassCache, itemId });
     });
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
-        const { runResumeSemanticIndexJob } =
-          await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
-        await runResumeSemanticIndexJob(payload);
+        if (payload.sourceType === "job_description") {
+          const { runJdSemanticIndexJob } =
+            await import("@arc/ai-recruitment-copilot-backend/lib/server/jd-semantic/indexer");
+          await runJdSemanticIndexJob(payload as Parameters<typeof runJdSemanticIndexJob>[0]);
+          return;
+        }
+        const { runResumeSemanticEnrichmentJob } =
+          await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enrichment");
+        await runResumeSemanticEnrichmentJob(payload);
       });
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {
@@ -119,6 +393,31 @@ async function main() {
         await worker?.close();
         await semanticIndexWorker?.close();
         await reviewGenerationWorker?.close();
+        if (meetingPlaybackRecoveryTimer) {
+          clearInterval(meetingPlaybackRecoveryTimer);
+        }
+        if (meetingPurgeRecoveryTimer) {
+          clearInterval(meetingPurgeRecoveryTimer);
+        }
+        if (meetingAnswerRecoveryTimer) {
+          clearInterval(meetingAnswerRecoveryTimer);
+        }
+        if (meetingIntelligenceRecoveryTimer) {
+          clearInterval(meetingIntelligenceRecoveryTimer);
+        }
+        if (meetingTranscriptionRecoveryTimer) {
+          clearInterval(meetingTranscriptionRecoveryTimer);
+        }
+        await meetingPlaybackWorker?.close();
+        await meetingPurgeWorker?.close();
+        await meetingAnswerWorker?.close();
+        await meetingIntelligenceWorker?.close();
+        await meetingTranscriptionWorker?.close();
+        await closeMeetingPlaybackQueue();
+        await closeMeetingPurgeQueue();
+        await closeMeetingAnswerQueue();
+        await closeMeetingIntelligenceQueue();
+        await closeMeetingTranscriptionQueue();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
         await closeResumeReviewGenerationQueue();
@@ -129,7 +428,9 @@ async function main() {
         }
         process.exit(0);
       } catch (error) {
-        console.error(`[worker] failed to shut down after ${signal}:`, error);
+        console.error(`[worker] failed to shut down after ${signal}`, {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
         process.exit(1);
       }
     })();
@@ -142,6 +443,8 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  console.error("[worker] fatal startup failure", {
+    errorName: error instanceof Error ? error.name : "UnknownError",
+  });
   process.exit(1);
 }

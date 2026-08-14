@@ -1,6 +1,7 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
+import { interviewDataCollectionResultsSchema } from "@arc/shared/interview/question-outcomes";
 import {
   composeInterviewReport,
   generateInterviewEvaluation,
@@ -16,9 +17,12 @@ const interviewTranscriptTurnSchema = z.object({
 
 const interviewQuestionSchema = generatedInterviewQuestionSchema.extend({
   order: z.number().int().min(1),
+  questionId: z.string().min(1),
 });
 
 const interviewReportInputSchema = z.object({
+  candidateFormResponses: z.string(),
+  dataCollectionResults: interviewDataCollectionResultsSchema.nullable(),
   questions: z.array(interviewQuestionSchema),
   transcript: z.array(interviewTranscriptTurnSchema),
 });
@@ -105,6 +109,8 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
           evaluationResult: {
             status: "fulfilled" as const,
             value: await deps.generateEvaluation({
+              candidateFormResponses: inputData.candidateFormResponses,
+              dataCollectionResults: inputData.dataCollectionResults,
               questions: inputData.questions,
               transcript: inputData.transcript,
             }),
@@ -163,6 +169,8 @@ export const interviewReportWorkflow = createInterviewReportWorkflow({
 });
 
 export async function runInterviewReportWorkflow(input: {
+  candidateFormResponses: z.input<typeof interviewReportInputSchema>["candidateFormResponses"];
+  dataCollectionResults: z.input<typeof interviewReportInputSchema>["dataCollectionResults"];
   questions: z.input<typeof interviewReportInputSchema>["questions"];
   transcript: z.input<typeof interviewReportInputSchema>["transcript"];
 }): Promise<InterviewReportWorkflowOutput> {

@@ -1,11 +1,14 @@
 "use client";
 
-import { IconHome, IconLogout, IconUser } from "@tabler/icons-react";
+import { IconHome, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
+import { SidebarAppUpdateButton } from "@/components/features/app-version/sidebar-app-update-button";
+import { useAppVersion } from "@/components/features/app-version/app-version-provider";
+import { TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/client/auth-client";
+import { BUILD_TIME } from "@/lib/client/build-info";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -38,6 +42,48 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function SidebarUserMenuLinks({
+  showHomeLink,
+  showPlatformLink,
+  onSignOut,
+}: {
+  showHomeLink: boolean;
+  showPlatformLink: boolean;
+  onSignOut: () => void;
+}) {
+  const hasNavigationLinks = showHomeLink || showPlatformLink;
+
+  return (
+    <>
+      {showHomeLink ? (
+        <DropdownMenuItem
+          render={
+            <Link to="/studio">
+              <IconHome className="mr-2 size-4" />
+              返回工作台
+            </Link>
+          }
+        />
+      ) : null}
+      {showPlatformLink ? (
+        <DropdownMenuItem
+          render={
+            <Link to="/platform">
+              <IconShieldCheck className="mr-2 size-4" />
+              进入管理后台
+            </Link>
+          }
+        />
+      ) : null}
+      {hasNavigationLinks ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem onClick={onSignOut} variant="destructive">
+        <IconLogout className="mr-2 size-4" />
+        退出登录
+      </DropdownMenuItem>
+    </>
+  );
+}
+
 // oxlint-disable-next-line complexity -- Shared user section branches on session state and collapse variants.
 export function SidebarUserSection({
   collapsed,
@@ -51,6 +97,8 @@ export function SidebarUserSection({
   const navigate = useNavigate();
   const isHydrated = useHydrated();
   const { data: session, isPending } = authClient.useSession();
+  const appVersion = useAppVersion();
+  const latestBuildTime = appVersion?.latestBuildTime ?? null;
 
   const handleSignOut = useCallback(async () => {
     await authClient.signOut();
@@ -62,6 +110,7 @@ export function SidebarUserSection({
   const userEmail = session?.user?.email ?? "";
   const organizationName = session?.user?.feishuTenantName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
+  const showPlatformLink = !showHomeLink && session?.user?.role === "admin";
 
   let content: ReactNode;
 
@@ -69,7 +118,7 @@ export function SidebarUserSection({
     content = collapsed ? (
       <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-full bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
     );
   } else if (session?.user) {
     content = collapsed ? (
@@ -78,7 +127,7 @@ export function SidebarUserSection({
           render={
             <Button
               aria-label="用户菜单"
-              className="w-full active:scale-100"
+              className="w-full rounded-xl transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
               size="icon"
               type="button"
               variant="ghost"
@@ -98,24 +147,18 @@ export function SidebarUserSection({
               {organizationName ? (
                 <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
               ) : null}
+              <p className="flex items-center gap-1 text-muted-foreground text-xs">
+                <span>更新于</span>
+                <TimeDisplay as="span" value={BUILD_TIME} />
+              </p>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem
-              render={
-                <Link to="/">
-                  <IconHome className="mr-2 size-4" />
-                  返回首页
-                </Link>
-              }
-            />
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <IconLogout className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
+          <SidebarUserMenuLinks
+            onSignOut={handleSignOut}
+            showHomeLink={showHomeLink}
+            showPlatformLink={showPlatformLink}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     ) : (
@@ -123,21 +166,17 @@ export function SidebarUserSection({
         <DropdownMenuTrigger
           render={
             <Button
-              className="h-12 w-full justify-start gap-2 rounded-full hover:bg-background active:scale-100"
+              className="h-9 w-full justify-start gap-2 rounded-lg px-2 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none"
               type="button"
               variant="ghost"
             >
-              <Avatar size="default">
+              <Avatar size="sm">
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1 text-left">
-                <p className="truncate font-medium text-sm">{userName}</p>
-                <p className="truncate text-muted-foreground text-xs">
-                  {organizationName ?? userEmail}
-                </p>
+                <p className="truncate font-medium text-sm leading-none">{userName}</p>
               </div>
-              {/* <SelectChevronsUpDownIcon className="size-4 text-muted-foreground" /> */}
             </Button>
           }
         />
@@ -149,24 +188,18 @@ export function SidebarUserSection({
               {organizationName ? (
                 <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
               ) : null}
+              <p className="flex items-center gap-1 text-muted-foreground text-xs">
+                <span>更新于</span>
+                <TimeDisplay as="span" value={BUILD_TIME} />
+              </p>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem
-              render={
-                <Link to="/">
-                  <IconHome className="mr-2 size-4" />
-                  返回首页
-                </Link>
-              }
-            />
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <IconLogout className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
+          <SidebarUserMenuLinks
+            onSignOut={handleSignOut}
+            showHomeLink={showHomeLink}
+            showPlatformLink={showPlatformLink}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -197,9 +230,24 @@ export function SidebarUserSection({
     );
   }
 
+  const updateButton =
+    latestBuildTime && session?.user ? (
+      <SidebarAppUpdateButton latestBuildTime={latestBuildTime} />
+    ) : null;
+
   return (
     <div className="border-border border-t px-2 py-2 select-none">
-      {collapsed ? content : <div className="flex items-center gap-2">{content}</div>}
+      {collapsed ? (
+        <div className="flex w-full flex-col items-center gap-2">
+          {content}
+          {updateButton}
+        </div>
+      ) : (
+        <div className="flex w-full items-center gap-2">
+          <div className="min-w-0 flex-1">{content}</div>
+          {updateButton}
+        </div>
+      )}
     </div>
   );
 }

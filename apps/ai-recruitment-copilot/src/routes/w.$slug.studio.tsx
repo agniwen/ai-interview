@@ -3,33 +3,13 @@ import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-rou
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
+import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
-import { StudioSidebarSlots } from "@/components/features/studio/studio-sidebar-slots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { getStudioPageAccessState } from "@/lib/start/auth-session";
-import type { StudioPagePermissionAction } from "@/lib/start/auth-session-types";
-
-const STUDIO_PAGE_PATHS = [
-  { action: "resumes", path: "/resumes" },
-  { action: "resumePool", path: "/resume-pool" },
-  { action: "interviews", path: "/interviews" },
-  { action: "dashboard", path: "/dashboard" },
-  { action: "departments", path: "/departments" },
-  { action: "interviewers", path: "/interviewers" },
-  { action: "jobDescriptions", path: "/job-descriptions" },
-  { action: "forms", path: "/forms" },
-  { action: "interviewQuestions", path: "/interview-questions" },
-  { action: "me", path: "/me" },
-  { action: "members", path: "/members" },
-  { action: "mailIngestAccounts", path: "/mail-ingest-accounts" },
-  { action: "agentDebug", path: "/agent-debug" },
-  { action: "permissions", path: "/permissions" },
-  { action: "globalConfig", path: "/global-config" },
-] as const satisfies readonly {
-  action: StudioPagePermissionAction;
-  path: string;
-}[];
+import { getFirstAllowedStudioPagePath } from "@/lib/start/auth-session";
+import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
+import { hasPermissionInStatements } from "@arc/shared/permission-statements";
 
 function findStudioPageByPath(pathname: string, slug: string) {
   const studioBasePath = `/w/${slug}/studio`;
@@ -40,19 +20,12 @@ function findStudioPageByPath(pathname: string, slug: string) {
 }
 
 async function findFirstAllowedStudioPath(slug: string) {
-  for (const item of STUDIO_PAGE_PATHS) {
-    const state = await getStudioPageAccessState({ data: { action: item.action, slug } });
-    if (state.status === "ready" && state.allowed) {
-      return item.path;
-    }
-  }
-  return null;
+  return await getFirstAllowedStudioPagePath({ data: { slug } });
 }
 
 function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
-      <StudioSidebarSlots />
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)] border border-border">
         <ScrollArea
           className="@container/main min-h-0 flex-1 bg-background"
@@ -78,21 +51,9 @@ function StudioShellRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio")({
-  component: StudioShellRoute,
-  head: () => ({
-    meta: [
-      {
-        content: "Studio 管理后台。",
-        name: "description",
-      },
-      { title: "Studio" },
-    ],
-  }),
+  ssr: "data-only",
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as {
-      location: { pathname: string };
-      params: { slug: string };
-    };
+    const { location, params, parentMatchPromise } = loaderContext;
 
     if (location.pathname === `/w/${params.slug}/studio`) {
       const fallbackPath = await findFirstAllowedStudioPath(params.slug);
@@ -107,21 +68,26 @@ export const Route = createFileRoute("/w/$slug/studio")({
       return null;
     }
 
-    const state = await getStudioPageAccessState({
-      data: { action: requestedPage.action, slug: params.slug },
-    });
-    if (state.status === "unauthenticated") {
-      throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(location.pathname)}`,
-      });
-    }
-    if (state.status === "not_found") {
-      throw notFound();
-    }
-    if (!state.allowed) {
+    const parentMatch = await parentMatchPromise;
+    const state = parentMatch.loaderData;
+    if (
+      !state ||
+      state.status !== "ready" ||
+      !hasPermissionInStatements(state.permissions, "page", requestedPage.action)
+    ) {
       throw notFound();
     }
 
     return null;
   },
+  head: ({ matches }) => ({
+    meta: [
+      {
+        content: "Studio 管理后台。",
+        name: "description",
+      },
+      ...documentTitleMeta(matches),
+    ],
+  }),
+  component: StudioShellRoute,
 });

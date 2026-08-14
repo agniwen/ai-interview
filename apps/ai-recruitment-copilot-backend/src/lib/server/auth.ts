@@ -8,6 +8,8 @@ import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
+import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
+import { resolveSessionAuthProviderId } from "@arc/ai-recruitment-copilot-backend/lib/server/session-auth-provider";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
@@ -22,7 +24,44 @@ import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
 const baseURL = getRequiredEnv("BETTER_AUTH_URL");
-const trustedOrigins = uniq([baseURL, "http://localhost:3000"]);
+
+/**
+ * Default trusted origins when `BETTER_AUTH_TRUSTED_ORIGINS` is unset.
+ * Always merged in so local web + desktop OAuth work without extra env.
+ * Extend (never replace) via BETTER_AUTH_TRUSTED_ORIGINS or TRUSTED_ORIGINS.
+ *
+ * - localhost:3000 — web / BETTER_AUTH_URL in local monorepo
+ * - localhost:5173/5174 — electron-vite desktop renderer (OAuth callback origin)
+ */
+const DEFAULT_BETTER_AUTH_TRUSTED_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+] as const;
+
+function parseOriginList(raw: string | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+// Prefer BETTER_AUTH_TRUSTED_ORIGINS (better-auth convention); TRUSTED_ORIGINS
+// is a project alias. Both extend the built-in defaults rather than replacing them.
+// Exported so Hono CORS on /api/* can share the same allow-list as better-auth
+// (desktop Electron at localhost:5173 needs credentials CORS for studio RPCs).
+export const trustedOrigins = uniq([
+  baseURL,
+  ...DEFAULT_BETTER_AUTH_TRUSTED_ORIGINS,
+  ...parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS),
+  ...parseOriginList(process.env.TRUSTED_ORIGINS),
+]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
   return values.find((v) => typeof v === "string" && v.length > 0);
@@ -76,13 +115,6 @@ interface FeishuUserInfoResponse {
   };
 }
 
-interface FeishuTenantTokenResponse {
-  code: number;
-  msg: string;
-  tenant_access_token?: string;
-  expire?: number;
-}
-
 interface FeishuTenantQueryResponse {
   code: number;
   msg: string;
@@ -97,44 +129,12 @@ interface FeishuTenantQueryResponse {
   };
 }
 
-// Short-lived in-memory cache to avoid minting a new tenant_access_token on every login.
-// Keyed by appId so each registered Feishu app has its own cached token.
-const tenantTokenCache = new Map<string, { token: string; expiresAt: number }>();
-
-async function fetchFeishuTenantToken(appId: string, appSecret: string): Promise<string | null> {
-  const now = Date.now();
-  const cached = tenantTokenCache.get(appId);
-  if (cached && cached.expiresAt > now + 60_000) {
-    return cached.token;
-  }
-  const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-    body: JSON.stringify({
-      app_id: appId,
-      app_secret: appSecret,
-    }),
-    headers: { "content-type": "application/json; charset=utf-8" },
-    method: "POST",
-  });
-  const json = (await res.json()) as FeishuTenantTokenResponse;
-  if (json.code !== 0 || !json.tenant_access_token) {
-    return null;
-  }
-  tenantTokenCache.set(appId, {
-    expiresAt: now + (json.expire ?? 7200) * 1000,
-    token: json.tenant_access_token,
-  });
-  return json.tenant_access_token;
-}
-
 async function fetchFeishuOrganizationName(
   appId: string,
   appSecret: string,
 ): Promise<string | null> {
   try {
-    const token = await fetchFeishuTenantToken(appId, appSecret);
-    if (!token) {
-      return null;
-    }
+    const token = await getFeishuTenantAccessToken(appId, appSecret);
     const res = await fetch("https://open.feishu.cn/open-apis/tenant/v2/tenant/query", {
       headers: { authorization: `Bearer ${token}` },
     });
@@ -281,6 +281,12 @@ export const auth = betterAuth({
           } catch (error) {
             console.warn("[auth] failed to stamp user.lastActiveAt", error);
           }
+        },
+        before(newSession, context) {
+          const authProviderId = resolveSessionAuthProviderId(context);
+          return Promise.resolve({
+            data: authProviderId ? { ...newSession, authProviderId } : newSession,
+          });
         },
       },
     },
@@ -502,6 +508,13 @@ export const auth = betterAuth({
   // at 1 day. 5 minutes is a balanced trade between DB write frequency and
   // perceived freshness; expiresIn stays at 7 days.
   session: {
+    additionalFields: {
+      authProviderId: {
+        input: false,
+        required: false,
+        type: "string",
+      },
+    },
     // 7 天 = 60 * 60 * 24 * 7
     expiresIn: 60 * 60 * 24 * 7,
     // 5 分钟 = 60 * 5；让"最近活跃"列足够新鲜

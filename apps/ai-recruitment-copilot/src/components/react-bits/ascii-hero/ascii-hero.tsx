@@ -1,9 +1,8 @@
-// 中文：亮色模式背景的 ASCII 噪声字符场，按时间演化的稀疏点（无指针交互）
-// English: Light-mode background ASCII noise field — sparse dots animating via time-driven noise (no pointer interaction).
+// 中文：首页 ASCII 噪声字符场，按时间演化的稀疏点（无指针交互）
+// English: Homepage ASCII noise field — sparse dots animating via time-driven noise (no pointer interaction).
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
 import { compose } from "./utils";
@@ -33,7 +32,6 @@ export function AsciiHero(props: AsciiHeroProps) {
     () => ({ ...DEFAULTS, ...props }),
     [props.cellSize, props.charset, props.color, props.noiseScale, props.noiseSpeed, props.fps],
   );
-  const { resolvedTheme } = useTheme();
   const prefersReduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -44,7 +42,7 @@ export function AsciiHero(props: AsciiHeroProps) {
   }, []);
 
   useEffect(() => {
-    if (!mounted || resolvedTheme !== "light") {
+    if (!mounted) {
       return;
     }
     const container = containerRef.current;
@@ -186,9 +184,9 @@ export function AsciiHero(props: AsciiHeroProps) {
       }
       observer.disconnect();
     };
-  }, [mounted, resolvedTheme, cfg, prefersReduced]);
+  }, [mounted, cfg, prefersReduced]);
 
-  if (!mounted || resolvedTheme !== "light") {
+  if (!mounted) {
     return null;
   }
 

@@ -45,6 +45,53 @@ async function insertEvaluationAudit(
   });
 }
 
+export async function setResumeEvaluationStatusWithAuditTx(
+  tx: Tx,
+  input: {
+    auditLogId?: string;
+    auditUnchanged?: boolean;
+    currentStatus: ResumeEvaluationStatus | null;
+    id: string;
+    now: Date;
+    operatorId: string | null;
+    organizationId: string;
+    status: ResumeEvaluationStatus | null;
+  },
+): Promise<ResumeEvaluationMutationResult> {
+  if (input.currentStatus === input.status && !input.auditUnchanged) {
+    return { currentStatus: input.status, status: "unchanged" };
+  }
+
+  await tx
+    .update(studioInterview)
+    .set({
+      resumeEvaluationStatus: input.status,
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(studioInterview.id, input.id),
+        eq(studioInterview.organizationId, input.organizationId),
+      ),
+    );
+
+  await tx.insert(interviewAuditLog).values({
+    action:
+      input.currentStatus === null ? "resume_evaluation_submitted" : "resume_evaluation_updated",
+    createdAt: input.now,
+    detail: {
+      fromStatus: input.currentStatus,
+      toStatus: input.status,
+    },
+    id: input.auditLogId ?? crypto.randomUUID(),
+    interviewRecordId: input.id,
+    operatorId: input.operatorId,
+    organizationId: input.organizationId,
+  });
+
+  return { currentStatus: input.status, status: "updated" };
+}
+
 export async function resetResumeEvaluationForJobChange(input: {
   id: string;
   nextJobDescriptionId: string | null;
@@ -181,32 +228,13 @@ export async function updateResumeEvaluationStatus(input: {
     if (!existing) {
       return { status: "not_found" };
     }
-    if (existing.resumeEvaluationStatus === input.status) {
-      return { currentStatus: input.status, status: "unchanged" };
-    }
-
-    await tx
-      .update(studioInterview)
-      .set({
-        resumeEvaluationStatus: input.status,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.id),
-          eq(studioInterview.organizationId, input.organizationId),
-        ),
-      );
-
-    await insertEvaluationAudit(tx, {
-      action: "resume_evaluation_updated",
-      fromStatus: existing.resumeEvaluationStatus,
-      interviewRecordId: input.id,
+    return setResumeEvaluationStatusWithAuditTx(tx, {
+      currentStatus: existing.resumeEvaluationStatus,
+      id: input.id,
+      now,
       operatorId: input.operatorId,
       organizationId: input.organizationId,
-      toStatus: input.status,
+      status: input.status,
     });
-
-    return { currentStatus: input.status, status: "updated" };
   });
 }

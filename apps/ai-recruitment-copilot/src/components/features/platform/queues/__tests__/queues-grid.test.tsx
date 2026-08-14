@@ -6,9 +6,11 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as DataGridModule from "@/components/data-grid";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { installNoopResizeObserver } from "@/test-utils/react-act";
 import { QueueJobDetailDialog, QueueOverview, QueuesGrid } from "../queues-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+installNoopResizeObserver();
 
 const matchedUploadQueueJob = vi.hoisted(() => ({
   attemptsMade: 1,
@@ -255,13 +257,13 @@ describe("QueuesGrid", () => {
       cell.textContent?.includes("操作"),
     );
     expect(actionHeader?.style.position).toBe("sticky");
-    expect(actionHeader?.style.right).toBe("0px");
+    expect(actionHeader?.style.insetInlineEnd).toBe("0px");
 
     const actionCell = [...document.querySelectorAll("td")].find((cell) =>
       cell.textContent?.includes("详情"),
     );
     expect(actionCell?.style.position).toBe("sticky");
-    expect(actionCell?.style.right).toBe("0px");
+    expect(actionCell?.style.insetInlineEnd).toBe("0px");
 
     act(() => {
       root.unmount();

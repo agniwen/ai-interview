@@ -15,7 +15,7 @@ import {
   updateMailIngestMessageResult,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
 import type { WorkerMailIngestAccount } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
-import { fetchJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { fetchPublishedJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   insertBatchWithItems,
   loadBatchDetail,
@@ -150,7 +150,9 @@ async function resolveMailJobBinding(
     jobDescriptionId: account.jobDescriptionId,
   };
   const codes = extractJobCodesFromSubject(subject);
-  const jobs = codes.length ? await fetchJobDescriptionsByCodes(account.organizationId, codes) : [];
+  const jobs = codes.length
+    ? await fetchPublishedJobDescriptionsByCodes(account.organizationId, codes)
+    : [];
   const matchedJobIds = new Set(jobs.map((job) => job.id));
   const jdBindStatus = deriveJdBindStatus({
     hasDefaultJd,
@@ -278,6 +280,7 @@ async function processAccountGroup(
       user: connectionAccount.username,
     },
     host: connectionAccount.imapHost,
+    logger: false,
     port: connectionAccount.imapPort,
     secure: connectionAccount.imapSecure,
   });

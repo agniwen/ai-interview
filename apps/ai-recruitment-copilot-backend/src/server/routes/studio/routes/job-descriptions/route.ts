@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -10,8 +11,15 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@arc/shared/job-descriptions";
-import { computeResumeScreeningPolicyHash } from "@arc/shared/resume-screening";
+import {
+  legacyJobDescriptionUpdateSchema,
+  publishedJobOperationalUpdateSchema,
+  structuredJobDescriptionCreateSchema,
+  structuredJobDescriptionDraftUpdateSchema,
+  structuredJobDescriptionPublishSchema,
+} from "@arc/shared/job-descriptions";
+import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
+import { jobDescriptionDeductionRulesSchema } from "@arc/db-schema/job-description-structured-config";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -19,11 +27,17 @@ import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   listAllJobDescriptions,
+  listRecruitingJobDescriptions,
   loadJobDescriptionById,
+  loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
   serializeJobDescription,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import {
+  deleteJobDescriptionSemanticIndexBestEffort,
+  enqueueJobDescriptionIndexJobBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/jd-semantic/enqueue";
 import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
 import { generateResumeScreeningPolicyFromJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/resume-screening-policy-generate";
 import {
@@ -33,11 +47,21 @@ import {
 import { recommendCandidatesForJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";
+import {
+  generateStructuredJobBlueprintPreview,
+  JobEvaluationLifecycleError,
+  publishStructuredJob,
+  saveStructuredJobRuleDraft,
+} from "./application/job-evaluation-lifecycle";
+import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
+import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
+import { jobEvaluationUpgradeRouter } from "./routes/upgrade/route";
+import { jobEvaluationPreviewStreamRouter } from "./routes/evaluation-blueprint-preview/route";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
   jobName: z.string().trim().max(120).optional(),
-  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
+  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(10_000),
 });
 
 const generateResumeScreeningPolicyBodySchema = z.object({
@@ -130,6 +154,53 @@ const recommendationBodySchema = z.object({
   limit: z.number().int().min(1).max(50).optional().default(20),
 });
 
+const saveEvaluationRuleDraftBodySchema = z
+  .object({
+    deductionRules: jobDescriptionDeductionRulesSchema,
+    expectedBlueprintHash: z.string().trim().min(1),
+    ruleDraft: jobEvaluationRuleDraftSchema,
+  })
+  .strict();
+
+const jobDescriptionPatchBodySchema = z.union([
+  legacyJobDescriptionUpdateSchema,
+  structuredJobDescriptionDraftUpdateSchema,
+  publishedJobOperationalUpdateSchema,
+]);
+
+function jobLifecycleErrorPayload(error: JobEvaluationLifecycleError) {
+  const messages: Record<string, string> = {
+    JOB_ALREADY_PUBLISHED: "岗位已经发布。",
+    JOB_BLUEPRINT_GENERATION_FAILED: "AI 评估蓝图生成暂时不可用，请稍后重试。",
+    JOB_BLUEPRINT_PREVIEW_STALE: "评估蓝图已失效，请重新生成并确认。",
+    JOB_EVALUATION_MODE_IMMUTABLE: "旧岗位不能切换到新版评估流程。",
+    JOB_NOT_FOUND: "岗位不存在。",
+  };
+  return {
+    code: error.code,
+    error: messages[error.code] ?? "岗位状态冲突，请刷新后重试。",
+  };
+}
+
+function evaluationPreviewError(error: unknown): {
+  payload: { code: string; error: string };
+  status: 404 | 409 | 422 | 503;
+} | null {
+  if (error instanceof BlueprintCompilationError) {
+    return { payload: { code: error.code, error: error.message }, status: 422 };
+  }
+  if (error instanceof JobEvaluationLifecycleError) {
+    let status: 404 | 409 | 503 = 409;
+    if (error.code === "JOB_NOT_FOUND") {
+      status = 404;
+    } else if (error.code === "JOB_BLUEPRINT_GENERATION_FAILED") {
+      status = 503;
+    }
+    return { payload: jobLifecycleErrorPayload(error), status };
+  }
+  return null;
+}
+
 function buildReferralUrl(requestUrl: string, token: string): string {
   const { origin } = new URL(requestUrl);
   return `${origin}/referrals/${encodeURIComponent(token)}`;
@@ -203,6 +274,14 @@ export const jobDescriptionsRouter = factory
     const records = await listAllJobDescriptions(activeOrg.id);
     return c.json({ records }, 200);
   })
+  .get("/recruiting", requirePermission("jd", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const records = await listRecruitingJobDescriptions(activeOrg.id);
+    return c.json({ records }, 200);
+  })
   .post("/generate-code", requirePermission("jd", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -269,16 +348,13 @@ export const jobDescriptionsRouter = factory
   .post(
     "/",
     requirePermission("jd", "create"),
-    zValidator("json", jobDescriptionFormSchema, jsonValidatorError("表单校验失败。")),
+    zValidator("json", structuredJobDescriptionCreateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
-      const resumeScreeningPolicyHash = computeResumeScreeningPolicyHash(
-        input.resumeScreeningPolicy,
-      );
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
@@ -310,21 +386,35 @@ export const jobDescriptionsRouter = factory
           code,
           createdAt: now,
           createdBy: c.var.user?.id ?? null,
+          deductionRuleSetVersion: null,
           departmentId: input.departmentId,
           description: input.description?.trim() || null,
+          evaluationBlueprint: null,
+          evaluationBlueprintHash: null,
+          evaluationBlueprintPreview: null,
+          evaluationBlueprintPreviewGeneratedAt: null,
+          evaluationBlueprintPreviewHash: null,
+          evaluationBlueprintPreviewInputHash: null,
+          evaluationBlueprintSchemaVersion: null,
+          evaluationMode: "structured",
+          evaluationUpgradedAt: null,
+          evaluationUpgradedBy: null,
           feishuChatBoundAt: null,
           feishuChatBoundBy: null,
           feishuChatId: null,
           id: crypto.randomUUID(),
+          lifecycleStatus: "draft",
           name: input.name.trim(),
           organizationId: activeOrg.id,
           // presetQuestions is deprecated — column kept with default [] for legacy
           // data; new rows always store an empty array.
           presetQuestions: [],
           prompt: input.prompt.trim(),
-          resumeScreeningPolicy: input.resumeScreeningPolicy,
-          resumeScreeningPolicyHash,
-          resumeScreeningPolicyVersion: input.resumeScreeningPolicy.version,
+          publishedAt: null,
+          resumeScreeningPolicy: null,
+          resumeScreeningPolicyHash: null,
+          resumeScreeningPolicyVersion: 1,
+          structuredConfig: input.structuredConfig,
           updatedAt: now,
         } satisfies typeof jobDescription.$inferSelect;
 
@@ -354,13 +444,151 @@ export const jobDescriptionsRouter = factory
       return c.json({ error: "岗位编码候选已用尽，请重试。" }, 409);
     },
   )
+  .post("/:id/evaluation-blueprint-preview", requirePermission("jd", "update"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    try {
+      const preview = await generateStructuredJobBlueprintPreview({
+        actorId: user.id,
+        jobDescriptionId: c.req.param("id"),
+        organizationId: activeOrg.id,
+      });
+      safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+      return c.json(preview, 200);
+    } catch (error) {
+      const failure = evaluationPreviewError(error);
+      if (failure) {
+        return c.json(failure.payload, failure.status);
+      }
+      throw error;
+    }
+  })
+  .put(
+    "/:id/evaluation-rule-draft",
+    requirePermission("jd", "update"),
+    zValidator("json", saveEvaluationRuleDraftBodySchema, jsonValidatorError("评分规则无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const body = c.req.valid("json");
+      try {
+        const preview = await saveStructuredJobRuleDraft({
+          actorId: user.id,
+          deductionRules: body.deductionRules,
+          expectedBlueprintHash: body.expectedBlueprintHash,
+          jobDescriptionId: c.req.param("id"),
+          organizationId: activeOrg.id,
+          ruleDraft: body.ruleDraft,
+        });
+        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+        return c.json(preview, 200);
+      } catch (error) {
+        if (error instanceof JobEvaluationLifecycleError) {
+          const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
+          return c.json(jobLifecycleErrorPayload(error), status);
+        }
+        if (error instanceof z.ZodError) {
+          return c.json({ error: "评分规则无效。" }, 422);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/:id/publish",
+    requirePermission("jd", "update"),
+    zValidator("json", structuredJobDescriptionPublishSchema, jsonValidatorError("发布参数无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      try {
+        await publishStructuredJob({
+          actorId: user.id,
+          confirmedBlueprintHash: c.req.valid("json").confirmedBlueprintHash,
+          jobDescriptionId: id,
+          organizationId: activeOrg.id,
+        });
+        await enqueueJobDescriptionIndexJobBestEffort({
+          jobDescriptionId: id,
+          organizationId: activeOrg.id,
+        });
+        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+        const record = await loadJobDescriptionById(activeOrg.id, id);
+        return c.json(record, 200);
+      } catch (error) {
+        if (error instanceof JobEvaluationLifecycleError) {
+          const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
+          return c.json(jobLifecycleErrorPayload(error), status);
+        }
+        throw error;
+      }
+    },
+  )
+  .patch(
+    "/:id/operational",
+    requirePermission("jd", "update"),
+    zValidator("json", publishedJobOperationalUpdateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadJobDescriptionById(activeOrg.id, id);
+      if (!existing) {
+        return c.json({ error: "在招岗位不存在。" }, 404);
+      }
+      const input = c.req.valid("json");
+      const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
+      const { error } = await validateReferences(
+        activeOrg.id,
+        input.departmentId,
+        interviewerIds,
+        input.allowCrossDepartmentInterviewers,
+      );
+      if (error) {
+        return c.json({ error }, 400);
+      }
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(jobDescription)
+          .set({
+            allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
+            departmentId: input.departmentId,
+            updatedAt: now,
+          })
+          .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+        await tx
+          .delete(jobDescriptionInterviewer)
+          .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
+        await tx.insert(jobDescriptionInterviewer).values(
+          interviewerIds.map((interviewerId) => ({
+            createdAt: now,
+            interviewerId,
+            jobDescriptionId: id,
+          })),
+        );
+      });
+      safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+      safeUpdateTag(`interviewers:${activeOrg.id}`);
+      return c.json(await loadJobDescriptionById(activeOrg.id, id), 200);
+    },
+  )
   .post("/:id/referral-link", requirePermission("jd", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
-    const record = await loadJobDescriptionById(activeOrg.id, id);
+    const record = await loadRecruitingJobDescriptionById(activeOrg.id, id);
     if (!record) {
       return c.json({ error: "在招岗位不存在。" }, 404);
     }
@@ -397,7 +625,7 @@ export const jobDescriptionsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const record = await loadJobDescriptionById(activeOrg.id, id);
+      const record = await loadRecruitingJobDescriptionById(activeOrg.id, id);
       if (!record) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
@@ -429,7 +657,8 @@ export const jobDescriptionsRouter = factory
   .patch(
     "/:id",
     requirePermission("jd", "update"),
-    zValidator("json", jobDescriptionUpdateSchema, jsonValidatorError("表单校验失败。")),
+    zValidator("json", jobDescriptionPatchBodySchema, jsonValidatorError("表单校验失败。")),
+    // oxlint-disable-next-line complexity -- mode-specific update contracts converge at one legacy URL.
     async (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
@@ -441,52 +670,102 @@ export const jobDescriptionsRouter = factory
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
 
-      const input = c.req.valid("json");
-      const nextPolicyHash = computeResumeScreeningPolicyHash(input.resumeScreeningPolicy);
-      const existingPolicyHash =
-        existing.resumeScreeningPolicyHash ??
-        computeResumeScreeningPolicyHash(existing.resumeScreeningPolicy);
-      const policyChanged = nextPolicyHash !== existingPolicyHash;
-      const nextPolicyVersion = policyChanged
-        ? existing.resumeScreeningPolicyVersion + 1
-        : existing.resumeScreeningPolicyVersion;
-      const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
+      const rawInput = c.req.valid("json");
+      let input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
+      if (existing.evaluationMode === "legacy") {
+        input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
+        if (!input.success) {
+          return c.json(
+            {
+              code: "JOB_LEGACY_REQUIRES_UPGRADE",
+              error: "老版本岗位的评估设置需要通过升级到新版进行修改。",
+            },
+            409,
+          );
+        }
+      } else if (existing.lifecycleStatus === "draft") {
+        input = structuredJobDescriptionDraftUpdateSchema.safeParse(rawInput);
+      }
+      if (!input.success) {
+        if (existing.evaluationMode === "structured" && existing.lifecycleStatus === "published") {
+          return c.json(
+            {
+              code: "JOB_EVALUATION_FROZEN",
+              error: "岗位已发布，评估相关设置不能修改。",
+            },
+            409,
+          );
+        }
+        return c.json({ error: "表单校验失败。" }, 400);
+      }
+      const interviewerIds = dedupeInterviewerIds(input.data.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
       const { error } = await validateReferences(
         activeOrg.id,
-        input.departmentId,
+        input.data.departmentId,
         interviewerIds,
-        input.allowCrossDepartmentInterviewers,
+        input.data.allowCrossDepartmentInterviewers,
       );
       if (error) {
         return c.json({ error }, 400);
       }
 
       const now = new Date();
-      const updateValues = {
-        allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
-        departmentId: input.departmentId,
-        description: input.description?.trim() || null,
-        ...(!existing.code && input.code ? { code: input.code } : {}),
-        name: input.name.trim(),
-        prompt: input.prompt.trim(),
-        resumeScreeningPolicy: {
-          ...input.resumeScreeningPolicy,
-          version: nextPolicyVersion,
-        },
-        resumeScreeningPolicyHash: nextPolicyHash,
-        resumeScreeningPolicyVersion: nextPolicyVersion,
+      const operationalValues = {
+        allowCrossDepartmentInterviewers: input.data.allowCrossDepartmentInterviewers,
+        departmentId: input.data.departmentId,
         updatedAt: now,
       };
+      let updateValues: Partial<typeof jobDescription.$inferInsert> = operationalValues;
+      if (existing.evaluationMode === "structured" && existing.lifecycleStatus === "draft") {
+        const draftInput = structuredJobDescriptionDraftUpdateSchema.parse(input.data);
+        const oldInputHash = computeJobEvaluationDraftInputHash({
+          description: existing.description,
+          prompt: existing.prompt,
+          structuredConfig: existing.structuredConfig,
+        });
+        const newInputHash = computeJobEvaluationDraftInputHash({
+          description: draftInput.description?.trim() || null,
+          prompt: draftInput.prompt,
+          structuredConfig: draftInput.structuredConfig,
+        });
+        updateValues = {
+          ...operationalValues,
+          description: draftInput.description?.trim() || null,
+          ...(!existing.code && draftInput.code ? { code: draftInput.code } : {}),
+          name: draftInput.name.trim(),
+          prompt: draftInput.prompt.trim(),
+          structuredConfig: draftInput.structuredConfig,
+          ...(oldInputHash === newInputHash
+            ? {}
+            : {
+                evaluationBlueprintPreview: null,
+                evaluationBlueprintPreviewGeneratedAt: null,
+                evaluationBlueprintPreviewHash: null,
+                evaluationBlueprintPreviewInputHash: null,
+              }),
+        };
+      }
       try {
-        await db.transaction(async (tx) => {
-          await tx
+        const updatedCurrentLifecycle = await db.transaction(async (tx) => {
+          const updated = await tx
             .update(jobDescription)
             .set(updateValues)
-            .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+            .where(
+              and(
+                eq(jobDescription.id, id),
+                eq(jobDescription.organizationId, activeOrg.id),
+                eq(jobDescription.evaluationMode, existing.evaluationMode),
+                eq(jobDescription.lifecycleStatus, existing.lifecycleStatus),
+              ),
+            )
+            .returning({ id: jobDescription.id });
+          if (updated.length === 0) {
+            return false;
+          }
 
           // Replace junction links atomically.
           await tx
@@ -499,7 +778,11 @@ export const jobDescriptionsRouter = factory
               jobDescriptionId: id,
             })),
           );
+          return true;
         });
+        if (!updatedCurrentLifecycle) {
+          return c.json({ code: "JOB_EVALUATION_FROZEN", error: "岗位状态已变化。" }, 409);
+        }
       } catch (updateError) {
         if (isJobCodeConflict(updateError)) {
           return c.json({ error: "岗位编码已被占用，请重新生成。" }, 409);
@@ -509,6 +792,7 @@ export const jobDescriptionsRouter = factory
 
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       safeUpdateTag(`interviewers:${activeOrg.id}`);
+
       const updated = await loadJobDescriptionById(activeOrg.id, id);
       return c.json(updated, 200);
     },
@@ -552,5 +836,13 @@ export const jobDescriptionsRouter = factory
     safeUpdateTag(`job-descriptions:${activeOrg.id}`);
     safeUpdateTag(cacheTags.studioInterviews(activeOrg.id));
     safeUpdateTag(`interviewers:${activeOrg.id}`);
+
+    await deleteJobDescriptionSemanticIndexBestEffort({
+      jobDescriptionId: id,
+      organizationId: activeOrg.id,
+    });
+
     return c.json({ success: true }, 200);
-  });
+  })
+  .route("/", jobEvaluationUpgradeRouter)
+  .route("/", jobEvaluationPreviewStreamRouter);

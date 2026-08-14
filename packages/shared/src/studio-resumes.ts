@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeReview, ResumeReviewAction } from "@arc/db-schema/resume-review";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
@@ -23,6 +23,12 @@ import type {
   ScheduleEntryStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "./resume-screening";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+  StructuredResumeGrade,
+} from "@arc/db-schema/structured-resume-evaluation";
+import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。
@@ -96,12 +102,28 @@ export interface ResumeLibraryProfileSnapshotLine {
   secondary: string | null;
 }
 
+/**
+ * Compact resume profile projection for list / match cards.
+ * Library list cards use work + education only; duplicate-match cards may also
+ * include projects (recent 3 companies / 2 education / 3 projects).
+ */
 export interface ResumeLibraryProfileSnapshot {
   education: ResumeLibraryProfileSnapshotLine[];
   educationHasMore: boolean;
+  projects: ResumeLibraryProfileSnapshotLine[];
+  projectsHasMore: boolean;
   work: ResumeLibraryProfileSnapshotLine[];
   workHasMore: boolean;
 }
+
+export const EMPTY_RESUME_PROFILE_SNAPSHOT: ResumeLibraryProfileSnapshot = {
+  education: [],
+  educationHasMore: false,
+  projects: [],
+  projectsHasMore: false,
+  work: [],
+  workHasMore: false,
+};
 
 /**
  * 招聘台列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
@@ -118,28 +140,30 @@ export interface ResumeLibraryListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   notes: string | null;
-  hrResumeAssessment: string | null;
-  hrResumeAssessmentUpdatedAt: string | null;
-  hrResumeAssessmentUpdatedBy: string | null;
   jobDescriptionId: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
+  jobEvaluationMode: JobEvaluationMode | null;
   resumeFileName: string | null;
-  resumeContentHash: string | null;
-  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  // 列表卡片轻量投影：从 resume_review jsonb 抽出，避免整包下发。
+  // Lightweight card projection extracted from resume_review jsonb.
+  resumeReviewBaseScore: number | null;
+  resumeReviewNextStepAction: ResumeReviewAction | null;
+  resumeReviewStatus: ResumeReviewStatus;
   resumeReviewError: string | null;
   resumeReviewGeneratedAt: string | null;
   resumeReviewQueuedAt: string | null;
-  resumeReviewStatus: ResumeReviewStatus;
-  resumeScreeningError: string | null;
-  resumeScreeningEvaluatedAt: string | null;
-  resumeScreeningResult: ResumeScreeningResult | null;
-  resumeScreeningStatus: ResumeScreeningStatus;
-  resumeScreeningStale: boolean;
+  resumeReviewRunId: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeEvaluationArtifactMode: JobEvaluationMode | null;
+  resumeEvaluationAttemptMode: JobEvaluationMode | null;
+  structuredCompositeScore: number | null;
+  structuredGateSortRank: number | null;
+  structuredGateStatus: StructuredResumeGateStatus | null;
+  structuredScoreGrade: StructuredResumeGrade | null;
   resumeSummary: string | null;
-  resumeParsedAt: string | null;
-  resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeParseRetryable: boolean;
   resumeSkills: string[];
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
@@ -157,21 +181,6 @@ export interface ResumeLibraryListRecord {
   // Derived progress for the current stage; only ai_interview produces
   // schedule data today, others are placeholders.
   stageProgress: ResumeStageProgress;
-  // 阶段元数据（可空，按阶段写入）。Stage metadata, written on stage transitions.
-  writtenTestScheduledAt: string | null;
-  writtenTestScore: string | null;
-  humanInterviewScheduledAt: string | null;
-  humanInterviewerId: string | null;
-  offerSentAt: string | null;
-  offerAcceptedAt: string | null;
-  closedAt: string | null;
-  closedReason: string | null;
-  // 候选人期望（薪资 / 入职日等），Offer 阶段用。
-  // Candidate expectations JSON populated during the offer flow.
-  candidateExpectationsMeta: CandidateExpectationsMeta | null;
-  // 结案元数据（outcome 详情 + previousStage）。
-  // Closed-stage details + previousStage for reactivation.
-  closedMeta: ClosedMeta | null;
   createdAt: string;
   updatedAt: string;
   // 最近一次面试时间（AI 轮次或真人轮次的 max scheduledAt），无任何轮次则为 null。
@@ -180,7 +189,6 @@ export interface ResumeLibraryListRecord {
   createdBy: string | null;
   creatorName: string | null;
   creatorImage: string | null;
-  creatorOrganizationName: string | null;
 }
 
 /**
@@ -190,8 +198,35 @@ export interface ResumeLibraryListRecord {
  * (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
+  candidateExpectationsMeta: CandidateExpectationsMeta | null;
+  closedAt: string | null;
+  closedMeta: ClosedMeta | null;
+  closedReason: string | null;
+  creatorOrganizationName: string | null;
+  hrResumeAssessment: string | null;
+  hrResumeAssessmentUpdatedAt: string | null;
+  hrResumeAssessmentUpdatedBy: string | null;
+  humanInterviewerId: string | null;
+  humanInterviewScheduledAt: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReview: ResumeReview | null;
+  resumeContentHash: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeParsedAt: string | null;
+  resumeParseError: string | null;
+  resumeReviewError: string | null;
+  resumeReviewGeneratedAt: string | null;
+  resumeReviewQueuedAt: string | null;
+  structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
+  resumeScreeningError: string | null;
+  resumeScreeningEvaluatedAt: string | null;
+  resumeScreeningResult: ResumeScreeningResult | null;
+  resumeScreeningStale: boolean;
+  resumeScreeningStatus: ResumeScreeningStatus;
+  offerAcceptedAt: string | null;
+  offerSentAt: string | null;
+  writtenTestScheduledAt: string | null;
+  writtenTestScore: string | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 
@@ -358,7 +393,12 @@ export interface PaginatedResumeLibraryResult {
 }
 
 export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
-export const resumeLibrarySortIds = ["createdAt", "candidateName", "updatedAt"] as const;
+export const resumeLibrarySortIds = [
+  "createdAt",
+  "candidateName",
+  "structuredScore",
+  "updatedAt",
+] as const;
 export type ResumeLibrarySortId = (typeof resumeLibrarySortIds)[number];
 
 export function canEditResumeRecord(status: ResumeParseStatus): boolean {
@@ -496,6 +536,34 @@ export const resumeLibraryEditFormSchema = resumeLibraryFormSchema.extend({
 
 export type ResumeLibraryFormValues = z.infer<typeof resumeLibraryFormSchema>;
 
+/**
+ * Lightweight identity edit from the resume overview "候选人信息" section.
+ * Updates table columns and mirrors into resumeProfile JSON when present.
+ */
+export const resumeIdentityUpdateSchema = z.object({
+  age: z.number().int().min(0).max(120).nullable(),
+  candidateEmail: z
+    .string()
+    .trim()
+    .max(200, "邮箱不能超过 200 个字符")
+    .refine((v) => v === "" || z.string().email().safeParse(v).success, {
+      message: "请输入有效邮箱",
+    }),
+  candidateName: z
+    .string()
+    .trim()
+    .min(1, "请填写候选人姓名")
+    .max(120, "候选人姓名不能超过 120 个字符"),
+  candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
+  gender: z.string().trim().max(40),
+  jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
+  resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
+  targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
+  workYears: z.number().min(0).max(80).nullable(),
+});
+
+export type ResumeIdentityUpdateInput = z.infer<typeof resumeIdentityUpdateSchema>;
+
 export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
   return {
     candidateEmail: "",
@@ -512,19 +580,33 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 /**
  * 招聘台页头部 chart 的聚合数据。
  * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
- * - dailyAdded：近 30 天每日新增；服务端只返回有数据的日期，零填充由客户端补。
+ * - dailyAdded：近一年（365 天）每日新增；服务端只返回有数据的日期，零填充由客户端补。
+ *   每日附带 byUser 拆分，供 GitHub 风格日历热力图 hover 展示各上传者数量。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。
  *
  * Aggregations for the charts shown above the resume-library table.
  * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
  *   outcomes are excluded so the funnel reflects the live pool.
- * - dailyAdded: daily new rows over the last 30 days; only non-empty days are
- *   returned, the client zero-fills the gaps.
+ * - dailyAdded: daily new rows over the last 365 days; only non-empty days are
+ *   returned, the client zero-fills the year calendar grid. Each day may include
+ *   byUser for contribution-style tooltips (who uploaded how many that day).
  * - conversion: how many candidates have already launched an AI interview
  *   round vs not (archived excluded).
  */
+export interface ResumeLibraryDailyAddedUserCount {
+  count: number;
+  userId: string;
+  userName: string;
+}
+
+export interface ResumeLibraryDailyAdded {
+  byUser: ResumeLibraryDailyAddedUserCount[];
+  count: number;
+  day: string;
+}
+
 export interface ResumeLibraryMetrics {
   byPipeline: { stage: PipelineStage; outcome: CandidateOutcome; count: number }[];
-  dailyAdded: { day: string; count: number }[];
+  dailyAdded: ResumeLibraryDailyAdded[];
   conversion: { withInterview: number; withoutInterview: number };
 }

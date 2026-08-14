@@ -1,0 +1,70 @@
+import { Button } from "@mastra/playground-ui/components/Button";
+import { ErrorState } from "@mastra/playground-ui/components/ErrorState";
+import { ListSearch } from "@mastra/playground-ui/components/ListSearch";
+import { NoDataPageLayout, PageLayout } from "@mastra/playground-ui/components/PageLayout";
+import { PermissionDenied } from "@mastra/playground-ui/components/PermissionDenied";
+import { SessionExpired } from "@mastra/playground-ui/components/SessionExpired";
+import { is401UnauthorizedError, is403ForbiddenError } from "@mastra/playground-ui/utils/errors";
+import { CalendarClockIcon } from "lucide-react";
+import { useState } from "react";
+import { Link } from "@/components/features/mastra-studio/router/compat";
+import { NoWorkflowsInfo } from "@/components/features/mastra-studio/upstream/domains/workflows/components/workflows-list/no-workflows-info";
+import { WorkflowsList } from "@/components/features/mastra-studio/upstream/domains/workflows/components/workflows-list/workflows-list";
+import { useWorkflows } from "@/components/features/mastra-studio/upstream/domains/workflows/hooks/use-workflows";
+
+function Workflows() {
+  const { data: workflows, isLoading, error } = useWorkflows();
+  const [search, setSearch] = useState("");
+
+  if (error && is401UnauthorizedError(error)) {
+    return (
+      <NoDataPageLayout>
+        <SessionExpired />
+      </NoDataPageLayout>
+    );
+  }
+
+  if (error && is403ForbiddenError(error)) {
+    return (
+      <NoDataPageLayout>
+        <PermissionDenied resource="工作流" />
+      </NoDataPageLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <NoDataPageLayout>
+        <ErrorState title="加载工作流失败" message={error.message} />
+      </NoDataPageLayout>
+    );
+  }
+
+  if (Object.keys(workflows || {}).length === 0 && !isLoading) {
+    return (
+      <NoDataPageLayout>
+        <NoWorkflowsInfo />
+      </NoDataPageLayout>
+    );
+  }
+
+  return (
+    <PageLayout>
+      <PageLayout.TopArea>
+        <PageLayout.Row align="center" stack="responsive">
+          <div className="max-w-120 flex-1">
+            <ListSearch onSearch={setSearch} label="筛选工作流" placeholder="按名称或描述筛选" />
+          </div>
+          <Button as={Link} to="/workflows/schedules" variant="primary" className="shrink-0">
+            <CalendarClockIcon />
+            定时任务
+          </Button>
+        </PageLayout.Row>
+      </PageLayout.TopArea>
+
+      <WorkflowsList workflows={workflows || {}} isLoading={isLoading} search={search} />
+    </PageLayout>
+  );
+}
+
+export default Workflows;

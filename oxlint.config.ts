@@ -11,9 +11,12 @@ export default defineConfig({
     "**/src/hooks/agents-ui/**",
     "**/src/components/ui/**",
     "**/src/components/react-bits/**",
+    "**/src/components/reui/**",
     "**/src/components/spell-ui/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",
+    // Upstream/shared shadcn-style UI — keep parity with web exclusions.
+    "apps/ai-recruitment-copilot-desktop/src/renderer/src/components/ui/**",
   ],
   overrides: [
     {
@@ -26,12 +29,24 @@ export default defineConfig({
       files: ["apps/ai-recruitment-copilot/src/routes/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-head-element": "off",
+        // TanStack Router's option order is part of its type-inference chain.
+        // React Doctor validates that order, so route objects must not be
+        // alphabetized by Ultracite's global sort-keys rule.
+        "sort-keys": "off",
       },
     },
     {
       files: ["apps/ai-recruitment-copilot/src/app/_components/home/footer.tsx"],
       rules: {
         "nextjs/no-html-link-for-pages": "off",
+      },
+    },
+    {
+      // Electron desktop app is not a Next.js app; Next-only rules do not apply.
+      files: ["apps/ai-recruitment-copilot-desktop/**/*.{ts,tsx}"],
+      rules: {
+        "nextjs/no-html-link-for-pages": "off",
+        "nextjs/no-img-element": "off",
       },
     },
   ],

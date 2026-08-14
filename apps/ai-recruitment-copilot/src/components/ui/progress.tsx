@@ -5,6 +5,12 @@ import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { cn } from "@arc/shared/utils";
 
 function Progress({ className, children, value, ...props }: ProgressPrimitive.Root.Props) {
+  const min = props.min ?? 0;
+  const max = props.max ?? 100;
+  const range = max - min;
+  const progressScale =
+    value === null || range <= 0 ? 0 : Math.min(1, Math.max(0, (value - min) / range));
+
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -19,7 +25,11 @@ function Progress({ className, children, value, ...props }: ProgressPrimitive.Ro
       >
         <ProgressPrimitive.Indicator
           data-slot="progress-indicator"
-          className="h-full bg-primary transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+          className="h-full origin-left bg-primary transition-transform duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none"
+          style={{
+            transform: `scaleX(${progressScale})`,
+            width: "100%",
+          }}
         />
       </ProgressPrimitive.Track>
     </ProgressPrimitive.Root>
@@ -41,7 +51,7 @@ function ProgressIndicator({ className, ...props }: ProgressPrimitive.Indicator.
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
       className={cn(
-        "h-full bg-primary transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+        "h-full bg-primary transition-[width] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none",
         className,
       )}
       {...props}

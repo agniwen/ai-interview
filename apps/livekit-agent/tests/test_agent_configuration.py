@@ -1,8 +1,9 @@
 import json
 import logging
+from typing import ClassVar
 
 import report as report_module
-from agent_config import resolve_agent_name
+from agent_config import resolve_agent_name, resolve_self_hosted
 from dispatch_context import parse_dispatch_context
 
 
@@ -25,6 +26,27 @@ class _FailingClient:
         return _Response()
 
 
+class _SuccessfulResponse:
+    status_code = 201
+
+
+class _CapturingClient:
+    calls: ClassVar[list] = []
+
+    def __init__(self, **_kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return _SuccessfulResponse()
+
+
 def test_agent_name_defaults_to_existing_dispatch_name():
     assert resolve_agent_name({}) == "giaogiao"
     assert resolve_agent_name({"AGENT_NAME": "  "}) == "giaogiao"
@@ -34,6 +56,11 @@ def test_agent_name_uses_trimmed_environment_override():
     assert (
         resolve_agent_name({"AGENT_NAME": "  interview-agent  "}) == "interview-agent"
     )
+
+
+def test_self_hosted_mode_is_opt_in():
+    assert resolve_self_hosted({}) is False
+    assert resolve_self_hosted({"INTERVIEW_SELF_HOSTED": "1"}) is True
 
 
 async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatch):
@@ -50,7 +77,7 @@ async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatc
     interview_context = parse_dispatch_context(
         json.dumps(
             {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "session": {
                     "allowTextInput": True,
                     "interviewRecordId": "record-1",
@@ -64,6 +91,15 @@ async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatc
                     "opening": "opening",
                     "closing": "closing",
                 },
+                "questions": [
+                    {
+                        "id": "question-1",
+                        "content": "请介绍一个项目。",
+                        "difficulty": "easy",
+                        "evaluationFocus": None,
+                        "followUpDirections": None,
+                    }
+                ],
             }
         )
     )
@@ -82,3 +118,61 @@ async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatc
     assert "record-1" in caplog.text
     assert "room-1" in caplog.text
     assert "turn_count=1" in caplog.text
+
+
+async def test_question_checkpoint_posts_one_idempotent_outcome(monkeypatch):
+    _CapturingClient.calls = []
+    monkeypatch.setenv("CALLBACK_BASE_URL", "https://example.test")
+    monkeypatch.setenv("AGENT_CALLBACK_SECRET", "secret")
+    monkeypatch.setattr(report_module.httpx, "AsyncClient", _CapturingClient)
+
+    await report_module.send_question_checkpoint(
+        conversation_id="room-1",
+        interview_record_id="record-1",
+        schedule_entry_id="round-1",
+        outcome={
+            "answerSummary": "说明了项目职责",
+            "difficulty": "easy",
+            "endedAtSecs": 30,
+            "evaluationFocus": None,
+            "followUpCount": 0,
+            "followUpDirections": None,
+            "question": "请介绍一个项目。",
+            "questionId": "question-1",
+            "reason": None,
+            "revision": 1,
+            "startedAtSecs": 10,
+            "status": "answered",
+        },
+    )
+
+    assert _CapturingClient.calls == [
+        (
+            "https://example.test/api/agent/checkpoint",
+            {
+                "headers": {
+                    "Content-Type": "application/json",
+                    "X-Agent-Secret": "secret",
+                },
+                "json": {
+                    "conversationId": "room-1",
+                    "interviewRecordId": "record-1",
+                    "outcome": {
+                        "answerSummary": "说明了项目职责",
+                        "difficulty": "easy",
+                        "endedAtSecs": 30,
+                        "evaluationFocus": None,
+                        "followUpCount": 0,
+                        "followUpDirections": None,
+                        "question": "请介绍一个项目。",
+                        "questionId": "question-1",
+                        "reason": None,
+                        "revision": 1,
+                        "startedAtSecs": 10,
+                        "status": "answered",
+                    },
+                    "scheduleEntryId": "round-1",
+                },
+            },
+        )
+    ]

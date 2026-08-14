@@ -10,7 +10,7 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { cn } from "@arc/shared/utils";
 
 import {
@@ -34,7 +34,6 @@ import { StudioPersonDetailBody } from "./studio-person-detail-body";
 export function StudioPersonDetailView({ model }: { model: StudioPersonDetailViewModel }) {
   const {
     activeTab,
-    canUseTimelineRailScroll,
     canViewReportMetadata,
     confirmResetSubmission,
     description,
@@ -57,8 +56,8 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
 
   const body = <StudioPersonDetailBody model={model} />;
   const footer = null;
-  const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
-  const modalClassName = cn("sm:rounded-2xl", canUseTimelineRailScroll && "xl:h-[90vh]");
+  const bodyClassName = undefined;
+  const modalClassName = "sm:rounded-2xl";
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = "3xl";
@@ -84,7 +83,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
       </Tabs>
       <AnimatePresence>
         {floatingActionBar ? (
-          <motion.div
+          <m.div
             animate={{ opacity: 1, y: 0 }}
             className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
             exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
@@ -101,7 +100,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
             >
               {floatingActionBar}
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       {mode === "interview" && canViewReportMetadata ? (

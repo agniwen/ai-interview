@@ -7,21 +7,82 @@ import type {
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
+  ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
+import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { Badge } from "@/components/ui/badge";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 
+export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
+  refetchOnMount: "always",
+  staleTime: 0,
+} as const;
+
+export const RESUME_POOL_LOAD_MORE_ROOT_MARGIN = "720px 0px";
+
 export type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
   sourceType: ResumePoolSourceFilter;
+  uploaderId: string;
 };
+
+export function createResumePoolFilters(
+  scope: ResumePoolScope,
+  currentUserId: string | null,
+): ResumePoolFilters {
+  return {
+    importStatus: "",
+    parseStatus: "",
+    sourceType: "all",
+    uploaderId: scope === "private" ? (currentUserId ?? "") : "",
+  };
+}
+
+export function buildResumePoolUploaderFilterOptions(uploaders: ResumePoolUploaderOption[]) {
+  const options = uploaders.map((uploader) => ({
+    avatarUrl: uploader.image,
+    label: uploader.name,
+    searchValue: `${uploader.name} ${uploader.email}`,
+    value: uploader.id,
+  }));
+  return uploaders.length > 1 ? [{ label: "全部上传人", value: "all" }, ...options] : options;
+}
+
+export function isResumePoolUploaderFilterDisabled(uploaders: ResumePoolUploaderOption[]) {
+  return uploaders.length <= 1;
+}
+
+export function getResumePoolUploaderFilterAvailability({
+  isFetching,
+  isSuccess,
+  uploaders,
+}: {
+  isFetching: boolean;
+  isSuccess: boolean;
+  uploaders: ResumePoolUploaderOption[];
+}) {
+  const isLimitedToSelf = isResumePoolUploaderFilterDisabled(uploaders);
+  return {
+    disabled: isFetching || isLimitedToSelf,
+    disabledReason:
+      isSuccess && !isFetching && isLimitedToSelf ? "当前仅可查看自己的数据" : undefined,
+  };
+}
 
 export function normalizeScope(value: unknown): ResumePoolScope {
   return value === "private" ? "private" : "public";
+}
+
+export function normalizeResumePoolUploaderId(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized || undefined;
 }
 
 export function getCandidateTitle(record: ResumePoolListRecord) {
@@ -77,36 +138,14 @@ export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () =
   if (!record.duplicateMatch) {
     return null;
   }
-  const label =
-    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
-  return onClick ? (
-    <Badge
-      className="cursor-pointer"
-      render={
-        <button
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClick();
-          }}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-      variant={variant}
-    />
-  ) : (
-    <Badge variant={variant}>{label}</Badge>
-  );
+  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
 }
 
 export function getResumePoolImportActionState(record: ResumePoolListRecord) {
   if (record.importedResumeRecordId) {
     return {
-      disabled: true,
-      label: "已入库",
+      disabled: false,
+      label: "再次入库",
       loading: false,
     };
   }
@@ -192,10 +231,6 @@ export function sourceLabel(record: ResumePoolListRecord) {
     return "—";
   }
   return record.sourcePoolItemId ? "私有简历推送" : "公共上传";
-}
-
-export function uploaderOrganizationLabel(record: ResumePoolListRecord) {
-  return record.uploaderOrganizationName?.trim() || "未知组织";
 }
 
 export function uploaderUserLabel(record: ResumePoolListRecord) {
@@ -325,7 +360,7 @@ export function filterPoolRecords(
 export function useJobDescriptions(slug: string) {
   return useQuery({
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
         param: { slug },
       });
       if (!response.ok) {
@@ -334,7 +369,7 @@ export function useJobDescriptions(slug: string) {
       const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
       return payload.records;
     },
-    queryKey: ["job-descriptions", "all", slug],
+    queryKey: ["job-descriptions", "recruiting", slug],
     staleTime: 60_000,
   });
 }
@@ -359,9 +394,11 @@ export function toResumeDedupMatches(
     id: match.id,
     jobDescriptionName: match.jobDescriptionName,
     level: match.level,
+    resumeProfileSnapshot: match.resumeProfileSnapshot,
     score: match.score,
     semanticReasons: match.semanticReasons,
     similarity: match.similarity,
+    skills: match.skills,
     status: match.status,
     targetRole: match.targetRole,
   }));

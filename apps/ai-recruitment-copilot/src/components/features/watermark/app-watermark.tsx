@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
+import { getWatermarkText, startAppWatermark } from "./app-watermark-lifecycle";
 
 interface WatermarkUser {
   email?: string | null;
@@ -26,66 +27,55 @@ export function buildWatermarkContent(user: WatermarkUser): [string, string] {
   return [nickname, `ID: ${maskWatermarkUserId(user.id)}`];
 }
 
+async function loadWatermark() {
+  const { Watermark } = await import("watermark-js-plus");
+  return Watermark;
+}
+
+async function startLoadedWatermark(text: string, onReady: (stop: () => void) => void) {
+  const Watermark = await loadWatermark();
+  onReady(
+    startAppWatermark({
+      createWatermark: (options) => new Watermark(options),
+      text,
+    }),
+  );
+}
+
 function EnabledAppWatermark() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  const content = useMemo(() => {
-    if (!(user?.id && !isPending)) {
-      return null;
-    }
-
-    return buildWatermarkContent({
-      email: user.email,
-      id: user.id,
-      name: user.name,
-    });
-  }, [isPending, user?.email, user?.id, user?.name]);
+  const content =
+    user?.id && !isPending
+      ? buildWatermarkContent({
+          email: user.email,
+          id: user.id,
+          name: user.name,
+        })
+      : null;
+  const text = content ? getWatermarkText(content) : null;
 
   useEffect(() => {
-    if (!content) {
+    if (!text) {
       return;
     }
 
-    const watermarkContent = content;
-    let disposed = false;
-    let instance: { create: () => Promise<void>; destroy: () => void } | null = null;
+    let cancelled = false;
+    let stop: (() => void) | undefined;
 
-    async function createWatermark() {
-      const { Watermark } = await import("watermark-js-plus");
-
-      if (disposed) {
+    void startLoadedWatermark(text, (nextStop) => {
+      if (cancelled) {
+        nextStop();
         return;
       }
-
-      instance = new Watermark({
-        backgroundRepeat: "repeat",
-        content: watermarkContent.join("\n"),
-        contentType: "multi-line-text",
-        fontColor: "rgba(71, 85, 105, 0.12)",
-        fontFamily: "MiSans, Arial, sans-serif",
-        fontSize: "14px",
-        fontWeight: "500",
-        height: 160,
-        lineHeight: 22,
-        monitorProtection: true,
-        mutationObserve: true,
-        rotate: 24,
-        textAlign: "center",
-        textBaseline: "middle",
-        width: 260,
-        zIndex: 2_147_483_647,
-      });
-
-      void instance.create();
-    }
-
-    void createWatermark();
+      stop = nextStop;
+    });
 
     return () => {
-      disposed = true;
-      instance?.destroy();
+      cancelled = true;
+      stop?.();
     };
-  }, [content]);
+  }, [text]);
 
   return null;
 }

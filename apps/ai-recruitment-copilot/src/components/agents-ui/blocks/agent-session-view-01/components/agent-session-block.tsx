@@ -262,7 +262,7 @@ export function AgentSessionView_01({
 
       <div
         className={cn(
-          "absolute inset-x-0 bottom-[135px] z-20 flex flex-col md:bottom-[170px]",
+          "absolute inset-x-0 bottom-[165px] z-20 flex flex-col md:bottom-[200px]",
           chatOpen ? "top-[88px]" : "top-0",
         )}
       >
@@ -284,7 +284,7 @@ export function AgentSessionView_01({
       <div
         className={cn(
           "absolute inset-x-0 z-30",
-          chatOpen ? "top-[62px]   flex justify-center" : "bottom-[170px] md:bottom-[210px]",
+          chatOpen ? "top-[62px] flex justify-center" : "bottom-[200px] md:bottom-[240px]",
         )}
       >
         <AgentStateIndicator

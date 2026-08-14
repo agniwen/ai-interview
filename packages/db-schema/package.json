@@ -5,6 +5,7 @@
   "description": "Shared Drizzle schema/relations and DB-adjacent shared types",
   "type": "module",
   "exports": {
+    ".": "./src/schema.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {

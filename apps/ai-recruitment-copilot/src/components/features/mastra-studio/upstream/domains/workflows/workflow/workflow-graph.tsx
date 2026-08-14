@@ -1,0 +1,48 @@
+import type { GetWorkflowResponse } from "@mastra/client-js";
+import { Skeleton } from "@mastra/playground-ui/components/Skeleton";
+import { lodashTitleCase } from "@mastra/playground-ui/utils/string";
+import { ReactFlowProvider } from "@xyflow/react";
+import { AlertCircleIcon } from "lucide-react";
+import { useContext } from "react";
+import { WorkflowRunContext } from "../context/workflow-run-context";
+import { WorkflowGraphInner } from "./workflow-graph-inner";
+import "../../../index.css";
+
+export interface WorkflowGraphProps {
+  workflowId: string;
+  isLoading?: boolean;
+  workflow?: GetWorkflowResponse;
+}
+
+export function WorkflowGraph({ workflowId, workflow, isLoading }: WorkflowGraphProps) {
+  const { snapshot } = useContext(WorkflowRunContext);
+
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <Skeleton className="h-full" />
+      </div>
+    );
+  }
+
+  if (!workflow) {
+    return (
+      <div className="grid h-full place-items-center">
+        <div className="flex flex-col items-center gap-2">
+          <AlertCircleIcon />
+          <div>未找到 {lodashTitleCase(workflowId)} 工作流。</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ReactFlowProvider>
+      <WorkflowGraphInner
+        workflow={
+          snapshot?.serializedStepGraph ? { stepGraph: snapshot?.serializedStepGraph } : workflow
+        }
+      />
+    </ReactFlowProvider>
+  );
+}

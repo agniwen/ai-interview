@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Meeting Buddy</title>
+    <!--
+      CSP for Electron renderer:
+      - script/style stay tight (no remote JS)
+      - connect-src must allow better-auth / API hosts (e.g. interview.chainthink.cn
+        or http://localhost:3000). Without this, get-session fetch is blocked.
+      - media-src must allow the Recording R2 origin so the signed meeting audio
+        can load; without it the native <audio> player stays disabled (grey play).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https: ws: wss:; font-src 'self' data:"
+    />
+  </head>
+
+  <!-- Transparent body: native vibrancy/acrylic paints behind the page. -->
+  <body class="bg-sidebar/20 dark:bg-sidebar/60">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

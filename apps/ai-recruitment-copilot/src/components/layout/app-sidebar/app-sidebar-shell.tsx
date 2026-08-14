@@ -8,6 +8,7 @@ import {
   SidebarFooterPortalProvider,
   SidebarHeaderPortalProvider,
 } from "./portals";
+import { WorkspaceSidebarSlots } from "./workspace-sidebar-slots";
 
 const sidebarStyle = {
   "--header-height": "calc(var(--spacing) * 12)",
@@ -21,6 +22,7 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
         <SidebarFooterPortalProvider>
           <SidebarProvider style={sidebarStyle}>
             <AppSidebar />
+            <WorkspaceSidebarSlots />
             {children}
           </SidebarProvider>
         </SidebarFooterPortalProvider>

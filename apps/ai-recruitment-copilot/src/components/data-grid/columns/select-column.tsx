@@ -1,7 +1,8 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { DataGridFeatures } from "../table-features";
 
-export function selectColumn<TData>(): ColumnDef<TData> {
+export function selectColumn<TData extends RowData>(): ColumnDef<DataGridFeatures, TData> {
   return {
     cell: ({ row }) => (
       <Checkbox
@@ -10,21 +11,25 @@ export function selectColumn<TData>(): ColumnDef<TData> {
         onCheckedChange={(value) => row.toggleSelected(!!value)}
       />
     ),
-    enableHiding: false,
     enableSorting: false,
-    header: ({ table }) => (
-      <Checkbox
-        aria-label="全选当前页"
-        checked={table.getIsAllPageRowsSelected()}
-        indeterminate={!table.getIsAllPageRowsSelected() && table.getIsSomePageRowsSelected()}
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-      />
-    ),
+    header: ({ table }) => {
+      // Server-paginated grids only hold the current page in `data`, so
+      // all-rows checks equal page-level selection. V9: "some" includes "all".
+      const allSelected = table.getIsAllRowsSelected();
+      const someSelected = table.getIsSomeRowsSelected();
+      return (
+        <Checkbox
+          aria-label="全选当前页"
+          checked={allSelected}
+          indeterminate={someSelected && !allSelected}
+          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
+        />
+      );
+    },
     id: "select",
-    // 必须与 DataGrid 中 px-3 (12px) + Checkbox (16px) + px-3 (12px) = 40px 实际渲染宽度对齐，
-    // 否则后续 pinned 列的 sticky `left:` 偏移会错开造成"余量"。
-    // Must match the actual rendered width (px-3 + 16px checkbox + px-3 = 40)
-    // so subsequent pinned columns' sticky left offsets line up exactly.
+    // Must match rendered width so subsequent pinned columns' sticky offsets align.
+    maxSize: 40,
+    minSize: 40,
     size: 40,
   };
 }

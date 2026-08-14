@@ -4,7 +4,6 @@
 "use client";
 
 import { EditorContent } from "@tiptap/react";
-import { useCallback } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
@@ -23,8 +22,11 @@ export interface MarkdownEditorProps {
   defaultMode?: EditorMode;
   className?: string;
   minHeight?: number;
+  height?: number;
   id?: string;
+  showPreview?: boolean;
   "aria-invalid"?: boolean;
+  "aria-label"?: string;
 }
 
 const editorContentClassName = cn(
@@ -57,8 +59,11 @@ export function MarkdownEditor({
   defaultMode = "edit",
   className,
   minHeight = 240,
+  height,
   id,
+  showPreview = true,
   "aria-invalid": ariaInvalid,
+  "aria-label": ariaLabel,
 }: MarkdownEditorProps) {
   const { changeMode, editor, mode } = useMarkdownEditor({
     defaultMode,
@@ -68,23 +73,14 @@ export function MarkdownEditor({
     placeholder,
     value,
   });
-
-  const handleRawChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const next = e.target.value;
-      if (typeof maxLength === "number" && next.length > maxLength) {
-        return;
-      }
-      onChange(next);
-    },
-    [maxLength, onChange],
-  );
+  const visibleMode = showPreview ? mode : "edit";
 
   const over = typeof maxLength === "number" && value.length > maxLength;
 
   return (
     <div
       aria-invalid={ariaInvalid}
+      aria-label={ariaLabel}
       className={cn(
         cossFieldSurfaceClass,
         "flex flex-col overflow-hidden",
@@ -98,36 +94,27 @@ export function MarkdownEditor({
         <MarkdownEditorToolbar
           disabled={disabled}
           editor={editor}
-          mode={mode}
+          mode={visibleMode}
           onModeChange={changeMode}
+          showModeSwitcher={showPreview}
         />
       </div>
 
-      <div className="relative z-10 bg-transparent" style={{ minHeight }}>
-        {mode === "edit" && (
+      <div
+        className={cn("relative z-10 min-h-0 flex-1 bg-transparent overflow-y-auto")}
+        style={{ minHeight: typeof height === "number" ? height : minHeight }}
+      >
+        {visibleMode === "edit" && (
           <>
             <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
             <MarkdownEditorBubbleMenu editor={editor} />
           </>
         )}
 
-        {mode === "preview" && (
+        {visibleMode === "preview" && (
           <div className="px-3 py-2 text-sm">
             <MarkdownView content={value} />
           </div>
-        )}
-
-        {mode === "raw" && (
-          <textarea
-            aria-label="Markdown 原始内容"
-            className="block h-full w-full resize-none border-0 bg-transparent px-3 py-2 font-mono text-sm outline-none"
-            disabled={disabled}
-            onBlur={onBlur}
-            onChange={handleRawChange}
-            placeholder={placeholder}
-            style={{ minHeight }}
-            value={value}
-          />
         )}
       </div>
 

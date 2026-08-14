@@ -1,4 +1,15 @@
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationMode,
+  JobEvaluationRuleDraft,
+  JobLifecycleStatus,
+} from "@arc/db-schema/job-description-evaluation";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  jobDescriptionStructuredConfigSchema,
+} from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import {
@@ -16,25 +27,49 @@ export const jobDescriptionCodeSchema = z
   .transform((value) => value || undefined)
   .optional();
 
-export const jobDescriptionBaseSchema = z.object({
+const operationalAssignmentSchema = z.object({
   allowCrossDepartmentInterviewers: z.boolean(),
-  code: jobDescriptionCodeSchema,
   departmentId: z.string().trim().min(1, "请选择所属部门"),
-  description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
   interviewerIds: z
     .array(z.string().trim().min(1))
     .min(1, "请至少选择一位面试官")
     .max(20, "最多只能选择 20 位面试官"),
-  name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
-  prompt: z.string().trim().min(1, "请输入岗位 prompt").max(10_000, "prompt 不能超过 10000 字"),
-  resumeScreeningPolicy: resumeScreeningPolicySchema,
 });
 
-export const jobDescriptionFormSchema = jobDescriptionBaseSchema;
-export const jobDescriptionUpdateSchema = jobDescriptionBaseSchema;
+const structuredJobOwnedFieldsSchema = z.object({
+  code: jobDescriptionCodeSchema,
+  description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
+  name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
+  prompt: z.string().trim().min(1, "请输入岗位内容").max(10_000, "岗位内容不能超过 10000 字"),
+  structuredConfig: jobDescriptionStructuredConfigSchema,
+});
+
+export const structuredJobDescriptionCreateSchema = operationalAssignmentSchema
+  .extend(structuredJobOwnedFieldsSchema.shape)
+  .strict();
+export const structuredJobDescriptionDraftUpdateSchema = structuredJobDescriptionCreateSchema;
+export const structuredJobDescriptionPublishSchema = z
+  .object({
+    confirmedBlueprintHash: z.string().trim().min(1),
+  })
+  .strict();
+export const publishedJobOperationalUpdateSchema = operationalAssignmentSchema.strict();
+export const legacyJobDescriptionUpdateSchema = structuredJobDescriptionCreateSchema
+  .extend({
+    resumeScreeningPolicy: resumeScreeningPolicySchema,
+  })
+  .strict();
+
+/** @deprecated Use the mode-specific request schemas at server boundaries. */
+export const jobDescriptionFormSchema = legacyJobDescriptionUpdateSchema;
+/** @deprecated Use the mode-specific request schemas at server boundaries. */
+export const jobDescriptionUpdateSchema = legacyJobDescriptionUpdateSchema;
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;
 export type JobDescriptionUpdateValues = z.infer<typeof jobDescriptionUpdateSchema>;
+export type StructuredJobDescriptionCreateValues = z.infer<
+  typeof structuredJobDescriptionCreateSchema
+>;
 
 export { createDefaultResumeScreeningPolicy };
 
@@ -48,20 +83,50 @@ export interface JobDescriptionRecord {
   id: string;
   allowCrossDepartmentInterviewers: boolean;
   code: string | null;
+  deductionRuleSetVersion: number | null;
   departmentId: string;
+  evaluationBlueprint: JobEvaluationBlueprint | null;
+  evaluationBlueprintHash: string | null;
+  evaluationBlueprintPreview: JobEvaluationBlueprint | null;
+  evaluationBlueprintPreviewGeneratedAt: string | Date | null;
+  evaluationBlueprintPreviewHash: string | null;
+  evaluationBlueprintPreviewInputHash: string | null;
+  evaluationBlueprintSchemaVersion: number | null;
+  evaluationMode: JobEvaluationMode;
+  evaluationUpgradedAt: string | Date | null;
+  evaluationUpgradedBy: string | null;
+  hasEvaluationUpgradeDraft: boolean;
   interviewerIds: string[];
+  lifecycleStatus: JobLifecycleStatus;
   name: string;
   description: string | null;
   /** @deprecated Replaced by interview-question-templates. Read for legacy data only. */
   presetQuestions: string[];
   prompt: string;
+  publishedAt: string | Date | null;
   resumeScreeningPolicy: ResumeScreeningPolicy;
   resumeScreeningPolicyHash: string | null;
   resumeScreeningPolicyVersion: number;
+  structuredConfig: JobDescriptionStructuredConfig;
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
+
+export type JobEvaluationPreviewStreamEvent =
+  | {
+      ruleDraft: JobEvaluationRuleDraft;
+      type: "preview.partial";
+    }
+  | {
+      blueprint: JobEvaluationBlueprint;
+      blueprintHash: string;
+      type: "preview.completed";
+    }
+  | {
+      error: { code?: string; message: string };
+      type: "preview.failed";
+    };
 
 export interface JobDescriptionListRecord extends JobDescriptionRecord {
   departmentName: string | null;
@@ -125,3 +190,23 @@ export interface JobDescriptionTalentRecommendationResult {
   };
   status: "disabled" | "ready";
 }
+
+export interface JobDescriptionRecommendation {
+  departmentName: string | null;
+  description: string | null;
+  id: string;
+  name: string;
+  reasons: string[];
+  score: number;
+  similarity: { resumeOverview?: number; skillRole?: number; workProject?: number };
+}
+
+export interface JobDescriptionRecommendationResult {
+  diagnostics: { aboveThresholdCount: number; eligibleCount: number; vectorHitCount: number };
+  recommendations: JobDescriptionRecommendation[];
+  resume: { id: string };
+  status: "disabled" | "ready" | "already_matched" | "indexing";
+}
+
+export { createDefaultJobDescriptionStructuredConfig, jobDescriptionStructuredConfigSchema };
+export type { JobDescriptionStructuredConfig };

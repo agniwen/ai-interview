@@ -3,7 +3,6 @@ import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
 import type {
   ActiveOrganizationState,
   NoAccessWaitState,
-  StudioPageAccessState,
   StudioPagePermissionAction,
   WorkspaceAccessState,
   WorkspaceSelectionState,
@@ -13,57 +12,17 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   member as memberTable,
   organization as organizationTable,
-  organizationRole,
   user as userTable,
 } from "@arc/db-schema/schema";
 import { isNoAccessWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
-import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import type {
   WorkspaceAction,
   WorkspaceResource,
 } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
-import { roles } from "@arc/shared/permissions";
+import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { computeWorkspacePermissionSnapshot } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permission-snapshot";
 
-type PermissionRecord = Record<string, readonly string[] | undefined>;
-
-function readPermissionRecord(value: string): PermissionRecord {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed as PermissionRecord;
-  } catch {
-    return {};
-  }
-}
-
-async function roleCanBrowseStudioPage({
-  action,
-  organizationId,
-  role,
-}: {
-  action: StudioPagePermissionAction;
-  organizationId: string;
-  role: string;
-}): Promise<boolean> {
-  const builtInRole = (roles as Record<string, { statements: PermissionRecord } | undefined>)[role];
-  if (builtInRole) {
-    return builtInRole.statements.page?.includes(action) ?? false;
-  }
-
-  const dynamicRole = await db
-    .select({ permission: organizationRole.permission })
-    .from(organizationRole)
-    .where(
-      and(eq(organizationRole.organizationId, organizationId), eq(organizationRole.role, role)),
-    )
-    .limit(1);
-  const permission = readPermissionRecord(dynamicRole[0]?.permission ?? "{}");
-  return permission.page?.includes(action) ?? false;
-}
-
-export async function workspaceAccessHasPermission<R extends WorkspaceResource>({
+export function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,
   action,
   resource,
@@ -71,15 +30,8 @@ export async function workspaceAccessHasPermission<R extends WorkspaceResource>(
   access: Extract<WorkspaceAccessState, { status: "ready" }>;
   resource: R;
   action: WorkspaceAction<R>;
-}): Promise<boolean> {
-  const requestHeaders = getRequestHeaders();
-  const authorize = createRequestWorkspaceAuthorizer({
-    headers: requestHeaders,
-    memberRole: access.member.role,
-    organizationId: access.workspace.id,
-    userId: access.user.id,
-  });
-  return await authorize({ action, resource });
+}): boolean {
+  return hasPermissionInStatements(access.permissions, resource, action);
 }
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {
@@ -133,11 +85,13 @@ export async function getWorkspaceSelectionStateFromRequest(): Promise<Workspace
     return { status: "unauthenticated" };
   }
 
-  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
-  const memberships = await db
-    .select({ organizationId: memberTable.organizationId, role: memberTable.role })
-    .from(memberTable)
-    .where(eq(memberTable.userId, session.user.id));
+  const [organizations, memberships] = await Promise.all([
+    auth.api.listOrganizations({ headers: requestHeaders }),
+    db
+      .select({ organizationId: memberTable.organizationId, role: memberTable.role })
+      .from(memberTable)
+      .where(eq(memberTable.userId, session.user.id)),
+  ]);
   const roleByOrganizationId = new Map(
     memberships.map((row) => [row.organizationId, row.role] as const),
   );
@@ -195,10 +149,17 @@ async function resolveWorkspaceAccess(
       ),
     );
 
+  const permissionSnapshot = await computeWorkspacePermissionSnapshot({
+    memberRole: currentMember.role,
+    organizationId: matched.id,
+    userId: session.user.id,
+  });
+
   return {
     member: {
       role: currentMember.role,
     },
+    permissions: permissionSnapshot.statements,
     status: "ready",
     user: {
       id: session.user.id,
@@ -217,23 +178,25 @@ export async function getNoAccessWaitStateFromRequest(): Promise<NoAccessWaitSta
     return { status: "unauthenticated" };
   }
 
-  const [preference] = await db
-    .select({ organizationId: userTable.lastActiveOrganizationId })
-    .from(userTable)
-    .where(eq(userTable.id, session.user.id))
-    .limit(1);
-  const rows = await db
-    .select({
-      logo: organizationTable.logo,
-      name: organizationTable.name,
-      organizationId: organizationTable.id,
-      role: memberTable.role,
-      slug: organizationTable.slug,
-    })
-    .from(memberTable)
-    .innerJoin(organizationTable, eq(organizationTable.id, memberTable.organizationId))
-    .where(eq(memberTable.userId, session.user.id))
-    .orderBy(asc(memberTable.createdAt));
+  const [[preference], rows] = await Promise.all([
+    db
+      .select({ organizationId: userTable.lastActiveOrganizationId })
+      .from(userTable)
+      .where(eq(userTable.id, session.user.id))
+      .limit(1),
+    db
+      .select({
+        logo: organizationTable.logo,
+        name: organizationTable.name,
+        organizationId: organizationTable.id,
+        role: memberTable.role,
+        slug: organizationTable.slug,
+      })
+      .from(memberTable)
+      .innerJoin(organizationTable, eq(organizationTable.id, memberTable.organizationId))
+      .where(eq(memberTable.userId, session.user.id))
+      .orderBy(asc(memberTable.createdAt)),
+  ]);
 
   const activeWaitingWorkspace = rows.find(
     (row) => row.organizationId === preference?.organizationId && isNoAccessWorkspaceRole(row.role),
@@ -268,21 +231,22 @@ export async function resolveWorkspaceAccessFromRequest(
   return await resolveWorkspaceAccess(getRequestHeaders(), slug);
 }
 
-export async function resolveStudioPageAccessFromRequest(
+/**
+ * Resolve the first Studio page this member may open, using a single access snapshot.
+ */
+export async function resolveFirstAllowedStudioPagePath(
   slug: string,
-  action: StudioPagePermissionAction,
-): Promise<StudioPageAccessState> {
+  pagePaths: readonly { action: StudioPagePermissionAction; path: string }[],
+): Promise<string | null> {
   const state = await resolveWorkspaceAccess(getRequestHeaders(), slug);
   if (state.status !== "ready") {
-    return state;
+    return null;
   }
 
-  return {
-    ...state,
-    allowed: await roleCanBrowseStudioPage({
-      action,
-      organizationId: state.workspace.id,
-      role: state.member.role,
-    }),
-  };
+  for (const item of pagePaths) {
+    if (hasPermissionInStatements(state.permissions, "page", item.action)) {
+      return item.path;
+    }
+  }
+  return null;
 }

@@ -228,6 +228,7 @@ export async function runResumeReviewHardFilter(
   const criteria = await generateStructuredWithMastraAgent({
     agent: resumeHardFilterAgent,
     prompt: `${HARD_FILTER_INSTRUCTIONS}\n\n${buildResumeReviewTimeContext()}\n\n在招岗位描述：\n${jobDescription.trim()}`,
+    retryOnInvalid: true,
     schema: hardFilterSchema,
     temperature: 0,
   });
@@ -298,6 +299,7 @@ export async function generateResumeScreeningEvidence(input: {
   return await generateStructuredWithMastraAgent({
     agent: resumeScreeningEvidenceAgent,
     prompt: buildResumeScreeningEvidencePrompt(input),
+    retryOnInvalid: true,
     schema: resumeScreeningEvidenceResultSchema,
     temperature: 0,
   });

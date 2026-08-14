@@ -12,25 +12,38 @@ import {
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
+  intersectRequestedCreatorIds,
+  resolveRecruitingVisibilityScope,
+} from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import {
   normalizeResumeFile,
   storeInterviewResume,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  loadRecruitingJobDescriptionById,
+  recruitingJobDescriptionIdsExist,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { enqueueResumeReviewGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { completeResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
 import {
+  bindResumePoolItemJobDescription,
   createResumePoolItem,
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
+  listResumePoolUploaders,
   loadResumePoolItem,
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "./dao";
+import { resumePoolRecommendationsRouter } from "./routes/recommendations/route";
+import { retryFailedResumeParse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
 import {
+  resumePoolBindSchema,
   resumePoolCreateInputSchema,
   resumePoolImportInputSchema,
   resumePoolListQuerySchema,
@@ -82,23 +95,56 @@ export const resumePoolRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const creatorIds =
+        q.scope === "private"
+          ? intersectRequestedCreatorIds(
+              q.uploaderId === "all" ? null : [q.uploaderId ?? user.id],
+              visibilityScope,
+            )
+          : undefined;
       const result = await queryResumePoolItems({
+        creatorIds,
         organizationId: activeOrg.id,
         scope: q.scope,
-        userId: user.id,
       });
       return c.json(result, 200);
     },
   )
+  .get("/uploaders", requirePermission("resumePool", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    const records = await listResumePoolUploaders({
+      organizationId: activeOrg.id,
+      visibilityScope,
+    });
+    return c.json({ records }, 200);
+  })
   .get("/:id", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
-      userId: user.id,
+      visibilityScope,
     });
     if (!item) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -111,31 +157,164 @@ export const resumePoolRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const poolItemId = c.req.param("id");
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId,
-      userId: user.id,
+      visibilityScope,
     });
     if (!item) {
       return c.json({ error: "记录不存在。" }, 404);
     }
     const matches = await listDuplicateMatchesForSource({
       organizationId: activeOrg.id,
-      poolOwnerUserId: user.id,
       sourceId: poolItemId,
       sourceType: "resume_pool_item",
     });
     return c.json({ matches }, 200);
   })
-  .get("/:id/resume", requirePermission("resumePool", "read"), async (c) => {
-    const { activeOrg, user } = c.var;
-    if (!activeOrg || !user) {
+  // 疑似重复简历对照等场景使用「同工作区成员即可读」的详情/简历接口：
+  // 与招聘台 /:id/review 采用同一权限策略 —— 仅校验登录 + 工作区成员身份，
+  // 不做 resumePool read 动作权限与可见范围过滤（产品决策：查重查看忽略权限配置）。
+  // Permission-free read surface for the duplicate-resume comparison dialog —
+  // same policy as studio resumes /:id/review: workspace membership only,
+  // no resumePool read action permission, no visibility-scope filtering.
+  .get("/:id/review", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(item, 200);
+  })
+  .get("/:id/review/resume", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const object = await getObjectStream(item.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const filename = item.resumeFileName || "resume.pdf";
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": object.contentType ?? "application/octet-stream",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
+  .get("/:id/review/resume-preview.pdf", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const object = await getObjectBytes(item.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: item.resumeStorageKey,
+      fileName: item.resumeFileName,
+      mediaType: object.contentType,
+    });
+  })
+  .post(
+    "/:id/retry-parse",
+    requirePermission("resumePool", "read"),
+    requirePermission("resumeUploadBatch", "process"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const poolItemId = c.req.param("id");
+      const item = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId,
+        visibilityScope,
+      });
+      if (!item) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (item.resumeParseStatus !== "failed") {
+        return c.json({ error: "只有解析失败的简历可以重新解析。" }, 409);
+      }
+      if (!item.resumeParseRetryable) {
+        return c.json({ error: "该简历已重新解析过，不能再次操作。" }, 409);
+      }
+      try {
+        const result = await retryFailedResumeParse({
+          organizationId: activeOrg.id,
+          poolItemId,
+          requestedBy: user.id,
+        });
+        if (result.status === "queued") {
+          return c.json({ status: "queued" as const }, 200);
+        }
+        if (result.status === "queue_unavailable") {
+          return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+        }
+        return c.json({ error: "该简历当前不能重新解析，请刷新后重试。" }, 409);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "简历解析队列入队失败。" },
+          503,
+        );
+      }
+    },
+  )
+  .get("/:id/resume", requirePermission("resumePool", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
       userId: user.id,
+    });
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope,
     });
     if (!item?.resumeStorageKey) {
       return c.json({ error: "简历文件已不可用。" }, 404);
@@ -161,10 +340,15 @@ export const resumePoolRouter = factory
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
-      userId: user.id,
+      visibilityScope,
     });
     if (!item?.resumeStorageKey) {
       return c.json({ error: "简历文件已不可用。" }, 404);
@@ -215,7 +399,10 @@ export const resumePoolRouter = factory
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
       if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        const ok = await recruitingJobDescriptionIdsExist(
+          [input.data.jobDescriptionId],
+          activeOrg.id,
+        );
         if (!ok) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -308,16 +495,7 @@ export const resumePoolRouter = factory
       }
       const input = c.req.valid("json");
       if (input.jobDescriptionId) {
-        const [jd] = await db
-          .select({ id: jobDescription.id })
-          .from(jobDescription)
-          .where(
-            and(
-              eq(jobDescription.id, input.jobDescriptionId),
-              eq(jobDescription.organizationId, activeOrg.id),
-            ),
-          )
-          .limit(1);
+        const jd = await loadRecruitingJobDescriptionById(activeOrg.id, input.jobDescriptionId);
         if (!jd) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -329,19 +507,85 @@ export const resumePoolRouter = factory
           jobDescriptionId: input.jobDescriptionId,
           organizationId: activeOrg.id,
           poolItemId: c.req.param("id"),
+          reimport: input.reimport === true,
         });
         if (result.status === "imported" && input.jobDescriptionId) {
-          await enqueueResumeReviewGenerationForRecordBestEffort({
+          const scheduling = await enqueueResumeReviewGenerationForRecordBestEffort({
             jobDescriptionId: input.jobDescriptionId,
             organizationId: activeOrg.id,
             poolItemId: c.req.param("id"),
             resumeRecordId: result.resumeRecordId,
             source: "resume_pool_import",
           });
+          if (scheduling.status === "fallback_sync") {
+            void (async () => {
+              try {
+                await reassessResumeRecord({
+                  organizationId: activeOrg.id,
+                  resumeRecordId: result.resumeRecordId,
+                });
+              } catch (error) {
+                console.error("[resume-pool] fallback assessment failed", {
+                  error,
+                  resumeRecordId: result.resumeRecordId,
+                });
+              }
+            })();
+          }
         }
         return c.json(result, result.status === "imported" ? 201 : 409);
       } catch (error) {
         return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);
       }
     },
-  );
+  )
+  .post(
+    "/:id/bind",
+    requirePermission("resumePool", "import"),
+    requirePermission("jd", "read"),
+    zValidator("json", resumePoolBindSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { jobDescriptionId } = c.req.valid("json");
+      const item = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId: c.req.param("id"),
+        userId: user.id,
+      });
+      if (!item) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const [jd] = await db
+        .select({ id: jobDescription.id })
+        .from(jobDescription)
+        .where(
+          and(
+            eq(jobDescription.id, jobDescriptionId),
+            eq(jobDescription.organizationId, activeOrg.id),
+          ),
+        )
+        .limit(1);
+      if (!jd) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+      const bound = await bindResumePoolItemJobDescription({
+        actorId: user.id,
+        jobDescriptionId,
+        organizationId: activeOrg.id,
+        poolItemId: item.id,
+      });
+      if (!bound) {
+        return c.json({ error: "该简历已绑定岗位。" }, 409);
+      }
+      const updated = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId: item.id,
+        userId: user.id,
+      });
+      return c.json(updated, 200);
+    },
+  )
+  .route("/:id/recommendations", resumePoolRecommendationsRouter);

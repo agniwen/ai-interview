@@ -3,6 +3,7 @@
 import { IconLoader2 } from "@tabler/icons-react";
 import type { InterviewQuestionTemplateQuestionInput } from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -73,38 +74,40 @@ export function InterviewQuestionTemplateAiCreateDialog({
     }
 
     setGenerating(true);
-    try {
-      const result = await rpcFetch<{ questions: InterviewQuestionTemplateQuestionInput[] }>(
-        rpc.api.w[":slug"].studio["interview-questions"]["ai-generate-questions"].$post({
-          json: {
-            jobDescriptionId,
-            prompt: prompt.trim(),
-          },
-          param: { slug },
-        }),
-        "AI 生成面试题失败",
-      );
+    await runAsyncAction({
+      cleanup: () => setGenerating(false),
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : "AI 生成失败");
+      },
+      operation: async () => {
+        const result = await rpcFetch<{ questions: InterviewQuestionTemplateQuestionInput[] }>(
+          rpc.api.w[":slug"].studio["interview-questions"]["ai-generate-questions"].$post({
+            json: {
+              jobDescriptionId,
+              prompt: prompt.trim(),
+            },
+            param: { slug },
+          }),
+          "AI 生成沟通题失败",
+        );
 
-      if (result.questions.length === 0) {
-        toast.error("未生成任何题目，请调整指令后重试");
-        return;
-      }
+        if (result.questions.length === 0) {
+          toast.error("未生成任何题目，请调整指令后重试");
+          return;
+        }
 
-      onGenerated({
-        jobDescriptionId,
-        questions: result.questions,
-      });
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI 生成失败");
-    } finally {
-      setGenerating(false);
-    }
+        onGenerated({
+          jobDescriptionId,
+          questions: result.questions,
+        });
+        onOpenChange(false);
+      },
+    });
   }
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成面试题并打开「新建面试题」供你确认与保存。"
+      description="选择岗位并填写指令，AI 将生成沟通题并打开「新建沟通题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>
@@ -133,7 +136,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
       }}
       open={open}
       size="lg"
-      title="AI 创建面试题"
+      title="AI 创建沟通题"
     >
       <FieldGroup className="gap-4">
         <Field>
@@ -164,7 +167,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
                 disabled={generating}
                 maxLength={PROMPT_MAX}
                 onChange={(event) => setPrompt(event.target.value)}
-                placeholder="例如：生成 10 道前端面试题，5 道基础（React/TS）+ 5 道项目深度追问，由浅入深"
+                placeholder="例如：生成 10 道前端沟通题，5 道基础（React/TS）+ 5 道项目深度追问，由浅入深"
                 rows={4}
                 value={prompt}
               />

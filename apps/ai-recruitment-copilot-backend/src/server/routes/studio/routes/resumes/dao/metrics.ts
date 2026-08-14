@@ -1,5 +1,6 @@
 import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { startOfBeijingDay, toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
 import type {
   DashboardActivityRow,
   DashboardActionItem,
@@ -14,13 +15,15 @@ import {
   studioInterview,
   studioInterviewSchedule,
   studioOfferDraft,
+  user,
 } from "@arc/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 
-// 近 N 天的窗口宽度，与 UI 卡片标题保持一致。
-// Lookback window used by the 「近 N 天每日新增」 chart.
-const DAILY_LOOKBACK_DAYS = 30;
+// Dashboard activity still uses a 30-day window; the resume-library calendar
+// heatmap uses a full year for the GitHub-style contribution grid.
+const DASHBOARD_LOOKBACK_DAYS = 30;
+const DAILY_ADDED_LOOKBACK_DAYS = 365;
 
 // 子查询：该候选人是否已有任意 AI 面试轮次。与 dao/resumes.ts 里的版本同形——
 // 这里独立一份避免相互 import 循环，并让聚合查询自包含。
@@ -33,7 +36,14 @@ const hasInterviewRoundsSql = exists(
     .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
 );
 
-async function loadByPipeline(organizationId: string) {
+function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: string) {
+  return and(
+    eq(studioInterview.organizationId, organizationId),
+    createdByUserId ? eq(studioInterview.createdBy, createdByUserId) : undefined,
+  );
+}
+
+async function loadByPipeline(organizationId: string, createdByUserId?: string) {
   // 漏斗分布：按 (pipelineStage, outcome) 分桶；outcome='archived' 排除，避免
   // 冷藏长尾压扁主流程展示。其他 closed outcome（hired / rejected / withdrawn）保留。
   // Pipeline funnel: bucket by (pipelineStage, outcome); archived outcomes are
@@ -47,7 +57,7 @@ async function loadByPipeline(organizationId: string) {
     .from(studioInterview)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         ne(studioInterview.outcome, "archived"),
       ),
     )
@@ -60,35 +70,63 @@ async function loadByPipeline(organizationId: string) {
   }));
 }
 
-async function loadDailyAdded(organizationId: string) {
-  // Postgres date_trunc → date 截断到天；窗口取 [today - 29, today]，共 30 天。
-  // 服务端只返回非零日；前端零填充以维持 X 轴连续。
-  // Truncate created_at to day; window is [today - 29, today] (30 days total).
-  // Only non-zero days are returned; the client zero-fills for X-axis continuity.
-  const since = new Date(Date.now() - (DAILY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
+async function loadDailyAdded(
+  organizationId: string,
+  createdByUserId?: string,
+): Promise<ResumeLibraryMetrics["dailyAdded"]> {
+  // Truncate created_at to day; window is the last 365 days for the GitHub-style
+  // year calendar. Group by day + uploader so tooltips can list per-user counts.
+  // Only non-zero days are returned; the client zero-fills the full grid.
+  const since = startOfBeijingDay(
+    new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
+  );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
       count: count(),
       day: dayExpr,
+      userId: studioInterview.createdBy,
+      userName: user.name,
     })
     .from(studioInterview)
+    .leftJoin(user, eq(user.id, studioInterview.createdBy))
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         gte(studioInterview.createdAt, since),
       ),
     )
-    .groupBy(dayExpr)
+    .groupBy(dayExpr, studioInterview.createdBy, user.name)
     .orderBy(dayExpr);
 
-  return rows.map((row) => ({ count: row.count, day: row.day }));
+  const byDay = new Map<
+    string,
+    { byUser: ResumeLibraryMetrics["dailyAdded"][number]["byUser"]; count: number; day: string }
+  >();
+
+  for (const row of rows) {
+    const existing = byDay.get(row.day) ?? { byUser: [], count: 0, day: row.day };
+    existing.count += row.count;
+    existing.byUser.push({
+      count: row.count,
+      userId: row.userId ?? "unknown",
+      userName: row.userName?.trim() || "未知用户",
+    });
+    byDay.set(row.day, existing);
+  }
+
+  return [...byDay.values()]
+    .toSorted((left, right) => left.day.localeCompare(right.day))
+    .map((row) => ({
+      byUser: row.byUser.toSorted((left, right) => right.count - left.count),
+      count: row.count,
+      day: row.day,
+    }));
 }
 
-async function loadConversion(organizationId: string) {
+async function loadConversion(organizationId: string, createdByUserId?: string) {
   // 把"已发起 AI 面试 vs 未发起"压成两个 count，archived 排除。
   // FILTER 表达式拿 hasInterviewRoundsSql 直接复用为布尔条件。
   // Pack "launched vs not launched" into two parallel counts in a single query;
@@ -103,7 +141,7 @@ async function loadConversion(organizationId: string) {
     .from(studioInterview)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         ne(studioInterview.outcome, "archived"),
       ),
     );
@@ -114,26 +152,32 @@ async function loadConversion(organizationId: string) {
   };
 }
 
-async function queryResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
+export interface ResumeLibraryMetricsOptions {
+  /** When set, only count candidates created by this user (personal scope). */
+  createdByUserId?: string;
+}
+
+async function queryResumeLibraryMetrics(
+  organizationId: string,
+  options?: ResumeLibraryMetricsOptions,
+): Promise<ResumeLibraryMetrics> {
+  const createdByUserId = options?.createdByUserId;
   const [byPipeline, dailyAdded, conversion] = await Promise.all([
-    loadByPipeline(organizationId),
-    loadDailyAdded(organizationId),
-    loadConversion(organizationId),
+    loadByPipeline(organizationId, createdByUserId),
+    loadDailyAdded(organizationId, createdByUserId),
+    loadConversion(organizationId, createdByUserId),
   ]);
   return { byPipeline, conversion, dailyAdded };
 }
 
-function makeLookbackStart(days = DAILY_LOOKBACK_DAYS) {
-  const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
-  return since;
+function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {
+  return startOfBeijingDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
 }
 
 function buildZeroActivityRows(): DashboardActivityRow[] {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const today = toBeijingCalendarDate();
   const rows: DashboardActivityRow[] = [];
-  for (let i = DAILY_LOOKBACK_DAYS - 1; i >= 0; i -= 1) {
+  for (let i = DASHBOARD_LOOKBACK_DAYS - 1; i >= 0; i -= 1) {
     const day = new Date(today);
     day.setUTCDate(day.getUTCDate() - i);
     rows.push({
@@ -191,11 +235,11 @@ async function loadDashboardActivity(organizationId: string) {
   const since = makeLookbackStart();
   const rows = buildZeroActivityRows();
 
-  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
-  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt}), 'YYYY-MM-DD')`;
-  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt}), 'YYYY-MM-DD')`;
-  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt}), 'YYYY-MM-DD')`;
-  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt}), 'YYYY-MM-DD')`;
+  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const [resumeRows, aiRows, humanRows, offerRows, formRows] = await Promise.all([
     loadDailyCountByDateExpr({
@@ -463,7 +507,7 @@ export async function loadRecruitingDashboardMetrics(
 }
 
 /**
- * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近 30 天每日新增 / AI 面试转化。
+ * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近一年每日新增 / AI 面试转化。
  * cacheTag 与现有列表查询一致（`studio-resumes`），写入侧的 invalidate 已经覆盖。
  *
  * Cached entry point used by the resume-library page header charts. Three
@@ -471,8 +515,11 @@ export async function loadRecruitingDashboardMetrics(
  * days, and AI-interview conversion. Shares the `studio-resumes` cache tag
  * with the list query so existing invalidation hooks already cover it.
  */
-export function loadResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
-  return queryResumeLibraryMetrics(organizationId);
+export function loadResumeLibraryMetrics(
+  organizationId: string,
+  options?: ResumeLibraryMetricsOptions,
+): Promise<ResumeLibraryMetrics> {
+  return queryResumeLibraryMetrics(organizationId, options);
 }
 
 // 暴露给测试做精确断言（绕开 cache 包装）。

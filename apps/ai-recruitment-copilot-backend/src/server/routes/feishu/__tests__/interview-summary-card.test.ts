@@ -58,6 +58,7 @@ describe("toLarkInteractiveCard", () => {
     expect(JSON.stringify(larkCard)).toContain("系统设计追问");
     expect(JSON.stringify(larkCard)).toContain("整体匹配度较高。");
     expect(JSON.stringify(larkCard)).toContain('"tag":"button"');
+    expect(JSON.stringify(larkCard)).toContain("查看飞书评价表");
     expect(JSON.stringify(larkCard)).toContain(
       '"url":"https://example.com/studio/interviews?roundId=round-1"',
     );

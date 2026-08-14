@@ -17,13 +17,18 @@ import {
   queryPaginatedInterviewQuestionTemplates,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/queries";
 import { loadInterviewQuestionTemplateVersionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/versions";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { managedJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  cacheTags,
+  invalidateStudioInterviewCaches,
+  safeUpdateTag,
+} from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import {
   resolveAiGenerateContext,
   resolveInterviewRecordIds,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/utils/resolve-ai-generate-context";
 import { generateInterviewQuestionTemplateFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/utils/ai-interview-questions-generate";
+import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/refresh-eligible";
 
 const generateTemplateQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),
@@ -177,7 +182,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -245,7 +250,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -338,6 +343,49 @@ export const interviewQuestionTemplatesRouter = factory
     safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })
+  // 把本沟通题最新版本推送到「从未开始 AI 面试」的适用候选人（含绑定与 runtime 快照）。
+  // Push the latest version of this template to never-started applicable candidates.
+  .post(
+    "/:id/refresh-eligible-candidates",
+    requirePermission("questionTemplate", "update"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      try {
+        const result = await refreshEligibleCandidatesForInterviewQuestionTemplate({
+          operatorId: user?.id ?? null,
+          organizationId: activeOrg.id,
+          templateId: id,
+        });
+        safeUpdateTag(cacheTags.interviewConversations);
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(
+          {
+            refreshedCount: result.refreshedCount,
+            scannedCount: result.scannedCount,
+            success: true,
+          },
+          200,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === "TEMPLATE_NOT_FOUND") {
+          return c.json({ error: "面试题不存在或已归档。" }, 404);
+        }
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, templateId: id },
+            error,
+            operation: "refresh-eligible-interview-question-template",
+            publicMessage: "刷新未面试候选人沟通题失败。",
+          }),
+          500,
+        );
+      }
+    },
+  )
   .get("/:id/versions/:versionId", requirePermission("questionTemplate", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/client/auth-client";
 import { getNoAccessWaitState } from "@/lib/start/auth-session";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -78,10 +79,6 @@ function WaitRoute() {
 }
 
 export const Route = createFileRoute("/wait")({
-  component: WaitRoute,
-  head: () => ({
-    meta: [{ title: "等待授权" }],
-  }),
   loader: async () => {
     const state = await getNoAccessWaitState();
     if (state.status === "unauthenticated") {
@@ -92,4 +89,8 @@ export const Route = createFileRoute("/wait")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("等待授权") }],
+  }),
+  component: WaitRoute,
 });

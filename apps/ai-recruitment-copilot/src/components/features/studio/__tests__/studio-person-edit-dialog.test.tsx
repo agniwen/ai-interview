@@ -4,9 +4,7 @@ import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import {
   enableReactActEnvironment,
@@ -124,50 +122,6 @@ vi.mock("../use-resume-review-regeneration", () => ({
   }),
 }));
 
-const STRUCTURED_REVIEW: ResumeReview = {
-  biasScan: { items: [] },
-  dimensions: {
-    educationBackground: { rationale: "学历背景符合预期", score: 75 },
-    experienceRelevance: { rationale: "岗位相关", score: 78 },
-    potential: { rationale: "潜力良好", score: 80 },
-    projectMatch: { rationale: "项目匹配", score: 80 },
-    skillMatch: { rationale: "技能匹配", score: 80 },
-    stability: { rationale: "稳定性可接受", score: 75 },
-  },
-  levelRecommendation: { level: "中级", rationale: "经验匹配" },
-  nextStep: {
-    action: "interview",
-    disclaimer: "以上为初步结论",
-    interviewFocus: ["项目贡献"],
-    rationale: "建议面试核实",
-  },
-  overall: {
-    baseScore: 79,
-    conclusion: "候选人匹配度较高。",
-    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 79（不含历史面试加权）",
-  },
-  schemaVersion: 4,
-  strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
-  teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
-  weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
-};
-
-const STRUCTURED_PROFILE: ResumeProfile = {
-  age: null,
-  educationExperiences: [],
-  email: "candidate@example.com",
-  gender: null,
-  name: "邓超",
-  personalStrengths: [],
-  phone: null,
-  projectExperiences: [],
-  schools: [],
-  skills: ["React"],
-  targetRoles: ["前端工程师"],
-  workExperiences: [],
-  workYears: 5,
-};
-
 function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibraryDetail {
   return {
     candidateEmail: null,
@@ -195,6 +149,7 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     jobDescriptionDepartmentName: null,
     jobDescriptionId: "jd-1",
     jobDescriptionName: "前端工程师",
+    jobEvaluationMode: "legacy",
     lastInterviewAt: null,
     notes: "已有简历评价",
     offerAcceptedAt: null,
@@ -202,22 +157,30 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     outcome: "in_pipeline",
     pipelineStage: "screening",
     resumeContentHash: "hash",
+    resumeEvaluationArtifactMode: null,
+    resumeEvaluationAttemptMode: null,
     resumeEvaluationStatus: null,
     resumeFileName: "resume.pdf",
     resumeParseError: null,
+    resumeParseRetryable: false,
     resumeParseStatus: "ready",
     resumeParsedAt: "2026-06-15T00:00:00.000Z",
     resumeProfile: null,
     resumeProfileSnapshot: {
       education: [],
       educationHasMore: false,
+      projects: [],
+      projectsHasMore: false,
       work: [],
       workHasMore: false,
     },
     resumeReview: null,
+    resumeReviewBaseScore: null,
     resumeReviewError: null,
     resumeReviewGeneratedAt: null,
+    resumeReviewNextStepAction: null,
     resumeReviewQueuedAt: null,
+    resumeReviewRunId: null,
     resumeReviewStatus: "idle",
     resumeScreeningError: null,
     resumeScreeningEvaluatedAt: null,
@@ -231,6 +194,11 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
       humanInterview: null,
       offer: null,
     },
+    structuredCompositeScore: null,
+    structuredGateSortRank: null,
+    structuredGateStatus: null,
+    structuredResumeEvaluation: null,
+    structuredScoreGrade: null,
     targetRole: "前端工程师",
     updatedAt: "2026-06-15T00:00:00.000Z",
     writtenTestScheduledAt: null,
@@ -266,6 +234,7 @@ function makeRoundDetail(
       targetRole: "前端工程师",
       updatedAt: "2026-06-15T00:00:00.000Z",
     },
+    candidateFeedback: null,
     conversationId: null,
     createdAt: "2026-06-15T00:00:00.000Z",
     disconnectedAt: null,
@@ -276,6 +245,7 @@ function makeRoundDetail(
     notes: "轮次备注",
     roundLabel: "第一轮",
     scheduledAt: null,
+    scheduledEndAt: null,
     sessionStartedAt: null,
     sortOrder: 1,
     status: "pending",
@@ -291,7 +261,7 @@ async function renderDialog() {
 
   const { root } = await renderInAct(
     <QueryClientProvider client={queryClient}>
-      <WorkspaceSlugProvider id="org-1" memberRole="admin" slug="new">
+      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="new">
         <StudioPersonEditDialog mode="resume" onOpenChange={vi.fn()} open recordId="resume-1" />
       </WorkspaceSlugProvider>
     </QueryClientProvider>,
@@ -313,7 +283,7 @@ async function renderInterviewDialog({
 
   const { root } = await renderInAct(
     <QueryClientProvider client={queryClient}>
-      <WorkspaceSlugProvider id="org-1" memberRole="admin" slug="new">
+      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="new">
         <StudioPersonEditDialog
           mode="interview"
           onEditResumeRecord={onEditResumeRecord}
@@ -394,19 +364,6 @@ describe("StudioPersonEditDialog", () => {
     await cleanupDialog(root, queryClient);
   });
 
-  it("prefills resume review notes in resume edit mode", async () => {
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail());
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.body.textContent).toContain("已有简历评价");
-    });
-
-    expect(apiMocks.fetchStudioResume).toHaveBeenCalledWith("new", "resume-1");
-
-    await cleanupDialog(root, queryClient);
-  });
-
   it("prefills editable resume fields in resume edit mode", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue({
       ...makeDetail(),
@@ -424,57 +381,13 @@ describe("StudioPersonEditDialog", () => {
     );
     expect(document.querySelector<HTMLInputElement>("#candidatePhone")?.value).toBe("13800138000");
     expect(document.querySelector<HTMLInputElement>("#targetRole")?.value).toBe("前端工程师");
+    expect(document.body.textContent).not.toContain("系统简历评价");
+    expect(document.body.textContent).not.toContain("简历文件");
 
     await cleanupDialog(root, queryClient);
   });
 
-  it("preserves structured resume review when notes are manually changed", async () => {
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeReview: STRUCTURED_REVIEW }));
-    apiMocks.apiFetch.mockResolvedValue(makeDetail());
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.querySelector<HTMLTextAreaElement>("#notes")?.value).toBe("已有简历评价");
-    });
-
-    const notes = document.querySelector<HTMLTextAreaElement>("#notes");
-    expect(notes).not.toBeNull();
-
-    await act(async () => {
-      if (!notes) {
-        return;
-      }
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value",
-      )?.set;
-      valueSetter?.call(notes, "用户改过的简历评价");
-      notes.dispatchEvent(new Event("input", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    const form = document.querySelector<HTMLFormElement>("#resume-edit-form");
-    expect(form).not.toBeNull();
-
-    await act(async () => {
-      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      await Promise.resolve();
-    });
-
-    await waitForUi(() => {
-      expect(apiMocks.apiFetch).toHaveBeenCalled();
-    });
-
-    const [, init] = apiMocks.apiFetch.mock.calls[0] as [
-      string,
-      { body: FormData; method: string },
-    ];
-    expect(init.body.has("resumeReview")).toBe(false);
-
-    await cleanupDialog(root, queryClient);
-  });
-
-  it("submits the selected resume evaluation status from resume edit mode", async () => {
+  it("submits identity fields without resume file or system notes", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "pass" }));
     apiMocks.apiFetch.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "fail" }));
     const { queryClient, root } = await renderDialog();
@@ -500,38 +413,9 @@ describe("StudioPersonEditDialog", () => {
       { body: FormData; method: string },
     ];
     expect(init.body.get("resumeEvaluationStatus")).toBe("pass");
-
-    await cleanupDialog(root, queryClient);
-  });
-
-  it("shows resume review regeneration progress in resume edit mode", async () => {
-    reviewRegenerationMocks.hookValue = {
-      isGenerating: true,
-      progressStatus: "正在生成维度评分",
-      progressTools: [
-        { done: true, name: "检查硬性门槛" },
-        { done: false, name: "生成维度评分" },
-      ],
-      regenerate: vi.fn(),
-      scoringPreview: { baseScore: 82 },
-    };
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeProfile: STRUCTURED_PROFILE }));
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.body.textContent).toContain("正在生成维度评分");
-    });
-
-    expect(document.body.textContent).toContain("检查硬性门槛");
-    expect(document.body.textContent).toContain("生成维度评分");
-    expect(document.body.textContent).toContain("评分预览：82");
-    const progressCard = document.querySelector(
-      '[data-testid="resume-review-generation-progress"]',
-    );
-    const notesEditor = document.querySelector("#notes");
-    expect(progressCard?.compareDocumentPosition(notesEditor as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(init.body.has("notes")).toBe(false);
+    expect(init.body.has("resume")).toBe(false);
+    expect(init.body.has("resumeReview")).toBe(false);
 
     await cleanupDialog(root, queryClient);
   });

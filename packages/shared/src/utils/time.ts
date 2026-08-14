@@ -10,6 +10,17 @@
  */
 
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone.js";
+import utc from "dayjs/plugin/utc.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+/**
+ * 产品默认展示时区（东八区）。
+ * Product display timezone (UTC+8).
+ */
+export const APP_TIME_ZONE = "Asia/Shanghai";
 
 /**
  * 默认 `formatDate` 格式：`YY/MM/DD HH:mm`。
@@ -22,6 +33,9 @@ export const DEFAULT_DATE_TIME_FORMAT = "YY/MM/DD HH:mm";
  * Default date-only pattern.
  */
 export const DEFAULT_DATE_FORMAT = "YY/MM/DD";
+
+/** Auto-generated meeting titles embed `YYMMDDHHmm` after this prefix. */
+export const DEFAULT_MEETING_TITLE_PREFIX = "录制记录-";
 
 /**
  * `formatRelativeTime` 内部使用的时间单位阈值。
@@ -49,8 +63,8 @@ export function toDate(value: string | number | Date | null | undefined): Date |
 }
 
 /**
- * 友好格式化日期：默认 `YY/MM/DD HH:mm`。
- * Format a date in a friendly way; defaults to `YY/MM/DD HH:mm`.
+ * 友好格式化日期：默认 `YY/MM/DD HH:mm`（浏览器本地时区）。
+ * Format a date in a friendly way; defaults to `YY/MM/DD HH:mm` (runtime local tz).
  */
 export function formatDate(
   value: string | number | Date | null | undefined,
@@ -64,11 +78,48 @@ export function formatDate(
 }
 
 /**
+ * 按产品时区（Asia/Shanghai）格式化。
+ * Format in the product timezone (Asia/Shanghai).
+ */
+export function formatDateInAppTimeZone(
+  value: string | number | Date | null | undefined,
+  format: string = DEFAULT_DATE_TIME_FORMAT,
+): string {
+  const date = toDate(value);
+  if (!date) {
+    return "—";
+  }
+  return dayjs(date).tz(APP_TIME_ZONE).format(format);
+}
+
+/**
  * 仅日期（无时间）：默认 `YY/MM/DD`。
  * Date-only formatting; defaults to `YY/MM/DD`.
  */
 export function formatDateOnly(value: string | number | Date | null | undefined): string {
   return formatDate(value, DEFAULT_DATE_FORMAT);
+}
+
+/**
+ * 默认会议标题：`录制记录-YYMMDDHHmm`（东八区）。
+ * Default meeting title stamp in Asia/Shanghai.
+ */
+export function formatDefaultMeetingTitle(
+  startedAt: string | number | Date | null | undefined,
+): string {
+  const stamp = formatDateInAppTimeZone(startedAt, "YYMMDDHHmm");
+  if (stamp === "—") {
+    return `${DEFAULT_MEETING_TITLE_PREFIX}未知时间`;
+  }
+  return `${DEFAULT_MEETING_TITLE_PREFIX}${stamp}`;
+}
+
+/**
+ * 会议展示标题：移除自动附加的 `-YYMMDDHHmm` 后缀。
+ * Meeting display title: remove the automatically appended `-YYMMDDHHmm` suffix.
+ */
+export function meetingDisplayTitle(title: string): string {
+  return title.replace(/-\d{10}$/, "");
 }
 
 /**

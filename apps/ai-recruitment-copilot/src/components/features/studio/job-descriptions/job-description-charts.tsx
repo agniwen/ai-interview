@@ -2,23 +2,31 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { Bar, BarChart, CartesianGrid, LabelList, Tooltip, Treemap, XAxis, YAxis } from "recharts";
+import { barX, barY, defineChart, dot, link, ruleX, ruleY } from "@tanstack/charts";
+import { scaleBand, scaleLinear } from "d3-scale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import type { JobDescriptionMetrics } from "@arc/shared/job-descriptions";
 
-const NAME_MAX = 10;
-const X_AXIS_NAME_MAX = 6;
+/**
+ * Chart choices (distinct forms + single interactive mark each):
+ * - candidatesByJd  → vertical ranked bars (barY)
+ * - completionByJd  → horizontal progress bars (muted track + filled barX)
+ * - loadByInterviewer → horizontal lollipops (stem link + endpoint dot)
+ *
+ * Hover multi-ring cause: text/link/bar sharing the same datum object makes
+ * focus match every mark via datum identity. Decorative layers use cloned
+ * rows, and value labels live only in tooltips.
+ */
 
-const PALETTE = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
+const NAME_MAX = 10;
+const CANDIDATE_BLUE = "var(--chart-1)";
+const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
+const COMPLETION_TRACK = "color-mix(in oklab, var(--muted-foreground) 16%, transparent)";
+const LOAD_ORANGE = "oklch(0.72 0.16 55)";
+const STEM_MUTED = "color-mix(in oklab, var(--muted-foreground) 45%, transparent)";
 
 function EmptyHint({ message }: { message: string }) {
   return (
@@ -34,13 +42,13 @@ function truncate(value: string, max = NAME_MAX): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
-function fullNameFromPayload(payload: Record<string, unknown>[] | undefined): string {
-  const row = payload?.[0]?.payload as { name?: unknown } | undefined;
-  return typeof row?.name === "string" ? row.name : "";
-}
-
 function formatCompact(value: number): string {
   return value.toLocaleString("zh-CN");
+}
+
+/** Clone rows so decorative marks do not share datum identity with interactive marks. */
+function cloneRows<T extends object>(rows: readonly T[]): T[] {
+  return rows.map((row) => ({ ...row }));
 }
 
 interface MetricItem {
@@ -87,114 +95,95 @@ function ChartCardShell({
 }
 
 const candidatesConfig: ChartConfig = {
-  count: { color: "var(--chart-1)", label: "候选人数" },
+  count: { color: CANDIDATE_BLUE, label: "候选人数" },
 };
 
-interface TreemapCellProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  index?: number;
-  name?: string;
-  value?: number;
-}
-
-function CandidatesTreemapCell(props: TreemapCellProps) {
-  const { x = 0, y = 0, width = 0, height = 0, index = 0, name = "", value = 0 } = props;
-  const fill = PALETTE[index % PALETTE.length];
-  const showLabel = width > 64 && height > 36;
-  const showCount = width > 40 && height > 22;
-
-  return (
-    <g>
-      <rect
-        fill={fill}
-        height={height}
-        rx={4}
-        stroke="var(--background)"
-        strokeWidth={2}
-        width={width}
-        x={x}
-        y={y}
-      />
-      {showLabel ? (
-        <text
-          className="pointer-events-none fill-primary-foreground text-[11px]"
-          textAnchor="start"
-          x={x + 8}
-          y={y + 16}
-        >
-          {truncate(name)}
-        </text>
-      ) : null}
-      {showCount ? (
-        <text
-          className="pointer-events-none fill-primary-foreground/80 text-[10px] tabular-nums"
-          textAnchor="start"
-          x={x + 8}
-          y={y + height - 8}
-        >
-          {value}
-        </text>
-      ) : null}
-    </g>
-  );
-}
-
-interface TreemapTooltipProps {
-  active?: boolean;
-  payload?: { payload?: { name?: unknown; count?: unknown } }[];
-}
-
-function TreemapTooltip({ active, payload }: TreemapTooltipProps) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-  const row = payload[0]?.payload;
-  if (!row) {
-    return null;
-  }
-  const name = typeof row.name === "string" ? row.name : "";
-  const count = typeof row.count === "number" ? row.count : 0;
-  return (
-    <div className="grid min-w-[8rem] gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-      <div className="font-medium">{name}</div>
-      <div className="flex items-center justify-between gap-3 text-muted-foreground">
-        <span>候选人数</span>
-        <span className="font-mono font-medium text-foreground tabular-nums">{count} 人</span>
-      </div>
-    </div>
-  );
-}
-
+/** Vertical ranking: which jobs hold the most candidates. */
 function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"] }) {
-  const data = useMemo(() => rows.filter((row) => row.count > 0), [rows]);
+  const data = useMemo(
+    () =>
+      rows
+        .filter((row) => row.count > 0)
+        .toSorted((left, right) => right.count - left.count)
+        .map((row) => ({ ...row, shortName: truncate(row.name) })),
+    [rows],
+  );
   const total = useMemo(() => data.reduce((sum, row) => sum + row.count, 0), [data]);
   const max = useMemo(() => Math.max(0, ...data.map((row) => row.count)), [data]);
   const hasData = data.length > 0;
+  const height = 220;
+
+  const definition = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    const domain = data.map((row) => row.shortName);
+    return defineChart({
+      focus: "nearest-x",
+      focusRing: true,
+      margin: { bottom: 48, left: 36, right: 8, top: 8 },
+      marks: [
+        ruleY([0], { stroke: "var(--border)", strokeWidth: 1 }),
+        barY(data, {
+          fill: CANDIDATE_BLUE,
+          fillOpacity: 0.9,
+          key: "id",
+          radius: 4,
+          x: "shortName",
+          y: "count",
+        }),
+      ],
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof data)[number];
+          return `${row.name}: ${row.count} 人`;
+        },
+      },
+      x: {
+        axis: {
+          line: false,
+          tickLabels: {
+            rotate: domain.length > 4 ? -28 : undefined,
+            thin: false,
+          },
+          ticks: {
+            format: String,
+            size: 0,
+            values: domain,
+          },
+        },
+        scale: () => scaleBand<string>().domain(domain).paddingInner(0.28).paddingOuter(0.12),
+      },
+      y: {
+        axis: {
+          line: false,
+          ticks: { count: 4, size: 0 },
+        },
+        grid: true,
+        nice: true,
+        scale: scaleLinear,
+      },
+    });
+  }, [data, hasData]);
 
   return (
     <ChartCardShell
-      description={hasData ? "面积越大，候选人越多" : "暂无候选人"}
+      description={hasData ? "柱形排名：看哪些岗位候选人更多" : "暂无候选人"}
       metrics={[
         { label: "候选人", value: formatCompact(total) },
         { label: "峰值岗位", value: formatCompact(max) },
       ]}
       title="各岗位候选人数"
     >
-      {hasData ? (
-        <ChartContainer className="aspect-auto h-56 w-full" config={candidatesConfig}>
-          <Treemap
-            animationDuration={300}
-            content={<CandidatesTreemapCell />}
-            data={data.map((row) => ({ count: row.count, id: row.id, name: row.name }))}
-            dataKey="count"
-            nameKey="name"
-            stroke="var(--background)"
-          >
-            <Tooltip content={<TreemapTooltip />} cursor={false} />
-          </Treemap>
+      {hasData && definition ? (
+        <ChartContainer className="aspect-auto w-full" config={candidatesConfig} style={{ height }}>
+          <Chart
+            ariaLabel="各岗位候选人数排名"
+            className="w-full"
+            definition={definition}
+            height={height}
+          />
         </ChartContainer>
       ) : (
         <EmptyHint message="还没有岗位收到候选人" />
@@ -203,90 +192,109 @@ function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"
   );
 }
 
-const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
-
 const completionConfig: ChartConfig = {
   percent: { color: COMPLETION_GREEN, label: "完成率" },
 };
 
-function truncateAxis(value: string): string {
-  return truncate(value, X_AXIS_NAME_MAX);
-}
-
+/** Horizontal progress bars: completion share per job (0–100%). */
 function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"] }) {
   const data = useMemo(
     () =>
-      rows.map((row) => ({
-        ...row,
-        percent: row.total > 0 ? Math.round((row.done / row.total) * 100) : 0,
-        shortName: truncateAxis(row.name),
-      })),
+      rows
+        .map((row) => ({
+          ...row,
+          percent: row.total > 0 ? Math.round((row.done / row.total) * 100) : 0,
+          shortName: truncate(row.name),
+          track: 100,
+        }))
+        .toSorted((left, right) => right.percent - left.percent),
     [rows],
   );
   const done = useMemo(() => data.reduce((sum, row) => sum + row.done, 0), [data]);
   const total = useMemo(() => data.reduce((sum, row) => sum + row.total, 0), [data]);
   const average = total > 0 ? Math.round((done / total) * 100) : 0;
   const hasData = data.length > 0;
+  const height = Math.max(120, Math.min(data.length * 36 + 24, 280));
+
+  const definition = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    const domain = data.map((row) => row.shortName);
+    // Cloned track rows so focus does not ring both track and fill for one job.
+    const tracks = cloneRows(data);
+    return defineChart({
+      focus: "nearest-y",
+      focusRing: true,
+      margin: { bottom: 8, left: 88, right: 16, top: 4 },
+      marks: [
+        barX(tracks, {
+          fill: COMPLETION_TRACK,
+          key: (row) => `${row.id}-track`,
+          radius: 5,
+          x: "track",
+          y: "shortName",
+        }),
+        barX(data, {
+          fill: COMPLETION_GREEN,
+          fillOpacity: 0.92,
+          key: "id",
+          radius: 5,
+          x: "percent",
+          y: "shortName",
+        }),
+      ],
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof data)[number];
+          return `${row.name}: ${row.done} / ${row.total} 轮（${row.percent}%）`;
+        },
+      },
+      x: {
+        axis: {
+          line: false,
+          ticks: {
+            format: (value: number) => `${value}%`,
+            size: 0,
+            values: [0, 25, 50, 75, 100],
+          },
+        },
+        grid: true,
+        scale: scaleLinear().domain([0, 100]),
+      },
+      y: {
+        axis: {
+          line: false,
+          tickLabels: { thin: false },
+          ticks: {
+            format: String,
+            size: 0,
+            values: domain,
+          },
+        },
+        scale: () => scaleBand<string>().domain(domain).paddingInner(0.32).paddingOuter(0.12),
+      },
+    });
+  }, [data, hasData]);
 
   return (
     <ChartCardShell
-      description={hasData ? "完成轮次 / 总轮次" : "暂无面试轮次"}
+      description={hasData ? "进度条：完成轮次 / 总轮次" : "暂无面试轮次"}
       metrics={[
         { label: "平均完成", value: `${average}%` },
         { label: "已完成", value: `${formatCompact(done)}/${formatCompact(total)}` },
       ]}
       title="各岗位面试完成率"
     >
-      {hasData ? (
-        <ChartContainer className="aspect-auto h-56 w-full" config={completionConfig}>
-          <BarChart
-            accessibilityLayer
-            data={data}
-            margin={{ bottom: 4, left: 4, right: 8, top: 24 }}
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="shortName"
-              interval={0}
-              tickLine={false}
-              tickMargin={6}
-            />
-            <YAxis
-              axisLine={false}
-              domain={[0, 100]}
-              tickFormatter={(value: number) => `${value}%`}
-              tickLine={false}
-              tickMargin={4}
-              ticks={[0, 25, 50, 75, 100]}
-              width={36}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(_value, _name, item) => {
-                    const payload = item.payload as {
-                      done: number;
-                      total: number;
-                      percent: number;
-                    };
-                    return `${payload.done} / ${payload.total} 轮（${payload.percent}%）`;
-                  }}
-                  indicator="dot"
-                  labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
-                />
-              }
-            />
-            <Bar dataKey="percent" fill="var(--color-percent)" radius={[4, 4, 0, 0]}>
-              <LabelList
-                className="fill-foreground text-[10px] tabular-nums"
-                dataKey="percent"
-                formatter={(value: unknown) => `${value}%`}
-                offset={6}
-                position="top"
-              />
-            </Bar>
-          </BarChart>
+      {hasData && definition ? (
+        <ChartContainer className="aspect-auto w-full" config={completionConfig} style={{ height }}>
+          <Chart
+            ariaLabel="各岗位面试完成率"
+            className="w-full"
+            definition={definition}
+            height={height}
+          />
         </ChartContainer>
       ) : (
         <EmptyHint message="还没有面试轮次数据" />
@@ -295,72 +303,102 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
   );
 }
 
-const LOAD_ORANGE = "oklch(0.72 0.16 55)";
-
 const loadConfig: ChartConfig = {
   activeCandidates: { color: LOAD_ORANGE, label: "进行中候选人" },
 };
 
-function rowsHeight(count: number) {
-  return Math.max(96, Math.min(count * 32 + 16, 280));
-}
-
+/** Horizontal lollipops: interviewer load endpoints with light visual weight. */
 function LoadCard({ rows }: { rows: JobDescriptionMetrics["loadByInterviewer"] }) {
   const data = useMemo(
-    () => rows.map((row) => ({ ...row, shortName: truncate(row.name) })),
+    () =>
+      rows
+        .toSorted((left, right) => right.activeCandidates - left.activeCandidates)
+        .map((row) => ({ ...row, shortName: truncate(row.name) })),
     [rows],
   );
   const total = useMemo(() => data.reduce((sum, row) => sum + row.activeCandidates, 0), [data]);
   const max = useMemo(() => Math.max(0, ...data.map((row) => row.activeCandidates)), [data]);
   const hasData = data.length > 0;
+  const height = Math.max(120, Math.min(data.length * 36 + 24, 280));
+
+  const definition = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    const domain = data.map((row) => row.shortName);
+    // Stem uses cloned rows so only the endpoint dot rings on focus.
+    const stems = cloneRows(data);
+    return defineChart({
+      focus: "nearest-y",
+      focusRing: true,
+      margin: { bottom: 8, left: 88, right: 20, top: 4 },
+      marks: [
+        ruleX([0], { stroke: "var(--border)", strokeWidth: 1 }),
+        link(stems, {
+          key: (row) => `${row.id}-stem`,
+          stroke: STEM_MUTED,
+          strokeWidth: 1.5,
+          x1: () => 0,
+          x2: "activeCandidates",
+          y1: "shortName",
+          y2: "shortName",
+        }),
+        dot(data, {
+          fill: LOAD_ORANGE,
+          key: "id",
+          r: 5,
+          x: "activeCandidates",
+          y: "shortName",
+        }),
+      ],
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof data)[number];
+          return `${row.name}: ${row.activeCandidates} 人进行中`;
+        },
+      },
+      x: {
+        axis: {
+          line: false,
+          ticks: { count: 4, size: 0 },
+        },
+        grid: true,
+        nice: true,
+        scale: scaleLinear,
+      },
+      y: {
+        axis: {
+          line: false,
+          tickLabels: { thin: false },
+          ticks: {
+            format: String,
+            size: 0,
+            values: domain,
+          },
+        },
+        scale: () => scaleBand<string>().domain(domain).paddingInner(0.36).paddingOuter(0.14),
+      },
+    });
+  }, [data, hasData]);
 
   return (
     <ChartCardShell
-      description={hasData ? "进行中 / 待面试候选人" : "暂无进行中面试"}
+      description={hasData ? "棒棒糖图：端点强调负载，不强调面积" : "暂无进行中面试"}
       metrics={[
         { label: "总负载", value: formatCompact(total) },
         { label: "最高负载", value: formatCompact(max) },
       ]}
       title="面试官负载"
     >
-      {hasData ? (
-        <ChartContainer
-          className="aspect-auto w-full"
-          config={loadConfig}
-          style={{ height: rowsHeight(data.length) }}
-        >
-          <BarChart accessibilityLayer data={data} layout="vertical" margin={{ right: 24 }}>
-            <CartesianGrid horizontal={false} />
-            <XAxis allowDecimals={false} hide type="number" />
-            <YAxis
-              axisLine={false}
-              dataKey="shortName"
-              tickLine={false}
-              tickMargin={4}
-              type="category"
-              width={88}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  indicator="dot"
-                  labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
-                />
-              }
-            />
-            <Bar
-              dataKey="activeCandidates"
-              fill="var(--color-activeCandidates)"
-              radius={[0, 4, 4, 0]}
-            >
-              <LabelList
-                className="fill-foreground text-[10px] tabular-nums"
-                dataKey="activeCandidates"
-                offset={6}
-                position="right"
-              />
-            </Bar>
-          </BarChart>
+      {hasData && definition ? (
+        <ChartContainer className="aspect-auto w-full" config={loadConfig} style={{ height }}>
+          <Chart
+            ariaLabel="面试官负载"
+            className="w-full"
+            definition={definition}
+            height={height}
+          />
         </ChartContainer>
       ) : (
         <EmptyHint message="目前没有进行中的面试" />

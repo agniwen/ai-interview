@@ -1,0 +1,89 @@
+import { Badge } from "@mastra/playground-ui/components/Badge";
+import { MarkdownRenderer } from "@mastra/playground-ui/components/MarkdownRenderer";
+import { Notice } from "@mastra/playground-ui/components/Notice";
+import { Icon } from "@mastra/playground-ui/icons/Icon";
+import { cn } from "@mastra/playground-ui/utils/cn";
+import { CheckCircleIcon, ChevronUpIcon } from "lucide-react";
+import { useState } from "react";
+
+import type { MessageMetadata } from "../message-metadata";
+import { TripwireNotice } from "../tripwire-notice";
+
+export interface MessageTextProps {
+  text: string;
+  metadata: MessageMetadata | undefined;
+}
+
+/**
+ * Part-level text renderer. Markdown for normal text, plus the legacy
+ * error/completion handling previously in `ErrorAwareText` (which read part
+ * metadata).
+ */
+export const MessageText = ({ text, metadata }: MessageTextProps) => {
+  const [collapsedCompletionCheck, setCollapsedCompletionCheck] = useState(false);
+
+  if (metadata?.status === "tripwire") {
+    return <TripwireNotice reason={text} tripwire={metadata.tripwire} />;
+  }
+  if (metadata?.status === "warning") {
+    return (
+      <Notice variant="warning" title="警告">
+        <Notice.Message>{text}</Notice.Message>
+      </Notice>
+    );
+  }
+  if (metadata?.status === "error") {
+    return (
+      <Notice variant="destructive" title="错误">
+        <Notice.Message>{text}</Notice.Message>
+      </Notice>
+    );
+  }
+
+  const taskCompleteResult = metadata?.completionResult;
+  if (taskCompleteResult) {
+    return (
+      <div className="mb-2 space-y-2">
+        <button
+          onClick={() => setCollapsedCompletionCheck((s) => !s)}
+          className="flex items-center gap-2"
+        >
+          <Icon>
+            <ChevronUpIcon
+              className={cn(
+                "transition-all",
+                collapsedCompletionCheck ? "rotate-90" : "rotate-180",
+              )}
+            />
+          </Icon>
+          <Badge variant="info" icon={<CheckCircleIcon />}>
+            {collapsedCompletionCheck ? "显示" : "隐藏"}完成检查
+          </Badge>
+        </button>
+        {!collapsedCompletionCheck && (
+          <Notice variant="info" title={taskCompleteResult?.passed ? "已完成" : "未完成"}>
+            <MarkdownRenderer>{text}</MarkdownRenderer>
+          </Notice>
+        )}
+      </div>
+    );
+  }
+
+  const trimmedText = text.trim();
+  if (trimmedText.startsWith("__ERROR__:")) {
+    return (
+      <Notice variant="destructive" title="错误">
+        <Notice.Message>{trimmedText.slice("__ERROR__:".length)}</Notice.Message>
+      </Notice>
+    );
+  }
+  if (trimmedText.startsWith("Error:")) {
+    return (
+      <Notice variant="destructive" title="错误">
+        <Notice.Message>{trimmedText.slice("Error:".length).trim()}</Notice.Message>
+      </Notice>
+    );
+  }
+
+  return <MarkdownRenderer>{text}</MarkdownRenderer>;
+};

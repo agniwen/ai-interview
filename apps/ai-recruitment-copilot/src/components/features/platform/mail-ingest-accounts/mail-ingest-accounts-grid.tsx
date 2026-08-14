@@ -5,7 +5,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
+import { DateTimePicker } from "@/components/date-time-picker";
+import {
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  estimateActionsColumnSize,
+  useDataGridState,
+} from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -384,13 +391,12 @@ function PlatformMailIngestAccountDialog({
 
             <Field>
               <FieldLabel htmlFor="platform-mail-ingest-listen-start">监听起始时间</FieldLabel>
-              <Input
+              <DateTimePicker
                 id="platform-mail-ingest-listen-start"
                 disabled={pending}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, listenStartAt: event.target.value }))
+                onValueChange={(listenStartAt) =>
+                  setForm((current) => ({ ...current, listenStartAt }))
                 }
-                type="datetime-local"
                 value={form.listenStartAt}
               />
               <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
@@ -577,6 +583,8 @@ export function PlatformMailIngestAccountsGrid() {
             show: (row) => !row.account,
           },
         ],
+        // “编辑”和“新建”互斥显示，按单个最长按钮计算列宽。
+        size: estimateActionsColumnSize({ inlineLabels: ["编辑"] }),
       }),
     ],
     [],
@@ -586,7 +594,7 @@ export function PlatformMailIngestAccountsGrid() {
     <>
       <DataGrid<PlatformMailIngestAccountRow>
         {...grid.bind}
-        columnPinning={{ right: ["actions"] }}
+        columnPinning={{ end: ["actions"] }}
         columns={columns}
         empty={
           <Empty className="border-border">

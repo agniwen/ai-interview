@@ -1,6 +1,7 @@
 AGENT_DIR := apps/livekit-agent
 WEB_DIR   := apps/ai-recruitment-copilot
 WORKER_PACKAGE := @arc/ai-recruitment-copilot-worker
+DESKTOP_PACKAGE := @arc/ai-recruitment-copilot-desktop
 VENV      := $(AGENT_DIR)/.venv
 PY        := uv run --project $(AGENT_DIR)
 AGENT_SCRIPT := src/agent.py
@@ -9,11 +10,13 @@ AGENT_SCRIPT := src/agent.py
 
 .PHONY: help install web-install agent-install agent-download \
         dev web-dev worker-dev worker-start worker-typecheck \
+        desktop-dev desktop-start desktop-typecheck desktop-build \
+        desktop-build-mac desktop-build-win desktop-build-linux desktop-build-unpack \
         agent-dev agent-console agent-start agent-shell \
         agent-deploy agent-update-secrets agent-clean clean
 
 help: ## 显示所有可用命令
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # ---------- install ----------
 
@@ -34,8 +37,8 @@ agent-download: ## 下载 Silero VAD + turn-detector 模型
 dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
-web-dev: ## 仅启动 TanStack Start dev server
-	pnpm --filter @arc/ai-recruitment-copilot dev
+web-dev: ## 清理缓存后启动 TanStack Start dev server
+	pnpm --filter @arc/ai-recruitment-copilot dev:fresh
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
 	pnpm --filter $(WORKER_PACKAGE) dev
@@ -45,6 +48,32 @@ worker-start: ## 启动简历异步解析 worker (生产模式，不热重载)
 
 worker-typecheck: ## 检查简历异步解析 worker TypeScript 类型
 	pnpm --filter $(WORKER_PACKAGE) typecheck
+
+# ---------- desktop (Electron) ----------
+
+desktop-dev: ## 启动 Electron 桌面端 (electron-vite dev)
+	pnpm --filter $(DESKTOP_PACKAGE) dev
+
+desktop-start: ## 预览已构建的 Electron 桌面端
+	pnpm --filter $(DESKTOP_PACKAGE) start
+
+desktop-typecheck: ## 检查 Electron 桌面端 TypeScript 类型
+	pnpm --filter $(DESKTOP_PACKAGE) typecheck
+
+desktop-build: ## 构建 Electron 主进程/渲染进程 (不打安装包)
+	pnpm --filter $(DESKTOP_PACKAGE) build
+
+desktop-build-mac: ## 构建并打包 macOS 安装包 (dmg)
+	pnpm --filter $(DESKTOP_PACKAGE) build:mac
+
+desktop-build-win: ## 构建并打包 Windows 安装包
+	pnpm --filter $(DESKTOP_PACKAGE) build:win
+
+desktop-build-linux: ## 构建并打包 Linux 安装包
+	pnpm --filter $(DESKTOP_PACKAGE) build:linux
+
+desktop-build-unpack: ## 构建未打包的应用目录 (调试用)
+	pnpm --filter $(DESKTOP_PACKAGE) build:unpack
 
 agent-dev: ## 仅启动 LiveKit agent worker (dev 模式，热重载)
 	cd $(AGENT_DIR) && uv run $(AGENT_SCRIPT) dev
@@ -74,3 +103,4 @@ agent-clean: ## 删除 Python venv
 
 clean: agent-clean ## 清理所有生成目录
 	rm -rf apps/ai-recruitment-copilot/.output apps/ai-recruitment-copilot/node_modules/.vite node_modules/.cache
+	rm -rf apps/ai-recruitment-copilot-desktop/out apps/ai-recruitment-copilot-desktop/dist

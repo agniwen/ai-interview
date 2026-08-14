@@ -2,27 +2,25 @@
 
 import {
   IconBuilding,
+  IconCalendarEvent,
   IconChartBar,
   IconClipboardList,
   IconFileText,
   IconLayoutGrid,
   IconListCheck,
   IconMailCheck,
+  IconMessageChatbot,
   IconRobot,
-  IconSettings,
   IconShieldCheck,
-  IconTool,
   IconUser,
   IconUserCircle,
   IconUserCog,
   IconUsers,
 } from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  SidebarBodyPortalContent,
-  SidebarFooterPortalContent,
-} from "@/components/layout/app-sidebar/portals";
-import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
+import { SidebarBodyPortalContent } from "@/components/layout/app-sidebar/portals";
+import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
+import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -30,13 +28,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { statement } from "@arc/shared/permissions";
 
-interface NavItem {
+export interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
   path: string;
   icon: typeof IconRobot;
@@ -77,6 +74,13 @@ const navGroups: NavGroup[] = [
         title: "AI 面试",
       },
       {
+        action: "interviews",
+        icon: IconCalendarEvent,
+        path: "/studio/calendar",
+        resource: "page",
+        title: "日程管理",
+      },
+      {
         action: "dashboard",
         icon: IconChartBar,
         path: "/studio/dashboard",
@@ -100,7 +104,7 @@ const navGroups: NavGroup[] = [
         icon: IconUserCircle,
         path: "/studio/interviewers",
         resource: "page",
-        title: "面试官管理",
+        title: "AI面试官管理",
       },
       {
         action: "jobDescriptions",
@@ -119,14 +123,14 @@ const navGroups: NavGroup[] = [
         icon: IconClipboardList,
         path: "/studio/forms",
         resource: "page",
-        title: "面试表单",
+        title: "表单题",
       },
       {
         action: "interviewQuestions",
         icon: IconListCheck,
         path: "/studio/interview-questions",
         resource: "page",
-        title: "面试题",
+        title: "沟通题",
       },
     ],
     label: "题库",
@@ -138,7 +142,7 @@ const navGroups: NavGroup[] = [
         icon: IconUser,
         path: "/studio/me",
         resource: "page",
-        title: "我的信息",
+        title: "个人中心",
       },
       {
         action: "members",
@@ -155,14 +159,6 @@ const navGroups: NavGroup[] = [
         title: "邮箱监听",
       },
       {
-        action: "agentDebug",
-        adminOnly: true,
-        icon: IconTool,
-        path: "/studio/agent-debug",
-        resource: "page",
-        title: "Agent 调试",
-      },
-      {
         action: "permissions",
         icon: IconShieldCheck,
         path: "/studio/permissions",
@@ -171,15 +167,24 @@ const navGroups: NavGroup[] = [
       },
       {
         action: "globalConfig",
-        icon: IconSettings,
+        icon: IconMessageChatbot,
         path: "/studio/global-config",
         resource: "page",
-        title: "系统设置",
+        title: "上下文设置",
       },
     ],
     label: "系统配置",
   },
 ];
+
+const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
+
+export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefined {
+  const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "");
+  return navGroups
+    .flatMap((group) => group.items)
+    .find((item) => studioPath === item.path || studioPath.startsWith(`${item.path}/`));
+}
 
 function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean; href: string }) {
   // Hook must be called unconditionally
@@ -194,7 +199,7 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   return (
     <SidebarMenuItem key={item.path}>
       <SidebarMenuButton
-        className="cursor-default select-none"
+        className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
         isActive={active}
         render={
           <Link to={href}>
@@ -208,10 +213,9 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   );
 }
 
-export function StudioSidebarSlots() {
+function StudioSidebarNavigation() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const slug = useWorkspaceSlug();
-  const { state } = useSidebar();
 
   // 把 nav 表里的 /studio/* 路径包成当前 workspace 的 /w/[slug]/studio/* 链接；
   // 没有 slug (理论上 StudioSidebarSlots 只在 workspace 路由下渲染) 时退回根路径,
@@ -222,35 +226,37 @@ export function StudioSidebarSlots() {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  return (
-    <>
-      <SidebarBodyPortalContent>
-        {navGroups.map((group) => (
-          <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
-            <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarNavItem
-                    key={item.path}
-                    item={item}
-                    active={isActive(item.path)}
-                    href={buildHref(item.path)}
-                  />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-      </SidebarBodyPortalContent>
+  return navGroups.map((group) => (
+    <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
+      <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {group.items.map((item) => (
+            <SidebarNavItem
+              key={item.path}
+              item={item}
+              active={isActive(item.path)}
+              href={buildHref(item.path)}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  ));
+}
 
-      <SidebarFooterPortalContent>
-        <SidebarUserSection
-          callbackURL={buildHref("/studio")}
-          collapsed={state === "collapsed"}
-          showHomeLink={false}
-        />
-      </SidebarFooterPortalContent>
-    </>
+export function StudioSidebarSlots({
+  active,
+  direction,
+}: {
+  active: boolean;
+  direction: SidebarSlotDirection;
+}) {
+  return (
+    <SidebarBodyPortalContent>
+      <SidebarSlotTransition active={active} direction={direction} panelKey="studio-sidebar-body">
+        <StudioSidebarNavigation />
+      </SidebarSlotTransition>
+    </SidebarBodyPortalContent>
   );
 }

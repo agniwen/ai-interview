@@ -5,7 +5,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
-import pLimit from "p-limit";
 import pRetry from "p-retry";
 import {
   generateStructuredWithMastraAgent,
@@ -13,6 +12,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import {
@@ -27,20 +27,22 @@ import {
   readOfficeXmlAttribute as readAttribute,
   readOfficeZipText as readZipText,
 } from "./office-xml";
-import { rasterizePdfWithMeta } from "./pdf-rasterize";
+import { processPdfPagesWithMeta } from "./pdf-rasterize";
+import { parseResumeWithAliyun } from "./resume-parse-aliyun";
+import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 const DEFAULT_OCR_ATTEMPTS = 3;
-const DEFAULT_OCR_PAGE_CONCURRENCY = 1;
+const DEFAULT_OCR_PAGE_CONCURRENCY = 4;
 const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
 const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 
-const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
+export const RESUME_STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
 
 ## 输出 JSON 结构（字段名与类型必须严格匹配）
 
@@ -104,7 +106,7 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - timelineSummary.estimatedExperienceYears 为数字，不足一年用小数；无法推断时为 null。
 - age 仅在简历明确给出时填数字，不要根据毕业年份推测。`;
 
-export type ResumeTextSource = "qwen-ocr" | "docx-text" | "html-text" | "pptx-text" | "xlsx-text";
+export type ResumeTextSource = Exclude<AttachmentTextSource, "pdf-parse">;
 export {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
@@ -126,6 +128,8 @@ export interface ParsedResumeOcr {
 export interface ParsedResumeFast extends ParsedResumeOcr {
   structured: ResumeParserStructured;
 }
+
+export type ParsedResumeDocument = ParsedResumeOcr | ParsedResumeFast;
 
 export type ResumeParseProgressEvent =
   | {
@@ -579,7 +583,7 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
-    prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     schema: structuredSchema,
     temperature: 0,
   });
@@ -608,66 +612,73 @@ export async function parseResumeOcrOnly(
   }
 
   devOcrLog("start", { bytes: bytes.byteLength, maxPages: 6, scale: 2 });
-  const rasterizeStartedAt = nowMs();
-  const { pages, pageCount } = await rasterizePdfWithMeta(bytes, { maxPages: 6, scale: 2 });
-  devOcrLog("rasterize completed", {
-    duration: formatDuration(rasterizeStartedAt),
-    pageCount,
-    renderedPages: pages.length,
-    renderedSizes: pages.map((page) => page.byteLength),
-  });
-  emitResumeParseProgress(options.onProgress, {
-    renderedPages: pages.length,
-    totalPages: pageCount,
-    type: "document.pages.ready",
-  });
-
-  if (pages.length === 0) {
-    throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
-  }
-
   const ocrStartedAt = nowMs();
   const pageConcurrency = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
     DEFAULT_OCR_PAGE_CONCURRENCY,
   );
-  const limitOcrPage = pLimit(pageConcurrency);
-  const ocrTexts = await Promise.all(
-    pages.map((png, index) =>
-      limitOcrPage(async () => {
-        const pageStartedAt = nowMs();
+  let renderedPages = 0;
+  let sourcePageCount = 0;
+  const {
+    pageCount,
+    renderedSizes,
+    results: ocrTexts,
+  } = await processPdfPagesWithMeta(
+    bytes,
+    {
+      concurrency: pageConcurrency,
+      maxPages: 6,
+      onReady: (meta) => {
+        renderedPages = meta.selectedPages;
+        sourcePageCount = meta.pageCount;
         emitResumeParseProgress(options.onProgress, {
-          page: index + 1,
-          totalPages: pageCount,
-          type: "ocr.page.started",
+          renderedPages,
+          totalPages: sourcePageCount,
+          type: "document.pages.ready",
         });
-        const text = await qwenVlOcrWithRetry(png, index + 1);
-        devOcrLog("page completed", {
-          chars: text.length,
-          duration: formatDuration(pageStartedAt),
-          page: index + 1,
-          pngBytes: png.byteLength,
-        });
-        emitResumeParseProgress(options.onProgress, {
-          charCount: text.length,
-          page: index + 1,
-          textPreview: toOcrTextPreview(text),
-          totalPages: pageCount,
-          type: "ocr.page.completed",
-        });
-        return text;
-      }),
-    ),
+      },
+      scale: 2,
+    },
+    async (png, index) => {
+      const pageStartedAt = nowMs();
+      emitResumeParseProgress(options.onProgress, {
+        page: index + 1,
+        totalPages: sourcePageCount,
+        type: "ocr.page.started",
+      });
+      const text = await qwenVlOcrWithRetry(png, index + 1);
+      devOcrLog("page completed", {
+        chars: text.length,
+        duration: formatDuration(pageStartedAt),
+        page: index + 1,
+        pngBytes: png.byteLength,
+      });
+      emitResumeParseProgress(options.onProgress, {
+        charCount: text.length,
+        page: index + 1,
+        textPreview: toOcrTextPreview(text),
+        totalPages: sourcePageCount,
+        type: "ocr.page.completed",
+      });
+      return text;
+    },
   );
+
+  if (renderedPages === 0) {
+    throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
+  }
+
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),
     outputChars: text.length,
-    pages: pages.length,
+    pageCount,
+    renderedPages,
+    renderedSizes,
   });
   emitResumeParseProgress(options.onProgress, {
     outputChars: text.length,
-    renderedPages: pages.length,
+    renderedPages,
     totalPages: pageCount,
     type: "ocr.completed",
   });
@@ -680,7 +691,7 @@ export async function parseResumeOcrOnly(
     duration: formatDuration(totalStartedAt),
     outputChars: text.length,
     pageCount,
-    renderedPages: pages.length,
+    renderedPages,
   });
   return { pageCount, text, textSource: "qwen-ocr" };
 }
@@ -737,6 +748,16 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
   }
 }
 
+export function parseResumeDocument(input: ResumeDocumentInput): Promise<ParsedResumeDocument> {
+  if (!getResumeDocumentKind(input)) {
+    throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
+  }
+  if (getResumeParseProvider() === "aliyun-docmining") {
+    return parseResumeWithAliyun(input);
+  }
+  return extractResumeDocumentText(input);
+}
+
 /**
  * 完整解析：OCR + 结构化抽取。
  * 现在内部由 parseResumeOcrOnly + generateResumeStructured 两步组合而成，
@@ -751,18 +772,29 @@ export async function parseResumeFast(
 ): Promise<ParsedResumeFast> {
   const startedAt = nowMs();
   const documentInput =
-    input instanceof Uint8Array ? { bytes: input, mediaType: "application/pdf" } : input;
+    input instanceof Uint8Array
+      ? { bytes: input, fileName: "resume.pdf", mediaType: "application/pdf" }
+      : input;
   devOcrLog("full parse start", { bytes: documentInput.bytes.byteLength });
-  const ocr = await extractResumeDocumentText(documentInput);
+  const parsed = await parseResumeDocument(documentInput);
+  if ("structured" in parsed) {
+    devOcrLog("full parse completed", {
+      duration: formatDuration(startedAt),
+      outputChars: parsed.text.length,
+      pageCount: parsed.pageCount,
+      provider: parsed.textSource,
+    });
+    return parsed;
+  }
   devOcrLog("structured dispatch", {
-    inputChars: ocr.text.length,
-    pageCount: ocr.pageCount,
+    inputChars: parsed.text.length,
+    pageCount: parsed.pageCount,
   });
-  const structured = await generateResumeStructured(ocr.text);
+  const structured = await generateResumeStructured(parsed.text);
   devOcrLog("full parse completed", {
     duration: formatDuration(startedAt),
-    outputChars: ocr.text.length,
-    pageCount: ocr.pageCount,
+    outputChars: parsed.text.length,
+    pageCount: parsed.pageCount,
   });
-  return { ...ocr, structured };
+  return { ...parsed, structured };
 }

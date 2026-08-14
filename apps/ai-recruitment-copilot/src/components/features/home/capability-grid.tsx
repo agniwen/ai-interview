@@ -12,6 +12,7 @@ import {
 // Purpose: Bento-style capability section — featured tile + varied-size tiles for headline capabilities.
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
@@ -43,7 +44,9 @@ function BentoTile({
       <h3 className="mt-6 font-medium text-foreground text-lg leading-tight tracking-tight">
         {title}
       </h3>
-      <p className="mt-2 text-foreground/70 text-sm leading-normal">{description}</p>
+      <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
+        {description}
+      </p>
     </div>
   );
 
@@ -91,12 +94,8 @@ function ChatBubblesVisual() {
       <div className="max-w-[90%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         <span className="block">他更偏战略与定价；上一位偏渠道执行。</span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-[11px] text-emerald-600 dark:text-emerald-300">
-            亮点 · 跨区定价
-          </span>
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 dark:text-amber-300">
-            风险 · 团队规模较小
-          </span>
+          <Badge variant="success">亮点 · 跨区定价</Badge>
+          <Badge variant="warning">风险 · 团队规模较小</Badge>
         </span>
       </div>
       <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
@@ -129,16 +128,7 @@ function WorkbenchVisual() {
           <span className="truncate font-medium text-foreground/85">{p.name}</span>
           <span className="flex shrink-0 items-center gap-2">
             <span className="font-mono text-[11px] text-foreground/55">{p.count} 题</span>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 font-medium text-[10px]",
-                p.status === "草稿"
-                  ? "bg-foreground/[0.06] text-foreground/55"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-              )}
-            >
-              {p.status}
-            </span>
+            <Badge variant={p.status === "草稿" ? "secondary" : "success"}>{p.status}</Badge>
           </span>
         </li>
       ))}
@@ -171,10 +161,10 @@ function LiveVoiceVisual() {
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 font-medium text-[10px] text-rose-600 dark:text-rose-300">
+        <Badge variant="danger">
           <span className="size-1.5 animate-pulse rounded-full bg-rose-500" />
           LIVE
-        </span>
+        </Badge>
         <span className="font-mono text-[11px] text-foreground/55 tabular-nums">04:32</span>
       </div>
       <div className="flex h-7 w-full items-center justify-between">

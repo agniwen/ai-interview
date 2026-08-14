@@ -18,6 +18,10 @@ const interviewsDetailRouteSource = readFileSync(
   new URL("../detail-route.ts", import.meta.url),
   "utf-8",
 );
+const launchProductionAdapterSource = readFileSync(
+  new URL("../../resumes/application/default-launch-ai-interview-round.ts", import.meta.url),
+  "utf-8",
+);
 
 describe("interview context snapshot creation boundary", () => {
   it("keeps creation on launch/transition/reset paths only", () => {
@@ -50,7 +54,11 @@ describe("interview context snapshot creation boundary", () => {
       ),
     );
 
-    expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
+    expect(launchInterviewSource).toContain("launchAiInterviewRound");
+    expect(launchProductionAdapterSource).toContain("refreshInterviewContextSnapshot(tx");
+    expect(launchProductionAdapterSource).not.toContain(
+      "loadOrCreateActiveInterviewContextSnapshot",
+    );
     expect(interviewsCollectionRouteSource).toContain("createInterviewContextSnapshot(tx");
     expect(interviewsRouteSource).toContain("refreshInterviewContextSnapshot(tx");
     expect(interviewsDetailRouteSource).toContain("refreshInterviewContextSnapshot(tx");

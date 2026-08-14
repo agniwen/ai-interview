@@ -28,16 +28,29 @@ import type {
   InterviewEvidenceSnapshotPayload,
   InterviewSnapshotStatus,
 } from "./interview-snapshots";
+import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationMode,
+  JobLifecycleStatus,
+} from "./job-description-evaluation";
+import type { JobDescriptionStructuredConfig } from "./job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "./job-description-structured-config";
 import type { MinimaxVoiceId } from "./minimax-voices";
 import type {
   CandidateExpectationsMeta,
+  CandidateInterviewFeedbackCategory,
   CandidateOutcome,
   ClosedMeta,
+  FeishuHumanInterviewProviderId,
+  FeishuHumanInterviewSyncStatus,
   HumanInterviewFormat,
+  HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
+  HumanInterviewMeetingProvider,
   HumanInterviewMeetingStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
@@ -51,11 +64,18 @@ import type {
 } from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
 import type { ResumeReview } from "./resume-review";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+  StructuredResumeGrade,
+} from "./structured-resume-evaluation";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
   check,
+  doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -65,6 +85,8 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import type { MeetingLiveTranscriptDraftRecord } from "./meeting-live-transcript";
 
 // --- Tables managed by @chat-adapter/state-pg ---
 // Declared here so drizzle-kit sees them and doesn't try to drop them on `db:push`.
@@ -180,6 +202,7 @@ export const session = pgTable(
   "session",
   {
     activeOrganizationId: text("active_organization_id"),
+    authProviderId: text("auth_provider_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
@@ -269,6 +292,844 @@ export const member = pgTable(
   (table) => [
     uniqueIndex("member_user_org_uq").on(table.userId, table.organizationId),
     index("member_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const meetingSession = pgTable(
+  "meeting_session",
+  {
+    activeIntelligenceRevisionId: text("active_intelligence_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingIntelligenceRevision.id,
+      { onDelete: "set null" },
+    ),
+    activeTranscriptRevisionId: text("active_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    custodianId: text("custodian_id").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    intelligenceError: text("intelligence_error"),
+    intelligenceRunId: text("intelligence_run_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingProcessingRun.id,
+      { onDelete: "set null" },
+    ),
+    intelligenceStatus: text("intelligence_status").default("pending").notNull(),
+    liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
+    manifestSha256: text("manifest_sha256").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    processingError: text("processing_error"),
+    processingRunId: text("processing_run_id"),
+    purgeAfter: timestamp("purge_after", { withTimezone: true }),
+    purgeClaimToken: text("purge_claim_token"),
+    purgeInitialSweepCompletedAt: timestamp("purge_initial_sweep_completed_at", {
+      withTimezone: true,
+    }),
+    purgeLeaseExpiresAt: timestamp("purge_lease_expires_at", { withTimezone: true }),
+    recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    status: text("status").default("uploading").notNull(),
+    title: text("title").notNull(),
+    transcriptionError: text("transcription_error"),
+    transcriptionRunId: text("transcription_run_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingProcessingRun.id,
+      { onDelete: "set null" },
+    ),
+    transcriptionStatus: text("transcription_status").default("pending").notNull(),
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
+    trashedFromStatus: text("trashed_from_status"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    uploadLeaseExpiresAt: timestamp("upload_lease_expires_at", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    visibility: text("visibility").default("restricted").notNull(),
+  },
+  (table) => [
+    check(
+      "meeting_session_visibility_check",
+      sql`${table.visibility} in ('restricted', 'workspace')`,
+    ),
+    check(
+      "meeting_session_intelligence_status_check",
+      sql`${table.intelligenceStatus} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
+    check(
+      "meeting_session_transcription_status_check",
+      sql`${table.transcriptionStatus} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
+    check(
+      "meeting_session_upload_lease_check",
+      sql`${table.status} <> 'uploading' or ${table.uploadLeaseExpiresAt} is not null`,
+    ),
+    check(
+      "meeting_session_trash_state_check",
+      sql`(
+        ${table.status} not in ('trashed', 'purging')
+        and ${table.trashedAt} is null
+        and ${table.trashedFromStatus} is null
+        and ${table.purgeAfter} is null
+        and ${table.purgeClaimToken} is null
+        and ${table.purgeInitialSweepCompletedAt} is null
+        and ${table.purgeLeaseExpiresAt} is null
+      ) or (
+        ${table.status} = 'trashed'
+        and ${table.trashedAt} is not null
+        and ${table.trashedFromStatus} is not null
+        and ${table.purgeAfter} is not null
+        and ${table.purgeClaimToken} is null
+        and ${table.purgeLeaseExpiresAt} is null
+      ) or (
+        ${table.status} = 'purging'
+        and ${table.trashedAt} is not null
+        and ${table.trashedFromStatus} is not null
+        and ${table.purgeAfter} is not null
+      )`,
+    ),
+    index("meeting_session_org_owner_saved_idx").on(
+      table.organizationId,
+      table.ownerId,
+      table.savedAt,
+    ),
+    index("meeting_session_org_status_saved_idx").on(
+      table.organizationId,
+      table.status,
+      table.savedAt,
+    ),
+    index("meeting_session_upload_lease_idx").on(table.uploadLeaseExpiresAt),
+    index("meeting_session_purge_due_idx").on(table.status, table.purgeAfter),
+    uniqueIndex("meeting_session_id_org_uq").on(table.id, table.organizationId),
+  ],
+);
+
+export const meetingLiveTranscriptLease = pgTable(
+  "meeting_live_transcript_lease",
+  {
+    captureId: text("capture_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    track: text("track").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    check(
+      "meeting_live_transcript_lease_track_check",
+      sql`${table.track} in ('microphone', 'system')`,
+    ),
+    primaryKey({ columns: [table.organizationId, table.captureId, table.track] }),
+    index("meeting_live_transcript_lease_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const meetingPurgeTombstone = pgTable(
+  "meeting_purge_tombstone",
+  {
+    manifestSha256: text("manifest_sha256").notNull(),
+    meetingId: text("meeting_id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id").notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("meeting_purge_tombstone_org_purged_idx").on(table.organizationId, table.purgedAt),
+  ],
+);
+
+export const meetingStorageCleanupKey = pgTable(
+  "meeting_storage_cleanup_key",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    finalSweepCompletedAt: timestamp("final_sweep_completed_at", { withTimezone: true }),
+    initialSweepCompletedAt: timestamp("initial_sweep_completed_at", { withTimezone: true }),
+    meetingId: text("meeting_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    storageKey: text("storage_key").primaryKey(),
+    writerLeaseExpiresAt: timestamp("writer_lease_expires_at", { withTimezone: true }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_storage_cleanup_key_meeting_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_storage_cleanup_key_meeting_idx").on(table.meetingId, table.createdAt),
+  ],
+);
+
+export const meetingRecruitingContext = pgTable(
+  "meeting_recruiting_context",
+  {
+    linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
+    linkedBy: text("linked_by").references(() => user.id, { onDelete: "set null" }),
+    meetingId: text("meeting_id")
+      .primaryKey()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recruitingRecordId: text("recruiting_record_id")
+      .notNull()
+      .references(
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves refs lazily.
+        (): AnyPgColumn => studioInterview.id,
+        { onDelete: "cascade" },
+      ),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_recruiting_context_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves table extras lazily.
+        studioInterview.id,
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves table extras lazily.
+        studioInterview.organizationId,
+      ],
+      name: "meeting_recruiting_context_record_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_recruiting_context_org_record_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
+    ),
+  ],
+);
+
+export const meetingTranscriptionPolicy = pgTable(
+  "meeting_transcription_policy",
+  {
+    allowedProviders: jsonb("allowed_providers").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    fallbackProvider: text("fallback_provider"),
+    organizationId: text("organization_id")
+      .primaryKey()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull().default(1),
+    selectedProvider: text("selected_provider"),
+    selectionReason: text("selection_reason"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    check("meeting_transcription_policy_revision_check", sql`${table.revision} > 0`),
+    check(
+      "meeting_transcription_policy_selected_check",
+      sql`${table.selectedProvider} is null or ${table.allowedProviders} ? ${table.selectedProvider}`,
+    ),
+    check(
+      "meeting_transcription_policy_fallback_check",
+      sql`${table.fallbackProvider} is null or (${table.selectedProvider} is not null and ${table.fallbackProvider} <> ${table.selectedProvider} and ${table.allowedProviders} ? ${table.fallbackProvider})`,
+    ),
+    check(
+      "meeting_transcription_policy_reason_check",
+      sql`(${table.selectedProvider} is null and ${table.selectionReason} is null) or (${table.selectedProvider} is not null and ${table.selectionReason} is not null and length(trim(${table.selectionReason})) between 10 and 500)`,
+    ),
+  ],
+);
+
+export const meetingProcessingRun = pgTable(
+  "meeting_processing_run",
+  {
+    attempt: integer("attempt").notNull(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    executionToken: text("execution_token"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    inputTranscriptRevisionId: text("input_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "restrict" },
+    ),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    promptVersion: text("prompt_version"),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    remoteArtifactPurgeAttempts: integer("remote_artifact_purge_attempts").notNull().default(0),
+    remoteArtifactPurgeExecutionToken: text("remote_artifact_purge_execution_token"),
+    remoteArtifactPurgeStatus: text("remote_artifact_purge_status"),
+    requestKind: text("request_kind"),
+    requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
+    result: jsonb("result"),
+    stage: text("stage").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    status: text("status").notNull(),
+    templateKey: text("template_key"),
+  },
+  (table) => [
+    check("meeting_processing_run_attempt_check", sql`${table.attempt} >= 0`),
+    check(
+      "meeting_processing_run_intelligence_input_check",
+      sql`(${table.stage} = 'meeting-intelligence' and ${table.inputTranscriptRevisionId} is not null and ${table.templateKey} is not null and ${table.promptVersion} is not null and ${table.requestKind} in ('automatic', 'manual'))
+        or (${table.stage} = 'final-transcription' and ${table.inputTranscriptRevisionId} is null and ${table.templateKey} is null and ${table.promptVersion} is null and ${table.requestKind} is null)`,
+    ),
+    check(
+      "meeting_processing_run_stage_check",
+      sql`${table.stage} in ('final-transcription', 'meeting-intelligence')`,
+    ),
+    check(
+      "meeting_processing_run_status_check",
+      sql`${table.status} in ('pending', 'processing', 'succeeded', 'failed')`,
+    ),
+    check(
+      "meeting_processing_run_remote_purge_status_check",
+      sql`${table.remoteArtifactPurgeStatus} is null or ${table.remoteArtifactPurgeStatus} in ('deleted', 'failed', 'unsupported')`,
+    ),
+    check(
+      "meeting_processing_run_remote_purge_attempts_check",
+      sql`${table.remoteArtifactPurgeAttempts} >= 0`,
+    ),
+    index("meeting_processing_run_meeting_stage_idx").on(
+      table.meetingId,
+      table.stage,
+      table.startedAt,
+    ),
+    index("meeting_processing_run_org_status_idx").on(
+      table.organizationId,
+      table.status,
+      table.startedAt,
+    ),
+    uniqueIndex("meeting_processing_run_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
+  ],
+);
+
+export const meetingTranscriptRevision = pgTable(
+  "meeting_transcript_revision",
+  {
+    basedOnRevisionId: text("based_on_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this self-reference lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    language: text("language"),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    processingRunId: text("processing_run_id").references(() => meetingProcessingRun.id, {
+      onDelete: "restrict",
+    }),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    revision: integer("revision").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+  },
+  (table) => [
+    check("meeting_transcript_revision_kind_check", sql`${table.kind} in ('final', 'human')`),
+    check(
+      "meeting_transcript_revision_source_check",
+      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
+        or (${table.kind} = 'human' and ${table.basedOnRevisionId} is not null and ${table.processingRunId} is null)`,
+    ),
+    check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
+    uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
+      table.meetingId,
+      table.revision,
+    ),
+    uniqueIndex("meeting_transcript_revision_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
+    uniqueIndex("meeting_transcript_revision_machine_input_uq")
+      .on(
+        table.meetingId,
+        table.sourceManifestSha256,
+        table.provider,
+        table.model,
+        table.region,
+        table.pipelineVersion,
+      )
+      .where(sql`${table.kind} = 'final'`),
+    index("meeting_transcript_revision_based_on_idx").on(table.basedOnRevisionId),
+    index("meeting_transcript_revision_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
+export const meetingTranscriptTurn = pgTable(
+  "meeting_transcript_turn",
+  {
+    confidence: doublePrecision("confidence"),
+    endMs: integer("end_ms").notNull(),
+    id: text("id").primaryKey(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    speakerDisplayName: text("speaker_display_name"),
+    speakerKey: text("speaker_key").notNull(),
+    startMs: integer("start_ms").notNull(),
+    text: text("text").notNull(),
+    track: text("track").notNull(),
+  },
+  (table) => [
+    check("meeting_transcript_turn_sequence_check", sql`${table.sequence} >= 0`),
+    check("meeting_transcript_turn_time_check", sql`${table.endMs} > ${table.startMs}`),
+    check("meeting_transcript_turn_track_check", sql`${table.track} in ('local', 'remote')`),
+    uniqueIndex("meeting_transcript_turn_revision_sequence_uq").on(
+      table.revisionId,
+      table.sequence,
+    ),
+    index("meeting_transcript_turn_revision_time_idx").on(
+      table.revisionId,
+      table.startMs,
+      table.endMs,
+    ),
+  ],
+);
+
+export const meetingIntelligenceRevision = pgTable(
+  "meeting_intelligence_revision",
+  {
+    content: jsonb("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    processingRunId: text("processing_run_id")
+      .notNull()
+      .unique()
+      .references(() => meetingProcessingRun.id, { onDelete: "restrict" }),
+    promptVersion: text("prompt_version").notNull(),
+    provider: text("provider").notNull(),
+    revision: integer("revision").notNull(),
+    templateKey: text("template_key").notNull(),
+    transcriptRevisionId: text("transcript_revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    check("meeting_intelligence_revision_number_check", sql`${table.revision} > 0`),
+    check(
+      "meeting_intelligence_revision_template_check",
+      sql`${table.templateKey} in ('general', 'recruiting-interview')`,
+    ),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_intelligence_revision_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.processingRunId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingProcessingRun.id,
+        meetingProcessingRun.meetingId,
+        meetingProcessingRun.organizationId,
+      ],
+      name: "meeting_intelligence_revision_run_meeting_org_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.transcriptRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingTranscriptRevision.id,
+        meetingTranscriptRevision.meetingId,
+        meetingTranscriptRevision.organizationId,
+      ],
+      name: "meeting_intelligence_revision_transcript_meeting_org_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("meeting_intelligence_revision_meeting_revision_uq").on(
+      table.meetingId,
+      table.revision,
+    ),
+    uniqueIndex("meeting_intelligence_revision_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
+    index("meeting_intelligence_revision_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("meeting_intelligence_revision_transcript_idx").on(table.transcriptRevisionId),
+  ],
+);
+
+export const meetingQuestionThread = pgTable(
+  "meeting_question_thread",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_question_thread_meeting_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("meeting_question_thread_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
+    uniqueIndex("meeting_question_thread_id_meeting_org_creator_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+      table.createdBy,
+    ),
+    index("meeting_question_thread_owner_updated_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const meetingQuestionExchange = pgTable(
+  "meeting_question_exchange",
+  {
+    answer: jsonb("answer"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    attempt: integer("attempt").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    errorCode: text("error_code"),
+    executionToken: text("execution_token"),
+    id: text("id").primaryKey(),
+    inputIntelligenceRevisionId: text("input_intelligence_revision_id").references(
+      () => meetingIntelligenceRevision.id,
+      { onDelete: "set null" },
+    ),
+    inputTranscriptRevisionId: text("input_transcript_revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "restrict" }),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    promptVersion: text("prompt_version").notNull(),
+    provider: text("provider").notNull(),
+    question: text("question").notNull(),
+    requestId: text("request_id").notNull(),
+    sequence: integer("sequence").notNull(),
+    status: text("status").default("pending").notNull(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => meetingQuestionThread.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.threadId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingQuestionThread.id,
+        meetingQuestionThread.meetingId,
+        meetingQuestionThread.organizationId,
+      ],
+      name: "meeting_question_exchange_thread_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.threadId, table.meetingId, table.organizationId, table.createdBy],
+      foreignColumns: [
+        meetingQuestionThread.id,
+        meetingQuestionThread.meetingId,
+        meetingQuestionThread.organizationId,
+        meetingQuestionThread.createdBy,
+      ],
+      name: "meeting_question_exchange_thread_creator_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.inputTranscriptRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingTranscriptRevision.id,
+        meetingTranscriptRevision.meetingId,
+        meetingTranscriptRevision.organizationId,
+      ],
+      name: "meeting_question_exchange_transcript_meeting_org_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.inputIntelligenceRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingIntelligenceRevision.id,
+        meetingIntelligenceRevision.meetingId,
+        meetingIntelligenceRevision.organizationId,
+      ],
+      name: "meeting_question_exchange_intelligence_meeting_org_fk",
+    }),
+    check("meeting_question_exchange_attempt_check", sql`${table.attempt} >= 0`),
+    check("meeting_question_exchange_sequence_check", sql`${table.sequence} > 0`),
+    check(
+      "meeting_question_exchange_status_check",
+      sql`${table.status} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
+    check(
+      "meeting_question_exchange_answer_check",
+      sql`(${table.status} = 'ready') = (${table.answer} is not null)`,
+    ),
+    uniqueIndex("meeting_question_exchange_thread_request_uq").on(table.threadId, table.requestId),
+    uniqueIndex("meeting_question_exchange_thread_sequence_uq").on(table.threadId, table.sequence),
+    index("meeting_question_exchange_recovery_idx").on(table.status, table.leaseExpiresAt),
+    index("meeting_question_exchange_creator_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const meetingTranscriptionChunk = pgTable(
+  "meeting_transcription_chunk",
+  {
+    chunkIndex: integer("chunk_index").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    endMs: integer("end_ms").notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    policyRevision: integer("policy_revision").notNull(),
+    processingRunId: text("processing_run_id").references(() => meetingProcessingRun.id, {
+      onDelete: "set null",
+    }),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+    startMs: integer("start_ms").notNull(),
+    status: text("status").notNull(),
+    track: text("track").notNull(),
+    transcript: jsonb("transcript"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check("meeting_transcription_chunk_index_check", sql`${table.chunkIndex} >= 0`),
+    check("meeting_transcription_chunk_time_check", sql`${table.endMs} > ${table.startMs}`),
+    check(
+      "meeting_transcription_chunk_track_check",
+      sql`${table.track} in ('microphone', 'system')`,
+    ),
+    check(
+      "meeting_transcription_chunk_status_check",
+      sql`${table.status} in ('processing', 'succeeded', 'failed')`,
+    ),
+    check(
+      "meeting_transcription_chunk_result_check",
+      sql`(${table.status} = 'succeeded') = (${table.transcript} is not null)`,
+    ),
+    uniqueIndex("meeting_transcription_chunk_input_uq").on(
+      table.meetingId,
+      table.sourceManifestSha256,
+      table.policyRevision,
+      table.provider,
+      table.model,
+      table.region,
+      table.pipelineVersion,
+      table.track,
+      table.chunkIndex,
+      table.startMs,
+      table.endMs,
+    ),
+  ],
+);
+
+export const meetingRecordingAsset = pgTable(
+  "meeting_recording_asset",
+  {
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    fragmentCount: integer("fragment_count").notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    multipartParts: jsonb("multipart_parts").$type<
+      {
+        md5Base64: string;
+        offsetBytes: number;
+        partNumber: number;
+        sizeBytes: number;
+      }[]
+    >(),
+    multipartUploadId: text("multipart_upload_id"),
+    segments:
+      jsonb("segments").$type<{ durationMs: number; offsetBytes: number; sizeBytes: number }[]>(),
+    sha256: text("sha256").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: text("status").default("uploading").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    track: text("track").notNull(),
+    uploadMode: text("upload_mode").default("single").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("meeting_recording_asset_meeting_track_uq").on(table.meetingId, table.track),
+    index("meeting_recording_asset_meeting_idx").on(table.meetingId),
+  ],
+);
+
+export const meetingAccessGrant = pgTable(
+  "meeting_access_grant",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => member.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("meeting_access_grant_role_check", sql`${table.role} in ('editor', 'viewer')`),
+    uniqueIndex("meeting_access_grant_meeting_member_uq").on(table.meetingId, table.memberId),
+    index("meeting_access_grant_org_member_idx").on(table.organizationId, table.memberId),
+  ],
+);
+
+export const meetingNote = pgTable(
+  "meeting_note",
+  {
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    meetingTimeMs: integer("meeting_time_ms").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("meeting_note_time_check", sql`${table.meetingTimeMs} >= 0`),
+    index("meeting_note_meeting_time_idx").on(table.meetingId, table.meetingTimeMs),
+    index("meeting_note_org_author_idx").on(table.organizationId, table.authorId),
+  ],
+);
+
+export const meetingSearchProjection = pgTable(
+  "meeting_search_projection",
+  {
+    meetingId: text("meeting_id")
+      .primaryKey()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    searchText: text("search_text").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_search_projection_meeting_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_search_projection_org_idx").on(table.organizationId),
+    index("meeting_search_projection_text_trgm_idx")
+      .using("gin", table.searchText.asc().op("gin_trgm_ops"))
+      .concurrently(),
+  ],
+);
+
+export const meetingAuditLog = pgTable(
+  "meeting_audit_log",
+  {
+    action: text("action").notNull(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id").references(() => meetingSession.id, { onDelete: "set null" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("meeting_audit_log_meeting_created_idx").on(table.meetingId, table.createdAt),
+    index("meeting_audit_log_org_created_idx").on(table.organizationId, table.createdAt),
   ],
 );
 
@@ -459,6 +1320,10 @@ export const studioInterview = pgTable(
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationArtifactMode: text(
+      "resume_evaluation_artifact_mode",
+    ).$type<JobEvaluationMode>(),
+    resumeEvaluationAttemptMode: text("resume_evaluation_attempt_mode").$type<JobEvaluationMode>(),
     resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
@@ -507,6 +1372,13 @@ export const studioInterview = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    structuredCompositeScore: integer("structured_composite_score"),
+    structuredGateSortRank: integer("structured_gate_sort_rank"),
+    structuredGateStatus: text("structured_gate_status").$type<StructuredResumeGateStatus>(),
+    structuredResumeEvaluation: jsonb(
+      "structured_resume_evaluation",
+    ).$type<StructuredResumeEvaluationV1 | null>(),
+    structuredScoreGrade: text("structured_score_grade").$type<StructuredResumeGrade>(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -527,6 +1399,7 @@ export const studioInterview = pgTable(
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
     index("studio_interview_organization_idx").on(table.organizationId),
     index("studio_interview_org_created_at_idx").on(table.organizationId, table.createdAt),
+    uniqueIndex("studio_interview_id_org_uq").on(table.id, table.organizationId),
     index("studio_interview_org_created_by_created_at_idx").on(
       table.organizationId,
       table.createdBy,
@@ -542,12 +1415,53 @@ export const studioInterview = pgTable(
       "studio_interview_resume_evaluation_status_check",
       sql`${table.resumeEvaluationStatus} IS NULL OR ${table.resumeEvaluationStatus} IN ('pass', 'fail')`,
     ),
+    check(
+      "studio_interview_resume_evaluation_artifact_mode_check",
+      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured')`,
+    ),
+    check(
+      "studio_interview_resume_evaluation_attempt_mode_check",
+      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured')`,
+    ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
     index("studio_interview_resume_source_type_idx").on(table.resumeSourceType),
     index("studio_interview_skills_normalized_idx")
       .using("gin", table.skillsNormalized)
       .concurrently(),
+    check(
+      "studio_interview_structured_evaluation_complete_check",
+      sql`(
+        ${table.structuredResumeEvaluation} IS NULL
+        AND ${table.structuredCompositeScore} IS NULL
+        AND ${table.structuredScoreGrade} IS NULL
+        AND ${table.structuredGateStatus} IS NULL
+        AND ${table.structuredGateSortRank} IS NULL
+      ) OR (
+        ${table.structuredResumeEvaluation} IS NOT NULL
+        AND ${table.structuredCompositeScore} BETWEEN 0 AND 100
+        AND ${table.structuredScoreGrade} IN ('recommended', 'matched', 'unmatched')
+        AND ${table.structuredGateStatus} IN ('passed', 'needs_verification', 'failed')
+        AND ${table.structuredGateSortRank} IN (0, 1, 2)
+      )`,
+    ),
+    check(
+      "studio_interview_structured_gate_rank_check",
+      sql`(${table.structuredGateStatus}, ${table.structuredGateSortRank}) IN (
+        ('passed', 0),
+        ('needs_verification', 1),
+        ('failed', 2)
+      ) OR (
+        ${table.structuredGateStatus} IS NULL
+        AND ${table.structuredGateSortRank} IS NULL
+      )`,
+    ),
+    index("studio_interview_structured_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.structuredGateSortRank.asc(),
+      table.structuredCompositeScore.desc(),
+    ),
   ],
 );
 
@@ -688,16 +1602,40 @@ export const jobDescription = pgTable(
     code: text("code"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    deductionRuleSetVersion: integer("deduction_rule_set_version"),
     departmentId: text("department_id")
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
     description: text("description"),
+    evaluationBlueprint: jsonb("evaluation_blueprint").$type<JobEvaluationBlueprint | null>(),
+    evaluationBlueprintHash: text("evaluation_blueprint_hash"),
+    evaluationBlueprintPreview: jsonb(
+      "evaluation_blueprint_preview",
+    ).$type<JobEvaluationBlueprint | null>(),
+    evaluationBlueprintPreviewGeneratedAt: timestamp("evaluation_blueprint_preview_generated_at", {
+      withTimezone: true,
+    }),
+    evaluationBlueprintPreviewHash: text("evaluation_blueprint_preview_hash"),
+    evaluationBlueprintPreviewInputHash: text("evaluation_blueprint_preview_input_hash"),
+    evaluationBlueprintSchemaVersion: integer("evaluation_blueprint_schema_version"),
+    evaluationMode: text("evaluation_mode")
+      .$type<JobEvaluationMode>()
+      .notNull()
+      .default("structured"),
+    evaluationUpgradedAt: timestamp("evaluation_upgraded_at", { withTimezone: true }),
+    evaluationUpgradedBy: text("evaluation_upgraded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     feishuChatBoundAt: timestamp("feishu_chat_bound_at", { withTimezone: true }),
     feishuChatBoundBy: text("feishu_chat_bound_by").references(() => user.id, {
       onDelete: "set null",
     }),
     feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
+    lifecycleStatus: text("lifecycle_status")
+      .$type<JobLifecycleStatus>()
+      .notNull()
+      .default("draft"),
     name: text("name").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -706,9 +1644,14 @@ export const jobDescription = pgTable(
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
+    structuredConfig: jsonb("structured_config")
+      .$type<JobDescriptionStructuredConfig>()
+      .notNull()
+      .default(createDefaultJobDescriptionStructuredConfig()),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -722,6 +1665,141 @@ export const jobDescription = pgTable(
     uniqueIndex("job_description_org_code_uq")
       .on(table.organizationId, table.code)
       .where(sql`${table.code} IS NOT NULL`),
+    check(
+      "job_description_evaluation_mode_check",
+      sql`${table.evaluationMode} IN ('legacy', 'structured')`,
+    ),
+    check(
+      "job_description_lifecycle_status_check",
+      sql`${table.lifecycleStatus} IN ('draft', 'published')`,
+    ),
+    check(
+      "job_description_evaluation_lifecycle_check",
+      sql`(
+        ${table.evaluationMode} = 'legacy'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
+        AND ${table.evaluationBlueprintPreview} IS NULL
+        AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+        AND ${table.evaluationBlueprint} IS NULL
+        AND ${table.evaluationBlueprintHash} IS NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NULL
+        AND ${table.deductionRuleSetVersion} IS NULL
+      ) OR (
+        ${table.evaluationMode} = 'structured'
+        AND ${table.lifecycleStatus} = 'draft'
+        AND ${table.publishedAt} IS NULL
+        AND ${table.evaluationBlueprint} IS NULL
+        AND ${table.evaluationBlueprintHash} IS NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NULL
+        AND ${table.deductionRuleSetVersion} IS NULL
+        AND (
+          (
+            ${table.evaluationBlueprintPreview} IS NULL
+            AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+            AND ${table.evaluationBlueprintPreviewHash} IS NULL
+            AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+          ) OR (
+            ${table.evaluationBlueprintPreview} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewInputHash} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewHash} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NOT NULL
+          )
+        )
+      ) OR (
+        ${table.evaluationMode} = 'structured'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
+        AND ${table.evaluationBlueprint} IS NOT NULL
+        AND ${table.evaluationBlueprintHash} IS NOT NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NOT NULL
+        AND ${table.deductionRuleSetVersion} IS NOT NULL
+        AND ${table.evaluationBlueprintPreview} IS NULL
+        AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+      )`,
+    ),
+  ],
+);
+
+export const jobDescriptionEvaluationUpgradeDraft = pgTable(
+  "job_description_evaluation_upgrade_draft",
+  {
+    blueprintPreview: jsonb("blueprint_preview").$type<JobEvaluationBlueprint | null>(),
+    blueprintPreviewGeneratedAt: timestamp("blueprint_preview_generated_at", {
+      withTimezone: true,
+    }),
+    blueprintPreviewHash: text("blueprint_preview_hash"),
+    blueprintPreviewInputHash: text("blueprint_preview_input_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    structuredConfig: jsonb("structured_config").$type<JobDescriptionStructuredConfig>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    version: integer("version").notNull().default(1),
+  },
+  (table) => [
+    uniqueIndex("job_description_evaluation_upgrade_draft_job_uq").on(table.jobDescriptionId),
+    index("job_description_evaluation_upgrade_draft_org_idx").on(table.organizationId),
+    check(
+      "job_description_evaluation_upgrade_draft_preview_check",
+      sql`(
+        ${table.blueprintPreview} IS NULL
+        AND ${table.blueprintPreviewInputHash} IS NULL
+        AND ${table.blueprintPreviewHash} IS NULL
+        AND ${table.blueprintPreviewGeneratedAt} IS NULL
+      ) OR (
+        ${table.blueprintPreview} IS NOT NULL
+        AND ${table.blueprintPreviewInputHash} IS NOT NULL
+        AND ${table.blueprintPreviewHash} IS NOT NULL
+        AND ${table.blueprintPreviewGeneratedAt} IS NOT NULL
+      )`,
+    ),
+    check("job_description_evaluation_upgrade_draft_version_check", sql`${table.version} > 0`),
+  ],
+);
+
+export const jobDescriptionEvaluationUpgradeAudit = pgTable(
+  "job_description_evaluation_upgrade_audit",
+  {
+    blueprint: jsonb("blueprint").$type<JobEvaluationBlueprint>().notNull(),
+    blueprintHash: text("blueprint_hash").notNull(),
+    blueprintSchemaVersion: integer("blueprint_schema_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deductionRuleSetVersion: integer("deduction_rule_set_version").notNull(),
+    draftVersion: integer("draft_version").notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    legacySnapshot: jsonb("legacy_snapshot").$type<Record<string, unknown>>().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    structuredConfig: jsonb("structured_config").$type<JobDescriptionStructuredConfig>().notNull(),
+    upgradedBy: text("upgraded_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("job_description_evaluation_upgrade_audit_job_idx").on(
+      table.jobDescriptionId,
+      table.createdAt,
+    ),
+    index("job_description_evaluation_upgrade_audit_org_idx").on(table.organizationId),
   ],
 );
 
@@ -746,6 +1824,13 @@ export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
     allowTextInput: boolean("allow_text_input").notNull().default(false),
+    candidateFeedbackCategories: jsonb("candidate_feedback_categories").$type<
+      CandidateInterviewFeedbackCategory[] | null
+    >(),
+    candidateFeedbackDetail: text("candidate_feedback_detail"),
+    candidateFeedbackSubmittedAt: timestamp("candidate_feedback_submitted_at", {
+      withTimezone: true,
+    }),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -770,6 +1855,7 @@ export const studioInterviewSchedule = pgTable(
       }),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
     sessionStartedAt: timestamp("session_started_at", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull(),
     status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),
@@ -855,7 +1941,23 @@ export const studioHumanInterviewMeeting = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    feishuAppLink: text("feishu_app_link"),
+    feishuAttendeeOpenIds: jsonb("feishu_attendee_open_ids").$type<string[]>(),
+    feishuCalendarEventId: text("feishu_calendar_event_id"),
+    feishuCalendarEventUrl: text("feishu_calendar_event_url"),
+    feishuCalendarId: text("feishu_calendar_id"),
+    feishuLastError: text("feishu_last_error"),
+    feishuMeetingId: text("feishu_meeting_id"),
+    feishuMeetingNo: text("feishu_meeting_no"),
+    feishuMeetingUrl: text("feishu_meeting_url"),
+    feishuOwnerOpenId: text("feishu_owner_open_id"),
+    feishuProviderId: text("feishu_provider_id").$type<FeishuHumanInterviewProviderId>(),
+    feishuReserveId: text("feishu_reserve_id"),
+    feishuSyncStatus: text("feishu_sync_status").$type<FeishuHumanInterviewSyncStatus>(),
+    feishuSyncedAt: timestamp("feishu_synced_at", { withTimezone: true }),
     id: text("id").primaryKey(),
+    lifecycleOccurredAt: timestamp("lifecycle_occurred_at", { withTimezone: true }),
+    lifecycleSource: text("lifecycle_source").$type<HumanInterviewMeetingLifecycleSource>(),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
     organizationId: text("organization_id")
@@ -881,6 +1983,33 @@ export const studioHumanInterviewMeeting = pgTable(
     ),
     index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
     uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
+    index("studio_human_interview_meeting_feishu_meeting_idx").on(
+      table.feishuProviderId,
+      table.feishuMeetingId,
+    ),
+  ],
+);
+
+// Provider webhook deliveries are at-least-once. Keep a compact receipt so a
+// duplicate or delayed delivery cannot regress the persisted lifecycle.
+export const studioHumanInterviewMeetingEvent = pgTable(
+  "studio_human_interview_meeting_event",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
+    provider: text("provider").$type<HumanInterviewMeetingProvider>().notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    type: text("type").notNull(),
+  },
+  (table) => [
+    index("studio_human_interview_meeting_event_meeting_idx").on(table.meetingId),
+    uniqueIndex("studio_human_interview_meeting_event_provider_event_idx").on(
+      table.provider,
+      table.providerEventId,
+    ),
   ],
 );
 
@@ -917,6 +2046,7 @@ export const studioHumanInterviewMeetingRound = pgTable(
 export const studioHumanInterviewMeetingInterviewer = pgTable(
   "studio_human_interview_meeting_interviewer",
   {
+    feishuOpenId: text("feishu_open_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
     meetingId: text("meeting_id")
@@ -1011,6 +2141,7 @@ export type ResumePoolEventType =
   | "parsed"
   | "published"
   | "imported"
+  | "bound"
   | "archived"
   | "restored";
 
@@ -1257,7 +2388,7 @@ export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "fai
 export type MailIngestSkipReason = "no_supported_attachment";
 export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fallback";
 
-export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
+export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview" | "job_description";
 export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
 export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
@@ -1481,6 +2612,14 @@ export const interviewConversation = pgTable(
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
     }),
+    keyInformation: jsonb("key_information").$type<InterviewKeyInformation>(),
+    keyInformationAttempts: integer("key_information_attempts").notNull().default(0),
+    keyInformationError: text("key_information_error"),
+    keyInformationStartedAt: timestamp("key_information_started_at", { withTimezone: true }),
+    keyInformationStatus: text("key_information_status")
+      .$type<InterviewSummaryStatus>()
+      .notNull()
+      .default("pending"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
     latestError: text("latest_error"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
@@ -1519,11 +2658,17 @@ export const interviewConversation = pgTable(
   },
   (table) => [
     index("interview_conversation_record_idx").on(table.interviewRecordId),
+    index("interview_conversation_key_information_status_idx").on(table.keyInformationStatus),
     index("interview_conversation_schedule_entry_idx").on(table.scheduleEntryId),
     index("interview_conversation_status_idx").on(table.status),
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
     index("interview_conversation_organization_idx").on(table.organizationId),
+    index("interview_conversation_org_ended_started_idx").on(
+      table.organizationId,
+      table.endedAt,
+      table.startedAt,
+    ),
   ],
 );
 
@@ -1680,6 +2825,8 @@ export const interviewNotification = pgTable(
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     error: text("error"),
+    feishuDocumentId: text("feishu_document_id"),
+    feishuDocumentUrl: text("feishu_document_url"),
     feishuMessageId: text("feishu_message_id"),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
@@ -2120,7 +3267,7 @@ export const studioRoundEmailLog = pgTable(
   ],
 );
 
-// 系统设置（单例表，固定 id="singleton"）
+// 上下文设置（单例表，固定 id="singleton"）
 // Global config (singleton table, id="singleton")
 export const globalConfig = pgTable("global_config", {
   closingInstructions: text("closing_instructions").notNull().default(""),

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import interview_agent as interview_agent_module
 from dispatch_context import parse_dispatch_context
 from interview_agent import (
     INTERVIEW_FINAL_WRAP_SECONDS,
@@ -10,8 +11,10 @@ from interview_agent import (
     INTERVIEW_SOFT_WRAP_SECONDS,
     INTERVIEW_TIME_LIMIT_SECONDS,
     InterviewAgent,
+    InterviewWorkflowStoppedError,
     _is_noise_transcript,
 )
+from interview_question_task import InterviewQuestionProgress, QuestionOutcomeStatus
 
 
 def _ctx(
@@ -23,7 +26,7 @@ def _ctx(
     closing="再见郭靖",
 ):
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "session": {
             "allowTextInput": True,
             "interviewRecordId": "record-1",
@@ -37,6 +40,15 @@ def _ctx(
             "opening": opening,
             "closing": closing,
         },
+        "questions": [
+            {
+                "id": "question-1",
+                "content": "请介绍一次故障排查经历。",
+                "difficulty": "medium",
+                "evaluationFocus": "确认候选人能够定位并复盘线上故障",
+                "followUpDirections": "追问定位信号、根因与预防措施",
+            }
+        ],
     }
     return parse_dispatch_context(json.dumps(payload, ensure_ascii=False))
 
@@ -58,8 +70,12 @@ class _FakeSession:
         self.calls.append((text, kwargs))
         return self.handle
 
+    async def generate_reply(self, **kwargs):
+        self.calls.append((None, kwargs))
+        return self.handle
 
-def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
+
+def test_uses_dispatch_prompts_and_appends_chinese_language_policy():
     a = InterviewAgent(
         _ctx(
             system="TS 生成的最终 system prompt",
@@ -68,7 +84,8 @@ def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
         )
     )
 
-    assert a.instructions == "TS 生成的最终 system prompt"
+    assert a.instructions.startswith("TS 生成的最终 system prompt")
+    assert "全程使用简体中文" in a.instructions
     assert a._opening_instructions == "TS 生成的最终 opening prompt"
     assert a._closing_instructions == "TS 生成的最终 closing prompt"
 
@@ -80,13 +97,97 @@ def test_uses_typed_candidate_fields_from_dispatch_contract():
     assert a._target_role == "数据工程师"
 
 
-def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
+@pytest.mark.asyncio
+async def test_ready_candidate_runs_the_required_question_task_group(monkeypatch):
+    async def ready():
+        return True
+
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    captured = {}
+
+    class FakeGroup:
+        def __await__(self):
+            async def run():
+                return SimpleNamespace(task_results={})
+
+            return run().__await__()
+
+    def fake_build_question_task_group(questions, **kwargs):
+        captured["questions"] = questions
+        captured["kwargs"] = kwargs
+        return FakeGroup()
+
+    async def fake_wrap_up(_tool, **_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        interview_agent_module,
+        "ReadyCheckTask",
+        lambda **_kwargs: ready(),
+    )
+    monkeypatch.setattr(
+        interview_agent_module,
+        "build_question_task_group",
+        fake_build_question_task_group,
+    )
+    monkeypatch.setattr(interview_agent_module, "WrapUpTask", fake_wrap_up)
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_enter()
+
+    assert [question.id for question in captured["questions"]] == ["question-1"]
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+async def test_declined_candidate_uses_wrap_up_without_another_question(monkeypatch):
+    async def declined():
+        return False
+
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    captured = {}
+
+    async def fake_wrap_up(tool, **kwargs):
+        captured["tool"] = tool
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(
+        interview_agent_module,
+        "ReadyCheckTask",
+        lambda **_kwargs: declined(),
+    )
+    monkeypatch.setattr(interview_agent_module, "WrapUpTask", fake_wrap_up)
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_enter()
+
+    assert captured["tool"] is a._end_call_tool
+    assert captured["kwargs"] == {
+        "ask_closing_question": False,
+        "closing_instructions": "再见郭靖",
+    }
+    assert a.call_completion_status == "partial"
+    assert [outcome.status for outcome in a.question_outcomes] == ["unasked"]
+    assert session.calls == []
+
+
+def test_default_timeline_reminds_at_30_and_hard_cuts_at_36():
     a = InterviewAgent(_ctx())
 
-    assert INTERVIEW_SOFT_WRAP_SECONDS == 18 * 60 + 30
-    assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
-    assert a.time_limit_seconds == 24 * 60
-    assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60
+    assert INTERVIEW_SOFT_WRAP_SECONDS == 30 * 60
+    assert INTERVIEW_FINAL_WRAP_SECONDS == 33 * 60
+    assert a.time_limit_seconds == 35 * 60
+    assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 36 * 60
 
 
 @pytest.mark.asyncio
@@ -129,3 +230,72 @@ def test_noise_transcript_filters_fillers():
 def test_noise_transcript_keeps_meaningful_text():
     for text in ("我有三年后端经验。", "C++", "2024 年开始做 LiveKit"):
         assert not _is_noise_transcript(text)
+
+
+def test_parent_agent_does_not_expose_end_call_tool():
+    a = InterviewAgent(_ctx())
+
+    tool_names = []
+    for tool in a.tools:
+        info = getattr(tool, "info", None)
+        name = getattr(info, "name", None) if info is not None else None
+        tool_names.append(name or getattr(tool, "name", type(tool).__name__))
+
+    assert "end_call" not in tool_names
+    assert a._end_call_tool is not None
+
+
+def test_finalize_missing_outcomes_prefers_workflow_stop_reason():
+    a = InterviewAgent(_ctx())
+    a.note_workflow_stop("candidate_ended_round")
+    a.finalize_missing_question_outcomes()
+
+    outcomes = a.question_outcomes
+    assert len(outcomes) == 1
+    assert outcomes[0].status.value == "unasked"
+    assert outcomes[0].reason == "candidate_ended_round"
+
+
+def test_has_incomplete_required_questions_before_any_outcome():
+    a = InterviewAgent(_ctx())
+    assert a.has_incomplete_required_questions is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["time_limit", "candidate_ended_round"])
+async def test_interrupted_revisit_stops_workflow_without_downgrading_saved_answer(
+    reason,
+):
+    checkpoints = []
+
+    async def save(outcome):
+        checkpoints.append(outcome)
+
+    a = InterviewAgent(_ctx(), on_question_completed=save)
+    question = a._questions[0]
+    previous = InterviewQuestionProgress(
+        question,
+        started_at=10.0,
+    ).record_answered("原回答已足够评估", now=20.0)
+    a._question_outcomes[question.id] = previous
+    interrupted = InterviewQuestionProgress(
+        question,
+        initial_follow_up_count=previous.follow_up_count,
+        revision=2,
+        started_at=30.0,
+    ).record_interrupted(
+        reason=reason,
+        now=40.0,
+        answer_summary="补充阶段又收集到一项信息",
+    )
+
+    with pytest.raises(InterviewWorkflowStoppedError, match=reason):
+        await a._on_question_completed(SimpleNamespace(result=interrupted))
+
+    stored = a.question_outcomes[0]
+    assert stored.status is QuestionOutcomeStatus.ANSWERED
+    assert stored.reason is None
+    assert stored.revision == 2
+    assert "原回答已足够评估" in stored.answer_summary
+    assert "补充阶段又收集到一项信息" in stored.answer_summary
+    assert checkpoints == [stored]

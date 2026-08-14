@@ -441,6 +441,15 @@ export async function listWorkspaceMailIngestAccounts(
   return rows.map(toWorkspaceMailIngestAccountRow);
 }
 
+export async function getWorkspaceMailIngestAccount(
+  organizationId: string,
+  accountId: string,
+): Promise<WorkspaceMailIngestAccountRow | null> {
+  const rows = await listWorkspaceMailIngestAccountRows({ organizationId });
+  const row = rows.find((candidate) => candidate.accountId === accountId);
+  return row ? toWorkspaceMailIngestAccountRow(row) : null;
+}
+
 export async function queryPaginatedWorkspaceMailIngestAccounts(
   organizationId: string,
   options: { search?: string | null; userId?: string } = {},

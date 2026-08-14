@@ -2,7 +2,7 @@
 // Public API for the DataGrid component family.
 // Filled in as each part is built.
 
-export { PINNED_CELL_CLASS, getPinningStyles } from "./parts/pinned-cell";
+export { getPinningStyles } from "./parts/pinned-cell";
 export { selectColumn } from "./columns/select-column";
 export { textColumn, type TextColumnOptions } from "./columns/text-column";
 export { dateColumn, type DateColumnOptions } from "./columns/date-column";
@@ -11,6 +11,7 @@ export { customColumn, type CustomColumnOptions } from "./columns/custom-column"
 export { MemberCell, getMemberInitials, type MemberCellProps } from "./cells/member-cell";
 export {
   actionsColumn,
+  estimateActionsColumnSize,
   type ActionInline,
   type ActionMenuItem,
   type ActionsColumnOptions,
@@ -27,5 +28,11 @@ export {
   type DataGridQueryState,
   type DataGridSortOrder,
 } from "./query-contract";
-export { DataGrid, type BulkActionContext, type DataGridProps } from "./data-grid";
+export {
+  DataGrid,
+  type BulkActionContext,
+  type DataGridColumnDef,
+  type DataGridProps,
+} from "./data-grid";
+export { dataGridFeatures, type DataGridFeatures } from "./table-features";
 export { type ToolbarFilterConfig } from "./parts/toolbar";

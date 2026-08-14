@@ -9,6 +9,7 @@ import type {
   ResumeReviewPoint,
 } from "@arc/db-schema/resume-review";
 import { RESUME_REVIEW_DIMENSION_DEFINITIONS } from "@arc/db-schema/resume-review";
+import type { ResumeReviewStatus } from "@arc/db-schema/studio-interviews";
 
 export {
   RESUME_REVIEW_SCHEMA_VERSION,
@@ -166,4 +167,81 @@ export function formatResumeReviewMarkdown(review: ResumeReviewLoose): string {
     ].join("\n"),
     ["**下一步建议**", formatNextStep(review)].join("\n"),
   ].join("\n\n");
+}
+
+export type ResumeReviewScoreSentiment = "negative" | "neutral" | "positive";
+export type ResumeReviewActionTone = "danger" | "muted" | "success" | "warning";
+
+/** Score band for card thumb icons: ≥70 up, 50–69 neutral, <50 down. */
+export function getResumeReviewScoreSentiment(score: number): ResumeReviewScoreSentiment {
+  if (score >= 70) {
+    return "positive";
+  }
+  if (score >= 50) {
+    return "neutral";
+  }
+  return "negative";
+}
+
+/** Map next-step action to semantic tone (text color, not badge). */
+export function getResumeReviewActionTone(
+  action: ResumeReviewAction | null | undefined,
+): ResumeReviewActionTone {
+  if (action === "interview") {
+    return "success";
+  }
+  if (action === "hold") {
+    return "warning";
+  }
+  if (action === "reject") {
+    return "danger";
+  }
+  return "muted";
+}
+
+/**
+ * 招聘台卡片「下一步建议」展示文案（含分数）。
+ * Card copy for next-step suggestion on the resume library list, with score.
+ */
+export function describeResumeLibraryReviewCard(input: {
+  baseScore: number | null;
+  nextStepAction: ResumeReviewAction | null;
+  status: ResumeReviewStatus;
+}): {
+  label: string;
+  scoreSentiment: ResumeReviewScoreSentiment | null;
+  tone: ResumeReviewActionTone;
+} {
+  const { baseScore, nextStepAction, status } = input;
+
+  if (status === "queued" || status === "processing") {
+    return {
+      label: "生成中…",
+      scoreSentiment: null,
+      tone: "muted",
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      label: "生成失败",
+      scoreSentiment: null,
+      tone: "muted",
+    };
+  }
+
+  if (status !== "ready" || nextStepAction === null) {
+    return {
+      label: "未生成",
+      scoreSentiment: null,
+      tone: "muted",
+    };
+  }
+
+  const actionLabel = `建议${resumeReviewActionLabel[nextStepAction]}`;
+  return {
+    label: baseScore === null ? actionLabel : `${actionLabel}（${baseScore}分）`,
+    scoreSentiment: baseScore === null ? null : getResumeReviewScoreSentiment(baseScore),
+    tone: getResumeReviewActionTone(nextStepAction),
+  };
 }

@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { getResumeEmbeddingConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
 import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import { QdrantResumeVectorStore } from "@arc/ai-recruitment-copilot-backend/lib/server/qdrant/resume-vector-store";
-import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createDefaultRecommendationDeps,
   loadRecommendationCandidates,
@@ -82,7 +82,7 @@ async function main() {
         });
         return chunks.length > 0;
       },
-      loadJd: (o: string, id: string) => loadJobDescriptionById(o, id),
+      loadJd: (o: string, id: string) => loadRecruitingJobDescriptionById(o, id),
       score: (input) => scoreCandidatesForJobDescription(input, deps),
     },
     labels: valid,

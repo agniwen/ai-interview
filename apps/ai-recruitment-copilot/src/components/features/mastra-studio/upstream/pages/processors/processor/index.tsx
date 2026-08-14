@@ -1,0 +1,57 @@
+import { PermissionDenied } from "@mastra/playground-ui/components/PermissionDenied";
+import { SessionExpired } from "@mastra/playground-ui/components/SessionExpired";
+import { Skeleton } from "@mastra/playground-ui/components/Skeleton";
+import { is401UnauthorizedError, is403ForbiddenError } from "@mastra/playground-ui/utils/errors";
+import { useParams, Navigate } from "@/components/features/mastra-studio/router/compat";
+import { ProcessorPanel } from "@/components/features/mastra-studio/upstream/domains/processors/components/processor-panel";
+import { useProcessor } from "@/components/features/mastra-studio/upstream/domains/processors/hooks/use-processors";
+
+export function Processor() {
+  const { processorId } = useParams();
+  const resolvedProcessorId = processorId ?? "";
+  const {
+    data: processor,
+    isLoading,
+    error,
+  } = useProcessor(resolvedProcessorId, {
+    enabled: Boolean(resolvedProcessorId),
+  });
+
+  // 401 check - session expired
+  if (error && is401UnauthorizedError(error)) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <SessionExpired />
+      </div>
+    );
+  }
+
+  // 403 check - permission denied for processors
+  if (error && is403ForbiddenError(error)) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <PermissionDenied resource="处理器" />
+      </div>
+    );
+  }
+
+  // If this is a workflow processor, redirect to the workflow graph UI
+  if (!isLoading && processor?.isWorkflow) {
+    return <Navigate to={`/workflows/${resolvedProcessorId}/graph`} replace />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <Skeleton className="h-8 w-48 mb-4" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full overflow-y-hidden">
+      <ProcessorPanel processorId={resolvedProcessorId} />
+    </div>
+  );
+}

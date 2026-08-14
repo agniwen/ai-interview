@@ -42,7 +42,7 @@ function Toaster({ ...props }: ToasterProps) {
           description: "text-foreground/75",
           title: "font-medium text-foreground",
           toast:
-            "border border-white/55 bg-white/68 text-foreground shadow-[0_18px_48px_-26px_rgba(36,62,110,0.35)] backdrop-blur-xl",
+            "border border-border/60 bg-background/90 text-foreground shadow-sm backdrop-blur-xl",
         },
       }}
       position="top-center"

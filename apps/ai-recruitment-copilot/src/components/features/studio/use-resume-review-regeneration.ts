@@ -6,6 +6,7 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { generateResumeReviewMarkdownFirst } from "@/lib/client/resume-analysis";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface RegenerateResumeReviewInput {
@@ -97,35 +98,39 @@ export function useResumeReviewRegeneration({
       resetProgress();
       setIsGenerating(true);
 
-      try {
-        const review = await generateResumeReviewMarkdownFirst({
-          jobDescriptionId,
-          onDraftChange: (draft) => {
-            if (!abortController.signal.aborted) {
-              onDraftChange(draft);
-            }
-          },
-          onEvent: (event) => handleEvent(event, abortController.signal),
-          resumeProfile,
-          signal: abortController.signal,
-          workspaceSlug,
-        });
+      await runAsyncAction({
+        cleanup: () => {
+          if (abortControllerRef.current === abortController) {
+            abortControllerRef.current = null;
+            setIsGenerating(false);
+            setProgressStatus("");
+          }
+        },
+        onError: (error) => {
+          if (!isAbortError(error, abortController.signal)) {
+            toast.error(error instanceof Error ? error.message : "简历评价生成失败");
+          }
+        },
+        operation: async () => {
+          const review = await generateResumeReviewMarkdownFirst({
+            jobDescriptionId,
+            onDraftChange: (draft) => {
+              if (!abortController.signal.aborted) {
+                onDraftChange(draft);
+              }
+            },
+            onEvent: (event) => handleEvent(event, abortController.signal),
+            resumeProfile,
+            signal: abortController.signal,
+            workspaceSlug,
+          });
 
-        if (review && !abortController.signal.aborted) {
-          onGenerated(review);
-          toast.success("已重新生成简历评价");
-        }
-      } catch (error) {
-        if (!isAbortError(error, abortController.signal)) {
-          toast.error(error instanceof Error ? error.message : "简历评价生成失败");
-        }
-      } finally {
-        if (abortControllerRef.current === abortController) {
-          abortControllerRef.current = null;
-          setIsGenerating(false);
-          setProgressStatus("");
-        }
-      }
+          if (review && !abortController.signal.aborted) {
+            onGenerated(review);
+            toast.success("已重新生成简历评价");
+          }
+        },
+      });
     },
     [handleEvent, onDraftChange, onGenerated, resetProgress, workspaceSlug],
   );

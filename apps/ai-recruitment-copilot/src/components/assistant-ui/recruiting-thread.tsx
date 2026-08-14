@@ -1,5 +1,4 @@
 "use client";
-
 import {
   ActionBarPrimitive,
   AuiIf,
@@ -12,52 +11,56 @@ import {
   useMessage,
 } from "@assistant-ui/react";
 import type { TextMessagePartComponent } from "@assistant-ui/react";
+import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import {
   IconArrowDown,
   IconArrowUp,
   IconCheck,
   IconCopy,
   IconExternalLink,
-  IconLoader2,
   IconPencil,
   IconRefresh,
   IconSquare,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
-import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { toast } from "sonner";
+import { useEffect } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   UnsupportedResumeDocumentPreviewTooltip,
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { confirmRecruitingAction } from "@/lib/client/api";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/utils";
-import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
+import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {
-  activeThreadStyle,
   composerSendButtonClass,
-  emptyThreadStyle,
-  useRecruitingCopilotContext,
-} from "./recruiting-copilot-context";
+  recruitingComposerDisclaimer,
+  recruitingComposerPlaceholder,
+} from "./recruiting-composer-style";
+import {
+  RecruitingComposerDirectiveChip,
+  RecruitingDirectiveText,
+} from "./recruiting-directive-text";
+import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
+import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
+import { RecruitingResumeReviewCard } from "./recruiting-resume-review-card";
 import type {
   CandidateSummaryCard,
   CopilotCitation,
-  ProposalStatus,
   RecruitingActionProposal,
-  RecruitingActionProposalResult,
+  ResumeRecordDetailResult,
   SearchResumeRecordsResult,
 } from "./recruiting-copilot-context";
 export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
+export { NewRecruitingThread } from "./new-recruiting-thread";
 
 function ToolNotice({ children }: { children: string }) {
   return (
@@ -224,7 +227,7 @@ function UserMessage() {
       data-role="user"
     >
       <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-border bg-muted/55 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-muted/35">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
       <UserActionBar />
       <BranchPicker className="-me-1 justify-end" />
@@ -248,47 +251,65 @@ function ThreadMessage() {
   return null;
 }
 
-function Composer() {
+function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) {
+  "use no memo";
+  // Lexical renders mentions as inline chips; textarea would show raw `:type[label]{name=id}`.
   return (
-    <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] dark:focus-within:shadow-[0_6px_18px_rgba(0,0,0,0.24),0_1px_2px_rgba(255,255,255,0.04)]">
-        <ComposerPrimitive.Input
-          aria-label="招聘问题输入"
-          autoFocus
-          className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground"
-          enterKeyHint="send"
-          placeholder="输入招聘问题..."
-          rows={1}
-          submitMode="enter"
-        />
-        <div className="aui-composer-action-wrapper flex items-center justify-end gap-1">
-          <AuiIf condition={(state) => !state.thread.isRunning}>
-            <ComposerPrimitive.Send asChild>
-              <Button
-                aria-label="发送"
-                className={composerSendButtonClass}
-                size="icon"
-                type="button"
-              >
-                <IconArrowUp className="size-4" />
-              </Button>
-            </ComposerPrimitive.Send>
-          </AuiIf>
-          <AuiIf condition={(state) => state.thread.isRunning}>
-            <ComposerPrimitive.Cancel asChild>
-              <Button
-                aria-label="停止生成"
-                className="size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90"
-                size="icon"
-                type="button"
-              >
-                <IconSquare className="size-3.5 fill-current" />
-              </Button>
-            </ComposerPrimitive.Cancel>
-          </AuiIf>
-        </div>
+    <LexicalComposerInput
+      aria-label="招聘问题输入"
+      autoFocus={autoFocus}
+      className={cn(
+        "aui-composer-input relative max-h-32 min-h-10 w-full bg-transparent px-2 py-2 text-base text-foreground",
+        "[&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
+        "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
+      )}
+      directiveChip={RecruitingComposerDirectiveChip}
+      placeholder={recruitingComposerPlaceholder}
+      submitMode="enter"
+    />
+  );
+}
+
+function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
+  "use no memo";
+  return (
+    <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      <div className="relative flex w-full flex-col">
+        <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+          <div className="aui-composer-shell relative flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors focus-within:border-foreground/20">
+            <RecruitingComposerInput autoFocus={autoFocus} />
+            <div className="aui-composer-action-wrapper flex items-center justify-end gap-1">
+              <AuiIf condition={(state) => !state.thread.isRunning}>
+                <ComposerPrimitive.Send asChild>
+                  <Button
+                    aria-label="发送"
+                    className={composerSendButtonClass}
+                    size="icon"
+                    type="button"
+                  >
+                    <IconArrowUp className="size-4" />
+                  </Button>
+                </ComposerPrimitive.Send>
+              </AuiIf>
+              <AuiIf condition={(state) => state.thread.isRunning}>
+                <ComposerPrimitive.Cancel asChild>
+                  <Button
+                    aria-label="停止生成"
+                    className="size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90"
+                    size="icon"
+                    type="button"
+                  >
+                    <IconSquare className="size-3.5 fill-current" />
+                  </Button>
+                </ComposerPrimitive.Cancel>
+              </AuiIf>
+            </div>
+          </div>
+          {/* Mentions must live inside Composer.Root per assistant-ui docs. */}
+          <RecruitingPersonMentionPopover />
+        </ComposerPrimitive.Root>
       </div>
-    </ComposerPrimitive.Root>
+    </ComposerPrimitive.Unstable_TriggerPopoverRoot>
   );
 }
 
@@ -409,9 +430,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
           <span className="pointer-events-auto">
             <CandidateResumePreviewIcon card={card} />
           </span>
-          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-            {stageLabel}
-          </span>
+          <Badge variant="outline">{stageLabel}</Badge>
         </div>
       </div>
       {card.resumeSummary ? (
@@ -422,12 +441,9 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
       {card.keySkills.length > 0 ? (
         <div className="pointer-events-none relative z-20 mt-2 flex flex-wrap gap-1">
           {card.keySkills.map((skill) => (
-            <span
-              className="rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs"
-              key={skill}
-            >
+            <Badge key={skill} variant="outline">
               {skill}
-            </span>
+            </Badge>
           ))}
         </div>
       ) : null}
@@ -435,165 +451,91 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
   );
 }
 
-export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>(
-  {
-    display: "standalone",
-    render: ({ result, status }) => {
-      const cards = result?.candidateSummaryCards ?? [];
-      if (status.type === "running") {
-        return <ToolNotice>正在检索候选人...</ToolNotice>;
-      }
-      if (cards.length === 0) {
-        return (
-          <>
-            <CopilotToolContextReporter citations={result?.citations ?? []} />
-            <ToolNotice>未找到匹配候选人。</ToolNotice>
-          </>
-        );
-      }
-      return (
-        <div className="aui-candidate-card-list grid gap-2">
-          <CopilotToolContextReporter citations={result?.citations ?? []} />
-          {result?.retrievalMode ? (
-            <p className="text-muted-foreground text-xs">
-              检索方式：{result.retrievalMode}
-              {result.semanticHitCount ? ` · 语义命中 ${result.semanticHitCount}` : ""}
-            </p>
-          ) : null}
-          {cards.map((card) => (
-            <CandidateSummaryCardButton card={card} key={card.id} />
-          ))}
-          {typeof result?.total === "number" && result.total > cards.length ? (
-            <p className="text-muted-foreground text-xs">
-              还有 {result.total - cards.length} 个候选人未展示。
-            </p>
-          ) : null}
-        </div>
-      );
-    },
-    toolName: "search_resume_records",
-  },
-);
-
-function statusLabel(status: ProposalStatus) {
-  switch (status) {
-    case "confirmed": {
-      return "已确认";
-    }
-    case "failed": {
-      return "确认失败";
-    }
-    case "ignored": {
-      return "已忽略";
-    }
-    default: {
-      return "待确认";
-    }
-  }
-}
-
-function RecruitingActionProposalCard({ proposal }: { proposal: RecruitingActionProposal }) {
-  const slug = useWorkspaceSlug();
-  const { conversationId, markProposal, proposalStatuses } = useRecruitingCopilotContext();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const currentStatus = proposalStatuses[proposal.id] ?? "pending";
-  const isDone = currentStatus === "confirmed" || currentStatus === "ignored";
-
-  const handleConfirm = async () => {
-    if (!conversationId || isSubmitting || isDone) {
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const result = await confirmRecruitingAction(slug, conversationId, proposal);
-      if (result.status === "failed") {
-        markProposal(proposal.id, "failed");
-        toast.error(result.message);
-        return;
-      }
-      markProposal(proposal.id, "confirmed");
-      notifyConversationsChanged();
-      toast.success(result.message);
-    } catch (error) {
-      markProposal(proposal.id, "failed");
-      toast.error(error instanceof Error ? error.message : "确认动作失败");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleIgnore = () => {
-    markProposal(proposal.id, "ignored");
-  };
-
-  return (
-    <article className="aui-action-proposal rounded-xl border bg-background p-3">
-      <CopilotToolContextReporter proposal={proposal} />
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-muted-foreground text-xs">{statusLabel(currentStatus)}</p>
-          <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
-        </div>
-        <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-          {proposal.type}
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
-      <div className="mt-3 flex justify-end gap-2">
-        <Button
-          disabled={isSubmitting || isDone}
-          onClick={handleIgnore}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          忽略
-        </Button>
-        <Button
-          disabled={!conversationId || isSubmitting || isDone}
-          onClick={handleConfirm}
-          size="sm"
-          type="button"
-        >
-          {isSubmitting ? <IconLoader2 className="size-3.5 animate-spin" /> : null}
-          确认
-        </Button>
-      </div>
-    </article>
-  );
-}
-
-export const RecruitingActionProposalToolUI = makeAssistantToolUI<
-  unknown,
-  RecruitingActionProposalResult
->({
+const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>({
   display: "standalone",
   render: ({ result, status }) => {
-    const proposal = result?.proposal;
+    const cards = result?.candidateSummaryCards ?? [];
     if (status.type === "running") {
-      return <ToolNotice>正在生成动作建议...</ToolNotice>;
+      return <ToolNotice>正在检索候选人...</ToolNotice>;
     }
-    if (!proposal) {
-      return null;
+    if (cards.length === 0) {
+      return (
+        <>
+          <CopilotToolContextReporter citations={result?.citations ?? []} />
+          <ToolNotice>未找到匹配候选人。</ToolNotice>
+        </>
+      );
     }
-    return <RecruitingActionProposalCard proposal={proposal} />;
+    return (
+      <div className="aui-candidate-card-list grid gap-2">
+        <CopilotToolContextReporter citations={result?.citations ?? []} />
+        {result?.retrievalMode ? (
+          <p className="text-muted-foreground text-xs">
+            检索方式：{result.retrievalMode}
+            {result.semanticHitCount ? ` · 语义命中 ${result.semanticHitCount}` : ""}
+          </p>
+        ) : null}
+        {cards.map((card) => (
+          <CandidateSummaryCardButton card={card} key={card.id} />
+        ))}
+        {typeof result?.total === "number" && result.total > cards.length ? (
+          <p className="text-muted-foreground text-xs">
+            还有 {result.total - cards.length} 个候选人未展示。
+          </p>
+        ) : null}
+      </div>
+    );
   },
-  toolName: "propose_recruiting_action",
+  toolName: "search_resume_records",
+});
+
+const RecruitingResumeDetailToolUI = makeAssistantToolUI<unknown, ResumeRecordDetailResult>({
+  display: "standalone",
+  render: ({ result, status }) => {
+    if (status.type === "running") {
+      return <ToolNotice>正在读取候选人数据库记录...</ToolNotice>;
+    }
+    const record = result?.resumeRecord;
+    if (!record) {
+      return <ToolNotice>未找到候选人记录。</ToolNotice>;
+    }
+    if (!record.jobDescriptionId) {
+      return <CopilotToolContextReporter citations={[record.citation]} />;
+    }
+    return (
+      <div className="grid gap-2">
+        <CopilotToolContextReporter citations={[record.citation]} />
+        <RecruitingResumeReviewCard record={record} />
+      </div>
+    );
+  },
+  toolName: "get_resume_record_detail",
 });
 
 export function RecruitingToolRenderers() {
   return (
     <>
       <RecruitingResumeSearchToolUI />
+      <RecruitingResumeDetailToolUI />
       <RecruitingActionProposalToolUI />
     </>
   );
 }
 
-export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
+export function RecruitingThread({
+  historyLoadingFallback,
+  isRunning,
+}: {
+  historyLoadingFallback?: ReactNode;
+  isRunning: boolean;
+}) {
+  const isHistoryLoading = historyLoadingFallback !== undefined;
+
   return (
     <ThreadPrimitive.Root
+      aria-busy={isHistoryLoading || undefined}
       className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
+      inert={isHistoryLoading || undefined}
       style={activeThreadStyle}
     >
       <div className="relative flex min-h-0 flex-1">
@@ -604,20 +546,22 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
             scrollToBottomOnRunStart
             turnAnchor="top"
           >
-            <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
-              <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
-              {isRunning ? (
-                <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-                  思考中...
-                </div>
-              ) : null}
-            </div>
+            {historyLoadingFallback ?? (
+              <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
+                <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
+                {isRunning ? (
+                  <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
+                    思考中...
+                  </div>
+                ) : null}
+              </div>
+            )}
           </ThreadPrimitive.Viewport>
           <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
             <div className="mx-auto w-full max-w-(--thread-max-width)">
-              <Composer />
+              <Composer autoFocus={!isHistoryLoading} />
               <p className="mt-2 text-center text-muted-foreground text-xs">
-                AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+                {recruitingComposerDisclaimer}
               </p>
             </div>
           </div>
@@ -636,82 +580,5 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
         <RecruitingContextPanel />
       </div>
     </ThreadPrimitive.Root>
-  );
-}
-
-export function NewRecruitingThread({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: (text: string) => Promise<void>;
-}) {
-  const [text, setText] = useState("");
-  const canSubmit = text.trim().length > 0 && !disabled;
-
-  const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    const target = event.currentTarget;
-    setText(target.value);
-    target.style.height = "auto";
-    target.style.height = `${target.scrollHeight}px`;
-  };
-
-  const handleSubmit = async (event?: FormEvent) => {
-    event?.preventDefault();
-    if (!canSubmit) {
-      return;
-    }
-    const nextText = text.trim();
-    setText("");
-    await onSubmit(nextText);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void handleSubmit();
-    }
-  };
-
-  return (
-    <div
-      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      style={emptyThreadStyle}
-    >
-      <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
-        <div className="aui-thread-welcome-root mb-6 text-center">
-          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-normal duration-200">
-            从哪里开始招聘协作？
-          </h1>
-        </div>
-        <form className="aui-composer-root relative flex w-full flex-col" onSubmit={handleSubmit}>
-          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] dark:focus-within:shadow-[0_6px_18px_rgba(0,0,0,0.24),0_1px_2px_rgba(255,255,255,0.04)]">
-            <textarea
-              aria-label="招聘问题输入"
-              className="aui-composer-input max-h-36 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-base text-foreground leading-6 outline-none placeholder:text-muted-foreground"
-              disabled={disabled}
-              onChange={handleTextChange}
-              onKeyDown={handleKeyDown}
-              placeholder="输入招聘问题..."
-              rows={1}
-              value={text}
-            />
-            <Button
-              aria-label="发送"
-              className={cn(composerSendButtonClass, "shrink-0")}
-              disabled={!canSubmit}
-              size="icon"
-              title="发送"
-              type="submit"
-            >
-              <IconArrowUp className="size-4" />
-            </Button>
-          </div>
-        </form>
-        <p className="mt-2 text-center text-muted-foreground text-xs">
-          AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
-        </p>
-      </div>
-    </div>
   );
 }

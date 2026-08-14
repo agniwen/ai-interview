@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   convertLegacyOfficeToOoxml: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
+  processPdfPagesWithMeta: vi.fn(),
   qwenVlOcr: vi.fn(),
-  rasterizePdfWithMeta: vi.fn(),
   resumeStructuredAgent: { id: "resume-structured-agent" },
+  runAliyunResumeExtraction: vi.fn(),
 }));
 
 vi.mock(
@@ -23,7 +24,7 @@ vi.mock("../office-conversion", () => ({
 }));
 
 vi.mock("../pdf-rasterize", () => ({
-  rasterizePdfWithMeta: mocks.rasterizePdfWithMeta,
+  processPdfPagesWithMeta: mocks.processPdfPagesWithMeta,
 }));
 
 vi.mock("../qwen-ocr", () => ({
@@ -31,8 +32,43 @@ vi.mock("../qwen-ocr", () => ({
   qwenVlOcr: mocks.qwenVlOcr,
 }));
 
-const { extractResumeDocumentText, generateResumeStructured, parseResumeOcrOnly } =
+vi.mock("../aliyun-docmining", () => ({
+  runAliyunResumeExtraction: mocks.runAliyunResumeExtraction,
+}));
+
+const { extractResumeDocumentText, generateResumeStructured, parseResumeFast, parseResumeOcrOnly } =
   await import("../resume-parse-pipeline");
+
+let pdfPageCount = 3;
+let pdfPages = [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")];
+
+async function runMockPdfPageProcessor(
+  _bytes: Uint8Array,
+  options: {
+    concurrency?: number;
+    onReady?: (meta: { pageCount: number; selectedPages: number }) => void;
+  },
+  processPage: (png: Buffer, index: number) => Promise<string>,
+): Promise<{ pageCount: number; renderedSizes: number[]; results: string[] }> {
+  const results = Array.from<string>({ length: pdfPages.length });
+  const concurrency = Math.min(pdfPages.length, options.concurrency ?? 1);
+  let nextPage = 0;
+  options.onReady?.({ pageCount: pdfPageCount, selectedPages: pdfPages.length });
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (nextPage < pdfPages.length) {
+        const index = nextPage;
+        nextPage += 1;
+        results[index] = await processPage(pdfPages[index] as Buffer, index);
+      }
+    }),
+  );
+  return {
+    pageCount: pdfPageCount,
+    renderedSizes: pdfPages.map((page) => page.byteLength),
+    results,
+  };
+}
 
 const STRUCTURED_RESUME = {
   age: null,
@@ -86,6 +122,27 @@ const STRUCTURED_RESUME = {
   workYears: 5,
 };
 
+function aliyunExtractionResult(content = JSON.stringify(STRUCTURED_RESUME)) {
+  return {
+    cleanup: { deleted: true, error: null },
+    content,
+    extractionAttempts: 1,
+    pageCount: 2,
+    timingsMs: {
+      applyLease: 1,
+      extraction: 2,
+      ossUpload: 3,
+      submitParse: 4,
+      total: 10,
+    },
+    usage: {
+      inputTokens: 100,
+      outputTokens: 200,
+      totalTokens: 300,
+    },
+  };
+}
+
 function createStoredZip(entries: Record<string, string>): Promise<Uint8Array> {
   const zip = new JSZip();
   for (const [name, content] of Object.entries(entries)) {
@@ -104,10 +161,9 @@ describe("parseResumeOcrOnly", () => {
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY = "1";
     process.env.RESUME_PARSE_OCR_ATTEMPTS = "2";
     process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS = "0";
-    mocks.rasterizePdfWithMeta.mockResolvedValue({
-      pageCount: 3,
-      pages: [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")],
-    });
+    pdfPageCount = 3;
+    pdfPages = [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")];
+    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor);
   });
 
   afterEach(() => {
@@ -143,6 +199,25 @@ describe("parseResumeOcrOnly", () => {
 
     expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
     expect(maxActive).toBe(1);
+  });
+
+  it("defaults OCR page concurrency to 4", async () => {
+    delete process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY;
+    pdfPageCount = 6;
+    pdfPages = Array.from({ length: 6 }, (_, index) => Buffer.from(`page-${index + 1}`));
+    let active = 0;
+    let maxActive = 0;
+    mocks.qwenVlOcr.mockImplementation(async (png: Buffer) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await delay(1);
+      active -= 1;
+      return png.toString();
+    });
+
+    await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+
+    expect(maxActive).toBe(4);
   });
 
   it("emits page-level OCR progress without changing the OCR result", async () => {
@@ -238,10 +313,9 @@ describe("extractResumeDocumentText", () => {
     process.env.ALIBABA_API_KEY = "test-key";
     process.env.ALIBABA_BASE_URL = "https://example.test";
     process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-    mocks.rasterizePdfWithMeta.mockResolvedValue({
-      pageCount: 1,
-      pages: [Buffer.from("pdf-page")],
-    });
+    pdfPageCount = 1;
+    pdfPages = [Buffer.from("pdf-page")];
+    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor);
     mocks.qwenVlOcr.mockResolvedValue("PDF 候选人 TypeScript");
   });
 
@@ -257,7 +331,7 @@ describe("extractResumeDocumentText", () => {
       text: "PDF 候选人 TypeScript",
       textSource: "qwen-ocr",
     });
-    expect(mocks.rasterizePdfWithMeta).toHaveBeenCalledTimes(1);
+    expect(mocks.processPdfPagesWithMeta).toHaveBeenCalledTimes(1);
   });
 
   it("runs OCR directly for image resumes without PDF rasterization", async () => {
@@ -274,7 +348,7 @@ describe("extractResumeDocumentText", () => {
       text: "图片简历 候选人 JavaScript",
       textSource: "qwen-ocr",
     });
-    expect(mocks.rasterizePdfWithMeta).not.toHaveBeenCalled();
+    expect(mocks.processPdfPagesWithMeta).not.toHaveBeenCalled();
     expect(mocks.qwenVlOcr).toHaveBeenCalledWith(Buffer.from([4, 5, 6]), "image/jpeg");
   });
 
@@ -543,5 +617,98 @@ describe("generateResumeStructured", () => {
     expect(prompt).toContain("项目经历");
     expect(prompt).toContain("工作经历");
     expect(prompt).not.toContain("skills 最多 18 项");
+  });
+});
+
+describe("parseResumeFast provider selection", () => {
+  const originalProvider = process.env.RESUME_PARSE_PROVIDER;
+  const originalApiKey = process.env.ALIBABA_API_KEY;
+
+  afterEach(() => {
+    if (originalProvider === undefined) {
+      delete process.env.RESUME_PARSE_PROVIDER;
+    } else {
+      process.env.RESUME_PARSE_PROVIDER = originalProvider;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.ALIBABA_API_KEY;
+    } else {
+      process.env.ALIBABA_API_KEY = originalApiKey;
+    }
+  });
+
+  it("uses Aliyun document mining without invoking OCR or the structured LLM", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.generateStructuredWithMastraAgent.mockClear();
+    mocks.qwenVlOcr.mockClear();
+    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+
+    const result = await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.docx",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    expect(result).toEqual({
+      pageCount: 2,
+      structured: STRUCTURED_RESUME,
+      text: JSON.stringify(STRUCTURED_RESUME),
+      textSource: "aliyun-docmining",
+    });
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "test-key",
+        fileName: "resume.docx",
+      }),
+    );
+    expect(mocks.qwenVlOcr).not.toHaveBeenCalled();
+    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+  });
+
+  it("retries once when Aliyun returns truncated structured JSON", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.runAliyunResumeExtraction.mockReset();
+    mocks.runAliyunResumeExtraction
+      .mockResolvedValueOnce(aliyunExtractionResult('{"name":"候选人"'))
+      .mockResolvedValueOnce(aliyunExtractionResult());
+
+    const result = await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
+    });
+
+    expect(result.structured).toEqual(STRUCTURED_RESUME);
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["resume.pdf", "resume.pdf"],
+    ["resume.doc", "resume.doc"],
+    ["resume.docx", "resume.docx"],
+    ["resume.html", "resume.html"],
+    ["resume.htm", "resume.html"],
+    ["resume.ppt", "resume.ppt"],
+    ["resume.pptx", "resume.pptx"],
+    ["resume.xls", "resume.xls"],
+    ["resume.xlsx", "resume.xlsx"],
+    ["resume.jpg", "resume.jpg"],
+    ["resume.png", "resume.png"],
+  ])("passes supported format %s to Aliyun as %s", async (fileName, expectedFileName) => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.runAliyunResumeExtraction.mockReset();
+    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+
+    await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName,
+    });
+
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: expectedFileName }),
+    );
   });
 });

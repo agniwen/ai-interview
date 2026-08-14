@@ -1,0 +1,28 @@
+import { useQuery } from "@tanstack/react-query";
+
+export interface UseMastraInstanceStatusResponse {
+  status: "active" | "inactive";
+}
+
+const getMastraInstanceStatus = async (
+  endpoint = "http://localhost:4111",
+  headers?: Record<string, string>,
+): Promise<UseMastraInstanceStatusResponse> => {
+  try {
+    const response = await fetch(endpoint, { headers });
+
+    return { status: response.ok ? "active" : "inactive" };
+  } catch {
+    return { status: "inactive" };
+  }
+};
+
+export const useMastraInstanceStatus = (
+  endpoint = "http://localhost:4111",
+  headers?: Record<string, string>,
+) =>
+  useQuery({
+    queryFn: () => getMastraInstanceStatus(endpoint, headers),
+    queryKey: ["mastra-instance-status", endpoint, headers],
+    retry: false,
+  });

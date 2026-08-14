@@ -4,6 +4,10 @@
 // 可被其他标签页修改的全局 session 状态。
 
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import {
+  getWorkspaceRequestContext,
+  WorkspaceContextInvariantError,
+} from "@arc/ai-recruitment-copilot-backend/server/context/workspace-request-context";
 import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import type {
   WorkspaceAction,
@@ -15,15 +19,21 @@ export function requirePermission<R extends WorkspaceResource>(
   action: WorkspaceAction<R>,
 ) {
   return factory.createMiddleware(async (c, next) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Forbidden" }, 403);
+    let workspaceContext;
+    try {
+      workspaceContext = getWorkspaceRequestContext(c);
+    } catch (error) {
+      if (error instanceof WorkspaceContextInvariantError) {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+      throw error;
     }
+    const { member, organization, user } = workspaceContext;
     const authorize = createRequestWorkspaceAuthorizer({
       headers: c.req.raw.headers,
-      memberRole: c.var.member?.role,
-      organizationId: activeOrg.id,
-      userId: c.var.user?.id,
+      memberRole: member.role,
+      organizationId: organization.id,
+      userId: user.id,
     });
     const allowed = await authorize({ action, resource });
 

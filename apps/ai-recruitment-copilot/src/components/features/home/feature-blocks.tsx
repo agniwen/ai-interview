@@ -8,6 +8,7 @@ import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useCallback, useRef } from "react";
 import { ChatScreen, InterviewScreen, JobsScreen } from "@/components/features/home/screens";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section } from "./section";
@@ -40,7 +41,7 @@ const blocks: Block[] = [
     Screen: JobsScreen,
     bullets: [
       "在工作台维护岗位、JD、面试官人设、面试问题",
-      "系统设置一次设定多次复用",
+      "上下文设置一次设定多次复用",
       "JD 与候选人评估上下文打通",
     ],
     eyebrow: "Workspace",
@@ -74,7 +75,7 @@ interface SceneProps {
 const titleClass =
   "font-medium text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
 const leadClass =
-  "text-base text-muted-foreground leading-normal sm:text-[1.0625rem] lg:text-[1.0625rem]";
+  "text-base text-muted-foreground leading-normal dark:text-white/80 sm:text-[1.0625rem] lg:text-[1.0625rem]";
 
 // 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
 // Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
@@ -120,13 +121,10 @@ function SceneChat({ block }: SceneProps) {
             <block.Screen className="w-full" />
           </div>
         </div>
-        <div
-          className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-top-3 -left-3 absolute" data-reveal="badge" variant="outline">
           <span className="size-1.5 animate-pulse rounded-full bg-primary" />
           LIVE CHAT
-        </div>
+        </Badge>
       </div>
     </div>
   );
@@ -166,13 +164,10 @@ function SceneWorkspace({ block }: SceneProps) {
         </div>
         {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
         {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
-        <div
-          className="-top-3 -right-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-top-3 -right-3 absolute" data-reveal="badge" variant="outline">
           <span className="size-1.5 rounded-full bg-emerald-500" />
           JD READY
-        </div>
+        </Badge>
       </div>
     </div>
   );
@@ -210,10 +205,7 @@ function SceneInterview({ block }: SceneProps) {
         <div className="transform-gpu">
           <block.Screen className="w-full" />
         </div>
-        <div
-          className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-right-3 -bottom-3 absolute" data-reveal="badge" variant="outline">
           <span className="flex h-3.5 items-end gap-[2px]">
             {[3, 5, 2, 6, 4, 3, 5].map((h, i) => (
               <span
@@ -224,8 +216,8 @@ function SceneInterview({ block }: SceneProps) {
               />
             ))}
           </span>
-          <span className="font-mono text-[10px] text-foreground tracking-[0.18em]">REC</span>
-        </div>
+          <span>REC</span>
+        </Badge>
       </div>
     </div>
   );
@@ -262,7 +254,9 @@ function SceneCard({ block }: { block: Block }) {
         <h3 className="font-medium text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">
           {block.title}
         </h3>
-        <p className="text-foreground/70 text-sm leading-normal sm:text-[0.95rem]">{block.lead}</p>
+        <p className="text-foreground/70 text-sm leading-normal dark:text-white/80 sm:text-[0.95rem]">
+          {block.lead}
+        </p>
       </div>
       {/* 卡片自带阴影，screen 内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
       {/* Card has its own shadow; suppress the inner shadow-xl so it doesn't get clipped by the article's overflow-hidden */}
@@ -600,10 +594,12 @@ export function FeatureBlocks() {
             {blocks.map((block, i) => (
               <div
                 className="absolute inset-0 flex items-center"
+                data-home-scene={i}
                 key={block.title}
                 ref={(el) => {
                   sceneRefs.current[i] = el;
                 }}
+                style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
               >
                 <SceneByLayout block={block} layout={LAYOUTS[i]} />
               </div>

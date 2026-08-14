@@ -68,8 +68,14 @@ function ComboboxInput({
   showTrigger?: boolean;
   showClear?: boolean;
 }) {
+  // Base UI positions the popup against `inputGroupElement` when present, otherwise
+  // the bare <input>. Without Combobox.InputGroup the anchor shrinks to the text
+  // field only (excluding start/end addons like avatars and the chevron), so the
+  // menu looks misaligned relative to the full control. Register the styled
+  // InputGroup as the combobox input-group so --anchor-width and align match the
+  // visible trigger.
   return (
-    <InputGroup className={cn("w-auto", className)}>
+    <ComboboxPrimitive.InputGroup render={<InputGroup className={cn("w-auto", className)} />}>
       <ComboboxPrimitive.Input render={<InputGroupInput disabled={disabled} />} {...props} />
       <InputGroupAddon align="inline-end">
         {showTrigger && (
@@ -85,7 +91,7 @@ function ComboboxInput({
         {showClear && <ComboboxClear disabled={disabled} />}
       </InputGroupAddon>
       {children}
-    </InputGroup>
+    </ComboboxPrimitive.InputGroup>
   );
 }
 
@@ -221,7 +227,7 @@ function ComboboxChips({
       data-slot="combobox-chips"
       className={cn(
         cossFieldSurfaceClass,
-        "inline-flex min-h-9 min-w-0 flex-wrap items-center gap-1.5 px-2.5 py-0 text-base focus-within:border-ring focus-within:ring-[3px] has-aria-invalid:ring-[3px] has-data-[slot=combobox-chip]:px-1.5 has-data-[slot=combobox-chip]:py-1 md:text-sm [&>*]:relative [&>*]:z-10",
+        "inline-flex min-h-9 min-w-0 flex-wrap items-center gap-1.5 px-2.5 py-0 text-base focus-within:border-ring focus-within:ring-1 focus-within:ring-ring has-aria-invalid:ring-[3px] has-data-[slot=combobox-chip]:px-1.5 has-data-[slot=combobox-chip]:py-1 md:text-sm [&>*]:relative [&>*]:z-10",
         className,
       )}
       {...props}

@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- resume collection commands and mounted child-resource routers remain co-located at the route boundary. */
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { resumeLibraryReadRouter } from "./read-route";
@@ -13,6 +14,7 @@ import {
   canDeleteResumeRecord,
   canEditResumeRecord,
   resumeEvaluationUpdateSchema,
+  resumeIdentityUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "@arc/shared/studio-resumes";
@@ -29,12 +31,10 @@ import {
   resetResumeEvaluationForJobChange,
   updateResumeEvaluationStatus,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
-import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { parseResumePayloadInput } from "@arc/db-schema/studio-interviews";
 import {
   normalizeResumeFile,
   resolveResumeUploadStorage,
-  storeInterviewResume,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
@@ -45,15 +45,28 @@ import {
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import {
-  jobDescriptionIdsExist,
-  loadJobDescriptionById,
+  loadRecruitingJobDescriptionById,
+  recruitingJobDescriptionIdsExist,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
+import { generateResumeScreeningBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import {
-  generateResumeReviewBestEffort,
-  generateResumeScreeningBestEffort,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
+  enqueueResumeReassessmentForRecord,
+  scheduleResumeEvaluationForRecord,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
+import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
+import {
+  INVALIDATED_AI_RESUME_ASSESSMENT,
+  INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { structuredResumeEvaluationRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/structured-evaluation/route";
+import { recruitingRecordMeetingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/meetings/route";
+import {
+  forceResumeReparse,
+  retryFailedResumeParse,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -79,6 +92,33 @@ function toNullableString(value: FormDataEntryValue | null): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+async function reassessAfterJobDescriptionChange(input: {
+  organizationId: string;
+  resumeRecordId: string;
+}) {
+  try {
+    const enqueueResult = await enqueueResumeReassessmentForRecord(input);
+    if (enqueueResult !== "fallback_sync") {
+      return;
+    }
+    void (async () => {
+      try {
+        await reassessResumeRecord(input);
+      } catch (error) {
+        console.error("[resume-reassess] job-change fallback async failed", {
+          error,
+          resumeRecordId: input.resumeRecordId,
+        });
+      }
+    })();
+  } catch (error) {
+    console.error("[resume-reassess] job-change enqueue failed", {
+      error,
+      resumeRecordId: input.resumeRecordId,
+    });
+  }
 }
 
 function parseResumeLibraryFormData(
@@ -129,6 +169,101 @@ export function parseResumeReviewFormInput(
 export const resumeLibraryRouter = factory
   .createApp()
   .route("/", resumeLibraryReadRouter)
+  .route("/:id/meetings", recruitingRecordMeetingsRouter)
+  .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
+  .post(
+    "/:id/retry-parse",
+    requirePermission("resumeLibrary", "update"),
+    requirePermission("resumeUploadBatch", "process"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const visibilityScope = await loadVisibilityScope(activeOrg.id, c.var.member?.role, user.id);
+      const resumeRecordId = c.req.param("id");
+      const record = await loadResumeDetail(resumeRecordId, activeOrg.id, visibilityScope);
+      if (!record) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (record.resumeParseStatus !== "failed") {
+        return c.json({ error: "只有解析失败的简历可以重新解析。" }, 409);
+      }
+      if (!record.resumeParseRetryable) {
+        return c.json({ error: "该简历已重新解析过，不能再次操作。" }, 409);
+      }
+      try {
+        const result = await retryFailedResumeParse({
+          organizationId: activeOrg.id,
+          requestedBy: user.id,
+          resumeRecordId,
+        });
+        if (result.status === "queued") {
+          invalidateStudioInterviewCaches(activeOrg.id);
+          return c.json({ status: "queued" as const }, 200);
+        }
+        if (result.status === "queue_unavailable") {
+          return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+        }
+        return c.json({ error: "该简历当前不能重新解析，请刷新后重试。" }, 409);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "简历解析队列入队失败。" },
+          503,
+        );
+      }
+    },
+  )
+  .post(
+    "/:id/force-reparse",
+    requirePermission("resumeLibrary", "update"),
+    requirePermission("resumeUploadBatch", "process"),
+    async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      // Workspace admins (and owners) only — not ordinary members with update permission.
+      if (member?.role !== "admin" && member?.role !== "owner") {
+        return c.json({ error: "仅工作区管理员可强制重新解析。" }, 403);
+      }
+      const visibilityScope = await loadVisibilityScope(activeOrg.id, member?.role, user.id);
+      const resumeRecordId = c.req.param("id");
+      const record = await loadResumeDetail(resumeRecordId, activeOrg.id, visibilityScope);
+      if (!record) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (!record.hasResumeFile) {
+        return c.json({ error: "该记录没有可重新解析的简历文件。" }, 409);
+      }
+      try {
+        const result = await forceResumeReparse({
+          organizationId: activeOrg.id,
+          requestedBy: user.id,
+          resumeRecordId,
+        });
+        if (result.status === "queued") {
+          invalidateStudioInterviewCaches(activeOrg.id);
+          return c.json({ status: "queued" as const }, 200);
+        }
+        if (result.status === "queue_unavailable") {
+          return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+        }
+        if (result.status === "no_file") {
+          return c.json({ error: "该记录没有可重新解析的简历文件。" }, 409);
+        }
+        if (result.status === "busy") {
+          return c.json({ error: "该简历正在解析中，请稍后再试。" }, 409);
+        }
+        return c.json({ error: "记录不存在。" }, 404);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "简历解析队列入队失败。" },
+          503,
+        );
+      }
+    },
+  )
   .post("/", requirePermission("resumeLibrary", "create"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -159,11 +294,14 @@ export const resumeLibraryRouter = factory
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
       }
-      if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
-        if (!ok) {
-          return c.json({ error: "所选在招岗位不存在。" }, 400);
-        }
+      const selectedJob = input.data.jobDescriptionId
+        ? await loadRecruitingJobDescriptionById(activeOrg.id, input.data.jobDescriptionId)
+        : null;
+      if (input.data.jobDescriptionId && !selectedJob) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+      if (resumeReviewInput.data && selectedJob?.evaluationMode !== "legacy") {
+        return c.json({ error: "新版岗位不接受客户端写入旧版简历评价。" }, 400);
       }
 
       const uploadResult = await resolveResumeUploadStorage({
@@ -198,20 +336,9 @@ export const resumeLibraryRouter = factory
         resumeProfile,
       });
 
-      let generatedReview: Awaited<ReturnType<typeof generateResumeReviewBestEffort>> = null;
-      let resumeReview = resumeReviewInput.data;
+      const resumeReview = resumeReviewInput.data;
       let resumeScreeningResult = null;
-      if (!resumeReview && resumeProfile) {
-        generatedReview = await generateResumeReviewBestEffort({
-          jobDescriptionId: input.data.jobDescriptionId || null,
-          logPrefix: "[studio-resumes]",
-          organizationId: activeOrg.id,
-          resumeProfile,
-          resumeText,
-        });
-        resumeReview = generatedReview?.structuredReview ?? null;
-        resumeScreeningResult = generatedReview?.screeningResult ?? null;
-      } else if (resumeProfile) {
+      if (resumeReview && resumeProfile) {
         resumeScreeningResult = await generateResumeScreeningBestEffort({
           jobDescriptionId: input.data.jobDescriptionId || null,
           logPrefix: "[studio-resumes]",
@@ -222,8 +349,8 @@ export const resumeLibraryRouter = factory
       }
       let resumeReviewStatus: "failed" | "idle" | "ready" = "idle";
       let resumeScreeningStatus: "failed" | "idle" | "ready" = "idle";
-      if (resumeProfile) {
-        resumeReviewStatus = resumeReview ? "ready" : "failed";
+      if (resumeReview) {
+        resumeReviewStatus = "ready";
         resumeScreeningStatus = resumeScreeningResult ? "ready" : "failed";
       }
 
@@ -240,9 +367,9 @@ export const resumeLibraryRouter = factory
         resumeFileName: parsedFileName,
         resumeProfile,
         resumeReview,
-        resumeReviewError: resumeProfile && !resumeReview ? "AI 分析生成失败。" : null,
+        resumeReviewError: null,
         resumeReviewStatus,
-        resumeScreeningError: resumeProfile && !resumeScreeningResult ? "AI 分析生成失败。" : null,
+        resumeScreeningError: resumeReview && !resumeScreeningResult ? "AI 分析生成失败。" : null,
         resumeScreeningResult,
         resumeScreeningStatus,
         resumeText,
@@ -263,6 +390,29 @@ export const resumeLibraryRouter = factory
         sourceId: recordId,
         sourceType: "studio_interview",
       });
+      if (resumeProfile && selectedJob && !resumeReview) {
+        const scheduling = await scheduleResumeEvaluationForRecord({
+          jobDescriptionId: selectedJob.id,
+          organizationId: activeOrg.id,
+          resumeRecordId: recordId,
+          source: "resume_upload",
+        });
+        if (scheduling.status === "fallback_sync") {
+          void (async () => {
+            try {
+              await reassessResumeRecord({
+                organizationId: activeOrg.id,
+                resumeRecordId: recordId,
+              });
+            } catch (error) {
+              console.error("[studio-resumes] fallback assessment failed", {
+                error,
+                resumeRecordId: recordId,
+              });
+            }
+          })();
+        }
+      }
       const visibilityScope = await loadVisibilityScope(
         activeOrg.id,
         c.var.member?.role,
@@ -311,7 +461,157 @@ export const resumeLibraryRouter = factory
       return c.json(detail, 200);
     },
   )
-  // oxlint-disable-next-line complexity -- single update handler orchestrates upload + parse + whitelist write.
+  .patch(
+    "/:id/identity",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", resumeIdentityUpdateSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (!canEditResumeRecord(existing.resumeParseStatus)) {
+        return c.json({ error: "简历解析完成后才能编辑。" }, 409);
+      }
+
+      const input = c.req.valid("json");
+      const ok = await recruitingJobDescriptionIdsExist([input.jobDescriptionId], activeOrg.id);
+      if (!ok) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+
+      const nextJobDescriptionId = input.jobDescriptionId;
+      const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
+      const nextJobDescription = jobDescriptionChanged
+        ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+        : null;
+
+      // Mirror identity into resumeProfile JSON when a structured profile exists.
+      // Table: candidateName/email/phone/targetRole/jobDescriptionId
+      // JSON: name/email/phone/gender/age/workYears/targetRoles
+      const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, {
+        age: input.age,
+        candidateEmail: input.candidateEmail,
+        candidateName: input.candidateName,
+        candidatePhone: input.candidatePhone,
+        gender: input.gender,
+        targetRole: input.targetRole || existing.targetRole || "",
+        workYears: input.workYears,
+      });
+      const resumeEvidenceChanged = Boolean(
+        resumeProfile &&
+        existing.resumeProfile &&
+        computeResumeEvaluationInputHash({
+          resumeContentHash: existing.resumeContentHash,
+          resumeProfile,
+          resumeText: null,
+        }) !==
+          computeResumeEvaluationInputHash({
+            resumeContentHash: existing.resumeContentHash,
+            resumeProfile: existing.resumeProfile,
+            resumeText: null,
+          }),
+      );
+      const now = new Date();
+      let invalidatedAssessment = {};
+      if (jobDescriptionChanged) {
+        invalidatedAssessment = INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE;
+      } else if (resumeEvidenceChanged) {
+        invalidatedAssessment = INVALIDATED_AI_RESUME_ASSESSMENT;
+      }
+      const update = {
+        candidateEmail: input.candidateEmail || null,
+        candidateName: input.candidateName,
+        candidatePhone: input.candidatePhone || null,
+        jobDescriptionId: nextJobDescriptionId,
+        targetRole:
+          input.targetRole || resumeProfile?.targetRoles[0] || existing.targetRole || null,
+        updatedAt: now,
+        ...(resumeProfile ? { resumeProfile } : {}),
+        ...invalidatedAssessment,
+      } satisfies Partial<typeof studioInterview.$inferInsert>;
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studioInterview)
+          .set(update)
+          .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+        if (jobDescriptionChanged) {
+          await tx.insert(interviewAuditLog).values({
+            action: "job_description_changed",
+            createdAt: now,
+            detail: {
+              fromJobDescriptionId: existing.jobDescriptionId,
+              fromJobDescriptionName: existing.jobDescriptionName,
+              toJobDescriptionId: nextJobDescriptionId,
+              toJobDescriptionName: nextJobDescription?.name ?? null,
+            },
+            id: crypto.randomUUID(),
+            interviewRecordId: id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
+          });
+        }
+      });
+
+      if (jobDescriptionChanged && existing.resumeEvaluationStatus) {
+        await resetResumeEvaluationForJobChange({
+          id,
+          nextJobDescriptionId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+          previousJobDescriptionId: existing.jobDescriptionId,
+          previousStatus: existing.resumeEvaluationStatus,
+        });
+      } else {
+        const nextEvaluationStatus =
+          input.resumeEvaluationStatus === "unreviewed" ? null : input.resumeEvaluationStatus;
+        if (nextEvaluationStatus !== existing.resumeEvaluationStatus) {
+          await updateResumeEvaluationStatus({
+            id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
+            status: nextEvaluationStatus,
+          });
+        }
+      }
+
+      if (
+        (jobDescriptionChanged || resumeEvidenceChanged) &&
+        resumeProfile &&
+        existing.resumeParseStatus === "ready" &&
+        existing.pipelineStage !== "closed" &&
+        existing.outcome === "in_pipeline"
+      ) {
+        await reassessAfterJobDescriptionChange({
+          organizationId: activeOrg.id,
+          resumeRecordId: id,
+        });
+      }
+
+      invalidateStudioInterviewCaches(activeOrg.id);
+      if (resumeProfile) {
+        await enqueueResumeSemanticIndexJobBestEffort({
+          organizationId: activeOrg.id,
+          sourceId: id,
+          sourceType: "studio_interview",
+        });
+      }
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      return c.json(detail, 200);
+    },
+  )
+  // oxlint-disable-next-line complexity -- single update handler orchestrates identity + JD + evaluation whitelist write.
   .patch("/:id", requirePermission("resumeLibrary", "update"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -333,27 +633,18 @@ export const resumeLibraryRouter = factory
       }
 
       const formData = await c.req.formData();
-      const resume = normalizeResumeFile(formData.get("resume"));
-      // 与 POST 对齐：在任何短路路径（缓存命中）之前先把 PDF / 20MB 校验显式跑掉。
-      // Mirror POST — run the PDF / size gate before any short-circuit path
-      // (e.g. registry cache hit) skips the parser.
-      if (resume) {
-        validateResumeFile(resume);
-      }
       const input = parseResumeLibraryEditFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
-      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
-      if (!resumeReviewInput.success) {
-        return c.json({ error: resumeReviewInput.error }, 400);
-      }
 
-      if (resume && !c.var.user) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
+      // 编辑接口不再接受简历文件替换 / 系统评价（notes、resumeReview）更新。
+      // Edit no longer accepts resume file replacement or system notes / review updates.
       if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        const ok = await recruitingJobDescriptionIdsExist(
+          [input.data.jobDescriptionId],
+          activeOrg.id,
+        );
         if (!ok) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -362,61 +653,40 @@ export const resumeLibraryRouter = factory
       const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
       const nextJobDescription =
         jobDescriptionChanged && nextJobDescriptionId
-          ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+          ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
           : null;
 
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(id, resume, c.var.user.id, activeOrg.id)
-          : null;
-
-      let { resumeProfile } = existing;
-      let { resumeFileName } = existing;
-      const resumeStorageKey = uploadResult?.storageKey ?? null;
-      const resumeContentHash = uploadResult?.contentHash ?? null;
-      let resumeText = uploadResult?.resumeText ?? null;
-
-      if (resume) {
-        // 命中注册表时 storeInterviewResume 已经返回 cachedResumeProfile，不再
-        // 无条件再跑一次 parseResumeFastToProfile —— 行为对齐 POST。
-        // When the registry hits, storeInterviewResume already returned a
-        // cached profile; skip the redundant parse to match POST semantics.
-        let nextResumeProfile = uploadResult?.cachedResumeProfile ?? null;
-        if (!nextResumeProfile) {
-          const parsed = await parseResumeFastToProfile(resume);
-          nextResumeProfile = parsed.resumeProfile;
-          resumeText = parsed.parsedText;
-        }
-        resumeProfile = nextResumeProfile;
-        resumeFileName = resume.name;
-      }
-      resumeProfile = syncResumeProfileIdentity(resumeProfile, input.data);
-      let resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = {};
-      if (resume) {
-        resumeProfileUpdate = {
-          resumeContentHash: resumeContentHash ?? existing.resumeContentHash,
-          resumeFileName,
-          resumeParseError: null,
-          resumeParseStatus: resumeProfile ? "ready" : "unparsed",
-          resumeParsedAt: resumeProfile ? new Date() : null,
+      const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, input.data);
+      const resumeEvidenceChanged = Boolean(
+        resumeProfile &&
+        existing.resumeProfile &&
+        computeResumeEvaluationInputHash({
+          resumeContentHash: existing.resumeContentHash,
           resumeProfile,
-          resumeStorageKey: resumeStorageKey ?? null,
-          resumeText,
-        };
-      } else if (resumeProfile) {
-        resumeProfileUpdate = { resumeProfile };
-      }
+          resumeText: null,
+        }) !==
+          computeResumeEvaluationInputHash({
+            resumeContentHash: existing.resumeContentHash,
+            resumeProfile: existing.resumeProfile,
+            resumeText: null,
+          }),
+      );
+      const resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = resumeProfile
+        ? { resumeProfile }
+        : {};
 
-      let nextResumeReview = existing.resumeReview;
-      if (formData.has("resumeReview")) {
-        nextResumeReview = resumeReviewInput.data;
-      } else if (resume) {
-        nextResumeReview = null;
-      }
-
-      // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
-      // Explicit whitelist write — never touches interviewQuestions / status / schedule.
+      // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule /
+      // notes / resume file / resumeReview。
+      // Explicit whitelist — normal identity edits never touch interviewQuestions / status /
+      // schedule / notes / resume file / resumeReview. A job change invalidates the old
+      // job-bound AI assessment below.
       const now = new Date();
+      let invalidatedAssessment = {};
+      if (jobDescriptionChanged) {
+        invalidatedAssessment = INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE;
+      } else if (resumeEvidenceChanged) {
+        invalidatedAssessment = INVALIDATED_AI_RESUME_ASSESSMENT;
+      }
       const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
       const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
       const update = {
@@ -431,11 +701,10 @@ export const resumeLibraryRouter = factory
             }
           : {}),
         jobDescriptionId: nextJobDescriptionId,
-        notes: input.data.notes || null,
-        resumeReview: nextResumeReview,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: now,
         ...resumeProfileUpdate,
+        ...invalidatedAssessment,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -443,16 +712,6 @@ export const resumeLibraryRouter = factory
           .update(studioInterview)
           .set(update)
           .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
-        // 仅当上传新简历时才重刷技能索引；基础信息同步不会改变技能。
-        // Only refresh the skill index for a new resume upload; identity-field
-        // sync does not change skills.
-        if (resume) {
-          await syncResumeSkills(tx, {
-            interviewId: id,
-            organizationId: activeOrg.id,
-            skills: resumeProfile?.skills,
-          });
-        }
         if (jobDescriptionChanged) {
           await tx.insert(interviewAuditLog).values({
             action: "job_description_changed",
@@ -489,6 +748,19 @@ export const resumeLibraryRouter = factory
           operatorId: c.var.user?.id ?? null,
           organizationId: activeOrg.id,
           status: nextResumeEvaluationStatus,
+        });
+      }
+
+      if (
+        (jobDescriptionChanged || resumeEvidenceChanged) &&
+        resumeProfile &&
+        existing.resumeParseStatus === "ready" &&
+        existing.pipelineStage !== "closed" &&
+        existing.outcome === "in_pipeline"
+      ) {
+        await reassessAfterJobDescriptionChange({
+          organizationId: activeOrg.id,
+          resumeRecordId: id,
         });
       }
 

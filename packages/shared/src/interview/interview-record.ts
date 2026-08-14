@@ -1,6 +1,55 @@
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
+import type {
+  CandidateInterviewFeedback,
+  CandidateInterviewFeedbackCategory,
+  ScheduleEntryStatus,
+} from "@arc/db-schema/studio-interviews";
+import {
+  buildCandidateInterviewFeedback,
+  RECONNECT_GRACE_MS,
+} from "@arc/db-schema/studio-interviews";
+import type { ResumeReviewDimensionKey, ResumeReviewLoose } from "../resume-review";
+import {
+  getResumeReviewBaseScore,
+  getResumeReviewDimension,
+  RESUME_REVIEW_DIMENSIONS,
+} from "../resume-review";
+
+export interface CandidateAiReview {
+  baseScore: number | null;
+  conclusion: string;
+  dimensions: {
+    key: ResumeReviewDimensionKey;
+    label: string;
+    rationale: string;
+    score: number;
+  }[];
+  strengths: {
+    evidence: string | null;
+    impact: string;
+    point: string;
+  }[];
+}
+
+export function buildCandidateAiReview(
+  review: ResumeReviewLoose | null | undefined,
+): CandidateAiReview | null {
+  if (!review) {
+    return null;
+  }
+
+  return {
+    baseScore: getResumeReviewBaseScore(review),
+    conclusion: review.overall.conclusion,
+    dimensions: RESUME_REVIEW_DIMENSIONS.flatMap(({ key, label }) => {
+      const dimension = getResumeReviewDimension(review, key);
+      return dimension
+        ? [{ key, label, rationale: dimension.rationale, score: dimension.score }]
+        : [];
+    }),
+    strengths: review.strengths.map(({ evidence, impact, point }) => ({ evidence, impact, point })),
+  };
+}
 
 /**
  * 单轮面试安排记录（来自数据库 schedule_entries 表的视图）。
@@ -12,10 +61,14 @@ export interface InterviewScheduleEntry {
   roundLabel: string;
   status: ScheduleEntryStatus;
   scheduledAt: string | Date | null;
+  scheduledEndAt: string | Date | null;
   notes: string | null;
   sortOrder: number;
   conversationId: string | null;
   allowTextInput: boolean;
+  candidateFeedbackCategories: CandidateInterviewFeedbackCategory[] | null;
+  candidateFeedbackDetail: string | null;
+  candidateFeedbackSubmittedAt: string | Date | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   // 热重连相关字段（首次开始时填充，断连后用于续连判定）。
@@ -32,8 +85,13 @@ export interface InterviewScheduleEntry {
  */
 export interface CandidateInterviewView {
   id: string;
+  aiReview: CandidateAiReview | null;
   candidateName: string;
+  companyContext: string | null;
   targetRole: string | null;
+  jobDescriptionDescription: string | null;
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   resumeProfile: ResumeProfile | null;
   interviewQuestions: InterviewQuestion[];
   currentRoundId: string | null;
@@ -41,6 +99,7 @@ export interface CandidateInterviewView {
   currentRoundStatus: ScheduleEntryStatus | null;
   currentRoundTime: string | Date | null;
   currentRoundAllowTextInput: boolean;
+  currentRoundFeedback: CandidateInterviewFeedback | null;
   // 当轮次处于 interrupted 且 disconnectedAt + 宽限期 > 现在时，给出可续连的截止时间 ISO 字符串。
   // ISO timestamp of the latest moment the candidate may rejoin; non-null only
   // while the round is "interrupted" within the 3-minute grace window.
@@ -151,17 +210,26 @@ export function buildCandidateInterviewView(
     candidateName: string;
     targetRole: string | null;
     resumeProfile: ResumeProfile | null;
+    resumeReview: ResumeReviewLoose | null;
     interviewQuestions: InterviewQuestion[];
   },
   scheduleEntries: InterviewScheduleEntry[],
   roundId: string,
 ): CandidateInterviewView {
   const currentEntry = scheduleEntries.find((e) => e.id === roundId) ?? null;
+  const currentRoundFeedback = buildCandidateInterviewFeedback({
+    categories: currentEntry?.candidateFeedbackCategories ?? null,
+    detail: currentEntry?.candidateFeedbackDetail ?? null,
+    submittedAt: currentEntry?.candidateFeedbackSubmittedAt ?? null,
+  });
 
   return {
+    aiReview: buildCandidateAiReview(record.resumeReview),
     candidateName: record.candidateName,
+    companyContext: null,
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
     currentRoundCanResume: computeCanResume(currentEntry),
+    currentRoundFeedback,
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),
@@ -169,6 +237,9 @@ export function buildCandidateInterviewView(
     currentRoundTime: currentEntry?.scheduledAt ?? null,
     id: record.id,
     interviewQuestions: record.interviewQuestions,
+    jobDescriptionDescription: null,
+    jobDescriptionName: null,
+    jobDescriptionPrompt: null,
     resumeProfile: record.resumeProfile,
     targetRole: record.targetRole,
   };

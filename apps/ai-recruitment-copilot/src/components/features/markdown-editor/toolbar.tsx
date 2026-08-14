@@ -12,10 +12,10 @@ import {
   IconList,
   IconListNumbers,
 } from "@tabler/icons-react";
-// 中文：顶部工具栏。第一行是 编辑/预览/Raw 的 segmented 切换（三等分占满宽度）；
+// 中文：顶部工具栏。第一行是 编辑/预览 的 segmented 切换（二等分占满宽度）；
 // 第二行仅在编辑模式渲染精简后的格式化按钮，针对 prompt 写作场景保留必需项。
-// English: top toolbar. Row 1 is the edit/preview/raw segmented switcher
-// (full-width, 3 equal cells). Row 2 (formatting) renders only in edit mode
+// English: top toolbar. Row 1 is the edit/preview segmented switcher
+// (full-width, 2 equal cells). Row 2 (formatting) renders only in edit mode
 // and is trimmed to what's actually useful for prompt authoring.
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
@@ -29,6 +29,7 @@ interface Props {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
   disabled?: boolean;
+  showModeSwitcher?: boolean;
 }
 
 function IconBtn({
@@ -56,10 +57,16 @@ function Divider() {
   return <span className="mx-1 h-4 w-px bg-border" />;
 }
 
-const MODE_LABELS: Record<EditorMode, string> = { edit: "编辑", preview: "预览", raw: "Raw" };
-const MODES: readonly EditorMode[] = ["edit", "preview", "raw"];
+const MODE_LABELS: Record<EditorMode, string> = { edit: "编辑", preview: "预览" };
+const MODES: readonly EditorMode[] = ["edit", "preview"];
 
-export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: Props) {
+export function MarkdownEditorToolbar({
+  editor,
+  mode,
+  onModeChange,
+  disabled,
+  showModeSwitcher = true,
+}: Props) {
   const editDisabled = !editor || disabled;
 
   const activeState = useEditorState({
@@ -78,27 +85,34 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
 
   return (
     <div className="flex flex-col border-b bg-muted/30">
-      <div className="grid grid-cols-3">
-        {MODES.map((m) => (
-          <button
-            aria-pressed={mode === m}
-            className={cn(
-              "border-b-2 px-3 py-1.5 text-sm transition-colors",
-              mode === m
-                ? "border-primary bg-background font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:bg-muted/50",
-            )}
-            key={m}
-            onClick={() => onModeChange(m)}
-            type="button"
-          >
-            {MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
+      {showModeSwitcher ? (
+        <div className="grid grid-cols-2">
+          {MODES.map((m) => (
+            <button
+              aria-pressed={mode === m}
+              className={cn(
+                "border-b-2 px-3 py-1.5 text-sm transition-colors",
+                mode === m
+                  ? "border-primary bg-background font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted/50",
+              )}
+              key={m}
+              onClick={() => onModeChange(m)}
+              type="button"
+            >
+              {MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {mode === "edit" && (
-        <div className="flex flex-wrap items-center gap-0.5 border-t px-3 py-1.5">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-0.5 px-3 py-1.5",
+            showModeSwitcher && "border-t",
+          )}
+        >
           <IconBtn
             aria-label="撤销"
             disabled={editDisabled}

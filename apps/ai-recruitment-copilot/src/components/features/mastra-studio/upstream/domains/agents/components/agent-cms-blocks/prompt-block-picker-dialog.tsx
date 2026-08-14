@@ -1,0 +1,119 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogTitle,
+  DialogDescription,
+} from "@mastra/playground-ui/components/Dialog";
+import { Spinner } from "@mastra/playground-ui/components/Spinner";
+import { Txt } from "@mastra/playground-ui/components/Txt";
+import { cn } from "@mastra/playground-ui/utils/cn";
+import { FileText, Search } from "lucide-react";
+import { useState } from "react";
+
+import { useStoredPromptBlocks } from "@/components/features/mastra-studio/upstream/domains/prompt-blocks";
+import { resolveConditional } from "../../utils/conditional";
+
+interface PromptBlockPickerDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (blockId: string) => void;
+}
+
+export function PromptBlockPickerDialog({
+  open,
+  onOpenChange,
+  onSelect,
+}: PromptBlockPickerDialogProps) {
+  const [search, setSearch] = useState("");
+  const { data, isLoading } = useStoredPromptBlocks();
+
+  const blocks = data?.promptBlocks ?? [];
+  const filtered = search
+    ? blocks.filter(
+        (b) =>
+          b.name.toLowerCase().includes(search.toLowerCase()) ||
+          b.description?.toLowerCase().includes(search.toLowerCase()),
+      )
+    : blocks;
+
+  const handleSelect = (blockId: string) => {
+    onSelect(blockId);
+    onOpenChange(false);
+    setSearch("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setSearch("");
+    }
+    onOpenChange(nextOpen);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>选择提示词块</DialogTitle>
+          <DialogDescription>选择要引用的已保存提示词块</DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 rounded-md border border-border1 bg-surface2 px-3 py-2">
+              <Search className="h-4 w-4 text-neutral3" />
+              <input
+                aria-label="搜索提示词块"
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索提示词块…"
+                className="flex-1 bg-transparent text-ui-sm text-neutral6 placeholder:text-neutral3 outline-hidden"
+              />
+            </div>
+
+            {resolveConditional(
+              isLoading,
+              () => (
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-neutral3">
+                  <Spinner className="h-6 w-6" />
+                  <Txt variant="ui-sm">正在加载提示词块…</Txt>
+                </div>
+              ),
+              () =>
+                filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-neutral3">
+                    <FileText className="h-8 w-8" />
+                    <Txt variant="ui-sm">{search ? "没有匹配的提示词块" : "暂无可用提示词块"}</Txt>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1 max-h-dropdown-max-height overflow-y-auto">
+                    {filtered.map((block) => (
+                      <button
+                        key={block.id}
+                        type="button"
+                        onClick={() => handleSelect(block.id)}
+                        className={cn(
+                          "flex flex-col gap-0.5 rounded-md px-3 py-2 text-left",
+                          "hover:bg-surface4 active:bg-surface5 transition-colors",
+                        )}
+                      >
+                        <Txt variant="ui-sm" className="text-neutral6 font-medium">
+                          {block.name}
+                        </Txt>
+                        {block.description && (
+                          <Txt variant="ui-xs" className="text-neutral3 line-clamp-1">
+                            {block.description}
+                          </Txt>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ),
+            )}
+          </div>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+}

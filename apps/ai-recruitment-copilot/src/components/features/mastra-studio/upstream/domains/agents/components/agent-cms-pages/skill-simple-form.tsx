@@ -1,0 +1,83 @@
+import { CodeEditor } from "@mastra/playground-ui/components/CodeEditor";
+import { Input } from "@mastra/playground-ui/components/Input";
+import { MarkdownRenderer } from "@mastra/playground-ui/components/MarkdownRenderer";
+import { Txt } from "@mastra/playground-ui/components/Txt";
+
+export interface SkillSimpleFormProps {
+  name: string;
+  onNameChange: (name: string) => void;
+  description: string;
+  onDescriptionChange: (description: string) => void;
+  instructions: string;
+  onInstructionsChange: (instructions: string) => void;
+  readOnly?: boolean;
+}
+
+export function SkillSimpleForm({
+  name,
+  onNameChange,
+  description,
+  onDescriptionChange,
+  instructions,
+  onInstructionsChange,
+  readOnly,
+}: SkillSimpleFormProps) {
+  return (
+    <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-1.5">
+        <Txt as="label" variant="ui-sm" className="text-neutral3">
+          名称
+        </Txt>
+        <Input
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder="技能名称"
+          disabled={readOnly}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Txt as="label" variant="ui-sm" className="text-neutral3">
+          描述
+        </Txt>
+        <Input
+          value={description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          placeholder="简要描述此技能"
+          disabled={readOnly}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5 flex-1 min-h-0">
+        <Txt as="label" variant="ui-sm" className="text-neutral3">
+          指令
+        </Txt>
+
+        {readOnly ? (
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border1 bg-surface2 p-4">
+            {instructions ? (
+              <MarkdownRenderer>{instructions}</MarkdownRenderer>
+            ) : (
+              <Txt variant="ui-sm" className="text-neutral3 italic">
+                尚未提供指令。
+              </Txt>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <CodeEditor
+              data-testid="skill-instructions-input"
+              value={instructions}
+              onChange={onInstructionsChange}
+              language="markdown"
+              editable
+              placeholder="你是一位乐于助人的助手…"
+              showCopyButton={false}
+              className="h-full w-full"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

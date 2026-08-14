@@ -13,5 +13,10 @@ describe("RecruitingCopilotAgent product boundaries", () => {
     expect(source).toContain("单次候选人对比最多 5 个");
     expect(source).toContain("必须明确说明引用了哪些候选人或岗位");
     expect(source).toContain("get_resume_record_detail");
+    expect(source).toContain("get_resume_pool_detail");
+    expect(source).toContain("bind_candidate_to_job");
+    expect(source).toContain("bind_pool_item_to_job");
+    expect(source).toContain("人才库");
+    expect(source).not.toContain("conversationJobBindingProposal");
   });
 });

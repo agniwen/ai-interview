@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { organization, recruitingGroup } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { isFeishuHumanInterviewEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   addRecruitingGroupMember,
@@ -11,6 +12,7 @@ import {
   listRecruitingGroupBoard,
   listWorkspaceMemberLastActives,
   listWorkspaceMembers,
+  loadMyResumeActivity,
   removeRecruitingGroupMember,
   updateRecruitingGroupMemberRole,
 } from "./dao";
@@ -37,6 +39,17 @@ function isRecruitingGroupNameConflict(error: unknown): boolean {
 export const workspaceRouter = factory
   .createApp()
   .route("/invite-links", inviteLinksRouter)
+  .get("/my-activity", async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!(activeOrg && user?.id)) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const dailyAdded = await loadMyResumeActivity({
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    return c.json({ dailyAdded }, 200);
+  })
   .get("/member-last-actives", async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -53,7 +66,13 @@ export const workspaceRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const records = await listWorkspaceMembers(activeOrg.id);
-    return c.json({ records }, 200);
+    return c.json(
+      {
+        feishuHumanInterviewEnabled: isFeishuHumanInterviewEnabled(),
+        records,
+      },
+      200,
+    );
   })
   .get("/groups", async (c) => {
     const { activeOrg, user } = c.var;

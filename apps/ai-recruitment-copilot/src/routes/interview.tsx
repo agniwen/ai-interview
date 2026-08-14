@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { InterviewCopyGuard } from "@/components/features/interview/interview-copy-guard";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 function InterviewQuickStartRoute() {
   return (
@@ -10,16 +11,6 @@ function InterviewQuickStartRoute() {
 }
 
 export const Route = createFileRoute("/interview")({
-  component: InterviewQuickStartRoute,
-  head: () => ({
-    meta: [
-      {
-        content: "上传候选人简历，立即开始一场 AI 语音面试。",
-        name: "description",
-      },
-      { title: "AI 面试 · 快速开始" },
-    ],
-  }),
   loader: (loaderContext) => {
     const { location } = loaderContext as { location: { pathname: string } };
     if (location.pathname === "/interview") {
@@ -27,4 +18,14 @@ export const Route = createFileRoute("/interview")({
     }
     return null;
   },
+  head: () => ({
+    meta: [
+      {
+        content: "上传候选人简历，立即开始一场 AI 语音面试。",
+        name: "description",
+      },
+      { title: formatDocumentTitle("AI 面试 · 快速开始") },
+    ],
+  }),
+  component: InterviewQuickStartRoute,
 });

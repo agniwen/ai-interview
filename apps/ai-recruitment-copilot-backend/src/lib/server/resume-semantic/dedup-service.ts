@@ -1,10 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, resumePoolItem, studioInterview, user } from "@arc/db-schema/schema";
 import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
@@ -28,6 +29,8 @@ interface SemanticCandidateRecord {
   sourceType?: ResumeSemanticSourceType;
   status: DedupMatchRecord["status"];
   targetRole: string | null;
+  uploaderImage?: string | null;
+  uploaderName?: string | null;
 }
 
 interface FindSemanticResumeDuplicatesInput {
@@ -40,6 +43,7 @@ interface FindSemanticResumeDuplicatesInput {
   poolScope?: ResumePoolScope | null;
   resumeProfile?: ResumeProfile | null;
   sourceTypes?: ResumeSemanticSourceType[];
+  throwOnError?: boolean;
 }
 
 interface SemanticDedupDeps {
@@ -162,12 +166,20 @@ export async function findSemanticResumeDuplicates(
           id: candidate.id,
           jobDescriptionName: candidate.jobDescriptionName,
           level: rerank.level,
+          resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(candidate.resumeProfile),
           score: rerank.score,
           semanticReasons: rerank.reasons,
           similarity: toSimilarity(vectorScores),
+          skills: (candidate.resumeProfile?.skills ?? [])
+            .map((skill) => skill.trim())
+            .filter((skill) => skill && skill !== "未发现信息")
+            .filter((skill, index, all) => all.indexOf(skill) === index)
+            .slice(0, 12),
           sourceType: candidateSourceType,
           status: candidate.status,
           targetRole: candidate.targetRole,
+          uploaderImage: candidate.uploaderImage,
+          uploaderName: candidate.uploaderName,
         },
       ];
     });
@@ -190,6 +202,9 @@ export async function findSemanticResumeDuplicates(
     return matches;
   } catch (error) {
     console.warn("[resume-semantic-dedup] semantic dedup failed", error);
+    if (input.throwOnError) {
+      throw error;
+    }
     return [];
   }
 }
@@ -241,8 +256,11 @@ async function loadSemanticDedupCandidates(
             pipelineStage: studioInterview.pipelineStage,
             resumeProfile: studioInterview.resumeProfile,
             targetRole: studioInterview.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(studioInterview)
+          .leftJoin(user, eq(studioInterview.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
@@ -271,8 +289,11 @@ async function loadSemanticDedupCandidates(
             resumeProfile: resumePoolItem.resumeProfile,
             status: resumePoolItem.status,
             targetRole: resumePoolItem.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(resumePoolItem)
+          .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(

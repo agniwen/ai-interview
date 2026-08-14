@@ -1,4 +1,5 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/shared/job-descriptions";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { describe, expect, it, vi } from "vitest";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
@@ -24,19 +25,34 @@ const jobDescriptions: JobDescriptionListRecord[] = [
     code: null,
     createdAt: new Date("2026-06-20T00:00:00.000Z"),
     createdBy: "user-1",
+    deductionRuleSetVersion: null,
     departmentId: "department-1",
     departmentName: "研发部",
     description: "负责 Web 前端研发。",
+    evaluationBlueprint: null,
+    evaluationBlueprintHash: null,
+    evaluationBlueprintPreview: null,
+    evaluationBlueprintPreviewGeneratedAt: null,
+    evaluationBlueprintPreviewHash: null,
+    evaluationBlueprintPreviewInputHash: null,
+    evaluationBlueprintSchemaVersion: null,
+    evaluationMode: "legacy",
+    evaluationUpgradedAt: null,
+    evaluationUpgradedBy: null,
+    hasEvaluationUpgradeDraft: false,
     id: "jd-1",
     interviewerIds: [],
     interviewers: [],
+    lifecycleStatus: "published",
     name: "前端工程师",
     presetQuestions: [],
     prompt: "请考察前端能力。",
+    publishedAt: new Date("2026-06-20T00:00:00.000Z"),
     resumeCount: 0,
     resumeScreeningPolicy: { enabled: false, rules: [], version: 1 },
     resumeScreeningPolicyHash: null,
     resumeScreeningPolicyVersion: 1,
+    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     updatedAt: new Date("2026-06-20T00:00:00.000Z"),
   },
 ];

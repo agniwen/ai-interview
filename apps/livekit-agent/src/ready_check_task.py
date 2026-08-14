@@ -10,7 +10,7 @@ decision space is bounded.
 We deliberately do NOT forward the parent agent's chat_ctx: at the opening
 there is no conversation history to preserve, and the parent's system
 prompt explicitly tells the model to skip greetings and dive into the
-first preset question — which would directly contradict the per-call
+first interview question — which would directly contradict the per-call
 opening_instructions and cause small models to ignore the configured
 greeting wording.
 """
@@ -54,6 +54,13 @@ class ReadyCheckTask(AgentTask[bool]):
         self._opening_instructions = opening_instructions
 
     async def on_enter(self) -> None:
+        self.session.update_options(
+            endpointing_opts={
+                "mode": "dynamic",
+                "min_delay": 0.4,
+                "max_delay": 2.5,
+            }
+        )
         # 用户配置的开场白 (含 {候选人姓名} / {岗位} 占位替换) 作为本次回复的指令,
         # 让模型严格按照管理后台配置的措辞进行问候.
         # The configured opening (with {候选人姓名}/{岗位} substituted) is

@@ -10,16 +10,23 @@ const defaultTrueBooleanStringSchema = z
   .default("true")
   .transform((value) => value === "true");
 
+const defaultFalseBooleanStringSchema = z
+  .enum(["true", "false"])
+  .default("false")
+  .transform((value) => value === "true");
+
 export function createClientEnv(runtimeEnv: Record<string, string | boolean | number | undefined>) {
   return createEnv({
     client: {
       NEXT_PUBLIC_AGENT_NAME: z.string().min(1),
-      NEXT_PUBLIC_BASE_URL: z.string().url(),
-      NEXT_PUBLIC_BETTER_AUTH_URL: z.string().url(),
+      NEXT_PUBLIC_BASE_URL: z.url(),
+      NEXT_PUBLIC_BETTER_AUTH_URL: z.url(),
       NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS: defaultTrueBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: booleanStringSchema,
+      NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS: defaultFalseBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: defaultTrueBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_WATERMARK: defaultTrueBooleanStringSchema,
+      NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE: defaultFalseBooleanStringSchema,
     },
     clientPrefix: "NEXT_PUBLIC_",
     emptyStringAsUndefined: true,
@@ -30,8 +37,11 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
       NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS:
         runtimeEnv.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS,
       NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: runtimeEnv.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN,
+      NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS:
+        runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING,
       NEXT_PUBLIC_ENABLE_WATERMARK: runtimeEnv.NEXT_PUBLIC_ENABLE_WATERMARK,
+      NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE: runtimeEnv.NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE,
     },
   });
 }

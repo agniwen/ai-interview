@@ -1,5 +1,4 @@
-import { HydrationBoundary } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Outlet,
   createFileRoute,
@@ -11,16 +10,9 @@ import {
 } from "@tanstack/react-router";
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
-
-import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
-import {
-  coerceSearchParams,
-  parseResumeQuery,
-} from "@/components/features/studio/resumes/resume-library-page-model";
-import type { SearchParamsRecord } from "@/components/features/studio/resumes/resume-library-page-model";
+import { coerceSearchParams } from "@/components/features/studio/resumes/resume-library-page-model";
 function StudioResumesRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/resumes",
@@ -36,33 +28,15 @@ function StudioResumesRoute() {
     return <Outlet />;
   }
 
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <ResumeLibraryPage metrics={state.metrics} />
-      <StudioResumeFloatingChat />
-    </HydrationBoundary>
-  );
+  return <ResumeLibraryPage />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
-  component: StudioResumesRoute,
-  head: () => ({
-    meta: [{ title: "招聘" }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { pathname: string; search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const isListRoute = location.pathname === `/w/${params.slug}/studio/resumes`;
-    const query = parseResumeQuery(location.search);
-    await requireStudioPageAccess({
-      action: "resumes",
-      pathname: `/w/${params.slug}/studio/resumes`,
-      slug: params.slug,
-    });
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioResumesState({
-      data: { prefetchList: isListRoute, query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioResumesState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -74,6 +48,9 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("招聘台") }],
+  }),
+  component: StudioResumesRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

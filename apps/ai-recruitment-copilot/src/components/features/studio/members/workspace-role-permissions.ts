@@ -63,7 +63,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "resumeLibrary",
-        label: "招聘",
+        label: "招聘台",
       },
       {
         actions: ["create", "read", "publish", "import", "delete"] as const,
@@ -104,7 +104,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
     title: "招聘流程",
   },
   {
-    description: "组织结构、面试官和题库配置。",
+    description: "组织结构、AI面试官和题库配置。",
     resources: [
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -114,17 +114,17 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "interviewer",
-        label: "面试官",
+        label: "AI面试官",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "candidateForm",
-        label: "候选人表单",
+        label: "表单题",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "questionTemplate",
-        label: "面试题模板",
+        label: "沟通题",
       },
     ],
     title: "招聘配置",
@@ -135,7 +135,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["read", "update"] as const,
         key: "globalConfig",
-        label: "系统设置",
+        label: "上下文设置",
       },
       {
         actions: ["read"] as const,
@@ -182,20 +182,20 @@ const PAGE_PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
   departments:
     "控制是否能在侧边栏看到并访问「部门管理」页面；页面内部门列表、详情和增删改仍受「部门」相关权限控制。",
   forms:
-    "控制是否能在侧边栏看到并访问「面试表单」页面；页面内表单列表、AI 生成、版本和增删改仍受「候选人表单」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「表单题」页面；页面内列表、AI 生成、版本和增删改仍受「表单题」相关权限控制。",
   globalConfig:
-    "控制是否能在侧边栏看到并访问「系统设置」页面；读取和保存系统配置仍受「系统设置」查看/编辑权限控制。",
+    "控制是否能在侧边栏看到并访问「上下文设置」页面；读取和保存上下文配置仍受「上下文设置」查看/编辑权限控制。",
   interviewQuestions:
-    "控制是否能在侧边栏看到并访问「面试题」页面；题库列表、版本和增删改仍受「面试题模板」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「沟通题」页面；题库列表、版本和增删改仍受「沟通题」相关权限控制。",
   interviewers:
-    "控制是否能在侧边栏看到并访问「面试官管理」页面；面试官列表、详情和增删改仍受「面试官」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「AI面试官管理」页面；AI面试官列表、详情和增删改仍受「AI面试官」相关权限控制。",
   interviews:
     "控制是否能在侧边栏看到并访问「AI 面试」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
   jobDescriptions:
     "控制是否能在侧边栏看到并访问「岗位设置」页面；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，推荐候选人还需要「招聘台」查看权限。",
   mailIngestAccounts:
     "控制是否能在侧边栏看到并访问「邮箱监听」页面；邮箱解析入库到人才库的后续查看/导入仍受「招聘台」相关权限控制。",
-  me: "控制是否能访问「我的信息」页面；页面里的工作区成员资料调整仍受「成员管理」相关权限控制。",
+  me: "控制是否能访问「个人中心」页面；页面里的工作区成员资料调整仍受「成员管理」相关权限控制。",
   members:
     "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、招聘组、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
   permissions:
@@ -211,10 +211,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     read: "允许查看工作区审计日志。当前主要作为系统能力预留，具体入口会按该权限控制。",
   },
   candidateForm: {
-    create: "允许在「面试表单」页面新建候选人表单。",
-    delete: "允许删除候选人表单。",
-    read: "允许加载「面试表单」列表、详情、版本详情，以及表单 AI 生成所需的读取接口。",
-    update: "允许编辑、归档/恢复候选人表单，并使用表单 AI 生成或更新表单内容。",
+    create: "允许在「表单题」页面新建表单题。",
+    delete: "允许删除表单题。",
+    read: "允许加载「表单题」列表、详情、版本详情，以及表单 AI 生成所需的读取接口。",
+    update: "允许编辑、归档/恢复表单题，并使用表单 AI 生成或更新表单内容。",
   },
   chat: {
     create: "允许发起聊天助手相关创建流程；当前权限矩阵预留给聊天会话创建能力。",
@@ -229,8 +229,8 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许编辑部门名称、描述等资料。",
   },
   globalConfig: {
-    read: "允许加载「系统设置」里的全局配置。",
-    update: "允许保存「系统设置」里的公司信息、面试配置等全局配置。",
+    read: "允许加载「上下文设置」里的全局配置。",
+    update: "允许保存「上下文设置」里的公司信息、面试话术等上下文配置。",
   },
   humanInterview: {
     create: "允许将候选人推进到真人复面，并新建真人复面轮次或视频会议。",
@@ -245,10 +245,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许编辑 AI 面试、轮次、题目绑定、邮件、重置、面试结果、人面安排和 offer 草稿等操作。",
   },
   interviewer: {
-    create: "允许在「面试官管理」页面新增面试官。",
-    delete: "允许删除面试官。",
-    read: "允许加载面试官列表、全部面试官选项和面试官详情；相关选择器也依赖该权限。",
-    update: "允许编辑面试官资料和可用性等配置。",
+    create: "允许在「AI面试官管理」页面新增 AI面试官。",
+    delete: "允许删除 AI面试官。",
+    read: "允许加载 AI面试官列表、全部 AI面试官选项和详情；相关选择器也依赖该权限。",
+    update: "允许编辑 AI面试官资料和可用性等配置。",
   },
   invitation: {
     cancel: "允许取消尚未接受的成员邀请。",
@@ -284,10 +284,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许修改工作区基础设置，例如工作区名称；不包含成员、角色和邀请管理。",
   },
   questionTemplate: {
-    create: "允许在「面试题」页面新增题目模板。",
-    delete: "允许删除题目模板。",
-    read: "允许加载题目模板列表、全部模板选项、模板详情、版本详情和面试题相关选择器。",
-    update: "允许编辑、归档/恢复题目模板和模板版本内容。",
+    create: "允许在「沟通题」页面新增沟通题。",
+    delete: "允许删除沟通题。",
+    read: "允许加载沟通题列表、全部模板选项、模板详情、版本详情和沟通题相关选择器。",
+    update: "允许编辑、归档/恢复沟通题和模板版本内容。",
   },
   resumeLibrary: {
     create: "允许上传或创建「招聘台」候选人记录；从人才库导入招聘台也需要该权限。",
@@ -296,10 +296,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许编辑「招聘台」候选人资料、替换/解析简历，并从招聘台发起 AI 面试。",
   },
   resumePool: {
-    create: "允许在「人才库」上传私有或公开简历。",
+    create: "允许在「人才库」上传私有或工作区共享简历。",
     delete: "允许删除自己在「人才库」中的私有记录。",
     import: "允许从「人才库」发起导入；真正写入招聘台还同时需要「招聘台」新增权限。",
-    publish: "允许把自己的私有简历发布到公开「人才库」。",
+    publish: "允许把自己的私有简历发布到本工作区共享的「人才库」。",
     read: "允许加载「人才库」列表、详情、简历文件和预览。",
   },
   resumeUploadBatch: {

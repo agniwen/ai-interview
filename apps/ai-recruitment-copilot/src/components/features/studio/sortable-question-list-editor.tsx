@@ -2,7 +2,6 @@
 
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -17,14 +16,14 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@arc/db-schema/interview-question-templates";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+import { DIFFICULTY_PILL_CLASS } from "@arc/shared/interview-question-difficulty";
 import { cn } from "@arc/shared/utils";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
 const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {
-  easy: "bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400",
-  hard: "bg-rose-500/10 border border-rose-500/30 text-rose-700 hover:bg-rose-500/15 dark:text-rose-400",
-  medium:
-    "bg-amber-500/10 border border-amber-500/30 text-amber-700 hover:bg-amber-500/15 dark:text-amber-400",
+  easy: `${DIFFICULTY_PILL_CLASS.easy} hover:bg-emerald-500/15`,
+  hard: `${DIFFICULTY_PILL_CLASS.hard} hover:bg-rose-500/15`,
+  medium: `${DIFFICULTY_PILL_CLASS.medium} hover:bg-amber-500/15`,
 };
 
 interface SortableQuestionListEditorProps {
@@ -138,11 +137,10 @@ function QuestionListBody({
               {({ handleProps, isDragging }) => (
                 <div
                   className={cn(
-                    cossControlOverlayClass,
-                    "group relative flex flex-col gap-2 rounded-xl border bg-card/30 bg-clip-padding p-3 shadow-xs/5 transition-colors",
+                    "group relative flex flex-col gap-2 rounded-xl border bg-card/30 p-3 transition-colors",
                     "hover:bg-card/60 focus-within:bg-card/60",
                     isDragging
-                      ? "border-primary/30 bg-card shadow-sm"
+                      ? "border-primary/30 bg-card"
                       : "border-border hover:border-border focus-within:border-border",
                   )}
                 >

@@ -22,6 +22,8 @@ const RESUME_PARSE_JOB_TYPES: JobType[] = [...RESUME_PARSE_COUNT_TYPES];
 
 export const resumeParseJobSchema = z.object({
   batchId: z.string().min(1),
+  /** When true, the worker must re-parse from S3 and skip attachment parse cache. */
+  bypassCache: z.boolean().optional(),
   itemId: z.string().min(1),
   organizationId: z.string().min(1),
   userId: z.string().min(1),
@@ -89,7 +91,7 @@ export interface ResumeParseQueueJobsResult {
 
 const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_BACKOFF_MS = 30_000;
-const DEFAULT_CONCURRENCY = 3;
+const DEFAULT_CONCURRENCY = 9;
 
 let queue: Queue<ResumeParseJobData> | null = null;
 
@@ -455,9 +457,25 @@ export async function listResumeParseQueueJobs({
   };
 }
 
+export async function getResumeParseQueueJobsByItemIds(
+  itemIds: string[],
+): Promise<ResumeParseQueueJobRecord[]> {
+  if (itemIds.length === 0 || !isResumeParseQueueConfigured()) {
+    return [];
+  }
+  const q = getResumeParseQueue();
+  const jobs = await Promise.all(itemIds.map((itemId) => q.getJob(buildResumeParseJobId(itemId))));
+  const records = await Promise.all(jobs.map((job) => serializeJob(job)));
+  return records.filter((record): record is ResumeParseQueueJobRecord => record !== null);
+}
+
 export async function closeResumeParseQueue(): Promise<void> {
   await queue?.close();
   queue = null;
+}
+
+export function resolveResumeParseWorkerConcurrency(env: NodeJS.ProcessEnv = process.env): number {
+  return parsePositiveInteger(env.RESUME_PARSE_WORKER_CONCURRENCY, DEFAULT_CONCURRENCY);
 }
 
 export function createResumeParseWorker(
@@ -470,10 +488,7 @@ export function createResumeParseWorker(
       await processJob(payload);
     },
     {
-      concurrency: parsePositiveInteger(
-        process.env.RESUME_PARSE_WORKER_CONCURRENCY,
-        DEFAULT_CONCURRENCY,
-      ),
+      concurrency: resolveResumeParseWorkerConcurrency(),
       connection: createRedisConnection(),
       prefix: buildResumeParseQueuePrefix(),
     },
@@ -481,10 +496,7 @@ export function createResumeParseWorker(
 
   worker.on("ready", () => {
     console.info("[resume-parse-worker] ready", {
-      concurrency: parsePositiveInteger(
-        process.env.RESUME_PARSE_WORKER_CONCURRENCY,
-        DEFAULT_CONCURRENCY,
-      ),
+      concurrency: resolveResumeParseWorkerConcurrency(),
       queue: RESUME_PARSE_QUEUE_NAME,
     });
   });

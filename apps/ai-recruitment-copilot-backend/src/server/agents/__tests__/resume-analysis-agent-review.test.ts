@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
+  parseResumeDocument: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
   resumeHardFilterAgent: { id: "resume-hard-filter-agent" },
@@ -40,6 +41,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
   extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
+  parseResumeDocument: mocks.parseResumeDocument,
   parseResumeFast: mocks.parseResumeFast,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
@@ -50,6 +52,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachm
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
 import {
+  composeResumeReviewResult,
   generateResumeReview,
   streamGenerateResumeReviewMarkdownFirst,
   streamGenerateResumeReview,
@@ -231,6 +234,86 @@ describe("generateResumeReview", () => {
     );
   });
 
+  it("injects evidence-safe qualitative guidance and scoring anchors", async () => {
+    mockThreeAgentPipeline();
+
+    await generateResumeReview({
+      jobDescription: "岗位名称：前端工程师",
+      resumeProfile: PROFILE_WITH_DEGREE,
+    });
+
+    const qualitativePrompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
+    const scoringPrompt = mocks.generateStructuredWithMastraAgent.mock.calls[1]?.[0]?.prompt;
+    expect(qualitativePrompt).toContain("信息不足不等于不满足");
+    expect(qualitativePrompt).toContain("不得仅因字段缺失直接建议 reject");
+    expect(qualitativePrompt).toContain("相邻技术栈");
+    expect(qualitativePrompt).toContain("优先 hold");
+    expect(qualitativePrompt).toContain("action 必须为 hold，不得 reject");
+    expect(qualitativePrompt).toContain("总体建议为 hold");
+    expect(qualitativePrompt).toContain("action 必须为 hold");
+    expect(qualitativePrompt).toContain("空数组只表示简历未提供记录");
+    expect(qualitativePrompt).toContain("不得根据毕业年份与 workYears 的差值推断空档期");
+    expect(qualitativePrompt).toContain("action 可为 interview 或 hold，但不得 reject");
+    expect(scoringPrompt).toContain("85-100");
+    expect(scoringPrompt).toContain("简历未提供学历层次");
+    expect(scoringPrompt).toContain("React 与 TypeScript");
+    expect(scoringPrompt).toContain("8 年以上前端架构经验");
+    expect(scoringPrompt).toContain("score 5-20");
+    expect(scoringPrompt).toContain("skillMatch 架构能力缺口");
+    expect(scoringPrompt).toContain("score 20-35");
+    expect(scoringPrompt).toContain("score 85-95");
+    expect(scoringPrompt).toContain("potential 明确资深差距");
+    expect(scoringPrompt).toContain("experienceRelevance 高潜初级");
+    expect(scoringPrompt).toContain("screening hold 学历差距");
+    expect(scoringPrompt).toContain("screening hold 技能证据不足");
+    expect(scoringPrompt).toContain("证据安全规则优先于定性评价");
+    expect(scoringPrompt).toContain("空数组只表示简历未提供记录");
+    expect(scoringPrompt).toContain("educationBackground 学校声誉未知");
+    expect(scoringPrompt).toContain("不得根据学校名称推断院校质量");
+    expect(scoringPrompt).toContain("potential 高潜证据优先");
+    expect(scoringPrompt).toContain("不得因工作经历字段为空重复扣分");
+    expect(scoringPrompt).toContain("不得根据毕业年份与 workYears 的差值推断空档期");
+    expect(scoringPrompt).toContain("projectMatch 场景直接匹配但技术栈相邻");
+    expect(scoringPrompt).toContain("不得在 projectMatch 重复扣分");
+    expect(scoringPrompt).toContain("experienceRelevance 同职业域相邻技术栈");
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.temperature).toBe(0);
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[1]?.[0]?.temperature).toBe(0);
+  });
+
+  it("rejects scoring output with unexpected top-level fields", () => {
+    expect(() =>
+      composeResumeReviewResult(QUALITATIVE_OUTPUT, {
+        ...SCORING_OUTPUT,
+        overall: { score: 88 },
+      }),
+    ).toThrow();
+  });
+
+  it("constrains markdown-first next step when screening recommends hold", async () => {
+    mockMarkdownStream(["建议进入面试。"]);
+    mocks.generateStructuredWithMastraAgent
+      .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+      .mockResolvedValueOnce(SCORING_OUTPUT);
+
+    const events = await readStreamEvents(
+      streamGenerateResumeReviewMarkdownFirst({
+        resumeProfile: PROFILE_WITH_DEGREE,
+        screeningResult: {
+          policyEmpty: false,
+          policyEnabled: true,
+          policyHash: "abc123",
+          policyVersion: 2,
+          recommendation: "hold",
+          ruleResults: [],
+        },
+      }),
+    );
+
+    expect(events.find((event) => event.type === "run.completed")?.output).toMatchObject({
+      structuredReview: { nextStep: { action: "hold" } },
+    });
+  });
+
   it("streams resume review workflow events as AiRun events", async () => {
     mockThreeAgentPipeline();
 
@@ -371,6 +454,7 @@ describe("generateResumeReview", () => {
     });
 
     expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(result.structuredReview.nextStep.action).toBe("hold");
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
     expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
       "已确认的简历筛选结果",

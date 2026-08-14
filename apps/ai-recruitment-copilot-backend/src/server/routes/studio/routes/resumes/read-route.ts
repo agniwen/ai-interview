@@ -5,44 +5,45 @@ import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import { studioInterview } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
-import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
-import {
-  canLaunchInterviewFromResume,
-  resumeEvaluationStatusSubmitSchema,
-} from "@arc/shared/studio-resumes";
+import { resumeEvaluationStatusSubmitSchema } from "@arc/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { getWorkspaceRequestContext } from "@arc/ai-recruitment-copilot-backend/server/context/workspace-request-context";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
   queryPaginatedResumeRecords,
+  ResumeStructuredScoreQueryError,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { submitResumeEvaluationOnce } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 import { listOrgSkillSuggestions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
 import {
-  createDefaultScheduleEntry,
-  studioInterviewQuestionClientSchema,
-} from "@arc/db-schema/studio-interviews";
-import {
-  buildScheduleRows,
-  toBadRequest,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+  structuredResumeGateStatusSchema,
+  structuredResumeGradeSchema,
+} from "@arc/db-schema/structured-resume-evaluation";
+import { toBadRequest } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
-import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
-import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import {
+  enqueueResumeReassessmentForRecord,
+  ResumeReassessmentEnqueueError,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { launchAiInterviewRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
+import { LaunchAiInterviewMutationError } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/launch-ai-interview-round";
+import { loadResumeLibraryMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -58,6 +59,15 @@ const dedupCheckInputSchema = z.object({
 // Zero-length is allowed.
 const launchInterviewSchema = z.object({
   interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),
+  structuredEvaluationConfirmation: z
+    .object({
+      gateStatus: structuredResumeGateStatusSchema,
+      grade: structuredResumeGradeSchema,
+      runId: z.string().trim().min(1),
+    })
+    .strict()
+    .nullable()
+    .optional(),
 });
 
 function loadVisibilityScope(
@@ -81,6 +91,7 @@ export const resumeLibraryReadRouter = factory
       z.object({
         creatorIds: z.string().optional(),
         jdIds: z.string().optional(),
+        knownTotal: z.coerce.number().int().min(0).max(10_000_000).optional(),
         outcomes: z.string().optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
@@ -89,6 +100,8 @@ export const resumeLibraryReadRouter = factory
         skills: z.string().optional(),
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
+        structuredMaxScore: z.coerce.number().int().min(0).max(100).optional(),
+        structuredMinScore: z.coerce.number().int().min(0).max(100).optional(),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -103,25 +116,35 @@ export const resumeLibraryReadRouter = factory
         c.var.member?.role,
         c.var.user?.id,
       );
-      const result = await queryPaginatedResumeRecords(
-        activeOrg.id,
-        {
-          creatorIds: parseCsvParam(q.creatorIds),
-          jobDescriptionIds: parseCsvParam(q.jdIds),
-          outcomes: parseCsvParam(q.outcomes),
-          pipelineStages: parseCsvParam(q.pipelineStages),
-          search: q.search,
-          skills: parseCsvParam(q.skills),
-        },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
-        visibilityScope,
-      );
-      return c.json(result, 200);
+      try {
+        const result = await queryPaginatedResumeRecords(
+          activeOrg.id,
+          {
+            creatorIds: parseCsvParam(q.creatorIds),
+            jobDescriptionIds: parseCsvParam(q.jdIds),
+            outcomes: parseCsvParam(q.outcomes),
+            pipelineStages: parseCsvParam(q.pipelineStages),
+            search: q.search,
+            skills: parseCsvParam(q.skills),
+            structuredMaxScore: q.structuredMaxScore,
+            structuredMinScore: q.structuredMinScore,
+          },
+          {
+            page: q.page,
+            pageSize: q.pageSize,
+            sortBy: q.sortBy,
+            sortOrder: q.sortOrder,
+          },
+          visibilityScope,
+          q.knownTotal,
+        );
+        return c.json(result, 200);
+      } catch (error) {
+        if (error instanceof ResumeStructuredScoreQueryError) {
+          return c.json({ error: error.message }, 400);
+        }
+        throw error;
+      }
     },
   )
   .get(
@@ -146,6 +169,29 @@ export const resumeLibraryReadRouter = factory
         prefix: q.prefix,
       });
       return c.json({ records }, 200);
+    },
+  )
+  .get(
+    "/metrics",
+    requirePermission("page", "resumes"),
+    requirePermission("resumeLibrary", "read"),
+    zValidator(
+      "query",
+      z.object({
+        scope: z.enum(["team", "personal"]).optional().default("team"),
+      }),
+      jsonValidatorError("招聘指标参数无效。"),
+    ),
+    async (c) => {
+      const { organization } = getWorkspaceRequestContext(c);
+      const { scope } = c.req.valid("query");
+      if (scope === "personal" && !c.var.user?.id) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const metrics = await loadResumeLibraryMetrics(organization.id, {
+        createdByUserId: scope === "personal" ? c.var.user?.id : undefined,
+      });
+      return c.json(metrics, 200);
     },
   )
   .post(
@@ -210,7 +256,6 @@ export const resumeLibraryReadRouter = factory
     }
     const matches = await listDuplicateMatchesForSource({
       organizationId: activeOrg.id,
-      poolOwnerUserId: user.id,
       sourceId: id,
       sourceType: "studio_interview",
     });
@@ -261,27 +306,50 @@ export const resumeLibraryReadRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     try {
-      await reassessResumeRecord({
+      const enqueueResult = await enqueueResumeReassessmentForRecord({
         organizationId: activeOrg.id,
         resumeRecordId: id,
       });
+      if (enqueueResult === "fallback_sync") {
+        // No Redis queue: run assessment off the request path so the UI can poll.
+        void (async () => {
+          try {
+            await reassessResumeRecord({
+              organizationId: activeOrg.id,
+              resumeRecordId: id,
+            });
+          } catch (error) {
+            console.error("[resume-reassess] fallback async failed", {
+              error,
+              resumeRecordId: id,
+            });
+          }
+        })();
+      }
     } catch (error) {
+      if (error instanceof ResumeReassessmentEnqueueError) {
+        return c.json({ error: error.message }, error.status);
+      }
       const message = error instanceof Error ? error.message : "AI 重新评估失败，请稍后重试。";
-      const isEligibilityError = [
+      const eligibilityError = [
         "已结案候选人不能重新评估。",
         "简历解析完成后才能重新评估。",
         "请先关联在招岗位后再重新评估。",
-      ].includes(message);
-      if (isEligibilityError) {
-        return c.json({ error: message }, 409);
+      ].find((candidate) => candidate === message);
+      if (eligibilityError) {
+        return c.json({ error: eligibilityError }, 409);
       }
-      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
-      return c.json(detail, 500);
+      console.error("[resume-reassess] enqueue failed", {
+        error,
+        resumeRecordId: id,
+      });
+      return c.json({ error: "AI 重新评估失败，请稍后重试。" }, 500);
     }
 
     invalidateStudioInterviewCaches(activeOrg.id);
     const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
-    return c.json(detail, 200);
+    // 202: accepted for async generation (queued/processing); detail includes current status.
+    return c.json(detail, 202);
   })
   .get("/:id/review/timeline", async (c) => {
     const { activeOrg } = c.var;
@@ -448,108 +516,80 @@ export const resumeLibraryReadRouter = factory
     requirePermission("resumeLibrary", "update"),
     zValidator("json", launchInterviewSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
-      // 从招聘台「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
-      // studioInterview 行，并新建一条默认排期。状态推到 "ready" 让候选人侧
-      // 状态与 AI 面试列表的语义一致。
-      //
-      // Launch AI interview from the resume library: write the (possibly
-      // edited) questions back to the existing studioInterview row and create
-      // a default schedule entry. Status is promoted to "ready" to align with
-      // save-and-start.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
+      const { member, organization, user } = getWorkspaceRequestContext(c);
       const id = c.req.param("id");
-      const visibilityScope = await loadVisibilityScope(
-        activeOrg.id,
-        c.var.member?.role,
-        c.var.user?.id,
-      );
-      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
-      if (!existing) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      // 阶段守卫：已结案候选人必须先「重新激活」才能再走 AI 面试，避免：
-      // 1) 强行写回 ai_interview 后旧的 closedMeta / closedAt / closedReason 没被清。
-      // 2) 绕过 reactivate 既定流程造成审计断层。
-      // Stage guard: closed candidates must reactivate first. Otherwise we'd:
-      // 1) leak stale closedMeta/closedAt/closedReason into the active record;
-      // 2) bypass the reactivate audit path.
-      if (existing.pipelineStage === "closed") {
-        return c.json({ error: "候选人已结案，请先「重新激活」后再发起 AI 面试。" }, 409);
-      }
-      if (
-        !canApplyCandidatePipelineEvent(
-          { humanInterviewReadyForOffer: false, stage: existing.pipelineStage },
-          { type: "START_AI_INTERVIEW" },
-        )
-      ) {
-        return c.json({ error: "候选人已进入后续招聘阶段，不能再发起 AI 面试。" }, 409);
-      }
-      if (!canLaunchInterviewFromResume(existing.resumeParseStatus)) {
-        return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
-      }
-
-      const { interviewQuestions } = c.req.valid("json");
-      const now = new Date();
-      const [scheduleRow] = buildScheduleRows(
-        activeOrg.id,
-        id,
-        [createDefaultScheduleEntry()],
-        now,
-        undefined,
-        c.var.user?.id ?? null,
-      );
-      if (!scheduleRow) {
-        return c.json({ error: "未生成面试轮次。" }, 400);
-      }
-
+      const visibilityScope = await loadVisibilityScope(organization.id, member.role, user.id);
+      const { interviewQuestions, structuredEvaluationConfirmation } = c.req.valid("json");
+      let result;
       try {
-        await db.transaction(async (tx) => {
-          await tx
-            .update(studioInterview)
-            .set({
-              interviewQuestions,
-              // 从 screening 推进到 ai_interview；轮次进度由 schedule.status 独立维护。
-              // Advance to ai_interview; round progress remains on schedule.status.
-              pipelineStage: "ai_interview",
-              updatedAt: now,
-            })
-            .where(
-              and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)),
-            );
-          await tx.insert(studioInterviewSchedule).values(scheduleRow);
-          await tx.insert(interviewAuditLog).values({
-            action: "ai_interview_launched",
-            createdAt: now,
-            detail: {
-              questionCount: interviewQuestions.length,
-              roundId: scheduleRow.id,
-              roundLabel: scheduleRow.roundLabel,
-            },
-            id: crypto.randomUUID(),
-            interviewRecordId: id,
-            operatorId: c.var.user?.id ?? null,
-            organizationId: activeOrg.id,
-            scheduleEntryId: scheduleRow.id,
-          });
-          await autoBindApplicableTemplates(tx, id, existing.jobDescriptionId);
-        });
-        await loadOrCreateActiveInterviewContextSnapshot({
-          createdBy: c.var.user?.id ?? null,
+        result = await launchAiInterviewRound({
+          actorId: user.id,
+          interviewQuestions,
           interviewRecordId: id,
-          reason: "create",
-          scheduleEntryId: scheduleRow.id,
+          organizationId: organization.id,
+          structuredEvaluationConfirmation,
+          visibilityScope,
         });
       } catch (error) {
-        const result = toBadRequest(error);
-        return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
+        if (error instanceof LaunchAiInterviewMutationError) {
+          const failure = toBadRequest(error.cause);
+          return c.json(
+            { error: failure.error },
+            { status: failure.status as ContentfulStatusCode },
+          );
+        }
+        throw error;
       }
 
-      invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadInterviewRoundDetail(scheduleRow.id, activeOrg.id, visibilityScope);
+      if (!result.ok) {
+        switch (result.reason) {
+          case "not_found": {
+            return c.json({ error: "记录不存在。" }, 404);
+          }
+          case "closed_candidate": {
+            return c.json(
+              {
+                code: "AI_INTERVIEW_STAGE_CONFLICT",
+                error: "候选人已结案，请先「重新激活」后再发起 AI 面试。",
+              },
+              409,
+            );
+          }
+          case "stage_conflict": {
+            return c.json(
+              {
+                code: "AI_INTERVIEW_STAGE_CONFLICT",
+                error: "候选人已进入后续招聘阶段，不能再发起 AI 面试。",
+              },
+              409,
+            );
+          }
+          case "resume_not_ready": {
+            return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
+          }
+          case "structured_evaluation_confirmation_required": {
+            return c.json(
+              {
+                code: "AI_INTERVIEW_CONFIRMATION_REQUIRED",
+                error: "简历评估结果已变化，请确认当前结果后再发起 AI 面试。",
+              },
+              409,
+            );
+          }
+          case "round_not_created": {
+            return c.json({ error: "未生成面试轮次。" }, 400);
+          }
+          default: {
+            throw new Error(`Unhandled launch failure: ${result.reason satisfies never}`);
+          }
+        }
+      }
+
+      const detail = await loadInterviewRoundDetail(
+        result.roundId,
+        organization.id,
+        visibilityScope,
+      );
       return c.json(detail, 201);
     },
   )

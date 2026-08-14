@@ -12,8 +12,8 @@ import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
 import {
-  listAllJobDescriptions,
-  loadJobDescriptionById,
+  listRecruitingJobDescriptions,
+  loadRecruitingJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { studioInterview } from "@arc/db-schema/schema";
@@ -34,7 +34,7 @@ async function loadJobDescriptionText(organizationId: string, jobDescriptionId?:
   if (!jobDescriptionId) {
     return null;
   }
-  const jd = await loadJobDescriptionById(organizationId, jobDescriptionId);
+  const jd = await loadRecruitingJobDescriptionById(organizationId, jobDescriptionId);
   if (!jd) {
     return null;
   }
@@ -119,7 +119,7 @@ export const interviewAnalysisRouter = factory
       }
 
       try {
-        const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+        const jobDescriptions = await listRecruitingJobDescriptions(activeOrg.id);
         const match = await resolveJobDescriptionMatchBestEffort({
           jobDescriptions,
           resumeProfile,

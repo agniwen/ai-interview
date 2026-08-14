@@ -103,6 +103,8 @@ describe("findSemanticResumeDuplicates", () => {
               resumeProfile: queryProfile,
               status: "archived",
               targetRole: "全栈工程师",
+              uploaderImage: "https://example.com/uploader.png",
+              uploaderName: "上传人昵称",
             },
           ]),
         vectorStore: {
@@ -126,6 +128,8 @@ describe("findSemanticResumeDuplicates", () => {
     expect(matches[0]).toMatchObject({
       id: "candidate-semantic",
       level: "high",
+      uploaderImage: "https://example.com/uploader.png",
+      uploaderName: "上传人昵称",
     });
     expect(ensureCollection).toHaveBeenCalledTimes(1);
     expect(matches[0]?.score).toBeGreaterThanOrEqual(92);
@@ -230,5 +234,34 @@ describe("findSemanticResumeDuplicates", () => {
     );
 
     expect(matches).toEqual([]);
+  });
+
+  it("propagates vector failures when a queue worker requests retry semantics", async () => {
+    await expect(
+      findSemanticResumeDuplicates(
+        {
+          organizationId: "org-1",
+          resumeProfile: queryProfile,
+          throwOnError: true,
+        },
+        {
+          embed: vi.fn(() => Promise.reject(new Error("embedding failed"))),
+          embeddingConfig: {
+            apiKey: "key",
+            baseUrl: "https://dashscope.example/v1",
+            dimensions: 2,
+            model: "text-embedding-v4",
+          },
+          enabled: true,
+          loadCandidates: vi.fn(),
+          vectorStore: {
+            deleteResumeEmbeddings: vi.fn(),
+            ensureCollection: vi.fn(),
+            searchSimilarResumes: vi.fn(),
+            upsertResumeEmbeddings: vi.fn(),
+          },
+        },
+      ),
+    ).rejects.toThrow("embedding failed");
   });
 });

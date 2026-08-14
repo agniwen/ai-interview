@@ -1,0 +1,68 @@
+# 简历评分离线评测
+
+> 当前命令与指标描述针对 legacy 简历评价。structured V1 使用独立 workflow、确定性扣分计分和 85/75 分档；接入实现时应新增独立数据切片与回归契约，不能把两种评估体系的分数合并统计。设计基准见 `docs/superpowers/specs/2026-07-29-structured-resume-evaluation-design.md`。
+
+这套评测从 `studio_interview` 的最新简历评价与招聘结果构造代理金标，用来诊断简历评分、六维分和 `nextStep`，不读取或导出姓名、联系方式、简历正文等个人信息。
+
+## 运行
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- --org org_default
+```
+
+加 `--strict` 后，以下任一条件会返回非零退出码：
+
+- 标签可用记录的可评测覆盖率低于 80%；
+- 任一已录用候选人的 `nextStep.action` 为 `reject`；
+- 没有可评测样本。
+
+产物默认写入被 Git 忽略的 `.eval/`：代理金标 JSONL、机器可读指标 JSON 和 Markdown 诊断报告。可用 `--output <目录>` 改变位置。
+
+## 标签规则
+
+| 招聘结果                                            | 标签 | 强度 |
+| --------------------------------------------------- | ---- | ---- |
+| 已录用                                              | 正例 | 强   |
+| 进入笔试、AI 面试、真人复面或 Offer；或推进后被淘汰 | 正例 | 弱   |
+| 简历阶段因技能不匹配被淘汰                          | 负例 | 强   |
+| 简历阶段因其他岗位匹配原因被淘汰                    | 负例 | 弱   |
+
+撤回、归档、薪资分歧、候选人主动退出、岗位关闭，以及仍停留在简历阶段的进行中候选人不进入评测。标签来自真实招聘流程，但会受人工推进策略、岗位差异和历史模型影响，因此属于代理金标。
+
+## 指标
+
+- 安全护栏：已录用误 `reject`、全部正例误 `reject`；
+- 动作判断：`interview / hold / reject` 混淆矩阵、非 `hold` 覆盖率、已决样本 macro-F1；
+- 分数排序：ROC-AUC、Average Precision，并单独报告强标签切片；
+- 分数校准：Brier score、10 桶 ECE 和分数桶实际正例率；
+- 六维诊断：每一维的正负例均值与差值；
+- 数据质量：互斥排除原因、缺失维度、无效硬门槛结果、缺失生成时间或 run ID。
+
+## 合成契约回归
+
+真实结果数据成熟前，使用 24 个合成边界案例守住规则正确性：学历和年限边界、信息缺失、技能全量/至少项匹配、语义证据、规则严重级别和空策略。运行：
+
+```bash
+pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+```
+
+合成案例只验证结构和规则契约：信息不足必须进入人工核实，明确 blocking 失败只能暂缓推进，不能用来拟合六维权重、业务阈值或证明真实误拒率。
+
+评分 Prompt 另有 6 个合成简历/JD 场景。默认命令只列出案例，不调用模型：
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic
+```
+
+显式运行会产生模型调用。建议每个案例重复 3 次，以检查结构成功率、允许行动、人工分数锚点、理由证据和重复运行波动：
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic -- \
+  --execute --runs 3 --strict
+```
+
+`--strict` 要求每个案例至少运行 3 次。稳定性护栏为：结构成功率和允许行动命中率 100%、行动一致率至少 80%、维度区间命中率至少 90%、理由证据覆盖率至少 80%、总分波动不超过 10。单维最大波动仍会写入报告，用于观察单维离群，但不参与 `--strict` 门槛判定。案例没有配置维度区间或理由关键词时，对应指标显示为 `N/A` 且不参与门槛判定。这些是合成回归护栏，不是生产录用阈值。
+
+## 复现边界
+
+当前表只保留每位候选人的最新评价，没有保存评价生成时的 JD/简历快照、模型版本和 prompt 版本。因此历史样本无法严格重放，也不能用于证明因果效果。后续若要比较 prompt 或权重版本，应在生成时保存不可变输入快照与版本元数据，再固定时间切分评测集。

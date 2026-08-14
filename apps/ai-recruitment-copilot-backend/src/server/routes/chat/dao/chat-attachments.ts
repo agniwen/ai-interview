@@ -1,6 +1,6 @@
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { chatAttachment } from "@arc/db-schema/schema";
 
@@ -173,6 +173,7 @@ export async function findAttachmentByContentHash(hash: string): Promise<ChatAtt
         ne(chatAttachment.storageKey, ""),
       ),
     )
+    .orderBy(desc(chatAttachment.parsedAt), desc(chatAttachment.createdAt))
     .limit(1);
   return row ?? null;
 }
@@ -196,6 +197,7 @@ export async function findAttachmentByStorageKey(
     .where(
       and(eq(chatAttachment.storageKey, storageKey), ne(chatAttachment.parsedStatus, "failed")),
     )
+    .orderBy(desc(chatAttachment.parsedAt), desc(chatAttachment.createdAt))
     .limit(1);
   return row ?? null;
 }

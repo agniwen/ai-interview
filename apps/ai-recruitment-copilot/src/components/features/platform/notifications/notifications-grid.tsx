@@ -3,9 +3,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import {
@@ -50,6 +59,7 @@ interface PlatformNotificationRecord {
   conversationId: string | null;
   createdAt: string;
   error: string | null;
+  feishuDocumentUrl: string | null;
   feishuMessageId: string | null;
   id: string;
   interviewRecordId: string;
@@ -80,6 +90,31 @@ interface NotificationsResult {
   records: PlatformNotificationRecord[];
   total: number;
   totalPages: number;
+}
+
+interface FeishuTextContent {
+  elements: {
+    text_run: {
+      content: string;
+      text_element_style?: { bold?: boolean; link?: { url: string } };
+    };
+  }[];
+}
+
+interface FeishuPreviewBlock {
+  block_type: number;
+  children?: FeishuPreviewBlock[];
+  heading3?: FeishuTextContent;
+  ordered?: FeishuTextContent;
+  quote?: FeishuTextContent;
+  text?: FeishuTextContent;
+  todo?: FeishuTextContent;
+}
+
+interface FeishuNotificationPreview {
+  block: FeishuPreviewBlock;
+  prompt: string;
+  title: string;
 }
 
 const DEFAULT_FILTERS: NotificationFilters = {
@@ -139,8 +174,114 @@ function buildReportUrl(record: PlatformNotificationRecord): string {
   return `${base}?recordId=${encodeURIComponent(record.interviewRecordId)}`;
 }
 
+function previewBlockContent(block: FeishuPreviewBlock): FeishuTextContent | undefined {
+  return block.heading3 ?? block.text ?? block.quote ?? block.todo ?? block.ordered;
+}
+
+function previewBlockClassName(blockType: number): string {
+  if (blockType === 5) {
+    return "mb-4 text-base font-semibold text-foreground";
+  }
+  if (blockType === 15) {
+    return "my-2 border-orange-300 border-l-2 pl-3 text-muted-foreground text-sm";
+  }
+  return "whitespace-pre-wrap text-sm leading-6 text-foreground/85";
+}
+
+function FeishuPreviewLine({ block }: { block: FeishuPreviewBlock }) {
+  const content = previewBlockContent(block);
+  const text = content?.elements.map((element) => element.text_run.content).join("") ?? "";
+  if (!text) {
+    return <div className="h-3" />;
+  }
+
+  return (
+    <div className={previewBlockClassName(block.block_type)}>
+      {content?.elements.map((element) => (
+        <span
+          className={element.text_run.text_element_style?.bold ? "font-semibold" : undefined}
+          key={`${element.text_run.content}-${element.text_run.text_element_style?.bold ?? false}-${element.text_run.text_element_style?.link?.url ?? ""}`}
+        >
+          {element.text_run.content}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function FeishuNotificationPreviewDialog({
+  onOpenChange,
+  record,
+}: {
+  onOpenChange: (open: boolean) => void;
+  record: PlatformNotificationRecord | null;
+}) {
+  const previewMutation = useMutation({
+    mutationFn: (notificationId: string) =>
+      rpcFetch<FeishuNotificationPreview>(
+        rpc.api.platform.notifications[":id"]["debug-preview"].$post({
+          param: { id: notificationId },
+        }),
+        "生成飞书通知预览失败",
+      ),
+    retry: false,
+  });
+  const { mutate: generatePreview, reset: resetPreview } = previewMutation;
+
+  useEffect(() => {
+    resetPreview();
+    if (record?.id) {
+      generatePreview(record.id);
+    }
+  }, [generatePreview, record?.id, resetPreview]);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={Boolean(record)}>
+      <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{previewMutation.data?.title ?? "调试飞书通知"}</DialogTitle>
+          <DialogDescription>
+            {previewMutation.isPending
+              ? "AI 正在基于简历背景、表单和面试对话重新生成 HR 评价…"
+              : "以下内容由 AI 现场重新生成；未创建飞书文档，也未发送实际通知。"}
+          </DialogDescription>
+        </DialogHeader>
+        {previewMutation.isPending ? <Skeleton className="h-96 w-full" /> : null}
+        {previewMutation.isError ? (
+          <p className="text-destructive text-sm">{previewMutation.error.message}</p>
+        ) : null}
+        {previewMutation.data ? (
+          <Tabs className="min-h-0 flex-1" defaultValue="preview">
+            <TabsList>
+              <TabsTrigger value="preview">评价预览</TabsTrigger>
+              <TabsTrigger value="prompt">最终 Prompt</TabsTrigger>
+            </TabsList>
+            <TabsContent
+              className="min-h-0 overflow-y-auto rounded-xl border border-orange-200/80 bg-orange-50/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-orange-900/70 dark:bg-orange-950/25"
+              value="preview"
+            >
+              {previewMutation.data.block.children?.map((block) => (
+                <FeishuPreviewLine block={block} key={JSON.stringify(block)} />
+              ))}
+            </TabsContent>
+            <TabsContent
+              className="min-h-0 overflow-y-auto rounded-xl border bg-muted/35 p-5"
+              value="prompt"
+            >
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground/80">
+                {previewMutation.data.prompt}
+              </pre>
+            </TabsContent>
+          </Tabs>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function NotificationsGrid() {
   const queryClient = useQueryClient();
+  const [previewRecord, setPreviewRecord] = useState<PlatformNotificationRecord | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
 
   function fetchNotifications(params: {
@@ -313,6 +454,20 @@ export function NotificationsGrid() {
     actionsColumn<PlatformNotificationRecord>({
       menu: [
         {
+          label: "调试飞书通知",
+          onClick: (record) => setPreviewRecord(record),
+        },
+        {
+          disabled: (record) => !record.feishuDocumentUrl,
+          disabledReason: () => "文档尚未生成，请先重新发送通知",
+          label: "打开飞书文档",
+          onClick: (record) => {
+            if (record.feishuDocumentUrl) {
+              window.open(record.feishuDocumentUrl, "_blank", "noopener,noreferrer");
+            }
+          },
+        },
+        {
           label: "打开报告",
           onClick: (record) => {
             window.open(buildReportUrl(record), "_blank", "noopener,noreferrer");
@@ -329,42 +484,52 @@ export function NotificationsGrid() {
   ];
 
   return (
-    <DataGrid<PlatformNotificationRecord>
-      {...grid.bind}
-      columnPinning={{ right: ["actions"] }}
-      columns={columns}
-      empty={
-        <Empty className="border-border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <IconBell className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>暂无飞书通知</EmptyTitle>
-            <EmptyDescription>还没有通过飞书机器人发送的面试报告通知。</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      }
-      filters={[
-        {
-          key: "search",
-          minWidth: "22rem",
-          placeholder: "搜索候选人、接收人、工作区、消息 ID",
-          type: "search",
-        },
-        {
-          key: "status",
-          options: STATUS_OPTIONS,
-          placeholder: "状态",
-          type: "select",
-        },
-        {
-          key: "providerId",
-          options: PROVIDER_OPTIONS,
-          placeholder: "机器人",
-          type: "select",
-        },
-      ]}
-      getRowId={(record) => record.id}
-    />
+    <>
+      <DataGrid<PlatformNotificationRecord>
+        {...grid.bind}
+        columnPinning={{ end: ["actions"] }}
+        columns={columns}
+        empty={
+          <Empty className="border-border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconBell className="size-5" />
+              </EmptyMedia>
+              <EmptyTitle>暂无飞书通知</EmptyTitle>
+              <EmptyDescription>还没有通过飞书机器人发送的面试报告通知。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
+        filters={[
+          {
+            key: "search",
+            minWidth: "22rem",
+            placeholder: "搜索候选人、接收人、工作区、消息 ID",
+            type: "search",
+          },
+          {
+            key: "status",
+            options: STATUS_OPTIONS,
+            placeholder: "状态",
+            type: "select",
+          },
+          {
+            key: "providerId",
+            options: PROVIDER_OPTIONS,
+            placeholder: "机器人",
+            type: "select",
+          },
+        ]}
+        getRowId={(record) => record.id}
+      />
+      <FeishuNotificationPreviewDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewRecord(null);
+          }
+        }}
+        record={previewRecord}
+      />
+    </>
   );
 }

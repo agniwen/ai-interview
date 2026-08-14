@@ -43,6 +43,15 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") {
       return;
     }
+
+    // 首页是独立的营销落地页，不恢复上一次浏览位置。TanStack Router 的全局滚动
+    // 恢复可能在 GSAP 创建 pin spacer 前把页面放到旧坐标，导致三幕绝对定位内容在
+    // 初始化窗口内重叠。先归零，再让 ScrollSmoother/ScrollTrigger 测量最终布局。
+    // The homepage is a standalone landing page, so don't restore a previous position.
+    // Router restoration can otherwise move to a stale offset before GSAP creates its pin
+    // spacer, briefly stacking the absolutely-positioned scenes during initialization.
+    window.scrollTo(0, 0);
+
     // reduced-motion 时直接退出，让浏览器原生滚动接管
     // Bail out for reduced-motion users — keep native scrolling.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

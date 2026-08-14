@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   generateResumeStructured: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
   interviewQuestionAgent: { id: "interview-question-agent" },
+  parseResumeDocument: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
   extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
+  parseResumeDocument: mocks.parseResumeDocument,
   parseResumeFast: mocks.parseResumeFast,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({

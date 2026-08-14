@@ -20,6 +20,7 @@ import {
   queryPaginatedInterviewRounds,
   summarizeInterviewRoundCounts,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { loadAiCalendarEventPreview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/calendar/dao";
 
 const ORG = "test_org_interview_rounds";
 const USER_ID = "test_user_interview_rounds";
@@ -264,6 +265,24 @@ describe("loadInterviewRoundDetail", () => {
   it("returns null on unknown id", async () => {
     const detail = await loadInterviewRoundDetail("nope", ORG);
     expect(detail).toBeNull();
+  });
+});
+
+describe("loadAiCalendarEventPreview", () => {
+  it("uses the candidate owner for recruiting visibility when the round creator differs", async () => {
+    const allowed = await loadAiCalendarEventPreview({
+      organizationId: ORG,
+      roundId: "rnd-b1",
+      visibilityScope: { kind: "restricted", userIds: [USER_ID] },
+    });
+    const blocked = await loadAiCalendarEventPreview({
+      organizationId: ORG,
+      roundId: "rnd-b1",
+      visibilityScope: { kind: "restricted", userIds: [USER_ID_ALT] },
+    });
+
+    expect(allowed?.round.id).toBe("rnd-b1");
+    expect(blocked).toBeNull();
   });
 });
 

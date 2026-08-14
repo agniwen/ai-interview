@@ -5,6 +5,7 @@
 // schedule row's id; candidate info is JOINed in as a snapshot.
 
 import type {
+  CandidateInterviewFeedback,
   CandidateOutcome,
   PipelineStage,
   ScheduleEntryStatus,
@@ -28,6 +29,7 @@ export interface StudioInterviewRoundListRecord {
   roundLabel: string;
   sortOrder: number;
   scheduledAt: string | null;
+  scheduledEndAt: string | null;
   lastInterviewAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
@@ -53,8 +55,10 @@ export interface StudioInterviewRoundDetail {
   roundLabel: string;
   sortOrder: number;
   scheduledAt: string | null;
+  scheduledEndAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
+  candidateFeedback: CandidateInterviewFeedback | null;
   conversationId: string | null;
   sessionStartedAt: string | null;
   disconnectedAt: string | null;

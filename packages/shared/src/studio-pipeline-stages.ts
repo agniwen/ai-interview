@@ -4,6 +4,9 @@
 // Imported by both DAO and client; single source of truth.
 
 import type {
+  FeishuHumanInterviewProviderId,
+  FeishuHumanInterviewSyncStatus,
+  HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
   HumanInterviewFormat,
@@ -64,11 +67,21 @@ export interface HumanInterviewMeetingInterviewerRecord {
   leftAt: string | null;
 }
 
+export interface FeishuHumanInterviewMeetingSync {
+  appLink: string | null;
+  calendarEventUrl: string | null;
+  meetingUrl: string | null;
+  providerId: FeishuHumanInterviewProviderId;
+  status: FeishuHumanInterviewSyncStatus;
+}
+
 export interface HumanInterviewMeetingRecord {
   id: string;
   organizationId: string;
   title: string;
   liveKitRoomName: string | null;
+  lifecycleOccurredAt: string | null;
+  lifecycleSource: HumanInterviewMeetingLifecycleSource | null;
   scheduledAt: string | null;
   status: HumanInterviewMeetingStatus;
   startedAt: string | null;
@@ -80,6 +93,7 @@ export interface HumanInterviewMeetingRecord {
   notes: string | null;
   createdBy: string | null;
   createdAt: string;
+  feishu: FeishuHumanInterviewMeetingSync | null;
   updatedAt: string;
   rounds: HumanInterviewMeetingRoundRecord[];
   interviewers: HumanInterviewMeetingInterviewerRecord[];
@@ -103,6 +117,7 @@ export interface HumanInterviewMeetingInterviewerLinkRecord {
 
 export interface HumanInterviewMeetingLinkBundle {
   candidateLinks: HumanInterviewMeetingCandidateLinkRecord[];
+  feishu: FeishuHumanInterviewMeetingSync | null;
   interviewerLinks: HumanInterviewMeetingInterviewerLinkRecord[];
   meetingId: string;
   title: string;

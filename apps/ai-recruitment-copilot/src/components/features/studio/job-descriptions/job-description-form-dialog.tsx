@@ -1,4 +1,4 @@
-/* oxlint-disable complexity -- root form coordinates validation and extracted subforms. */
+/* oxlint-disable complexity -- dialog coordinates form state, linked queries, and extracted subforms. */
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
@@ -6,101 +6,49 @@ import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-f
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
-import {
-  createDefaultResumeScreeningPolicy,
-  jobDescriptionFormSchema,
-} from "@arc/shared/job-descriptions";
+import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
-import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
-import {
-  buildJobDescriptionInterviewerOptions,
-  filterInterviewerIdsByDepartment,
-  getDepartmentSyncedInterviewerSelection,
-} from "@arc/shared/job-description-interviewers";
+import { buildJobDescriptionInterviewerOptions } from "@arc/shared/job-description-interviewers";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo, useRef } from "react";
+import type { CSSProperties } from "react";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { FieldGroup } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MarkdownEditor } from "@/components/features/markdown-editor";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
-import { ResumeScreeningPolicyFields } from "./job-description-screening-fields";
+import { JobDescriptionBasicSettingsFields } from "./job-description-basic-settings-fields";
+import { JobDescriptionEvaluationSection } from "./job-description-evaluation-section";
+import {
+  JobDescriptionAiSupplementModal,
+  JobDescriptionRegeneratePreviewModal,
+} from "./job-description-form-modals";
+import { JobDescriptionPromptFields } from "./job-description-prompt-fields";
+import { JobDescriptionStructuredFields } from "./job-description-structured-fields";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
 } from "./job-description-linked-resources";
+import {
+  emptyJobDescriptionFormValues,
+  focusJobDescriptionBasicTabOnInvalidSubmit,
+  hasUnsavedFormChanges,
+  JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT,
+  toDepartmentScopedFormValues,
+  toStructuredDraftValues,
+} from "./job-description-form-values";
+import type {
+  JobDescriptionFormTab,
+  JobDescriptionSubmitAction,
+} from "./job-description-form-values";
+import { useJobDescriptionFormActions } from "./use-job-description-form-actions";
+import { useJobDescriptionFormState } from "./use-job-description-form-state";
 
-const NAME_MAX_LENGTH = 120;
-const DESCRIPTION_MAX_LENGTH = 500;
-const PROMPT_MAX_LENGTH = 10_000;
-
-type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
-
-export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
-  return {
-    allowCrossDepartmentInterviewers: false,
-    code: "",
-    departmentId: "",
-    description: "",
-    interviewerIds: [],
-    name: "",
-    prompt: "",
-    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-  };
-}
-
-function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
-  return {
-    allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
-    code: record.code ?? "",
-    departmentId: record.departmentId,
-    description: record.description ?? "",
-    interviewerIds: [...record.interviewerIds],
-    name: record.name,
-    prompt: record.prompt,
-    resumeScreeningPolicy: record.resumeScreeningPolicy,
-  };
-}
-
-function toDepartmentScopedFormValues(
-  record: JobDescriptionRecord,
-  interviewers: InterviewerListRecord[],
-): JobDescriptionFormValues {
-  const values = toFormValues(record);
-  return {
-    ...values,
-    interviewerIds: filterInterviewerIdsByDepartment(
-      interviewers,
-      values.departmentId,
-      values.interviewerIds,
-      values.allowCrossDepartmentInterviewers,
-    ),
-  };
-}
-
-function normalizeDepartmentId(value: string | null): string {
-  return value ?? "";
-}
+export { emptyJobDescriptionFormValues } from "./job-description-form-values";
 
 export function JobDescriptionFormDialog({
   initialDraft,
@@ -117,23 +65,111 @@ export function JobDescriptionFormDialog({
   record: JobDescriptionRecord | null;
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
-  onSaved: () => void;
+  onSaved: (record: JobDescriptionRecord) => void;
 }) {
   const slug = useWorkspaceSlug();
-  const isEdit = record !== null;
-  const codeLocked = Boolean(record?.code);
-  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [isGeneratingScreeningPolicy, setIsGeneratingScreeningPolicy] = useState(false);
-  const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
+  const submitRef = useRef<
+    ((value: JobDescriptionFormValues, action: JobDescriptionSubmitAction) => Promise<void>) | null
+  >(null);
+  const setActiveTabRef = useRef<((tab: JobDescriptionFormTab) => void) | null>(null);
   const resolvedInitialValues = useMemo(() => {
     if (record) {
       return toDepartmentScopedFormValues(record, interviewers);
     }
     if (initialDraft) {
-      return initialDraft;
+      return toStructuredDraftValues(initialDraft);
     }
     return emptyJobDescriptionFormValues();
   }, [initialDraft, interviewers, record]);
+
+  const form = useForm({
+    defaultValues: resolvedInitialValues,
+    onSubmit: ({ meta, value }) => submitRef.current?.(value, meta.action),
+    onSubmitInvalid: ({ formApi }) =>
+      focusJobDescriptionBasicTabOnInvalidSubmit(
+        formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>,
+        (tab) => {
+          setActiveTabRef.current?.(tab);
+        },
+      ),
+    onSubmitMeta: { action: "save" } as { action: JobDescriptionSubmitAction },
+    validators: { onSubmit: jobDescriptionFormSchema },
+  });
+
+  const formState = useJobDescriptionFormState({
+    form,
+    interviewers,
+    open,
+    record,
+    resolvedInitialValues,
+  });
+  setActiveTabRef.current = formState.setActiveTab;
+  const {
+    activeTab,
+    codeLocked,
+    currentRecord,
+    deductionRules,
+    evaluationFrozen,
+    isEdit,
+    isLegacyJob,
+    isStructuredDraft,
+    pendingGeneratedJobDescription,
+    preview,
+    regenerateConfirmationOpen,
+    ruleDraft,
+    ruleDraftDirty,
+    savedFormValues,
+    setActiveTab,
+    setDeductionRules,
+    setPendingGeneratedJobDescription,
+    setPreview,
+    setRegenerateConfirmationOpen,
+    setRuleDraft,
+    setRuleDraftDirty,
+    setWorkingRecord,
+  } = formState;
+
+  const {
+    applyGeneratedJobDescription,
+    confirmGeneratePreview,
+    handleGenerateCode,
+    handleGenerateJobDescription,
+    handleGeneratePreview,
+    handlePublish,
+    isGeneratingCode,
+    isGeneratingJobDescription,
+    isGeneratingPreview,
+    isPublishing,
+    streamingRuleDraft,
+    submitJobDescription,
+  } = useJobDescriptionFormActions({
+    currentRecord,
+    deductionRules,
+    departments,
+    evaluationFrozen,
+    form,
+    interviewers,
+    isEdit,
+    isLegacyJob: Boolean(isLegacyJob),
+    isStructuredDraft: Boolean(isStructuredDraft),
+    onOpenChange,
+    onSaved,
+    pendingGeneratedJobDescription,
+    preview,
+    ruleDraft,
+    ruleDraftDirty,
+    savedFormValues,
+    setDeductionRules,
+    setPendingGeneratedJobDescription,
+    setPreview,
+    setRegenerateConfirmationOpen,
+    setRuleDraft,
+    setRuleDraftDirty,
+    setWorkingRecord,
+    slug,
+  });
+
+  submitRef.current = submitJobDescription;
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
@@ -153,7 +189,7 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联面试表单失败");
+        throw new Error(payload?.error ?? "加载关联表单题失败");
       }
       return payload.records;
     },
@@ -178,68 +214,11 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联面试题失败");
+        throw new Error(payload?.error ?? "加载关联沟通题失败");
       }
       return payload.records;
     },
     queryKey: ["job-description-linked-interview-questions", slug, record?.id],
-  });
-
-  const form = useForm({
-    defaultValues: resolvedInitialValues,
-    onSubmit: async ({ value }) => {
-      const body = {
-        allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
-        code: value.code?.trim() || undefined,
-        departmentId: value.departmentId,
-        description: value.description?.trim() || "",
-        interviewerIds: value.interviewerIds,
-        name: value.name.trim(),
-        prompt: value.prompt.trim(),
-        resumeScreeningPolicy: value.resumeScreeningPolicy,
-      };
-
-      const response = isEdit
-        ? await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio["job-descriptions"].$post({
-            json: body,
-            param: { slug },
-          });
-      const payload = (await response.json().catch(() => null)) as
-        | ({ error?: string } & Partial<JobDescriptionRecord>)
-        | null;
-      if (!response.ok) {
-        toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
-        return;
-      }
-      toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
-      onSaved();
-      onOpenChange(false);
-    },
-    onSubmitInvalid: ({ formApi }) => {
-      const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
-      const basicFields = [
-        "code",
-        "name",
-        "departmentId",
-        "allowCrossDepartmentInterviewers",
-        "interviewerIds",
-        "description",
-        "prompt",
-      ];
-      const screeningFields = ["resumeScreeningPolicy"];
-      const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
-      const hasScreeningError = screeningFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
-      if (hasBasicError) {
-        setActiveTab("basic");
-      } else if (hasScreeningError) {
-        setActiveTab("screening");
-      }
-    },
-    validators: { onSubmit: jobDescriptionFormSchema },
   });
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
@@ -259,68 +238,11 @@ export function JobDescriptionFormDialog({
     [allowCrossDepartmentInterviewers, interviewers, selectedDepartmentId],
   );
 
-  useEffect(() => {
-    if (open) {
-      form.reset(resolvedInitialValues);
-      setActiveTab("basic");
-    }
-  }, [open, form, resolvedInitialValues]);
-
   const missingRefs = departments.length === 0 || interviewers.length === 0;
-
-  async function handleGenerateCode() {
-    setIsGeneratingCode(true);
-    try {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post({
-        param: { slug },
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        code?: string;
-        error?: string;
-      } | null;
-      if (!response.ok || !payload?.code) {
-        toast.error(payload?.error ?? "生成岗位编码失败");
-        return;
-      }
-      form.setFieldValue("code", payload.code);
-    } finally {
-      setIsGeneratingCode(false);
-    }
-  }
-
-  async function handleGenerateScreeningPolicy() {
-    const { values } = form.store.state;
-    if (!values.prompt.trim()) {
-      toast.error("请先填写岗位 Prompt");
-      return;
-    }
-    setIsGeneratingScreeningPolicy(true);
-    try {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"][
-        "generate-screening-policy"
-      ].$post({
-        json: {
-          description: values.description?.trim() || undefined,
-          name: values.name.trim() || undefined,
-          prompt: values.prompt.trim(),
-        },
-        param: { slug },
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-        policy?: ResumeScreeningPolicy;
-      } | null;
-      if (!response.ok || !payload?.policy) {
-        toast.error(payload?.error ?? "筛选规则生成失败");
-        return;
-      }
-      form.setFieldValue("resumeScreeningPolicy", payload.policy);
-      toast.success(
-        payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
-      );
-    } finally {
-      setIsGeneratingScreeningPolicy(false);
-    }
+  const isBusy = isGeneratingPreview || isSubmitting || isPublishing;
+  let submitLabel = isEdit ? "保存" : "创建草稿";
+  if (isSubmitting) {
+    submitLabel = isEdit ? "保存中" : "创建中";
   }
 
   return (
@@ -329,28 +251,67 @@ export function JobDescriptionFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? "编辑在招岗位" : "新建在招岗位"}
-        description="为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。"
-        size="xl"
+        description={
+          isLegacyJob
+            ? "旧版评估配置只读；这里仅维护所属部门、跨部门范围和面试官。需要修改评估设置时，请从岗位列表发起新版升级。"
+            : "岗位 JD 同时用于简历评估和 AI 面试，请确认要求清晰、分层且可量化。"
+        }
+        bodyClassName={isLegacyJob ? undefined : "px-5 py-3"}
+        footerClassName={isLegacyJob ? undefined : "px-5 py-3"}
+        headerClassName={isLegacyJob ? undefined : "px-5 pt-4 pb-3"}
+        size={isLegacyJob ? "xl" : "3xl"}
         headerExtra={
-          <TabsList className="mt-2">
-            <TabsTrigger value="basic">基本信息</TabsTrigger>
-            <TabsTrigger value="screening">筛选规则</TabsTrigger>
-            {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
-            {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
-          </TabsList>
+          isEdit ? (
+            <TabsList className="mt-2">
+              <TabsTrigger value="basic">基本信息</TabsTrigger>
+              <TabsTrigger value="interview-questions">沟通题</TabsTrigger>
+              <TabsTrigger value="forms">表单题</TabsTrigger>
+            </TabsList>
+          ) : null
         }
         footer={
           <>
-            <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-              取消
-            </Button>
             <Button
-              disabled={isSubmitting || missingRefs}
-              form="job-description-form"
-              type="submit"
+              disabled={isBusy}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
             >
+              {isBusy ? <IconLoader2 className="size-4 animate-spin" /> : null}
+              {isBusy ? "处理中" : "取消"}
+            </Button>
+            <form.Subscribe selector={(state) => state.values}>
+              {(values) => {
+                const isPreparingPublish = !preview && (isGeneratingPreview || isSubmitting);
+                const publishDisabled =
+                  isBusy ||
+                  missingRefs ||
+                  Boolean(
+                    preview && (hasUnsavedFormChanges(values, savedFormValues) || ruleDraftDirty),
+                  );
+                let publishLabel = preview ? "确认并发布" : "生成评分规则并继续";
+                if (isPreparingPublish) {
+                  publishLabel = "生成中";
+                } else if (isPublishing) {
+                  publishLabel = "发布中";
+                }
+                return isStructuredDraft ? (
+                  <Button
+                    disabled={publishDisabled}
+                    onClick={preview ? handlePublish : handleGeneratePreview}
+                    type="button"
+                  >
+                    {isPreparingPublish || isPublishing ? (
+                      <IconLoader2 className="size-4 animate-spin" />
+                    ) : null}
+                    {publishLabel}
+                  </Button>
+                ) : null;
+              }}
+            </form.Subscribe>
+            <Button disabled={isBusy || missingRefs} form="job-description-form" type="submit">
               {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-              {isEdit ? "保存" : "创建"}
+              {submitLabel}
             </Button>
           </>
         }
@@ -365,277 +326,83 @@ export function JobDescriptionFormDialog({
         >
           <AnimatedHeight>
             <TabsContent value="basic">
-              <FieldGroup className="mt-4 gap-5">
-                <div className="grid gap-5 md:grid-cols-2">
-                  <form.Field name="name">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            岗位名称 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
-                            <Input
-                              aria-invalid={!!errors?.length}
-                              id={field.name}
-                              maxLength={NAME_MAX_LENGTH}
-                              onBlur={field.handleBlur}
-                              onChange={(event) => field.handleChange(event.target.value)}
-                              placeholder="如：高级前端工程师"
-                              value={field.state.value}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
+              <FieldGroup className={isLegacyJob ? "mt-4 gap-5" : "mt-2 gap-3"}>
+                <JobDescriptionBasicSettingsFields
+                  allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
+                  codeLocked={codeLocked}
+                  departments={departments}
+                  evaluationFrozen={evaluationFrozen}
+                  form={form}
+                  handleGenerateCode={() => void handleGenerateCode()}
+                  interviewers={interviewers}
+                  interviewerOptions={interviewerOptions}
+                  isGeneratingCode={isGeneratingCode}
+                  selectedDepartmentId={selectedDepartmentId}
+                  selectedInterviewerIds={selectedInterviewerIds}
+                />
 
-                  <form.Field name="code">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      const canGenerateCode = !codeLocked && !isGeneratingCode;
-                      let codeButtonLabel = "生成";
-                      if (codeLocked) {
-                        codeButtonLabel = "已生成";
-                      } else if (isGeneratingCode) {
-                        codeButtonLabel = "生成中";
-                      }
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>岗位编码</FieldLabel>
-                          <FieldContent className="gap-2">
-                            <InputGroup>
-                              <InputGroupInput
-                                aria-invalid={!!errors?.length}
-                                className={
-                                  field.state.value ? "font-mono" : "text-muted-foreground"
-                                }
-                                id={field.name}
-                                placeholder="保存时自动生成"
-                                readOnly
-                                value={field.state.value ?? ""}
-                              />
-                              <InputGroupAddon align="inline-end">
-                                <InputGroupButton
-                                  disabled={!canGenerateCode}
-                                  onClick={handleGenerateCode}
-                                  type="button"
-                                >
-                                  {codeButtonLabel}
-                                </InputGroupButton>
-                              </InputGroupAddon>
-                            </InputGroup>
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
-
-                  <form.Field name="departmentId">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            所属部门 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
-                            <SearchableSelect
-                              id={field.name}
-                              invalid={!!errors?.length}
-                              onChange={(value) => {
-                                const nextDepartmentId = normalizeDepartmentId(value);
-                                field.handleChange(nextDepartmentId);
-                                form.setFieldValue(
-                                  "interviewerIds",
-                                  filterInterviewerIdsByDepartment(
-                                    interviewers,
-                                    nextDepartmentId,
-                                    selectedInterviewerIds,
-                                    allowCrossDepartmentInterviewers,
-                                  ),
-                                );
-                              }}
-                              options={departments.map((dept) => ({
-                                label: dept.name,
-                                value: dept.id,
-                              }))}
-                              placeholder="选择部门"
-                              searchPlaceholder="搜索部门…"
-                              value={field.state.value || null}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
-
-                  <form.Field name="allowCrossDepartmentInterviewers">
-                    {(field) => (
-                      <Field className="md:col-span-2">
-                        <Card className="gap-0 rounded-lg py-0">
-                          <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
-                            <div className="space-y-0.5">
-                              <FieldLabel htmlFor={field.name}>允许匹配跨部门面试官</FieldLabel>
-                              <p className="text-muted-foreground text-xs">
-                                关闭时只能选择所属部门下的面试官；开启后可选择任意部门的面试官。
-                              </p>
-                            </div>
-                            <Switch
-                              checked={field.state.value}
-                              id={field.name}
-                              onCheckedChange={(checked) => {
-                                field.handleChange(checked);
-                                if (!checked) {
-                                  form.setFieldValue(
-                                    "interviewerIds",
-                                    filterInterviewerIdsByDepartment(
-                                      interviewers,
-                                      selectedDepartmentId,
-                                      selectedInterviewerIds,
-                                      false,
-                                    ),
-                                  );
-                                }
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
-                      </Field>
-                    )}
-                  </form.Field>
-
-                  <form.Field name="interviewerIds">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <Field
-                          className="md:col-span-2"
-                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                        >
-                          <FieldLabel>
-                            面试官 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
-                            <SearchableMultiSelect
-                              emptyMessage="没有匹配的面试官"
-                              invalid={!!errors?.length}
-                              onChange={(next) => {
-                                const synced = getDepartmentSyncedInterviewerSelection({
-                                  allowCrossDepartmentInterviewers,
-                                  currentDepartmentId: selectedDepartmentId,
-                                  interviewers,
-                                  nextInterviewerIds: next,
-                                  previousInterviewerIds: field.state.value,
-                                });
-                                if (synced.departmentId !== selectedDepartmentId) {
-                                  form.setFieldValue("departmentId", synced.departmentId);
-                                }
-                                field.handleChange(synced.interviewerIds);
-                              }}
-                              options={interviewerOptions}
-                              placeholder="选择面试官…"
-                              searchPlaceholder="搜索面试官…"
-                              selectedFormat={(count) => `已选 ${count} 位面试官`}
-                              selectedPreviewLimit={3}
-                              value={field.state.value}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
-                </div>
-
-                <form.Field name="description">
-                  {(field) => {
-                    const errors = toFieldErrors(field.state.meta.errors);
-                    return (
-                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>描述</FieldLabel>
-                        <FieldContent className="gap-2">
-                          <div className="relative">
-                            <Textarea
-                              aria-invalid={!!errors?.length}
-                              className="min-h-20 pb-6"
-                              id={field.name}
-                              maxLength={DESCRIPTION_MAX_LENGTH}
-                              onBlur={field.handleBlur}
-                              onChange={(event) => field.handleChange(event.target.value)}
-                              placeholder="简要描述岗位职责、要求等"
-                              value={field.state.value ?? ""}
-                            />
-                            <TextareaCounter
-                              maxLength={DESCRIPTION_MAX_LENGTH}
-                              value={field.state.value}
-                            />
-                          </div>
-                          <FieldError errors={errors} />
-                        </FieldContent>
-                      </Field>
-                    );
-                  }}
-                </form.Field>
-
-                <form.Field name="prompt">
-                  {(field) => {
-                    const errors = toFieldErrors(field.state.meta.errors);
-                    return (
-                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>
-                          岗位 Prompt <span className="text-destructive">*</span>
-                        </FieldLabel>
-                        <FieldContent className="gap-2">
-                          <MarkdownEditor
-                            aria-invalid={!!errors?.length}
-                            id={field.name}
-                            maxLength={PROMPT_MAX_LENGTH}
-                            onBlur={field.handleBlur}
-                            onChange={field.handleChange}
-                            placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                            value={field.state.value}
-                          />
-                          <FieldError errors={errors} />
-                        </FieldContent>
-                      </Field>
-                    );
-                  }}
-                </form.Field>
-              </FieldGroup>
-            </TabsContent>
-            <TabsContent value="screening">
-              <form.Field name="resumeScreeningPolicy">
-                {(field) => (
-                  <ResumeScreeningPolicyFields
-                    isGenerating={isGeneratingScreeningPolicy}
-                    onGenerateFromJobDescription={handleGenerateScreeningPolicy}
-                    onChange={field.handleChange}
-                    policy={field.state.value}
+                <div
+                  className={
+                    isLegacyJob
+                      ? "flex flex-col gap-5"
+                      : "flex flex-col gap-3 xl:grid xl:grid-flow-col xl:grid-cols-2 xl:grid-rows-[auto_minmax(0,var(--job-markdown-max-height))]"
+                  }
+                  style={
+                    isLegacyJob
+                      ? undefined
+                      : ({
+                          "--job-markdown-max-height": `${JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT}px`,
+                        } as CSSProperties)
+                  }
+                >
+                  <JobDescriptionPromptFields
+                    evaluationFrozen={evaluationFrozen}
+                    form={form}
+                    handleGenerateJobDescription={handleGenerateJobDescription}
+                    isGeneratingJobDescription={isGeneratingJobDescription}
+                    isLegacyJob={Boolean(isLegacyJob)}
                   />
-                )}
-              </form.Field>
+                  {isLegacyJob ? null : (
+                    <JobDescriptionEvaluationSection
+                      deductionRules={deductionRules}
+                      evaluationFrozen={evaluationFrozen}
+                      handleGeneratePreview={handleGeneratePreview}
+                      isGeneratingPreview={isGeneratingPreview}
+                      isSubmitting={isSubmitting}
+                      missingRefs={missingRefs}
+                      preview={preview}
+                      ruleDraft={ruleDraft}
+                      streamingRuleDraft={streamingRuleDraft}
+                    />
+                  )}
+                </div>
+              </FieldGroup>
+              {isLegacyJob ? null : (
+                <form.Field name="structuredConfig">
+                  {(field) => (
+                    <JobDescriptionStructuredFields
+                      config={field.state.value}
+                      disabled={evaluationFrozen}
+                      onChange={field.handleChange}
+                    />
+                  )}
+                </form.Field>
+              )}
             </TabsContent>
             {isEdit ? (
               <TabsContent value="interview-questions">
-                {/* oxlint-disable-next-line no-use-before-define */}
                 <LinkedInterviewQuestionTemplatesList
                   isLoading={isInterviewQuestionsLoading}
-                  jobDescriptionId={record?.id ?? ""}
+                  jobDescriptionId={currentRecord?.id ?? ""}
                   templates={linkedInterviewQuestions}
                 />
               </TabsContent>
             ) : null}
             {isEdit ? (
               <TabsContent value="forms">
-                {/* oxlint-disable-next-line no-use-before-define */}
                 <LinkedFormsList
                   isLoading={isFormsLoading}
-                  jobDescriptionId={record?.id ?? ""}
+                  jobDescriptionId={currentRecord?.id ?? ""}
                   templates={linkedForms}
                 />
               </TabsContent>
@@ -643,6 +410,16 @@ export function JobDescriptionFormDialog({
           </AnimatedHeight>
         </form>
       </Modal>
+      <JobDescriptionRegeneratePreviewModal
+        confirmGeneratePreview={confirmGeneratePreview}
+        open={regenerateConfirmationOpen}
+        setOpen={setRegenerateConfirmationOpen}
+      />
+      <JobDescriptionAiSupplementModal
+        applyGeneratedJobDescription={applyGeneratedJobDescription}
+        pending={pendingGeneratedJobDescription}
+        setPending={setPendingGeneratedJobDescription}
+      />
     </Tabs>
   );
 }

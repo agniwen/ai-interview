@@ -7,7 +7,7 @@ from dispatch_context import DispatchContextError, parse_dispatch_context
 
 def _payload(**overrides):
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "session": {
             "allowTextInput": True,
             "interviewRecordId": "record-1",
@@ -27,6 +27,15 @@ def _payload(**overrides):
             "opening": "你好郭靖",
             "closing": "再见郭靖",
         },
+        "questions": [
+            {
+                "id": "question-1",
+                "content": "请介绍一次故障排查经历。",
+                "difficulty": "medium",
+                "evaluationFocus": "确认候选人能够定位并复盘线上故障",
+                "followUpDirections": "追问定位信号、根因与预防措施",
+            }
+        ],
     }
     payload.update(overrides)
     return payload
@@ -35,36 +44,24 @@ def _payload(**overrides):
 def test_parses_versioned_dispatch_context_into_typed_fields():
     context = parse_dispatch_context(json.dumps(_payload(), ensure_ascii=False))
 
-    assert context.schema_version == 1
+    assert context.schema_version == 2
     assert context.session.interview_record_id == "record-1"
     assert context.candidate.name == "郭靖"
     assert context.recording.file_key == "recordings/room-1.mp4"
     assert context.selected_interviewer is not None
     assert context.selected_interviewer.voice == "voice-b"
     assert context.prompts.system == "最终系统提示词"
-
-
-def test_accepts_known_legacy_fields_during_backend_first_rollout():
-    payload = _payload(
-        allow_text_input=True,
-        candidate_name="郭靖",
-        interview_record_id="record-1",
-        interviewers=[{"name": "面试官乙", "voice": "voice-b"}],
-        round_id="round-1",
-    )
-
-    context = parse_dispatch_context(json.dumps(payload, ensure_ascii=False))
-
-    assert context.schema_version == 1
-    assert context.selected_interviewer is not None
-    assert context.selected_interviewer.name == "面试官乙"
+    assert context.questions[0].id == "question-1"
+    assert context.questions[0].evaluation_focus == "确认候选人能够定位并复盘线上故障"
+    assert context.questions[0].follow_up_directions == "追问定位信号、根因与预防措施"
 
 
 @pytest.mark.parametrize(
     "payload",
     [
         {"candidate_name": "旧格式"},
-        _payload(schemaVersion=2),
+        _payload(schemaVersion=1),
+        _payload(questions=[]),
         _payload(prompts={"system": "缺少开场和结束语"}),
         _payload(recording={"enabled": "yes", "fileKey": None}),
         _payload(unexpected=True),

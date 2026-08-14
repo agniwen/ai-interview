@@ -51,23 +51,34 @@ describe("runResumeReviewWorkflow", () => {
     mocks.generateScoring.mockResolvedValue(scoring);
     mocks.composeReview.mockReturnValue(composed);
 
+    const screeningResult = {
+      policyEmpty: false,
+      policyEnabled: true,
+      policyHash: "hash",
+      policyVersion: 1,
+      recommendation: "hold" as const,
+      ruleResults: [],
+    };
     const result = await runResumeReviewWorkflow({
       jobDescription: "岗位名称：前端工程师",
       resumeProfile: PROFILE,
+      screeningResult,
     });
 
     expect(result).toEqual(composed);
     expect(mocks.generateQualitativeReview).toHaveBeenCalledWith({
       jobDescription: "岗位名称：前端工程师",
       resumeProfile: PROFILE,
-      screeningResult: undefined,
+      screeningResult,
     });
     expect(mocks.generateScoring).toHaveBeenCalledWith({
       jobDescription: "岗位名称：前端工程师",
       qualitative,
       resumeProfile: PROFILE,
-      screeningResult: undefined,
+      screeningResult,
     });
-    expect(mocks.composeReview).toHaveBeenCalledWith(qualitative, scoring);
+    expect(mocks.composeReview).toHaveBeenCalledWith(qualitative, scoring, {
+      screeningResult,
+    });
   });
 });

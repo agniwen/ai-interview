@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   canLaunchInterviewFromResume,
   getResumeActionLockedReason,
@@ -19,7 +20,6 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 import { CandidateTimelineSkeleton } from "@/components/features/studio/candidate-timeline";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
@@ -29,7 +29,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
 type ResumeDetailPageSearchValue = boolean | number | string;
 type ResumeDetailPageSearch = Record<
@@ -108,7 +107,7 @@ function RecruiterResumeDetailSkeleton() {
             </div>
           </div>
         </header>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
           <div className="min-w-0 flex flex-col gap-8">
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -236,9 +235,6 @@ function RecruiterResumeDetailPage() {
   } | null>(null);
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
   const [interviewDetailDialogOpen, setInterviewDetailDialogOpen] = useState(false);
-  const [interviewDetailDefaultTab, setInterviewDetailDefaultTab] = useState<
-    "overview" | "reports"
-  >("overview");
   const detailQuery = useQuery({
     queryFn: () => fetchStudioResume(slug, recordId),
     queryKey: ["studio-resumes", slug, "detail", recordId, "authed"] as const,
@@ -341,11 +337,6 @@ function RecruiterResumeDetailPage() {
               : undefined
           }
           onUpdated={invalidateAll}
-          onViewRoundDetail={(roundId) => {
-            setInterviewDetailDefaultTab("reports");
-            setInterviewRoundDetailId(roundId);
-            setInterviewDetailDialogOpen(true);
-          }}
           recordId={recordId}
           shell={({ body, description, headerExtra, title }) => (
             <div className="flex min-w-0 flex-col gap-5">
@@ -365,13 +356,12 @@ function RecruiterResumeDetailPage() {
       </main>
 
       <StudioPersonDetailDialog
-        defaultTab={interviewDetailDefaultTab}
+        defaultTab="overview"
         mode="interview"
         onOpenChange={setInterviewDetailDialogOpen}
         onOpenChangeComplete={(open) => {
           if (!open && !interviewDetailDialogOpen) {
             setInterviewRoundDetailId(null);
-            setInterviewDetailDefaultTab("overview");
           }
         }}
         onUpdated={invalidateAll}
@@ -383,7 +373,6 @@ function RecruiterResumeDetailPage() {
         candidateName={launchingRecord?.candidateName ?? null}
         onLaunched={(round) => {
           invalidateAll();
-          setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
           setInterviewDetailDialogOpen(true);
         }}
@@ -408,28 +397,15 @@ function RecruiterResumeDetailPage() {
         open={editRecordId !== null}
         recordId={editRecordId}
       />
-
-      <StudioResumeFloatingChat />
     </>
   );
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
-  component: RecruiterResumeDetailPage,
-  head: () => ({
-    meta: [{ title: "候选人详情" }],
-  }),
-  loader: async (loaderContext) => {
-    const { params } = loaderContext as unknown as {
-      params: { recordId: string; slug: string };
-    };
-    const pathname = `/w/${params.slug}/studio/resumes/${params.recordId}`;
-    await requireStudioPageAccess({
-      action: "resumes",
-      pathname,
-      slug: params.slug,
-    });
-  },
-  pendingComponent: RecruiterResumeDetailSkeleton,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("候选人详情") }],
+  }),
+  component: RecruiterResumeDetailPage,
+  pendingComponent: RecruiterResumeDetailSkeleton,
 });

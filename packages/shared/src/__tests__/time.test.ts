@@ -7,8 +7,11 @@ import { describe, expect, it } from "vitest";
 import {
   diffSeconds,
   formatDate,
+  formatDateInAppTimeZone,
   formatDateOnly,
+  formatDefaultMeetingTitle,
   formatRelativeTime,
+  meetingDisplayTitle,
   toDate,
 } from "@arc/shared/utils/time";
 
@@ -75,6 +78,20 @@ describe("formatDateOnly", () => {
   it("formats date without time component", () => {
     const out = formatDateOnly("2026-04-27T15:30:00Z");
     expect(out).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
+  });
+});
+
+describe("formatDefaultMeetingTitle", () => {
+  it("stamps YYMMDDHHmm in Asia/Shanghai", () => {
+    // 04:00Z == 12:00 Asia/Shanghai on 2026-08-09
+    expect(formatDefaultMeetingTitle("2026-08-09T04:00:00.000Z")).toBe("录制记录-2608091200");
+    expect(formatDateInAppTimeZone("2026-08-09T04:00:00.000Z", "YYMMDDHHmm")).toBe("2608091200");
+  });
+
+  it("removes the generated timestamp suffix from display titles", () => {
+    expect(meetingDisplayTitle("录制记录-2608090400")).toBe("录制记录");
+    expect(meetingDisplayTitle("产品周会-2608090400")).toBe("产品周会");
+    expect(meetingDisplayTitle("自定义标题")).toBe("自定义标题");
   });
 });
 

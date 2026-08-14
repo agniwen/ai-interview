@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelBulkResumeBatch,
   createBulkResumeBatch,
@@ -56,6 +56,14 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
   const abortRef = useRef(false);
   const pollTokenRef = useRef(0);
   const lastInvalidateRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      abortRef.current = true;
+      pollTokenRef.current += 1;
+    },
+    [],
+  );
 
   const invalidateThrottled = useCallback(() => {
     const now = Date.now();

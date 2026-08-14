@@ -1,5 +1,5 @@
 // src/components/data-grid/columns/actions-column.tsx
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@arc/shared/utils";
+import type { DataGridFeatures } from "../table-features";
 
 export interface ActionInline<TData> {
   /** Visible button text and aria-label/title fallback. */
@@ -44,11 +46,18 @@ export interface ActionsColumnOptions<TData> {
   size?: number;
 }
 
-const ACTION_CELL_HORIZONTAL_PADDING = 32;
+/** TableCell `p-2.5` → 10px × 2. */
+const ACTION_CELL_HORIZONTAL_PADDING = 20;
+/** Button `px-2.5` → 10px × 2. */
 const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
+/** Menu trigger uses `pl-2.5 pr-0`. */
 const ACTION_MENU_TRIGGER_HORIZONTAL_PADDING = 10;
+/** Flex gap between action buttons (`gap-0.5`). */
 const ACTION_BUTTON_GAP = 2;
-const MIN_ACTION_COLUMN_SIZE = 72;
+/** Right-aligned final control uses no trailing button padding. */
+const ACTION_BUTTON_TRAILING_PADDING = 10;
+const MIN_ACTION_COLUMN_SIZE = 44;
+const HEADER_LABEL = "操作";
 
 function estimateActionLabelWidth(label: string) {
   let width = 0;
@@ -57,30 +66,57 @@ function estimateActionLabelWidth(label: string) {
       width += 4;
       continue;
     }
-    width += (char.codePointAt(0) ?? 0) <= 127 ? 7 : 13;
+    // text-xs (~12px): CJK ≈ 12px, Latin ≈ 7px.
+    width += (char.codePointAt(0) ?? 0) <= 127 ? 7 : 12;
   }
   return width;
 }
 
-export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
+/** Shared sizing helper for custom action cells and the standard actions column. */
+export function estimateActionsColumnSize(opts: {
+  inlineLabels?: string[];
+  hasMenu?: boolean;
+  headerLabel?: string;
+}): number {
+  const inlineLabels = opts.inlineLabels ?? [];
+  const hasMenu = opts.hasMenu ?? false;
+  const headerLabel = opts.headerLabel ?? HEADER_LABEL;
+  const actionCount = inlineLabels.length + (hasMenu ? 1 : 0);
+
+  let inlineWidth = 0;
+  for (const label of inlineLabels) {
+    inlineWidth += estimateActionLabelWidth(label) + ACTION_BUTTON_HORIZONTAL_PADDING;
+  }
+  const menuWidth = hasMenu
+    ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
+    : 0;
+  const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
+  const removedTrailingPadding =
+    inlineLabels.length > 0 && !hasMenu ? ACTION_BUTTON_TRAILING_PADDING : 0;
+  const contentWidth = Math.ceil(
+    inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING - removedTrailingPadding,
+  );
+  const headerWidth = Math.ceil(
+    estimateActionLabelWidth(headerLabel) + ACTION_CELL_HORIZONTAL_PADDING,
+  );
+
+  return Math.max(MIN_ACTION_COLUMN_SIZE, contentWidth, headerWidth);
+}
+
+export function actionsColumn<TData extends RowData>(
+  opts: ActionsColumnOptions<TData>,
+): ColumnDef<DataGridFeatures, TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
+  const headerLabel = opts.title ?? HEADER_LABEL;
   // Action buttons are text-only in tables; estimate enough width for labels.
   // 表格 action 按钮统一纯文字展示，列宽按 label 文本估算。
-  const actionCount = inlineButtons.length + (menuItems.length > 0 ? 1 : 0);
-  let inlineWidth = 0;
-  for (const action of inlineButtons) {
-    inlineWidth += estimateActionLabelWidth(action.label) + ACTION_BUTTON_HORIZONTAL_PADDING;
-  }
-  const menuWidth =
-    menuItems.length > 0
-      ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
-      : 0;
-  const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
-  const inferredSize = Math.max(
-    MIN_ACTION_COLUMN_SIZE,
-    Math.ceil(inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING),
-  );
+  const inferredSize = estimateActionsColumnSize({
+    hasMenu: menuItems.length > 0,
+    headerLabel,
+    inlineLabels: inlineButtons.map((action) => action.label),
+  });
+  const size = opts.size ?? inferredSize;
 
   return {
     cell: ({ row }) => {
@@ -90,19 +126,21 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
 
       return (
         <div className="flex items-center justify-end gap-0.5">
-          {visibleInline.map((action) => {
+          {visibleInline.map((action, index) => {
             const disabled = action.disabled?.(record) ?? false;
             const reason = disabled ? (action.disabledReason?.(record) ?? null) : null;
+            const isTrailingControl =
+              index === visibleInline.length - 1 && visibleMenu.length === 0;
             return (
               <Button
                 aria-label={action.label}
-                className="h-8 px-2.5 text-xs"
+                className={cn("h-8 px-2.5 text-xs", isTrailingControl && "pr-0")}
                 disabled={disabled}
                 key={action.label}
                 onClick={() => void action.onClick(record)}
                 size="sm"
                 title={reason ?? action.label}
-                variant="ghost"
+                variant="text"
               >
                 {action.label}
               </Button>
@@ -117,7 +155,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                     className="h-8 pl-2.5 pr-0 text-xs"
                     size="sm"
                     title="更多操作"
-                    variant="ghost"
+                    variant="text"
                   >
                     更多
                   </Button>
@@ -151,10 +189,12 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
         </div>
       );
     },
-    enableHiding: false,
     enableSorting: false,
-    header: () => <div className="text-right">{opts.title ?? "操作"}</div>,
+    header: () => <div className="text-right">{headerLabel}</div>,
     id: opts.id ?? "actions",
-    size: opts.size ?? inferredSize,
+    // Lock width so the last action column stays content-sized instead of absorbing leftover table width.
+    maxSize: size,
+    minSize: size,
+    size,
   };
 }

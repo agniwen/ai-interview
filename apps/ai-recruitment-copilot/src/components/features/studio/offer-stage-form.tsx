@@ -14,6 +14,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { OfferDraftInput } from "@arc/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
+import { DatePicker } from "@/components/date-time-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -177,10 +178,9 @@ export function OfferDraftFormFields({
         <Label className="text-sm" htmlFor={`${idPrefix}-joining`}>
           预计入职日（可选）
         </Label>
-        <Input
+        <DatePicker
           id={`${idPrefix}-joining`}
-          onChange={(e) => onFieldChange("joiningDate", e.target.value)}
-          type="date"
+          onValueChange={(value) => onFieldChange("joiningDate", value)}
           value={form.joiningDate}
         />
       </div>
@@ -188,10 +188,9 @@ export function OfferDraftFormFields({
         <Label className="text-sm" htmlFor={`${idPrefix}-expires`}>
           Offer 有效期至（可选）
         </Label>
-        <Input
+        <DatePicker
           id={`${idPrefix}-expires`}
-          onChange={(e) => onFieldChange("expiresAt", e.target.value)}
-          type="date"
+          onValueChange={(value) => onFieldChange("expiresAt", value)}
           value={form.expiresAt}
         />
       </div>

@@ -1,5 +1,4 @@
 "use client";
-
 import { IconBriefcase2, IconInfinity } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- registry component keeps public component exports above local helpers. */
 
@@ -7,11 +6,11 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
-import type { ComponentProps } from "react";
 import { useCallback, useRef } from "react";
-import ReactMarkdown from "react-markdown";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import type { ChevronsUpDownIconHandle } from "@/components/icons/chevrons-up-down-icon";
 import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@arc/shared/utils";
@@ -69,7 +68,7 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
   return (
     <div
       className={cn(
-        "relative bg-background px-4 text-foreground",
+        "relative  px-4 text-foreground",
         experiences.length > 1 &&
           "before:absolute before:top-7 before:bottom-7 before:left-7 before:w-px before:bg-border",
         className,
@@ -86,7 +85,7 @@ export interface ExperienceItemProps {
   experience: ExperienceItemType;
 }
 
-export function ExperienceItem({ experience }: ExperienceItemProps) {
+function ExperienceItem({ experience }: ExperienceItemProps) {
   return (
     <div className="relative flex flex-col gap-4 py-4">
       <div className="not-prose flex items-center gap-3">
@@ -131,7 +130,6 @@ export function ExperienceItem({ experience }: ExperienceItemProps) {
           </span>
         )}
       </div>
-
       <div className="relative flex flex-col gap-4 before:absolute before:left-3 before:h-full before:w-px before:bg-border">
         {experience.positions.map((position) => (
           <ExperiencePositionItem key={position.id} position={position} />
@@ -145,7 +143,7 @@ export interface ExperiencePositionItemProps {
   position: ExperiencePositionItemType;
 }
 
-export function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
+function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
   const chevronsUpDownIconRef = useRef<ChevronsUpDownIconHandle>(null);
 
   const handleOpenChange = useCallback((open: boolean) => {
@@ -242,9 +240,10 @@ export function ExperiencePositionItem({ position }: ExperiencePositionItemProps
 
       <CollapsibleContent className="overflow-hidden">
         {position.description && (
-          <Prose className="pt-2 pl-9">
-            <ReactMarkdown>{position.description}</ReactMarkdown>
-          </Prose>
+          <MarkdownView
+            className="pt-2 pl-9 text-muted-foreground [&_a]:text-foreground [&_strong]:text-foreground"
+            content={position.description}
+          />
         )}
       </CollapsibleContent>
 
@@ -252,45 +251,12 @@ export function ExperiencePositionItem({ position }: ExperiencePositionItemProps
         <ul className="not-prose flex flex-wrap gap-1.5 pt-3 pl-9">
           {position.skills.map((skill, index) => (
             <li className="flex" key={`${position.id}-skill-${index}`}>
-              <Skill>{skill}</Skill>
+              <Badge variant="outline">{skill}</Badge>
             </li>
           ))}
         </ul>
       )}
     </Collapsible>
-  );
-}
-
-function Prose({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      className={cn(
-        "max-w-none text-muted-foreground text-sm",
-        "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        "[&_p]:my-2 [&_p]:leading-relaxed",
-        "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-        "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
-        "[&_li]:my-1 [&_li]:pl-1",
-        "[&_a]:wrap-break-word [&_a]:text-foreground [&_a]:underline [&_a]:decoration-current/30 [&_a]:underline-offset-3",
-        "[&_code]:rounded-md [&_code]:border [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-px [&_code]:font-normal [&_code]:text-sm",
-        "[&_strong]:font-medium [&_strong]:text-foreground",
-        "[&_blockquote]:my-2 [&_blockquote]:border-l [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function Skill({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md border bg-muted/50 px-1.5 py-0.5 font-mono text-muted-foreground text-xs",
-        className,
-      )}
-      {...props}
-    />
   );
 }
 

@@ -1,4 +1,5 @@
 import type { statement } from "@arc/shared/permissions";
+import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
 
 export type ActiveOrganizationState =
   | { status: "unauthenticated" }
@@ -13,13 +14,6 @@ export type ActiveOrganizationState =
         slug: string;
       };
     };
-
-export type StudioPageAccessState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | (Extract<WorkspaceAccessState, { status: "ready" }> & {
-      allowed: boolean;
-    });
 
 export type StudioPagePermissionAction = (typeof statement)["page"][number];
 
@@ -66,6 +60,8 @@ export type WorkspaceAccessState =
       member: {
         role: string;
       };
+      /** Effective permission matrix for this user in this workspace (computed once). */
+      permissions: WorkspacePermissionStatements;
       status: "ready";
       user: {
         id: string;

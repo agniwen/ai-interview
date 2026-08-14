@@ -30,9 +30,11 @@ import {
   loadCandidateInterviewRecord,
   loadScheduleEntriesForRedirect,
 } from "./utils";
+import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
 
 export const interviewRouter = factory
   .createApp()
+  .route("/", candidateInterviewFeedbackRouter)
   // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
   .post("/:id/:roundId/livekit-token", async (c) => {
     const id = c.req.param("id");
@@ -54,6 +56,15 @@ export const interviewRouter = factory
     const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
     if (!contextSnapshot) {
       return c.json({ error: "Interview not available." }, 404);
+    }
+    if (interviewRecord.jobDescriptionPresetQuestions.length === 0) {
+      return c.json(
+        {
+          code: "questions_required",
+          error: "当前面试轮次未绑定必问题目，请联系招聘方完成配置。",
+        },
+        409,
+      );
     }
     const requiredTemplateIds = contextSnapshot.payload.forms.map((form) => form.templateId);
     if (requiredTemplateIds.length > 0) {

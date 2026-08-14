@@ -68,7 +68,10 @@ export function useEntityForm<TValues>({
   // the inline arrow passed by callers is fresh per render and would otherwise
   // re-fire reset every commit.
   const buildValuesRef = useRef(buildValues);
-  buildValuesRef.current = buildValues;
+
+  useEffect(() => {
+    buildValuesRef.current = buildValues;
+  }, [buildValues]);
 
   useEffect(() => {
     if (open) {

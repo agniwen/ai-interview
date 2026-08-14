@@ -1,15 +1,12 @@
 "use client";
 
-import {
-  IconAlertTriangle,
-  IconMessage2,
-  IconMicrophone,
-  IconMicrophoneOff,
-  IconUserCheck,
-  IconVideo,
-  IconVolume2,
-} from "@tabler/icons-react";
+import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
+import type {
+  CandidateInterviewFeedback,
+  CandidateInterviewFeedbackInput,
+} from "@arc/db-schema/studio-interviews";
+import { cn } from "@arc/shared/utils";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
@@ -31,11 +28,18 @@ import {
 } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
+import { runAsyncAction } from "@/lib/client/async-control";
+import { ApiError, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewTimer } from "./interview-timer";
+import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
+import { InterviewRules } from "./interview-rules";
+import { startInterviewSession } from "./interview-session-start";
 import { DevicePreflightCard } from "./interview-device-preflight";
-import { RuleItem } from "./interview-rule-item";
-import { PreInterviewFormsView } from "./pre-interview-forms-view";
+import { fetchPreInterviewForms } from "./pre-interview-forms-view";
+import type { FormsPayload } from "./pre-interview-forms/types";
+import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
 
 function AgentSpeechTimer() {
   const { state } = useAgent();
@@ -105,7 +109,7 @@ function buildSubheading({
   }
   const prefix = parts.join(" · ");
   const countText = questionCount > 0 ? `共 ${questionCount} 题，` : "";
-  const trailing = "预计 20 分钟内完成。";
+  const trailing = "预计 30 分钟内完成。";
   return prefix ? `${prefix} · ${countText}${trailing}` : `${countText}${trailing}`;
 }
 
@@ -167,35 +171,7 @@ function InterviewNoticeDialog({
           <DialogTitle>面试注意事项</DialogTitle>
           <DialogDescription>开始后请按以下规则完成本轮 AI 面试。</DialogDescription>
         </DialogHeader>
-        <ul className="divide-y divide-border/60 border-border border-y">
-          <RuleItem
-            description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
-            icon={IconVolume2}
-            title="保持安静的环境"
-          />
-          <RuleItem
-            description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
-            icon={IconMessage2}
-            title="一次只答一题"
-          />
-          <RuleItem
-            description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
-            icon={IconUserCheck}
-            title="认真作答"
-          />
-          {recordingEnabled ? (
-            <RuleItem
-              description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
-              icon={IconVideo}
-              title="保持摄像头录制"
-            />
-          ) : null}
-          <RuleItem
-            description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
-            icon={IconAlertTriangle}
-            title="保持稳定连接"
-          />
-        </ul>
+        <InterviewRules className="border-border border-y" recordingEnabled={recordingEnabled} />
         <div className="flex items-center gap-2 text-sm">
           <Checkbox
             id={acknowledgementId}
@@ -222,14 +198,18 @@ function InterviewNoticeDialog({
 }
 
 function WaitingView({
+  hasForms,
   interviewView,
   isConnecting,
   isLoadingStatus,
   isRoundCompleted,
   isRecovering,
+  onBack,
   onStart,
+  onSubmitFeedback,
   recordingEnabled,
 }: {
+  hasForms: boolean;
   interviewView: CandidateInterviewView | null;
   isConnecting: boolean;
   isLoadingStatus: boolean;
@@ -237,7 +217,9 @@ function WaitingView({
   // 重连恢复中：跳过 RuleItem 与开始按钮，仅展示「正在恢复连接」骨架。
   // Recovery mode: hide rules + start buttons, show only a "reconnecting" hint.
   isRecovering: boolean;
+  onBack?: () => void;
   onStart: (options?: { muted?: boolean }) => void;
+  onSubmitFeedback: (input: CandidateInterviewFeedbackInput) => Promise<void>;
   recordingEnabled: boolean;
 }) {
   const candidateName = interviewView?.candidateName ?? "";
@@ -285,13 +267,26 @@ function WaitingView({
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
+      />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <main className="relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center">
-        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
+      <main
+        className={cn(
+          "relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center md:pb-40",
+          !isRoundCompleted && "pb-40",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 sm:px-2 sm:pt-20 md:pt-16",
+            isRoundCompleted && "min-h-dvh pb-6 md:min-h-0 md:pb-0",
+          )}
+        >
           <section>
             <h1 className="text-2xl tracking-tight sm:text-3xl">
               {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
@@ -300,56 +295,46 @@ function WaitingView({
           </section>
 
           {showPreparation ? <DevicePreflightCard recordingEnabled={recordingEnabled} /> : null}
-
-          {showPreparation && (
-            <div className="mt-10 hidden items-center gap-3 sm:mt-12 md:flex">
-              <Button
-                className="h-11 flex-1 gap-2"
-                disabled={startDisabled}
-                onClick={() => openNotice({ muted: true })}
-                size="lg"
-                variant="outline"
-              >
-                <IconMicrophoneOff className="size-4" />
-                {mutedLabel}
-              </Button>
-              <Button
-                className="h-11 flex-[2] gap-2"
-                disabled={startDisabled}
-                onClick={() => openNotice()}
-                size="lg"
-              >
-                <IconMicrophone className="size-4" />
-                {primaryLabel}
-              </Button>
+          {isRoundCompleted ? (
+            <div className="mt-auto pt-8 md:mt-8 md:pt-0">
+              <CandidateInterviewFeedbackPanel
+                feedback={interviewView?.currentRoundFeedback ?? null}
+                onSubmit={onSubmitFeedback}
+              />
             </div>
-          )}
+          ) : null}
         </div>
-
-        {showPreparation && (
-          <div className="fixed inset-x-0 bottom-0 z-10 border-border border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-            <div className="mx-auto flex w-full max-w-md items-center gap-3">
+      </main>
+      {showPreparation ? (
+        <InterviewFlowFloatingBar
+          actions={
+            <>
               <Button
-                className="h-11 flex-1 gap-2"
+                className="flex-1 gap-2 md:min-w-28 md:flex-none"
                 disabled={startDisabled}
                 onClick={() => openNotice({ muted: true })}
+                size="sm"
                 variant="outline"
               >
                 <IconMicrophoneOff className="size-4" />
                 {mutedLabel}
               </Button>
               <Button
-                className="h-11 flex-[2] gap-2"
+                className="flex-1 gap-2 md:min-w-32 md:flex-none"
                 disabled={startDisabled}
                 onClick={() => openNotice()}
+                size="sm"
               >
                 <IconMicrophone className="size-4" />
                 {primaryLabel}
               </Button>
-            </div>
-          </div>
-        )}
-      </main>
+            </>
+          }
+          currentStep="interview"
+          hasForms={hasForms}
+          onBack={onBack}
+        />
+      ) : null}
       <InterviewNoticeDialog
         acknowledged={acknowledged}
         isConnecting={isConnecting}
@@ -373,54 +358,50 @@ function WaitingView({
 export default function InterviewRoom({ interviewId, roundId }: InterviewRoomProps) {
   const interviewRecordingEnabled = env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING;
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
+  const [formsPayload, setFormsPayload] = useState<FormsPayload | null>(null);
+  const [entryLoadError, setEntryLoadError] = useState<string | null>(null);
+  const [preparationConfirmed, setPreparationConfirmed] = useState(false);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-  // 镜像 isLoadingStatus 给 TokenSource 闭包用：useSession() 在 mount 时会自动
+  // isLoadingStatus 会随 TokenSource 闭包更新：useSession() 在 mount 时会自动
   // 调一次 prepareConnection 预热，连带触发 token 接口。如果在 fetchStatus 完成
   // 前就让 TokenSource 签 token，会命中 token 接口的 pending 分支把 status 翻
   // 成 in_progress + mint anchor — 之后 fetchStatus 看到 in_progress 会以为是
   // 刚才残留的 in_progress 并自动续连，让用户首次进入跳过了 RuleItem。
   // 这里 gate 住第一次 prepareConnection，让它失败被框架吞掉；之后用户点
   // "开始"或自动续连真正调 session.start 时再签。
-  // Mirror isLoadingStatus into a ref the TokenSource closure can read so the
-  // mount-time prepareConnection is gated until fetchStatus settles, avoiding
-  // the race where pending → in_progress flips before status is read.
-  const isLoadingStatusRef = useRef(true);
-  useEffect(() => {
-    isLoadingStatusRef.current = isLoadingStatus;
-  }, [isLoadingStatus]);
+  // Keep isLoadingStatus in the TokenSource closure so mount-time
+  // prepareConnection stays gated until fetchStatus settles, avoiding the
+  // race where pending → in_progress flips before status is read.
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchStatus() {
-      try {
-        const res = await rpc.api.interview[":id"][":roundId"].$get({
-          param: { id: interviewId, roundId },
-        });
-        if (!res.ok) {
-          return;
+  const loadEntryData = useCallback(async () => {
+    setIsLoadingStatus(true);
+    setEntryLoadError(null);
+    await runAsyncAction({
+      cleanup: () => setIsLoadingStatus(false),
+      onError: (error) =>
+        setEntryLoadError(error instanceof Error ? error.message : "加载面试信息失败"),
+      operation: async () => {
+        const [response, nextFormsPayload] = await Promise.all([
+          rpc.api.interview[":id"][":roundId"].$get({
+            param: { id: interviewId, roundId },
+          }),
+          fetchPreInterviewForms(interviewId, roundId),
+        ]);
+        if (!response.ok) {
+          throw new Error("面试信息不存在或已失效，请联系招聘负责人。");
         }
-        const data = (await res.json()) as CandidateInterviewView;
-        if (!cancelled) {
-          setInterviewView(data);
-          setRoundStatus(data.currentRoundStatus);
-        }
-      } catch {
-        // ignore — will fall through to default state
-      } finally {
-        if (!cancelled) {
-          setIsLoadingStatus(false);
-        }
-      }
-    }
-
-    void fetchStatus();
-    // eslint-disable-next-line style/max-statements-per-line
-    return () => {
-      cancelled = true;
-    };
+        const data = (await response.json()) as CandidateInterviewView;
+        setInterviewView(data);
+        setFormsPayload(nextFormsPayload);
+        setRoundStatus(data.currentRoundStatus);
+      },
+    });
   }, [interviewId, roundId]);
+
+  useEffect(() => {
+    void loadEntryData();
+  }, [loadEntryData]);
 
   // 服务端综合 status + anchor + 宽限期算出。覆盖两个场景：
   // - status=interrupted + 仍在 3 分钟宽限内（标准热重连）；
@@ -451,7 +432,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         // 再签 token。否则会让 pending 轮次过早被改成 in_progress 并自动续连。
         // Block useSession's mount-time prepareConnection until fetchStatus
         // settles; otherwise it preemptively flips pending → in_progress.
-        if (isLoadingStatusRef.current) {
+        if (isLoadingStatus) {
           throw new Error("interview status not loaded yet");
         }
         const response = await rpc.api.interview[":id"][":roundId"]["livekit-token"].$post({
@@ -482,7 +463,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           serverUrl: string;
         };
       }),
-    [interviewId, roundId],
+    [interviewId, isLoadingStatus, roundId],
   );
 
   const session = useSession(tokenSource, { agentName: env.NEXT_PUBLIC_AGENT_NAME });
@@ -585,41 +566,16 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // 失败后会被 reset，让用户能手动点继续。
   // Latched so the auto-rejoin fires once per page load; reset on failure to
   // allow the user to retry manually.
-  const autoRejoinTriggeredRef = useRef(false);
+  const [autoRejoinTriggered, setAutoRejoinTriggered] = useState(false);
 
   const handleStart = useCallback(
     async (options?: { muted?: boolean }) => {
       setStartedMuted(!!options?.muted);
       try {
-        await session.start({
-          tracks: {
-            // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；
-            // 浏览器拒绝权限时 LiveKit 会自动跳过该 track，不影响音频通话。
-            // Enable camera by default so server-side RoomCompositeEgress captures
-            // video; if the browser denies permission, LiveKit silently skips it.
-            camera: {
-              enabled: interviewRecordingEnabled,
-            },
-            microphone: {
-              enabled: !options?.muted,
-              publishOptions: {
-                // @ts-expect-error ignore
-                audioCaptureOptions: {
-                  autoGainControl: true,
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                },
-                // 让浏览器在 room.connect 完成前就开始采集麦克风，连上后通过
-                // lk.agent.pre-connect-audio-buffer byte stream 把这段音频喂给
-                // agent，避免候选人点"开始"后立刻说话的第一句被吃掉。
-                // Capture mic audio before the room connects; LiveKit replays the
-                // buffer to the agent on the lk.agent.pre-connect-audio-buffer
-                // byte stream so a candidate's first words aren't lost in the
-                // ~1-2s connection window.
-                preConnectBuffer: true,
-              },
-            },
-          },
+        await startInterviewSession({
+          recordingEnabled: interviewRecordingEnabled,
+          session,
+          startMuted: !!options?.muted,
         });
       } catch (error) {
         // session.start 内部把 getUserMedia(摄像头/麦克风) 和 room.connect 一起跑.
@@ -651,7 +607,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         // Common causes: media-device permission denied, token endpoint
         // returned 403/410, network failure. Clear the latch so the WaitingView
         // exits "recovering" state and shows the retry button.
-        autoRejoinTriggeredRef.current = false;
+        setAutoRejoinTriggered(false);
         const message = error instanceof Error ? error.message : "连接失败，请重试";
         // eslint-disable-next-line no-console
         console.error("[interview] session.start failed:", error);
@@ -675,13 +631,20 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       !isRoundCompleted &&
       !agentEndedRef.current &&
       isRecoverable &&
-      !autoRejoinTriggeredRef.current &&
+      !autoRejoinTriggered &&
       session.connectionState === ConnectionState.Disconnected
     ) {
-      autoRejoinTriggeredRef.current = true;
+      setAutoRejoinTriggered(true);
       void handleStart();
     }
-  }, [isLoadingStatus, isRoundCompleted, isRecoverable, session.connectionState, handleStart]);
+  }, [
+    autoRejoinTriggered,
+    handleStart,
+    isLoadingStatus,
+    isRecoverable,
+    isRoundCompleted,
+    session.connectionState,
+  ]);
 
   // 用户主动结束面试：先把轮次标 final 落库，再断开 LiveKit。
   // 立刻同步置 roundStatus=completed 与 autoRejoinTriggeredRef=true，
@@ -696,7 +659,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const handleEndInterview = useCallback(async () => {
     userEndedRef.current = true;
     setRoundStatus("completed");
-    autoRejoinTriggeredRef.current = true;
+    setAutoRejoinTriggered(true);
     try {
       await rpc.api.interview[":id"][":roundId"].complete.$post(
         { param: { id: interviewId, roundId }, query: { mode: "final" } },
@@ -713,33 +676,63 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
   // Force false when the round is completed; otherwise the deliberate-end flow
   // can render a contradictory "recovering / ended" frame for a tick.
-  const isRecovering =
-    !isRoundCompleted && isRecoverable && (isConnecting || autoRejoinTriggeredRef.current);
+  const isRecovering = !isRoundCompleted && isRecoverable && (isConnecting || autoRejoinTriggered);
+
+  const handleSubmitFeedback = useCallback(
+    async (input: CandidateInterviewFeedbackInput) => {
+      try {
+        const { feedback } = await rpcFetch<{ feedback: CandidateInterviewFeedback }>(
+          rpc.api.interview[":id"][":roundId"].feedback.$post({
+            json: input,
+            param: { id: interviewId, roundId },
+          }),
+          "提交反馈失败，请重试。",
+        );
+        setInterviewView((current) =>
+          current ? { ...current, currentRoundFeedback: feedback } : current,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          void loadEntryData();
+        }
+        throw error;
+      }
+    },
+    [interviewId, loadEntryData, roundId],
+  );
 
   if (isDisconnected || isConnecting) {
+    const hasForms = (formsPayload?.required.length ?? 0) > 0;
     const waitingView = (
       <WaitingView
+        hasForms={hasForms}
         interviewView={interviewView}
         isConnecting={isConnecting}
         isLoadingStatus={isLoadingStatus}
         isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
+        onBack={hasForms ? undefined : () => setPreparationConfirmed(false)}
         onStart={handleStart}
+        onSubmitFeedback={handleSubmitFeedback}
         recordingEnabled={interviewRecordingEnabled}
       />
     );
-    // 已结束或正在重连：跳过 PreInterviewFormsView 这层。
-    // 已结束不需要再填表单；重连时表单一般已交完，包一层只会多一次 forms
-    // GET 请求且如果管理员中途新增了全局表单还会卡住"恢复中"提示。
-    // Skip the forms gate when round is finished or in mid-reconnect; otherwise
-    // the wrapper wastes a /forms fetch and could hide the recovery hint.
-    if (isRoundCompleted || isRecovering) {
-      return waitingView;
-    }
     return (
-      <PreInterviewFormsView interviewId={interviewId} roundId={roundId}>
-        {waitingView}
-      </PreInterviewFormsView>
+      <InterviewPreSessionFlow
+        entryLoadError={entryLoadError}
+        formsPayload={formsPayload}
+        interviewId={interviewId}
+        interviewView={interviewView}
+        isLoading={isLoadingStatus}
+        isRecovering={isRecovering}
+        isRoundCompleted={isRoundCompleted}
+        onPreparationBack={() => setPreparationConfirmed(false)}
+        onPreparationConfirmed={() => setPreparationConfirmed(true)}
+        onRetry={() => void loadEntryData()}
+        preparationConfirmed={preparationConfirmed}
+        roundId={roundId}
+        waitingView={waitingView}
+      />
     );
   }
 

@@ -1,8 +1,14 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
+import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
 
-const SNAPSHOT_LIMIT = 3;
+/** Library list cards keep the original 3-row cap for work/education. */
+const LIBRARY_SNAPSHOT_LIMIT = 3;
+/** Duplicate-match cards: recent 3 companies, 2 education rows, 3 projects. */
+const DEDUP_WORK_LIMIT = 3;
+const DEDUP_EDUCATION_LIMIT = 2;
+const DEDUP_PROJECT_LIMIT = 3;
 const PROFILE_PLACEHOLDER = "未发现信息";
 
 export interface ResumeProfileSnapshotSource {
@@ -12,6 +18,7 @@ export interface ResumeProfileSnapshotSource {
   resumeEducationMajor: string | null;
   resumeEducationPeriod: string | null;
   resumeEducationSchool: string | null;
+  resumeProjectExperiences: unknown;
   resumeSchool: string | null;
   resumeWorkCompany: string | null;
   resumeWorkExperiences: unknown;
@@ -66,8 +73,10 @@ function recordText(record: Record<string, unknown>, key: string) {
 
 type WorkExperience = ResumeProfile["workExperiences"][number];
 type EducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
+type ProjectExperience = ResumeProfile["projectExperiences"][number];
+type SnapshotLine = ResumeLibraryProfileSnapshot["work"][number];
 
-function buildWorkLines(value: unknown): ResumeLibraryProfileSnapshot["work"] {
+function buildWorkLines(value: unknown): SnapshotLine[] {
   return toRecords(value).flatMap((item: Partial<WorkExperience> & Record<string, unknown>) => {
     const company = recordText(item, "company");
     const role = recordText(item, "role");
@@ -84,7 +93,7 @@ function buildWorkLines(value: unknown): ResumeLibraryProfileSnapshot["work"] {
   });
 }
 
-function buildEducationLines(value: unknown): ResumeLibraryProfileSnapshot["education"] {
+function buildEducationLines(value: unknown): SnapshotLine[] {
   return toRecords(value).flatMap(
     (item: Partial<EducationExperience> & Record<string, unknown>) => {
       const school = recordText(item, "school");
@@ -105,7 +114,23 @@ function buildEducationLines(value: unknown): ResumeLibraryProfileSnapshot["educ
   );
 }
 
-function legacyWork(row: ResumeProfileSnapshotSource): ResumeLibraryProfileSnapshot["work"] {
+function buildProjectLines(value: unknown): SnapshotLine[] {
+  return toRecords(value).flatMap((item: Partial<ProjectExperience> & Record<string, unknown>) => {
+    const name = recordText(item, "name");
+    if (!name) {
+      return [];
+    }
+    return [
+      {
+        period: formatPeriod(recordText(item, "period")),
+        primary: name,
+        secondary: recordText(item, "role"),
+      },
+    ];
+  });
+}
+
+function legacyWork(row: ResumeProfileSnapshotSource): SnapshotLine[] {
   const primary = cleanText(row.resumeWorkCompany) ?? cleanText(row.resumeWorkRole);
   return primary
     ? [
@@ -118,9 +143,7 @@ function legacyWork(row: ResumeProfileSnapshotSource): ResumeLibraryProfileSnaps
     : [];
 }
 
-function legacyEducation(
-  row: ResumeProfileSnapshotSource,
-): ResumeLibraryProfileSnapshot["education"] {
+function legacyEducation(row: ResumeProfileSnapshotSource): SnapshotLine[] {
   const school = cleanText(row.resumeEducationSchool) ?? cleanText(row.resumeSchool);
   return school
     ? [
@@ -153,7 +176,7 @@ function dateRank(value: string): number | null {
   return years.at(-1) ?? null;
 }
 
-function sortValue(line: ResumeLibraryProfileSnapshot["work"][number]) {
+function sortValue(line: SnapshotLine) {
   if (!line.period) {
     return Number.NEGATIVE_INFINITY;
   }
@@ -163,21 +186,83 @@ function sortValue(line: ResumeLibraryProfileSnapshot["work"][number]) {
   return dateRank(line.period) ?? Number.NEGATIVE_INFINITY;
 }
 
+function sortRecentFirst(lines: SnapshotLine[]) {
+  return lines.toSorted((a, b) => sortValue(b) - sortValue(a));
+}
+
+function takeSnapshotLines(
+  lines: SnapshotLine[],
+  limit: number,
+): { items: SnapshotLine[]; hasMore: boolean } {
+  return {
+    hasMore: lines.length > limit,
+    items: lines.slice(0, limit),
+  };
+}
+
+function assembleSnapshot(
+  input: {
+    education: SnapshotLine[];
+    projects: SnapshotLine[];
+    work: SnapshotLine[];
+  },
+  limits: { education: number; projects: number; work: number },
+): ResumeLibraryProfileSnapshot {
+  const work = takeSnapshotLines(sortRecentFirst(input.work), limits.work);
+  const education = takeSnapshotLines(sortRecentFirst(input.education), limits.education);
+  const projects = takeSnapshotLines(sortRecentFirst(input.projects), limits.projects);
+  return {
+    education: education.items,
+    educationHasMore: education.hasMore,
+    projects: projects.items,
+    projectsHasMore: projects.hasMore,
+    work: work.items,
+    workHasMore: work.hasMore,
+  };
+}
+
+/** Snapshot for duplicate-match cards (3 companies / 2 education / 3 projects). */
+export function buildResumeProfileSnapshotFromProfile(
+  profile: ResumeProfile | null | undefined,
+): ResumeLibraryProfileSnapshot {
+  if (!profile) {
+    return EMPTY_RESUME_PROFILE_SNAPSHOT;
+  }
+  return assembleSnapshot(
+    {
+      education: buildEducationLines(profile.educationExperiences ?? []),
+      projects: buildProjectLines(profile.projectExperiences),
+      work: buildWorkLines(profile.workExperiences),
+    },
+    {
+      education: DEDUP_EDUCATION_LIMIT,
+      projects: DEDUP_PROJECT_LIMIT,
+      work: DEDUP_WORK_LIMIT,
+    },
+  );
+}
+
+/**
+ * Snapshot for resume-library list cards.
+ * Keeps the compact list projection while making recent projects available to
+ * the duplicate-match dialog.
+ */
 export function buildResumeProfileSnapshot(
   row: ResumeProfileSnapshotSource,
 ): ResumeLibraryProfileSnapshot {
-  const work = buildWorkLines(row.resumeWorkExperiences).toSorted(
-    (a, b) => sortValue(b) - sortValue(a),
+  const work = buildWorkLines(row.resumeWorkExperiences);
+  const education = buildEducationLines(row.resumeEducationExperiences);
+  const projects = buildProjectLines(row.resumeProjectExperiences);
+  return assembleSnapshot(
+    {
+      education: education.length > 0 ? education : legacyEducation(row),
+      projects,
+      work: work.length > 0 ? work : legacyWork(row),
+    },
+    {
+      education: LIBRARY_SNAPSHOT_LIMIT,
+      projects: DEDUP_PROJECT_LIMIT,
+      work: LIBRARY_SNAPSHOT_LIMIT,
+    },
   );
-  const education = buildEducationLines(row.resumeEducationExperiences).toSorted(
-    (a, b) => sortValue(b) - sortValue(a),
-  );
-  const resolvedWork = work.length > 0 ? work : legacyWork(row);
-  const resolvedEducation = education.length > 0 ? education : legacyEducation(row);
-  return {
-    education: resolvedEducation.slice(0, SNAPSHOT_LIMIT),
-    educationHasMore: resolvedEducation.length > SNAPSHOT_LIMIT,
-    work: resolvedWork.slice(0, SNAPSHOT_LIMIT),
-    workHasMore: resolvedWork.length > SNAPSHOT_LIMIT,
-  };
 }

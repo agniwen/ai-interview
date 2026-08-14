@@ -1,0 +1,79 @@
+import type { AutoFormFieldProps } from "@autoform/react";
+import { Button } from "@mastra/playground-ui/components/Button";
+import { DatePicker } from "@mastra/playground-ui/components/DateTimePicker";
+import { Popover, PopoverContent, PopoverTrigger } from "@mastra/playground-ui/components/Popover";
+import { cn } from "@mastra/playground-ui/utils/cn";
+import { format, isValid } from "date-fns";
+import { zhCN } from "date-fns/locale";
+import { CalendarIcon } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+export const DateField: React.FC<AutoFormFieldProps> = ({ inputProps, field, error, id }) => {
+  const { key: _key, ...props } = inputProps;
+  const [value, setValue] = useState<Date | undefined>();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (field.default) {
+      const date = new Date(field.default);
+      if (isValid(date)) {
+        setValue(date);
+      }
+    }
+  }, [field]);
+
+  const handleSelect = (date: Date | undefined) => {
+    setValue(date);
+    if (date) {
+      props.onChange({
+        target: { name: inputProps.name, value: date.toISOString() },
+      });
+    }
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setValue(undefined);
+    props.onChange({
+      target: { name: inputProps.name, value: "" },
+    });
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          variant="default"
+          size="lg"
+          className={cn("w-full", error ? "border-accent2" : "")}
+        >
+          <CalendarIcon className="h-4 w-4" />
+          {value ? (
+            <span className="text-white">{format(value, "PPP", { locale: zhCN })}</span>
+          ) : (
+            <span className="text-gray">选择日期</span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 bg-surface4" align="start">
+        <DatePicker
+          locale={zhCN}
+          mode="single"
+          selected={value}
+          onSelect={handleSelect}
+          month={value}
+          onMonthChange={setValue}
+        />
+        {value && (
+          <div className="p-3 pt-0">
+            <Button variant="default" size="lg" className="w-full" onClick={handleClear}>
+              清除
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};

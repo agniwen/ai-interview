@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateWorkspaceDialog } from "@/components/features/workspace/create-workspace-dialog";
+import { withCleanup } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
 
@@ -87,13 +88,12 @@ export function WorkspaceSwitcher() {
                     return;
                   }
                   setSwitching(true);
-                  void (async () => {
-                    try {
-                      await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
-                    } finally {
+                  void withCleanup(
+                    () => navigate({ href: resolveSwitchTarget(pathname, o.slug) }),
+                    () => {
                       setSwitching(false);
-                    }
-                  })();
+                    },
+                  );
                 }}
               >
                 <span className="truncate">{o.name}</span>

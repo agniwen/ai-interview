@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  extractResumeDocumentText: vi.fn(),
   generateResumeStructured: vi.fn(),
+  parseResumeDocument: vi.fn(),
   sha256HexOfBytes: vi.fn(),
 }));
 
@@ -11,8 +11,8 @@ vi.mock("@arc/shared/file-hash", () => ({
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
+  parseResumeDocument: mocks.parseResumeDocument,
 }));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
@@ -49,16 +49,50 @@ const STRUCTURED_RESUME = {
 };
 
 describe("runResumeParseWorkflow", () => {
+  const originalProvider = process.env.RESUME_PARSE_PROVIDER;
+
   beforeEach(() => {
-    mocks.extractResumeDocumentText.mockReset();
     mocks.generateResumeStructured.mockReset();
+    mocks.parseResumeDocument.mockReset();
     mocks.sha256HexOfBytes.mockReset();
+    if (originalProvider === undefined) {
+      delete process.env.RESUME_PARSE_PROVIDER;
+    } else {
+      process.env.RESUME_PARSE_PROVIDER = originalProvider;
+    }
+  });
+
+  it("runs the selected Aliyun parser as one structured document operation", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    const events: unknown[] = [];
+    mocks.sha256HexOfBytes.mockResolvedValue("hash-aliyun");
+    mocks.parseResumeDocument.mockResolvedValue({
+      pageCount: 2,
+      structured: STRUCTURED_RESUME,
+      text: JSON.stringify(STRUCTURED_RESUME),
+      textSource: "aliyun-docmining",
+    });
+
+    const result = await runResumeParseWorkflow(
+      {
+        bytes: new Uint8Array([1, 2, 3]),
+        fileName: "resume.docx",
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      { onProgress: (event) => events.push(event) },
+    );
+
+    expect(result.textSource).toBe("aliyun-docmining");
+    expect(result.structured).toEqual(STRUCTURED_RESUME);
+    expect(mocks.parseResumeDocument).toHaveBeenCalledTimes(1);
+    expect(mocks.generateResumeStructured).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 
   it("forwards OCR progress and emits structure progress when requested", async () => {
     const events: unknown[] = [];
     mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
-    mocks.extractResumeDocumentText.mockImplementation(({ onProgress }) => {
+    mocks.parseResumeDocument.mockImplementation(({ onProgress }) => {
       onProgress?.({
         renderedPages: 1,
         totalPages: 1,
@@ -81,7 +115,7 @@ describe("runResumeParseWorkflow", () => {
       { onProgress: (event) => events.push(event) },
     );
 
-    expect(mocks.extractResumeDocumentText).toHaveBeenCalledWith(
+    expect(mocks.parseResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({ onProgress: expect.any(Function) }),
     );
     expect(events).toEqual([
@@ -108,7 +142,7 @@ describe("runResumeParseWorkflow", () => {
     const events: { type: string; [key: string]: unknown }[] = [];
     const progressEvents: unknown[] = [];
     mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
-    mocks.extractResumeDocumentText.mockImplementation(({ onProgress }) => {
+    mocks.parseResumeDocument.mockImplementation(({ onProgress }) => {
       onProgress?.({
         renderedPages: 1,
         totalPages: 1,

@@ -4,6 +4,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
+import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);
@@ -22,17 +23,33 @@ export const resumePoolImportSchema = z.object({
   dedupPolicy: z.enum(["check", "force"]).default("check"),
   jobDescriptionId: z.string().trim().min(1).nullable().optional(),
   jobDescriptionMode: z.enum(["none", "bind"]).default("none"),
+  reimport: z.boolean().optional(),
 });
 
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
 
+export interface ResumePoolLatestExperienceDetail {
+  period: string | null;
+  role: string | null;
+  summary: string | null;
+}
+
 export interface ResumePoolProfileHighlights {
   educationItems: ResumeEducationDisplayItem[];
   educationLines: string[];
   latestCompany: string | null;
+  latestCompanyDetail: ResumePoolLatestExperienceDetail | null;
   latestProject: string | null;
+  latestProjectDetail: ResumePoolLatestExperienceDetail | null;
   schools: string[];
+}
+
+export interface ResumePoolImportedRecord {
+  creatorImage: string | null;
+  creatorName: string | null;
+  importedAt: string;
+  resumeRecordId: string;
 }
 
 export type ResumePoolSourceChannel = "mail_ingest" | "referral";
@@ -59,20 +76,24 @@ export interface ResumePoolListRecord {
   targetRole: string | null;
   notes: string | null;
   jobDescriptionId: string | null;
+  jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
   resumeContentHash: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeParseRetryable: boolean;
   resumeParseError: string | null;
   resumeParsedAt: string | null;
   workYears: number | null;
   masteredSkills: string[];
   profileHighlights: ResumePoolProfileHighlights;
+  resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   skillsNormalized: string[];
   createdAt: string;
   updatedAt: string;
   importedResumeRecordId: string | null;
   importedAt: string | null;
+  importedRecords: ResumePoolImportedRecord[];
   duplicateMatch: ResumeDuplicateMatchSummary | null;
 }
 
@@ -83,6 +104,13 @@ export interface ResumePoolDetail extends ResumePoolListRecord {
 export interface PaginatedResumePoolResult {
   records: ResumePoolListRecord[];
   total: number;
+}
+
+export interface ResumePoolUploaderOption {
+  email: string;
+  id: string;
+  image: string | null;
+  name: string;
 }
 
 export interface ResumePoolImportSuccessResult {
@@ -99,6 +127,8 @@ export interface ResumePoolImportDuplicateMatchRecord {
   id: string;
   jobDescriptionName: string | null;
   level?: "high" | "low" | "medium";
+  resumeProfileSnapshot?: ResumeLibraryProfileSnapshot | null;
+  skills?: string[];
   score?: number;
   semanticReasons?: string[];
   similarity?: {

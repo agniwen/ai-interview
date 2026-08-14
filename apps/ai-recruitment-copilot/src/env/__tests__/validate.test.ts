@@ -4,9 +4,9 @@ import { expectEnvValidationToThrow } from "./expect-env-validation-throw";
 
 const configuredEnv = {
   ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  ALIBABA_FAST_MODEL: "deepseek-v4-flash",
-  ALIBABA_MODEL: "deepseek-v4-pro",
-  ALIBABA_STRUCTURED_MODEL: "deepseek-v4-pro",
+  ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
+  ALIBABA_MODEL: "deepseek-v4-flash-0731",
+  ALIBABA_STRUCTURED_MODEL: "deepseek-v4-flash-0731",
   BETTER_AUTH_SECRET: "better-auth-secret",
   BETTER_AUTH_URL: "https://app.example.com",
   FEISHU_APP_ID: "feishu-app-id",

@@ -1,7 +1,6 @@
 import type { ReactVirtualizer, VirtualItem } from "@tanstack/react-virtual";
 import { useElementScrollRestoration, useRouter } from "@tanstack/react-router";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
-import type { ResumeFilters } from "@/lib/start/studio/resumes.functions";
 import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
   resumeLibrarySortIds,
@@ -9,7 +8,15 @@ import {
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { pipelineStageValues } from "@arc/db-schema/studio-interviews";
 
-import { lazy, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { toast } from "sonner";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
@@ -20,6 +27,13 @@ export const ResumeDocumentPreviewDialog = lazy(async () => {
   return { default: mod.ResumeDocumentPreviewDialog };
 });
 
+export interface ResumeFilters extends Record<string, string> {
+  creatorIds: string;
+  jdIds: string;
+  skills: string;
+  stage: string;
+}
+
 // 工具栏多选下拉在 state/URL 里以 CSV 字符串编码，符合 data-grid 工具栏约定。
 // 「skills」= 候选人必须同时拥有所有选中的技能（AND）；
 // 「jdIds」= 关联岗位为所选中任一（OR，因为一份简历只能绑一个岗位）。
@@ -27,11 +41,67 @@ export const ResumeDocumentPreviewDialog = lazy(async () => {
 // skills = candidate must have ALL selected skills (intersection / AND);
 // jdIds = candidate's linked JD is one of the selection (OR — a resume can
 //          link to only one JD, so AND would always be empty for >1).
-export const EMPTY_FILTERS: ResumeFilters = { creatorIds: "", jdIds: "", skills: "", stage: "" };
+export const EMPTY_FILTERS: ResumeFilters = {
+  creatorIds: "",
+  jdIds: "",
+  skills: "",
+  stage: "",
+  structuredMaxScore: "",
+  structuredMinScore: "",
+};
 export const RESUME_LIBRARY_FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters &
   string)[];
 export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
-export const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 240;
+const RESUME_LIBRARY_CARD_HEIGHTS = {
+  base: 564,
+  lg: 476,
+  md: 504,
+  sm: 476,
+  xl: 290,
+  xxl: 242,
+} as const;
+
+export function getResumeLibraryCardHeight(viewportWidth: number) {
+  if (viewportWidth >= 1536) {
+    return RESUME_LIBRARY_CARD_HEIGHTS.xxl;
+  }
+  if (viewportWidth >= 1280) {
+    return RESUME_LIBRARY_CARD_HEIGHTS.xl;
+  }
+  if (viewportWidth >= 1024) {
+    return RESUME_LIBRARY_CARD_HEIGHTS.lg;
+  }
+  if (viewportWidth >= 768) {
+    return RESUME_LIBRARY_CARD_HEIGHTS.md;
+  }
+  if (viewportWidth >= 640) {
+    return RESUME_LIBRARY_CARD_HEIGHTS.sm;
+  }
+  return RESUME_LIBRARY_CARD_HEIGHTS.base;
+}
+
+const RESUME_LIBRARY_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
+  (width) => `(min-width: ${width}px)`,
+);
+
+const subscribeToViewportWidth = (onStoreChange: () => void) => {
+  const mediaQueries = RESUME_LIBRARY_CARD_MEDIA_QUERIES.map((query) => window.matchMedia(query));
+  for (const mediaQuery of mediaQueries) {
+    mediaQuery.addEventListener("change", onStoreChange);
+  }
+  return () => {
+    for (const mediaQuery of mediaQueries) {
+      mediaQuery.removeEventListener("change", onStoreChange);
+    }
+  };
+};
+
+const getViewportCardHeight = () => getResumeLibraryCardHeight(window.innerWidth);
+const getServerCardHeight = () => RESUME_LIBRARY_CARD_HEIGHTS.lg;
+
+export function useResumeLibraryCardHeight() {
+  return useSyncExternalStore(subscribeToViewportWidth, getViewportCardHeight, getServerCardHeight);
+}
 
 export interface ResumeLibraryScrollRestoreSnapshot {
   measurements: VirtualItem[];
@@ -52,7 +122,7 @@ export function setResumeLibraryScrollRestoreSnapshot(
 }
 
 export function useResumeLibraryInitialScrollRestore(
-  restoreSnapshotRef: RefObject<ResumeLibraryScrollRestoreSnapshot | null>,
+  restoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null,
 ) {
   const initialScrollElement =
     typeof document === "undefined"
@@ -61,19 +131,17 @@ export function useResumeLibraryInitialScrollRestore(
           `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
         );
   const canUseInitialMeasurements =
-    !!restoreSnapshotRef.current &&
+    !!restoreSnapshot &&
     !!initialScrollElement &&
-    restoreSnapshotRef.current.viewportWidth === initialScrollElement.clientWidth;
+    restoreSnapshot.viewportWidth === initialScrollElement.clientWidth;
   const studioScrollEntry = useElementScrollRestoration({
     id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
   });
 
   return {
-    initialMeasurementsCache: canUseInitialMeasurements
-      ? restoreSnapshotRef.current?.measurements
-      : undefined,
+    initialMeasurementsCache: canUseInitialMeasurements ? restoreSnapshot.measurements : undefined,
     initialOffset: canUseInitialMeasurements
-      ? restoreSnapshotRef.current?.scrollOffset
+      ? restoreSnapshot.scrollOffset
       : studioScrollEntry?.scrollY,
   };
 }
@@ -222,6 +290,46 @@ export function findVerticalScrollParent(node: HTMLElement | null): HTMLElement 
   return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
 }
 
+export function useResumeLibraryScrollElement(listRootRef: RefObject<HTMLDivElement | null>) {
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    let observer: MutationObserver | null = null;
+    const selectStudioViewport = () => {
+      const viewport = document.querySelector<HTMLElement>(
+        `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
+      );
+      if (!viewport) {
+        return false;
+      }
+      setScrollElement(viewport);
+      observer?.disconnect();
+      return true;
+    };
+
+    if (typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(selectStudioViewport);
+      observer.observe(document.body, {
+        attributeFilter: ["data-scroll-restoration-id"],
+        attributes: true,
+        subtree: true,
+      });
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      if (!selectStudioViewport()) {
+        setScrollElement(findVerticalScrollParent(listRootRef.current));
+      }
+    });
+    return () => {
+      observer?.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
+  }, [listRootRef]);
+
+  return scrollElement;
+}
+
 export function formatResumeLibraryJobDescriptionLabel(record: ResumeLibraryListRecord) {
   return record.jobDescriptionName
     ? [record.jobDescriptionDepartmentName, record.jobDescriptionName].filter(Boolean).join(" / ")
@@ -229,6 +337,7 @@ export function formatResumeLibraryJobDescriptionLabel(record: ResumeLibraryList
 }
 
 export interface FetchParams {
+  knownTotal?: number;
   page: number;
   pageSize: number;
   search: string;

@@ -24,7 +24,6 @@ export function StudioPersonDetailDialog({
   roundId,
   mode,
   defaultTab,
-  onViewRoundDetail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,14 +66,6 @@ export function StudioPersonDetailDialog({
    * English: Default-focused tab when opened; falls back to "overview".
    */
   defaultTab?: StudioPersonDetailTab;
-  /**
-   * 中文：在 resume 模式的「AI 面试轮次」tab 里点单条轮次的「查看详情」时触发。
-   * 调用方应自己关闭本弹窗并以 mode="interview" 重新打开。
-   * English: Fired from the per-round 查看详情 button inside the resume-mode
-   * "AI 面试轮次" tab. The caller should close this dialog and re-open it in
-   * mode="interview" using the given roundId.
-   */
-  onViewRoundDetail?: (roundId: string) => void;
 }) {
   return (
     <StudioPersonDetailPanel
@@ -87,7 +78,6 @@ export function StudioPersonDetailDialog({
       onRequestClose={onRequestClose}
       onRequestReactivate={onRequestReactivate}
       onUpdated={onUpdated}
-      onViewRoundDetail={onViewRoundDetail}
       recordId={recordId}
       roundId={roundId}
       shell={({

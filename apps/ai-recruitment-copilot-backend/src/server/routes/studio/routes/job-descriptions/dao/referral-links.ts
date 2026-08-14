@@ -31,6 +31,20 @@ export async function createJobDescriptionReferralLink(input: {
   jobDescriptionId: string;
   organizationId: string;
 }): Promise<{ token: string }> {
+  const [publishedJob] = await db
+    .select({ id: jobDescription.id })
+    .from(jobDescription)
+    .where(
+      and(
+        eq(jobDescription.id, input.jobDescriptionId),
+        eq(jobDescription.organizationId, input.organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+      ),
+    )
+    .limit(1);
+  if (!publishedJob) {
+    throw new Error("JOB_NOT_PUBLISHED");
+  }
   const token = createReferralToken();
   const tokenHash = await hashReferralToken(token);
   const now = new Date();
@@ -68,7 +82,13 @@ export async function resolveReferralLink(token: string): Promise<ResolvedReferr
     )
     .innerJoin(organization, eq(referralLink.organizationId, organization.id))
     .leftJoin(user, eq(referralLink.createdBy, user.id))
-    .where(and(eq(referralLink.tokenHash, tokenHash), isNull(referralLink.disabledAt)))
+    .where(
+      and(
+        eq(referralLink.tokenHash, tokenHash),
+        isNull(referralLink.disabledAt),
+        eq(jobDescription.lifecycleStatus, "published"),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }

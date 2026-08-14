@@ -1,4 +1,4 @@
-import { IconHistory } from "@tabler/icons-react";
+import { IconArrowsSort, IconHistory } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { canDeleteResumeRecord } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
@@ -6,7 +6,6 @@ import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
-import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
@@ -16,27 +15,30 @@ import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-l
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListLoadError } from "@/components/data-grid/list-load-error";
 
 import {
-  RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
   formatResumeLibraryJobDescriptionLabel,
-  findVerticalScrollParent,
   resumeLibraryScrollRestoreSnapshot,
   setResumeLibraryScrollRestoreSnapshot,
+  useResumeLibraryCardHeight,
   useResumeLibraryInitialScrollRestore,
   useResumeLibraryResizeScrollRestore,
+  useResumeLibraryScrollElement,
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 interface ResumeLibraryCardListProps {
-  canCreateChat: boolean;
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
+  canForceReparse: boolean;
   canReadResumeUploadBatch: boolean;
+  canRetryResumeParse: boolean;
   canUpdateResumeLibrary: boolean;
   canUploadResumeLibrary: boolean;
   currentMemberRole: string;
   currentUserId: string | null;
   empty: ReactNode;
+  error: unknown;
   fetchNextPage: () => Promise<unknown>;
   filters: ToolbarFilterConfig[];
   grid: ResumeLibraryGridState;
@@ -45,34 +47,42 @@ interface ResumeLibraryCardListProps {
   onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
   onDelete: (record: ResumeLibraryListRecord) => void;
   onEdit: (record: ResumeLibraryListRecord) => void;
-  onLaunchChat: (record: ResumeLibraryListRecord) => void;
+  onForceReparse: (record: ResumeLibraryListRecord) => void;
   onLaunchInterview: (record: ResumeLibraryListRecord) => void;
   onOpenBatchList: () => void;
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
   onOpenUploadEntry: () => void;
   onPreviewResume: (record: ResumeLibraryListRecord) => void;
+  onRetryParse: (record: ResumeLibraryListRecord) => void;
+  onRetry: () => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
-  onViewJobDescription: (id: string) => void;
+  onToggleStructuredScoreSort: () => void;
   records: ResumeLibraryListRecord[];
+  retryingRecordId: string | null;
+  retriedRecordIds: ReadonlySet<string>;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   isRefetching: boolean;
   total: number;
+  structuredScoreSortActive: boolean;
+  structuredScoreSortEnabled: boolean;
   uploadEntryDisabled: boolean;
   hasActiveUploadBatches: boolean;
 }
 
 export function ResumeLibraryCardList({
-  canCreateChat,
   canCreateInterview,
   canDeleteResumeLibrary,
+  canForceReparse,
   canReadResumeUploadBatch,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   canUploadResumeLibrary,
   currentMemberRole,
   currentUserId,
   empty,
+  error,
   fetchNextPage,
   filters,
   grid,
@@ -85,38 +95,49 @@ export function ResumeLibraryCardList({
   onCopyDetailLink,
   onDelete,
   onEdit,
-  onLaunchChat,
+  onForceReparse,
   onLaunchInterview,
   onOpenBatchList,
   onOpenDetail,
   onOpenUploadEntry,
   onPreviewResume,
+  onRetryParse,
+  onRetry,
   onShowDuplicateMatches,
   onTransition,
-  onViewJobDescription,
+  onToggleStructuredScoreSort,
   records,
+  retryingRecordId,
+  retriedRecordIds,
   total,
+  structuredScoreSortActive,
+  structuredScoreSortEnabled,
   uploadEntryDisabled,
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const restoreSnapshotRef = useRef(resumeLibraryScrollRestoreSnapshot.current);
-  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
-  const initialScrollRestore = useResumeLibraryInitialScrollRestore(restoreSnapshotRef);
+  const [initialRestoreSnapshot] = useState(() => resumeLibraryScrollRestoreSnapshot.current);
+  const restoreSnapshotRef = useRef(initialRestoreSnapshot);
+  const scrollElement = useResumeLibraryScrollElement(listRootRef);
+  const cardHeight = useResumeLibraryCardHeight();
+  const { setRowSelection } = grid;
+  const initialScrollRestore = useResumeLibraryInitialScrollRestore(initialRestoreSnapshot);
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
     [records],
   );
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
     count: records.length,
-    estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
+    estimateSize: () => cardHeight,
     getItemKey: getVirtualItemKey,
     getScrollElement: () => scrollElement,
     initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache,
     initialOffset: initialScrollRestore.initialOffset,
     overscan: 6,
-    useAnimationFrameWithResizeObserver: true,
   });
+  useEffect(() => {
+    virtualizer.measure();
+  }, [cardHeight, virtualizer]);
   const virtualItems = virtualizer.getVirtualItems();
   const selectedIds = useMemo(
     () => Object.keys(grid.bind.rowSelection).filter((id) => grid.bind.rowSelection[id]),
@@ -125,6 +146,12 @@ export function ResumeLibraryCardList({
   const selectedRows = useMemo(
     () => records.filter((record) => grid.bind.rowSelection[record.id]),
     [records, grid.bind.rowSelection],
+  );
+  const handleSelectionChange = useCallback(
+    (recordId: string, checked: boolean) => {
+      setRowSelection((previous) => ({ ...previous, [recordId]: checked }));
+    },
+    [setRowSelection],
   );
   const selectedItems = useMemo(
     () =>
@@ -163,17 +190,6 @@ export function ResumeLibraryCardList({
   );
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setScrollElement(
-        document.querySelector<HTMLElement>(
-          `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
-        ) ?? findVerticalScrollParent(listRootRef.current),
-      );
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [records.length]);
-
-  useEffect(() => {
     const node = loadMoreRef.current;
     if (!node || !hasNextPage || typeof IntersectionObserver === "undefined") {
       return;
@@ -206,7 +222,9 @@ export function ResumeLibraryCardList({
   }
 
   let listContent: ReactNode = empty;
-  if (isInitialLoading) {
+  if (error && records.length === 0) {
+    listContent = <ListLoadError error={error} onRetry={onRetry} />;
+  } else if (isInitialLoading) {
     listContent = (
       <div className="grid gap-3">
         {Array.from({ length: 4 }, (_, index) => (
@@ -217,6 +235,7 @@ export function ResumeLibraryCardList({
   } else if (records.length > 0) {
     listContent = (
       <>
+        {error ? <ListLoadError compact error={error} onRetry={onRetry} /> : null}
         <div className="relative transition-opacity" style={{ height: virtualizer.getTotalSize() }}>
           {virtualItems.map((virtualRow) => {
             const record = records[virtualRow.index];
@@ -229,30 +248,32 @@ export function ResumeLibraryCardList({
                 data-index={virtualRow.index}
                 data-resume-record-id={record.id}
                 key={virtualRow.key}
-                ref={virtualizer.measureElement}
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
+                style={{
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
                 <ResumeLibraryCard
-                  canCreateChat={canCreateChat}
                   canCreateInterview={canCreateInterview}
                   canDeleteResumeLibrary={canDeleteResumeLibrary}
+                  canForceReparse={canForceReparse}
+                  canRetryResumeParse={canRetryResumeParse && !retriedRecordIds.has(record.id)}
                   canUpdateResumeLibrary={canUpdateResumeLibrary}
                   currentMemberRole={currentMemberRole}
                   currentUserId={currentUserId}
                   onCopyDetailLink={onCopyDetailLink}
                   onDelete={onDelete}
                   onEdit={onEdit}
-                  onLaunchChat={onLaunchChat}
+                  onForceReparse={onForceReparse}
                   onLaunchInterview={onLaunchInterview}
                   onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
-                  onSelectChange={(checked) =>
-                    grid.setRowSelection((prev) => ({ ...prev, [record.id]: checked }))
-                  }
+                  onRetryParse={onRetryParse}
+                  onSelectChange={handleSelectionChange}
                   onShowDuplicateMatches={onShowDuplicateMatches}
                   onTransition={onTransition}
-                  onViewJobDescription={onViewJobDescription}
                   record={record}
+                  retrying={retryingRecordId === record.id}
                   selected={Boolean(grid.bind.rowSelection[record.id])}
                 />
               </div>
@@ -281,8 +302,18 @@ export function ResumeLibraryCardList({
         refreshing={isRefetching}
         searchLoading={isInitialLoading}
         toolbarRight={
-          canUploadResumeLibrary || canReadResumeUploadBatch ? (
+          structuredScoreSortEnabled || canUploadResumeLibrary || canReadResumeUploadBatch ? (
             <ButtonGroup>
+              {structuredScoreSortEnabled ? (
+                <Button
+                  onClick={onToggleStructuredScoreSort}
+                  type="button"
+                  variant={structuredScoreSortActive ? "secondary" : "outline"}
+                >
+                  <IconArrowsSort className="size-4" />
+                  综合分排序
+                </Button>
+              ) : null}
               {canUploadResumeLibrary ? (
                 <ResumeUploadEntryButton
                   disabled={uploadEntryDisabled}

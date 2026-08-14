@@ -1,0 +1,137 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "buckets": {
+    "compiler-cleanup": "warn"
+  },
+  "ignore": {
+    "files": [
+      ".output/**",
+      "src/components/agents-ui/**",
+      "src/hooks/agents-ui/**",
+      "src/components/ui/**",
+      "src/components/react-bits/**",
+      "src/components/spell-ui/**",
+      "src/components/features/mastra-studio/upstream/**",
+      "src/routeTree.gen.ts"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "src/components/features/human-interview/human-meeting-room.tsx",
+          "src/components/features/studio/studio-person-detail-controller.tsx"
+        ],
+        "rules": ["react-doctor/no-fetch-response-used-without-status-check"]
+      },
+      {
+        "files": ["src/components/features/mastra-studio/router/studio-route-root.tsx"],
+        "rules": ["react-doctor/no-unguarded-browser-global-in-render-or-hook-init"]
+      },
+      {
+        "files": ["src/components/features/motion/animated-height.tsx"],
+        "rules": ["react-doctor/no-layout-property-animation"]
+      },
+      {
+        "files": [
+          "src/components/data-grid/data-grid.tsx",
+          "src/components/features/studio/resumes/resume-library-page-list.tsx"
+        ],
+        "rules": ["react-hooks-js/incompatible-library"]
+      },
+      {
+        "files": ["src/components/layout/app-sidebar/workspace-sidebar-slots.tsx"],
+        "rules": ["react-hooks-js/refs"]
+      },
+      {
+        "files": [
+          "src/components/assistant-ui/new-recruiting-thread.tsx",
+          "src/components/assistant-ui/recruiting-thread.tsx"
+        ],
+        "rules": ["react-doctor/no-transition-all"]
+      },
+      {
+        "files": ["src/components/features/display/time-display.tsx"],
+        "rules": ["react-doctor/js-hoist-intl"]
+      },
+      {
+        "files": ["src/components/data-grid/parts/toolbar.tsx"],
+        "rules": ["react-doctor/no-noninteractive-tabindex"]
+      },
+      {
+        "files": ["src/routes/wait.tsx"],
+        "rules": ["react-doctor/tanstack-start-no-navigate-in-render"]
+      },
+      {
+        "files": [
+          "src/components/features/auth/email-password-sign-in-form.tsx",
+          "src/components/features/auth/feishu-sign-in-button.tsx",
+          "src/components/features/auth/google-sign-in-button.tsx"
+        ],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      },
+      {
+        "files": [
+          "src/components/assistant-ui/recruiting-action-proposal.tsx",
+          "src/components/features/studio/offer-stage-cards.tsx",
+          "src/components/reui/event-calendar/event-calendar-time-grid.tsx",
+          "src/routes/__root.tsx",
+          "src/routes/resume-review.$slug.$recordId.tsx",
+          "src/routes/w.$slug.agent.tsx",
+          "src/routes/w.$slug.studio.dashboard.tsx",
+          "src/routes/w.$slug.studio.mail-ingest-accounts.tsx",
+          "src/routes/w.$slug.studio.me.tsx",
+          "src/routes/w.$slug.studio.resumes.$recordId.tsx",
+          "src/routes/w.$slug.studio.tsx"
+        ],
+        "rules": ["react-doctor/no-multi-comp"]
+      },
+      {
+        "files": [
+          "src/components/features/home/feature-blocks.tsx",
+          "src/components/features/interview/interview-room.tsx",
+          "src/components/features/platform/users/users-grid.tsx",
+          "src/components/features/studio/job-descriptions/job-description-screening-fields.tsx",
+          "src/components/features/studio/members/members-page.tsx",
+          "src/components/features/studio/members/workspace-permissions-section.tsx",
+          "src/components/features/studio/resume-pool/resume-pool-page.tsx",
+          "src/components/reui/event-calendar/event-calendar-event.tsx",
+          "src/components/reui/event-calendar/event-calendar-month-view.tsx",
+          "src/routes/w.$slug.studio.forms.tsx",
+          "src/routes/w.$slug.studio.interview-questions.tsx",
+          "src/routes/w.$slug.studio.interviews.tsx",
+          "src/routes/w.$slug.studio.job-descriptions.tsx"
+        ],
+        "rules": ["react-doctor/no-giant-component"]
+      },
+      {
+        "files": ["src/components/features/chat/chat-sidebar-slots.tsx"],
+        "rules": ["react-doctor/query-no-query-in-effect"]
+      },
+      {
+        "files": [
+          "src/components/features/studio/human-interview-stage-rounds.tsx",
+          "src/components/features/studio/offer-stage-cards.tsx",
+          "src/routes/referrals.$token.tsx"
+        ],
+        "rules": ["react-doctor/query-mutation-missing-invalidation"]
+      },
+      {
+        "files": [
+          "src/routes/w.$slug.studio.dashboard.tsx",
+          "src/routes/w.$slug.studio.global-config.tsx"
+        ],
+        "rules": ["react-doctor/tanstack-start-loader-parallel-fetch"]
+      },
+      {
+        "files": [
+          "src/components/features/home/center-carousel.tsx",
+          "src/components/features/home/feature-blocks.tsx"
+        ],
+        "rules": ["react-doctor/no-permanent-will-change"]
+      }
+    ]
+  },
+  "rules": {
+    "react-doctor/react-compiler-no-manual-memoization": "off",
+    "react-hooks-js/todo": "warn"
+  }
+}

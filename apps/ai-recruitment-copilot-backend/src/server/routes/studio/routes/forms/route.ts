@@ -17,8 +17,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
 import { loadSubmissionsByTemplate } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import { loadCandidateFormTemplateVersionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/versions";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { managedJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  cacheTags,
+  invalidateStudioInterviewCaches,
+  safeUpdateTag,
+} from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
+import { refreshEligibleCandidatesForFormTemplate } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/refresh-eligible";
 import { candidateFormAiRouter } from "./routes/form-ai/route";
 
 function normalizeQuestions(
@@ -121,7 +127,7 @@ export const candidateFormsRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -189,7 +195,7 @@ export const candidateFormsRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -282,6 +288,49 @@ export const candidateFormsRouter = factory
     safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })
+  // 把本表单最新版本推送到「从未开始 AI 面试且未填写本表单」的适用候选人 runtime 快照。
+  // Push the latest form version into never-started, unsubmitted candidates' snapshots.
+  .post(
+    "/:id/refresh-eligible-candidates",
+    requirePermission("candidateForm", "update"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      try {
+        const result = await refreshEligibleCandidatesForFormTemplate({
+          operatorId: user?.id ?? null,
+          organizationId: activeOrg.id,
+          templateId: id,
+        });
+        safeUpdateTag(cacheTags.interviewConversations);
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(
+          {
+            refreshedCount: result.refreshedCount,
+            scannedCount: result.scannedCount,
+            success: true,
+          },
+          200,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === "TEMPLATE_NOT_FOUND") {
+          return c.json({ error: "面试表单不存在或已归档。" }, 404);
+        }
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, templateId: id },
+            error,
+            operation: "refresh-eligible-form-template",
+            publicMessage: "刷新未填写候选人表单题失败。",
+          }),
+          500,
+        );
+      }
+    },
+  )
   .get(
     "/:id/submissions",
     requirePermission("candidateForm", "read"),

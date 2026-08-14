@@ -41,13 +41,19 @@ export function describeMeetingStatus(meeting: HumanInterviewMeetingRecord): {
     return { label: "已结束", tone: "outline" };
   }
   if (meeting.status === "in_progress") {
-    return { label: "进行中", tone: "success" };
+    return {
+      label: "视频会议进行中",
+      tone: "success",
+    };
   }
-  return { label: "待开始", tone: "info" };
+  return {
+    label: "待开始（视频）",
+    tone: "info",
+  };
 }
 
 export function canOpenMeetingLinks(meeting: HumanInterviewMeetingRecord | null): boolean {
-  return meeting !== null && meeting.status !== "ended";
+  return meeting?.status === "scheduled" || meeting?.status === "in_progress";
 }
 
 export function canEndHumanInterviewMeeting(
@@ -137,6 +143,10 @@ export function addOneHourToDateTimeLocalInputValue(value: string): string {
     return "";
   }
   return toDateTimeLocalInputValue(new Date(date.getTime() + 60 * 60 * 1000).toISOString());
+}
+
+export function buildHumanInterviewMeetingTitle(candidateName: string, roundLabel: string): string {
+  return `${candidateName} - ${roundLabel}`.slice(0, 100);
 }
 
 // ── 新建轮次 dialog ──

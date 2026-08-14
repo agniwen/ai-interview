@@ -20,7 +20,10 @@ import {
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
+import { ChatMessageSkeletonContent, ChatPageSkeleton } from "./chat-page-skeleton";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
@@ -80,6 +83,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
+  const setSessionTitle = useSetChatHeaderTitle();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isHistoryReady, setIsHistoryReady] = useState(false);
   const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
@@ -114,9 +118,6 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     }
   }, [boundChat, setMessages]);
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-
   const updateSessionInUrl = useCallback(
     (sessionId: string | null) => {
       if (sessionId === initialSessionId || (!sessionId && initialSessionId === null)) {
@@ -150,12 +151,13 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
           isTitleGenerating: false,
           title: normalizedTitle,
         });
+        setSessionTitle({ sessionId: id, title: normalizedTitle });
         notifyConversationsChanged();
       } catch {
         setHistoryErrorMessage("会话已创建，但标题保存失败。");
       }
     },
-    [slug],
+    [setSessionTitle, slug],
   );
 
   const ensureConversation = useCallback(
@@ -173,13 +175,17 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         resumeImports: {},
         title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
       });
+      setSessionTitle({
+        sessionId: id,
+        title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
+      });
       setChatMeta(id, {});
       notifyConversationsChanged();
       updateSessionInUrl(id);
       setActiveConversationId(id);
       return id;
     },
-    [activeConversationId, slug, updateSessionInUrl],
+    [activeConversationId, setSessionTitle, slug, updateSessionInUrl],
   );
 
   const sendFirstMessage = useCallback(
@@ -191,37 +197,46 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         submitDebounceRef.current = null;
       }, 300);
       setIsCreatingConversation(true);
-      try {
-        const conversationId = await ensureConversation({ withGeneratingTitle: true });
-        setHistoryErrorMessage(null);
-        await getOrCreateChat(conversationId, slug).sendMessage({ text });
-        void (async () => {
-          try {
-            const payload = await requestResumeChatTitle({ hasFiles: false, text });
-            await updateConversationTitle(
-              conversationId,
-              payload.title?.trim() || getConversationTitleFromText(text),
-            );
-          } catch {
-            await updateConversationTitle(conversationId, getConversationTitleFromText(text));
-          }
-        })();
-      } catch {
-        setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
-      } finally {
-        setIsCreatingConversation(false);
-      }
+      await runAsyncAction({
+        cleanup: () => setIsCreatingConversation(false),
+        onError: () => setHistoryErrorMessage("聊天记录保存失败，请稍后重试。"),
+        operation: async () => {
+          const conversationId = await ensureConversation({ withGeneratingTitle: true });
+          setHistoryErrorMessage(null);
+          await getOrCreateChat(conversationId, slug).sendMessage({ text });
+          void (async () => {
+            try {
+              const payload = await requestResumeChatTitle({ hasFiles: false, text });
+              await updateConversationTitle(
+                conversationId,
+                payload.title?.trim() || getConversationTitleFromText(text),
+              );
+            } catch {
+              await updateConversationTitle(conversationId, getConversationTitleFromText(text));
+            }
+          })();
+        },
+      });
     },
     [ensureConversation, slug, updateConversationTitle],
   );
 
   const openConversation = useCallback(
-    async (id: string, { shouldSyncUrl = true }: { shouldSyncUrl?: boolean } = {}) => {
+    async (
+      id: string,
+      { shouldSyncUrl = true, signal }: { shouldSyncUrl?: boolean; signal?: AbortSignal } = {},
+    ) => {
       let conversation: Awaited<ReturnType<typeof fetchConversation>> = null;
       try {
         conversation = await fetchConversation(slug, id);
       } catch {
+        if (signal?.aborted) {
+          return false;
+        }
         setHistoryErrorMessage("无法加载聊天记录，请稍后重试。");
+        return false;
+      }
+      if (signal?.aborted) {
         return false;
       }
       if (!conversation) {
@@ -239,17 +254,19 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       if (!hasChat(id)) {
         getOrCreateChat(id, slug, { initialMessages: conversation.messages });
       }
+      setSessionTitle({ sessionId: id, title: getVisibleConversationTitle(conversation) });
       setActiveConversationId(id);
       setHistoryErrorMessage(null);
       return true;
     },
-    [slug, updateSessionInUrl],
+    [setSessionTitle, slug, updateSessionInUrl],
   );
 
   const resetToNewConversation = useCallback(() => {
+    setSessionTitle(null);
     setActiveConversationId(null);
     setHistoryErrorMessage(null);
-  }, []);
+  }, [setSessionTitle]);
 
   const startNewConversation = useCallback(() => {
     resetToNewConversation();
@@ -257,20 +274,33 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [resetToNewConversation, updateSessionInUrl]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const bootstrap = async () => {
-      try {
-        if (initialSessionId) {
-          await openConversation(initialSessionId, { shouldSyncUrl: false });
-          return;
-        }
-        resetToNewConversation();
-      } catch {
-        setHistoryErrorMessage("加载历史聊天失败，请稍后重试。");
-      } finally {
-        setIsHistoryReady(true);
-      }
+      await runAsyncAction({
+        cleanup: () => {
+          if (!controller.signal.aborted) {
+            setIsHistoryReady(true);
+          }
+        },
+        onError: () => {
+          if (!controller.signal.aborted) {
+            setHistoryErrorMessage("加载历史聊天失败，请稍后重试。");
+          }
+        },
+        operation: async () => {
+          if (initialSessionId) {
+            await openConversation(initialSessionId, {
+              shouldSyncUrl: false,
+              signal: controller.signal,
+            });
+            return;
+          }
+          resetToNewConversation();
+        },
+      });
     };
     void bootstrap();
+    return () => controller.abort();
   }, [initialSessionId, openConversation, resetToNewConversation]);
 
   useEffect(() => {
@@ -295,30 +325,33 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
   const retryLastReply = useCallback(() => {
-    const lastMessage = messagesRef.current.at(-1);
+    const lastMessage = messages.at(-1);
     clearError();
     if (lastMessage?.role === "assistant") {
       void regenerate({ messageId: lastMessage.id });
       return;
     }
     void regenerate();
-  }, [clearError, regenerate]);
+  }, [clearError, messages, regenerate]);
 
-  if (!isHistoryReady) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-        加载中...
-      </div>
-    );
+  if (!isHistoryReady && !initialSessionId) {
+    return <ChatPageSkeleton />;
   }
+
+  const showConversationThread = Boolean(
+    activeConversationId || (initialSessionId && !isHistoryReady),
+  );
 
   return (
     <div className="relative flex h-full w-full flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
         <RecruitingCopilotContextProvider conversationId={activeConversationId}>
           <RecruitingToolRenderers />
-          {activeConversationId ? (
-            <RecruitingThread isRunning={isStreaming} />
+          {showConversationThread ? (
+            <RecruitingThread
+              historyLoadingFallback={isHistoryReady ? undefined : <ChatMessageSkeletonContent />}
+              isRunning={isStreaming}
+            />
           ) : (
             <NewRecruitingThread
               disabled={isCreatingConversation || !session}

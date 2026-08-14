@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
   JobDescriptionInterviewerSummary,
   JobDescriptionListRecord,
@@ -8,6 +9,10 @@ import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,
 } from "@arc/shared/resume-screening";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  parseStoredJobDescriptionStructuredConfig,
+} from "@arc/db-schema/job-description-structured-config";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -27,6 +32,7 @@ import {
   department,
   interviewer,
   jobDescription,
+  jobDescriptionEvaluationUpgradeDraft,
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
@@ -58,22 +64,35 @@ function parseResumeScreeningPolicy(value: unknown) {
   return parsedPolicy.success ? parsedPolicy.data : createDefaultResumeScreeningPolicy();
 }
 
+function parseStructuredConfig(value: unknown) {
+  try {
+    return parseStoredJobDescriptionStructuredConfig(value);
+  } catch {
+    return createDefaultJobDescriptionStructuredConfig();
+  }
+}
+
 function buildWhereConditions({
   organizationId,
   search,
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
+  recruitingOnly = false,
 }: {
   organizationId: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
   jdIdsForInterviewers?: string[];
+  recruitingOnly?: boolean;
 }) {
   const conditions: (ReturnType<typeof ilike> | ReturnType<typeof eq>)[] = [
     eq(jobDescription.organizationId, organizationId),
   ];
+  if (recruitingOnly) {
+    conditions.push(eq(jobDescription.lifecycleStatus, "published"));
+  }
   if (search) {
     const searchCond = or(
       ilike(jobDescription.name, `%${search}%`),
@@ -131,6 +150,7 @@ function listJobDescriptionRows({
   sortOrder = "desc",
   limit,
   offset,
+  recruitingOnly = false,
 }: {
   organizationId: string;
   search?: string;
@@ -141,12 +161,14 @@ function listJobDescriptionRows({
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  recruitingOnly?: boolean;
 }) {
   const where = buildWhereConditions({
     departmentIds,
     interviewerIds,
     jdIdsForInterviewers,
     organizationId,
+    recruitingOnly,
     search,
   });
 
@@ -156,16 +178,30 @@ function listJobDescriptionRows({
       code: jobDescription.code,
       createdAt: jobDescription.createdAt,
       createdBy: jobDescription.createdBy,
+      deductionRuleSetVersion: jobDescription.deductionRuleSetVersion,
       departmentId: jobDescription.departmentId,
       departmentName: department.name,
       description: jobDescription.description,
+      evaluationBlueprint: jobDescription.evaluationBlueprint,
+      evaluationBlueprintHash: jobDescription.evaluationBlueprintHash,
+      evaluationBlueprintPreview: jobDescription.evaluationBlueprintPreview,
+      evaluationBlueprintPreviewGeneratedAt: jobDescription.evaluationBlueprintPreviewGeneratedAt,
+      evaluationBlueprintPreviewHash: jobDescription.evaluationBlueprintPreviewHash,
+      evaluationBlueprintPreviewInputHash: jobDescription.evaluationBlueprintPreviewInputHash,
+      evaluationBlueprintSchemaVersion: jobDescription.evaluationBlueprintSchemaVersion,
+      evaluationMode: jobDescription.evaluationMode,
+      evaluationUpgradedAt: jobDescription.evaluationUpgradedAt,
+      evaluationUpgradedBy: jobDescription.evaluationUpgradedBy,
       id: jobDescription.id,
+      lifecycleStatus: jobDescription.lifecycleStatus,
       name: jobDescription.name,
       presetQuestions: jobDescription.presetQuestions,
       prompt: jobDescription.prompt,
+      publishedAt: jobDescription.publishedAt,
       resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
       resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
       resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
+      structuredConfig: jobDescription.structuredConfig,
       updatedAt: jobDescription.updatedAt,
     })
     .from(jobDescription)
@@ -283,10 +319,22 @@ async function loadResumeCountsForJobDescriptions(
   return map;
 }
 
+async function loadUpgradeDraftJobIds(jobDescriptionIds: string[]): Promise<Set<string>> {
+  if (jobDescriptionIds.length === 0) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ jobDescriptionId: jobDescriptionEvaluationUpgradeDraft.jobDescriptionId })
+    .from(jobDescriptionEvaluationUpgradeDraft)
+    .where(inArray(jobDescriptionEvaluationUpgradeDraft.jobDescriptionId, jobDescriptionIds));
+  return new Set(rows.map((row) => row.jobDescriptionId));
+}
+
 function toJobDescriptionListRecord(
   row: Awaited<ReturnType<typeof listJobDescriptionRows>>[number],
   interviewers: JobDescriptionInterviewerSummary[],
   resumeCount: number,
+  hasEvaluationUpgradeDraft: boolean,
 ): JobDescriptionListRecord {
   const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
@@ -294,19 +342,36 @@ function toJobDescriptionListRecord(
     code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
+    deductionRuleSetVersion: row.deductionRuleSetVersion,
     departmentId: row.departmentId,
     departmentName: row.departmentName,
     description: row.description,
+    evaluationBlueprint: row.evaluationBlueprint,
+    evaluationBlueprintHash: row.evaluationBlueprintHash,
+    evaluationBlueprintPreview: row.evaluationBlueprintPreview,
+    evaluationBlueprintPreviewGeneratedAt: row.evaluationBlueprintPreviewGeneratedAt
+      ? serializeDate(row.evaluationBlueprintPreviewGeneratedAt)
+      : null,
+    evaluationBlueprintPreviewHash: row.evaluationBlueprintPreviewHash,
+    evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
+    evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
+    evaluationMode: row.evaluationMode,
+    evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
+    evaluationUpgradedBy: row.evaluationUpgradedBy,
+    hasEvaluationUpgradeDraft,
     id: row.id,
     interviewerIds: interviewers.map((item) => item.id),
     interviewers,
+    lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     resumeCount,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    structuredConfig: parseStructuredConfig(row.structuredConfig),
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -382,9 +447,10 @@ export async function queryPaginatedJobDescriptions(
   ]);
 
   const ids = records.map((record) => record.id);
-  const [interviewersMap, resumeCountsMap] = await Promise.all([
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
     loadInterviewersForJobDescriptions(ids),
     loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
   ]);
 
   return {
@@ -395,6 +461,7 @@ export async function queryPaginatedJobDescriptions(
         record,
         interviewersMap.get(record.id) ?? [],
         resumeCountsMap.get(record.id) ?? 0,
+        upgradeDraftJobIds.has(record.id),
       ),
     ),
     total,
@@ -414,25 +481,52 @@ export function listJobDescriptions(
   return queryPaginatedJobDescriptions(organizationId, filters, pagination);
 }
 
-export async function listAllJobDescriptions(
+export async function listManagedJobDescriptions(
   organizationId: string,
 ): Promise<JobDescriptionListRecord[]> {
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
-  const [interviewersMap, resumeCountsMap] = await Promise.all([
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
     loadInterviewersForJobDescriptions(ids),
     loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
   ]);
   return rows.map((row) =>
     toJobDescriptionListRecord(
       row,
       interviewersMap.get(row.id) ?? [],
       resumeCountsMap.get(row.id) ?? 0,
+      upgradeDraftJobIds.has(row.id),
     ),
   );
 }
 
-export async function fetchJobDescriptionsByCodes(
+export async function listRecruitingJobDescriptions(
+  organizationId: string,
+): Promise<JobDescriptionListRecord[]> {
+  const rows = await listJobDescriptionRows({
+    organizationId,
+    recruitingOnly: true,
+    sortBy: "name",
+    sortOrder: "asc",
+  });
+  const ids = rows.map((row) => row.id);
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
+    loadInterviewersForJobDescriptions(ids),
+    loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
+  ]);
+  return rows.map((row) =>
+    toJobDescriptionListRecord(
+      row,
+      interviewersMap.get(row.id) ?? [],
+      resumeCountsMap.get(row.id) ?? 0,
+      upgradeDraftJobIds.has(row.id),
+    ),
+  );
+}
+
+export async function fetchPublishedJobDescriptionsByCodes(
   organizationId: string,
   codes: readonly string[],
 ): Promise<{ code: string; id: string }[]> {
@@ -449,6 +543,7 @@ export async function fetchJobDescriptionsByCodes(
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
         inArray(jobDescription.code, normalizedCodes),
       ),
     );
@@ -459,7 +554,7 @@ export async function fetchJobDescriptionsByCodes(
  * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
  * Validate that every id in `ids` exists in jobDescription. Empty input is valid.
  */
-export async function jobDescriptionIdsExist(
+export async function managedJobDescriptionIdsExist(
   ids: string[],
   organizationId: string,
 ): Promise<boolean> {
@@ -473,7 +568,27 @@ export async function jobDescriptionIdsExist(
   return rows.length === new Set(ids).size;
 }
 
-export async function loadJobDescriptionById(
+export async function recruitingJobDescriptionIdsExist(
+  ids: string[],
+  organizationId: string,
+): Promise<boolean> {
+  if (ids.length === 0) {
+    return true;
+  }
+  const rows = await db
+    .select({ id: jobDescription.id })
+    .from(jobDescription)
+    .where(
+      and(
+        inArray(jobDescription.id, ids),
+        eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+      ),
+    );
+  return rows.length === new Set(ids).size;
+}
+
+export async function loadManagedJobDescriptionById(
   organizationId: string,
   id: string,
 ): Promise<JobDescriptionRecord | null> {
@@ -486,13 +601,32 @@ export async function loadJobDescriptionById(
     return null;
   }
   const interviewersMap = await loadInterviewersForJobDescriptions([id]);
+  const upgradeDraftJobIds = await loadUpgradeDraftJobIds([id]);
   const interviewers = interviewersMap.get(id) ?? [];
   // eslint-disable-next-line no-use-before-define -- kept near public load functions for readability.
   return serializeJobDescription(
     row,
     interviewers.map((item) => item.id),
+    upgradeDraftJobIds.has(id),
   );
 }
+
+export async function loadRecruitingJobDescriptionById(
+  organizationId: string,
+  id: string,
+): Promise<JobDescriptionRecord | null> {
+  const record = await loadManagedJobDescriptionById(organizationId, id);
+  return record?.lifecycleStatus === "published" ? record : null;
+}
+
+/** @deprecated Choose the explicit management or recruiting loader. */
+export const listAllJobDescriptions = listManagedJobDescriptions;
+/** @deprecated Choose the explicit management or recruiting loader. */
+export const loadJobDescriptionById = loadManagedJobDescriptionById;
+/** @deprecated Choose the explicit management or recruiting existence check. */
+export const jobDescriptionIdsExist = managedJobDescriptionIdsExist;
+/** @deprecated Recruiting ingestion must use published jobs only. */
+export const fetchJobDescriptionsByCodes = fetchPublishedJobDescriptionsByCodes;
 
 // =========================================================================
 // 头部 chart 聚合查询 / Header chart aggregations.
@@ -650,6 +784,7 @@ export function loadJobDescriptionMetrics(organizationId: string): Promise<JobDe
 export function serializeJobDescription(
   row: typeof jobDescription.$inferSelect,
   interviewerIds: string[],
+  hasEvaluationUpgradeDraft = false,
 ): JobDescriptionRecord {
   const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
@@ -657,16 +792,33 @@ export function serializeJobDescription(
     code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
+    deductionRuleSetVersion: row.deductionRuleSetVersion,
     departmentId: row.departmentId,
     description: row.description,
+    evaluationBlueprint: row.evaluationBlueprint,
+    evaluationBlueprintHash: row.evaluationBlueprintHash,
+    evaluationBlueprintPreview: row.evaluationBlueprintPreview,
+    evaluationBlueprintPreviewGeneratedAt: row.evaluationBlueprintPreviewGeneratedAt
+      ? serializeDate(row.evaluationBlueprintPreviewGeneratedAt)
+      : null,
+    evaluationBlueprintPreviewHash: row.evaluationBlueprintPreviewHash,
+    evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
+    evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
+    evaluationMode: row.evaluationMode,
+    evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
+    evaluationUpgradedBy: row.evaluationUpgradedBy,
+    hasEvaluationUpgradeDraft,
     id: row.id,
     interviewerIds,
+    lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    structuredConfig: parseStructuredConfig(row.structuredConfig),
     updatedAt: serializeDate(row.updatedAt),
   };
 }

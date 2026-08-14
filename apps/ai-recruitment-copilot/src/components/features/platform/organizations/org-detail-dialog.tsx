@@ -16,6 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
+import { withCleanup } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { formatDateOnly } from "@arc/shared/utils/time";
 
@@ -148,19 +149,20 @@ export function OrgDetailDialog({
         return;
       }
       setLoading(true);
-      try {
-        const result = await rpcFetch<OrgDetail>(
-          rpc.api.platform.organizations[":orgId"].$get({
-            param: { orgId },
-            query: { page: String(p), pageSize: String(pageSize) },
-          }),
-          "加载工作区详情失败",
-        );
-        setData(result);
-        setPage(p);
-      } finally {
-        setLoading(false);
-      }
+      await withCleanup(
+        async () => {
+          const result = await rpcFetch<OrgDetail>(
+            rpc.api.platform.organizations[":orgId"].$get({
+              param: { orgId },
+              query: { page: String(p), pageSize: String(pageSize) },
+            }),
+            "加载工作区详情失败",
+          );
+          setData(result);
+          setPage(p);
+        },
+        () => setLoading(false),
+      );
     },
     [orgId],
   );

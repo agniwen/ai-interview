@@ -1,0 +1,26 @@
+{
+  "approval": {
+    "approvedAt": null,
+    "approver": null,
+    "status": "pending"
+  },
+  "baselineVersion": "synthetic-baseline-v1",
+  "casesFile": "cases.ts",
+  "corpusVersion": "structured-resume-synthetic-v1",
+  "engineVersion": "structured-resume-engine-v1",
+  "goldLabelVersion": "synthetic-gold-v1",
+  "modelId": "alibaba-coding-plan/MiniMax-M2.5",
+  "promptVersion": "structured-resume-prompt-v1",
+  "schemaVersion": 1,
+  "thresholds": {
+    "artifactSchemaValidity": 1,
+    "compositeScoreMae": 3,
+    "compositeScoreMaxError": 15,
+    "compositeScoreP95Error": 8,
+    "deterministicInvariants": 1,
+    "evidenceCitationIntegrity": 1,
+    "gradeAgreement": 0.9,
+    "hardGateAgreement": 0.95,
+    "perRuleMacroF1": 0.9
+  }
+}

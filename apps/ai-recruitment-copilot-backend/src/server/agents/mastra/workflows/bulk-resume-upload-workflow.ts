@@ -3,6 +3,7 @@ import { z } from "zod";
 import { processBatchItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 
 const bulkResumeUploadInputSchema = z.object({
+  bypassCache: z.boolean().optional(),
   itemId: z.string().trim().min(1),
 });
 
@@ -15,13 +16,18 @@ const bulkResumeUploadOutputSchema = z.object({
 export type BulkResumeUploadWorkflowOutput = z.infer<typeof bulkResumeUploadOutputSchema>;
 
 export interface BulkResumeUploadWorkflowDeps {
-  processItem: typeof processBatchItem;
+  processItem: (
+    itemId: string,
+    options?: { bypassCache?: boolean },
+  ) => ReturnType<typeof processBatchItem>;
 }
 
 export function createBulkResumeUploadWorkflow(deps: BulkResumeUploadWorkflowDeps) {
   const processItemStep = createStep({
     execute: async ({ inputData }) => {
-      const result = await deps.processItem(inputData.itemId);
+      const result = await deps.processItem(inputData.itemId, {
+        bypassCache: inputData.bypassCache,
+      });
       return {
         batch: result?.batch ?? null,
         done: Boolean(result?.done),
@@ -51,6 +57,7 @@ export const bulkResumeUploadWorkflow = createBulkResumeUploadWorkflow({
 });
 
 export async function runBulkResumeUploadWorkflow(input: {
+  bypassCache?: boolean;
   itemId: string;
 }): Promise<BulkResumeUploadWorkflowOutput> {
   const run = await bulkResumeUploadWorkflow.createRun();

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/client/auth-client";
+import { withCleanup } from "@/lib/client/async-control";
 import { getBannedAuthMessage, isBannedAuthError } from "./auth-error";
 
 interface EmailPasswordSignInFormProps {
@@ -39,24 +40,34 @@ export function EmailPasswordSignInForm({
       return;
     }
     setSubmitting(true);
-    const { error } = await authClient.signIn.email({
-      email: email.trim(),
-      password,
-    });
-    if (error) {
-      setSubmitting(false);
-      if (isBannedAuthError(error)) {
-        toast.error(getBannedAuthMessage(error.message));
-        await authClient.signOut();
-        await navigate({ replace: true, to: "/" });
-        return;
-      }
-      toast.error(error.message ?? "登录失败，请检查账号或密码");
-      return;
-    }
-    // 登录成功后跳转。用 router.replace 避免回退到登录页。
-    // Use replace so the back button doesn't return to the login page.
-    await navigate({ href: callbackURL, replace: true });
+    let shouldResetSubmitting = true;
+    await withCleanup(
+      async () => {
+        const { error } = await authClient.signIn.email({
+          email: email.trim(),
+          password,
+        });
+        if (error) {
+          if (isBannedAuthError(error)) {
+            toast.error(getBannedAuthMessage(error.message));
+            await authClient.signOut();
+            await navigate({ replace: true, to: "/" });
+            return;
+          }
+          toast.error(error.message ?? "登录失败，请检查账号或密码");
+          return;
+        }
+        // 登录成功后跳转。用 router.replace 避免回退到登录页。
+        // Use replace so the back button doesn't return to the login page.
+        await navigate({ href: callbackURL, replace: true });
+        shouldResetSubmitting = false;
+      },
+      () => {
+        if (shouldResetSubmitting) {
+          setSubmitting(false);
+        }
+      },
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
+import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
@@ -12,7 +13,15 @@ export interface DedupMatchRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
+  uploaderImage?: string | null;
+  uploaderName?: string | null;
+  resumeProfileSnapshot?: ResumeLibraryProfileSnapshot | null;
+  resumeFileName?: string | null;
+  /** Mastered skills for comparison UI (top skills from resume profile). */
+  skills?: string[];
   status: "active" | "archived";
+  /** 招聘台记录当前招聘状态（describeResumeProgress 文案），人才库记录为 null。 */
+  pipelineStatus?: { label: string; tone: "success" | "warning" | "info" | "outline" } | null;
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

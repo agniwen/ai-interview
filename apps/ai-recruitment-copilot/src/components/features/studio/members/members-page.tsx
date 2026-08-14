@@ -39,6 +39,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpc } from "@/lib/client/rpc";
 import { authClient } from "@/lib/client/auth-client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import {
   useWorkspaceId,
@@ -297,77 +298,77 @@ export function MembersManagementPage() {
 
   async function deleteGroup(group: RecruitingGroupRow) {
     setDeletingGroupId(group.id);
-    try {
-      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].$delete({
-        param: { id: group.id, slug },
-      });
-      if (!response.ok) {
-        toast.error("删除组别失败");
-        return;
-      }
-      setDeleteGroupTarget(null);
-      await refetchGroups();
-      toast.success("组别已删除，组内成员关系已移除");
-    } catch {
-      toast.error("删除组别失败");
-    } finally {
-      setDeletingGroupId(null);
-    }
+    await runAsyncAction({
+      cleanup: () => setDeletingGroupId(null),
+      onError: () => toast.error("删除组别失败"),
+      operation: async () => {
+        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].$delete({
+          param: { id: group.id, slug },
+        });
+        if (!response.ok) {
+          toast.error("删除组别失败");
+          return;
+        }
+        setDeleteGroupTarget(null);
+        await refetchGroups();
+        toast.success("组别已删除，组内成员关系已移除");
+      },
+    });
   }
 
   async function addMemberToGroup(row: MemberRow, groupId: string) {
     const pendingKey = `${groupId}:${row.userId}`;
     setPending(pendingKey);
-    try {
-      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
-        json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
-        param: { id: groupId, slug },
-      });
-      if (!response.ok) {
-        toast.error(await readErrorMessage(response, "添加组成员失败"));
-        return;
-      }
-      await refetchGroups();
-      toast.success("成员已加入招聘组");
-    } catch {
-      toast.error("添加组成员失败");
-    } finally {
-      setPending(null);
-    }
+    await runAsyncAction({
+      cleanup: () => setPending(null),
+      onError: () => toast.error("添加组成员失败"),
+      operation: async () => {
+        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
+          json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
+          param: { id: groupId, slug },
+        });
+        if (!response.ok) {
+          toast.error(await readErrorMessage(response, "添加组成员失败"));
+          return;
+        }
+        await refetchGroups();
+        toast.success("成员已加入招聘组");
+      },
+    });
   }
 
   async function moveMemberToGroup(row: MemberRow, sourceGroupId: string, targetGroupId: string) {
     const pendingKey = `${sourceGroupId}:${row.userId}`;
     setPending(pendingKey);
-    try {
-      const removeResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-        ":userId"
-      ].$delete({
-        param: { id: sourceGroupId, slug, userId: row.userId },
-      });
-      if (!removeResponse.ok) {
-        toast.error(await readErrorMessage(removeResponse, "移动组成员失败"));
-        await refetchGroups();
-        return;
-      }
+    await runAsyncAction({
+      cleanup: () => setPending(null),
+      onError: () => toast.error("移动组成员失败"),
+      operation: async () => {
+        const removeResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
+          ":userId"
+        ].$delete({
+          param: { id: sourceGroupId, slug, userId: row.userId },
+        });
+        if (!removeResponse.ok) {
+          toast.error(await readErrorMessage(removeResponse, "移动组成员失败"));
+          await refetchGroups();
+          return;
+        }
 
-      const addResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
-        json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
-        param: { id: targetGroupId, slug },
-      });
-      if (!addResponse.ok) {
-        toast.error(await readErrorMessage(addResponse, "移动组成员失败"));
-        await refetchGroups();
-        return;
-      }
+        const addResponse = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
+          json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
+          param: { id: targetGroupId, slug },
+        });
+        if (!addResponse.ok) {
+          toast.error(await readErrorMessage(addResponse, "移动组成员失败"));
+          await refetchGroups();
+          return;
+        }
 
-      await refetchGroups();
-      toast.success("成员已移动到目标招聘组");
-    } catch {
-      toast.error("移动组成员失败");
-    } finally {
-      setPending(null);
-    }
+        await refetchGroups();
+        toast.success("成员已移动到目标招聘组");
+      },
+    });
   }
 
   async function changeGroupMemberRole(
@@ -377,46 +378,46 @@ export function MembersManagementPage() {
   ) {
     const pendingKey = `${groupId}:${member.userId}`;
     setPending(pendingKey);
-    try {
-      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-        ":userId"
-      ].$patch({
-        json: { role },
-        param: { id: groupId, slug, userId: member.userId },
-      });
-      if (!response.ok) {
-        toast.error("更新组内角色失败");
-        return;
-      }
-      await refetchGroups();
-      toast.success("组内角色已更新");
-    } catch {
-      toast.error("更新组内角色失败");
-    } finally {
-      setPending(null);
-    }
+    await runAsyncAction({
+      cleanup: () => setPending(null),
+      onError: () => toast.error("更新组内角色失败"),
+      operation: async () => {
+        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
+          ":userId"
+        ].$patch({
+          json: { role },
+          param: { id: groupId, slug, userId: member.userId },
+        });
+        if (!response.ok) {
+          toast.error("更新组内角色失败");
+          return;
+        }
+        await refetchGroups();
+        toast.success("组内角色已更新");
+      },
+    });
   }
 
   async function removeGroupMember(groupId: string, member: RecruitingGroupMemberRow) {
     const pendingKey = `${groupId}:${member.userId}`;
     setPending(pendingKey);
-    try {
-      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
-        ":userId"
-      ].$delete({
-        param: { id: groupId, slug, userId: member.userId },
-      });
-      if (!response.ok) {
-        toast.error("移出招聘组失败");
-        return;
-      }
-      await refetchGroups();
-      toast.success("成员已移出招聘组");
-    } catch {
-      toast.error("移出招聘组失败");
-    } finally {
-      setPending(null);
-    }
+    await runAsyncAction({
+      cleanup: () => setPending(null),
+      onError: () => toast.error("移出招聘组失败"),
+      operation: async () => {
+        const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
+          ":userId"
+        ].$delete({
+          param: { id: groupId, slug, userId: member.userId },
+        });
+        if (!response.ok) {
+          toast.error("移出招聘组失败");
+          return;
+        }
+        await refetchGroups();
+        toast.success("成员已移出招聘组");
+      },
+    });
   }
 
   async function changeWorkspaceRole(row: MemberRow, role: string) {
@@ -558,7 +559,7 @@ export function MembersManagementPage() {
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
       <PageHeader
-        description="维护工作区成员、邀请入口和招聘组身份，让招聘协作边界清晰可控。"
+        description="管理成员、邀请链接和招聘组，谁能协作、能看到什么，都在这里安排。"
         title={
           <span className="inline-flex min-w-0 items-center gap-2">
             <span className="truncate">{org?.name ?? "工作区"}</span>

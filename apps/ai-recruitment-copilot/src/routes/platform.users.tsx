@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { UsersGrid } from "@/components/features/platform/users/users-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformUsersState } from "@/lib/start/platform/users.functions";
 import type { PlatformUsersState } from "@/lib/start/platform/users.functions";
 
@@ -65,10 +66,7 @@ function PlatformUsersRoute() {
 }
 
 export const Route = createFileRoute("/platform/users")({
-  component: PlatformUsersRoute,
-  head: () => ({
-    meta: [{ title: "平台 · 所有用户" }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -85,6 +83,9 @@ export const Route = createFileRoute("/platform/users")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 所有用户") }],
+  }),
+  component: PlatformUsersRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

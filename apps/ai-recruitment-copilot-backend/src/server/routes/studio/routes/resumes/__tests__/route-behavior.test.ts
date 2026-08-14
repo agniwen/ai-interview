@@ -8,11 +8,15 @@ const mocks = vi.hoisted(() => ({
   deleteDuplicateMatchesForSource: vi.fn(),
   deleteResumeSemanticIndexBestEffort: vi.fn(),
   deleteReturning: vi.fn(),
+  enqueueResumeReassessmentForRecord: vi.fn(),
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
   findSemanticResumeDuplicates: vi.fn(),
+  flattenPresetQuestionsFromContextSnapshot: vi.fn(),
+  forceResumeReparse: vi.fn(),
   insertedValues: [] as Record<string, unknown>[],
   invalidateStudioInterviewCaches: vi.fn(),
   jobDescriptionIdsExist: vi.fn(),
+  launchAiInterviewRound: vi.fn(),
   listCandidateRounds: vi.fn(),
   listDuplicateMatchesForSource: vi.fn(),
   loadCandidateTimeline: vi.fn(),
@@ -21,11 +25,16 @@ const mocks = vi.hoisted(() => ({
   loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
   loadResumeDetail: vi.fn(),
   loadResumeDetailForWorkspaceMember: vi.fn(),
+  loadResumeLibraryMetrics: vi.fn(),
+  permissionChecks: [] as [string, string][],
+  queryPaginatedResumeRecords: vi.fn(),
   removeImportedInterviewFromConversations: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
   resetResumeEvaluationForJobChange: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
   resolveResumeUploadStorage: vi.fn(),
+  retryFailedResumeParse: vi.fn(),
+  scheduleResumeEvaluationForRecord: vi.fn(),
   submitResumeEvaluationOnce: vi.fn(),
   transaction: vi.fn(),
   updatePatches: [] as Record<string, unknown>[],
@@ -36,7 +45,31 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
     delete: () => ({
       where: () => ({ returning: mocks.deleteReturning }),
     }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: () =>
+            Promise.resolve([
+              {
+                detail: {
+                  personalizedQuestionCount: 0,
+                  questionCount: 0,
+                  roundId: "round-1",
+                  roundLabel: "AI 一面",
+                },
+                id: "audit-launch-1",
+              },
+            ]),
+        }),
+      }),
+    }),
     transaction: mocks.transaction,
+    update: () => ({
+      set: (patch: Record<string, unknown>) => {
+        mocks.updatePatches.push(patch);
+        return { where: () => Promise.resolve() };
+      },
+    }),
   },
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
@@ -49,6 +82,12 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility
 vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
   invalidateStudioInterviewCaches: mocks.invalidateStudioInterviewCaches,
 }));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round",
+  () => ({
+    launchAiInterviewRound: mocks.launchAiInterviewRound,
+  }),
+);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
   removeImportedInterviewFromConversations: mocks.removeImportedInterviewFromConversations,
 }));
@@ -57,14 +96,24 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   validateResumeFile: vi.fn(),
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
+  requirePermission:
+    (resource: string, action: string) => (_c: unknown, next: () => Promise<void>) => {
+      mocks.permissionChecks.push([resource, action]);
+      return next();
+    },
 }));
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes",
   () => ({
     loadResumeDetail: mocks.loadResumeDetail,
     loadResumeDetailForWorkspaceMember: mocks.loadResumeDetailForWorkspaceMember,
-    queryPaginatedResumeRecords: vi.fn(),
+    queryPaginatedResumeRecords: mocks.queryPaginatedResumeRecords,
+  }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics",
+  () => ({
+    loadResumeLibraryMetrics: mocks.loadResumeLibraryMetrics,
   }),
 );
 vi.mock(
@@ -121,6 +170,7 @@ vi.mock(
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
   () => ({
+    flattenPresetQuestionsFromContextSnapshot: mocks.flattenPresetQuestionsFromContextSnapshot,
     loadOrCreateActiveInterviewContextSnapshot: mocks.loadOrCreateActiveInterviewContextSnapshot,
   }),
 );
@@ -129,6 +179,8 @@ vi.mock(
   () => ({
     jobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
     loadJobDescriptionById: mocks.loadJobDescriptionById,
+    loadRecruitingJobDescriptionById: mocks.loadJobDescriptionById,
+    recruitingJobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
   }),
 );
 vi.mock(
@@ -144,6 +196,24 @@ vi.mock(
   () => ({
     generateResumeReviewBestEffort: vi.fn(),
     generateResumeScreeningBestEffort: vi.fn(),
+  }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
+  () => ({
+    enqueueResumeReassessmentForRecord: mocks.enqueueResumeReassessmentForRecord,
+    scheduleResumeEvaluationForRecord: mocks.scheduleResumeEvaluationForRecord,
+  }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker",
+  () => ({ reassessResumeRecord: vi.fn() }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
+  () => ({
+    forceResumeReparse: mocks.forceResumeReparse,
+    retryFailedResumeParse: mocks.retryFailedResumeParse,
   }),
 );
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
@@ -189,12 +259,40 @@ describe("resumeLibraryRouter behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.insertedValues.length = 0;
+    mocks.permissionChecks.length = 0;
     mocks.updatePatches.length = 0;
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
+    mocks.forceResumeReparse.mockResolvedValue({ status: "queued" });
+    mocks.retryFailedResumeParse.mockResolvedValue({ status: "queued" });
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
+    mocks.enqueueResumeReassessmentForRecord.mockResolvedValue("enqueued");
+    mocks.scheduleResumeEvaluationForRecord.mockResolvedValue({
+      status: "enqueued",
+    });
+    mocks.loadJobDescriptionById.mockResolvedValue({
+      evaluationMode: "legacy",
+      id: "jd-new",
+      name: "新岗位",
+    });
     mocks.buildScheduleRows.mockReturnValue([SCHEDULE_ROW]);
     mocks.loadInterviewRoundDetail.mockResolvedValue({ id: SCHEDULE_ROW.id });
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: true,
+      roundId: SCHEDULE_ROW.id,
+    });
+    mocks.queryPaginatedResumeRecords.mockResolvedValue({
+      page: 2,
+      pageSize: 20,
+      records: [],
+      total: 1103,
+      totalPages: 56,
+    });
+    mocks.loadResumeLibraryMetrics.mockResolvedValue({
+      byPipeline: [],
+      conversion: { withInterview: 0, withoutInterview: 0 },
+      dailyAdded: [],
+    });
     // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Drizzle transactions use a callback API.
     mocks.transaction.mockImplementation((callback) => {
       const tx = {
@@ -214,6 +312,110 @@ describe("resumeLibraryRouter behavior", () => {
       // oxlint-disable-next-line promise/prefer-await-to-callbacks -- invoke the supplied transaction callback.
       return callback(tx);
     });
+  });
+
+  it("passes a known total to later list pages", async () => {
+    const response = await makeApp().request("/resumes?page=2&pageSize=20&knownTotal=1103");
+
+    expect(response.status).toBe(200);
+    expect(mocks.queryPaginatedResumeRecords).toHaveBeenCalledWith(
+      ORGANIZATION_ID,
+      expect.any(Object),
+      expect.objectContaining({ page: "2", pageSize: "20" }),
+      { kind: "all" },
+      1103,
+    );
+  });
+
+  it("returns resume-library metrics behind page and resource permissions", async () => {
+    const response = await makeApp().request("/resumes/metrics");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      byPipeline: [],
+      conversion: { withInterview: 0, withoutInterview: 0 },
+      dailyAdded: [],
+    });
+    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID, {
+      createdByUserId: undefined,
+    });
+    expect(mocks.permissionChecks).toEqual([
+      ["page", "resumes"],
+      ["resumeLibrary", "read"],
+    ]);
+  });
+
+  it("queues one retry for an eligible failed resume record", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      id: RECORD_ID,
+      resumeParseRetryable: true,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/retry-parse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId: RECORD_ID,
+    });
+  });
+
+  it("rejects a resume record that already used its retry", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      id: RECORD_ID,
+      resumeParseRetryable: false,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/retry-parse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
+  });
+
+  it("queues an admin force reparse that bypasses parse cache", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      hasResumeFile: true,
+      id: RECORD_ID,
+      resumeParseStatus: "ready",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/force-reparse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.forceResumeReparse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId: RECORD_ID,
+    });
+    expect(mocks.invalidateStudioInterviewCaches).toHaveBeenCalledWith(ORGANIZATION_ID);
+  });
+
+  it("rejects force reparse for non-admin workspace members", async () => {
+    const app = factory
+      .createApp()
+      .use("*", async (c, next) => {
+        c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+        c.set("member", { role: "member" } as never);
+        c.set("user", { id: USER_ID } as never);
+        await next();
+      })
+      .route("/resumes", resumeLibraryRouter);
+
+    const response = await app.request(`/resumes/${RECORD_ID}/force-reparse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.forceResumeReparse).not.toHaveBeenCalled();
   });
 
   it("persists duplicate matches after creating a resume-library record", async () => {
@@ -248,13 +450,12 @@ describe("resumeLibraryRouter behavior", () => {
     expect(await response.json()).toEqual({ matches });
     expect(mocks.listDuplicateMatchesForSource).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
-      poolOwnerUserId: USER_ID,
       sourceId: RECORD_ID,
       sourceType: "studio_interview",
     });
   });
 
-  it("launches AI interview with an audit event and context snapshot", async () => {
+  it("delegates AI interview launch to the atomic command", async () => {
     mocks.loadResumeDetail.mockResolvedValue(EXISTING_RECORD);
 
     const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
@@ -264,26 +465,19 @@ describe("resumeLibraryRouter behavior", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(mocks.insertedValues).toContainEqual(
+    expect(mocks.launchAiInterviewRound).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "ai_interview_launched",
+        actorId: USER_ID,
         interviewRecordId: RECORD_ID,
-        operatorId: USER_ID,
-        scheduleEntryId: SCHEDULE_ROW.id,
+        organizationId: ORGANIZATION_ID,
       }),
     );
-    expect(mocks.loadOrCreateActiveInterviewContextSnapshot).toHaveBeenCalledWith({
-      createdBy: USER_ID,
-      interviewRecordId: RECORD_ID,
-      reason: "create",
-      scheduleEntryId: SCHEDULE_ROW.id,
-    });
   });
 
   it("blocks launching AI interview after the candidate reaches a later stage", async () => {
-    mocks.loadResumeDetail.mockResolvedValue({
-      ...EXISTING_RECORD,
-      pipelineStage: "human_interview",
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: false,
+      reason: "stage_conflict",
     });
 
     const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
@@ -293,8 +487,27 @@ describe("resumeLibraryRouter behavior", () => {
     });
 
     expect(response.status).toBe(409);
-    expect(mocks.transaction).not.toHaveBeenCalled();
-    expect(mocks.loadOrCreateActiveInterviewContextSnapshot).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: "AI_INTERVIEW_STAGE_CONFLICT",
+    });
+  });
+
+  it("returns a confirmation conflict when the current structured evaluation needs acknowledgement", async () => {
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: false,
+      reason: "structured_evaluation_confirmation_required",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
+      body: JSON.stringify({ interviewQuestions: [] }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "AI_INTERVIEW_CONFIRMATION_REQUIRED",
+    });
   });
 
   it("exposes workspace review data and records a one-time evaluation", async () => {
@@ -321,10 +534,14 @@ describe("resumeLibraryRouter behavior", () => {
     });
   });
 
-  it("audits a job-description change and resets the prior evaluation", async () => {
+  it("audits a full-form job change and resets both evaluation paths", async () => {
+    const existingWithProfile = {
+      ...EXISTING_RECORD,
+      resumeProfile: { name: "候选人", targetRoles: [] },
+    };
     mocks.loadResumeDetail
-      .mockResolvedValueOnce(EXISTING_RECORD)
-      .mockResolvedValueOnce({ ...EXISTING_RECORD, jobDescriptionId: "jd-new" });
+      .mockResolvedValueOnce(existingWithProfile)
+      .mockResolvedValueOnce({ ...existingWithProfile, jobDescriptionId: "jd-new" });
     mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-new", name: "新岗位" });
 
     const formData = new FormData();
@@ -356,6 +573,65 @@ describe("resumeLibraryRouter behavior", () => {
       organizationId: ORGANIZATION_ID,
       previousJobDescriptionId: "jd-old",
       previousStatus: "pass",
+    });
+    expect(mocks.enqueueResumeReassessmentForRecord).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      resumeRecordId: RECORD_ID,
+    });
+  });
+
+  it("invalidates stale AI scoring and queues a new assessment when the job changes", async () => {
+    const processingRecord = {
+      ...EXISTING_RECORD,
+      resumeProfile: { name: "候选人", targetRoles: [] },
+      resumeReview: { overall: { conclusion: "旧岗位评分" } },
+      resumeReviewRunId: "old-run",
+      resumeReviewStatus: "processing",
+      resumeScreeningResult: { recommendation: "pass" },
+      resumeScreeningStatus: "processing",
+    };
+    mocks.loadResumeDetail.mockResolvedValueOnce(processingRecord).mockResolvedValueOnce({
+      ...processingRecord,
+      jobDescriptionId: "jd-new",
+      resumeReview: null,
+      resumeReviewStatus: "queued",
+    });
+    mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-new", name: "新岗位" });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/identity`, {
+      body: JSON.stringify({
+        age: null,
+        candidateEmail: "",
+        candidateName: "候选人",
+        candidatePhone: "",
+        gender: "",
+        jobDescriptionId: "jd-new",
+        resumeEvaluationStatus: "pass",
+        targetRole: "",
+        workYears: null,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updatePatches).toContainEqual(
+      expect.objectContaining({
+        resumeReview: null,
+        resumeReviewError: null,
+        resumeReviewGeneratedAt: null,
+        resumeReviewQueuedAt: null,
+        resumeReviewRunId: null,
+        resumeReviewStatus: "idle",
+        resumeScreeningError: null,
+        resumeScreeningEvaluatedAt: null,
+        resumeScreeningResult: null,
+        resumeScreeningStatus: "idle",
+      }),
+    );
+    expect(mocks.enqueueResumeReassessmentForRecord).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      resumeRecordId: RECORD_ID,
     });
   });
 

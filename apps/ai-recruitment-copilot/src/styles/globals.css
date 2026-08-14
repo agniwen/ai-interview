@@ -1,5 +1,15 @@
+/*
+ * Keep Mastra's component and utility rules after the host base reset so
+ * package controls retain their spacing. Host components still follow Mastra
+ * components, and host utilities stay last so responsive host classes win.
+ */
+@layer mastra-studio-properties, mastra-studio-theme, mastra-studio-base,
+  properties, theme, base, mastra-studio-components, components, mastra-studio-utilities, utilities;
+
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./typeset.css";
 
 @source "../node_modules/streamdown/dist/*.js";
 
@@ -56,23 +66,25 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* kami "whisper shadow" 阶梯：取代硬投影，纸张般的轻微抬升。
-     kami invariant #9 — depth via soft long-blur whispers, never hard drop shadows. */
-  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.025);
-  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.03);
-  --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.04);
-  --shadow-DEFAULT: 0 4px 16px -4px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 32px -8px rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 16px 48px -12px rgb(0 0 0 / 0.07);
-  --shadow-2xl: 0 24px 64px -16px rgb(0 0 0 / 0.08);
+  /* Yohaku / kami depth:
+     - Resting surfaces: ring/border only — no drop shadow.
+     - Elevated overlays: one whisper (0 4px 24px / 0.05).
+     - Hard drop shadows are forbidden. */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-DEFAULT: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
 }
 
 :root {
   --radius: 0.875rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.28 0.04 254);
-  --card: #fafafa;
+  --card: var(--background);
   --card-foreground: oklch(0.28 0.04 254);
   --popover: #fafafa;
   --popover-foreground: oklch(0.28 0.04 254);
@@ -95,6 +107,18 @@
   --chart-3: oklch(0.8 0.09 254);
   --chart-4: oklch(0.87 0.05 254);
   --chart-5: oklch(0.5 0.16 254);
+  --job-weight-skill: oklch(0.68 0.16 254);
+  --job-weight-experience: oklch(0.68 0.13 200);
+  --job-weight-project: oklch(0.74 0.13 78);
+  --job-weight-education: oklch(0.66 0.14 300);
+  --job-weight-potential: oklch(0.7 0.12 32);
+  --job-weight-stability: oklch(0.66 0.045 254);
+  --job-weight-chip-mix: 20%;
+  --job-weight-chip-border-mix: 30%;
+  --calendar-ai-interview: var(--color-emerald-500);
+  --calendar-ai-interview-foreground: var(--color-emerald-700);
+  --calendar-human-interview: var(--color-sky-500);
+  --calendar-human-interview-foreground: var(--color-sky-700);
   --sidebar: #f7f7f7;
   /* --sidebar: oklch(0.985 0 0); */
   --sidebar-foreground: oklch(0.28 0 0);
@@ -113,8 +137,9 @@
   --card-foreground: oklch(0.97 0.006 254);
   --popover: oklch(0.215 0.018 254);
   --popover-foreground: oklch(0.97 0.006 254);
-  --primary: oklch(0.72 0.095 254);
-  --primary-foreground: oklch(0.22 0.025 254);
+  /* Dark brand palette echoes the homepage MeshGradient without tinting neutral surfaces. */
+  --primary: #c4b5fd;
+  --primary-foreground: #241d3f;
   --secondary: oklch(0.255 0.02 254);
   --secondary-foreground: oklch(0.97 0.006 254);
   --muted: oklch(0.255 0.02 254);
@@ -124,20 +149,32 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.09 254);
-  --chart-1: oklch(0.62 0.1 254);
-  --chart-2: oklch(0.75 0.08 254);
-  --chart-3: oklch(0.45 0.09 254);
-  --chart-4: oklch(0.85 0.05 254);
-  --chart-5: oklch(0.55 0.06 254);
+  --ring: #a78bfa;
+  --chart-1: #c4b5fd;
+  --chart-2: #e0eaff;
+  --chart-3: #f0abfc;
+  --chart-4: #fbcfe8;
+  --chart-5: #a5b4fc;
+  --job-weight-skill: oklch(0.52 0.08 254);
+  --job-weight-experience: oklch(0.52 0.06 200);
+  --job-weight-project: oklch(0.54 0.06 78);
+  --job-weight-education: oklch(0.52 0.07 300);
+  --job-weight-potential: oklch(0.54 0.06 32);
+  --job-weight-stability: oklch(0.48 0.02 254);
+  --job-weight-chip-mix: 10%;
+  --job-weight-chip-border-mix: 16%;
+  --calendar-ai-interview: var(--color-emerald-500);
+  --calendar-ai-interview-foreground: var(--color-emerald-300);
+  --calendar-human-interview: var(--color-sky-500);
+  --calendar-human-interview-foreground: var(--color-sky-300);
   --sidebar: #0e151e;
   --sidebar-foreground: oklch(0.97 0.006 254);
-  --sidebar-primary: oklch(0.62 0.1 254);
-  --sidebar-primary-foreground: oklch(0.97 0.006 254);
+  --sidebar-primary: #c4b5fd;
+  --sidebar-primary-foreground: #241d3f;
   --sidebar-accent: oklch(0.255 0.02 254);
   --sidebar-accent-foreground: oklch(0.97 0.006 254);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.09 254);
+  --sidebar-ring: #a78bfa;
 }
 
 @layer base {
@@ -165,6 +202,10 @@
        kami: minimum 3 lines for widows and orphans — no stranded single lines. */
     widows: 3;
     orphans: 3;
+  }
+
+  .dark body {
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
   }
 
   [data-sidebar="sidebar"] [data-sidebar="menu-button"],
@@ -215,6 +256,11 @@
     color: oklch(0.32 0.1 254);
   }
 
+  .dark ::selection {
+    background: color-mix(in oklab, var(--primary) 45%, transparent);
+    color: var(--foreground);
+  }
+
   * {
     scrollbar-width: thin;
     scrollbar-color: oklch(0.6 0 0 / 45%) transparent;
@@ -246,8 +292,9 @@
    Without it, backdrop-blur desaturates the content underneath and the
    material reads as flat gray. Tailwind v4 composes backdrop-filter from
    --tw-backdrop-* variables, so setting --tw-backdrop-saturate here
-   augments every backdrop-blur-* utility without editing each call site. */
-[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+   augments every backdrop-blur-* utility without editing each call site.
+   Individual surfaces can opt out with backdrop-saturate-100. */
+[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]):not(.backdrop-saturate-100) {
   --tw-backdrop-saturate: saturate(180%);
 }
 
@@ -293,6 +340,34 @@
   }
 }
 
+@keyframes home-product-shot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-product-shot-enter {
+  animation: home-product-shot-enter 550ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes text-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.ai-text-shimmer {
+  animation: text-shimmer var(--text-shimmer-duration, 2s) linear infinite;
+}
+
 /* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
    transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -306,6 +381,15 @@
     transition-duration: 200ms !important;
     transition-property:
       opacity, color, background-color, border-color, outline-color, fill, stroke !important;
+  }
+
+  .ai-text-shimmer {
+    animation: none !important;
+    background-position: 0% center;
+  }
+
+  .home-product-shot-enter {
+    animation: none !important;
   }
 }
 
@@ -336,4 +420,21 @@
   --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
   --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+}
+
+/* TanStack Charts native tooltip surface — soft, compact shadow */
+.arc-ts-chart-tooltip {
+  min-width: 8rem;
+  max-width: 18rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  background: var(--background);
+  padding: 0.375rem 0.625rem;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  box-shadow:
+    0 2px 8px -2px rgb(0 0 0 / 0.08),
+    0 1px 2px -1px rgb(0 0 0 / 0.04);
+  white-space: pre-line;
 }

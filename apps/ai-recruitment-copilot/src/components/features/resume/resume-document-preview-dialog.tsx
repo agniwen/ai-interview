@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
 import { cn } from "@arc/shared/utils";
+import { runAsyncAction } from "@/lib/client/async-control";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
 export type ResumeDocumentPreviewKind = "pdf" | "image" | OfficeResumePreviewKind;
@@ -17,6 +18,7 @@ const PdfPreviewDialog = lazy(async () => {
 });
 
 export interface ResumeDocumentPreviewDialogProps {
+  downloadUrl?: string;
   kind: ResumeDocumentPreviewKind;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -103,25 +105,28 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
     setImageSource(null);
 
     async function loadImage() {
-      try {
-        const response = await fetch(url, {
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Image preview request failed with status ${response.status}`);
-        }
-        const blob = await response.blob();
-        if (controller.signal.aborted) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(blob);
-        setImageSource({ objectUrl, requestUrl: url });
-      } catch {
-        if (!controller.signal.aborted) {
-          setStatus("error");
-        }
-      }
+      await runAsyncAction({
+        onError: () => {
+          if (!controller.signal.aborted) {
+            setStatus("error");
+          }
+        },
+        operation: async () => {
+          const response = await fetch(url, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`Image preview request failed with status ${response.status}`);
+          }
+          const blob = await response.blob();
+          if (controller.signal.aborted) {
+            return;
+          }
+          objectUrl = URL.createObjectURL(blob);
+          setImageSource({ objectUrl, requestUrl: url });
+        },
+      });
     }
 
     void loadImage();
@@ -172,6 +177,7 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
 }
 
 export function ResumeDocumentPreviewDialog({
+  downloadUrl,
   kind,
   open,
   onOpenChange,
@@ -181,13 +187,14 @@ export function ResumeDocumentPreviewDialog({
   const [isDark, setIsDark] = useState(false);
   const title = filename ?? getDefaultPreviewTitle(kind);
   const downloadFileName = getResumePreviewDownloadFileName(kind, filename);
+  const resolvedDownloadUrl = downloadUrl ?? url;
 
   if (kind === "pdf") {
     return (
       <Suspense fallback={null}>
         <PdfPreviewDialog
           downloadFileName={downloadFileName}
-          downloadUrl={url}
+          downloadUrl={resolvedDownloadUrl}
           filename={filename}
           onOpenChange={onOpenChange}
           open={open}
@@ -213,7 +220,7 @@ export function ResumeDocumentPreviewDialog({
         headerExtra={
           <ResumePreviewHeaderActions
             downloadFileName={downloadFileName}
-            downloadUrl={url}
+            downloadUrl={resolvedDownloadUrl}
             onClose={() => onOpenChange(false)}
           />
         }
@@ -238,7 +245,7 @@ export function ResumeDocumentPreviewDialog({
       headerExtra={
         <ResumePreviewHeaderActions
           downloadFileName={downloadFileName}
-          downloadUrl={url}
+          downloadUrl={resolvedDownloadUrl}
           onClose={() => onOpenChange(false)}
         />
       }

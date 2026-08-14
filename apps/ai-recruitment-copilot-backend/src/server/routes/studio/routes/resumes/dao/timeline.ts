@@ -55,6 +55,7 @@ function compactMeta(values: (CandidateTimelineEventMeta | null)[]): CandidateTi
 
 const CONVERSATION_RESULT_LABEL: Record<string, string> = {
   failed: "失败",
+  partial: "部分完成",
   success: "成功",
 };
 

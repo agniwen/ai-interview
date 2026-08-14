@@ -1,0 +1,75 @@
+.navigation-command-popup[data-open],
+.navigation-command-popup[data-closed] {
+  animation: none !important;
+}
+
+.navigation-command-surface {
+  opacity: 1;
+  transform: none;
+}
+
+.navigation-command-surface-input {
+  /* Match rail/results panels; beat playground-ui / dialog surface utilities. */
+  background-color: var(--surface2) !important;
+  border-bottom-color: var(--border1);
+}
+
+.navigation-command-surface-input:focus-within {
+  background-color: var(--surface2) !important;
+}
+
+.navigation-command-surface-input [cmdk-input],
+.navigation-command-surface-input input {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Browser autofill can paint a different fill over the shared surface. */
+.navigation-command-surface-input input:-webkit-autofill,
+.navigation-command-surface-input input:-webkit-autofill:hover,
+.navigation-command-surface-input input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+  -webkit-text-fill-color: var(--neutral6, inherit);
+  caret-color: var(--neutral6, inherit);
+  transition: background-color 99999s ease-out;
+}
+
+.navigation-command-results-panel {
+  --navigation-command-footer-height: 4.75rem;
+  isolation: isolate;
+}
+
+.navigation-command-results-panel::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  height: var(--navigation-command-footer-height);
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    to top,
+    var(--surface2) 0%,
+    var(--surface2) 28%,
+    color-mix(in oklab, var(--surface2) 94%, transparent) 68%,
+    transparent 100%
+  );
+  border-bottom-right-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+}
+
+.navigation-command-list {
+  padding: 0.5rem 0.5rem var(--navigation-command-footer-height);
+}
+
+.navigation-command-scroll-viewport {
+  scroll-padding-bottom: var(--navigation-command-footer-height);
+}
+
+.navigation-command-footer {
+  min-height: calc(var(--navigation-command-footer-height) - 1.25rem);
+  border-bottom-right-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+}

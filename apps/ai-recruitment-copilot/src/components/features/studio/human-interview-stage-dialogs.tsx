@@ -17,6 +17,7 @@ import { invalidateHumanInterviewCandidateQueries } from "@/lib/client/api/query
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,20 +32,43 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Textarea } from "@/components/ui/textarea";
-import { addOneHourToDateTimeLocalInputValue } from "./human-interview-stage-utils";
+import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
+import {
+  addOneHourToDateTimeLocalInputValue,
+  buildHumanInterviewMeetingTitle,
+} from "./human-interview-stage-utils";
+
+type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
 
 interface WorkspaceMember {
   id: string;
   name: string;
   email: string;
+  feishuProviderIds: FeishuProviderId[];
   image: string | null;
+}
+
+function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProviderId> | null {
+  const [firstMember, ...remainingMembers] = members;
+  if (!firstMember) {
+    return null;
+  }
+  const commonProviderIds = new Set(firstMember.feishuProviderIds);
+  for (const member of remainingMembers) {
+    for (const providerId of commonProviderIds) {
+      if (!member.feishuProviderIds.includes(providerId)) {
+        commonProviderIds.delete(providerId);
+      }
+    }
+  }
+  return commonProviderIds;
 }
 
 function useWorkspaceMembers() {
   const slug = useWorkspaceSlug();
   return useQuery({
     queryFn: () =>
-      rpcFetch<{ records: WorkspaceMember[] }>(
+      rpcFetch<{ feishuHumanInterviewEnabled: boolean; records: WorkspaceMember[] }>(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),
@@ -57,6 +81,7 @@ interface ScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidateId: string;
+  candidateName: string;
   existingCount: number;
   onScheduled: () => void;
 }
@@ -72,6 +97,7 @@ export function ScheduleRoundDialog({
   open,
   onOpenChange,
   candidateId,
+  candidateName,
   existingCount,
   onScheduled,
 }: ScheduleDialogProps) {
@@ -123,28 +149,49 @@ export function ScheduleRoundDialog({
         scheduledAt: scheduledAtIso,
       });
       const validUntilIso = dateTimeLocalInputToISOString(validUntil);
-      await createHumanInterviewMeeting(slug, {
-        interviewerIds,
-        notes: notes.trim() || null,
-        roundIds: [round.id],
-        scheduledAt: scheduledAtIso,
-        title: roundLabel,
-        validUntil: validUntilIso,
-      });
-      return round;
+      try {
+        await createHumanInterviewMeeting(slug, {
+          interviewerIds,
+          notes: notes.trim() || null,
+          roundIds: [round.id],
+          scheduledAt: scheduledAtIso,
+          title: buildHumanInterviewMeetingTitle(candidateName, roundLabel),
+          validUntil: validUntilIso,
+        });
+        return { feishuFailure: null, round };
+      } catch (error) {
+        const feishuFailure = getCreatedMeetingFeishuFailure(error);
+        if (!feishuFailure) {
+          throw error;
+        }
+        return { feishuFailure, round };
+      }
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
-    onSuccess: () => {
-      toast.success("已安排线上真人复面");
+    onSuccess: ({ feishuFailure }) => {
+      if (feishuFailure) {
+        toast.warning("真人复面已安排，飞书同步失败，可在会议链接中重试");
+      } else {
+        toast.success("已安排线上真人复面");
+      }
       void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onScheduled();
       handleOpenChange(false);
     },
   });
 
-  const memberOptions = (members?.records ?? []).map((m) => ({
-    label: m.name,
-    value: m.id,
+  const memberRecords = members?.records ?? [];
+  const selectedMembers = memberRecords.filter((member) => interviewerIds.includes(member.id));
+  const commonProviderIds = getCommonFeishuProviderIds(selectedMembers);
+  const memberOptions = memberRecords.map((member) => ({
+    avatarUrl: member.image,
+    disabled:
+      members?.feishuHumanInterviewEnabled === true &&
+      !interviewerIds.includes(member.id) &&
+      commonProviderIds !== null &&
+      !member.feishuProviderIds.some((providerId) => commonProviderIds.has(providerId)),
+    label: member.name,
+    value: member.id,
   }));
 
   return (
@@ -153,7 +200,7 @@ export function ScheduleRoundDialog({
         <DialogHeader>
           <DialogTitle>安排真人复面</DialogTitle>
           <DialogDescription>
-            填好基础信息后保存。系统会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
+            保存后会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
           </DialogDescription>
         </DialogHeader>
 
@@ -175,11 +222,10 @@ export function ScheduleRoundDialog({
             <Label className="text-sm" htmlFor="scheduled-at">
               面试时间
             </Label>
-            <Input
+            <DateTimePicker
               id="scheduled-at"
-              onChange={(e) => handleScheduledAtChange(e.target.value)}
+              onValueChange={handleScheduledAtChange}
               required
-              type="datetime-local"
               value={scheduledAt}
             />
           </div>
@@ -188,12 +234,7 @@ export function ScheduleRoundDialog({
             <Label className="text-sm" htmlFor="valid-until">
               有效时间至
             </Label>
-            <Input
-              id="valid-until"
-              onChange={(e) => setValidUntil(e.target.value)}
-              type="datetime-local"
-              value={validUntil}
-            />
+            <DateTimePicker id="valid-until" onValueChange={setValidUntil} value={validUntil} />
           </div>
 
           <div className="grid gap-1.5">

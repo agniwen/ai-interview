@@ -1,15 +1,14 @@
 "use client";
 
 import { IconEye, IconTrash, IconX } from "@tabler/icons-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
+import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const FLOATING_ACTION_GLASS_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
-const FLOATING_ACTION_LIST_CLASS =
-  "border border-border/70 bg-background/95 bg-clip-padding shadow-[0_14px_42px_-30px_rgb(0_0_0/0.38)]";
+const FLOATING_ACTION_GLASS_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
+const FLOATING_ACTION_LIST_CLASS = `border border-border/70 bg-background/95 bg-clip-padding ${cossWhisperShadowClass}`;
 
 interface ResumeLibraryFloatingActionItem {
   id: string;
@@ -44,7 +43,7 @@ export function ResumeLibraryFloatingActionBar({
   return (
     <AnimatePresence>
       {visible ? (
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           className="fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex flex-col items-center justify-center gap-2 pointer-events-none"
           exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
@@ -54,7 +53,7 @@ export function ResumeLibraryFloatingActionBar({
           <div
             className={`pointer-events-auto w-full max-w-lg overflow-hidden rounded-md p-1 ${FLOATING_ACTION_LIST_CLASS}`}
           >
-            <ScrollArea className="max-h-[7.75rem]" scrollbars="leave">
+            <ScrollArea className="max-h-[7.75rem]" scrollFade scrollbars="leave">
               {selectedItems.map((item) => (
                 <div
                   className="group grid min-h-10 grid-cols-[minmax(0,1fr)_minmax(6rem,13rem)_auto] items-center gap-2 rounded-sm px-2.5 py-1 text-xs transition-colors hover:bg-muted/55"
@@ -111,7 +110,7 @@ export function ResumeLibraryFloatingActionBar({
               批量删除
             </Button>
           </div>
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   );

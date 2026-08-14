@@ -1,12 +1,13 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import { attachmentTextSourceSchema } from "@arc/db-schema/db-enums";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
 import {
-  extractResumeDocumentText,
   generateResumeStructured,
+  parseResumeDocument,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import type { ResumeParseProgressEvent } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 
@@ -23,10 +24,14 @@ const resumeParseHashOutputSchema = resumeParseInputSchema.extend({
 const resumeParseTextOutputSchema = resumeParseHashOutputSchema.extend({
   pageCount: z.number().int().min(1),
   text: z.string().min(1),
-  textSource: z.enum(["qwen-ocr", "docx-text", "html-text", "pptx-text", "xlsx-text"]),
+  textSource: attachmentTextSourceSchema.exclude(["pdf-parse"]),
 });
 
-const resumeParseStructuredOutputSchema = resumeParseTextOutputSchema.extend({
+const resumeParseDocumentOutputSchema = resumeParseTextOutputSchema.extend({
+  structured: structuredSchema.optional(),
+});
+
+const resumeParseStructuredOutputSchema = resumeParseDocumentOutputSchema.extend({
   structured: structuredSchema,
 });
 
@@ -59,8 +64,8 @@ export interface StreamResumeParseWorkflowOptions extends RunResumeParseWorkflow
 }
 
 export interface ResumeParseWorkflowDeps {
-  extractText: typeof extractResumeDocumentText;
   hashBytes: typeof sha256HexOfBytes;
+  parseDocument: typeof parseResumeDocument;
   structureText: typeof generateResumeStructured;
 }
 
@@ -99,7 +104,7 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
 
   const extractResumeTextStep = createStep({
     execute: async ({ inputData }) => {
-      const parsed = await deps.extractText({
+      const parsed = await deps.parseDocument({
         bytes: bytesFromBase64(inputData.bytesBase64),
         fileName: inputData.fileName,
         mediaType: inputData.mediaType,
@@ -107,22 +112,23 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
       return {
         ...inputData,
         pageCount: parsed.pageCount,
+        ...("structured" in parsed ? { structured: parsed.structured } : {}),
         text: parsed.text,
         textSource: parsed.textSource,
       };
     },
     id: "extract-resume-text",
     inputSchema: resumeParseHashOutputSchema,
-    outputSchema: resumeParseTextOutputSchema,
+    outputSchema: resumeParseDocumentOutputSchema,
   });
 
   const structureResumeStep = createStep({
     execute: async ({ inputData }) => ({
       ...inputData,
-      structured: await deps.structureText(inputData.text),
+      structured: inputData.structured ?? (await deps.structureText(inputData.text)),
     }),
     id: "structure-resume",
-    inputSchema: resumeParseTextOutputSchema,
+    inputSchema: resumeParseDocumentOutputSchema,
     outputSchema: resumeParseStructuredOutputSchema,
   });
 
@@ -160,12 +166,12 @@ function createProgressResumeParseWorkflow(
   onProgress: NonNullable<RunResumeParseWorkflowOptions["onProgress"]>,
 ) {
   return createResumeParseWorkflow({
-    extractText: (documentInput) =>
-      extractResumeDocumentText({
+    hashBytes: sha256HexOfBytes,
+    parseDocument: (documentInput) =>
+      parseResumeDocument({
         ...documentInput,
         onProgress,
       }),
-    hashBytes: sha256HexOfBytes,
     structureText: async (text) => {
       onProgress({ type: "structure.started" });
       const structured = await generateResumeStructured(text);
@@ -179,8 +185,8 @@ function createProgressResumeParseWorkflow(
 }
 
 export const resumeParseWorkflow = createResumeParseWorkflow({
-  extractText: extractResumeDocumentText,
   hashBytes: sha256HexOfBytes,
+  parseDocument: parseResumeDocument,
   structureText: generateResumeStructured,
 });
 

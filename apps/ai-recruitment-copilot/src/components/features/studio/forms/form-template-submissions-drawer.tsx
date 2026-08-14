@@ -60,17 +60,15 @@ function renderAnswer(
   }
   if (question.type === "multi" || question.type === "single") {
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-    const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
+    const choices = values.map((value) => ({
+      label: question.options.find((option) => option.value === value)?.label ?? value,
+      value,
+    }));
     return (
       <div className="flex flex-wrap gap-1.5">
-        {labels.map((label, index) => (
-          <Badge
-            // biome-ignore lint/suspicious/noArrayIndexKey: historical order is stable
-            className="font-normal"
-            key={index}
-            variant="secondary"
-          >
-            {label}
+        {choices.map((choice) => (
+          <Badge key={choice.value} variant="secondary">
+            {choice.label}
           </Badge>
         ))}
       </div>
@@ -146,7 +144,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
       <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
         <SheetHeader className="border-border border-b px-6 pt-6 pb-4">
           <SheetTitle>填写记录</SheetTitle>
-          <SheetDescription>{template ? `面试表单：${template.title}` : null}</SheetDescription>
+          <SheetDescription>{template ? `表单题：${template.title}` : null}</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 p-6">
           {isLoading ? (
@@ -163,7 +161,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
           {!isLoading && submissions.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground text-sm">
               <IconInbox className="size-6" />
-              还没有候选人填写过这份面试表单
+              还没有候选人填写过这份表单题
             </div>
           ) : null}
           {submissions.map((submission) => (
@@ -179,9 +177,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
                     <h3 className="font-semibold text-base text-foreground leading-tight">
                       {submission.candidateName ?? "未命名候选人"}
                     </h3>
-                    <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
-                      v{submission.version}
-                    </Badge>
+                    <Badge variant="outline">v{submission.version}</Badge>
                   </div>
                   <p className="text-muted-foreground text-xs tabular-nums">
                     提交于{" "}

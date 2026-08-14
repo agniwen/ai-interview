@@ -217,10 +217,78 @@ describe("queryPaginatedResumeRecords", () => {
     }
     expect(sample).not.toHaveProperty("interviewQuestions");
     expect(sample).not.toHaveProperty("scheduleEntries");
+    expect(sample).not.toHaveProperty("resumeScreeningResult");
+    expect(sample).not.toHaveProperty("hrResumeAssessment");
     expect(sample.pipelineStage).toBeTypeOf("string");
     expect(sample.outcome).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
+  });
+
+  it.each([
+    {
+      expected: "候选人核心经验匹配，但仍需核实复杂项目中的主导程度。",
+      narrative: {
+        overallComment: "候选人核心经验匹配，但仍需核实复杂项目中的主导程度。",
+        summary: "候选人整体匹配岗位。",
+      },
+      source: "overall comment",
+    },
+    {
+      expected: "候选人整体匹配岗位，建议进入下一轮核实项目深度。",
+      narrative: {
+        summary: "候选人整体匹配岗位，建议进入下一轮核实项目深度。",
+      },
+      source: "fallback summary for older evaluations",
+    },
+  ])("returns the structured $source as the list summary", async ({ expected, narrative }) => {
+    await db
+      .update(studioInterview)
+      .set({
+        notes: null,
+        resumeEvaluationArtifactMode: "structured",
+        resumeReview: null,
+        structuredCompositeScore: 65,
+        structuredGateSortRank: 0,
+        structuredGateStatus: "passed",
+        structuredResumeEvaluation: {
+          narrative,
+        } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
+        structuredScoreGrade: "matched",
+      })
+      .where(eq(studioInterview.id, "ri_test_a_1"));
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const record = result.records.find((item) => item.id === "ri_test_a_1");
+
+      expect(record?.resumeSummary).toBe(expected);
+    } finally {
+      await db
+        .update(studioInterview)
+        .set({
+          resumeEvaluationArtifactMode: null,
+          structuredCompositeScore: null,
+          structuredGateSortRank: null,
+          structuredGateStatus: null,
+          structuredResumeEvaluation: null,
+          structuredScoreGrade: null,
+        })
+        .where(eq(studioInterview.id, "ri_test_a_1"));
+    }
+  });
+
+  it("reuses a known total for later pages", async () => {
+    const result = await queryPaginatedResumeRecords(
+      ORG_A,
+      undefined,
+      { page: 2, pageSize: 1 },
+      undefined,
+      99,
+    );
+
+    expect(result.total).toBe(99);
+    expect(result.totalPages).toBe(99);
   });
 
   it("includes active duplicate match summary for resume library rows", async () => {
@@ -259,7 +327,13 @@ describe("queryPaginatedResumeRecords", () => {
         count: 1,
         highestLevel: "high",
       });
-      expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toBeNull();
+      // 双向计数：a_2 是活跃行（a_1→a_2）的 matched 侧，也计入 a_2 的重复。
+      // Bidirectional counts: a_2 is the matched side of the active row, so it
+      // also shows a duplicate; the dismissed row is filtered out either way.
+      expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "high",
+      });
 
       const detail = await loadResumeDetail("ri_test_a_1", ORG_A);
       expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "high" });

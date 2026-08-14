@@ -46,7 +46,18 @@ export async function createInterviewEvidenceSnapshot(
   options: CreateInterviewEvidenceSnapshotOptions,
 ): Promise<InterviewEvidenceSnapshotRecord> {
   const [conversation] = await db
-    .select()
+    .select({
+      lastSyncedAt: interviewConversation.lastSyncedAt,
+      organizationId: interviewConversation.organizationId,
+      recordingDurationSecs: interviewConversation.recordingDurationSecs,
+      recordingEgressId: interviewConversation.recordingEgressId,
+      recordingFileKey: interviewConversation.recordingFileKey,
+      recordingStatus: interviewConversation.recordingStatus,
+      scheduleEntryId: interviewConversation.scheduleEntryId,
+      transcript: interviewConversation.transcript,
+      updatedAt: interviewConversation.updatedAt,
+      webhookReceivedAt: interviewConversation.webhookReceivedAt,
+    })
     .from(interviewConversation)
     .where(
       and(

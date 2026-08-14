@@ -1,7 +1,10 @@
-import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+/* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  jobDescription,
   mailIngestMessage,
+  member,
   organization,
   resumePoolEvent,
   resumePoolImport,
@@ -13,12 +16,14 @@ import {
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
   ResumePoolSourceChannel,
+  ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
@@ -28,10 +33,12 @@ import {
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
 import { admitResumePoolItem } from "./utils/admission";
@@ -78,9 +85,9 @@ export interface MarkResumePoolItemStatusInput {
 }
 
 export interface QueryResumePoolItemsInput {
+  creatorIds?: string[] | null;
   organizationId: string;
   scope: ResumePoolScope;
-  userId: string;
 }
 
 export interface PublishPrivatePoolItemInput {
@@ -95,12 +102,20 @@ export interface ImportPoolItemInput {
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;
+  reimport?: boolean;
 }
 
 export interface DeleteOwnPoolItemInput {
   organizationId: string;
   poolItemId: string;
   userId: string;
+}
+
+export interface BindResumePoolItemJobDescriptionInput {
+  actorId: string | null;
+  jobDescriptionId: string;
+  organizationId: string;
+  poolItemId: string;
 }
 
 function normalizeSkills(skills: readonly string[] | null | undefined): string[] {
@@ -136,6 +151,33 @@ async function loadUploaderMeta(poolItemId: string): Promise<PoolUploaderMeta> {
     .where(eq(resumePoolItem.id, poolItemId))
     .limit(1);
   return row ? uploaderMetaFromRow(row) : EMPTY_UPLOADER_META;
+}
+
+export async function listResumePoolUploaders(input: {
+  organizationId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<ResumePoolUploaderOption[]> {
+  if (
+    input.visibilityScope.kind === "none" ||
+    (input.visibilityScope.kind === "restricted" && input.visibilityScope.userIds.length === 0)
+  ) {
+    return [];
+  }
+  const visibilityCondition =
+    input.visibilityScope.kind === "restricted"
+      ? inArray(member.userId, input.visibilityScope.userIds)
+      : undefined;
+  return await db
+    .select({
+      email: user.email,
+      id: user.id,
+      image: user.image,
+      name: user.name,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(and(eq(member.organizationId, input.organizationId), visibilityCondition))
+    .orderBy(asc(user.name), asc(user.email));
 }
 
 async function writeResumePoolEvent(
@@ -294,8 +336,12 @@ export async function markResumePoolItemParseFailed(
     );
 }
 
-function accessibleWhere(input: { organizationId: string; poolItemId: string; userId: string }) {
-  return and(eq(resumePoolItem.id, input.poolItemId), eq(resumePoolItem.status, "active"));
+function accessibleWhere(poolItemId: string) {
+  return and(eq(resumePoolItem.id, poolItemId), eq(resumePoolItem.status, "active"));
+}
+
+function isPublicPoolItemInOrganization(row: PoolRow, organizationId: string): boolean {
+  return row.scope === "public" && row.organizationId === organizationId;
 }
 
 async function loadAccessiblePoolItem(input: {
@@ -303,11 +349,16 @@ async function loadAccessiblePoolItem(input: {
   poolItemId: string;
   userId: string;
 }): Promise<PoolRow | null> {
-  const [row] = await db.select().from(resumePoolItem).where(accessibleWhere(input)).limit(1);
+  const [row] = await db
+    .select()
+    .from(resumePoolItem)
+    .where(accessibleWhere(input.poolItemId))
+    .limit(1);
   if (!row) {
     return null;
   }
-  if (row.scope === "public") {
+  // Public pool is workspace-scoped: any member with access may use same-org public items.
+  if (isPublicPoolItemInOrganization(row, input.organizationId)) {
     return row;
   }
   if (row.organizationId === input.organizationId && row.createdBy === input.userId) {
@@ -316,25 +367,65 @@ async function loadAccessiblePoolItem(input: {
   return null;
 }
 
-async function loadImportForOrg(
+async function loadVisiblePoolItem(input: {
+  organizationId: string;
+  poolItemId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<PoolRow | null> {
+  const [row] = await db
+    .select()
+    .from(resumePoolItem)
+    .where(accessibleWhere(input.poolItemId))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  // Public pool is workspace-scoped (not app-wide). Same-org members can read it.
+  if (isPublicPoolItemInOrganization(row, input.organizationId)) {
+    return row;
+  }
+  if (row.organizationId !== input.organizationId || !row.createdBy) {
+    return null;
+  }
+  if (input.visibilityScope.kind === "all") {
+    return row;
+  }
+  if (
+    input.visibilityScope.kind === "restricted" &&
+    input.visibilityScope.userIds.includes(row.createdBy)
+  ) {
+    return row;
+  }
+  return null;
+}
+
+async function loadImportsForOrg(
   poolItemId: string,
   organizationId: string,
-): Promise<{ importedAt: Date; resumeRecordId: string } | null> {
-  const [row] = await db
+): Promise<
+  {
+    creatorImage: string | null;
+    creatorName: string | null;
+    importedAt: Date;
+    resumeRecordId: string;
+  }[]
+> {
+  return await db
     .select({
+      creatorImage: user.image,
+      creatorName: user.name,
       importedAt: resumePoolImport.importedAt,
       resumeRecordId: resumePoolImport.importedResumeRecordId,
     })
     .from(resumePoolImport)
+    .leftJoin(user, eq(resumePoolImport.importedBy, user.id))
     .where(
       and(
         eq(resumePoolImport.poolItemId, poolItemId),
         eq(resumePoolImport.organizationId, organizationId),
       ),
     )
-    .orderBy(desc(resumePoolImport.importedAt))
-    .limit(1);
-  return row ?? null;
+    .orderBy(desc(resumePoolImport.importedAt), desc(resumePoolImport.id));
 }
 
 async function loadSourceChannels(
@@ -390,20 +481,29 @@ async function loadPoolDuplicateMatches(input: {
 export async function queryResumePoolItems(
   input: QueryResumePoolItemsInput,
 ): Promise<PaginatedResumePoolResult> {
+  if (input.scope === "private" && input.creatorIds?.length === 0) {
+    return { records: [], total: 0 };
+  }
   const where =
     input.scope === "private"
       ? and(
           eq(resumePoolItem.scope, "private"),
           eq(resumePoolItem.status, "active"),
           eq(resumePoolItem.organizationId, input.organizationId),
-          eq(resumePoolItem.createdBy, input.userId),
+          input.creatorIds ? inArray(resumePoolItem.createdBy, input.creatorIds) : undefined,
         )
-      : and(eq(resumePoolItem.scope, "public"), eq(resumePoolItem.status, "active"));
+      : and(
+          eq(resumePoolItem.scope, "public"),
+          eq(resumePoolItem.status, "active"),
+          // Public pool shares within the workspace only — never across organizations.
+          eq(resumePoolItem.organizationId, input.organizationId),
+        );
 
   const [totalRow] = await db.select({ total: count() }).from(resumePoolItem).where(where);
   const rows = await db
     .select({
       item: resumePoolItem,
+      jobDescriptionName: jobDescription.name,
       uploaderEmail: user.email,
       uploaderImage: user.image,
       uploaderName: user.name,
@@ -412,57 +512,98 @@ export async function queryResumePoolItems(
     .from(resumePoolItem)
     .leftJoin(organization, eq(resumePoolItem.organizationId, organization.id))
     .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(resumePoolItem.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, input.organizationId),
+      ),
+    )
     .where(where)
     .orderBy(desc(resumePoolItem.createdAt))
     .limit(100);
   const imports = await Promise.all(
-    rows.map((row) => loadImportForOrg(row.item.id, input.organizationId)),
+    rows.map((row) => loadImportsForOrg(row.item.id, input.organizationId)),
   );
-  const [sourceChannels, duplicateMatches] = await Promise.all([
+  const [sourceChannels, duplicateMatches, retryableIds] = await Promise.all([
     loadSourceChannels(rows.map((row) => row.item.id)),
     loadPoolDuplicateMatches({
       organizationId: input.organizationId,
       rows: rows.map((row) => row.item),
+    }),
+    loadResumeParseRetryEligibility({
+      ids: rows.map((row) => row.item.id),
+      organizationId: input.organizationId,
+      target: "resume_pool",
     }),
   ]);
   return {
     records: rows.map((row, index) =>
       toResumePoolListRecord(
         row.item,
-        imports[index] ?? null,
+        imports[index] ?? [],
         uploaderMetaFromRow(row),
         sourceChannels.get(row.item.id) ?? null,
         duplicateMatches.get(row.item.id) ?? null,
+        row.jobDescriptionName ?? null,
+        row.item.resumeParseStatus === "failed" &&
+          Boolean(row.item.resumeStorageKey) &&
+          (retryableIds.get(row.item.id) ?? true),
       ),
     ),
     total: totalRow?.total ?? 0,
   };
 }
 
-export async function loadResumePoolItem(input: {
-  organizationId: string;
-  poolItemId: string;
-  userId: string;
-}): Promise<ResumePoolDetail | null> {
-  const row = await loadAccessiblePoolItem(input);
+export async function loadResumePoolItem(
+  input: {
+    organizationId: string;
+    poolItemId: string;
+  } & (
+    | { userId: string; visibilityScope?: never }
+    | { userId?: never; visibilityScope: RecruitingVisibilityScope }
+  ),
+): Promise<ResumePoolDetail | null> {
+  const row = input.visibilityScope
+    ? await loadVisiblePoolItem({
+        organizationId: input.organizationId,
+        poolItemId: input.poolItemId,
+        visibilityScope: input.visibilityScope,
+      })
+    : await loadAccessiblePoolItem({
+        organizationId: input.organizationId,
+        poolItemId: input.poolItemId,
+        userId: input.userId,
+      });
   if (!row) {
     return null;
   }
-  const [importRow, uploaderMeta, duplicateMatches] = await Promise.all([
-    loadImportForOrg(row.id, input.organizationId),
-    loadUploaderMeta(row.id),
-    loadPoolDuplicateMatches({
-      organizationId: input.organizationId,
-      rows: [row],
-    }),
-  ]);
+  const [importRows, uploaderMeta, duplicateMatches, jobDescriptionName, retryableIds] =
+    await Promise.all([
+      loadImportsForOrg(row.id, input.organizationId),
+      loadUploaderMeta(row.id),
+      loadPoolDuplicateMatches({
+        organizationId: input.organizationId,
+        rows: [row],
+      }),
+      loadBoundJobDescriptionName(row.jobDescriptionId, input.organizationId),
+      loadResumeParseRetryEligibility({
+        ids: [row.id],
+        organizationId: input.organizationId,
+        target: "resume_pool",
+      }),
+    ]);
   const sourceChannels = await loadSourceChannels([row.id]);
   return toResumePoolDetail(
     row,
-    importRow,
+    importRows,
     uploaderMeta,
     sourceChannels.get(row.id) ?? null,
     duplicateMatches.get(row.id) ?? null,
+    jobDescriptionName,
+    row.resumeParseStatus === "failed" &&
+      Boolean(row.resumeStorageKey) &&
+      (retryableIds.get(row.id) ?? true),
   );
 }
 
@@ -542,10 +683,10 @@ export async function publishPrivatePoolItem(
   return publicItem;
 }
 
-export function importPoolItemToResumeLibrary(
+export async function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
 ): Promise<ResumePoolImportResult> {
-  return admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
+  const result = await admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
     cloneSemanticIndex: (admission) =>
       cloneResumeSemanticIndexFromPoolToInterview({
         poolItemId: admission.poolItemId,
@@ -558,35 +699,37 @@ export function importPoolItemToResumeLibrary(
       await db.transaction(async (tx) => {
         const lockKey = `resume-pool-import:${admission.organizationId}:${source.id}`;
         await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
-        const [existing] = await tx
-          .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
-          .from(resumePoolImport)
-          .where(
-            and(
-              eq(resumePoolImport.poolItemId, source.id),
-              eq(resumePoolImport.organizationId, admission.organizationId),
-            ),
-          )
-          .orderBy(desc(resumePoolImport.importedAt))
-          .limit(1);
-        if (existing) {
-          ({ resumeRecordId } = existing);
-          await tx
-            .update(studioInterview)
-            .set({
-              jobDescriptionId: admission.jobDescriptionId,
-              resumeParseError: null,
-              resumeParseStatus: "processing",
-              updatedAt: new Date(),
-            })
+        if (!admission.reimport) {
+          const [existing] = await tx
+            .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
+            .from(resumePoolImport)
             .where(
               and(
-                eq(studioInterview.id, resumeRecordId),
-                eq(studioInterview.organizationId, admission.organizationId),
-                ne(studioInterview.resumeParseStatus, "ready"),
+                eq(resumePoolImport.poolItemId, source.id),
+                eq(resumePoolImport.organizationId, admission.organizationId),
               ),
-            );
-          return;
+            )
+            .orderBy(desc(resumePoolImport.importedAt))
+            .limit(1);
+          if (existing) {
+            ({ resumeRecordId } = existing);
+            await tx
+              .update(studioInterview)
+              .set({
+                jobDescriptionId: admission.jobDescriptionId,
+                resumeParseError: null,
+                resumeParseStatus: "processing",
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(studioInterview.id, resumeRecordId),
+                  eq(studioInterview.organizationId, admission.organizationId),
+                  ne(studioInterview.resumeParseStatus, "ready"),
+                ),
+              );
+            return;
+          }
         }
 
         const importedAt = new Date();
@@ -709,6 +852,27 @@ export function importPoolItemToResumeLibrary(
       });
     },
   });
+  if (result.status === "imported" && input.jobDescriptionId) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(resumePoolItem)
+        .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(resumePoolItem.id, input.poolItemId),
+            eq(resumePoolItem.organizationId, input.organizationId),
+          ),
+        );
+      await writeResumePoolEvent(tx, {
+        actorId: input.importedBy,
+        organizationId: input.organizationId,
+        payload: { jobDescriptionId: input.jobDescriptionId },
+        poolItemId: input.poolItemId,
+        type: "bound",
+      });
+    });
+  }
+  return result;
 }
 
 export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<void> {
@@ -735,5 +899,39 @@ export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<
     organizationId: input.organizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
+  });
+}
+
+/**
+ * Bind a pool item to a job description exactly once. The WHERE clause only
+ * matches rows that are not yet bound, so concurrent calls race on the same
+ * UPDATE: the first writer wins and the second updates zero rows.
+ */
+export async function bindResumePoolItemJobDescription(
+  input: BindResumePoolItemJobDescriptionInput,
+): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(resumePoolItem)
+      .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(resumePoolItem.id, input.poolItemId),
+          eq(resumePoolItem.organizationId, input.organizationId),
+          isNull(resumePoolItem.jobDescriptionId),
+        ),
+      )
+      .returning({ id: resumePoolItem.id });
+    if (updated.length === 0) {
+      return false;
+    }
+    await writeResumePoolEvent(tx, {
+      actorId: input.actorId,
+      organizationId: input.organizationId,
+      payload: { jobDescriptionId: input.jobDescriptionId },
+      poolItemId: input.poolItemId,
+      type: "bound",
+    });
+    return true;
   });
 }

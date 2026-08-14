@@ -11,9 +11,9 @@ afterEach(() => {
 describe("server env", () => {
   const configuredEnv = {
     ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    ALIBABA_FAST_MODEL: "deepseek-v4-flash",
-    ALIBABA_MODEL: "deepseek-v4-pro",
-    ALIBABA_STRUCTURED_MODEL: "deepseek-v4-pro",
+    ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
+    ALIBABA_MODEL: "deepseek-v4-flash-0731",
+    ALIBABA_STRUCTURED_MODEL: "deepseek-v4-flash-0731",
     BETTER_AUTH_SECRET: "better-auth-secret",
     BETTER_AUTH_URL: "https://app.example.com",
     FEISHU_APP_ID: "feishu-app-id",
@@ -30,6 +30,7 @@ describe("server env", () => {
     RECORDING_R2_FORCE_PATH_STYLE: "true",
     RECORDING_R2_KEY_PREFIX: "recordings",
     RECORDING_R2_REGION: "auto",
+    RESUME_PARSE_PROVIDER: "aliyun-docmining",
     S3_FORCE_PATH_STYLE: "false",
     S3_KEY_PREFIX: "uploads",
     S3_REGION: "auto",
@@ -40,8 +41,9 @@ describe("server env", () => {
 
     const env = createServerEnv(configuredEnv);
 
-    expect(env.ALIBABA_MODEL).toBe("deepseek-v4-pro");
+    expect(env.ALIBABA_MODEL).toBe("deepseek-v4-flash-0731");
     expect(env.NEXT_PUBLIC_BASE_URL).toBe("https://app.example.com");
+    expect(env.RESUME_PARSE_PROVIDER).toBe("aliyun-docmining");
     expect(env.S3_FORCE_PATH_STYLE).toBe("false");
   });
 
@@ -52,9 +54,9 @@ describe("server env", () => {
 
     expect(target).toMatchObject({
       ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      ALIBABA_FAST_MODEL: "deepseek-v4-flash",
-      ALIBABA_MODEL: "deepseek-v4-pro",
-      ALIBABA_STRUCTURED_MODEL: "deepseek-v4-pro",
+      ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
+      ALIBABA_MODEL: "deepseek-v4-flash-0731",
+      ALIBABA_STRUCTURED_MODEL: "deepseek-v4-flash-0731",
       BETTER_AUTH_SECRET: "better-auth-secret",
       BETTER_AUTH_URL: "https://app.example.com",
       INTERVIEW_EVALUATION_MODEL: "google/gemini-2.5-flash",
@@ -62,6 +64,7 @@ describe("server env", () => {
       NEXT_PUBLIC_BASE_URL: "https://app.example.com",
       QWEN_OCR_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       QWEN_OCR_MODEL: "qwen-vl-ocr-latest",
+      RESUME_PARSE_PROVIDER: "aliyun-docmining",
       S3_FORCE_PATH_STYLE: "false",
     });
   });
