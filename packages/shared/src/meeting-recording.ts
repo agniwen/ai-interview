@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
+import { makePaginationSchema } from "./pagination";
+import type { PaginatedResult } from "./pagination";
 
 export const MEETING_SOURCE_TRACKS = ["microphone", "system"] as const;
 export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;
@@ -277,6 +279,7 @@ export interface MeetingLibraryItem {
 }
 
 export interface MeetingDetail extends MeetingLibraryItem {
+  archived: boolean;
   startedAt: string;
   verifiedAt: string | null;
 }
@@ -289,6 +292,19 @@ export interface TrashedMeetingItem {
   title: string;
   trashedAt: string;
 }
+
+export const TRASHED_MEETING_SORT_COLUMNS = ["trashedAt", "savedAt", "title"] as const;
+export type TrashedMeetingSortColumn = (typeof TRASHED_MEETING_SORT_COLUMNS)[number];
+
+export const trashedMeetingListQuerySchema = makePaginationSchema(TRASHED_MEETING_SORT_COLUMNS, {
+  defaultSortBy: "trashedAt",
+  defaultSortOrder: "desc",
+}).extend({
+  search: z.string().trim().max(120).optional().default(""),
+});
+
+export type TrashedMeetingListQuery = z.infer<typeof trashedMeetingListQuerySchema>;
+export type PaginatedTrashedMeetings = PaginatedResult<TrashedMeetingItem>;
 
 export interface MeetingRecruitingRecordSummary {
   candidateName: string;

@@ -17,10 +17,12 @@ import type {
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
   MeetingShareSettings,
-  TrashedMeetingItem,
+  PaginatedTrashedMeetings,
+  TrashedMeetingListQuery,
   UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
+import { paginationSearchParams } from "@arc/shared/pagination";
 import type {
   CreateMeetingLiveTranscriptAuthorizationInput,
   CreateMeetingTranscriptCorrectionInput,
@@ -76,7 +78,10 @@ export const desktopMeetingKeys = {
     ["desktop-meetings", slug, "transcript", meetingId, "revisions", revisionId] as const,
   transcriptionPolicy: (slug: string) =>
     ["desktop-meetings", slug, "transcription-policy"] as const,
-  trash: (slug: string) => ["desktop-meetings", slug, "trash"] as const,
+  trash: (slug: string, query?: TrashedMeetingListQuery) =>
+    query
+      ? (["desktop-meetings", slug, "trash", query] as const)
+      : (["desktop-meetings", slug, "trash"] as const),
 };
 
 function meetingSubresourcePath(slug: string, meetingId: string, resource: string): string {
@@ -141,18 +146,20 @@ export async function requestRecordingTitle(slug: string, transcript: string): P
   return fallback.title;
 }
 
-export function fetchTrashedMeetings(slug: string): Promise<TrashedMeetingItem[]> {
-  const path = `/api/w/${encodeURIComponent(slug)}/meetings/trash`;
-  return apiJson<{ records: TrashedMeetingItem[] }>(apiUrl(path), "加载录制废纸篓失败").then(
-    (payload) => payload.records,
-  );
+export function fetchTrashedMeetings(
+  slug: string,
+  query: TrashedMeetingListQuery,
+): Promise<PaginatedTrashedMeetings> {
+  const params = paginationSearchParams(query);
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/trash?${params.toString()}`;
+  return apiJson<PaginatedTrashedMeetings>(apiUrl(path), "加载归档记录失败");
 }
 
 export function trashMeeting(
   slug: string,
   meetingId: string,
 ): Promise<{ purgeAfter: string; state: "already-trashed" | "trashed" }> {
-  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "移入废纸篓失败", {
+  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "归档失败", {
     method: "POST",
   });
 }

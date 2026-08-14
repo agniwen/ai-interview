@@ -12,8 +12,6 @@ import {
   publishMeetingTranscript,
   saveMeetingTranscriptionChunkCheckpoint,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao";
-import { createOpenAiMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai";
-import { createDeepgramMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/deepgram";
 import { createQwenAsrMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/qwen-asr";
 import {
   assertMeetingTranscriptionJobEndpoint,
@@ -133,49 +131,27 @@ export function createMeetingTranscriptionProviderForJob(
   job: MeetingTranscriptionJobData,
   env: NodeJS.ProcessEnv = process.env,
 ): MeetingTranscriptionProvider {
-  if (job.provider === "openai") {
-    const baseUrl = assertMeetingTranscriptionJobEndpoint({
-      baseUrl: env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1",
-      provider: "openai",
-      region: job.region,
-    });
-    return createOpenAiMeetingTranscriptionProvider({
-      apiKey: env.OPENAI_API_KEY?.trim() || "",
-      baseUrl,
-    });
+  if (job.provider !== "qwen") {
+    throw new Error(`Meeting transcription provider ${job.provider} is not supported`);
   }
-  if (job.provider === "deepgram") {
-    const baseUrl = assertMeetingTranscriptionJobEndpoint({
-      baseUrl: env.DEEPGRAM_BASE_URL?.trim() || "https://api.deepgram.com",
-      provider: "deepgram",
-      region: job.region,
-    });
-    return createDeepgramMeetingTranscriptionProvider({
-      apiKey: env.DEEPGRAM_API_KEY?.trim() || "",
-      baseUrl,
-    });
-  }
-  if (job.provider === "qwen") {
-    const baseUrl = assertMeetingTranscriptionJobEndpoint({
-      baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
-      provider: "qwen",
-      region: job.region,
-    });
-    const { createAudioUrl, deleteAudioUrl } = createQwenAsrAudioUrlDependencies({
-      env,
-      meetingId: job.meetingId,
-      organizationId: job.organizationId,
-      stagingToken: randomUUID(),
-    });
-    return createQwenAsrMeetingTranscriptionProvider({
-      apiKey: env.ALIBABA_API_KEY?.trim() || "",
-      baseUrl,
-      createAudioUrl,
-      deleteAudioUrl,
-      model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
-    });
-  }
-  throw new Error(`Meeting transcription provider ${job.provider} is benchmark-only`);
+  const baseUrl = assertMeetingTranscriptionJobEndpoint({
+    baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
+    provider: "qwen",
+    region: job.region,
+  });
+  const { createAudioUrl, deleteAudioUrl } = createQwenAsrAudioUrlDependencies({
+    env,
+    meetingId: job.meetingId,
+    organizationId: job.organizationId,
+    stagingToken: randomUUID(),
+  });
+  return createQwenAsrMeetingTranscriptionProvider({
+    apiKey: env.ALIBABA_API_KEY?.trim() || "",
+    baseUrl,
+    createAudioUrl,
+    deleteAudioUrl,
+    model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
+  });
 }
 
 const defaultDependencies: MeetingTranscriptionDependencies = {
@@ -203,10 +179,11 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
         30 * 60 * 1000,
       ),
     }),
-  provider: createOpenAiMeetingTranscriptionProvider({
-    apiKey: process.env.OPENAI_API_KEY?.trim() || "",
-    baseUrl: process.env.OPENAI_BASE_URL?.trim(),
-  }),
+  provider: {
+    transcribeFinal: () => {
+      throw new Error("最终转录必须使用任务绑定的通义千问 ASR");
+    },
+  },
   providerForJob: createMeetingTranscriptionProviderForJob,
   publish: publishMeetingTranscript,
   removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),

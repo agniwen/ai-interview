@@ -142,6 +142,7 @@ export async function createSmallSavedMeeting(input: {
       ownerId: input.ownerId,
       savedAt: input.input.savedAt,
       startedAt: input.input.startedAt,
+      title: input.input.title,
     },
   });
   if (blockedByCapacity) {
@@ -161,7 +162,7 @@ export async function createSmallSavedMeeting(input: {
     };
   }
   if (isMeetingLifecycleUnavailable(meeting.status)) {
-    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
@@ -225,7 +226,7 @@ export async function createSmallSavedMeeting(input: {
       ownerId: input.ownerId,
     }))
   ) {
-    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
   }
   return {
     created,
@@ -310,6 +311,7 @@ export async function createMultipartSavedMeeting(input: {
       ownerId: input.ownerId,
       savedAt: input.input.savedAt,
       startedAt: input.input.startedAt,
+      title: input.input.title,
     },
   });
   if (createdResult.blockedByCapacity) {
@@ -327,7 +329,7 @@ export async function createMultipartSavedMeeting(input: {
     return { conflict: true, message: "Meeting Session 已绑定另一份本地录音清单" };
   }
   if (isMeetingLifecycleUnavailable(meeting.status)) {
-    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
@@ -462,7 +464,7 @@ export async function createMultipartSavedMeeting(input: {
       ownerId: input.ownerId,
     }))
   ) {
-    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
   }
   return {
     created: createdResult.created,
@@ -498,7 +500,7 @@ export async function completeSmallSavedMeeting(input: {
     return { error: "Meeting Session 保存身份不匹配", status: 409 };
   }
   if (isMeetingLifecycleUnavailable(meeting.status)) {
-    return { error: "Meeting Session 已移入废纸篓或正在永久清除", status: 409 };
+    return { error: "Meeting Session 已归档或正在永久清除", status: 409 };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
@@ -661,6 +663,7 @@ export async function getSavedMeetingDetail(input: {
   }
   return {
     accessRole,
+    archived: meeting.status === "trashed",
     creator: {
       id: meeting.owner.id,
       image: meeting.owner.image,
@@ -668,7 +671,9 @@ export async function getSavedMeetingDetail(input: {
     },
     durationMs: Math.max(0, ...sources.map((asset) => asset.durationMs)),
     id: meeting.id,
-    processingState: processingState(meeting.status),
+    processingState: processingState(
+      meeting.status === "trashed" ? (meeting.trashedFromStatus ?? "ready") : meeting.status,
+    ),
     recordingAvailable: Boolean(playback),
     savedAt: meeting.savedAt.toISOString(),
     startedAt: meeting.startedAt.toISOString(),
@@ -710,7 +715,7 @@ export async function createMeetingPlaybackAuthorization(input: {
   const playback = meeting?.assets.find(
     (asset) => asset.track === "playback" && asset.status === "ready",
   );
-  if (!(meeting?.status === "ready" && playback)) {
+  if (!(meeting && playback && (meeting.status === "ready" || meeting.status === "trashed"))) {
     return null;
   }
   if (meetingRole(meeting, input) === "administrator") {

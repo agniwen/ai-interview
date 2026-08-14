@@ -40,10 +40,62 @@ describe("LiveTranscriptDraftPanel", () => {
 
     expect(html).toContain("实时字幕");
     expect(html).toContain("草稿");
+    expect(html).toContain("已中断");
     expect(html).not.toContain("provisional");
+    expect(html).not.toContain(">interrupted<");
     expect(html).toContain("实时字幕已中断，录音仍在继续");
     expect(html).toContain("约 125 ms");
     expect(html).toContain("本地录音未受影响");
+  });
+
+  it("renders Chinese connection labels and hides them for a saved idle draft", () => {
+    const starting = renderToStaticMarkup(
+      <LiveTranscriptDraftPanel
+        snapshot={{
+          captureId: "00000000-0000-4000-8000-000000000077",
+          droppedAudioMs: 0,
+          droppedPcmFrames: 0,
+          error: null,
+          queuePeakAudioMs: 0,
+          queuedAudioMs: 0,
+          queuedPcmBytes: 0,
+          sections: [],
+          status: "starting",
+          trackDroppedAudioMs: { microphone: 0, system: 0 },
+          trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+          trackQueuedAudioMs: { microphone: 0, system: 0 },
+          trackStatus: { microphone: "starting", system: "starting" },
+          turns: [],
+        }}
+      />,
+    );
+    const saved = renderToStaticMarkup(
+      <LiveTranscriptDraftPanel
+        snapshot={{
+          captureId: "00000000-0000-4000-8000-000000000077",
+          droppedAudioMs: 0,
+          droppedPcmFrames: 0,
+          error: null,
+          queuePeakAudioMs: 0,
+          queuedAudioMs: 0,
+          queuedPcmBytes: 0,
+          sections: [],
+          status: "idle",
+          trackDroppedAudioMs: { microphone: 0, system: 0 },
+          trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+          trackQueuedAudioMs: { microphone: 0, system: 0 },
+          trackStatus: { microphone: "idle", system: "idle" },
+          turns: [],
+        }}
+      />,
+    );
+
+    expect(starting).toContain("启动中");
+    expect(starting).not.toContain(">starting<");
+    expect(saved).toContain("草稿");
+    expect(saved).not.toContain("启动中");
+    expect(saved).not.toContain("已中断");
+    expect(saved).not.toContain("interrupted");
   });
 
   it("renders transcript text without exposing audio-track labels", () => {

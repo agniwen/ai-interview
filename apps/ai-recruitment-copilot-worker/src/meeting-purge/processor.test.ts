@@ -13,11 +13,6 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-da
   recordMeetingProviderPurgeOutcome: vi.fn(),
   releaseMeetingPurgeClaim: vi.fn(),
 }));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai",
-  () => ({ createOpenAiMeetingTranscriptionProvider: vi.fn(() => ({ transcribeFinal: vi.fn() })) }),
-);
-
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { runMeetingPurgeProcessing } from "./processor";
 

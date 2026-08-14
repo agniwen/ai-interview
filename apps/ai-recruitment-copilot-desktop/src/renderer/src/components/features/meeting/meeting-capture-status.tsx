@@ -17,7 +17,12 @@ import { cn } from "@arc/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import { formatAppDateTime } from "@/lib/client/datetime";
-import { MeetingRecordingComposerFrame } from "./meeting-recording-session-layout";
+import {
+  MEETING_COMPOSER_ACTION_CLASS,
+  MEETING_COMPOSER_RADIUS,
+  MeetingComposerFrame,
+  MeetingComposerRow,
+} from "./meeting-recording-session-layout";
 
 const HEALTH_LABEL: Record<CaptureTrackState["health"], string> = {
   checking: "检测中",
@@ -118,7 +123,7 @@ function TrackMeter({
   const audioTrack = useLocalAudioTrackFromMediaStream(mediaStream);
   return (
     <div
-      className={cn("flex h-9 min-w-0 items-center gap-1.5 rounded-full px-2.5")}
+      className={cn("flex h-8 min-w-0 items-center gap-1.5 px-2", MEETING_COMPOSER_RADIUS)}
       data-track={track}
       title={`${label} · ${HEALTH_LABEL[state.health]}`}
     >
@@ -249,11 +254,11 @@ const IDLE_TRACK_STATE: CaptureTrackState = { health: "checking", level: 0 };
 function ComposerTrackMetersScroll({ children }: { children: ReactNode }) {
   return (
     <ScrollArea
-      className="h-9 min-w-0 flex-1 basis-0 overflow-hidden [--scroll-fade-size:1.25rem]"
+      className="h-8 min-w-0 flex-1 basis-0 overflow-hidden [--scroll-fade-size:1.25rem]"
       orientation="horizontal"
       scrollFade
     >
-      <div className="flex h-9 w-max items-center gap-1.5 pr-1">{children}</div>
+      <div className="flex h-8 w-max items-center gap-1.5 pr-1">{children}</div>
     </ScrollArea>
   );
 }
@@ -295,10 +300,10 @@ export function MeetingCaptureComposer({
   const paused = snapshot.phase === "paused";
 
   return (
-    <MeetingRecordingComposerFrame>
+    <MeetingComposerFrame>
       <div className="grid min-w-0 gap-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-9 shrink-0 items-center gap-1.5">
+        <MeetingComposerRow>
+          <div className="flex h-8 shrink-0 items-center gap-1.5">
             <span className="relative size-2 shrink-0" aria-hidden>
               {paused ? null : (
                 <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
@@ -329,7 +334,7 @@ export function MeetingCaptureComposer({
             />
           </ComposerTrackMetersScroll>
           <Button
-            className="shrink-0 rounded-full"
+            className={MEETING_COMPOSER_ACTION_CLASS}
             disabled={busy}
             onClick={paused ? onResume : onPause}
             size="sm"
@@ -339,7 +344,7 @@ export function MeetingCaptureComposer({
             {paused ? "继续" : "暂停"}
           </Button>
           <Button
-            className="shrink-0 rounded-full"
+            className={MEETING_COMPOSER_ACTION_CLASS}
             disabled={busy}
             onClick={() => onSave()}
             size="sm"
@@ -351,12 +356,12 @@ export function MeetingCaptureComposer({
             />
             {snapshot.phase === "saving" ? "保存中…" : "结束"}
           </Button>
-        </div>
+        </MeetingComposerRow>
         {snapshot.error ? (
           <p className="truncate px-1 text-[11px] text-destructive">{snapshot.error}</p>
         ) : null}
       </div>
-    </MeetingRecordingComposerFrame>
+    </MeetingComposerFrame>
   );
 }
 
@@ -368,22 +373,32 @@ export function MeetingInterruptedComposer({
   onSave: () => void;
 }) {
   return (
-    <MeetingRecordingComposerFrame>
-      <div className="flex h-9 items-center gap-2">
+    <MeetingComposerFrame>
+      <MeetingComposerRow>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Icon className="size-4 shrink-0 text-amber-500" icon="ph:warning-circle-fill" />
           <span className="truncate text-muted-foreground text-xs">录制暂停</span>
         </div>
-        <Button className="shrink-0 rounded-full" onClick={onContinue} size="sm" variant="outline">
+        <Button
+          className={MEETING_COMPOSER_ACTION_CLASS}
+          onClick={onContinue}
+          size="sm"
+          variant="outline"
+        >
           <Icon className="size-4" icon="ph:play-fill" />
           继续
         </Button>
-        <Button className="shrink-0 rounded-full" onClick={onSave} size="sm" variant="destructive">
+        <Button
+          className={MEETING_COMPOSER_ACTION_CLASS}
+          onClick={onSave}
+          size="sm"
+          variant="destructive"
+        >
           <Icon className="size-4" icon="ph:stop-fill" />
           结束
         </Button>
-      </div>
-    </MeetingRecordingComposerFrame>
+      </MeetingComposerRow>
+    </MeetingComposerFrame>
   );
 }
 
@@ -403,9 +418,9 @@ export function MeetingSetupComposer({
   starting: boolean;
 }) {
   return (
-    <MeetingRecordingComposerFrame>
+    <MeetingComposerFrame>
       <div className="grid min-w-0 gap-1">
-        <div className="flex min-w-0 items-center gap-2">
+        <MeetingComposerRow>
           <ComposerTrackMetersScroll>
             <TrackMeter
               label="麦克风"
@@ -416,7 +431,7 @@ export function MeetingSetupComposer({
             <TrackMeter label="系统" mediaStream={null} state={IDLE_TRACK_STATE} track="system" />
           </ComposerTrackMetersScroll>
           <Button
-            className="shrink-0 rounded-full"
+            className={MEETING_COMPOSER_ACTION_CLASS}
             disabled={disabled || starting}
             onClick={onStart}
             type="button"
@@ -428,10 +443,10 @@ export function MeetingSetupComposer({
             />
             {starting ? "请求权限…" : "开始"}
           </Button>
-        </div>
+        </MeetingComposerRow>
         {error ? <p className="truncate px-1 text-[11px] text-destructive">{error}</p> : null}
       </div>
-    </MeetingRecordingComposerFrame>
+    </MeetingComposerFrame>
   );
 }
 

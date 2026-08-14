@@ -40,16 +40,22 @@ describe("Meeting lifecycle routes", () => {
       purgeAfter: "2026-08-16T08:00:00.000Z",
       state: "trashed",
     });
-    mocks.listTrashedSavedMeetings.mockResolvedValue([
-      {
-        creator: { id: "user-84", image: null, name: "Owner" },
-        id: MEETING_ID,
-        purgeAfter: "2026-08-16T08:00:00.000Z",
-        savedAt: "2026-08-09T08:00:00.000Z",
-        title: "Meeting",
-        trashedAt: "2026-08-09T09:00:00.000Z",
-      },
-    ]);
+    mocks.listTrashedSavedMeetings.mockResolvedValue({
+      page: 1,
+      pageSize: 10,
+      records: [
+        {
+          creator: { id: "user-84", image: null, name: "Owner" },
+          id: MEETING_ID,
+          purgeAfter: "2026-08-16T08:00:00.000Z",
+          savedAt: "2026-08-09T08:00:00.000Z",
+          title: "Meeting",
+          trashedAt: "2026-08-09T09:00:00.000Z",
+        },
+      ],
+      total: 1,
+      totalPages: 1,
+    });
     mocks.restoreSavedMeeting.mockResolvedValue({ state: "restored" });
     mocks.permanentlyPurgeSavedMeeting.mockResolvedValue({ state: "purging" });
     const client = makeClient();
@@ -58,8 +64,16 @@ describe("Meeting lifecycle routes", () => {
       param: { id: MEETING_ID },
     });
     expect(trashResponse.status).toBe(200);
-    const listResponse = await client.meetings.trash.$get();
-    expect(await listResponse.json()).toMatchObject({ records: [{ id: MEETING_ID }] });
+    const listResponse = await client.meetings.trash.$get({
+      query: { page: "1", pageSize: "10" },
+    });
+    expect(await listResponse.json()).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      records: [{ id: MEETING_ID }],
+      total: 1,
+      totalPages: 1,
+    });
     const restoreResponse = await client.meetings[":id"].restore.$post({
       param: { id: MEETING_ID },
     });

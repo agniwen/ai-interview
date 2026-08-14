@@ -1,5 +1,21 @@
 /* oxlint-disable max-lines -- lifecycle commands and the two-phase purge state machine share transactional invariants. */
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import { buildOrderBy } from "@arc/ai-recruitment-copilot-backend/lib/server/db/pagination";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   meetingAuditLog,
@@ -17,6 +33,8 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { MEETING_TRASH_RETENTION_MS } from "@arc/shared/meeting-recording";
+import type { TrashedMeetingListQuery } from "@arc/shared/meeting-recording";
+import { paginationOffset } from "@arc/shared/pagination";
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
 import {
   hasMeetingDirectUploadCapacity,
@@ -141,10 +159,18 @@ export async function trashMeetingSession(input: {
   });
 }
 
-export async function listTrashedMeetingSessions(input: {
-  actorId: string;
-  organizationId: string;
-}) {
+const TRASH_SORT_COLUMNS = {
+  savedAt: meetingSession.savedAt,
+  title: meetingSession.title,
+  trashedAt: meetingSession.trashedAt,
+} as const;
+
+export async function listTrashedMeetingSessions(
+  input: {
+    actorId: string;
+    organizationId: string;
+  } & TrashedMeetingListQuery,
+) {
   return await db.transaction(async (tx) => {
     const [currentMember] = await tx
       .select({ role: member.role })
@@ -153,10 +179,30 @@ export async function listTrashedMeetingSessions(input: {
       .for("share")
       .limit(1);
     if (!currentMember || currentMember.role === "noAccess") {
-      return [];
+      return { records: [], total: 0 };
     }
     const administrator = currentMember.role === "owner" || currentMember.role === "admin";
-    return tx
+    const search = input.search.trim();
+    const where = and(
+      eq(meetingSession.organizationId, input.organizationId),
+      eq(meetingSession.status, "trashed"),
+      isNotNull(meetingSession.purgeAfter),
+      isNotNull(meetingSession.trashedAt),
+      administrator
+        ? undefined
+        : eq(
+            sql<string>`coalesce(${meetingSession.custodianId}, ${meetingSession.ownerId})`,
+            input.actorId,
+          ),
+      search ? ilike(meetingSession.title, `%${search}%`) : undefined,
+    );
+    const [totalRow] = await tx
+      .select({ value: count() })
+      .from(meetingSession)
+      .innerJoin(user, eq(user.id, meetingSession.ownerId))
+      .where(where);
+    const idOrder = input.sortOrder === "asc" ? asc(meetingSession.id) : desc(meetingSession.id);
+    const records = await tx
       .select({
         creatorId: user.id,
         creatorImage: user.image,
@@ -169,19 +215,11 @@ export async function listTrashedMeetingSessions(input: {
       })
       .from(meetingSession)
       .innerJoin(user, eq(user.id, meetingSession.ownerId))
-      .where(
-        and(
-          eq(meetingSession.organizationId, input.organizationId),
-          eq(meetingSession.status, "trashed"),
-          administrator
-            ? undefined
-            : eq(
-                sql<string>`coalesce(${meetingSession.custodianId}, ${meetingSession.ownerId})`,
-                input.actorId,
-              ),
-        ),
-      )
-      .orderBy(asc(meetingSession.purgeAfter));
+      .where(where)
+      .orderBy(buildOrderBy(TRASH_SORT_COLUMNS, input.sortBy, input.sortOrder), idOrder)
+      .limit(input.pageSize)
+      .offset(paginationOffset(input.page, input.pageSize));
+    return { records, total: Number(totalRow?.value ?? 0) };
   });
 }
 

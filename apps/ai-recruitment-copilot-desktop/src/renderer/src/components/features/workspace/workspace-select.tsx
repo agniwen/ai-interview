@@ -62,7 +62,7 @@ export function WorkspaceSelect(): React.JSX.Element | null {
   const label = active?.name ?? "选择工作区";
 
   if (orgsQuery.isPending || activeQuery.isPending) {
-    return <div aria-hidden className="h-6 w-20 shrink-0 rounded-[6px] bg-muted/40" />;
+    return <div aria-hidden className="h-6 w-20 shrink-0 rounded-[8px] bg-muted/40" />;
   }
 
   if (orgs.length === 0) {
@@ -74,7 +74,7 @@ export function WorkspaceSelect(): React.JSX.Element | null {
       <DropdownMenuTrigger
         aria-label="选择工作区"
         className={cn(
-          "app-no-drag inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-xs text-muted-foreground opacity-80 transition-[opacity,background-color]",
+          "app-no-drag inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-1 rounded-[8px] px-1.5 text-xs text-muted-foreground opacity-80 transition-[opacity,background-color]",
           "hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-50",

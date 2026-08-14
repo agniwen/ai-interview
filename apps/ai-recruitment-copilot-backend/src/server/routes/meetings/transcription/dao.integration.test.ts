@@ -36,12 +36,12 @@ const runId = (name: string) => `${name}-${TEST_SUFFIX}`;
 
 const job = {
   meetingId: MEETING_ID,
-  model: "gpt-4o-transcribe-diarize",
+  model: "qwen3-asr-flash-filetrans",
   organizationId: ORGANIZATION_ID,
   pipelineVersion: "final-v1" as const,
   policyRevision: 1,
-  provider: "openai" as const,
-  region: "openai-default",
+  provider: "qwen" as const,
+  region: "qwen-cn-beijing",
   sourceManifestSha256: SOURCE_SHA,
 };
 
@@ -126,10 +126,10 @@ describe("Meeting transcription publication", () => {
       },
     ]);
     await db.insert(meetingTranscriptionPolicy).values({
-      allowedProviders: ["openai"],
+      allowedProviders: ["qwen"],
       organizationId: ORGANIZATION_ID,
-      selectedProvider: "openai",
-      selectionReason: "同一授权语料评测后选择 OpenAI。",
+      selectedProvider: "qwen",
+      selectionReason: "未配置转录策略时默认使用百炼 Qwen ASR",
       updatedBy: USER_ID,
     });
   }, 30_000);
@@ -648,7 +648,7 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBeNull();
     await expect(
       db.query.meetingTranscriptionPolicy.findFirst({ where: { organizationId: ORGANIZATION_ID } }),
-    ).resolves.toMatchObject({ selectedProvider: "openai" });
+    ).resolves.toMatchObject({ selectedProvider: "qwen" });
   });
 
   it("exposes quota exhaustion without removing the verified recording", async () => {

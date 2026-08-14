@@ -1,4 +1,3 @@
-import { once } from "node:events";
 import {
   abortMeetingRecordingMultipartUpload,
   deleteMeetingRecordingObject,
@@ -12,7 +11,6 @@ import {
   recordMeetingProviderPurgeOutcome,
   releaseMeetingPurgeClaim,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-dao";
-import { createOpenAiMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai";
 import type { MeetingProviderArtifactInput } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
 
@@ -31,31 +29,10 @@ export interface MeetingPurgeDependencies {
   release: typeof releaseMeetingPurgeClaim;
 }
 
-async function withAbortSignal<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    throw signal.reason;
-  }
-  // oxlint-disable-next-line promise/prefer-await-to-then -- Promise.race needs a rejecting abort branch.
-  const aborted = once(signal, "abort").then(() => {
-    throw signal.reason;
-  });
-  return await Promise.race([operation, aborted]);
-}
-
-async function deleteProviderArtifact(
-  input: MeetingProviderArtifactInput & { provider: string },
+function deleteProviderArtifact(
+  _input: MeetingProviderArtifactInput & { provider: string },
 ): Promise<"deleted" | "unsupported"> {
-  if (input.provider !== "openai") {
-    return "unsupported";
-  }
-  const provider = createOpenAiMeetingTranscriptionProvider({
-    apiKey: process.env.OPENAI_API_KEY ?? "",
-  });
-  if (!provider.deleteRemoteArtifact) {
-    return "unsupported";
-  }
-  await withAbortSignal(provider.deleteRemoteArtifact(input), input.signal);
-  return "deleted";
+  return Promise.resolve("unsupported");
 }
 
 const defaultDependencies: MeetingPurgeDependencies = {

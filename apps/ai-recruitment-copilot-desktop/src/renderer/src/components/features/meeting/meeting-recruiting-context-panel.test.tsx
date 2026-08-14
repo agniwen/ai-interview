@@ -51,8 +51,8 @@ describe("Meeting Recruiting Context panel", () => {
 
     expect(html).toContain("Alice");
     expect(html).toContain("Product Designer");
-    expect(html).toContain("Recruiting Interview");
-    expect(html).toContain("不会覆盖已有的 General Meeting intelligence revision");
+    expect(html).toContain("招聘面试");
+    expect(html).toContain("不会覆盖已有的通用会议洞察");
     expect(html).not.toContain("保存关联");
   });
 });

@@ -28,7 +28,7 @@ export const meetingRestoreRouter = factory.createApp().post("/", async (c) => {
     return c.json(
       {
         code: "meeting-upload-capacity-exhausted",
-        error: "录音上传容量已满，Meeting Session 仍保留在废纸篓中",
+        error: "录音上传容量已满，Meeting Session 仍保留在归档记录中",
       },
       429,
     );

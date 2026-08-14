@@ -34,8 +34,25 @@ export function FrameHeader({
 }: React.ComponentProps<"header">): React.ReactElement {
   return (
     <header
-      className={cn("flex flex-row items-center h-8 px-4", className)}
+      className={cn(
+        "flex h-8 flex-row items-center px-4",
+        "has-[[data-slot=frame-panel-description]]:h-16",
+        className,
+      )}
       data-slot="frame-panel-header"
+      {...props}
+    />
+  );
+}
+
+export function FrameHeading({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.ReactElement {
+  return (
+    <div
+      className={cn("flex min-w-0 flex-1 flex-col justify-center gap-0.5", className)}
+      data-slot="frame-panel-heading"
       {...props}
     />
   );
@@ -47,7 +64,7 @@ export function FrameTitle({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("font-semibold text-sm", className)}
+      className={cn("truncate font-semibold text-sm leading-5", className)}
       data-slot="frame-panel-title"
       {...props}
     />
@@ -60,7 +77,7 @@ export function FrameDescription({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("truncate text-muted-foreground text-xs leading-4", className)}
       data-slot="frame-panel-description"
       {...props}
     />

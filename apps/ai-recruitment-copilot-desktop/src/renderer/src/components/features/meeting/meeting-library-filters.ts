@@ -1,8 +1,12 @@
-import type { MeetingLibraryItem, MeetingProcessingState } from "@arc/shared/meeting-recording";
+import type {
+  MeetingLibraryItem,
+  MeetingProcessingState,
+  TrashedMeetingItem,
+} from "@arc/shared/meeting-recording";
+import { meetingDisplayTitle } from "@arc/shared/utils/time";
 import { appDayjs } from "@/lib/client/datetime";
 
 export interface MeetingLibraryFilters {
-  creatorId: string;
   date: string;
   status: "all" | MeetingProcessingState;
 }
@@ -12,9 +16,6 @@ export function filterMeetingRecords<T extends MeetingLibraryItem>(
   filters: MeetingLibraryFilters,
 ): T[] {
   return meetings.filter((meeting) => {
-    if (filters.creatorId && meeting.creator.id !== filters.creatorId) {
-      return false;
-    }
     if (filters.status !== "all" && meeting.processingState !== filters.status) {
       return false;
     }
@@ -23,4 +24,43 @@ export function filterMeetingRecords<T extends MeetingLibraryItem>(
     }
     return true;
   });
+}
+
+function compareArchivedNewestFirst(left: TrashedMeetingItem, right: TrashedMeetingItem): number {
+  const byTrashedAt = Date.parse(right.trashedAt) - Date.parse(left.trashedAt);
+  if (byTrashedAt !== 0) {
+    return byTrashedAt;
+  }
+  return right.id.localeCompare(left.id);
+}
+
+export function filterArchivedMeetings(
+  meetings: TrashedMeetingItem[],
+  query: string,
+): TrashedMeetingItem[] {
+  const normalized = query.trim().toLowerCase();
+  const matched = normalized
+    ? meetings.filter((meeting) => {
+        const title = meetingDisplayTitle(meeting.title).toLowerCase();
+        return title.includes(normalized) || meeting.title.toLowerCase().includes(normalized);
+      })
+    : meetings;
+  return [...matched].toSorted(compareArchivedNewestFirst);
+}
+
+export function paginateRecords<T>(
+  items: T[],
+  page: number,
+  pageSize: number,
+): { items: T[]; page: number; total: number; totalPages: number } {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    page: currentPage,
+    total,
+    totalPages,
+  };
 }

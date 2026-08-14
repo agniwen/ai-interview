@@ -9,7 +9,7 @@ const noDragStyle = {
 
 /** Shared square chrome icon control (toggle / history / settings). */
 export const chromeIconControlClassName =
-  "app-no-drag flex size-6 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground opacity-80 transition-[opacity,background-color] hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12";
+  "app-no-drag flex size-6 shrink-0 items-center justify-center rounded-[8px] text-muted-foreground opacity-80 transition-[opacity,background-color] hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12";
 
 /**
  * Shared chrome control style (sidebar history nav, sidebar toggle, content

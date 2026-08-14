@@ -89,7 +89,7 @@ export function MeetingSidebarSlots() {
       toastId: string | number;
     }) => restoreMeeting(slug, meetingId),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "撤回删除失败");
+      toast.error(error instanceof Error ? error.message : "撤回归档失败");
     },
     onSuccess: async (_, { slug, toastId }) => {
       await refreshMeetingLists(slug);
@@ -100,12 +100,12 @@ export function MeetingSidebarSlots() {
     mutationFn: ({ meetingId, slug }: { meetingId: string; slug: string }) =>
       trashMeeting(slug, meetingId),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "移入废纸篓失败");
+      toast.error(error instanceof Error ? error.message : "归档失败");
     },
     onSuccess: async (_, { meetingId, slug }) => {
       void refreshMeetingLists(slug);
 
-      const toastId = toast.success("已移入废纸篓", {
+      const toastId = toast.success("已归档", {
         action: (
           <Button
             className="ml-auto"
@@ -501,7 +501,7 @@ export function MeetingSidebarSlots() {
                               <Icon icon="ph:pencil-line" />
                             </SidebarMenuAction>
                             <SidebarMenuAction
-                              aria-label={`将${title}移入废纸篓`}
+                              aria-label={`归档${title}`}
                               className="text-muted-foreground hover:bg-transparent hover:text-destructive"
                               disabled={trashMutation.isPending || renameMutation.isPending}
                               onClick={(event) => {
@@ -513,7 +513,7 @@ export function MeetingSidebarSlots() {
                                 });
                               }}
                               showOnHover
-                              title="移入废纸篓"
+                              title="归档"
                               type="button"
                             >
                               <Icon icon="ph:trash" />

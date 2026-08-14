@@ -38,11 +38,7 @@ function policyAllows(
   policy: typeof meetingTranscriptionPolicy.$inferSelect | null | undefined,
   provider: MeetingTranscriptionProviderId,
 ): boolean {
-  return Boolean(
-    policy &&
-    [policy.selectedProvider, policy.fallbackProvider].includes(provider) &&
-    policy.allowedProviders.includes(provider),
-  );
+  return Boolean(policy) && provider === "qwen";
 }
 
 export async function loadMeetingTranscriptionPolicy(organizationId: string): Promise<{
@@ -226,20 +222,8 @@ export async function getMeetingTranscriptionJobForMeeting(input: {
   if (!policy) {
     policy = await ensureDefaultMeetingTranscriptionPolicy(input.organizationId);
   }
-  const provider = (
-    input.preferFallback && policy?.fallbackProvider
-      ? policy.fallbackProvider
-      : policy?.selectedProvider
-  ) as MeetingTranscriptionProviderId | null | undefined;
-  if (
-    !(
-      meeting &&
-      policy &&
-      provider &&
-      policyAllows(policy, provider) &&
-      sourceAssetsReady(meeting.assets)
-    )
-  ) {
+  const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
+  if (!(meeting && policy && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))) {
     return null;
   }
   const candidate = findMeetingTranscriptionProviderCandidate(provider);
@@ -287,7 +271,7 @@ export async function listRecoverableMeetingTranscriptionJobs(): Promise<
   const jobs: MeetingTranscriptionJobData[] = [];
   for (const meeting of meetings) {
     const policy = policyByOrganization.get(meeting.organizationId);
-    const provider = policy?.selectedProvider as MeetingTranscriptionProviderId | null | undefined;
+    const provider = DEFAULT_MEETING_TRANSCRIPTION_PROVIDER;
     if (
       !(policy && provider && policyAllows(policy, provider) && sourceAssetsReady(meeting.assets))
     ) {

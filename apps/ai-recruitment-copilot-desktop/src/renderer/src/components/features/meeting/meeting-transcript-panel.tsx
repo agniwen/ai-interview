@@ -10,6 +10,14 @@ import type {
   MeetingTranscriptResult,
 } from "@arc/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isApiError } from "@/lib/client/api-error";
@@ -427,7 +435,7 @@ export function MeetingTranscriptView({
   if (result.state === "processing") {
     return (
       <>
-        <p className="text-muted-foreground text-sm">正在生成 Final Meeting Transcript…</p>
+        <p className="text-muted-foreground text-sm">正在生成最终转录…</p>
         {savedDraft}
       </>
     );
@@ -446,7 +454,7 @@ export function MeetingTranscriptView({
     );
   }
   if (!result.revision) {
-    return <p className="text-muted-foreground text-sm">Final Meeting Transcript 暂不可用。</p>;
+    return <p className="text-muted-foreground text-sm">最终转录暂不可用。</p>;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -488,7 +496,7 @@ function transcriptStageEmptyHint(
     return "录音已保存，正在生成最终字幕…";
   }
   if (result?.state === "failed") {
-    return result.error ?? "字幕处理失败，可在“查看更多”中重试";
+    return result.error ?? "最终字幕生成失败";
   }
   if (result && !hasTurns) {
     return "这次录制没有识别到文字";
@@ -534,23 +542,12 @@ export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string;
 
   const emptyHint = transcriptStageEmptyHint(result, transcriptQuery.error, turns.length > 0);
 
-  return (
-    <section className="container mx-auto flex min-h-full max-w-3xl flex-col gap-3 px-4 pb-10 sm:px-6">
-      <div className="flex items-center gap-1.5">
-        {draftTurns.length > 0 ? (
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
-            录制草稿
-          </span>
-        ) : null}
-      </div>
-      {turns.length > 0 ? (
-        <MeetingTranscriptStageTurns turns={turns} />
-      ) : (
-        <div className="flex flex-1 items-center justify-center py-16">
-          <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
-        </div>
-      )}
-    </section>
+  return turns.length > 0 ? (
+    <MeetingTranscriptStageTurns turns={turns} />
+  ) : (
+    <div className="flex flex-1 items-center justify-center py-16">
+      <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
+    </div>
   );
 }
 
@@ -659,27 +656,31 @@ export function MeetingTranscriptPanel({
       );
   }
   return (
-    <section className="rounded-xl border bg-card p-4">
-      <div className="mb-4">
-        <h2 className="font-medium">Final Meeting Transcript</h2>
-        <p className="text-muted-foreground text-xs">
-          实时字幕草稿会单独保留；最终版本仍由已验证的双轨录音生成。
-        </p>
-      </div>
-      {transcriptQuery.isPending ? (
-        <p className="text-muted-foreground text-sm">正在加载 Final Meeting Transcript…</p>
-      ) : null}
-      {transcriptQuery.error ? (
-        <p className="text-destructive text-sm">
-          {transcriptQuery.error instanceof Error
-            ? transcriptQuery.error.message
-            : "加载最终会议转录失败"}
-        </p>
-      ) : null}
-      {conflictNotice ? <p className="mb-3 text-destructive text-sm">{conflictNotice}</p> : null}
-      {transcriptContent}
+    <Frame>
+      <FrameHeader>
+        <FrameHeading>
+          <FrameTitle>最终转录</FrameTitle>
+          <FrameDescription>
+            实时字幕草稿会单独保留；最终版本仍由已验证的双轨录音生成。
+          </FrameDescription>
+        </FrameHeading>
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-3">
+        {transcriptQuery.isPending ? (
+          <p className="text-muted-foreground text-sm">正在加载最终转录…</p>
+        ) : null}
+        {transcriptQuery.error ? (
+          <p className="text-destructive text-sm">
+            {transcriptQuery.error instanceof Error
+              ? transcriptQuery.error.message
+              : "加载最终会议转录失败"}
+          </p>
+        ) : null}
+        {conflictNotice ? <p className="text-destructive text-sm">{conflictNotice}</p> : null}
+        {transcriptContent}
+      </FramePanel>
       {transcriptQuery.data?.state === "ready" ? (
-        <div className="mt-4 border-t pt-4">
+        <FramePanel>
           <Button
             onClick={() => setHistoryOpen((open) => !open)}
             size="sm"
@@ -701,21 +702,21 @@ export function MeetingTranscriptPanel({
                 </p>
               ) : null}
               {historyQuery.data?.records.map((revision) => (
-                <article className="rounded-lg border p-3 text-sm" key={revision.id}>
+                <article className="rounded-lg bg-muted/40 px-3 py-3 text-sm" key={revision.id}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">
-                      revision {revision.revision} ·{" "}
+                      版本 {revision.revision} ·{" "}
                       {revision.kind === "human" ? "人工修订" : "机器生成"}
                       {revision.id === activeRevision?.id ? " · 当前权威版本" : ""}
                     </span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="text-muted-foreground text-xs tabular-nums">
                       {formatAppDateTime(revision.createdAt)}
                     </span>
                   </div>
                   <p className="mt-1 text-muted-foreground text-xs">
                     {revision.createdBy?.name ?? "自动转录服务"}
                     {revision.basedOnRevisionId
-                      ? ` · 基于 revision ${historyRevisionNumbers.get(revision.basedOnRevisionId) ?? "?"}`
+                      ? ` · 基于版本 ${historyRevisionNumbers.get(revision.basedOnRevisionId) ?? "?"}`
                       : ""}
                   </p>
                   <Button
@@ -734,13 +735,13 @@ export function MeetingTranscriptPanel({
                   {selectedRevisionId === revision.id ? (
                     <div className="mt-3 border-t pt-3">
                       {historicalRevisionQuery.isPending ? (
-                        <p className="text-muted-foreground text-sm">正在加载 revision…</p>
+                        <p className="text-muted-foreground text-sm">正在加载版本…</p>
                       ) : null}
                       {historicalRevisionQuery.error ? (
                         <p className="text-destructive text-sm">
                           {historicalRevisionQuery.error instanceof Error
                             ? historicalRevisionQuery.error.message
-                            : "加载 revision 失败"}
+                            : "加载版本失败"}
                         </p>
                       ) : null}
                       {historicalRevisionQuery.data ? (
@@ -760,8 +761,8 @@ export function MeetingTranscriptPanel({
               ))}
             </div>
           ) : null}
-        </div>
+        </FramePanel>
       ) : null}
-    </section>
+    </Frame>
   );
 }

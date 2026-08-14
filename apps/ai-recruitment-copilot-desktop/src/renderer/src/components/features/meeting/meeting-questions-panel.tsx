@@ -3,6 +3,14 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { MeetingQuestionExchange, MeetingQuestionThread } from "@arc/shared/meeting-answer";
 import { Button } from "@/components/ui/button";
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
 import { Textarea } from "@/components/ui/textarea";
 import {
   askMeetingQuestion,
@@ -203,15 +211,16 @@ export function MeetingQuestionsPanel({
   const error =
     threadsQuery.error ?? threadQuery.error ?? createMutation.error ?? askMutation.error;
   return (
-    <section className="rounded-xl border bg-card p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-medium">针对本次会议提问</h2>
-          <p className="text-muted-foreground text-xs">
-            回答只使用当前会议的转录、Notes 和 Meeting Intelligence，并附可播放的转录证据。
-          </p>
-        </div>
+    <Frame>
+      <FrameHeader className="justify-between gap-3">
+        <FrameHeading>
+          <FrameTitle>会议提问</FrameTitle>
+          <FrameDescription>
+            回答只使用当前会议的转录、笔记和洞察，并附可播放证据。
+          </FrameDescription>
+        </FrameHeading>
         <Button
+          className="shrink-0"
           disabled={createMutation.isPending}
           onClick={() => createMutation.mutate()}
           size="sm"
@@ -220,60 +229,64 @@ export function MeetingQuestionsPanel({
         >
           新建提问
         </Button>
-      </div>
-      {error ? (
-        <p className="mb-3 text-destructive text-sm">
-          {error instanceof Error ? error.message : "会议提问操作失败"}
-        </p>
-      ) : null}
-      {(threadsQuery.data?.length ?? 0) > 0 ? (
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-          {threadsQuery.data?.map((thread) => (
-            <Button
-              key={thread.id}
-              onClick={() => setSelectedThreadId(thread.id)}
-              size="sm"
-              type="button"
-              variant={thread.id === selectedThreadId ? "default" : "outline"}
-            >
-              {thread.title}
-            </Button>
-          ))}
-        </div>
-      ) : null}
-      <MeetingQuestionThreadState
-        onSeek={onSeek}
-        selectedThreadId={selectedThreadId}
-        thread={threadQuery.data}
-      />
-      <form className="mt-4 flex flex-col gap-2" onSubmit={submit}>
-        <Textarea
-          disabled={!selectedThreadId || hasActiveQuestion}
-          maxLength={2000}
-          onChange={(event) => {
-            if (askMutation.isError) {
-              setRequestId(crypto.randomUUID());
-              askMutation.reset();
-            }
-            setQuestion(event.target.value);
-          }}
-          placeholder={
-            hasActiveQuestion
-              ? "请等待上一条问题回答完成"
-              : "例如：候选人提到的主要项目和职责是什么？"
-          }
-          value={question}
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-4">
+        {error ? (
+          <p className="text-destructive text-sm">
+            {error instanceof Error ? error.message : "会议提问操作失败"}
+          </p>
+        ) : null}
+        {(threadsQuery.data?.length ?? 0) > 0 ? (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {threadsQuery.data?.map((thread) => (
+              <Button
+                key={thread.id}
+                onClick={() => setSelectedThreadId(thread.id)}
+                size="sm"
+                type="button"
+                variant={thread.id === selectedThreadId ? "default" : "outline"}
+              >
+                {thread.title}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        <MeetingQuestionThreadState
+          onSeek={onSeek}
+          selectedThreadId={selectedThreadId}
+          thread={threadQuery.data}
         />
-        <Button
-          className="self-end"
-          disabled={
-            !selectedThreadId || !question.trim() || askMutation.isPending || hasActiveQuestion
-          }
-          type="submit"
-        >
-          {askMutation.isPending ? "提交中…" : "提问"}
-        </Button>
-      </form>
-    </section>
+      </FramePanel>
+      <FramePanel>
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <Textarea
+            disabled={!selectedThreadId || hasActiveQuestion}
+            maxLength={2000}
+            onChange={(event) => {
+              if (askMutation.isError) {
+                setRequestId(crypto.randomUUID());
+                askMutation.reset();
+              }
+              setQuestion(event.target.value);
+            }}
+            placeholder={
+              hasActiveQuestion
+                ? "请等待上一条问题回答完成"
+                : "例如：候选人提到的主要项目和职责是什么？"
+            }
+            value={question}
+          />
+          <Button
+            className="self-end"
+            disabled={
+              !selectedThreadId || !question.trim() || askMutation.isPending || hasActiveQuestion
+            }
+            type="submit"
+          >
+            {askMutation.isPending ? "提交中…" : "提问"}
+          </Button>
+        </form>
+      </FramePanel>
+    </Frame>
   );
 }

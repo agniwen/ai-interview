@@ -7,7 +7,6 @@ import { isApiError } from "@/lib/client/api-error";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
 import { createBrowserPcmSidecar } from "./browser-pcm-sidecar";
 import { createLiveTranscriptDraft } from "./live-transcript-draft";
-import { connectOpenAiRealtimeTranscription } from "./openai-realtime-transport";
 import { connectQwenRealtimeTranscription } from "./qwen-realtime-transport";
 
 export const meetingLiveTranscriptDraft = createLiveTranscriptDraft({
@@ -30,11 +29,7 @@ export const meetingLiveTranscriptDraft = createLiveTranscriptDraft({
     }
     return createMeetingLiveTranscriptAuthorization(workspace.slug, input);
   },
-  // OpenAI 走 WebRTC 直连；DashScope qwen 走主进程 WebSocket 桥接（临时 token）。
-  connect: (input) =>
-    input.authorization.provider === "openai"
-      ? connectOpenAiRealtimeTranscription(input)
-      : connectQwenRealtimeTranscription(input),
+  connect: connectQwenRealtimeTranscription,
   createPcmTap: createBrowserPcmSidecar,
   heartbeat: async (captureId) => {
     const workspace = await resolveActiveWorkspace();

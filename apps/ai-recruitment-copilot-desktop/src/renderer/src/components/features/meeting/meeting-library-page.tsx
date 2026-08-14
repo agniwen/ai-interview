@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { MeetingProcessingState } from "@arc/shared/meeting-recording";
 import { useEffect, useMemo, useState } from "react";
@@ -6,7 +5,6 @@ import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -16,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { desktopMeetingKeys, fetchTrashedMeetings } from "@/lib/client/meetings";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { filterMeetingRecords } from "./meeting-library-filters";
 import { MeetingLibraryView } from "./meeting-library-view";
 import { MeetingTrashView } from "./meeting-trash-view";
@@ -36,12 +34,11 @@ function visibleLibraryError(input: {
   meetingsError: unknown;
   searchError: unknown;
   showTrash: boolean;
-  trashError: unknown;
   workspaceError: unknown;
 }): unknown {
   const baseError = input.workspaceError ?? input.meetingsError;
   if (baseError || input.showTrash) {
-    return baseError ?? input.trashError;
+    return baseError;
   }
   return input.isSearching ? input.searchError : null;
 }
@@ -50,21 +47,14 @@ function refetchVisibleLibrary(input: {
   isSearching: boolean;
   refetchMeetings: () => Promise<unknown>;
   refetchSearch: () => Promise<unknown>;
-  refetchTrash: () => Promise<unknown>;
-  showTrash: boolean;
 }): Promise<unknown> {
-  if (input.showTrash) {
-    return input.refetchTrash();
-  }
   return input.isSearching ? input.refetchSearch() : input.refetchMeetings();
 }
 
 function ActiveMeetingLibrary({
-  creatorFilter,
   dateFilter,
   isSearching,
   meetings,
-  onCreatorFilterChange,
   onDateFilterChange,
   onResetFilters,
   onSearchChange,
@@ -74,11 +64,9 @@ function ActiveMeetingLibrary({
   searchText,
   statusFilter,
 }: {
-  creatorFilter: string;
   dateFilter: string;
   isSearching: boolean;
   meetings: ReturnType<typeof useMeetingLibrary>["meetingsQuery"]["data"];
-  onCreatorFilterChange: (value: string) => void;
   onDateFilterChange: (value: string) => void;
   onResetFilters: () => void;
   onSearchChange: (value: string) => void;
@@ -92,20 +80,8 @@ function ActiveMeetingLibrary({
     () => Object.fromEntries((searchResults ?? []).map((result) => [result.id, result.match])),
     [searchResults],
   );
-  const creatorOptions = useMemo(
-    () =>
-      [
-        ...new Map(
-          (meetings ?? []).map((meeting) => [meeting.creator.id, meeting.creator]),
-        ).values(),
-      ]
-        .map((creator) => ({ label: creator.name, value: creator.id }))
-        .toSorted((left, right) => left.label.localeCompare(right.label, "zh-CN")),
-    [meetings],
-  );
-  const hasStructuredFilters = Boolean(creatorFilter || dateFilter || statusFilter !== "all");
+  const hasStructuredFilters = Boolean(dateFilter || statusFilter !== "all");
   const records = filterMeetingRecords(isSearching ? (searchResults ?? []) : (meetings ?? []), {
-    creatorId: creatorFilter,
     date: dateFilter,
     status: statusFilter,
   });
@@ -119,16 +95,6 @@ function ActiveMeetingLibrary({
           placeholder="搜索标题、转录或 Notes"
           type="search"
           value={searchText}
-        />
-        <SearchableSelect
-          clearable
-          emptyMessage="没有匹配的创建人"
-          onChange={(value) => onCreatorFilterChange(value ?? "")}
-          options={creatorOptions}
-          placeholder="全部创建人"
-          searchPlaceholder="搜索创建人…"
-          triggerClassName="w-full sm:w-44"
-          value={creatorFilter || null}
         />
         <Select<"all" | MeetingProcessingState>
           onValueChange={(value) => onStatusFilterChange(value ?? "all")}
@@ -204,16 +170,18 @@ function ActiveMeetingLibrary({
 }
 
 /**
- * Meeting Library 的模式协调器：普通列表、全文搜索与废纸篓互斥展示，并只暴露当前模式的错误/重试。
- * Mode coordinator for mutually visible list, full-text search, and trash views with mode-specific errors and retries.
+ * Meeting Library 的模式协调器：普通列表、全文搜索与归档记录互斥展示，并只暴露当前模式的错误/重试。
+ * Mode coordinator for mutually visible list, full-text search, and archive views with mode-specific errors and retries.
  */
+type LibraryTab = "records" | "archive";
+
 export function MeetingLibraryPage() {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
-  const [creatorFilter, setCreatorFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | MeetingProcessingState>("all");
   const [dateFilter, setDateFilter] = useState("");
-  const [showTrash, setShowTrash] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>("records");
+  const showTrash = libraryTab === "archive";
   useEffect(() => {
     // useDeferredValue 不是网络 debounce；显式 250ms 延迟可避免逐键触发数据库搜索。
     // useDeferredValue is not a network debounce; an explicit 250ms delay prevents per-keystroke DB searches.
@@ -225,12 +193,6 @@ export function MeetingLibraryPage() {
     normalizedSearchText.length >= 2 ? normalizedSearchText : "",
   );
   const isSearching = normalizedSearchText.length >= 2;
-  const trashQuery = useQuery({
-    enabled: Boolean(showTrash && workspace),
-    queryFn: () => fetchTrashedMeetings(workspace?.slug ?? ""),
-    queryKey: desktopMeetingKeys.trash(workspace?.slug ?? ""),
-    staleTime: 5000,
-  });
   if (workspaceQuery.isPending || (workspace && meetingsQuery.isPending)) {
     return <LoadingLibrary />;
   }
@@ -239,7 +201,6 @@ export function MeetingLibraryPage() {
     meetingsError: meetingsQuery.error,
     searchError: searchQuery.error,
     showTrash,
-    trashError: trashQuery.error,
     workspaceError: workspaceQuery.error,
   });
   if (error) {
@@ -254,8 +215,6 @@ export function MeetingLibraryPage() {
               isSearching,
               refetchMeetings: meetingsQuery.refetch,
               refetchSearch: searchQuery.refetch,
-              refetchTrash: trashQuery.refetch,
-              showTrash,
             })
           }
           type="button"
@@ -269,52 +228,47 @@ export function MeetingLibraryPage() {
   if (!workspace) {
     return <p className="px-6 py-16 text-center text-muted-foreground text-sm">未加入工作区</p>;
   }
-  let content = (
-    <ActiveMeetingLibrary
-      creatorFilter={creatorFilter}
-      dateFilter={dateFilter}
-      isSearching={isSearching}
-      meetings={meetingsQuery.data}
-      onCreatorFilterChange={setCreatorFilter}
-      onDateFilterChange={setDateFilter}
-      onResetFilters={() => {
-        setSearchText("");
-        setDebouncedSearchText("");
-        setCreatorFilter("");
-        setStatusFilter("all");
-        setDateFilter("");
-      }}
-      onSearchChange={setSearchText}
-      onStatusFilterChange={setStatusFilter}
-      searchPending={searchQuery.isPending}
-      searchResults={searchQuery.data}
-      searchText={searchText}
-      statusFilter={statusFilter}
-    />
-  );
-  if (showTrash) {
-    content = trashQuery.isPending ? (
-      <p className="text-muted-foreground text-sm">正在加载废纸篓…</p>
-    ) : (
-      <MeetingTrashView meetings={trashQuery.data ?? []} slug={workspace.slug} />
-    );
-  }
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-medium text-xl tracking-tight">
-            {showTrash ? "录制废纸篓" : "录制记录"}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {showTrash ? "录制保留七天，截止前可恢复" : "浏览和播放你有权访问的录制"}
-          </p>
-        </div>
-        <Button onClick={() => setShowTrash((current) => !current)} type="button" variant="outline">
-          {showTrash ? "返回录制记录" : "废纸篓"}
-        </Button>
-      </div>
-      {content}
+      <Tabs
+        className="gap-4"
+        onValueChange={(value) => {
+          if (value === "archive" || value === "records") {
+            setLibraryTab(value);
+          }
+        }}
+        value={libraryTab}
+      >
+        <TabsList>
+          <TabsTrigger value="records">录制记录</TabsTrigger>
+          <TabsTrigger value="archive">归档记录</TabsTrigger>
+        </TabsList>
+        <TabsContent className="flex flex-col gap-4" value="records">
+          <p className="text-muted-foreground text-sm">浏览和播放你保存的录制</p>
+          <ActiveMeetingLibrary
+            dateFilter={dateFilter}
+            isSearching={isSearching}
+            meetings={meetingsQuery.data}
+            onDateFilterChange={setDateFilter}
+            onResetFilters={() => {
+              setSearchText("");
+              setDebouncedSearchText("");
+              setStatusFilter("all");
+              setDateFilter("");
+            }}
+            onSearchChange={setSearchText}
+            onStatusFilterChange={setStatusFilter}
+            searchPending={searchQuery.isPending}
+            searchResults={searchQuery.data}
+            searchText={searchText}
+            statusFilter={statusFilter}
+          />
+        </TabsContent>
+        <TabsContent className="flex flex-col gap-4" value="archive">
+          <p className="text-muted-foreground text-sm">归档录制保留七天，截止前可恢复</p>
+          <MeetingTrashView slug={workspace.slug} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

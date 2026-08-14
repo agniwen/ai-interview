@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LocalMeetingSession } from "../../../../../preload/local-meeting-session";
-import { getRecordingTitleCandidate } from "./meeting-recording-title";
+import { getRecordingTitleCandidate, resolvedMeetingTitle } from "./meeting-recording-title";
 
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
@@ -57,5 +57,33 @@ describe("recording title candidate", () => {
         Date.parse("2026-08-12T16:27:31.000Z"),
       ),
     ).toBeNull();
+  });
+
+  it("does not generate a title after the recording has been saved", () => {
+    expect(
+      getRecordingTitleCandidate(
+        interruptedSession({ state: "saved-local" }),
+        null,
+        Date.parse("2026-08-12T16:27:31.000Z"),
+      ),
+    ).toBeNull();
+    expect(
+      getRecordingTitleCandidate(
+        interruptedSession({ state: "uploading" }),
+        null,
+        Date.parse("2026-08-12T16:27:31.000Z"),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("resolved meeting title", () => {
+  it("keeps the local AI title when the workspace meeting still has the default stamp", () => {
+    expect(
+      resolvedMeetingTitle({
+        localTitle: "候选人项目经验沟通",
+        remoteTitle: "录制记录-2608141530",
+      }),
+    ).toBe("候选人项目经验沟通");
   });
 });

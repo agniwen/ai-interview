@@ -14,7 +14,9 @@ import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-
 import { AppearanceSettingsPage } from "@/components/features/settings/appearance-settings-page";
 import { GeneralSettingsPage } from "@/components/features/settings/general-settings-page";
 import { SettingsLayout } from "@/components/features/settings/settings-layout";
+import { AppErrorFallback } from "@/components/layout/app-error-fallback";
 import { AppShell } from "@/components/layout/app-shell";
+import { hardReloadToHome } from "@/lib/client/hard-reload-home";
 import { authClient } from "@/lib/auth-client";
 import { getQueryClient } from "@/lib/query-client";
 import { AuthCallbackPage } from "@/routes/auth-callback-page";
@@ -60,11 +62,16 @@ async function redirectIfAuthenticated() {
   }
 }
 
+function RouterErrorFallback({ error }: { error: unknown }) {
+  return <AppErrorFallback error={error} onReload={hardReloadToHome} />;
+}
+
 /** Root: no chrome — login stays bare; app routes mount AppShell themselves. */
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function RootLayout() {
     return <Outlet />;
   },
+  errorComponent: RouterErrorFallback,
 });
 
 const loginRoute = createRoute({

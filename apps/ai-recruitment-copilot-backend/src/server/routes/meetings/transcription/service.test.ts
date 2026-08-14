@@ -213,7 +213,7 @@ describe("Meeting transcription service", () => {
     mocks.resetMeetingTranscriptionForRetry.mockResolvedValue([{ id: "meeting-76" }]);
     mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue({
       meetingId: "meeting-76",
-      provider: "openai",
+      provider: "qwen",
     });
 
     await expect(
@@ -225,7 +225,7 @@ describe("Meeting transcription service", () => {
       }),
     ).resolves.toEqual({ state: "processing" });
     expect(mocks.retryMeetingTranscriptionJob).toHaveBeenCalledWith(
-      expect.objectContaining({ meetingId: "meeting-76", provider: "openai" }),
+      expect.objectContaining({ meetingId: "meeting-76", provider: "qwen" }),
     );
     expect(mocks.getMeetingTranscriptionJobForMeeting).toHaveBeenCalledWith({
       meetingId: "meeting-76",

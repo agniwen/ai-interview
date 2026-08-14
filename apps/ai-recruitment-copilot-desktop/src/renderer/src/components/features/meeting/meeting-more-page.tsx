@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useReducer } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Frame, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   desktopMeetingKeys,
@@ -16,18 +18,28 @@ import {
   playbackAuthorizationRefetchInterval,
 } from "./meeting-detail-helpers";
 import { MeetingDetailView } from "./meeting-library-view";
-import { MeetingExportPanel } from "./meeting-export-panel";
 import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
 import { MeetingLifecyclePanel } from "./meeting-lifecycle-panel";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
 import { MeetingQuestionsPanel } from "./meeting-questions-panel";
 import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
-import { MeetingSharePanel } from "./meeting-share-panel";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
+function MeetingMoreStatus({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+      <Frame>
+        <FramePanel className="flex flex-col items-center gap-3 py-12 text-center">
+          {children}
+        </FramePanel>
+      </Frame>
+    </div>
+  );
+}
+
 /**
- * Meeting「更多信息」二级页：播放器、Intelligence、Notes、Share 等非转录内容。
- * Secondary meeting page for playback, intelligence, notes, share, and other non-transcript panels.
+ * Session「查看更多」页：播放、招聘关联、洞察、提问、笔记、最终转录与生命周期。
+ * Share ACL and export stay implemented but unmounted until those features ship.
  */
 export function MeetingMorePage({
   meetingId,
@@ -85,13 +97,18 @@ export function MeetingMorePage({
   });
 
   if (workspaceQuery.isPending || detailQuery.isPending) {
-    return <Skeleton className="mx-auto mt-6 h-64 w-[min(56rem,calc(100%-3rem))] rounded-2xl" />;
+    return (
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
+        <Skeleton className="h-52 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+      </div>
+    );
   }
 
   const error = workspaceQuery.error ?? detailQuery.error ?? playbackQuery.error;
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <MeetingMoreStatus>
         <p className="text-muted-foreground text-sm">
           {error instanceof Error ? error.message : "加载会议详情失败"}
         </p>
@@ -110,13 +127,13 @@ export function MeetingMorePage({
         >
           重试
         </Button>
-      </div>
+      </MeetingMoreStatus>
     );
   }
 
   if (!detailQuery.data) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <MeetingMoreStatus>
         <p className="font-medium text-sm">会议不存在或你无权访问</p>
         <Button
           nativeButton={false}
@@ -125,26 +142,14 @@ export function MeetingMorePage({
         >
           返回会议
         </Button>
-      </div>
+      </MeetingMoreStatus>
     );
   }
 
   const meeting = detailQuery.data;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          className="self-start"
-          nativeButton={false}
-          render={<Link params={{ meetingId }} to="/meetings/$meetingId" />}
-          variant="ghost"
-        >
-          返回转录
-        </Button>
-        <h1 className="font-semibold text-lg">更多信息</h1>
-      </div>
-
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-4 pb-10 sm:px-6">
       <MeetingDetailView
         meeting={meeting}
         onPlaybackError={() => {
@@ -157,22 +162,6 @@ export function MeetingMorePage({
         retryProcessing={retryMutation.isPending}
         seekRequestId={seekRequest.id}
         seekToSeconds={seekRequest.seconds}
-      />
-      <MeetingTranscriptPanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        onSeek={requestSeek}
-        slug={workspaceSlug}
-      />
-      <MeetingExportPanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingLifecyclePanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
       />
       <MeetingRecruitingContextPanel
         accessRole={meeting.accessRole}
@@ -191,7 +180,13 @@ export function MeetingMorePage({
         meetingId={meetingId}
         slug={workspaceSlug}
       />
-      <MeetingSharePanel
+      <MeetingTranscriptPanel
+        accessRole={meeting.accessRole}
+        meetingId={meetingId}
+        onSeek={requestSeek}
+        slug={workspaceSlug}
+      />
+      <MeetingLifecyclePanel
         accessRole={meeting.accessRole}
         meetingId={meetingId}
         slug={workspaceSlug}

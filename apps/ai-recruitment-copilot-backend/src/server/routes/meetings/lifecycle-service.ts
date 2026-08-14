@@ -2,7 +2,11 @@ import {
   enqueueMeetingPurgeJobs,
   isMeetingPurgeQueueConfigured,
 } from "@arc/meeting-processing-queue/meeting-purge";
-import type { TrashedMeetingItem } from "@arc/shared/meeting-recording";
+import type {
+  PaginatedTrashedMeetings,
+  TrashedMeetingListQuery,
+} from "@arc/shared/meeting-recording";
+import { toPaginatedResult } from "@arc/shared/pagination";
 import {
   listTrashedMeetingSessions,
   requestMeetingPurge,
@@ -39,12 +43,14 @@ export async function trashSavedMeeting(input: {
   return result;
 }
 
-export async function listTrashedSavedMeetings(input: {
-  actorId: string;
-  organizationId: string;
-}): Promise<TrashedMeetingItem[]> {
-  const records = await listTrashedMeetingSessions(input);
-  return records.flatMap((record) =>
+export async function listTrashedSavedMeetings(
+  input: {
+    actorId: string;
+    organizationId: string;
+  } & TrashedMeetingListQuery,
+): Promise<PaginatedTrashedMeetings> {
+  const result = await listTrashedMeetingSessions(input);
+  const records = result.records.flatMap((record) =>
     record.purgeAfter && record.trashedAt
       ? [
           {
@@ -62,6 +68,7 @@ export async function listTrashedSavedMeetings(input: {
         ]
       : [],
   );
+  return toPaginatedResult(records, result.total, input.page, input.pageSize);
 }
 
 export function restoreSavedMeeting(input: {

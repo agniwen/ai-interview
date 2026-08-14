@@ -6,6 +6,7 @@ import {
   Frame,
   FrameDescription,
   FrameHeader,
+  FrameHeading,
   FramePanel,
   FrameTitle,
 } from "@/components/ui/frame";
@@ -61,12 +62,12 @@ export function MeetingExportPanel({
   return (
     <Frame>
       <FrameHeader>
-        <div>
+        <FrameHeading>
           <FrameTitle>导出会议资产</FrameTitle>
           <FrameDescription>
-            导出当前权威转录、适用的 Meeting Intelligence，或已验证的播放音频。
+            导出当前权威转录、适用的会议洞察，或已验证的播放音频。
           </FrameDescription>
-        </div>
+        </FrameHeading>
       </FrameHeader>
       <FramePanel className="flex flex-wrap gap-2">
         {EXPORT_OPTIONS.map((option) => (

@@ -154,6 +154,43 @@ describe("small Saved Meeting service", () => {
     });
   });
 
+  it("forwards the local recording title when creating a workspace meeting", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByPurge: true,
+      created: false,
+      meeting: undefined,
+    });
+
+    await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+        title: "候选人项目经验沟通",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(mocks.createOrLoadMeetingSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meeting: expect.objectContaining({ title: "候选人项目经验沟通" }),
+      }),
+    );
+  });
+
   it("does not recreate a permanently purged meeting id", async () => {
     mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
     mocks.createOrLoadMeetingSession.mockResolvedValue({
@@ -266,7 +303,7 @@ describe("small Saved Meeting service", () => {
 
     expect(result).toEqual({
       conflict: true,
-      message: "Meeting Session 已移入废纸篓或正在永久清除",
+      message: "Meeting Session 已归档或正在永久清除",
     });
     expect(mocks.presignMeetingRecordingPutObject).toHaveBeenCalledTimes(2);
   });
@@ -377,6 +414,51 @@ describe("small Saved Meeting service", () => {
     });
 
     expect(mocks.enqueueMeetingPlaybackJobs).not.toHaveBeenCalled();
+  });
+
+  it("forwards the local recording title when creating a multipart workspace meeting", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByPurge: true,
+      created: false,
+      meeting: undefined,
+    });
+
+    await createMultipartSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            parts: [
+              {
+                md5Base64: "6NxAgbE0NLRRiacgt3toGA==",
+                offsetBytes: 0,
+                partNumber: 1,
+                sizeBytes,
+              },
+            ],
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+        title: "候选人项目经验沟通",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(mocks.createOrLoadMeetingSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meeting: expect.objectContaining({ title: "候选人项目经验沟通" }),
+      }),
+    );
   });
 
   it("resumes multipart assets by signing only parts not confirmed by object storage", async () => {
@@ -859,6 +941,7 @@ describe("Saved Meeting private read service", () => {
       }),
     ).resolves.toMatchObject({
       accessRole: "owner",
+      archived: false,
       creator: { id: "creator", name: "Original Creator" },
     });
     await expect(
@@ -869,6 +952,36 @@ describe("Saved Meeting private read service", () => {
         userId: "custodian",
       }),
     ).resolves.toMatchObject({ owner: { id: "custodian", name: "Current Owner" } });
+  });
+
+  it("marks a trashed meeting detail as archived", async () => {
+    const savedAt = new Date("2026-08-09T05:00:00.000Z");
+    mocks.loadMeetingSessionForAccess.mockResolvedValue({
+      accessGrantRole: null,
+      assets: baseMeeting.assets,
+      id: "meeting",
+      owner: { id: "creator", image: null, name: "Original Creator" },
+      ownerId: "creator",
+      savedAt,
+      startedAt: savedAt,
+      status: "trashed",
+      trashedFromStatus: "ready",
+      verifiedAt: savedAt,
+      visibility: "restricted",
+      workspaceCustodied: false,
+    });
+
+    await expect(
+      getSavedMeetingDetail({
+        meetingId: "meeting",
+        memberRole: "hr",
+        organizationId: "org",
+        userId: "creator",
+      }),
+    ).resolves.toMatchObject({
+      archived: true,
+      processingState: "ready",
+    });
   });
 
   it("lets viewers read notes but not create them", async () => {

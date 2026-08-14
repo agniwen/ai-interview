@@ -19,7 +19,7 @@ export const meetingTrashActionRouter = factory.createApp().post("/", async (c) 
     return c.json({ error: "Meeting Session 不存在" }, 404);
   }
   if (result.state === "forbidden") {
-    return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以移入废纸篓" }, 403);
+    return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以归档" }, 403);
   }
   if (result.state === "purging") {
     return c.json({ error: "Meeting Session 正在永久清除" }, 409);

@@ -72,7 +72,7 @@ describe("Final Meeting Transcript panel", () => {
         result={{ error: null, revision: null, state: "processing" }}
       />,
     );
-    expect(processing).toContain("正在生成 Final Meeting Transcript");
+    expect(processing).toContain("正在生成最终转录");
 
     const failed = renderToStaticMarkup(
       <MeetingTranscriptView

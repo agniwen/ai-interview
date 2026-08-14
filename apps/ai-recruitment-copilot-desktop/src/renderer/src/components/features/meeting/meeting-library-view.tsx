@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import type {
   MeetingDetail,
@@ -9,7 +8,8 @@ import type {
 import type { MeetingLibrarySearchMatch } from "@arc/shared/meeting-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { MeetingAudioPlayer } from "./meeting-audio-player";
+import { Frame, FrameHeader, FrameHeading, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
   Table,
   TableBody,
@@ -93,13 +93,12 @@ export function MeetingLibraryView({
   }
   return (
     <div className="w-full overflow-hidden rounded-lg border">
-      <Table aria-label="录制记录表格" className="min-w-[680px] table-fixed">
+      <Table aria-label="录制记录表格" className="min-w-[520px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">录制名称</TableHead>
-            <TableHead className="w-[160px]">日期</TableHead>
+            <TableHead className="w-[320px]">录制名称</TableHead>
+            <TableHead className="w-[180px]">日期</TableHead>
             <TableHead className="w-[120px]">状态</TableHead>
-            <TableHead className="w-[150px]">创建者</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -117,95 +116,12 @@ export function MeetingLibraryView({
                 <TableCell>
                   <Badge variant={state.variant}>{state.label}</Badge>
                 </TableCell>
-                <TableCell className="truncate text-muted-foreground">
-                  {meeting.creator.name}
-                </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
     </div>
-  );
-}
-
-/**
- * 可续签播放器：签名 URL 更新时保留 currentTime 和播放意图，避免五分钟授权轮换打断用户。
- * Renewable player preserving currentTime and play intent while short-lived signed URLs rotate.
- */
-function MeetingAudioPlayer({
-  onPlaybackError,
-  playback,
-  seekRequestId,
-  seekToSeconds,
-}: {
-  onPlaybackError?: () => void;
-  playback: MeetingPlaybackAuthorization;
-  seekRequestId?: number;
-  seekToSeconds?: number;
-}) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const lastPositionRef = useRef(seekToSeconds ?? 0);
-  const previousUrlRef = useRef(playback.url);
-  const refreshingSourceRef = useRef(false);
-  const shouldResumeRef = useRef(false);
-  useEffect(() => {
-    if (previousUrlRef.current !== playback.url) {
-      refreshingSourceRef.current = true;
-      previousUrlRef.current = playback.url;
-    }
-  }, [playback.url]);
-  useEffect(() => {
-    if (audioRef.current && seekToSeconds !== undefined) {
-      audioRef.current.currentTime = seekToSeconds;
-      lastPositionRef.current = seekToSeconds;
-    }
-  }, [seekRequestId, seekToSeconds]);
-  const resumePlayback = async (audio: HTMLAudioElement) => {
-    try {
-      await audio.play();
-    } catch {
-      shouldResumeRef.current = false;
-    }
-  };
-  return (
-    // oxlint-disable-next-line jsx-a11y/media-has-caption -- transcript track is delivered by #76
-    <audio
-      aria-label="会议录音播放器"
-      className="w-full"
-      controls
-      onEnded={() => {
-        shouldResumeRef.current = false;
-      }}
-      onError={() => {
-        refreshingSourceRef.current = true;
-        onPlaybackError?.();
-      }}
-      onLoadedMetadata={(event) => {
-        const position = lastPositionRef.current;
-        if (position > 0) {
-          event.currentTarget.currentTime = position;
-        }
-        refreshingSourceRef.current = false;
-        if (shouldResumeRef.current) {
-          void resumePlayback(event.currentTarget);
-        }
-      }}
-      onPause={(event) => {
-        if (!(refreshingSourceRef.current || event.currentTarget.ended)) {
-          shouldResumeRef.current = false;
-        }
-      }}
-      onPlay={() => {
-        shouldResumeRef.current = true;
-      }}
-      onTimeUpdate={(event) => {
-        lastPositionRef.current = event.currentTarget.currentTime;
-      }}
-      preload="metadata"
-      ref={audioRef}
-      src={playback.url}
-    />
   );
 }
 
@@ -232,24 +148,36 @@ export function MeetingDetailView({
   return (
     <Frame>
       <FrameHeader className="justify-between gap-3">
-        <FrameTitle className="truncate">{meetingDisplayTitle(meeting.title)}</FrameTitle>
-        <Badge variant={state.variant}>{state.label}</Badge>
+        <FrameHeading>
+          <FrameTitle>{meetingDisplayTitle(meeting.title)}</FrameTitle>
+        </FrameHeading>
+        <Badge className="shrink-0" variant={state.variant}>
+          {state.label}
+        </Badge>
       </FrameHeader>
-      <FramePanel className="flex flex-col gap-5">
-        <div className="grid gap-3 text-sm sm:grid-cols-3">
-          <div>
-            <p className="text-muted-foreground text-xs">创建者</p>
-            <p>{meeting.creator.name}</p>
+      <FramePanel>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+          <div className="min-w-0">
+            <dt className="text-muted-foreground text-xs">创建者</dt>
+            <dd className="truncate font-medium">{meeting.creator.name}</dd>
           </div>
-          <div>
-            <p className="text-muted-foreground text-xs">时长</p>
-            <p>{formatMeetingDuration(meeting.durationMs)}</p>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground text-xs">时长</dt>
+            <dd className="font-medium tabular-nums">
+              {formatMeetingDuration(meeting.durationMs)}
+            </dd>
           </div>
-          <div>
-            <p className="text-muted-foreground text-xs">保存时间</p>
-            <p>{formatAppDateTime(meeting.savedAt)}</p>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground text-xs">开始时间</dt>
+            <dd className="font-medium tabular-nums">{formatAppDateTime(meeting.startedAt)}</dd>
           </div>
-        </div>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground text-xs">保存时间</dt>
+            <dd className="font-medium tabular-nums">{formatAppDateTime(meeting.savedAt)}</dd>
+          </div>
+        </dl>
+      </FramePanel>
+      <FramePanel>
         {playback ? (
           <MeetingAudioPlayer
             onPlaybackError={onPlaybackError}
@@ -261,12 +189,12 @@ export function MeetingDetailView({
           <div className="flex flex-col items-start gap-3">
             <p className="text-muted-foreground text-sm">
               {meeting.processingState === "failed"
-                ? "录音处理失败；原始双轨录音仍然保留。"
-                : "正在从双轨源生成播放音频。"}
+                ? "可播放录音生成失败；原始双轨录音仍然保留。"
+                : "正在从双轨源生成可播放录音。"}
             </p>
             {meeting.processingState === "failed" && onRetryProcessing ? (
               <Button disabled={retryProcessing} onClick={onRetryProcessing} type="button">
-                {retryProcessing ? "正在重试…" : "重试处理"}
+                {retryProcessing ? "正在重试…" : "重试生成播放音频"}
               </Button>
             ) : null}
           </div>

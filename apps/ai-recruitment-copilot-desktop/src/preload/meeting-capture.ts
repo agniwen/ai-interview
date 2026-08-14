@@ -202,6 +202,7 @@ export interface MeetingCapture {
   observe: (listener: (snapshot: MeetingCaptureSnapshot) => void) => () => void;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
+  retryPendingWorkspaceSaves: () => Promise<void>;
   save: (input?: SaveMeetingCaptureInput) => Promise<LocalSavedMeeting>;
   /** Returns the new captureId (also used as the workspace meeting id after upload). */
   start: (input?: StartMeetingCaptureInput) => Promise<{ captureId: string }>;
@@ -259,6 +260,10 @@ function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
     status: saved.status,
     tracks: saved.tracks,
   };
+}
+
+function isWorkspaceUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message === "请先加入或选择一个工作区";
 }
 
 function retainSaved(
@@ -433,6 +438,10 @@ export function createMeetingCapture({
         });
       })
       .catch(async (error: unknown) => {
+        if (isWorkspaceUnavailable(error)) {
+          patchWorkspaceSave(saved.captureId, { error: null, state: "waiting-for-network" });
+          return;
+        }
         const failedSession = store.updateLocalSession?.(saved.captureId, {
           state: "sync-failed",
         });
@@ -449,6 +458,23 @@ export function createMeetingCapture({
         workspaceOperations.delete(saved.captureId);
       });
     workspaceOperations.set(saved.captureId, operation);
+  };
+
+  const retryPendingWorkspaceSaves = async (): Promise<void> => {
+    await Promise.all(workspaceOperations.values());
+    if (snapshot.saved) {
+      persistToWorkspace(snapshot.saved);
+    }
+    for (const capture of snapshot.recoverable) {
+      if (capture.status !== "saved-local" || capture.recoveryCopyDeleteAfter) {
+        continue;
+      }
+      const current = snapshot.workspaceSaves.find((item) => item.captureId === capture.captureId);
+      if (current?.state === "workspace-verified") {
+        continue;
+      }
+      persistToWorkspace(await store.save(capture.captureId));
+    }
   };
 
   const reconcileRecoveryCopy = async (capture: RecoverableMeetingCapture): Promise<boolean> => {
@@ -1017,6 +1043,7 @@ export function createMeetingCapture({
     },
     pause,
     resume,
+    retryPendingWorkspaceSaves,
     save,
     start,
     updateLocalSession: async (captureId, next) => {

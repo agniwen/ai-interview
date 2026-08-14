@@ -1,7 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { WorkspaceSelect } from "@/components/features/workspace/workspace-select";
 import { MeetingInboxMenu } from "@/components/features/meeting/meeting-inbox-menu";
+import { useMeetingCaptureSnapshot } from "@/components/features/meeting/meeting-recording-context";
+import { useMeetingLibrary } from "@/components/features/meeting/use-meeting-library";
+import {
+  contentHeaderTitle,
+  parseMeetingSessionId,
+} from "@/components/layout/content-header-title";
+import { desktopMeetingKeys, fetchMeetingDetail } from "@/lib/client/meetings";
 import { HistoryNav } from "@/components/history-nav";
 import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
@@ -46,9 +54,47 @@ function windowControlsWidthPx(): number {
  *   sidebar-right (expanded) and next-to-toggle (collapsed).
  * - Workspace select + settings stay on the right of this same bar.
  */
+function isLocalMeetingSession(
+  meetingId: string | null,
+  snapshot: ReturnType<typeof useMeetingCaptureSnapshot>,
+): boolean {
+  if (!meetingId) {
+    return false;
+  }
+  return (
+    snapshot.active?.captureId === meetingId ||
+    snapshot.saved?.captureId === meetingId ||
+    snapshot.localSessions.some((session) => session.id === meetingId)
+  );
+}
+
+function useContentHeaderLabel(): string {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const meetingId = parseMeetingSessionId(pathname);
+  const captureSnapshot = useMeetingCaptureSnapshot();
+  const { meetingsQuery, workspace } = useMeetingLibrary();
+  const localTitle = captureSnapshot.localSessions.find(
+    (session) => session.id === meetingId,
+  )?.title;
+  const workspaceSlug = workspace?.slug ?? "";
+  const detailQuery = useQuery({
+    enabled: Boolean(workspace && meetingId && !isLocalMeetingSession(meetingId, captureSnapshot)),
+    queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId ?? ""),
+    queryKey: desktopMeetingKeys.detail(workspaceSlug, meetingId ?? ""),
+    staleTime: 5000,
+  });
+  const remoteTitle = meetingsQuery.data?.find((meeting) => meeting.id === meetingId)?.title;
+  return contentHeaderTitle({
+    pathname,
+    sessionArchived: detailQuery.data?.archived === true,
+    sessionTitle: localTitle ?? remoteTitle ?? detailQuery.data?.title ?? null,
+  });
+}
+
 export function DesktopChromeBar(): React.JSX.Element {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const headerTitle = useContentHeaderLabel();
   const showHistoryNav = useRouterState({
     select: (routerState) => {
       const path = routerState.location.pathname;
@@ -169,7 +215,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         }}
       >
         <span className="truncate select-none font-medium text-muted-foreground text-sm tracking-tight">
-          Meeting Buddy
+          {headerTitle}
         </span>
       </div>
 

@@ -693,6 +693,82 @@ describe("MeetingCapture", () => {
     ]);
   });
 
+  it("keeps an unfinished upload waiting when the workspace is not ready yet", async () => {
+    const source = new DeterministicCaptureSource();
+    const persist = vi
+      .fn<WorkspaceRecordingPort["persist"]>()
+      .mockRejectedValueOnce(new Error("请先加入或选择一个工作区"))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" }),
+      );
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000098",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(capture);
+
+    await capture.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    await capture.save();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "waiting-for-network",
+    );
+
+    expect(observed.read().workspaceSaves[0]?.error).toBeNull();
+    capture.retryPendingWorkspaceSaves();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+    expect(persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries unfinished saved-local uploads after a failed startup persist", async () => {
+    const source = new DeterministicCaptureSource();
+    const first = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000099",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    await first.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    const saved = await first.save();
+    const persist = vi
+      .fn<WorkspaceRecordingPort["persist"]>()
+      .mockRejectedValueOnce(new Error("请先加入或选择一个工作区"))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" }),
+      );
+
+    const restarted = createMeetingCapture({
+      source: new DeterministicCaptureSource(),
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(restarted);
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "waiting-for-network",
+    );
+
+    restarted.retryPendingWorkspaceSaves();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureId: saved.captureId,
+        manifestSha256: saved.manifestSha256,
+      }),
+    );
+  });
+
   it("cleans only server-verified recovery copies after their durable deadline", async () => {
     const firstSource = new DeterministicCaptureSource();
     const store = new LocalMeetingRecordingStore(root);

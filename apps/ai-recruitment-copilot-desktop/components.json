@@ -20,6 +20,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@agents-ui": "https://livekit.com/ui/r/{name}.json"
+    "@agents-ui": "https://livekit.com/ui/r/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json"
   }
 }

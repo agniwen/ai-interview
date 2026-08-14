@@ -19,8 +19,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcriptio
   saveMeetingTranscriptionChunkCheckpoint: vi.fn(),
 }));
 vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai",
-  () => ({ createOpenAiMeetingTranscriptionProvider: vi.fn(() => ({ transcribeFinal: vi.fn() })) }),
+  "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/qwen-asr",
+  () => ({
+    createQwenAsrMeetingTranscriptionProvider: vi.fn(() => ({ transcribeFinal: vi.fn() })),
+  }),
 );
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service", () => ({
   requestAutomaticMeetingIntelligence: vi.fn(),
@@ -35,12 +37,12 @@ import {
 
 const job = {
   meetingId: "meeting-76",
-  model: "gpt-4o-transcribe-diarize",
+  model: "qwen3-asr-flash-filetrans",
   organizationId: "org-76",
   pipelineVersion: "final-v1" as const,
   policyRevision: 1,
-  provider: "openai" as const,
-  region: "openai-default",
+  provider: "qwen" as const,
+  region: "qwen-cn-beijing",
   sourceManifestSha256: "a".repeat(64),
 };
 
@@ -132,12 +134,12 @@ describe("Meeting final transcription processor", () => {
   it("rejects a production job when the worker endpoint cannot prove the recorded region", () => {
     expect(() =>
       createMeetingTranscriptionProviderForJob(job, {
-        OPENAI_BASE_URL: "https://proxy.example.com/v1",
+        ALIBABA_BASE_URL: "https://proxy.example.com",
       } as NodeJS.ProcessEnv),
     ).toThrow("not in the verified region map");
     expect(() =>
-      createMeetingTranscriptionProviderForJob({ ...job, region: "openai-other" }, {
-        OPENAI_BASE_URL: "https://api.openai.com/v1",
+      createMeetingTranscriptionProviderForJob({ ...job, region: "qwen-singapore" }, {
+        ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com",
       } as NodeJS.ProcessEnv),
     ).toThrow("does not match worker endpoint");
   });

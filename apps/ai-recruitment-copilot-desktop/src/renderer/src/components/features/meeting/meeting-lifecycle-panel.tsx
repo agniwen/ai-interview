@@ -2,6 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
 import { desktopMeetingKeys, trashMeeting } from "@/lib/client/meetings";
 
 export function canManageMeetingLifecycle(role: MeetingAccessRole): boolean {
@@ -37,26 +45,32 @@ export function MeetingLifecyclePanel({
     return null;
   }
   return (
-    <section className="rounded-2xl border border-border/70 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-medium text-sm">会议生命周期</h2>
-          <p className="mt-1 text-muted-foreground text-xs">移入废纸篓后可在七天内恢复。</p>
-        </div>
+    <Frame>
+      <FrameHeader>
+        <FrameHeading>
+          <FrameTitle>会议生命周期</FrameTitle>
+          <FrameDescription>归档后可在七天内恢复。</FrameDescription>
+        </FrameHeading>
+      </FrameHeader>
+      <FramePanel className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-md text-muted-foreground text-sm">
+          从列表中移除这次录制。七天内可在归档记录恢复，之后将永久清除。
+        </p>
         <Button
+          className="shrink-0"
           disabled={trashMutation.isPending}
           onClick={() => trashMutation.mutate()}
           type="button"
           variant="destructive"
         >
-          {trashMutation.isPending ? "正在移入…" : "移入废纸篓"}
+          {trashMutation.isPending ? "正在归档…" : "归档"}
         </Button>
-      </div>
-      {trashMutation.error ? (
-        <p className="mt-2 text-destructive text-xs">
-          {trashMutation.error instanceof Error ? trashMutation.error.message : "移入废纸篓失败"}
-        </p>
-      ) : null}
-    </section>
+        {trashMutation.error ? (
+          <p className="w-full text-destructive text-xs">
+            {trashMutation.error instanceof Error ? trashMutation.error.message : "归档失败"}
+          </p>
+        ) : null}
+      </FramePanel>
+    </Frame>
   );
 }

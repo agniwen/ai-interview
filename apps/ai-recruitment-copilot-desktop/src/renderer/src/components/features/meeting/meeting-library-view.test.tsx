@@ -60,6 +60,7 @@ describe("Meeting Library views", () => {
     expect(
       meetingDetailRefetchInterval({
         ...item,
+        archived: false,
         processingState: "failed",
         startedAt: "2026-08-09T03:59:00.000Z",
         verifiedAt: null,
@@ -73,7 +74,7 @@ describe("Meeting Library views", () => {
     ).toBe(240_000);
   });
 
-  it("renders title, creator, duration and processing availability", () => {
+  it("renders title, duration and processing availability without a creator column", () => {
     const html = renderToStaticMarkup(<MeetingLibraryView meetings={[item]} />);
 
     expect(html).toContain("录制名称");
@@ -82,24 +83,31 @@ describe("Meeting Library views", () => {
     expect(html).toContain('data-variant="default"');
     expect(html).toContain("录制记录");
     expect(html).not.toContain("录制记录-2608091200");
-    expect(html).toContain("Alice");
+    expect(html).not.toContain("创建者");
+    expect(html).not.toContain("Alice");
     expect(html).toContain("01:02");
   });
 
   it("only renders a seekable audio player after playback authorization", () => {
     const processing = renderToStaticMarkup(
       <MeetingDetailView
-        meeting={{ ...item, startedAt: "2026-08-09T03:59:00.000Z", verifiedAt: null }}
+        meeting={{
+          ...item,
+          archived: false,
+          startedAt: "2026-08-09T03:59:00.000Z",
+          verifiedAt: null,
+        }}
         playback={null}
         seekToSeconds={30}
       />,
     );
-    expect(processing).not.toContain("<audio");
+    expect(processing).not.toContain('data-slot="meeting-audio-player"');
 
     const ready = renderToStaticMarkup(
       <MeetingDetailView
         meeting={{
           ...item,
+          archived: false,
           processingState: "ready",
           recordingAvailable: true,
           startedAt: "2026-08-09T03:59:00.000Z",
@@ -112,9 +120,10 @@ describe("Meeting Library views", () => {
         seekToSeconds={30}
       />,
     );
-    expect(ready).toContain("<audio");
-    expect(ready).toContain('controls=""');
-    expect(ready).toContain("https://r2.invalid/playback.webm");
+    expect(ready).toContain('data-slot="meeting-audio-player"');
+    expect(ready).toContain('aria-label="播放"');
+    expect(ready).toContain('aria-label="录音波形"');
+    expect(ready).not.toContain('controls=""');
   });
 
   it("offers an explicit retry after automatic processing attempts are exhausted", () => {
@@ -122,6 +131,7 @@ describe("Meeting Library views", () => {
       <MeetingDetailView
         meeting={{
           ...item,
+          archived: false,
           processingState: "failed",
           startedAt: "2026-08-09T03:59:00.000Z",
           verifiedAt: null,
@@ -131,7 +141,8 @@ describe("Meeting Library views", () => {
       />,
     );
 
-    expect(failed).toContain("重试处理");
+    expect(failed).toContain("重试生成播放音频");
+    expect(failed).toContain("可播放录音生成失败");
     expect(failed).toContain("原始双轨录音仍然保留");
   });
 });

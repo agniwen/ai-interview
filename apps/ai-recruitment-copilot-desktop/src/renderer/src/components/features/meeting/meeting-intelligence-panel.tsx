@@ -13,6 +13,14 @@ import type {
 } from "@arc/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
 import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
+import {
   desktopMeetingKeys,
   fetchMeetingIntelligence,
   fetchMeetingTranscriptRevision,
@@ -21,6 +29,10 @@ import {
 
 export function canRegenerateMeetingIntelligence(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
+}
+
+export function intelligenceTemplateLabel(template: MeetingIntelligenceTemplate): string {
+  return template === "recruiting-interview" ? "招聘面试" : "通用会议";
 }
 
 export function intelligenceEvidenceTurns(
@@ -99,10 +111,7 @@ function EvidenceList({
       <h4 className="mb-2 font-medium text-sm">{title}</h4>
       <div className="flex flex-col gap-2">
         {items.map((item, index) => (
-          <article
-            className="rounded-lg border bg-background p-3 text-sm"
-            key={`${title}-${index}`}
-          >
+          <article className="rounded-lg bg-muted/40 px-3 py-3 text-sm" key={`${title}-${index}`}>
             <p className="whitespace-pre-wrap">{item.text}</p>
             <EvidenceLinks
               evidenceTurnIds={item.evidenceTurnIds}
@@ -219,14 +228,15 @@ export function MeetingIntelligenceView({
             {result.error ?? "新版本生成失败；当前已发布 revision 未受影响。"}
           </p>
         ) : null}
-        <div className="rounded-lg border bg-muted/20 p-3">
+        <div className="rounded-lg bg-muted/40 px-3 py-3">
           <p className="whitespace-pre-wrap text-sm leading-relaxed">
             {result.current.content.summary}
           </p>
           <p className="mt-2 text-muted-foreground text-xs">
-            revision {result.current.revision} · {result.current.template} ·{" "}
-            {result.current.provider}/{result.current.model} · prompt {result.current.promptVersion}{" "}
-            · transcript {result.current.transcriptRevisionId}
+            revision {result.current.revision} ·{" "}
+            {intelligenceTemplateLabel(result.current.template)} · {result.current.provider}/
+            {result.current.model} · {result.current.promptVersion} · transcript{" "}
+            {result.current.transcriptRevisionId}
           </p>
         </div>
         {intelligenceSections(result.current.content).map((section) => (
@@ -241,13 +251,13 @@ export function MeetingIntelligenceView({
       </div>
     );
   } else if (result.state === "pending") {
-    body = <p className="text-muted-foreground text-sm">等待 Final Meeting Transcript 就绪。</p>;
+    body = <p className="text-muted-foreground text-sm">等待最终转录就绪。</p>;
   } else if (result.state === "processing") {
-    body = <p className="text-muted-foreground text-sm">正在生成 Meeting Intelligence…</p>;
+    body = <p className="text-muted-foreground text-sm">正在生成会议洞察…</p>;
   } else if (result.state === "failed") {
     body = <p className="text-destructive text-sm">{result.error ?? "生成失败，请稍后重试。"}</p>;
   } else {
-    body = <p className="text-muted-foreground text-sm">尚无 Meeting Intelligence revision。</p>;
+    body = <p className="text-muted-foreground text-sm">尚无会议洞察。</p>;
   }
   return (
     <div className="flex flex-col gap-4">
@@ -266,8 +276,8 @@ export function MeetingIntelligenceView({
               }
               value={selectedTemplate}
             >
-              <option value="general">General Meeting</option>
-              <option value="recruiting-interview">Recruiting Interview</option>
+              <option value="general">通用会议</option>
+              <option value="recruiting-interview">招聘面试</option>
             </select>
           </label>
           <Button
@@ -279,7 +289,7 @@ export function MeetingIntelligenceView({
             {regenerationLabel}
           </Button>
           <span className="text-muted-foreground text-xs">
-            建议模板：{result.suggestedTemplate}
+            建议模板：{intelligenceTemplateLabel(result.suggestedTemplate)}
           </span>
         </div>
       ) : null}
@@ -355,46 +365,51 @@ export function MeetingIntelligencePanel({
     return null;
   }
   return (
-    <section className="rounded-xl border bg-card p-4">
-      <div className="mb-4">
-        <h2 className="font-medium">Meeting Intelligence</h2>
-        <p className="text-muted-foreground text-xs">
-          每个版本绑定精确的 transcript revision、模板、模型和 prompt；证据可跳回录音。
-        </p>
-      </div>
-      {intelligenceQuery.error ? (
-        <p className="text-destructive text-sm">
-          {intelligenceQuery.error instanceof Error
-            ? intelligenceQuery.error.message
-            : "加载 Meeting Intelligence 失败"}
-        </p>
-      ) : null}
-      {regenerateMutation.error ? (
-        <p className="mb-3 text-destructive text-sm">
-          {regenerateMutation.error instanceof Error
-            ? regenerateMutation.error.message
-            : "重新生成失败"}
-        </p>
-      ) : null}
-      {intelligenceQuery.data ? (
-        <MeetingIntelligenceView
-          onRegenerate={() => regenerateMutation.mutate()}
-          onSeek={onSeek}
-          onTemplateChange={setSelectedTemplate}
-          regenerating={regenerateMutation.isPending}
-          result={{
-            ...intelligenceQuery.data,
-            canRegenerate:
-              intelligenceQuery.data.canRegenerate && canRegenerateMeetingIntelligence(accessRole),
-            current: displayedRevision,
-          }}
-          selectedTemplate={selectedTemplate}
-          transcript={transcriptQuery.data ?? null}
-        />
-      ) : null}
+    <Frame>
+      <FrameHeader>
+        <FrameHeading>
+          <FrameTitle>会议洞察</FrameTitle>
+          <FrameDescription>
+            每个版本绑定精确的转录修订、模板和模型；证据可跳回录音。
+          </FrameDescription>
+        </FrameHeading>
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-4">
+        {intelligenceQuery.error ? (
+          <p className="text-destructive text-sm">
+            {intelligenceQuery.error instanceof Error
+              ? intelligenceQuery.error.message
+              : "加载会议洞察失败"}
+          </p>
+        ) : null}
+        {regenerateMutation.error ? (
+          <p className="text-destructive text-sm">
+            {regenerateMutation.error instanceof Error
+              ? regenerateMutation.error.message
+              : "重新生成失败"}
+          </p>
+        ) : null}
+        {intelligenceQuery.data ? (
+          <MeetingIntelligenceView
+            onRegenerate={() => regenerateMutation.mutate()}
+            onSeek={onSeek}
+            onTemplateChange={setSelectedTemplate}
+            regenerating={regenerateMutation.isPending}
+            result={{
+              ...intelligenceQuery.data,
+              canRegenerate:
+                intelligenceQuery.data.canRegenerate &&
+                canRegenerateMeetingIntelligence(accessRole),
+              current: displayedRevision,
+            }}
+            selectedTemplate={selectedTemplate}
+            transcript={transcriptQuery.data ?? null}
+          />
+        ) : null}
+      </FramePanel>
       {(intelligenceQuery.data?.history.length ?? 0) > 0 ? (
-        <div className="mt-4 border-t pt-4">
-          <p className="mb-2 font-medium text-sm">版本历史</p>
+        <FramePanel>
+          <p className="mb-3 font-medium text-sm">版本历史</p>
           <div className="flex flex-wrap gap-2">
             {intelligenceQuery.data?.history.map((revision) => (
               <Button
@@ -408,12 +423,12 @@ export function MeetingIntelligencePanel({
                 type="button"
                 variant={revision.id === displayedRevision?.id ? "default" : "outline"}
               >
-                revision {revision.revision} · {revision.template}
+                版本 {revision.revision} · {intelligenceTemplateLabel(revision.template)}
               </Button>
             ))}
           </div>
-        </div>
+        </FramePanel>
       ) : null}
-    </section>
+    </Frame>
   );
 }

@@ -55,40 +55,57 @@ describe("Meeting lifecycle service", () => {
   });
 
   it("serializes only complete trash records", async () => {
-    mocks.listTrashedMeetingSessions.mockResolvedValue([
-      {
-        creatorId: "user-84",
-        creatorImage: null,
-        creatorName: "Wen",
-        id: "meeting-84",
-        purgeAfter: new Date("2026-08-16T08:00:00.000Z"),
-        savedAt: new Date("2026-08-09T08:00:00.000Z"),
-        title: "产品例会",
-        trashedAt: new Date("2026-08-09T09:00:00.000Z"),
-      },
-      {
-        creatorId: "invalid",
-        creatorImage: null,
-        creatorName: "Invalid",
-        id: "invalid",
-        purgeAfter: null,
-        savedAt: new Date(),
-        title: "invalid",
-        trashedAt: null,
-      },
-    ]);
+    mocks.listTrashedMeetingSessions.mockResolvedValue({
+      records: [
+        {
+          creatorId: "user-84",
+          creatorImage: null,
+          creatorName: "Wen",
+          id: "meeting-84",
+          purgeAfter: new Date("2026-08-16T08:00:00.000Z"),
+          savedAt: new Date("2026-08-09T08:00:00.000Z"),
+          title: "产品例会",
+          trashedAt: new Date("2026-08-09T09:00:00.000Z"),
+        },
+        {
+          creatorId: "invalid",
+          creatorImage: null,
+          creatorName: "Invalid",
+          id: "invalid",
+          purgeAfter: null,
+          savedAt: new Date(),
+          title: "invalid",
+          trashedAt: null,
+        },
+      ],
+      total: 1,
+    });
 
     await expect(
-      listTrashedSavedMeetings({ actorId: INPUT.actorId, organizationId: INPUT.organizationId }),
-    ).resolves.toEqual([
-      {
-        creator: { id: "user-84", image: null, name: "Wen" },
-        id: "meeting-84",
-        purgeAfter: "2026-08-16T08:00:00.000Z",
-        savedAt: "2026-08-09T08:00:00.000Z",
-        title: "产品例会",
-        trashedAt: "2026-08-09T09:00:00.000Z",
-      },
-    ]);
+      listTrashedSavedMeetings({
+        actorId: INPUT.actorId,
+        organizationId: INPUT.organizationId,
+        page: 1,
+        pageSize: 10,
+        search: "",
+        sortBy: "trashedAt",
+        sortOrder: "desc",
+      }),
+    ).resolves.toEqual({
+      page: 1,
+      pageSize: 10,
+      records: [
+        {
+          creator: { id: "user-84", image: null, name: "Wen" },
+          id: "meeting-84",
+          purgeAfter: "2026-08-16T08:00:00.000Z",
+          savedAt: "2026-08-09T08:00:00.000Z",
+          title: "产品例会",
+          trashedAt: "2026-08-09T09:00:00.000Z",
+        },
+      ],
+      total: 1,
+      totalPages: 1,
+    });
   });
 });

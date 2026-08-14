@@ -11,6 +11,7 @@ import { getQueryClient } from "@/lib/query-client";
 import { hydrateSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
 import { createDesktopRouter } from "@/router";
+import { AppErrorBoundary } from "@/components/layout/app-error-boundary";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
 import { meetingRecordingStore } from "@/components/features/meeting/meeting-recording-store";
@@ -75,14 +76,16 @@ createRoot(rootElement).render(
       disableTransitionOnChange
       enableSystem
     >
-      <ThemeSync />
-      <LazyMotion features={domAnimation} strict>
-        <JotaiProvider store={meetingRecordingStore}>
-          <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-          </QueryClientProvider>
-        </JotaiProvider>
-      </LazyMotion>
+      <AppErrorBoundary>
+        <ThemeSync />
+        <LazyMotion features={domAnimation} strict>
+          <JotaiProvider store={meetingRecordingStore}>
+            <QueryClientProvider client={queryClient}>
+              <RouterProvider router={router} />
+            </QueryClientProvider>
+          </JotaiProvider>
+        </LazyMotion>
+      </AppErrorBoundary>
     </ThemeProvider>
   </StrictMode>,
 );

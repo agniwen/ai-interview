@@ -25,6 +25,7 @@ const LIBRARY_MEETING_STATUSES = [
   "processing-failed",
   "ready",
 ] as const;
+const DETAIL_MEETING_STATUSES = [...LIBRARY_MEETING_STATUSES, "trashed"] as const;
 export function loadMeetingSession(id: string) {
   return db.query.meetingSession.findFirst({
     where: { id },
@@ -229,7 +230,7 @@ export async function loadMeetingSessionForAccess(input: {
       and(
         eq(meetingSession.id, input.meetingId),
         eq(meetingSession.organizationId, input.organizationId),
-        inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
+        inArray(meetingSession.status, [...DETAIL_MEETING_STATUSES]),
         input.includeAllPrivateMeetings
           ? undefined
           : or(
@@ -247,7 +248,7 @@ export async function loadMeetingSessionForAccess(input: {
     where: {
       id: input.meetingId,
       organizationId: input.organizationId,
-      status: { in: [...LIBRARY_MEETING_STATUSES] },
+      status: { in: [...DETAIL_MEETING_STATUSES] },
     },
     with: { assets: true, custodian: true, owner: true },
   });

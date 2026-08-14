@@ -6,6 +6,14 @@ import type {
   MeetingRecruitingRecordSummary,
 } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   desktopMeetingKeys,
@@ -41,6 +49,7 @@ function candidateDescription(candidate: MeetingRecruitingRecordSummary): string
  */
 export function MeetingRecruitingContextView({
   candidates,
+  error = null,
   loadingCandidates = false,
   onSave,
   onSearch,
@@ -50,6 +59,7 @@ export function MeetingRecruitingContextView({
   settings,
 }: {
   candidates: MeetingRecruitingRecordSummary[];
+  error?: unknown;
   loadingCandidates?: boolean;
   onSave: () => void;
   onSearch?: (search: string) => void;
@@ -70,53 +80,61 @@ export function MeetingRecruitingContextView({
     }));
   }, [candidates, settings.link]);
   return (
-    <section className="rounded-xl border bg-card p-4">
-      <div className="mb-4">
-        <h2 className="font-medium">招聘关联</h2>
-        <p className="text-muted-foreground text-xs">
-          可选关联零个或一个 Candidate Recruiting Record；移除关联不会删除会议或候选记录。
-        </p>
-      </div>
-      {settings.link ? (
-        <div className="mb-4 rounded-lg border bg-background p-3 text-sm">
-          <p className="font-medium">{settings.link.record.candidateName}</p>
-          <p className="text-muted-foreground text-xs">
-            {candidateDescription(settings.link.record)}
+    <Frame>
+      <FrameHeader>
+        <FrameHeading>
+          <FrameTitle>招聘关联</FrameTitle>
+          <FrameDescription>
+            可选关联一位候选人；移除关联不会删除会议或候选人记录。
+          </FrameDescription>
+        </FrameHeading>
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-4">
+        {error ? (
+          <p className="text-destructive text-sm">
+            {error instanceof Error ? error.message : "加载招聘关联失败"}
           </p>
-          <p className="mt-2 text-muted-foreground text-xs">
-            建议使用 Recruiting Interview 模板；不会覆盖已有的 General Meeting intelligence
-            revision。
-          </p>
-        </div>
-      ) : (
-        <p className="mb-4 text-muted-foreground text-sm">当前未关联招聘记录。</p>
-      )}
-      {settings.canManage ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-xs" htmlFor="meeting-recruiting-context">
-              Candidate Recruiting Record
-            </label>
-            <SearchableSelect
-              clearable
-              emptyMessage="没有可访问的招聘记录"
-              id="meeting-recruiting-context"
-              loading={loadingCandidates}
-              onChange={onSelectedIdChange}
-              onSearch={onSearch}
-              options={options}
-              placeholder="不关联招聘记录"
-              searchPlaceholder="搜索候选人或岗位…"
-              serverSideFilter
-              value={selectedId}
-            />
+        ) : null}
+        {settings.link ? (
+          <div className="min-w-0">
+            <p className="font-medium text-sm">{settings.link.record.candidateName}</p>
+            <p className="mt-0.5 text-muted-foreground text-xs">
+              {candidateDescription(settings.link.record)}
+            </p>
+            <p className="mt-2 text-muted-foreground text-xs">
+              建议使用招聘面试模板；不会覆盖已有的通用会议洞察。
+            </p>
           </div>
-          <Button disabled={saving} onClick={onSave} type="button">
-            {saving ? "正在保存…" : "保存关联"}
-          </Button>
-        </div>
-      ) : null}
-    </section>
+        ) : (
+          <p className="text-muted-foreground text-sm">当前未关联招聘记录。</p>
+        )}
+        {settings.canManage ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-xs" htmlFor="meeting-recruiting-context">
+                招聘记录
+              </label>
+              <SearchableSelect
+                clearable
+                emptyMessage="没有可访问的招聘记录"
+                id="meeting-recruiting-context"
+                loading={loadingCandidates}
+                onChange={onSelectedIdChange}
+                onSearch={onSearch}
+                options={options}
+                placeholder="不关联招聘记录"
+                searchPlaceholder="搜索候选人或岗位…"
+                serverSideFilter
+                value={selectedId}
+              />
+            </div>
+            <Button className="shrink-0" disabled={saving} onClick={onSave} type="button">
+              {saving ? "正在保存…" : "保存关联"}
+            </Button>
+          </div>
+        ) : null}
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -164,32 +182,37 @@ export function MeetingRecruitingContextPanel({
   }
   if (contextQuery.error) {
     return (
-      <p className="text-destructive text-sm">
-        {contextQuery.error instanceof Error ? contextQuery.error.message : "加载招聘关联失败"}
-      </p>
+      <Frame>
+        <FrameHeader>
+          <FrameHeading>
+            <FrameTitle>招聘关联</FrameTitle>
+            <FrameDescription>
+              可选关联一位候选人；移除关联不会删除会议或候选人记录。
+            </FrameDescription>
+          </FrameHeading>
+        </FrameHeader>
+        <FramePanel>
+          <p className="text-destructive text-sm">
+            {contextQuery.error instanceof Error ? contextQuery.error.message : "加载招聘关联失败"}
+          </p>
+        </FramePanel>
+      </Frame>
     );
   }
   if (!contextQuery.data) {
     return null;
   }
-  const error = candidatesQuery.error ?? mutation.error;
   return (
-    <div>
-      {error ? (
-        <p className="mb-2 text-destructive text-sm">
-          {error instanceof Error ? error.message : "加载招聘关联失败"}
-        </p>
-      ) : null}
-      <MeetingRecruitingContextView
-        candidates={candidatesQuery.data ?? []}
-        loadingCandidates={candidatesQuery.isFetching}
-        onSave={() => mutation.mutate()}
-        onSearch={setSearch}
-        onSelectedIdChange={setSelectedId}
-        saving={mutation.isPending}
-        selectedId={selectedId}
-        settings={contextQuery.data}
-      />
-    </div>
+    <MeetingRecruitingContextView
+      candidates={candidatesQuery.data ?? []}
+      error={candidatesQuery.error ?? mutation.error}
+      loadingCandidates={candidatesQuery.isFetching}
+      onSave={() => mutation.mutate()}
+      onSearch={setSearch}
+      onSelectedIdChange={setSelectedId}
+      saving={mutation.isPending}
+      selectedId={selectedId}
+      settings={contextQuery.data}
+    />
   );
 }

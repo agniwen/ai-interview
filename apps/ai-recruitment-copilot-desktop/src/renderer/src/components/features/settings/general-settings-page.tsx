@@ -1,7 +1,6 @@
 import { Switch } from "@/components/ui/switch";
-import { SettingsGroup, SettingsRow, SettingsSection } from "@/components/settings/settings-ui";
+import { SettingsGroup, SettingsRow } from "@/components/settings/settings-ui";
 import { updateSettings, useSettings } from "@/lib/settings";
-import { MeetingTranscriptionPolicyPanel } from "./meeting-transcription-policy-panel";
 
 export function GeneralSettingsPage(): React.JSX.Element {
   const settings = useSettings();
@@ -30,13 +29,6 @@ export function GeneralSettingsPage(): React.JSX.Element {
           </div>
         </SettingsRow>
       </SettingsGroup>
-
-      <SettingsSection
-        description="管理员明确允许并选择 Final Meeting Transcript provider。录制阶段仍保持纯本地。"
-        title="会议最终转录"
-      >
-        <MeetingTranscriptionPolicyPanel />
-      </SettingsSection>
     </div>
   );
 }

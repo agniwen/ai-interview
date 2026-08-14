@@ -27,7 +27,11 @@ import {
   pendingMeetingDiscardAtom,
   preselectedResumeRecordAtom,
 } from "./meeting-recording-store";
-import { getRecordingTitleCandidate, RECORDING_TITLE_DELAY_MS } from "./meeting-recording-title";
+import {
+  getRecordingTitleCandidate,
+  RECORDING_TITLE_DELAY_MS,
+  TITLE_GENERATION_STATES,
+} from "./meeting-recording-title";
 
 export interface OpenMeetingRecordingOptions {
   /** 预选招聘台记录 id（从卡片点入时传入）。 */
@@ -136,6 +140,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     const candidate = getRecordingTitleCandidate(session, latestDraft, Date.now());
     if (!candidate) {
       if (
+        TITLE_GENERATION_STATES.has(session.state) &&
         session.title === formatDefaultMeetingTitle(session.startedAt) &&
         Date.now() - Date.parse(session.startedAt) >= RECORDING_TITLE_DELAY_MS
       ) {
@@ -191,7 +196,8 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
       if (
         session.title !== formatDefaultMeetingTitle(session.startedAt) ||
         titledCaptureIds.current.has(session.id) ||
-        titleRequests.current.has(session.id)
+        titleRequests.current.has(session.id) ||
+        !TITLE_GENERATION_STATES.has(session.state)
       ) {
         continue;
       }
@@ -226,6 +232,40 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
       void queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.root });
     }
   }, [queryClient, verifiedWorkspaceCaptureIds]);
+
+  const pendingWorkspaceUploadKey = [
+    ...captureSnapshot.workspaceSaves
+      .filter((item) => item.state === "waiting-for-network")
+      .map((item) => item.captureId),
+    ...captureSnapshot.recoverable
+      .filter(
+        (item) =>
+          item.status === "saved-local" &&
+          !item.recoveryCopyDeleteAfter &&
+          !captureSnapshot.workspaceSaves.some((save) => save.captureId === item.captureId),
+      )
+      .map((item) => item.captureId),
+  ]
+    .toSorted()
+    .join(",");
+  const retriedWorkspaceUploadKeys = useRef(new Set<string>());
+  useEffect(() => {
+    if (!(captureSnapshot.recoveryComplete && pendingWorkspaceUploadKey)) {
+      return;
+    }
+    if (retriedWorkspaceUploadKeys.current.has(pendingWorkspaceUploadKey)) {
+      return;
+    }
+    const retryPendingUploads = async () => {
+      const workspace = await resolveActiveWorkspace();
+      if (!workspace) {
+        return;
+      }
+      retriedWorkspaceUploadKeys.current.add(pendingWorkspaceUploadKey);
+      await meetingCapture.retryPendingWorkspaceSaves();
+    };
+    void retryPendingUploads();
+  }, [captureSnapshot.recoveryComplete, pendingWorkspaceUploadKey]);
 
   const openMeetingRecording = useCallback(
     (options?: OpenMeetingRecordingOptions) => {

@@ -4,6 +4,14 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FrameHeading,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -89,23 +97,23 @@ export function MeetingNotesPanel({
   const error =
     notesQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error;
   return (
-    <section className="rounded-xl border bg-card p-4">
-      <div className="mb-4">
-        <h2 className="font-medium">Meeting Notes</h2>
-        <p className="text-muted-foreground text-xs">
-          协作记录会保留作者与会议时间，不会修改转录内容。
-        </p>
-      </div>
-      {error ? (
-        <p className="mb-3 text-destructive text-sm">
-          {error instanceof Error ? error.message : "Meeting Notes 操作失败"}
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-3">
+    <Frame>
+      <FrameHeader>
+        <FrameHeading>
+          <FrameTitle>会议笔记</FrameTitle>
+          <FrameDescription>协作记录会保留作者与会议时间，不会修改转录内容。</FrameDescription>
+        </FrameHeading>
+      </FrameHeader>
+      <FramePanel className="flex flex-col gap-3">
+        {error ? (
+          <p className="text-destructive text-sm">
+            {error instanceof Error ? error.message : "会议笔记操作失败"}
+          </p>
+        ) : null}
         {(notesQuery.data ?? []).map((note) => (
-          <article className="rounded-lg border p-3" key={note.id}>
+          <article className="rounded-lg bg-muted/40 px-3 py-3" key={note.id}>
             <div className="mb-2 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <Button
                   render={
                     <Link
@@ -119,9 +127,11 @@ export function MeetingNotesPanel({
                 >
                   {formatNoteTime(note.meetingTimeMs)}
                 </Button>
-                <span className="text-muted-foreground">{note.author.name}</span>
+                <span className="truncate text-muted-foreground">{note.author.name}</span>
               </div>
-              <span className="text-muted-foreground">{formatAppDateTime(note.updatedAt)}</span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">
+                {formatAppDateTime(note.updatedAt)}
+              </span>
             </div>
             {editingId === note.id ? (
               <div className="flex flex-col gap-2">
@@ -143,7 +153,7 @@ export function MeetingNotesPanel({
                 </div>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap text-sm">{note.body}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.body}</p>
             )}
             {editingId !== note.id && (note.canEdit || note.canDelete) ? (
               <div className="mt-2 flex gap-2">
@@ -174,39 +184,41 @@ export function MeetingNotesPanel({
           </article>
         ))}
         {notesQuery.isPending ? (
-          <p className="text-muted-foreground text-sm">正在加载 Meeting Notes…</p>
+          <p className="py-4 text-center text-muted-foreground text-sm">正在加载会议笔记…</p>
         ) : null}
         {!notesQuery.isPending && notesQuery.data?.length === 0 ? (
-          <p className="text-muted-foreground text-sm">还没有 Meeting Note。</p>
+          <p className="py-4 text-center text-muted-foreground text-sm">还没有笔记。</p>
         ) : null}
-      </div>
+      </FramePanel>
       {canCreateMeetingNotes(accessRole) ? (
-        <form className="mt-4 flex flex-col gap-2 border-t pt-4" onSubmit={submitNote}>
-          <label className="flex items-center gap-2 text-sm" htmlFor="meeting-note-time">
-            <span>会议时间（秒）</span>
-            <Input
-              className="w-28"
-              id="meeting-note-time"
-              min={0}
-              onChange={(event) => setMeetingTimeSeconds(event.target.valueAsNumber || 0)}
-              type="number"
-              value={meetingTimeSeconds}
+        <FramePanel>
+          <form className="flex flex-col gap-3" onSubmit={submitNote}>
+            <label className="flex items-center gap-2 text-sm" htmlFor="meeting-note-time">
+              <span className="text-muted-foreground">定位时间（秒）</span>
+              <Input
+                className="w-28"
+                id="meeting-note-time"
+                min={0}
+                onChange={(event) => setMeetingTimeSeconds(event.target.valueAsNumber || 0)}
+                type="number"
+                value={meetingTimeSeconds}
+              />
+            </label>
+            <Textarea
+              onChange={(event) => setBody(event.target.value)}
+              placeholder="记录决定、待办或上下文…"
+              value={body}
             />
-          </label>
-          <Textarea
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="记录决定、待办或上下文…"
-            value={body}
-          />
-          <Button
-            className="self-start"
-            disabled={!body.trim() || createMutation.isPending}
-            type="submit"
-          >
-            {createMutation.isPending ? "正在添加…" : "添加 Meeting Note"}
-          </Button>
-        </form>
+            <Button
+              className="self-start"
+              disabled={!body.trim() || createMutation.isPending}
+              type="submit"
+            >
+              {createMutation.isPending ? "正在添加…" : "添加笔记"}
+            </Button>
+          </form>
+        </FramePanel>
       ) : null}
-    </section>
+    </Frame>
   );
 }

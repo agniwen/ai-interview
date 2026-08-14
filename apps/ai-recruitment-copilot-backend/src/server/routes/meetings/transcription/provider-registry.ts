@@ -14,44 +14,21 @@ function enabled(value: string | undefined): boolean {
 export function listMeetingTranscriptionProviderCandidates(
   env: NodeJS.ProcessEnv = process.env,
 ): MeetingTranscriptionProviderCandidate[] {
-  const candidates: MeetingTranscriptionProviderCandidate[] = [];
-  if (enabled(env.MEETING_TRANSCRIPTION_DEEPGRAM_ENABLED)) {
-    const endpoint = resolveMeetingTranscriptionProviderEndpoint({
-      baseUrl: env.DEEPGRAM_BASE_URL?.trim() || "https://api.deepgram.com",
-      provider: "deepgram",
-    });
-    candidates.push({
-      id: "deepgram",
-      label: "Deepgram Nova-3（候选）",
-      model: env.MEETING_TRANSCRIPTION_DEEPGRAM_MODEL?.trim() || "nova-3",
-      region: endpoint.region,
-    });
+  if (!enabled(env.MEETING_TRANSCRIPTION_QWEN_ENABLED)) {
+    return [];
   }
-  if (enabled(env.MEETING_TRANSCRIPTION_OPENAI_ENABLED)) {
-    const endpoint = resolveMeetingTranscriptionProviderEndpoint({
-      baseUrl: env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1",
-      provider: "openai",
-    });
-    candidates.push({
-      id: "openai",
-      label: "OpenAI Diarized Transcription（候选）",
-      model: env.MEETING_TRANSCRIPTION_OPENAI_MODEL?.trim() || "gpt-4o-transcribe-diarize",
-      region: endpoint.region,
-    });
-  }
-  if (enabled(env.MEETING_TRANSCRIPTION_QWEN_ENABLED)) {
-    const endpoint = resolveMeetingTranscriptionProviderEndpoint({
-      baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
-      provider: "qwen",
-    });
-    candidates.push({
+  const endpoint = resolveMeetingTranscriptionProviderEndpoint({
+    baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
+    provider: "qwen",
+  });
+  return [
+    {
       id: "qwen",
       label: "通义千问 ASR（百炼 Qwen3-ASR-Flash）",
       model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
       region: endpoint.region,
-    });
-  }
-  return candidates;
+    },
+  ];
 }
 
 export function findMeetingTranscriptionProviderCandidate(

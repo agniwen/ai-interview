@@ -9,7 +9,7 @@ describe("MeetingRecordingSessionLayout", () => {
       <MeetingRecordingSessionLayout composer={<div>composer</div>} main={<div>messages</div>} />,
     );
 
-    expect(html).toContain('class="relative flex w-full flex-col overflow-hidden"');
+    expect(html).toContain('class="@container relative flex w-full flex-col overflow-hidden"');
     expect(html).toContain(
       'data-overlayscrollbars-contents=""><div class="h-full min-h-full pt-4"',
     );
@@ -27,6 +27,21 @@ describe("MeetingRecordingSessionLayout", () => {
     );
 
     expect(html).not.toContain("mb-2");
+    expect(html).toContain('data-slot="meeting-composer-frame"');
+    expect(html).toContain('data-slot="meeting-composer-row"');
+    expect(html).toContain("rounded-md");
+  });
+
+  it("pins an overlay to the session pane without entering the scroll flow", () => {
+    const html = renderToStaticMarkup(
+      <MeetingRecordingSessionLayout
+        main={<div>saved transcript</div>}
+        overlay={<a href="/more">查看更多</a>}
+      />,
+    );
+
+    expect(html).toContain("查看更多");
+    expect(html).toContain("saved transcript");
   });
 
   it("does not mount a composer overlay for a saved session", () => {
