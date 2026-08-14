@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isMeetingSessionPagePending,
   localStoredDraftStatus,
   localWorkspaceSaveLabel,
   sessionDetailStatus,
@@ -25,6 +26,49 @@ describe("localStoredDraftStatus", () => {
     expect(localWorkspaceSaveLabel("waiting-for-network")).toBe("等待网络后自动上传");
     expect(localWorkspaceSaveLabel("action-required")).toBe("上传需要处理");
     expect(localWorkspaceSaveLabel("verifying")).toBe("正在验证");
+  });
+});
+
+describe("isMeetingSessionPagePending", () => {
+  const settled = {
+    detailPending: false,
+    hasLocalSession: false,
+    hasRemoteMeeting: true,
+    transcriptPending: false,
+    workspacePending: false,
+  };
+
+  it("keeps the page skeleton until workspace, detail and transcript settle", () => {
+    expect(isMeetingSessionPagePending({ ...settled, workspacePending: true })).toBe(true);
+    expect(
+      isMeetingSessionPagePending({ ...settled, detailPending: true, hasRemoteMeeting: false }),
+    ).toBe(true);
+    expect(isMeetingSessionPagePending({ ...settled, transcriptPending: true })).toBe(true);
+    expect(isMeetingSessionPagePending(settled)).toBe(false);
+  });
+
+  it("does not wait for a remote transcript when only a local session exists", () => {
+    expect(
+      isMeetingSessionPagePending({
+        detailPending: true,
+        hasLocalSession: true,
+        hasRemoteMeeting: false,
+        transcriptPending: true,
+        workspacePending: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("still waits for transcript when a local session already has a remote meeting", () => {
+    expect(
+      isMeetingSessionPagePending({
+        detailPending: false,
+        hasLocalSession: true,
+        hasRemoteMeeting: true,
+        transcriptPending: true,
+        workspacePending: false,
+      }),
+    ).toBe(true);
   });
 });
 

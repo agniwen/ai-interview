@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   desktopMeetingKeys,
@@ -32,6 +31,7 @@ import { meetingCapture } from "@/lib/meeting-capture";
 import { MeetingCaptureComposer, MeetingInterruptedComposer } from "./meeting-capture-status";
 import {
   canRetryMeetingProcessing,
+  isMeetingSessionPagePending,
   localStoredDraftStatus,
   localWorkspaceSaveLabel,
   meetingDetailRefetchInterval,
@@ -48,6 +48,7 @@ import {
   useMeetingRecordingActions,
 } from "./meeting-recording-context";
 import { MeetingPlaybackComposer } from "./meeting-audio-player";
+import { MeetingSessionPageSkeleton } from "./meeting-page-skeletons";
 import { MeetingTranscriptStage } from "./meeting-transcript-panel";
 import { MeetingDetailTitle } from "./meeting-detail-title";
 import { resolvedMeetingTitle } from "./meeting-recording-title";
@@ -446,11 +447,19 @@ export function MeetingDetailPage({
     );
   }
 
-  if (workspaceQuery.isPending || (detailQuery.isPending && !isLocalSession)) {
-    return <Skeleton className="mx-auto mt-6 h-64 w-[min(56rem,calc(100%-3rem))] rounded-2xl" />;
+  const meeting = detailQuery.data;
+  if (
+    isMeetingSessionPagePending({
+      detailPending: detailQuery.isPending,
+      hasLocalSession: isLocalSession,
+      hasRemoteMeeting: Boolean(meeting),
+      transcriptPending: transcriptQuery.isPending,
+      workspacePending: workspaceQuery.isPending,
+    })
+  ) {
+    return <MeetingSessionPageSkeleton />;
   }
 
-  const meeting = detailQuery.data;
   if (!(meeting || isLocalSession)) {
     const error = workspaceQuery.error ?? detailQuery.error;
     return (
@@ -565,7 +574,7 @@ export function MeetingDetailPage({
             title={title}
           />
           {meeting ? (
-            <MeetingTranscriptStage meetingId={meetingId} slug={workspaceSlug} />
+            <MeetingTranscriptStage error={transcriptQuery.error} result={transcriptQuery.data} />
           ) : (
             <MeetingLocalTranscriptStage localDraft={localDraft} />
           )}

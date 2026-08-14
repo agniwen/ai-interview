@@ -4,7 +4,6 @@ import { useEffect, useReducer } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Frame, FramePanel } from "@/components/ui/frame";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   desktopMeetingKeys,
   fetchMeetingDetail,
@@ -18,6 +17,7 @@ import {
   playbackAuthorizationRefetchInterval,
 } from "./meeting-detail-helpers";
 import { MeetingDetailView } from "./meeting-library-view";
+import { MeetingMorePageSkeleton } from "./meeting-page-skeletons";
 import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
 import { MeetingLifecyclePanel } from "./meeting-lifecycle-panel";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
@@ -97,12 +97,7 @@ export function MeetingMorePage({
   });
 
   if (workspaceQuery.isPending || detailQuery.isPending) {
-    return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
-        <Skeleton className="h-52 rounded-2xl" />
-        <Skeleton className="h-40 rounded-2xl" />
-      </div>
-    );
+    return <MeetingMorePageSkeleton />;
   }
 
   const error = workspaceQuery.error ?? detailQuery.error ?? playbackQuery.error;

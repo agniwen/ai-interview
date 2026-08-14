@@ -40,6 +40,23 @@ export function canRetryMeetingProcessing(role: MeetingDetail["accessRole"]): bo
   return role === "administrator" || role === "owner";
 }
 
+/** Session skeleton stays until the first transcript payload is ready for a remote meeting. */
+export function isMeetingSessionPagePending(input: {
+  detailPending: boolean;
+  hasLocalSession: boolean;
+  hasRemoteMeeting: boolean;
+  transcriptPending: boolean;
+  workspacePending: boolean;
+}): boolean {
+  if (input.workspacePending) {
+    return true;
+  }
+  if (input.detailPending && !input.hasLocalSession) {
+    return true;
+  }
+  return input.hasRemoteMeeting && input.transcriptPending;
+}
+
 export type MeetingPostSaveStepId = "playback" | "transcript" | "upload";
 
 export interface MeetingPostSaveStep {

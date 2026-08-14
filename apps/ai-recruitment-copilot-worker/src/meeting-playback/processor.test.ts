@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildMeetingPlaybackAssetKey: vi.fn(),
@@ -68,6 +68,14 @@ function createDependencies() {
 }
 
 describe("Meeting playback processor", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("mixes the two verified sources and publishes one replaceable playback asset", async () => {
     const deps = createDependencies();
 
@@ -154,7 +162,38 @@ describe("Meeting playback processor", () => {
       organizationId: "org-74",
       processingRunId: "run-74",
     });
+    expect(console.error).toHaveBeenCalledWith("[meeting-playback-worker] processing failed", {
+      errorMessage: "ffmpeg failed",
+      meetingId: "meeting-74",
+      processingRunId: "run-74",
+    });
     expect(deps.removeWorkingDirectory).toHaveBeenCalledWith("/tmp/meeting-74");
+  });
+
+  it("persists ffmpeg stderr in the processing failure log", async () => {
+    const deps = createDependencies();
+    const mixError = Object.assign(new Error("Command failed: ffmpeg"), {
+      stderr: "amix: Input stream not found\nError opening input files",
+    });
+    deps.mixSources.mockRejectedValueOnce(mixError);
+
+    await expect(
+      runMeetingPlaybackProcessing({ meetingId: "meeting-74", organizationId: "org-74" }, deps),
+    ).rejects.toThrow("Command failed: ffmpeg");
+
+    const errorMessage =
+      "Command failed: ffmpeg\namix: Input stream not found\nError opening input files";
+    expect(deps.markFailed).toHaveBeenCalledWith({
+      errorMessage,
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+      processingRunId: "run-74",
+    });
+    expect(console.error).toHaveBeenCalledWith("[meeting-playback-worker] processing failed", {
+      errorMessage,
+      meetingId: "meeting-74",
+      processingRunId: "run-74",
+    });
   });
 
   it("is idempotent after a ready playback asset has already been published", async () => {

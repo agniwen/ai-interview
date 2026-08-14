@@ -163,6 +163,7 @@ export function createMeetingPlaybackWorker(
   worker.on("failed", (job, error) => {
     console.error("[meeting-playback-worker] job failed", {
       attempt: job?.attemptsMade,
+      errorMessage: error.message,
       errorName: error.name,
       jobId: job?.id,
       meetingId: job?.data.meetingId,

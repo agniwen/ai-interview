@@ -41,6 +41,21 @@ interface PlaybackSource {
 
 const execFileAsync = promisify(execFile);
 
+function execFileStream(error: Error, key: "stderr" | "stdout"): string {
+  const value = key in error ? Reflect.get(error, key) : undefined;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function describeMeetingPlaybackError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Meeting playback processing failed";
+  }
+  const details = [error.message, execFileStream(error, "stderr"), execFileStream(error, "stdout")]
+    .filter(Boolean)
+    .join("\n");
+  return details.slice(0, 1000);
+}
+
 export interface MeetingPlaybackDependencies {
   buildPlaybackStorageKey: typeof buildMeetingPlaybackAssetKey;
   createRunId: () => string;
@@ -282,8 +297,12 @@ export async function runMeetingPlaybackProcessing(
       cleanupPlayback = true;
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Meeting playback processing failed";
+    const errorMessage = describeMeetingPlaybackError(error);
+    console.error("[meeting-playback-worker] processing failed", {
+      errorMessage,
+      meetingId: input.meetingId,
+      processingRunId,
+    });
     try {
       cleanupPlayback = await dependencies.markFailed({ ...input, errorMessage, processingRunId });
     } catch (markFailedError) {

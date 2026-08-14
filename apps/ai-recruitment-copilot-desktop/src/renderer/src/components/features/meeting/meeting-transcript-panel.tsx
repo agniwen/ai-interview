@@ -528,19 +528,17 @@ export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscrip
 }
 
 /** Read-only transcript stage used by the session landing page. */
-export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string; slug: string }) {
-  const transcriptQuery = useQuery({
-    enabled: Boolean(slug),
-    queryFn: () => fetchMeetingTranscript(slug, meetingId),
-    queryKey: desktopMeetingKeys.transcript(slug, meetingId),
-    refetchInterval: (query) => transcriptRefetchInterval(query.state.data),
-  });
-  const result = transcriptQuery.data;
+export function MeetingTranscriptStage({
+  error,
+  result,
+}: {
+  error?: unknown;
+  result: MeetingTranscriptResult | undefined;
+}) {
   const draftTurns = result?.draft?.turns ?? [];
   const finalTurns = result?.revision?.turns ?? [];
   const turns = draftTurns.length > 0 ? draftTurns : finalTurns;
-
-  const emptyHint = transcriptStageEmptyHint(result, transcriptQuery.error, turns.length > 0);
+  const emptyHint = transcriptStageEmptyHint(result, error, turns.length > 0);
 
   return turns.length > 0 ? (
     <MeetingTranscriptStageTurns turns={turns} />
