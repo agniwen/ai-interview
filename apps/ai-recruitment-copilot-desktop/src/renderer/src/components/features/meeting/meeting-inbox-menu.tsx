@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { CSSProperties, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,31 @@ const noDragStyle = {
 
 /** Hover reveal: fade + slide in from the right. */
 const ACTION_REVEAL_CLASS =
-  "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-0.5 bg-linear-to-l from-popover from-65% to-transparent pr-1 pl-5 opacity-0 translate-x-1.5 transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100";
+  "pointer-events-none invisible absolute inset-y-0 right-0 z-10 flex items-center gap-1 bg-linear-to-l from-popover from-70% to-transparent pr-1 pl-6 opacity-0 translate-x-1.5 transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:pointer-events-auto group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100";
 
-const ACTION_BTN_CLASS = "h-6 px-1.5 text-[11px]";
+const ACTION_BTN_CLASS = "min-w-12 px-2 shadow-none";
+
+function InboxActionButton({
+  children,
+  onClick,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "className" | "size" | "variant">) {
+  return (
+    <Button
+      className={ACTION_BTN_CLASS}
+      size="xs"
+      variant="outline"
+      {...props}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
 
 function formatRecoveryDeadline(value: string): string {
   return formatAppDateTimeShort(value);
@@ -90,32 +112,43 @@ function collectInboxEntries(snapshot: MeetingCaptureSnapshot): InboxEntry[] {
 
 function InboxRowShell({
   actions,
+  meetingId,
   meta,
+  onOpen,
   title,
 }: {
   actions: ReactNode;
+  meetingId: string;
   meta: string;
+  onOpen: () => void;
   title: string;
 }) {
   return (
-    <div className="group relative flex h-8 items-center gap-2 overflow-hidden rounded-md px-2 hover:bg-accent/60">
+    <Link
+      className="group relative flex h-8 items-center gap-2 overflow-hidden rounded-md px-2 hover:bg-accent/60"
+      onClick={onOpen}
+      params={{ meetingId }}
+      to="/meetings/$meetingId"
+    >
       <p className="min-w-0 flex-1 truncate text-xs">
         <span className="font-medium text-foreground">{title}</span>
         <span className="text-muted-foreground"> · {meta}</span>
       </p>
       <div className={ACTION_REVEAL_CLASS}>{actions}</div>
-    </div>
+    </Link>
   );
 }
 
 function InboxSavedRow({
   captureId,
   onDiscard,
+  onOpen,
   onSave,
   snapshot,
 }: {
   captureId: string;
   onDiscard: (captureId: string, includeSaved: boolean) => void;
+  onOpen: () => void;
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
 }) {
@@ -131,31 +164,15 @@ function InboxSavedRow({
     <InboxRowShell
       actions={
         <>
-          <Button
-            className={ACTION_BTN_CLASS}
-            nativeButton={false}
-            render={<Link params={{ meetingId: captureId }} to="/meetings/$meetingId" />}
-            size="sm"
-            variant="outline"
-          >
-            打开
-          </Button>
           {workspaceSave?.state === "action-required" ? (
-            <Button className={ACTION_BTN_CLASS} onClick={() => onSave(captureId)} size="sm">
-              重试
-            </Button>
+            <InboxActionButton onClick={() => onSave(captureId)}>重试</InboxActionButton>
           ) : null}
-          <Button
-            className={ACTION_BTN_CLASS}
-            onClick={() => onDiscard(captureId, true)}
-            size="sm"
-            variant="ghost"
-          >
-            清除
-          </Button>
+          <InboxActionButton onClick={() => onDiscard(captureId, true)}>清除</InboxActionButton>
         </>
       }
+      meetingId={captureId}
       meta={meta}
+      onOpen={onOpen}
       title={title}
     />
   );
@@ -164,45 +181,31 @@ function InboxSavedRow({
 function InboxRecoverableRow({
   capture,
   onDiscard,
+  onOpen,
   onSave,
 }: {
   capture: RecoverableMeetingCapture;
   onDiscard: (captureId: string, includeSaved: boolean) => void;
+  onOpen: () => void;
   onSave: (captureId: string) => void;
 }) {
   return (
     <InboxRowShell
       actions={
         <>
-          <Button
-            className={ACTION_BTN_CLASS}
-            nativeButton={false}
-            render={<Link params={{ meetingId: capture.captureId }} to="/meetings/$meetingId" />}
-            size="sm"
-            variant="outline"
-          >
-            打开
-          </Button>
           {capture.recoveryCopyDeleteAfter ? null : (
-            <Button
-              className={ACTION_BTN_CLASS}
-              onClick={() => onSave(capture.captureId)}
-              size="sm"
-            >
-              保存
-            </Button>
+            <InboxActionButton onClick={() => onSave(capture.captureId)}>保存</InboxActionButton>
           )}
-          <Button
-            className={ACTION_BTN_CLASS}
+          <InboxActionButton
             onClick={() => onDiscard(capture.captureId, capture.status === "saved-local")}
-            size="sm"
-            variant="ghost"
           >
             放弃
-          </Button>
+          </InboxActionButton>
         </>
       }
+      meetingId={capture.captureId}
       meta={recoveryMeta(capture)}
+      onOpen={onOpen}
       title={recoveryTitle(capture)}
     />
   );
@@ -279,7 +282,7 @@ export function MeetingInboxMenu() {
           <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-amber-500" />
         ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 p-1" sideOffset={6}>
+      <DropdownMenuContent align="end" className="w-96 p-1" sideOffset={6}>
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-2 py-1 text-[11px] text-muted-foreground">
             本地录音
@@ -296,6 +299,7 @@ export function MeetingInboxMenu() {
                   captureId={entry.captureId}
                   key={`saved-${entry.captureId}`}
                   onDiscard={discardFromInbox}
+                  onOpen={() => setOpen(false)}
                   onSave={(captureId) => void saveRecording(captureId)}
                   snapshot={captureSnapshot}
                 />
@@ -304,6 +308,7 @@ export function MeetingInboxMenu() {
                   capture={entry.capture}
                   key={`recoverable-${entry.capture.captureId}`}
                   onDiscard={discardFromInbox}
+                  onOpen={() => setOpen(false)}
                   onSave={(captureId) => void saveRecording(captureId)}
                 />
               ),
