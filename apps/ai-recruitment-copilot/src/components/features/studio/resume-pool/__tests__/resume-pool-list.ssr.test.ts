@@ -55,8 +55,9 @@ describe("resume pool list SSR boundary", () => {
 
     expect(markup).not.toContain("opacity-60");
     expect(markup).toContain(
-      "sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
+      "group sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
     );
+    expect(markup).toContain("-translate-x-4 group-hover:translate-x-0");
     expect(markup).toContain("scroll-mt-[calc(var(--header-height)+0.5rem)]");
     expect(markup).not.toContain("backdrop-blur-md");
   });

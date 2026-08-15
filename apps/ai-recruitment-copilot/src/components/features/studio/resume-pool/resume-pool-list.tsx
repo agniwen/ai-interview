@@ -80,14 +80,17 @@ function ResumePoolStickyDateGroupHeader({
   return (
     <div
       className={cn(
-        "sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
+        "group sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
         isStuck && "border-input bg-background/80 backdrop-blur-md",
       )}
       ref={headerRef}
     >
       <h2 className="font-medium text-sm" id={headingId}>
         <button
-          className="-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none"
+          className={cn(
+            "-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none transition-transform",
+            isStuck ? "translate-x-0" : "-translate-x-4 group-hover:translate-x-0",
+          )}
           onClick={onNavigate}
           type="button"
         >
