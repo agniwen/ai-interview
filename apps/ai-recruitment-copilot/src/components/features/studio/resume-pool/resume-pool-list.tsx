@@ -1,6 +1,6 @@
 "use client";
 
-import { IconFileText, IconFileUpload, IconHistory } from "@tabler/icons-react";
+import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 
@@ -90,7 +90,7 @@ export function ResumePoolEmptyState({
       {canResetFilters || !canUpload ? null : (
         <EmptyContent>
           <Button onClick={onUpload}>
-            <IconFileUpload className="size-4" />
+            <IconUserPlus className="size-4" />
             新建人才记录
           </Button>
         </EmptyContent>
@@ -237,7 +237,7 @@ export function ResumePoolToolbarActions({
         <ButtonGroup>
           {canUpload ? (
             <Button className="sm:w-auto" onClick={onUpload}>
-              <IconFileUpload className="size-4" />
+              <IconUserPlus className="size-4" />
               新建人才记录
             </Button>
           ) : null}

@@ -334,8 +334,8 @@ export function ResumePoolPage() {
       {
         key: "importStatus" as const,
         options: [
-          { label: "已入库", value: "imported" },
-          { label: "未入库", value: "not_imported" },
+          { label: "已新建招聘记录", value: "imported" },
+          { label: "未新建招聘记录", value: "not_imported" },
         ],
         placeholder: "按入库状态筛选",
         type: "select" as const,

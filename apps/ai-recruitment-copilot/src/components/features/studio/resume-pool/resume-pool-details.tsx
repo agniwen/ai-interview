@@ -3,7 +3,7 @@ import type { TablerIcon } from "@tabler/icons-react";
 import {
   IconBriefcase2,
   IconBuilding,
-  IconDatabase,
+  IconFileUpload,
   IconGitBranch,
   IconLink,
   IconLoader2,
@@ -117,9 +117,9 @@ function ResumePoolDetailSummaryPanel({
             {resumeParseStatusBadge(detail)}
             {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
             {detail.importedResumeRecordId ? (
-              <Badge variant="success">已入库</Badge>
+              <Badge variant="success">已新建招聘记录</Badge>
             ) : (
-              <Badge variant="secondary">未入库</Badge>
+              <Badge variant="secondary">未新建招聘记录</Badge>
             )}
           </div>
           {isError ? (
@@ -544,7 +544,7 @@ function ResumePoolCardActions({
           {importActionState.loading ? (
             <IconLoader2 className="size-4 animate-spin" />
           ) : (
-            <IconDatabase className="size-4" />
+            <IconFileUpload className="size-4" />
           )}
           {importActionState.label}
         </Button>
