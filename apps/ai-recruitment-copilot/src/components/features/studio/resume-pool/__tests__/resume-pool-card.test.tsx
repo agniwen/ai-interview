@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { ResumePoolCard } from "../resume-pool-details";
+import { uploaderMetaLabel } from "../resume-pool-page-model";
 
 vi.mock("@/lib/client/workspace-context", () => ({
   useWorkspaceSlug: () => "test-workspace",
@@ -92,7 +93,7 @@ describe("ResumePoolCard", () => {
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}
-        record={record}
+        record={{ ...record, uploaderName: "王敏" }}
         retrying={false}
         scope="public"
         selected={false}
@@ -109,6 +110,17 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("负责人");
     expect(html).toContain("2025.01-2025.05");
     expect(html).toContain("负责候选人数据分析与可视化。");
+    expect(html).toContain("王敏 26年07月31日:08:00 上传");
+  });
+
+  it("labels mail-ingested resumes as an email scan", () => {
+    expect(
+      uploaderMetaLabel({
+        ...record,
+        sourceChannel: "mail_ingest",
+        uploaderName: "王敏",
+      }),
+    ).toBe("26年07月31日:08:00 扫描王敏邮箱录入");
   });
 
   it("offers an enabled reimport action for an imported resume", () => {

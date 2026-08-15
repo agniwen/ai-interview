@@ -54,6 +54,7 @@ import {
   resumeParseStatusBadge,
   sourceActorLabel,
   sourceLabel,
+  uploaderMetaLabel,
   uploaderUserLabel,
 } from "./resume-pool-page-model";
 import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
@@ -371,7 +372,7 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
 }
 
 function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }) {
-  const displayName = record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知";
+  const displayName = uploaderUserLabel(record);
   return (
     <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
       <Avatar className="size-4" size="default">
@@ -380,7 +381,7 @@ function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }
           {getMemberInitials(record.uploaderName, record.uploaderEmail)}
         </AvatarFallback>
       </Avatar>
-      <span className="truncate font-normal leading-none">{`${displayName} 上传`}</span>
+      <span className="truncate font-normal leading-none">{uploaderMetaLabel(record)}</span>
     </div>
   );
 }

@@ -3,9 +3,10 @@
 import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import { cn } from "@arc/shared/utils";
 
 import { ClientOnly } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +19,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-import { canDeletePoolRecord } from "./resume-pool-page-model";
+import { canDeletePoolRecord, groupResumePoolRecordsByCreatedAt } from "./resume-pool-page-model";
 import { ResumePoolCard } from "./resume-pool-details";
 
 const ResumePoolMasonry = lazy(async () => {
@@ -29,6 +30,73 @@ const ResumePoolMasonry = lazy(async () => {
 function ignoreResumePoolSelection(_record: ResumePoolListRecord, _selected: boolean) {
   void _record;
   void _selected;
+}
+
+function ResumePoolStickyDateGroupHeader({
+  headingId,
+  label,
+  onNavigate,
+  recordCount,
+}: {
+  headingId: string;
+  label: string;
+  onNavigate: () => void;
+  recordCount: number;
+}) {
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [isStuck, setIsStuck] = useState(false);
+
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node) {
+      return;
+    }
+
+    let frameId: number | null = null;
+    const syncStuckState = () => {
+      if (frameId !== null) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        const stickyTop = Number.parseFloat(window.getComputedStyle(node).top);
+        const isAtStickyPosition = node.getBoundingClientRect().top <= stickyTop + 16;
+        setIsStuck((current) => (current === isAtStickyPosition ? current : isAtStickyPosition));
+      });
+    };
+
+    syncStuckState();
+    document.addEventListener("scroll", syncStuckState, { capture: true, passive: true });
+    window.addEventListener("resize", syncStuckState);
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      document.removeEventListener("scroll", syncStuckState, true);
+      window.removeEventListener("resize", syncStuckState);
+    };
+  }, []);
+
+  return (
+    <div
+      className={cn(
+        "sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
+        isStuck && "border-input bg-background/80 backdrop-blur-md",
+      )}
+      ref={headerRef}
+    >
+      <h2 className="font-medium text-sm" id={headingId}>
+        <button
+          className="-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none"
+          onClick={onNavigate}
+          type="button"
+        >
+          <span>{label}</span>
+          <span className="font-normal text-muted-foreground text-xs">{recordCount} 份简历</span>
+        </button>
+      </h2>
+    </div>
+  );
 }
 
 export function ResumePoolLoadingState() {
@@ -152,8 +220,10 @@ export function ResumePoolListContent({
   retryingRecordId: string | null;
   retriedRecordIds: ReadonlySet<string>;
 }) {
+  const groupSectionRefs = useRef(new Map<string, HTMLElement>());
+
   if (records.length > 0) {
-    const cards = records.map((record) => {
+    const renderCard = (record: ResumePoolListRecord) => {
       const canDelete =
         canDeletePoolRecord(record, {
           currentOrganizationId,
@@ -184,16 +254,49 @@ export function ResumePoolListContent({
           onSelectionChange={ignoreResumePoolSelection}
         />
       );
-    });
-    const fallback = (
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{cards}</div>
-    );
+    };
+    const groups = groupResumePoolRecordsByCreatedAt(records);
     return (
-      <ClientOnly fallback={fallback}>
-        <Suspense fallback={fallback}>
-          <ResumePoolMasonry>{cards}</ResumePoolMasonry>
-        </Suspense>
-      </ClientOnly>
+      <div className="space-y-8">
+        {groups.map((group) => {
+          const cards = group.records.map(renderCard);
+          const fallback = (
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{cards}</div>
+          );
+          const headingId = `resume-pool-date-group-${group.id}`;
+
+          return (
+            <section
+              aria-labelledby={headingId}
+              className="scroll-mt-[calc(var(--header-height)+0.5rem)] space-y-4"
+              key={group.id}
+              ref={(node) => {
+                if (node) {
+                  groupSectionRefs.current.set(group.id, node);
+                } else {
+                  groupSectionRefs.current.delete(group.id);
+                }
+              }}
+            >
+              <ResumePoolStickyDateGroupHeader
+                headingId={headingId}
+                label={group.label}
+                onNavigate={() =>
+                  groupSectionRefs.current
+                    .get(group.id)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                recordCount={group.records.length}
+              />
+              <ClientOnly fallback={fallback}>
+                <Suspense fallback={fallback}>
+                  <ResumePoolMasonry>{cards}</ResumePoolMasonry>
+                </Suspense>
+              </ClientOnly>
+            </section>
+          );
+        })}
+      </div>
     );
   }
 

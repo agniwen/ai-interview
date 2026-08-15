@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type {
   ResumePoolImportDuplicateMatchRecord,
@@ -8,6 +9,7 @@ import type {
   ResumePoolListRecord,
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
+import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
@@ -27,6 +29,12 @@ export const RESUME_POOL_LOAD_MORE_ROOT_MARGIN = "720px 0px";
 export type ResumePoolFilters = Record<"importStatus" | "uploaderIds", string> & {
   sourceType: ResumePoolSourceFilter;
 };
+
+export interface ResumePoolDateGroup {
+  id: string;
+  label: string;
+  records: ResumePoolListRecord[];
+}
 
 export function createResumePoolFilters(): ResumePoolFilters {
   return {
@@ -198,6 +206,14 @@ export function uploaderUserLabel(record: ResumePoolListRecord) {
   return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
 }
 
+export function uploaderMetaLabel(record: ResumePoolListRecord) {
+  const createdAt = formatDateInAppTimeZone(record.createdAt, "YY年MM月DD日:HH:mm");
+  if (record.sourceChannel === "mail_ingest") {
+    return `${createdAt} 扫描${uploaderUserLabel(record)}邮箱录入`;
+  }
+  return `${uploaderUserLabel(record)} ${createdAt} 上传`;
+}
+
 export function sourceActorLabel(record: ResumePoolListRecord) {
   return record.sourceChannel === "referral" ? "内推人" : "上传人";
 }
@@ -283,6 +299,58 @@ export function sortPoolRecords(
     return direction * (new Date(a[key]).getTime() - new Date(b[key]).getTime());
   });
   return sorted;
+}
+
+function dateKeyInAppTimeZone(value: string | Date) {
+  return formatDateInAppTimeZone(value, "YYYY-MM-DD");
+}
+
+function monthLabelInAppTimeZone(value: string | Date) {
+  return formatDateInAppTimeZone(value, "YYYY 年 M 月");
+}
+
+function daysBetweenDateKeys(earlier: string, later: string) {
+  const earlierTimestamp = Date.parse(`${earlier}T00:00:00+08:00`);
+  const laterTimestamp = Date.parse(`${later}T00:00:00+08:00`);
+  return Math.round((laterTimestamp - earlierTimestamp) / 86_400_000);
+}
+
+export function groupResumePoolRecordsByCreatedAt(
+  records: ResumePoolListRecord[],
+  now: Date = new Date(),
+): ResumePoolDateGroup[] {
+  const today = dateKeyInAppTimeZone(now);
+  const groups = new Map<string, ResumePoolDateGroup>();
+
+  for (const record of records) {
+    const dateKey = dateKeyInAppTimeZone(record.createdAt);
+    const dayOffset = daysBetweenDateKeys(dateKey, today);
+    let id = `month:${dateKey.slice(0, 7)}`;
+    let label = monthLabelInAppTimeZone(record.createdAt);
+
+    if (dayOffset === 0) {
+      id = "today";
+      label = "今天";
+    } else if (dayOffset === 1) {
+      id = "yesterday";
+      label = "昨天";
+    } else if (dayOffset === 2) {
+      id = "day-before-yesterday";
+      label = "前天";
+    } else if (dateKey.startsWith(today.slice(0, 7))) {
+      id = "earlier-this-month";
+      label = "本月更早";
+    }
+
+    const group = groups.get(id);
+    if (group) {
+      group.records.push(record);
+    } else {
+      groups.set(id, { id, label, records: [record] });
+    }
+  }
+
+  return [...groups.values()];
 }
 
 export function filterPoolRecords(

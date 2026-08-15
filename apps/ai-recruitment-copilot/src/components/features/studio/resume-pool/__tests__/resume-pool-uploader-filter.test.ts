@@ -3,6 +3,7 @@ import {
   buildResumePoolUploaderFilterOptions,
   createResumePoolFilters,
   filterPoolRecords,
+  groupResumePoolRecordsByCreatedAt,
   RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
 } from "../resume-pool-page-model";
@@ -71,5 +72,30 @@ describe("resume pool uploader filter", () => {
         sortOrder: undefined,
       }).map((record) => record.id),
     ).toEqual(["self-record", "report-record"]);
+  });
+
+  it("groups created records by Shanghai calendar day", () => {
+    const records = [
+      { createdAt: "2026-08-14T16:00:00.000Z", id: "today" },
+      { createdAt: "2026-08-14T15:59:00.000Z", id: "yesterday" },
+      { createdAt: "2026-08-13T12:00:00.000Z", id: "day-before-yesterday" },
+      { createdAt: "2026-08-10T12:00:00.000Z", id: "earlier-this-month" },
+      { createdAt: "2026-07-31T12:00:00.000Z", id: "july" },
+    ] as ResumePoolListRecord[];
+
+    expect(
+      groupResumePoolRecordsByCreatedAt(records, new Date("2026-08-14T16:30:00.000Z")).map(
+        (group) => ({
+          ids: group.records.map((record) => record.id),
+          label: group.label,
+        }),
+      ),
+    ).toEqual([
+      { ids: ["today"], label: "今天" },
+      { ids: ["yesterday"], label: "昨天" },
+      { ids: ["day-before-yesterday"], label: "前天" },
+      { ids: ["earlier-this-month"], label: "本月更早" },
+      { ids: ["july"], label: "2026 年 7 月" },
+    ]);
   });
 });
