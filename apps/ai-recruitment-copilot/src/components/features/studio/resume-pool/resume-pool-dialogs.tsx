@@ -2,8 +2,6 @@
 
 import { IconDatabase, IconExternalLink, IconLoader2 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-schema/schema";
-import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
 import type {
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
@@ -37,7 +35,6 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   buildJdOptions,
   getCandidateTitle,
-  normalizeScope,
   toResumeDedupMatches,
   useJobDescriptions,
 } from "./resume-pool-page-model";
@@ -46,98 +43,6 @@ const StudioPersonDetailDialog = lazy(async () => {
   const detailDialog = await import("@/components/features/studio/studio-person-detail-dialog");
   return { default: detailDialog.StudioPersonDetailDialog };
 });
-
-export function SelectResumePoolScopeDialog({
-  defaultScope,
-  onOpenChange,
-  onSelected,
-  open,
-}: {
-  defaultScope: ResumePoolScope;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSelected: (scope: ResumePoolScope) => void;
-}) {
-  const [scope, setScope] = useState<ResumePoolScope>(defaultScope);
-
-  useEffect(() => {
-    if (open) {
-      setScope(defaultScope);
-    }
-  }, [defaultScope, open]);
-
-  return (
-    <Modal
-      footer={
-        <>
-          <Button size="lg" onClick={() => onOpenChange(false)} variant="outline">
-            取消
-          </Button>
-          <Button
-            size="lg"
-            onClick={() => {
-              onOpenChange(false);
-              onSelected(scope);
-            }}
-          >
-            下一步
-          </Button>
-        </>
-      }
-      onOpenChange={onOpenChange}
-      open={open}
-      size="sm"
-      title="选择归属范围"
-    >
-      <RadioGroup
-        className="grid grid-cols-2 gap-2"
-        onValueChange={(value) => setScope(normalizeScope(value))}
-        value={scope}
-      >
-        {(["private", "public"] as const).map((item) => (
-          <FieldLabel className="w-full rounded-md border p-3" key={item}>
-            <RadioGroupItem value={item} />
-            <span>{resumePoolScopeMeta[item].label}</span>
-          </FieldLabel>
-        ))}
-      </RadioGroup>
-    </Modal>
-  );
-}
-
-export function PrivateResumePoolUploadPolicyDialog({
-  fileCount,
-  onConfirmed,
-  onOpenChange,
-  open,
-}: {
-  fileCount: number;
-  open: boolean;
-  onConfirmed: (dedupPolicy: ResumeUploadBatchDedupPolicy) => void;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Modal
-      description="命中疑似重复时仍会加入私有简历，并在列表中标记“疑似重复”。"
-      footer={
-        <>
-          <Button onClick={() => onOpenChange(false)} variant="outline">
-            取消
-          </Button>
-          <Button onClick={() => onConfirmed("skip")}>开始上传 ({fileCount})</Button>
-        </>
-      }
-      onOpenChange={onOpenChange}
-      open={open}
-      size="sm"
-      title="查重处理"
-    >
-      <p className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
-        所有简历都会被保留；系统会把疑似重复关系记录到简历上。
-      </p>
-    </Modal>
-  );
-}
 
 export function ImportResumePoolDialog({
   item,
@@ -193,14 +98,14 @@ export function ImportResumePoolDialog({
           return;
         }
       }
-      toast.error(error instanceof Error ? error.message : "入库失败");
+      toast.error(error instanceof Error ? error.message : "新建招聘记录失败");
     },
     onSuccess: (result) => {
       if (result.status === "duplicate_found") {
         setDuplicates(result);
         return;
       }
-      toast.success(isReimport ? "已再次入库到招聘台" : "已入库到招聘台");
+      toast.success(isReimport ? "已再次新建招聘记录" : "已新建招聘记录");
       onImported();
       onOpenChange(false);
     },
@@ -210,7 +115,7 @@ export function ImportResumePoolDialog({
   const { isPending } = mutation;
   let dialogDescription: string | undefined;
   if (item) {
-    dialogDescription = isReimport ? "已在招聘台，是否再次入库。" : candidateTitle;
+    dialogDescription = isReimport ? "已存在招聘记录，是否再次新建。" : candidateTitle;
   }
 
   return (
@@ -231,7 +136,7 @@ export function ImportResumePoolDialog({
               ) : (
                 <IconDatabase className="size-4" />
               )}
-              {isReimport ? "确认再次入库" : "确认入库"}
+              {isReimport ? "确认再次新建" : "确认新建"}
             </Button>
           </>
         }
@@ -243,20 +148,20 @@ export function ImportResumePoolDialog({
         }}
         open={item !== null}
         size="md"
-        title={isReimport ? "再次入库到招聘台" : "入库到招聘台"}
+        title={isReimport ? "再次新建招聘记录" : "新建招聘记录"}
         description={dialogDescription}
       >
         <div className="flex flex-col gap-5">
           {isReimport && importedRecords.length > 0 ? (
             <Field>
-              <FieldLabel>已入库记录</FieldLabel>
+              <FieldLabel>已新建的招聘记录</FieldLabel>
               <FieldContent>
                 <div className="flex flex-col gap-2">
                   {importedRecords.map((record) => {
                     const creatorName = record.creatorName?.trim() || "已删除用户";
                     return (
                       <Button
-                        aria-label={`查看已入库记录 ${record.resumeRecordId}`}
+                        aria-label={`查看已新建的招聘记录 ${record.resumeRecordId}`}
                         className="h-auto w-full justify-between py-3"
                         key={record.resumeRecordId}
                         onClick={() => setDetailRecordId(record.resumeRecordId)}

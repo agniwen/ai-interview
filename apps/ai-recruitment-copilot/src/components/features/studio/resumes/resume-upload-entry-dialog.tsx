@@ -148,7 +148,7 @@ export function ResumeUploadEntryButton({
       type="button"
     >
       <IconFileUpload className="size-4" />
-      新建简历记录
+      新建招聘记录
     </Button>
   );
 }

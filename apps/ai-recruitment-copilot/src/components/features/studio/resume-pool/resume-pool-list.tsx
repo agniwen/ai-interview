@@ -1,6 +1,6 @@
 "use client";
 
-import { IconFileText, IconHistory, IconLoader2, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconFileText, IconFileUpload, IconHistory } from "@tabler/icons-react";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 
@@ -25,6 +25,11 @@ const ResumePoolMasonry = lazy(async () => {
   const mod = await import("./resume-pool-masonry");
   return { default: mod.ResumePoolMasonry };
 });
+
+function ignoreResumePoolSelection(_record: ResumePoolListRecord, _selected: boolean) {
+  void _record;
+  void _selected;
+}
 
 export function ResumePoolLoadingState() {
   return (
@@ -79,14 +84,14 @@ export function ResumePoolEmptyState({
         </EmptyMedia>
         <EmptyTitle>{emptyTitle}</EmptyTitle>
         <EmptyDescription>
-          {canResetFilters ? "调整搜索或筛选条件后重试。" : "点击右上角上传第一份简历。"}
+          {canResetFilters ? "调整搜索或筛选条件后重试。" : "点击右上角新建第一份人才记录。"}
         </EmptyDescription>
       </EmptyHeader>
       {canResetFilters || !canUpload ? null : (
         <EmptyContent>
           <Button onClick={onUpload}>
-            <IconUpload className="size-4" />
-            上传简历
+            <IconFileUpload className="size-4" />
+            新建人才记录
           </Button>
         </EmptyContent>
       )}
@@ -113,14 +118,11 @@ export function ResumePoolListContent({
   onOpenPdf,
   onPublish,
   onRetryParse,
-  onSelectionChange,
   onUpload,
   publishing,
   retryingRecordId,
   retriedRecordIds,
   records,
-  selectedPrivateResumeIds,
-  selectionDisabled,
   scope,
   showEmptyState,
 }: {
@@ -146,10 +148,7 @@ export function ResumePoolListContent({
   onPublish: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
-  onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
   onUpload: () => void;
-  selectedPrivateResumeIds: ReadonlySet<string>;
-  selectionDisabled: boolean;
   retryingRecordId: string | null;
   retriedRecordIds: ReadonlySet<string>;
 }) {
@@ -179,10 +178,10 @@ export function ResumePoolListContent({
           publishing={publishing}
           retrying={retryingRecordId === record.id}
           record={record}
-          selected={selectedPrivateResumeIds.has(record.id)}
-          selectionDisabled={selectionDisabled}
+          selected={false}
+          selectionDisabled={false}
           scope={scope}
-          onSelectionChange={onSelectionChange}
+          onSelectionChange={ignoreResumePoolSelection}
         />
       );
     });
@@ -220,26 +219,16 @@ export function ResumePoolToolbarActions({
   canOpenBatchList,
   canUpload,
   hasActiveUploadBatches,
-  hasSelectedPrivateResumes,
-  isBulkDeleting,
-  isDeletingPoolRecords,
-  onBulkDelete,
   onOpenBatchList,
   onUpload,
-  selectedCount,
 }: {
   canOpenBatchList: boolean;
   canUpload: boolean;
   hasActiveUploadBatches: boolean;
-  hasSelectedPrivateResumes: boolean;
-  isBulkDeleting: boolean;
-  isDeletingPoolRecords: boolean;
-  selectedCount: number;
-  onBulkDelete: () => void;
   onOpenBatchList: () => void;
   onUpload: () => void;
 }) {
-  if (!canUpload && !canOpenBatchList && !hasSelectedPrivateResumes) {
+  if (!canUpload && !canOpenBatchList) {
     return null;
   }
   return (
@@ -248,8 +237,8 @@ export function ResumePoolToolbarActions({
         <ButtonGroup>
           {canUpload ? (
             <Button className="sm:w-auto" onClick={onUpload}>
-              <IconUpload className="size-4" />
-              上传简历
+              <IconFileUpload className="size-4" />
+              新建人才记录
             </Button>
           ) : null}
           {canOpenBatchList && hasActiveUploadBatches ? (
@@ -263,21 +252,6 @@ export function ResumePoolToolbarActions({
             </Button>
           ) : null}
         </ButtonGroup>
-      ) : null}
-      {hasSelectedPrivateResumes ? (
-        <Button
-          disabled={isDeletingPoolRecords}
-          onClick={onBulkDelete}
-          type="button"
-          variant="destructive"
-        >
-          {isBulkDeleting ? (
-            <IconLoader2 className="size-4 animate-spin" />
-          ) : (
-            <IconTrash className="size-4" />
-          )}
-          {isBulkDeleting ? "删除中…" : `删除所选 ${selectedCount} 份`}
-        </Button>
       ) : null}
     </div>
   );

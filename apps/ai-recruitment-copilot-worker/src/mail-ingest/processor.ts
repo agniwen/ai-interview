@@ -110,7 +110,7 @@ async function createBatchForMail(
     jdMode: binding.jdMode,
     jobDescriptionId: binding.jobDescriptionId,
     organizationId: account.organizationId,
-    resumePoolScope: account.resumePoolScope,
+    resumePoolScope: "public",
     sourceChannel: "mail_ingest",
     target: account.target,
     userId: account.userId,

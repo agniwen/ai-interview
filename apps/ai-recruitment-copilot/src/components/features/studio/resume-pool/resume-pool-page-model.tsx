@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type {
   ResumePoolImportDuplicateMatchRecord,
@@ -25,20 +24,15 @@ export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
 
 export const RESUME_POOL_LOAD_MORE_ROOT_MARGIN = "720px 0px";
 
-export type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
+export type ResumePoolFilters = Record<"importStatus" | "uploaderIds", string> & {
   sourceType: ResumePoolSourceFilter;
-  uploaderId: string;
 };
 
-export function createResumePoolFilters(
-  scope: ResumePoolScope,
-  currentUserId: string | null,
-): ResumePoolFilters {
+export function createResumePoolFilters(): ResumePoolFilters {
   return {
     importStatus: "",
-    parseStatus: "",
     sourceType: "all",
-    uploaderId: scope === "private" ? (currentUserId ?? "") : "",
+    uploaderIds: "",
   };
 }
 
@@ -49,40 +43,7 @@ export function buildResumePoolUploaderFilterOptions(uploaders: ResumePoolUpload
     searchValue: `${uploader.name} ${uploader.email}`,
     value: uploader.id,
   }));
-  return uploaders.length > 1 ? [{ label: "全部上传人", value: "all" }, ...options] : options;
-}
-
-export function isResumePoolUploaderFilterDisabled(uploaders: ResumePoolUploaderOption[]) {
-  return uploaders.length <= 1;
-}
-
-export function getResumePoolUploaderFilterAvailability({
-  isFetching,
-  isSuccess,
-  uploaders,
-}: {
-  isFetching: boolean;
-  isSuccess: boolean;
-  uploaders: ResumePoolUploaderOption[];
-}) {
-  const isLimitedToSelf = isResumePoolUploaderFilterDisabled(uploaders);
-  return {
-    disabled: isFetching || isLimitedToSelf,
-    disabledReason:
-      isSuccess && !isFetching && isLimitedToSelf ? "当前仅可查看自己的数据" : undefined,
-  };
-}
-
-export function normalizeScope(value: unknown): ResumePoolScope {
-  return value === "private" ? "private" : "public";
-}
-
-export function normalizeResumePoolUploaderId(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const normalized = value.trim();
-  return normalized || undefined;
+  return options;
 }
 
 export function getCandidateTitle(record: ResumePoolListRecord) {
@@ -145,7 +106,7 @@ export function getResumePoolImportActionState(record: ResumePoolListRecord) {
   if (record.importedResumeRecordId) {
     return {
       disabled: false,
-      label: "再次入库",
+      label: "再次新建招聘记录",
       loading: false,
     };
   }
@@ -154,7 +115,7 @@ export function getResumePoolImportActionState(record: ResumePoolListRecord) {
     case "ready": {
       return {
         disabled: false,
-        label: "入库到招聘台",
+        label: "新建招聘记录",
         loading: false,
       };
     }
@@ -333,11 +294,20 @@ export function filterPoolRecords(
     sortOrder: "asc" | "desc" | undefined;
   },
 ) {
+  const selectedUploaderIds = new Set(
+    input.filters.uploaderIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+  );
   const filtered = records.filter((record) => {
     if (!matchesSearch(record, input.search)) {
       return false;
     }
-    if (input.filters.parseStatus && record.resumeParseStatus !== input.filters.parseStatus) {
+    if (
+      selectedUploaderIds.size > 0 &&
+      (!record.createdBy || !selectedUploaderIds.has(record.createdBy))
+    ) {
       return false;
     }
     if (input.filters.sourceType === "referral" && record.sourceChannel !== "referral") {

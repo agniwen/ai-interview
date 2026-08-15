@@ -425,7 +425,7 @@ function ResumeToolbar() {
             type="button"
           >
             <IconPlus className="size-4" />
-            新建简历记录
+            新建招聘记录
           </button>
         </div>
       </div>

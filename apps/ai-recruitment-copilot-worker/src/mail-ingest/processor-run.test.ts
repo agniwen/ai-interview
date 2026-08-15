@@ -247,6 +247,7 @@ describe("runMailIngestOnce", () => {
         jdMode: "bind",
         jobDescriptionId: "jd_1",
         organizationId: "org_1",
+        resumePoolScope: "public",
       }),
     );
   });
