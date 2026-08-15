@@ -72,4 +72,51 @@ describe("SearchableSelect", () => {
     act(() => root.unmount());
     container.remove();
   });
+
+  it("shows the clear button next to the dropdown icon only when there is text", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SearchableSelect
+          onChange={onChange}
+          options={[{ label: "张三", value: "user-1" }]}
+          value={null}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-slot="combobox-clear"]')).toBeNull();
+
+    await act(async () => {
+      root.render(
+        <SearchableSelect
+          onChange={onChange}
+          options={[{ label: "张三", value: "user-1" }]}
+          value="user-1"
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-slot="combobox-clear"]')).not.toBeNull();
+    const actions = container.querySelector('[data-slot="combobox-actions"]');
+    expect(actions?.children).toHaveLength(2);
+    expect(actions?.firstElementChild?.getAttribute("data-slot")).toBe("combobox-clear");
+    expect(actions?.lastElementChild?.getAttribute("data-slot")).toBe("input-group-button");
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-slot="combobox-clear"]')?.click();
+      await Promise.resolve();
+    });
+
+    expect(onChange).toHaveBeenCalledWith(null);
+
+    act(() => root.unmount());
+    container.remove();
+  });
 });

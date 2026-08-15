@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode, WheelEvent } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +20,8 @@ import { cn } from "@arc/shared/utils";
 // Single-pick searchable selector backed by Coss/Base UI Combobox. The input
 // itself is searchable; no Command-in-Popover wrapper is needed.
 // =====================================================================
+
+const INITIAL_RESULT_LIMIT = 50;
 
 export interface SearchableSelectOption {
   /** 唯一标识，提交给 onChange / Discriminator value passed to onChange. */
@@ -108,22 +110,6 @@ function SearchableSelectOptionAvatar({ option }: { option: SearchableSelectOpti
   );
 }
 
-export function handleScrollableListWheel(event: WheelEvent<HTMLDivElement>) {
-  const list = event.currentTarget;
-
-  if (list.scrollHeight <= list.clientHeight || event.deltaY === 0) {
-    return;
-  }
-
-  const previousScrollTop = list.scrollTop;
-  list.scrollTop += event.deltaY;
-
-  if (list.scrollTop !== previousScrollTop) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-}
-
 const alwaysMatchFilter = () => true;
 
 export function SearchableSelect({
@@ -135,7 +121,7 @@ export function SearchableSelect({
   emptyMessage = "没有匹配项",
   invalid,
   disabled,
-  clearable = false,
+  clearable = true,
   required = false,
   triggerClassName,
   listClassName,
@@ -184,6 +170,13 @@ export function SearchableSelect({
     setOpen(false);
   };
 
+  const handleClear = () => {
+    setInputValue("");
+    if (!required && selected) {
+      onChange(null);
+    }
+  };
+
   const resolvedEmptyMessage = loading ? "加载中…" : emptyMessage;
 
   return (
@@ -195,6 +188,8 @@ export function SearchableSelect({
       itemToStringLabel={(item) => item.label}
       itemToStringValue={(item) => item.value}
       items={options}
+      limit={INITIAL_RESULT_LIMIT}
+      modal
       onInputValueChange={(next) => {
         setInputValue(next);
         if (open && serverSideFilter) {
@@ -213,7 +208,9 @@ export function SearchableSelect({
         disabled={disabled}
         id={triggerId}
         placeholder={open ? searchPlaceholder : placeholder}
+        onClear={handleClear}
         showClear={clearable}
+        clearVisible={Boolean(inputValue)}
       >
         {selected && !open ? (
           <InputGroupAddon align="inline-start">
@@ -227,10 +224,7 @@ export function SearchableSelect({
         side={contentSide}
       >
         <ComboboxEmpty>{resolvedEmptyMessage}</ComboboxEmpty>
-        <ComboboxList
-          className={cn("max-h-72 overflow-y-auto", listClassName)}
-          onWheelCapture={handleScrollableListWheel}
-        >
+        <ComboboxList className={cn("max-h-72 overflow-y-auto", listClassName)}>
           {(option: SearchableSelectOption) => (
             <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
               <SearchableSelectOptionAvatar option={option} />

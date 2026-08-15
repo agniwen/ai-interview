@@ -11,12 +11,7 @@ import {
   cossPopupSurfaceClass,
 } from "@/components/ui/coss-style";
 import { Icon } from "@/components/ui/icon";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+import { InputGroup, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@arc/shared/utils";
 
 const Combobox = ComboboxPrimitive.Root;
@@ -45,16 +40,35 @@ function ComboboxTrigger({ className, children, ...props }: ComboboxPrimitive.Tr
   );
 }
 
-function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
+function ComboboxTriggerButton({
+  className,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof InputGroupButton>,
+  "children" | "render" | "size" | "variant"
+>) {
   return (
-    <ComboboxPrimitive.Clear
-      data-slot="combobox-clear"
-      render={<InputGroupButton variant="ghost" size="icon-xs" />}
-      className={cn(className)}
+    <InputGroupButton
+      className={cn("data-pressed:bg-transparent", className)}
+      render={<ComboboxTrigger />}
+      size="icon-xs"
+      variant="ghost"
       {...props}
-    >
-      <Icon className="pointer-events-none relative z-10" icon="ph:x" />
-    </ComboboxPrimitive.Clear>
+    />
+  );
+}
+
+function ComboboxClearButton({
+  className,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof InputGroupButton>,
+  "children" | "render" | "size" | "variant"
+>) {
+  return (
+    <InputGroupButton className={cn(className)} size="icon-xs" variant="ghost" {...props}>
+      <Icon className="pointer-events-none relative z-10 text-muted-foreground" icon="ph:x" />
+    </InputGroupButton>
   );
 }
 
@@ -64,10 +78,14 @@ function ComboboxInput({
   disabled = false,
   showTrigger = true,
   showClear = false,
+  clearVisible,
+  onClear,
   ...props
 }: ComboboxPrimitive.Input.Props & {
   showTrigger?: boolean;
   showClear?: boolean;
+  clearVisible?: boolean;
+  onClear?: () => void;
 }) {
   // Base UI positions the popup against `inputGroupElement` when present, otherwise
   // the bare <input>. Without Combobox.InputGroup the anchor shrinks to the text
@@ -77,20 +95,27 @@ function ComboboxInput({
   // visible trigger.
   return (
     <ComboboxPrimitive.InputGroup render={<InputGroup className={cn("w-auto", className)} />}>
-      <ComboboxPrimitive.Input render={<InputGroupInput disabled={disabled} />} {...props} />
-      <InputGroupAddon align="inline-end">
-        {showTrigger && (
-          <InputGroupButton
-            size="icon-xs"
-            variant="ghost"
-            data-slot="input-group-button"
-            className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
+      <ComboboxPrimitive.Input
+        render={<InputGroupInput className="pr-14" disabled={disabled} />}
+        {...props}
+      />
+      <div
+        className="!absolute inset-y-0 right-1 flex items-center gap-0.5"
+        data-slot="combobox-actions"
+      >
+        {showClear && clearVisible ? (
+          <ComboboxClearButton
+            aria-label="清空"
+            data-slot="combobox-clear"
             disabled={disabled}
-            render={<ComboboxTrigger />}
+            onClick={onClear}
+            onMouseDown={(event) => event.preventDefault()}
           />
-        )}
-        {showClear && <ComboboxClear disabled={disabled} />}
-      </InputGroupAddon>
+        ) : null}
+        {showTrigger ? (
+          <ComboboxTriggerButton data-slot="input-group-button" disabled={disabled} />
+        ) : null}
+      </div>
       {children}
     </ComboboxPrimitive.InputGroup>
   );
@@ -142,7 +167,7 @@ function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
     <ComboboxPrimitive.List
       data-slot="combobox-list"
       className={cn(
-        "max-h-[min(calc(--spacing(96)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto p-1 data-empty:p-0",
+        "max-h-[min(calc(--spacing(96)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto overscroll-contain p-1 data-empty:p-0",
         className,
       )}
       {...props}
@@ -290,6 +315,7 @@ export {
   ComboboxChip,
   ComboboxChips,
   ComboboxChipsInput,
+  ComboboxClearButton,
   ComboboxCollection,
   ComboboxContent,
   ComboboxEmpty,
@@ -300,6 +326,7 @@ export {
   ComboboxList,
   ComboboxSeparator,
   ComboboxTrigger,
+  ComboboxTriggerButton,
   ComboboxValue,
   useComboboxAnchor,
 };

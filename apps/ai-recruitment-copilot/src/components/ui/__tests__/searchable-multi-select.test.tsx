@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SearchableMultiSelect } from "../searchable-multi-select";
-import { handleScrollableListWheel } from "../searchable-select";
 
 const options = [
   { label: "岗位 A", value: "job-a" },
@@ -42,6 +41,7 @@ describe("SearchableMultiSelect", () => {
     expect(html).toContain('title="岗位 A"');
     expect(html).toContain('title="岗位 B"');
     expect(html).not.toContain("已选 2 项");
+    expect(html).toContain('data-slot="combobox-clear"');
   });
 
   it("keeps the selected-count display mode available", () => {
@@ -75,20 +75,12 @@ describe("SearchableMultiSelect", () => {
     expect(html).toContain("+1");
   });
 
-  it("keeps wheel scrolling inside a long option list", () => {
-    const list = { clientHeight: 100, scrollHeight: 300, scrollTop: 40 };
-    const preventDefault = vi.fn();
-    const stopPropagation = vi.fn();
+  it("renders the same dropdown icon as single-select filters", () => {
+    const html = renderToStaticMarkup(
+      <SearchableMultiSelect onChange={() => {}} options={options} value={selectedValues} />,
+    );
 
-    handleScrollableListWheel({
-      currentTarget: list,
-      deltaY: 25,
-      preventDefault,
-      stopPropagation,
-    } as unknown as Parameters<typeof handleScrollableListWheel>[0]);
-
-    expect(list.scrollTop).toBe(65);
-    expect(preventDefault).toHaveBeenCalledOnce();
-    expect(stopPropagation).toHaveBeenCalledOnce();
+    expect(html).toContain('aria-label="展开选项"');
+    expect(html).toContain('data-slot="combobox-trigger-icon"');
   });
 });

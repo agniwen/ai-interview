@@ -9,25 +9,26 @@ import {
   ComboboxChip,
   ComboboxChips,
   ComboboxChipsInput,
+  ComboboxClearButton,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxItem,
   ComboboxList,
+  ComboboxTriggerButton,
   ComboboxValue,
   useComboboxAnchor,
 } from "@/components/ui/combobox";
 import { Icon } from "@/components/ui/icon";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
-import {
-  filterSearchableOption,
-  handleScrollableListWheel,
-} from "@/components/ui/searchable-select";
+import { filterSearchableOption } from "@/components/ui/searchable-select";
 import { cn } from "@arc/shared/utils";
 
 // =====================================================================
 // 多选可搜索下拉。底层使用 Coss/Base UI Combobox multiple，输入区直接可搜索。
 // Multi-pick searchable selector backed by Coss/Base UI Combobox multiple.
 // =====================================================================
+
+const INITIAL_RESULT_LIMIT = 50;
 
 type SelectedDisplayMode = "items" | "count";
 
@@ -106,11 +107,13 @@ export function SearchableMultiSelect({
         itemToStringLabel={(item) => item.label}
         itemToStringValue={(item) => item.value}
         items={options}
+        limit={INITIAL_RESULT_LIMIT}
+        modal
         multiple
         onValueChange={(next) => onChange(next.map((item) => item.value))}
         value={selectedItems}
       >
-        <ComboboxChips className={cn("w-full", triggerClassName)} ref={anchorRef}>
+        <ComboboxChips className={cn("relative w-full pr-9", triggerClassName)} ref={anchorRef}>
           <ComboboxValue>
             {(selected: SearchableSelectOption[]) => {
               const visible =
@@ -150,6 +153,21 @@ export function SearchableMultiSelect({
               );
             }}
           </ComboboxValue>
+          {value.length > 0 ? (
+            <ComboboxClearButton
+              aria-label="清空"
+              className="!absolute top-1/2 right-7 -translate-y-1/2"
+              data-slot="combobox-clear"
+              disabled={disabled}
+              onClick={() => onChange([])}
+              onMouseDown={(event) => event.preventDefault()}
+            />
+          ) : null}
+          <ComboboxTriggerButton
+            aria-label="展开选项"
+            className="!absolute top-1/2 right-1 -translate-y-1/2"
+            disabled={disabled}
+          />
         </ComboboxChips>
         <ComboboxContent
           anchor={anchorRef}
@@ -157,7 +175,7 @@ export function SearchableMultiSelect({
           collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
         >
           <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
-          <ComboboxList onWheelCapture={handleScrollableListWheel}>
+          <ComboboxList>
             {(option: SearchableSelectOption) => (
               <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
                 {option.avatarUrl !== undefined ? (
