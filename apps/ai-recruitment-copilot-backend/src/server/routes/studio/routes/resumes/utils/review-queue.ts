@@ -70,6 +70,7 @@ async function loadSchedulingContext(input: {
       pipelineStage: studioInterview.pipelineStage,
       resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
       resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
+      resumeFileName: studioInterview.resumeFileName,
       resumeParseStatus: studioInterview.resumeParseStatus,
       resumeProfile: studioInterview.resumeProfile,
       resumeReview: studioInterview.resumeReview,
@@ -94,7 +95,9 @@ async function loadSchedulingContext(input: {
   let { jobDescriptionId } = record;
   if (!jobDescriptionId && input.autoMatchJobDescription) {
     const jobs = await listRecruitingJobDescriptions(input.organizationId);
-    const matched = await matchJobDescriptionForResume(record.resumeProfile, jobs);
+    const matched = await matchJobDescriptionForResume(record.resumeProfile, jobs, {
+      resumeFileName: record.resumeFileName,
+    });
     if (matched?.jobDescriptionId) {
       const [updated] = await db
         .update(studioInterview)

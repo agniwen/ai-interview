@@ -73,6 +73,7 @@ function assessmentRecord(overrides: Record<string, unknown>) {
     resumeContentHash: "content-hash",
     resumeEvaluationArtifactMode: null,
     resumeEvaluationAttemptMode: "legacy",
+    resumeFileName: "候选人-前端工程师.pdf",
     resumeParseStatus: "ready",
     resumeProfile: { name: "候选人" },
     resumeReview: null,
@@ -236,7 +237,11 @@ describe("processResumeReviewGenerationJob", () => {
       source: "resume_upload",
     });
 
-    expect(mocks.matchJobDescriptionForResume).toHaveBeenCalled();
+    expect(mocks.matchJobDescriptionForResume).toHaveBeenCalledWith(
+      { name: "候选人" },
+      [{ id: "jd-auto" }],
+      { resumeFileName: "候选人-前端工程师.pdf" },
+    );
     expect(mocks.updates).toContainEqual(expect.objectContaining({ jobDescriptionId: "jd-auto" }));
     expect(mocks.generateResumeAssessment).toHaveBeenCalledWith(
       expect.objectContaining({ jobDescriptionId: "jd-auto" }),

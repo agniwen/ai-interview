@@ -84,6 +84,21 @@ describe("matchJobDescriptionForResume", () => {
     );
   });
 
+  it("adds the uploaded filename as a prioritized job clue when supplied", async () => {
+    await matchJobDescriptionForResume(RESUME_PROFILE, JOBS, {
+      resumeFileName: "张三-数据工程师-5年经验.pdf",
+    });
+
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("简历文件名: 张三-数据工程师-5年经验.pdf"),
+      }),
+    );
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+      "文件名可能包含候选人投递的岗位信息；将其作为强岗位线索优先参考",
+    );
+  });
+
   it("uses a strict schema constrained to the supplied candidate IDs", async () => {
     await matchJobDescriptionForResume(RESUME_PROFILE, JOBS);
 

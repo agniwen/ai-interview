@@ -274,11 +274,14 @@ export function reassessResumeRecord(input: { organizationId: string; resumeReco
 
 async function matchJobDescriptionId(input: {
   organizationId: string;
+  resumeFileName: string | null;
   resumeProfile: NonNullable<typeof studioInterview.$inferSelect.resumeProfile>;
 }): Promise<string | null> {
   try {
     const jobDescriptions = await listRecruitingJobDescriptions(input.organizationId);
-    const match = await matchJobDescriptionForResume(input.resumeProfile, jobDescriptions);
+    const match = await matchJobDescriptionForResume(input.resumeProfile, jobDescriptions, {
+      resumeFileName: input.resumeFileName,
+    });
     return match?.jobDescriptionId ?? null;
   } catch (error) {
     console.warn("[resume-review-worker] auto JD match failed", error);
@@ -295,6 +298,7 @@ async function resolveRecordJobDescriptionId(
   const [record] = await db
     .select({
       jobDescriptionId: studioInterview.jobDescriptionId,
+      resumeFileName: studioInterview.resumeFileName,
       resumeProfile: studioInterview.resumeProfile,
     })
     .from(studioInterview)
@@ -305,6 +309,7 @@ async function resolveRecordJobDescriptionId(
   }
   const matchedId = await matchJobDescriptionId({
     organizationId: input.organizationId,
+    resumeFileName: record.resumeFileName,
     resumeProfile: record.resumeProfile,
   });
   if (!matchedId) {
@@ -332,6 +337,7 @@ async function processResumePoolReviewGenerationJob(
   const [record] = await db
     .select({
       jobDescriptionId: resumePoolItem.jobDescriptionId,
+      resumeFileName: resumePoolItem.resumeFileName,
       resumeParseStatus: resumePoolItem.resumeParseStatus,
       resumeProfile: resumePoolItem.resumeProfile,
       resumeText: resumePoolItem.resumeText,
@@ -351,6 +357,7 @@ async function processResumePoolReviewGenerationJob(
   if (input.autoMatchJobDescription && !jobDescriptionId) {
     jobDescriptionId = await matchJobDescriptionId({
       organizationId: input.organizationId,
+      resumeFileName: record.resumeFileName,
       resumeProfile: record.resumeProfile,
     });
     if (jobDescriptionId) {
