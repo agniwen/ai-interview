@@ -114,7 +114,6 @@ export function JobDescriptionPromptFields({
                         ? "岗位关键职责、技术栈要求、期望的考察维度……"
                         : "明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
                     }
-                    showPreview
                     value={field.state.value}
                   />
                 )}

@@ -181,17 +181,14 @@ vi.mock("@/components/features/markdown-editor", () => ({
   MarkdownEditor: ({
     disabled,
     onChange,
-    showPreview,
     value,
   }: {
     disabled?: boolean;
     onChange: (value: string) => void;
-    showPreview?: boolean;
     value: string;
   }) => (
     <textarea
       aria-label="MarkdownEditor"
-      data-show-preview={String(showPreview)}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
       value={value}
@@ -285,7 +282,6 @@ describe("structured job description preview flow", () => {
       'textarea[aria-label="MarkdownEditor"]',
     );
     expect(structuredPrompt).not.toBeNull();
-    expect(structuredPrompt?.dataset.showPreview).toBe("true");
     expect(structuredContainer.querySelector(".xl\\:grid-cols-2")).not.toBeNull();
     const settingsGroup = structuredContainer.querySelector(".divide-y");
     const settingsFields = settingsGroup?.querySelectorAll('[data-slot="field"]');

@@ -1,13 +1,10 @@
-// 中文：MarkdownEditor 的核心同步逻辑。Markdown 字符串是唯一真相源，
-// Tiptap 实例只是它的一个"视图"；切回 edit 模式时才 setContent 重建。
-// English: the sync logic for MarkdownEditor. The markdown string is the single
-// source of truth; the Tiptap instance is just one view over it. We only
-// setContent when re-entering edit mode or syncing an external value.
+// 中文：Markdown 字符串是唯一真相源，Tiptap 实例是它的所见即所得视图。
+// English: the markdown string is the source of truth; Tiptap is its WYSIWYG view.
 "use client";
 
 import { useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createMarkdownExtensions } from "./extensions";
 
 function readMarkdown(editor: Editor): string {
@@ -16,27 +13,15 @@ function readMarkdown(editor: Editor): string {
   ).markdown.getMarkdown();
 }
 
-export type EditorMode = "edit" | "preview";
-
 interface Options {
   value: string;
   onChange: (next: string) => void;
   maxLength?: number;
   placeholder?: string;
   disabled?: boolean;
-  defaultMode?: EditorMode;
 }
 
-export function useMarkdownEditor({
-  value,
-  onChange,
-  maxLength,
-  placeholder,
-  disabled,
-  defaultMode = "edit",
-}: Options) {
-  const [mode, setMode] = useState<EditorMode>(defaultMode);
-
+export function useMarkdownEditor({ value, onChange, maxLength, placeholder, disabled }: Options) {
   const lastEmittedRef = useRef<string>(value);
 
   const onChangeRef = useRef(onChange);
@@ -72,26 +57,12 @@ export function useMarkdownEditor({
     if (!editor) {
       return;
     }
-    if (mode !== "edit") {
-      return;
-    }
     if (value === lastEmittedRef.current) {
       return;
     }
     lastEmittedRef.current = value;
     editor.commands.setContent(value, { emitUpdate: false });
-  }, [editor, mode, value]);
+  }, [editor, value]);
 
-  const changeMode = useCallback(
-    (next: EditorMode) => {
-      if (next === "edit" && editor && value !== lastEmittedRef.current) {
-        lastEmittedRef.current = value;
-        editor.commands.setContent(value, { emitUpdate: false });
-      }
-      setMode(next);
-    },
-    [editor, value],
-  );
-
-  return { changeMode, editor, mode };
+  return { editor };
 }

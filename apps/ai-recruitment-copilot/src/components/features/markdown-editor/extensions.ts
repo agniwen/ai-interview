@@ -1,11 +1,10 @@
-// 中文：Tiptap 扩展集合，仅启用标准 markdown 支持的节点 / 标记。
-// English: Tiptap extensions limited to nodes/marks that map to standard markdown.
+// 中文：仅启用可稳定映射回 Markdown 的节点和标记；不渲染 Markdown 源码符号。
+// English: only nodes and marks that round-trip to markdown; syntax markers stay hidden.
 import { Extension } from "@tiptap/core";
 import type { Extensions } from "@tiptap/core";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
-import { MarkdownMarkers } from "./markdown-markers";
 import { TemplatePlaceholders } from "./template-placeholders";
 
 // 中文：覆盖 Enter 键，沿用列表 / 代码块的原有处理顺序，最后用
@@ -34,7 +33,6 @@ const EnterClearStoredMarks = Extension.create({
 export function createMarkdownExtensions(opts?: { placeholder?: string }): Extensions {
   return [
     EnterClearStoredMarks,
-    MarkdownMarkers,
     TemplatePlaceholders,
     StarterKit.configure({
       // 中文：Link 通过 StarterKit 配置，避免重复注册扩展。
