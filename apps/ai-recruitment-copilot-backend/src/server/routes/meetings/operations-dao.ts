@@ -215,8 +215,12 @@ export async function loadMeetingOperationsSnapshot() {
   ]);
 
   const alert = (kind: string, row: { id: string; since: Date | string | null }) => {
-    const sinceMs =
-      typeof row.since === "string" ? Date.parse(row.since) : (row.since?.getTime() ?? Number.NaN);
+    let sinceMs = Number.NaN;
+    if (row.since instanceof Date) {
+      sinceMs = row.since.getTime();
+    } else if (row.since) {
+      sinceMs = Date.parse(row.since);
+    }
     return {
       ageMs: Number.isFinite(sinceMs) ? Math.max(0, now.getTime() - sinceMs) : 0,
       kind,

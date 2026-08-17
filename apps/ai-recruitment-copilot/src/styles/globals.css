@@ -1,10 +1,4 @@
-/*
- * Keep Mastra's component and utility rules after the host base reset so
- * package controls retain their spacing. Host components still follow Mastra
- * components, and host utilities stay last so responsive host classes win.
- */
-@layer mastra-studio-properties, mastra-studio-theme, mastra-studio-base,
-  properties, theme, base, mastra-studio-components, components, mastra-studio-utilities, utilities;
+@layer properties, theme, base, components, utilities;
 
 @import "tailwindcss";
 @import "tw-animate-css";

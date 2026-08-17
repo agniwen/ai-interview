@@ -1,49 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  buildAttachmentKeyByHash: vi.fn(),
-  createAttachment: vi.fn(),
-  findAttachmentByContentHash: vi.fn(),
-  generateResumeStructured: vi.fn(),
-  parseResumeFast: vi.fn(),
-  putObjectBytes: vi.fn(),
-  runResumeParseWorkflow: vi.fn(),
-  sha256HexOfBytes: vi.fn(),
-  streamResumeParseWorkflow: vi.fn(),
-  updateStructuredByHash: vi.fn(),
-}));
-
-vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  putObjectBytes: mocks.putObjectBytes,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  generateResumeStructured: mocks.generateResumeStructured,
-  parseResumeFast: mocks.parseResumeFast,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow",
-  () => ({
-    runResumeParseWorkflow: mocks.runResumeParseWorkflow,
-    streamResumeParseWorkflow: mocks.streamResumeParseWorkflow,
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
-  createAttachment: mocks.createAttachment,
-  findAttachmentByContentHash: mocks.findAttachmentByContentHash,
-  updateStructuredByHash: mocks.updateStructuredByHash,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
 import { streamParseResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type { ResumeParseDependencies } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 
 const HASH = "a".repeat(64);
+
+const mocks = {
+  findCachedAttachment: vi.fn<ResumeParseDependencies["findCachedAttachment"]>(),
+  generateStructured: vi.fn<ResumeParseDependencies["generateStructured"]>(),
+  hashBytes: vi.fn<ResumeParseDependencies["hashBytes"]>(),
+  runWorkflow: vi.fn<ResumeParseDependencies["runWorkflow"]>(),
+  streamWorkflow: vi.fn<ResumeParseDependencies["streamWorkflow"]>(),
+  updateCachedStructured: vi.fn<ResumeParseDependencies["updateCachedStructured"]>(),
+};
+
+const dependencies: ResumeParseDependencies = mocks;
 
 const STRUCTURED = {
   age: null,
   degree: null,
   education: null,
+  educationExperiences: [],
   email: "fresh@example.com",
   gender: null,
   graduationYear: null,
@@ -86,6 +62,7 @@ async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
       if (!data) {
         throw new Error(`Missing SSE data frame: ${frame}`);
       }
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       return JSON.parse(data) as { type: string; output?: unknown };
     });
 }
@@ -94,38 +71,61 @@ describe("streamParseResumeProfile cache policy", () => {
   const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;
 
   beforeEach(() => {
-    for (const fn of Object.values(mocks)) {
-      fn.mockReset();
-    }
+    vi.clearAllMocks();
     if (originalDisableCache === undefined) {
       delete process.env.RESUME_PARSE_DISABLE_CACHE;
     } else {
       process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
-    mocks.sha256HexOfBytes.mockResolvedValue(HASH);
+    mocks.hashBytes.mockResolvedValue(HASH);
   });
 
   it("cache disabled: ignores cached structured data and runs a fresh parse", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "true";
-    mocks.findAttachmentByContentHash.mockResolvedValue({
+    mocks.findCachedAttachment.mockResolvedValue({
+      contentHash: HASH,
+      createdAt: new Date(0),
+      filename: "cached.pdf",
+      id: "cached-attachment",
+      mediaType: "application/pdf",
+      organizationId: "organization-1",
+      parsedAt: new Date(0),
+      parsedError: null,
+      parsedPageCount: 1,
+      parsedStatus: "ready",
       parsedStructured: { ...STRUCTURED, name: "缓存候选人" },
+      parsedText: null,
+      parsedTextSource: "qwen-ocr",
+      size: 10,
       storageKey: "chat-attachments/cached.pdf",
+      userId: "user-1",
     });
-    mocks.streamResumeParseWorkflow.mockResolvedValue({
+    mocks.streamWorkflow.mockResolvedValue({
+      bytesBase64: "cGRmLWJ5dGVz",
       fileHash: HASH,
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
       pageCount: 1,
+      preview: {
+        name: STRUCTURED.name,
+        schools: STRUCTURED.schools,
+        skills: STRUCTURED.skills,
+        targetRoles: STRUCTURED.targetRoles,
+        workYears: STRUCTURED.workYears,
+      },
       structured: STRUCTURED,
       text: "fresh raw text",
       textSource: "qwen-ocr",
     });
 
-    const events = await readStreamEvents(streamParseResumeProfile(makeFile()));
+    const events = await readStreamEvents(
+      streamParseResumeProfile(makeFile(), undefined, dependencies),
+    );
     const result = events.find((event) => event.type === "run.completed")?.output;
 
-    expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
-    expect(mocks.streamResumeParseWorkflow).toHaveBeenCalledTimes(1);
-    expect(mocks.runResumeParseWorkflow).not.toHaveBeenCalled();
-    expect(mocks.parseResumeFast).not.toHaveBeenCalled();
+    expect(mocks.findCachedAttachment).not.toHaveBeenCalled();
+    expect(mocks.streamWorkflow).toHaveBeenCalledTimes(1);
+    expect(mocks.runWorkflow).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       fileName: "resume.pdf",
       resumeProfile: {

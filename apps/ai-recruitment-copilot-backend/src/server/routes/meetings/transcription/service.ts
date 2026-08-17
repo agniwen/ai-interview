@@ -12,8 +12,10 @@ import type {
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
+import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import { meetingAccessCapabilities, isWorkspaceAdministrator } from "../access";
 import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
+import type { MeetingAccessInput } from "../authorized-meeting";
 import { recordMeetingAudit } from "../dao";
 import { requestAutomaticMeetingIntelligence } from "../intelligence/service";
 import {
@@ -35,10 +37,74 @@ import {
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 
-async function enqueueRecoverableTranscriptionsBestEffort(): Promise<void> {
+export interface TranscriptionMeetingAccess {
+  activeTranscriptRevisionId: string | null;
+  liveTranscriptDraft: MeetingTranscriptResult["draft"];
+  role: MeetingAccessRole;
+  transcriptionError: string | null;
+  transcriptionStatus: string;
+}
+
+async function loadTranscriptionMeeting(
+  input: MeetingAccessInput,
+): Promise<TranscriptionMeetingAccess | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  return {
+    activeTranscriptRevisionId: meeting.activeTranscriptRevisionId,
+    liveTranscriptDraft: meeting.liveTranscriptDraft,
+    role: meetingRole(meeting, input),
+    transcriptionError: meeting.transcriptionError,
+    transcriptionStatus: meeting.transcriptionStatus,
+  };
+}
+
+export interface MeetingTranscriptionDependencies {
+  createHumanMeetingTranscriptRevision: typeof createHumanMeetingTranscriptRevision;
+  enqueueMeetingTranscriptionJobs: typeof enqueueMeetingTranscriptionJobs;
+  getMeetingTranscriptionJobForMeeting: typeof getMeetingTranscriptionJobForMeeting;
+  isMeetingTranscriptionQueueConfigured: typeof isMeetingTranscriptionQueueConfigured;
+  listMeetingTranscriptRevisions: typeof listMeetingTranscriptRevisions;
+  listMeetingTranscriptionProviderCandidates: typeof listMeetingTranscriptionProviderCandidates;
+  listRecoverableMeetingTranscriptionJobs: typeof listRecoverableMeetingTranscriptionJobs;
+  loadActiveMeetingTranscript: typeof loadActiveMeetingTranscript;
+  loadTranscriptionMeeting: typeof loadTranscriptionMeeting;
+  loadMeetingTranscriptRevision: typeof loadMeetingTranscriptRevision;
+  loadMeetingTranscriptionPolicy: typeof loadMeetingTranscriptionPolicy;
+  recordMeetingAudit: typeof recordMeetingAudit;
+  requestAutomaticMeetingIntelligence: typeof requestAutomaticMeetingIntelligence;
+  resetMeetingTranscriptionForRetry: typeof resetMeetingTranscriptionForRetry;
+  retryMeetingTranscriptionJob: typeof retryMeetingTranscriptionJob;
+  updateMeetingTranscriptionPolicy: typeof updateMeetingTranscriptionPolicy;
+}
+
+const defaultDependencies: MeetingTranscriptionDependencies = {
+  createHumanMeetingTranscriptRevision,
+  enqueueMeetingTranscriptionJobs,
+  getMeetingTranscriptionJobForMeeting,
+  isMeetingTranscriptionQueueConfigured,
+  listMeetingTranscriptRevisions,
+  listMeetingTranscriptionProviderCandidates,
+  listRecoverableMeetingTranscriptionJobs,
+  loadActiveMeetingTranscript,
+  loadMeetingTranscriptRevision,
+  loadMeetingTranscriptionPolicy,
+  loadTranscriptionMeeting,
+  recordMeetingAudit,
+  requestAutomaticMeetingIntelligence,
+  resetMeetingTranscriptionForRetry,
+  retryMeetingTranscriptionJob,
+  updateMeetingTranscriptionPolicy,
+};
+
+async function enqueueRecoverableTranscriptionsBestEffort(
+  dependencies: MeetingTranscriptionDependencies,
+): Promise<void> {
   try {
-    const jobs = await listRecoverableMeetingTranscriptionJobs();
-    await enqueueMeetingTranscriptionJobs(jobs);
+    const jobs = await dependencies.listRecoverableMeetingTranscriptionJobs();
+    await dependencies.enqueueMeetingTranscriptionJobs(jobs);
   } catch (error) {
     console.error("[meeting-transcription] failed to enqueue recoverable jobs", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -46,13 +112,16 @@ async function enqueueRecoverableTranscriptionsBestEffort(): Promise<void> {
   }
 }
 
-export async function getWorkspaceMeetingTranscriptionPolicy(input: {
-  memberRole: string;
-  organizationId: string;
-}): Promise<MeetingTranscriptionPolicy> {
+export async function getWorkspaceMeetingTranscriptionPolicy(
+  input: {
+    memberRole: string;
+    organizationId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<MeetingTranscriptionPolicy> {
   const [policy, availableProviders] = await Promise.all([
-    loadMeetingTranscriptionPolicy(input.organizationId),
-    Promise.resolve(listMeetingTranscriptionProviderCandidates()),
+    dependencies.loadMeetingTranscriptionPolicy(input.organizationId),
+    Promise.resolve(dependencies.listMeetingTranscriptionProviderCandidates()),
   ]);
   const available = new Set(availableProviders.map((provider) => provider.id));
   const defaultProviderAvailable = available.has(DEFAULT_MEETING_TRANSCRIPTION_PROVIDER);
@@ -96,23 +165,26 @@ export async function getWorkspaceMeetingTranscriptionPolicy(input: {
   };
 }
 
-export async function updateWorkspaceMeetingTranscriptionPolicy(input: {
-  memberRole: string;
-  organizationId: string;
-  policy: UpdateMeetingTranscriptionPolicyInput;
-  userId: string;
-}): Promise<"forbidden" | "invalid-provider" | MeetingTranscriptionPolicy> {
+export async function updateWorkspaceMeetingTranscriptionPolicy(
+  input: {
+    memberRole: string;
+    organizationId: string;
+    policy: UpdateMeetingTranscriptionPolicyInput;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<"forbidden" | "invalid-provider" | MeetingTranscriptionPolicy> {
   if (!isWorkspaceAdministrator(input.memberRole)) {
     return "forbidden";
   }
-  const availableProviders = listMeetingTranscriptionProviderCandidates();
+  const availableProviders = dependencies.listMeetingTranscriptionProviderCandidates();
   const available = new Set<MeetingTranscriptionProviderId>(
     availableProviders.map((provider) => provider.id),
   );
   if (input.policy.allowedProviders.some((provider) => !available.has(provider))) {
     return "invalid-provider";
   }
-  const updated = await updateMeetingTranscriptionPolicy({
+  const updated = await dependencies.updateMeetingTranscriptionPolicy({
     actorId: input.userId,
     organizationId: input.organizationId,
     policy: input.policy,
@@ -120,7 +192,7 @@ export async function updateWorkspaceMeetingTranscriptionPolicy(input: {
   if (!updated) {
     return "forbidden";
   }
-  await enqueueRecoverableTranscriptionsBestEffort();
+  await enqueueRecoverableTranscriptionsBestEffort(dependencies);
   return {
     ...updated,
     availableProviders,
@@ -128,19 +200,22 @@ export async function updateWorkspaceMeetingTranscriptionPolicy(input: {
   };
 }
 
-export async function getSavedMeetingTranscript(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<MeetingTranscriptResult | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function getSavedMeetingTranscript(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<MeetingTranscriptResult | null> {
+  const meeting = await dependencies.loadTranscriptionMeeting(input);
   if (!meeting) {
     return null;
   }
-  const role = meetingRole(meeting, input);
+  const { role } = meeting;
   if (role === "administrator") {
-    await recordMeetingAudit({
+    await dependencies.recordMeetingAudit({
       action: "meeting.transcript_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -150,7 +225,7 @@ export async function getSavedMeetingTranscript(input: {
   }
   const revision =
     meeting.transcriptionStatus === "ready"
-      ? await loadActiveMeetingTranscript({
+      ? await dependencies.loadActiveMeetingTranscript({
           meetingId: input.meetingId,
           organizationId: input.organizationId,
         })
@@ -159,22 +234,26 @@ export async function getSavedMeetingTranscript(input: {
     draft: meeting.liveTranscriptDraft,
     error: meeting.transcriptionError,
     revision,
+    // SAFETY: meetingSession.transcriptionStatus is constrained by the persisted transcription-status enum.
     state: meeting.transcriptionStatus as MeetingTranscriptResult["state"],
   };
 }
 
-export async function getSavedMeetingTranscriptHistory(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<MeetingTranscriptRevisionHistory | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function getSavedMeetingTranscriptHistory(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<MeetingTranscriptRevisionHistory | null> {
+  const meeting = await dependencies.loadTranscriptionMeeting(input);
   if (!meeting) {
     return null;
   }
-  if (meetingRole(meeting, input) === "administrator") {
-    await recordMeetingAudit({
+  if (meeting.role === "administrator") {
+    await dependencies.recordMeetingAudit({
       action: "meeting.transcript_history_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -183,26 +262,29 @@ export async function getSavedMeetingTranscriptHistory(input: {
     });
   }
   return {
-    records: await listMeetingTranscriptRevisions({
+    records: await dependencies.listMeetingTranscriptRevisions({
       meetingId: input.meetingId,
       organizationId: input.organizationId,
     }),
   };
 }
 
-export async function getSavedMeetingTranscriptRevision(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  revisionId: string;
-  userId: string;
-}): Promise<FinalMeetingTranscriptRevision | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function getSavedMeetingTranscriptRevision(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    revisionId: string;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<FinalMeetingTranscriptRevision | null> {
+  const meeting = await dependencies.loadTranscriptionMeeting(input);
   if (!meeting) {
     return null;
   }
-  if (meetingRole(meeting, input) === "administrator") {
-    await recordMeetingAudit({
+  if (meeting.role === "administrator") {
+    await dependencies.recordMeetingAudit({
       action: "meeting.transcript_revision_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -211,42 +293,45 @@ export async function getSavedMeetingTranscriptRevision(input: {
       organizationId: input.organizationId,
     });
   }
-  return loadMeetingTranscriptRevision({
+  return dependencies.loadMeetingTranscriptRevision({
     meetingId: input.meetingId,
     organizationId: input.organizationId,
     revisionId: input.revisionId,
   });
 }
 
-export async function correctSavedMeetingTranscript(input: {
-  correction: CreateMeetingTranscriptCorrectionInput;
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<
+export async function correctSavedMeetingTranscript(
+  input: {
+    correction: CreateMeetingTranscriptCorrectionInput;
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<
   FinalMeetingTranscriptRevision | "conflict" | "forbidden" | "invalid-range" | "not-ready" | null
 > {
-  const meeting = await loadAuthorizedMeeting(input);
+  const meeting = await dependencies.loadTranscriptionMeeting(input);
   if (!meeting) {
     return null;
   }
-  const role = meetingRole(meeting, input);
+  const { role } = meeting;
   if (!meetingAccessCapabilities(role).canCorrectTranscript) {
     return "forbidden";
   }
   if (meeting.transcriptionStatus !== "ready" || !meeting.activeTranscriptRevisionId) {
     return "not-ready";
   }
-  const result = await createHumanMeetingTranscriptRevision({
+  const result = await dependencies.createHumanMeetingTranscriptRevision({
     actorId: input.userId,
     correction: input.correction,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
   });
-  if (typeof result === "object") {
+  if (result !== "conflict" && result !== "invalid-range" && result !== "not-found") {
     try {
-      await requestAutomaticMeetingIntelligence({
+      await dependencies.requestAutomaticMeetingIntelligence({
         meetingId: input.meetingId,
         organizationId: input.organizationId,
       });
@@ -260,17 +345,20 @@ export async function correctSavedMeetingTranscript(input: {
   return result === "not-found" ? null : result;
 }
 
-export async function retrySavedMeetingTranscription(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<{ state: "processing" | "ready" | "unavailable" } | "forbidden" | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function retrySavedMeetingTranscription(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+): Promise<{ state: "processing" | "ready" | "unavailable" } | "forbidden" | null> {
+  const meeting = await dependencies.loadTranscriptionMeeting(input);
   if (!meeting) {
     return null;
   }
-  if (!meetingAccessCapabilities(meetingRole(meeting, input)).canRetryProcessing) {
+  if (!meetingAccessCapabilities(meeting.role).canRetryProcessing) {
     return "forbidden";
   }
   if (meeting.transcriptionStatus === "ready") {
@@ -279,17 +367,17 @@ export async function retrySavedMeetingTranscription(input: {
   if (meeting.transcriptionStatus !== "failed") {
     return { state: "processing" };
   }
-  if (!isMeetingTranscriptionQueueConfigured()) {
+  if (!dependencies.isMeetingTranscriptionQueueConfigured()) {
     return { state: "unavailable" };
   }
-  const reset = await resetMeetingTranscriptionForRetry({
+  const reset = await dependencies.resetMeetingTranscriptionForRetry({
     meetingId: input.meetingId,
     organizationId: input.organizationId,
   });
   if (reset.length === 0) {
     return { state: "processing" };
   }
-  const job = await getMeetingTranscriptionJobForMeeting({
+  const job = await dependencies.getMeetingTranscriptionJobForMeeting({
     meetingId: input.meetingId,
     organizationId: input.organizationId,
     preferFallback: true,
@@ -297,8 +385,8 @@ export async function retrySavedMeetingTranscription(input: {
   if (!job) {
     return { state: "unavailable" };
   }
-  await retryMeetingTranscriptionJob(job);
-  await recordMeetingAudit({
+  await dependencies.retryMeetingTranscriptionJob(job);
+  await dependencies.recordMeetingAudit({
     action: "meeting.transcription_retried",
     actorId: input.userId,
     detail: { provider: job.provider },

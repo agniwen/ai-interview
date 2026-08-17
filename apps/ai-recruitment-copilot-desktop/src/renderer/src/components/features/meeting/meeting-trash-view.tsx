@@ -221,7 +221,9 @@ export function MeetingTrashView({ slug }: { slug: string }) {
             {trashQuery.error instanceof Error ? trashQuery.error.message : "加载归档记录失败"}
           </p>
           <Button
-            onClick={() => void trashQuery.refetch()}
+            onClick={() => {
+              trashQuery.refetch();
+            }}
             size="sm"
             type="button"
             variant="outline"

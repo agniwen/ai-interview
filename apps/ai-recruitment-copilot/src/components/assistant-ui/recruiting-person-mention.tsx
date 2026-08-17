@@ -75,10 +75,12 @@ function matchScore(person: MentionPerson, lower: string): number {
   return 0;
 }
 
-function useRecruitingPersonPool(): {
+interface RecruitingPersonPool {
   isLoading: boolean;
   people: MentionPerson[];
-} {
+}
+
+function useRecruitingPersonPool(): RecruitingPersonPool {
   const slug = useWorkspaceSlug();
 
   const studioQuery = useQuery({

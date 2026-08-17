@@ -3,6 +3,13 @@ import type {
   HumanInterviewMeetingParticipantRole,
   HumanInterviewMeetingTokenResponse,
 } from "@arc/shared/studio-pipeline-stages";
+import type { JsonObject } from "@arc/db-schema/json";
+
+interface LiveKitServerConfig {
+  apiKey: string;
+  apiSecret: string;
+  serverUrl: string;
+}
 
 export class HumanInterviewLiveKitConfigError extends Error {
   constructor() {
@@ -11,7 +18,7 @@ export class HumanInterviewLiveKitConfigError extends Error {
   }
 }
 
-function getLiveKitServerConfig(): { apiKey: string; apiSecret: string; serverUrl: string } {
+function getLiveKitServerConfig(): LiveKitServerConfig {
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
   const serverUrl = process.env.LIVEKIT_URL;
@@ -43,7 +50,7 @@ export async function signHumanInterviewMeetingToken({
   roomName,
 }: {
   canPublish: boolean;
-  metadata: Record<string, unknown>;
+  metadata: JsonObject;
   participantIdentity: string;
   participantName: string;
   participantRole: HumanInterviewMeetingParticipantRole;

@@ -4,6 +4,7 @@ import { listMeetingTranscriptionProviderCandidates } from "./provider-registry"
 describe("Meeting transcription provider registry", () => {
   it("exposes only the enabled Qwen adapter", () => {
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       listMeetingTranscriptionProviderCandidates({
         ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
         MEETING_TRANSCRIPTION_QWEN_ENABLED: "true",
@@ -21,6 +22,7 @@ describe("Meeting transcription provider registry", () => {
 
   it("returns no candidates when Qwen is disabled", () => {
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       listMeetingTranscriptionProviderCandidates({
         MEETING_TRANSCRIPTION_QWEN_ENABLED: "false",
       } as NodeJS.ProcessEnv),

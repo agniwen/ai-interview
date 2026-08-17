@@ -1,25 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  generateResumeStructured: vi.fn(),
-  parseResumeDocument: vi.fn(),
-  sha256HexOfBytes: vi.fn(),
-}));
-
-vi.mock("@arc/shared/file-hash", () => ({
-  sha256HexOfBytes: mocks.sha256HexOfBytes,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  generateResumeStructured: mocks.generateResumeStructured,
-  parseResumeDocument: mocks.parseResumeDocument,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
+import type { ResumeParseWorkflowDeps } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow";
 import {
   runResumeParseWorkflow,
   streamResumeParseWorkflow,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow";
+
+const mocks = {
+  generateResumeStructured: vi.fn(),
+  parseResumeDocument: vi.fn(),
+  sha256HexOfBytes: vi.fn(),
+};
+
+const dependencies = {
+  hashBytes: mocks.sha256HexOfBytes,
+  parseDocument: mocks.parseResumeDocument,
+  structureText: mocks.generateResumeStructured,
+} satisfies ResumeParseWorkflowDeps;
 
 const STRUCTURED_RESUME = {
   age: null,
@@ -79,7 +75,7 @@ describe("runResumeParseWorkflow", () => {
         fileName: "resume.docx",
         mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       },
-      { onProgress: (event) => events.push(event) },
+      { dependencies, onProgress: (event) => events.push(event) },
     );
 
     expect(result.textSource).toBe("aliyun-docmining");
@@ -112,7 +108,7 @@ describe("runResumeParseWorkflow", () => {
         fileName: "resume.pdf",
         mediaType: "application/pdf",
       },
-      { onProgress: (event) => events.push(event) },
+      { dependencies, onProgress: (event) => events.push(event) },
     );
 
     expect(mocks.parseResumeDocument).toHaveBeenCalledWith(
@@ -139,7 +135,7 @@ describe("runResumeParseWorkflow", () => {
   });
 
   it("streams foreground workflow events while preserving page-level parse progress", async () => {
-    const events: { type: string; [key: string]: unknown }[] = [];
+    const events: { type: string; label?: string; runId?: string; stepId?: string }[] = [];
     const progressEvents: unknown[] = [];
     mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
     mocks.parseResumeDocument.mockImplementation(({ onProgress }) => {
@@ -163,6 +159,7 @@ describe("runResumeParseWorkflow", () => {
         mediaType: "application/pdf",
       },
       {
+        dependencies,
         onProgress: (event) => progressEvents.push(event),
         onWorkflowEvent: (event) => events.push(event),
       },

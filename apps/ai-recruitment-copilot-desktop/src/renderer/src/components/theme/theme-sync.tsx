@@ -1,7 +1,7 @@
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
-import type { ThemeMode } from "@/lib/settings";
 import { updateSettings } from "@/lib/settings";
+import { themeModeSchema } from "../../../../preload/orpc-contract";
 
 /**
  * Mirrors the next-themes selection (which persists to localStorage for
@@ -11,8 +11,9 @@ export function ThemeSync(): null {
   const { theme } = useTheme();
 
   useEffect(() => {
-    if (theme) {
-      void updateSettings({ theme: theme as ThemeMode });
+    const parsedTheme = themeModeSchema.safeParse(theme);
+    if (parsedTheme.success) {
+      void updateSettings({ theme: parsedTheme.data });
     }
   }, [theme]);
 

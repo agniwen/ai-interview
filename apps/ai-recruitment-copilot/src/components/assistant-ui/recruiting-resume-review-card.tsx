@@ -19,13 +19,15 @@ interface RecruitingResumeReviewDimension {
   score: number | null;
 }
 
-export function buildRecruitingResumeReviewCardModel(
-  review: ResumeReviewLoose | null | undefined,
-): {
+interface RecruitingResumeReviewCardModel {
   baseScore: number | null;
   conclusion: string | null;
   dimensions: RecruitingResumeReviewDimension[];
-} {
+}
+
+export function buildRecruitingResumeReviewCardModel(
+  review: ResumeReviewLoose | null | undefined,
+): RecruitingResumeReviewCardModel {
   return {
     baseScore: review ? getResumeReviewBaseScore(review) : null,
     conclusion: review?.overall.conclusion ?? null,

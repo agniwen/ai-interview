@@ -294,7 +294,7 @@ export function getResumeParseQueueStats() {
   return q.getJobCounts("waiting", "active", "delayed", "failed", "completed", "paused");
 }
 
-function emptyCounts(): ResumeParseQueueCounts {
+function emptyCounts() {
   return {
     active: 0,
     completed: 0,

@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,12 @@ const GROUP_ROLE_OPTIONS = [
   "hr",
   "viewer",
 ] as const satisfies readonly RecruitingGroupRole[];
+
+const groupRoleSchema = z.enum(GROUP_ROLE_OPTIONS);
+const errorPayloadSchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
 
 export const DEFAULT_NEW_GROUP_MEMBER_ROLE = "hr" satisfies RecruitingGroupRole;
 
@@ -70,11 +77,8 @@ export function hasDuplicateGroupName(
 }
 
 export async function readErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as {
-    error?: string;
-    message?: string;
-  } | null;
-  return payload?.error ?? payload?.message ?? fallback;
+  const payload = errorPayloadSchema.safeParse(await response.json().catch(() => null));
+  return payload.success ? (payload.data.error ?? payload.data.message ?? fallback) : fallback;
 }
 
 function getColumnId(groupId: string) {
@@ -483,7 +487,12 @@ function GroupMemberCard({
     roleControl = (
       <Select
         disabled={pending === pendingKey}
-        onValueChange={(value) => onRoleChange(groupId, member, value as RecruitingGroupRole)}
+        onValueChange={(value) => {
+          const role = groupRoleSchema.safeParse(value);
+          if (role.success) {
+            onRoleChange(groupId, member, role.data);
+          }
+        }}
         value={member.role}
       >
         <SelectTrigger className="h-8 w-full min-w-0" size="sm">

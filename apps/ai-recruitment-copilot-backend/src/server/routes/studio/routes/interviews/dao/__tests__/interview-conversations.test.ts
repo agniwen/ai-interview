@@ -290,6 +290,7 @@ afterAll(cleanup);
 function expectPresent<T>(value: T | null | undefined): T {
   expect(value).toBeDefined();
   expect(value).not.toBeNull();
+  // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
   return value as T;
 }
 

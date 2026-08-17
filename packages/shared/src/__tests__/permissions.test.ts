@@ -113,6 +113,7 @@ describe("permissions matrix", () => {
     });
 
     it("has no member management access", () => {
+      // SAFETY: The permission matrix fixture is owned by this test and exposes string-keyed statements.
       const stmts = roles.member.statements as Record<string, readonly string[] | undefined>;
       expect(stmts.member ?? []).toHaveLength(0);
     });
@@ -139,6 +140,7 @@ describe("permissions matrix", () => {
     });
 
     it("has no business or member-management permissions", () => {
+      // SAFETY: The permission matrix fixture is owned by this test and exposes string-keyed statements.
       const stmts = roles.noAccess.statements as Record<string, readonly string[] | undefined>;
       const resources = [
         "auditLog",
@@ -253,6 +255,7 @@ describe("permission matrix cross-cut", () => {
 
   for (const [role, resource, action, expected] of cases) {
     it(`${role} ${expected ? "can" : "cannot"} ${action} ${resource}`, () => {
+      // SAFETY: The table only contains permission resources and actions from the fixture matrix.
       const stmts = roles[role].statements as Record<string, readonly string[] | undefined>;
       const allowed = stmts[resource]?.includes(action) ?? false;
       expect(allowed).toBe(expected);

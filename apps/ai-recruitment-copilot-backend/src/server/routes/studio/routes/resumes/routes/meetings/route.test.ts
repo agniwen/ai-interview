@@ -1,37 +1,36 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createRecruitingRecordMeetingsRouter } from "./route";
+import type { RecruitingRecordMeetingsDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({
-  listSavedMeetings: vi.fn(),
-  loadResumeDetail: vi.fn(),
-  resolveRecruitingVisibilityScope: vi.fn(),
-}));
+const mocks = {
+  listSavedMeetings: vi.fn<RecruitingRecordMeetingsDependencies["listSavedMeetings"]>(),
+  loadResumeDetail: vi.fn<RecruitingRecordMeetingsDependencies["loadResumeDetail"]>(),
+  resolveRecruitingVisibilityScope:
+    vi.fn<RecruitingRecordMeetingsDependencies["resolveRecruitingVisibilityScope"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/service", () => ({
-  listSavedMeetings: mocks.listSavedMeetings,
-}));
-vi.mock("../../dao/resumes", () => ({ loadResumeDetail: mocks.loadResumeDetail }));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
-  createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { recruitingRecordMeetingsRouter } from "./route";
+const dependencies: RecruitingRecordMeetingsDependencies = {
+  ...mocks,
+  permissionMiddleware: async (_c, next) => {
+    await next();
+  },
+};
 
 function makeClient() {
   const app = factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-79" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "member" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-79" } as never);
       await next();
     })
-    .route("/resumes/:id/meetings", recruitingRecordMeetingsRouter);
+    .route("/resumes/:id/meetings", createRecruitingRecordMeetingsRouter(dependencies));
   return testClient(app);
 }
 

@@ -21,8 +21,9 @@ export const authClient = createAuthClient({
 
 /** Prefer live renderer origin so OAuth callback matches the real Electron port. */
 export function desktopAppOrigin(): string {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin;
+  const browserWindow = globalThis.window;
+  if (browserWindow?.location.origin) {
+    return browserWindow.location.origin;
   }
   return env.VITE_BASE_URL.replace(/\/+$/, "");
 }

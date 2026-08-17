@@ -12,12 +12,72 @@ import {
   loadRecruitingJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
 type PersistedResumeRecordReviewJobData = Exclude<
   ResumeReviewGenerationJobData,
   { source: "resume_pool_upload" }
 >;
 type ResumeRecordReviewSchedulingInput = Omit<PersistedResumeRecordReviewJobData, "runId">;
+
+export interface ResumeEvaluationRecord {
+  jobDescriptionId: string | null;
+  outcome: string | null;
+  pipelineStage: string | null;
+  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
+  resumeEvaluationAttemptMode: "legacy" | "structured" | null;
+  resumeFileName: string | null;
+  resumeParseStatus: string | null;
+  resumeProfile: ResumeProfile | null;
+  resumeReview: unknown;
+  resumeReviewStatus: string | null;
+  structuredCompositeScore: number | null;
+  structuredGateSortRank: number | null;
+  structuredGateStatus: string | null;
+  structuredResumeEvaluation: unknown;
+  structuredScoreGrade: string | null;
+}
+
+export interface ResumeEvaluationSchedulingContext {
+  job: {
+    evaluationMode: "legacy" | "structured";
+    id: string;
+    lifecycleStatus: "draft" | "published";
+  };
+  record: ResumeEvaluationRecord & { jobDescriptionId: string };
+}
+
+interface SchedulingContextInput {
+  autoMatchJobDescription?: boolean;
+  organizationId: string;
+  resumeRecordId: string;
+}
+
+interface PersistQueuedRunInput {
+  expectedJobDescriptionId: string;
+  mode: "legacy" | "structured";
+  organizationId: string;
+  resumeRecordId: string;
+  runId: string;
+}
+
+interface MarkQueueFailureInput {
+  errorMessage: string;
+  mode: "legacy" | "structured";
+  organizationId: string;
+  resumeRecordId: string;
+  runId: string;
+}
+
+export interface ResumeEvaluationSchedulingDependencies {
+  enqueueReviewJobs: typeof enqueueResumeReviewGenerationJobs;
+  isQueueConfigured: typeof isResumeReviewGenerationQueueConfigured;
+  loadSchedulingContext: (
+    input: SchedulingContextInput,
+  ) => Promise<ResumeEvaluationSchedulingContext | null>;
+  markQueueFailure: (input: MarkQueueFailureInput) => Promise<void>;
+  persistQueuedRun: (input: PersistQueuedRunInput) => Promise<boolean>;
+}
 
 export type ResumeReviewSchedulingResult =
   | { status: "already_current" }
@@ -58,11 +118,9 @@ function hasCurrentEvaluationArtifact(record: {
   return hasCurrentStructuredEvaluation(record) || Boolean(record.resumeReview);
 }
 
-async function loadSchedulingContext(input: {
-  autoMatchJobDescription?: boolean;
-  organizationId: string;
-  resumeRecordId: string;
-}) {
+async function loadSchedulingContextWithDb(
+  input: SchedulingContextInput,
+): Promise<ResumeEvaluationSchedulingContext | null> {
   const [record] = await db
     .select({
       jobDescriptionId: studioInterview.jobDescriptionId,
@@ -120,16 +178,19 @@ async function loadSchedulingContext(input: {
     return null;
   }
   const job = await loadRecruitingJobDescriptionById(input.organizationId, jobDescriptionId);
-  return job ? { job, record: { ...record, jobDescriptionId } } : null;
+  return job
+    ? {
+        job: {
+          evaluationMode: job.evaluationMode,
+          id: job.id,
+          lifecycleStatus: job.lifecycleStatus,
+        },
+        record: { ...record, jobDescriptionId },
+      }
+    : null;
 }
 
-function persistQueuedRun(input: {
-  expectedJobDescriptionId: string;
-  mode: "legacy" | "structured";
-  organizationId: string;
-  resumeRecordId: string;
-  runId: string;
-}) {
+function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
   return db.transaction(async (tx) => {
     const [currentJob] = await tx
       .select({
@@ -181,13 +242,7 @@ function persistQueuedRun(input: {
   });
 }
 
-async function markQueueFailure(input: {
-  errorMessage: string;
-  mode: "legacy" | "structured";
-  organizationId: string;
-  resumeRecordId: string;
-  runId: string;
-}) {
+async function markQueueFailureWithDb(input: MarkQueueFailureInput) {
   const errorMessage = input.errorMessage.slice(0, 1000);
   const legacyValues =
     input.mode === "legacy"
@@ -214,10 +269,19 @@ async function markQueueFailure(input: {
     .returning({ id: studioInterview.id });
 }
 
+const defaultDependencies: ResumeEvaluationSchedulingDependencies = {
+  enqueueReviewJobs: enqueueResumeReviewGenerationJobs,
+  isQueueConfigured: isResumeReviewGenerationQueueConfigured,
+  loadSchedulingContext: loadSchedulingContextWithDb,
+  markQueueFailure: markQueueFailureWithDb,
+  persistQueuedRun: persistQueuedRunWithDb,
+};
+
 export async function scheduleResumeEvaluationForRecord(
   input: ResumeRecordReviewSchedulingInput,
+  dependencies: ResumeEvaluationSchedulingDependencies = defaultDependencies,
 ): Promise<ResumeReviewSchedulingResult> {
-  const context = await loadSchedulingContext(input);
+  const context = await dependencies.loadSchedulingContext(input);
   if (!context?.record.resumeProfile) {
     return {
       errorMessage: "记录不存在、简历尚未解析或绑定岗位尚未发布。",
@@ -240,7 +304,7 @@ export async function scheduleResumeEvaluationForRecord(
   }
 
   const runId = crypto.randomUUID();
-  const persisted = await persistQueuedRun({
+  const persisted = await dependencies.persistQueuedRun({
     expectedJobDescriptionId: context.job.id,
     mode: context.job.evaluationMode,
     organizationId: input.organizationId,
@@ -253,12 +317,12 @@ export async function scheduleResumeEvaluationForRecord(
       status: "failed",
     };
   }
-  if (!isResumeReviewGenerationQueueConfigured()) {
+  if (!dependencies.isQueueConfigured()) {
     return { runId, status: "fallback_sync" };
   }
 
   try {
-    await enqueueResumeReviewGenerationJobs([
+    await dependencies.enqueueReviewJobs([
       {
         ...input,
         force,
@@ -269,7 +333,7 @@ export async function scheduleResumeEvaluationForRecord(
     return { runId, status: "enqueued" };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await markQueueFailure({
+    await dependencies.markQueueFailure({
       errorMessage,
       mode: context.job.evaluationMode,
       organizationId: input.organizationId,
@@ -318,11 +382,14 @@ export class ResumeReassessmentEnqueueError extends Error {
   }
 }
 
-export async function enqueueResumeReassessmentForRecord(input: {
-  organizationId: string;
-  resumeRecordId: string;
-}): Promise<"already_in_progress" | "enqueued" | "fallback_sync"> {
-  const context = await loadSchedulingContext(input);
+export async function enqueueResumeReassessmentForRecord(
+  input: {
+    organizationId: string;
+    resumeRecordId: string;
+  },
+  dependencies: ResumeEvaluationSchedulingDependencies = defaultDependencies,
+): Promise<"already_in_progress" | "enqueued" | "fallback_sync"> {
+  const context = await dependencies.loadSchedulingContext(input);
   if (!context) {
     throw new ResumeReassessmentEnqueueError("记录不存在或绑定岗位尚未发布。");
   }
@@ -337,14 +404,17 @@ export async function enqueueResumeReassessmentForRecord(input: {
     return "already_in_progress";
   }
 
-  const result = await scheduleResumeEvaluationForRecord({
-    force: true,
-    jobDescriptionId: context.job.id,
-    organizationId: input.organizationId,
-    reassessToken: crypto.randomUUID(),
-    resumeRecordId: input.resumeRecordId,
-    source: "reassess",
-  });
+  const result = await scheduleResumeEvaluationForRecord(
+    {
+      force: true,
+      jobDescriptionId: context.job.id,
+      organizationId: input.organizationId,
+      reassessToken: crypto.randomUUID(),
+      resumeRecordId: input.resumeRecordId,
+      source: "reassess",
+    },
+    dependencies,
+  );
   if (result.status === "failed") {
     throw new ResumeReassessmentEnqueueError("重新评估任务入队失败，请稍后重试。", 503);
   }

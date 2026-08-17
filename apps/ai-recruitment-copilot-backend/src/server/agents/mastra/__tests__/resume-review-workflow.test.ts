@@ -1,20 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import {
+  createResumeReviewWorkflow,
+  runResumeReviewWorkflow,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-review-workflow";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   composeReview: vi.fn(),
   generateQualitativeReview: vi.fn(),
   generateScoring: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  composeResumeReviewResult: mocks.composeReview,
-  generateResumeQualitativeReview: mocks.generateQualitativeReview,
-  generateResumeReviewScoring: mocks.generateScoring,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
-import { runResumeReviewWorkflow } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-review-workflow";
+const workflow = createResumeReviewWorkflow(mocks);
 
 const PROFILE: ResumeProfile = {
   age: null,
@@ -40,11 +37,40 @@ describe("runResumeReviewWorkflow", () => {
   });
 
   it("runs qualitative review, scoring, and composition", async () => {
-    const qualitative = { overall: { conclusion: "匹配" } };
-    const scoring = { dimensions: {} };
+    const reviewPoint = { evidence: null, impact: "支持岗位匹配", point: "工程化经验" };
+    const dimension = { rationale: "符合岗位要求", score: 88 };
+    const qualitative = {
+      biasScan: { items: [] },
+      levelRecommendation: { level: "高级", rationale: "经验匹配" },
+      nextStep: {
+        action: "interview" as const,
+        disclaimer: "以上为初步结论" as const,
+        interviewFocus: [],
+        rationale: "建议进一步面试",
+      },
+      overall: { conclusion: "匹配" },
+      strengths: [reviewPoint],
+      teamPositioning: { rationale: "技能匹配", suggestion: "前端工程" },
+      weaknesses: [{ evidence: null, impact: "需要核实", point: "项目细节不足" }],
+    };
+    const scoring = {
+      dimensions: {
+        educationBackground: dimension,
+        experienceRelevance: dimension,
+        potential: dimension,
+        projectMatch: dimension,
+        skillMatch: dimension,
+        stability: dimension,
+      },
+    };
     const composed = {
       review: "候选人与岗位匹配。",
-      structuredReview: { overall: { baseScore: 88 } },
+      structuredReview: {
+        ...qualitative,
+        dimensions: scoring.dimensions,
+        overall: { baseScore: 88, conclusion: "匹配", scoreRationale: "六维得分稳定" },
+        schemaVersion: 4 as const,
+      },
     };
 
     mocks.generateQualitativeReview.mockResolvedValue(qualitative);
@@ -59,11 +85,14 @@ describe("runResumeReviewWorkflow", () => {
       recommendation: "hold" as const,
       ruleResults: [],
     };
-    const result = await runResumeReviewWorkflow({
-      jobDescription: "岗位名称：前端工程师",
-      resumeProfile: PROFILE,
-      screeningResult,
-    });
+    const result = await runResumeReviewWorkflow(
+      {
+        jobDescription: "岗位名称：前端工程师",
+        resumeProfile: PROFILE,
+        screeningResult,
+      },
+      workflow,
+    );
 
     expect(result).toEqual(composed);
     expect(mocks.generateQualitativeReview).toHaveBeenCalledWith({

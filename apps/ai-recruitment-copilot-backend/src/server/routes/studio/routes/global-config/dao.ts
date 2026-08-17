@@ -40,7 +40,7 @@ export async function getGlobalConfig(orgId: string): Promise<GlobalConfigRecord
     openingInstructions: "",
     organizationId: orgId,
     updatedAt: new Date(),
-    updatedBy: null as string | null,
+    updatedBy: null,
   };
   await db.insert(globalConfig).values(fresh);
   return serialize({ ...fresh });

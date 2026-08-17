@@ -55,6 +55,7 @@ export type ResumeParseWorkflowProgressEvent =
   | { preview: z.infer<typeof resumeParsePreviewSchema>; type: "structure.completed" };
 
 export interface RunResumeParseWorkflowOptions {
+  dependencies?: ResumeParseWorkflowDeps;
   onProgress?: (event: ResumeParseWorkflowProgressEvent) => void;
 }
 
@@ -109,13 +110,16 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
         fileName: inputData.fileName,
         mediaType: inputData.mediaType,
       });
-      return {
+      const output: z.output<typeof resumeParseDocumentOutputSchema> = {
         ...inputData,
         pageCount: parsed.pageCount,
-        ...("structured" in parsed ? { structured: parsed.structured } : {}),
         text: parsed.text,
         textSource: parsed.textSource,
       };
+      if ("structured" in parsed) {
+        output.structured = parsed.structured;
+      }
+      return output;
     },
     id: "extract-resume-text",
     inputSchema: resumeParseHashOutputSchema,
@@ -164,17 +168,18 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
 
 function createProgressResumeParseWorkflow(
   onProgress: NonNullable<RunResumeParseWorkflowOptions["onProgress"]>,
+  dependencies: ResumeParseWorkflowDeps,
 ) {
   return createResumeParseWorkflow({
-    hashBytes: sha256HexOfBytes,
+    hashBytes: dependencies.hashBytes,
     parseDocument: (documentInput) =>
-      parseResumeDocument({
+      dependencies.parseDocument({
         ...documentInput,
         onProgress,
       }),
     structureText: async (text) => {
       onProgress({ type: "structure.started" });
-      const structured = await generateResumeStructured(text);
+      const structured = await dependencies.structureText(text);
       onProgress({
         preview: buildResumePreview(structured),
         type: "structure.completed",
@@ -184,11 +189,24 @@ function createProgressResumeParseWorkflow(
   });
 }
 
-export const resumeParseWorkflow = createResumeParseWorkflow({
+const defaultDependencies: ResumeParseWorkflowDeps = {
   hashBytes: sha256HexOfBytes,
   parseDocument: parseResumeDocument,
   structureText: generateResumeStructured,
-});
+};
+
+export const resumeParseWorkflow = createResumeParseWorkflow(defaultDependencies);
+
+function resolveResumeParseWorkflow(options: RunResumeParseWorkflowOptions) {
+  const dependencies = options.dependencies ?? defaultDependencies;
+  if (options.onProgress) {
+    return createProgressResumeParseWorkflow(options.onProgress, dependencies);
+  }
+  if (options.dependencies) {
+    return createResumeParseWorkflow(dependencies);
+  }
+  return resumeParseWorkflow;
+}
 
 export async function runResumeParseWorkflow(
   input: {
@@ -198,9 +216,7 @@ export async function runResumeParseWorkflow(
   },
   options: RunResumeParseWorkflowOptions = {},
 ): Promise<ResumeParseWorkflowOutput> {
-  const workflow = options.onProgress
-    ? createProgressResumeParseWorkflow(options.onProgress)
-    : resumeParseWorkflow;
+  const workflow = resolveResumeParseWorkflow(options);
   const run = await workflow.createRun();
   const result = await run.start({
     inputData: toWorkflowInput(input),
@@ -223,9 +239,7 @@ export async function streamResumeParseWorkflow(
   },
   options: StreamResumeParseWorkflowOptions,
 ): Promise<ResumeParseWorkflowOutput> {
-  const workflow = options.onProgress
-    ? createProgressResumeParseWorkflow(options.onProgress)
-    : resumeParseWorkflow;
+  const workflow = resolveResumeParseWorkflow(options);
   const run = await workflow.createRun();
   const output = run.stream({
     inputData: toWorkflowInput(input),

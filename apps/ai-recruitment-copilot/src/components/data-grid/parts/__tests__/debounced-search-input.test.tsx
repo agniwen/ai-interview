@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DebouncedSearchInput, DEFAULT_SEARCH_DEBOUNCE_MS } from "../debounced-search-input";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function getInput(container: HTMLElement): HTMLInputElement {

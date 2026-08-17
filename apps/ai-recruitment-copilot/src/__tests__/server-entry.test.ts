@@ -1,78 +1,59 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createServerEntryHandler } from "../server";
+import type { ServerEntryDependencies } from "../server";
 
-const startFetch = vi.fn(() => Promise.resolve(new Response("start")));
-const honoFetch = vi.fn(() => Promise.resolve(new Response("hono")));
+const startFetch = vi.fn((_request: Request) => Promise.resolve(new Response("start")));
+const honoFetch = vi.fn((_request: Request) => Promise.resolve(new Response("hono")));
 const createOgImageResponse = vi.fn(
   () => new Response("og", { headers: { "Content-Type": "image/png" } }),
 );
-const createServerApp = vi.fn(() => ({
-  fetch: honoFetch,
-}));
 const initializeFeishuBots = vi.fn(() => Promise.resolve());
 const pingDatabase = vi.fn(() => Promise.resolve());
 const getResumeParseQueueStats = vi.fn(() => Promise.resolve({ waiting: 0 }));
 const isResumeParseQueueConfigured = vi.fn(() => false);
+const createHonoApp = vi.fn(() => Promise.resolve({ fetch: honoFetch }));
 
-vi.mock("@tanstack/react-start/server-entry", () => ({
-  createServerEntry: (entry: unknown) => entry,
-  default: {
-    fetch: startFetch,
-  },
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/app", () => ({
-  createServerApp,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot", () => ({
-  initializeFeishuBots,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  pingDatabase,
-}));
-
-vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
-  getResumeParseQueueStats,
-  isResumeParseQueueConfigured,
-}));
-
-vi.mock("../lib/server/og-image", () => ({
-  createOgImageResponse,
-}));
+function createTestEntry() {
+  const dependencies: ServerEntryDependencies = {
+    applyServerEnv: () => {},
+    createHonoApp,
+    createOgImageResponse,
+    getEnv: (name) => process.env[name],
+    getResumeParseQueueStats,
+    initializeFeishuBots,
+    isResumeParseQueueConfigured,
+    pingDatabase,
+    startFetch,
+  };
+  return createServerEntryHandler(dependencies);
+}
 
 afterEach(() => {
   vi.clearAllMocks();
-  vi.restoreAllMocks();
-  vi.resetModules();
   vi.unstubAllEnvs();
 });
 
 describe("TanStack Start server entry", () => {
   it("serves the process health endpoint before loading API routers", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/api/health");
 
     const response = await entry.fetch(request);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(createServerApp).not.toHaveBeenCalled();
-    expect(initializeFeishuBots).not.toHaveBeenCalled();
     expect(startFetch).not.toHaveBeenCalled();
+    expect(initializeFeishuBots).not.toHaveBeenCalled();
   });
 
   it("reports ready after the Hono app and database are available", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/api/ready");
 
     const response = await entry.fetch(request);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(createServerApp).toHaveBeenCalledTimes(1);
     expect(pingDatabase).toHaveBeenCalledTimes(1);
     expect(isResumeParseQueueConfigured).toHaveBeenCalledTimes(1);
     expect(getResumeParseQueueStats).not.toHaveBeenCalled();
@@ -81,8 +62,7 @@ describe("TanStack Start server entry", () => {
 
   it("checks Redis when the resume parse queue is configured", async () => {
     isResumeParseQueueConfigured.mockReturnValueOnce(true);
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
 
     const response = await entry.fetch(new Request("https://example.test/api/ready"));
 
@@ -94,8 +74,7 @@ describe("TanStack Start server entry", () => {
     const readinessError = new Error("database credentials leaked here");
     pingDatabase.mockRejectedValueOnce(readinessError);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
 
     const response = await entry.fetch(new Request("https://example.test/api/ready"));
 
@@ -105,8 +84,7 @@ describe("TanStack Start server entry", () => {
   });
 
   it("routes /api/rpc requests to the Hono app", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/api/rpc/health");
 
     const response = await entry.fetch(request);
@@ -114,25 +92,22 @@ describe("TanStack Start server entry", () => {
 
     expect(text).toBe("hono");
     expect(honoFetch).toHaveBeenCalledWith(request);
-    expect(createServerApp).toHaveBeenCalledTimes(1);
     expect(startFetch).not.toHaveBeenCalled();
   });
 
   it("routes /api/app-version to TanStack Start", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/api/app-version");
 
     const response = await entry.fetch(request);
 
     expect(await response.text()).toBe("start");
     expect(startFetch).toHaveBeenCalledWith(request);
-    expect(createServerApp).not.toHaveBeenCalled();
+    expect(honoFetch).not.toHaveBeenCalled();
   });
 
   it("serves the Open Graph image before loading API routers", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/og.png");
 
     const response = await entry.fetch(request);
@@ -140,14 +115,13 @@ describe("TanStack Start server entry", () => {
     expect(response.headers.get("Content-Type")).toBe("image/png");
     expect(await response.text()).toBe("og");
     expect(createOgImageResponse).toHaveBeenCalledTimes(1);
-    expect(createServerApp).not.toHaveBeenCalled();
+    expect(honoFetch).not.toHaveBeenCalled();
     expect(startFetch).not.toHaveBeenCalled();
   });
 
   it("starts Feishu bot websocket connections once when enabled", async () => {
     vi.stubEnv("FEISHU_BOT_ENABLED", "true");
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const first = new Request("https://example.test/api/rpc/health");
     const second = new Request("https://example.test/api/resume/models");
 
@@ -159,8 +133,7 @@ describe("TanStack Start server entry", () => {
 
   it("starts Feishu websocket connections when human interview integration is enabled", async () => {
     vi.stubEnv("FEISHU_HUMAN_INTERVIEW_ENABLED", "true");
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
 
     await entry.fetch(new Request("https://example.test/api/rpc/health"));
 
@@ -170,19 +143,15 @@ describe("TanStack Start server entry", () => {
   it("does not start Feishu bot websocket connections while prerendering", async () => {
     vi.stubEnv("FEISHU_BOT_ENABLED", "true");
     vi.stubEnv("TSS_PRERENDERING", "true");
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
 
     await entry.fetch(new Request("https://example.test/"));
-    await vi.dynamicImportSettled();
-
     expect(initializeFeishuBots).not.toHaveBeenCalled();
     expect(startFetch).toHaveBeenCalledTimes(1);
   });
 
   it("routes /api requests to the Hono app", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/api/resume/models");
 
     const response = await entry.fetch(request);
@@ -190,13 +159,11 @@ describe("TanStack Start server entry", () => {
 
     expect(text).toBe("hono");
     expect(honoFetch).toHaveBeenCalledWith(request);
-    expect(createServerApp).toHaveBeenCalledTimes(1);
     expect(startFetch).not.toHaveBeenCalled();
   });
 
   it("routes non-api requests to the TanStack Start handler", async () => {
-    const serverModule = await import("../server");
-    const entry = serverModule.default;
+    const entry = createTestEntry();
     const request = new Request("https://example.test/login");
 
     const response = await entry.fetch(request);

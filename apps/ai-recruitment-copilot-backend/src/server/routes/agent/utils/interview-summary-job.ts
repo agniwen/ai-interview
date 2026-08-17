@@ -1,4 +1,5 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { interviewConversation } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
@@ -10,6 +11,7 @@ import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-bac
 import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 
 const LOG_PREFIX = "[interview-summary]";
+const jsonObjectSchema = z.record(z.string(), z.json());
 
 // A row stuck in `running` past this threshold is assumed orphaned (process
 // crashed mid-LLM) and re-claimable.
@@ -145,7 +147,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       .update(interviewConversation)
       .set({
         evaluationCriteriaResults: report.evaluation
-          ? (report.evaluation as unknown as Record<string, unknown>)
+          ? jsonObjectSchema.parse(report.evaluation)
           : {},
         // Reset attempts on success so a future manual re-run has a full
         // retry budget instead of starting from the accumulated count.

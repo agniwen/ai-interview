@@ -28,8 +28,11 @@ export function isAllowedMeetingExportDownloadUrl(value: string, apiOrigin: stri
   }
 }
 
-export function registerDownloadIpc(apiOrigin = import.meta.env.VITE_BETTER_AUTH_URL): void {
-  ipcMain.handle("download:start", (event, url: string) => {
+export function registerDownloadIpc(
+  apiOrigin = import.meta.env.VITE_BETTER_AUTH_URL,
+  ipcMainLike: Pick<typeof ipcMain, "handle"> = ipcMain,
+): void {
+  ipcMainLike.handle("download:start", (event, url: string) => {
     if (!isAllowedMeetingExportDownloadUrl(url, apiOrigin)) {
       return false;
     }

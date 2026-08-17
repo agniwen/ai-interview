@@ -18,6 +18,7 @@ import { useForm } from "@tanstack/react-form";
 import { m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { SortableQuestionListEditor } from "@/components/features/studio/sortable-question-list-editor";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
@@ -37,11 +38,11 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
-import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
+import { analysisStreamEventSchema, readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -52,6 +53,11 @@ interface LaunchFormValues {
 }
 
 const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
+const streamErrorPayloadSchema = z.object({ error: z.string().optional() });
+const streamQuestionsPayloadSchema = z.object({
+  interviewQuestions: z.array(generatedInterviewQuestionSchema),
+});
+const launchDialogTabSchema = z.enum(["questions", "overview", "experience"]);
 
 export function requiresStructuredLaunchConfirmation(detail: ResumeLibraryDetail | null): boolean {
   return (
@@ -123,19 +129,29 @@ async function streamGenerateQuestions(
     { init: { signal } },
   );
   if (!response.ok) {
-    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(errBody?.error ?? "面试题生成失败");
+    const errorPayload = streamErrorPayloadSchema.safeParse(
+      await response.json().catch(() => null),
+    );
+    throw new Error(
+      errorPayload.success ? (errorPayload.data.error ?? "面试题生成失败") : "面试题生成失败",
+    );
   }
 
   let questions: InterviewQuestion[] | null = null;
   let streamError: string | null = null;
 
-  await readAiRunEventStream<AnalysisStreamEvent>(
+  await readAiRunEventStream(
     response,
+    analysisStreamEventSchema,
     (event) => {
       if (event.type === "run.completed") {
-        const data = event.output as { interviewQuestions?: InterviewQuestion[] } | undefined;
-        questions = data?.interviewQuestions ?? null;
+        const payload = streamQuestionsPayloadSchema.safeParse(event.output);
+        questions = payload.success
+          ? payload.data.interviewQuestions.map((question, index) => ({
+              ...question,
+              order: index + 1,
+            }))
+          : null;
       } else if (event.type === "run.failed") {
         streamError = event.error.message;
       }
@@ -290,7 +306,12 @@ export function LaunchInterviewDialog({
       TabsContent 走 AnimatedHeight，切换时高度平滑过渡。 */}
       <Tabs
         key={recordId ?? "empty"}
-        onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
+        onValueChange={(value) => {
+          const tab = launchDialogTabSchema.safeParse(value);
+          if (tab.success) {
+            setActiveTab(tab.data);
+          }
+        }}
         value={activeTab}
       >
         <Modal
@@ -359,7 +380,13 @@ export function LaunchInterviewDialog({
               >
                 取消
               </Button>
-              <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
+              <Button
+                disabled={isBusy}
+                onClick={() => {
+                  form.handleSubmit();
+                }}
+                type="button"
+              >
                 {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
                 发起
               </Button>

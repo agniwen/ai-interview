@@ -23,7 +23,7 @@ let browserQueryClient: ReturnType<typeof createQueryClient> | undefined;
  *   - browser: reuses a singleton so caches are shared.
  */
 export function getQueryClient() {
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     return createQueryClient();
   }
 

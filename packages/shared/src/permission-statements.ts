@@ -1,4 +1,6 @@
-import type { statement } from "@arc/shared/permissions";
+import type { JsonValue } from "@arc/db-schema/json";
+import { statement } from "@arc/shared/permissions";
+import { z } from "zod";
 
 /**
  * Wire-friendly effective permission matrix for one user in one workspace.
@@ -21,41 +23,53 @@ export function hasPermissionInStatements<R extends PermissionResource>(
   if (!allowed || allowed.length === 0) {
     return false;
   }
-  return (allowed as readonly string[]).includes(action);
+  return allowed.some((allowedAction) => allowedAction === action);
 }
+
+const permissionStatementsInputSchema = z.record(z.string(), z.json());
 
 /**
  * Normalize role / DB permission blobs into a plain statements map.
  * Drops unknown keys and non-array values so callers can trust the shape.
  */
-export function normalizePermissionStatements(value: unknown): WorkspacePermissionStatements {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+export function normalizePermissionStatements(value: JsonValue): WorkspacePermissionStatements {
+  const parsed = permissionStatementsInputSchema.safeParse(value);
+  if (!parsed.success) {
     return {};
   }
 
-  const result: WorkspacePermissionStatements = {};
-  for (const [resource, actions] of Object.entries(value as Record<string, unknown>)) {
-    if (!Array.isArray(actions)) {
+  const entries: [PermissionResource, string[]][] = [];
+  for (const [resource, actions] of Object.entries(parsed.data)) {
+    if (!(resource in statement)) {
       continue;
     }
-    const normalized = actions.filter((action): action is string => typeof action === "string");
-    if (normalized.length === 0) {
+    const parsedActions = z.array(z.json()).safeParse(actions);
+    if (!parsedActions.success || parsedActions.data.length === 0) {
       continue;
     }
-    (result as Record<string, string[]>)[resource] = normalized;
+    // SAFETY: The `resource in statement` check narrows this runtime key to the permission catalog.
+    const permissionResource = resource as PermissionResource;
+    const allowedActions: readonly string[] = statement[permissionResource];
+    const validActions = parsedActions.data.flatMap((action) => {
+      const parsedAction = z.string().safeParse(action);
+      return parsedAction.success && allowedActions.includes(parsedAction.data)
+        ? [parsedAction.data]
+        : [];
+    });
+    if (validActions.length > 0) {
+      entries.push([permissionResource, validActions]);
+    }
   }
-  return result;
+  // SAFETY: Every key and action was checked against the matching `statement` catalog entry.
+  return Object.fromEntries(entries) as WorkspacePermissionStatements;
 }
 
 export function clonePermissionStatements(
   statements: WorkspacePermissionStatements,
 ): WorkspacePermissionStatements {
-  const result: WorkspacePermissionStatements = {};
-  for (const [resource, actions] of Object.entries(statements)) {
-    if (!actions || actions.length === 0) {
-      continue;
-    }
-    (result as Record<string, string[]>)[resource] = [...actions];
-  }
-  return result;
+  const entries = Object.entries(statements).flatMap(([resource, actions]) =>
+    actions && actions.length > 0 ? [[resource, [...actions]]] : [],
+  );
+  // SAFETY: The source is already a validated WorkspacePermissionStatements map and cloning preserves keys/actions.
+  return Object.fromEntries(entries) as WorkspacePermissionStatements;
 }

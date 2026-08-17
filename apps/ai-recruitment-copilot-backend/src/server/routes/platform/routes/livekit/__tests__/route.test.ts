@@ -1,20 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { platformLiveKitRouter } from "../route";
+import { createPlatformLiveKitRouter } from "../route";
 
-const sdkMocks = vi.hoisted(() => ({
+const roomServiceMocks = {
   listParticipants: vi.fn(),
   listRooms: vi.fn(),
-}));
+};
 
-vi.mock("livekit-server-sdk", () => ({
-  RoomServiceClient: class {
-    listParticipants = sdkMocks.listParticipants;
-    listRooms = sdkMocks.listRooms;
-  },
-}));
-
-const app = factory.createApp().route("/livekit", platformLiveKitRouter);
+const app = factory.createApp().route(
+  "/livekit",
+  createPlatformLiveKitRouter({
+    fetchPrometheusText: async (url) => {
+      const response = await fetch(url);
+      return response.text();
+    },
+    getRoomServiceClient: () => {
+      if (
+        !(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET)
+      ) {
+        throw new Error("LiveKit 服务端连接未配置完整");
+      }
+      return roomServiceMocks;
+    },
+  }),
+);
 
 function configureLiveKit() {
   vi.stubEnv("LIVEKIT_URL", "wss://livekit.example.com");
@@ -23,8 +32,8 @@ function configureLiveKit() {
 }
 
 beforeEach(() => {
-  sdkMocks.listParticipants.mockReset();
-  sdkMocks.listRooms.mockReset();
+  roomServiceMocks.listParticipants.mockReset();
+  roomServiceMocks.listRooms.mockReset();
   vi.stubEnv("LIVEKIT_URL", "");
   vi.stubEnv("LIVEKIT_API_KEY", "");
   vi.stubEnv("LIVEKIT_API_SECRET", "");
@@ -49,12 +58,12 @@ describe("platform LiveKit routes", () => {
   it("validates list pagination", async () => {
     const response = await app.request("/livekit/rooms?page=0");
     expect(response.status).toBe(400);
-    expect(sdkMocks.listRooms).not.toHaveBeenCalled();
+    expect(roomServiceMocks.listRooms).not.toHaveBeenCalled();
   });
 
   it("lists active rooms as JSON-safe records", async () => {
     configureLiveKit();
-    sdkMocks.listRooms.mockResolvedValue([
+    roomServiceMocks.listRooms.mockResolvedValue([
       {
         activeRecording: false,
         creationTime: 1_720_000_000n,
@@ -81,17 +90,17 @@ describe("platform LiveKit routes", () => {
 
   it("returns 404 before requesting participants for a closed room", async () => {
     configureLiveKit();
-    sdkMocks.listRooms.mockResolvedValue([]);
+    roomServiceMocks.listRooms.mockResolvedValue([]);
 
     const response = await app.request("/livekit/rooms/closed-room");
 
     expect(response.status).toBe(404);
-    expect(sdkMocks.listParticipants).not.toHaveBeenCalled();
+    expect(roomServiceMocks.listParticipants).not.toHaveBeenCalled();
   });
 
   it("returns 404 when a room closes while its drawer is loading", async () => {
     configureLiveKit();
-    sdkMocks.listRooms
+    roomServiceMocks.listRooms
       .mockResolvedValueOnce([
         {
           activeRecording: false,
@@ -107,12 +116,12 @@ describe("platform LiveKit routes", () => {
         },
       ])
       .mockResolvedValueOnce([]);
-    sdkMocks.listParticipants.mockRejectedValue(new Error("room not found"));
+    roomServiceMocks.listParticipants.mockRejectedValue(new Error("room not found"));
 
     const response = await app.request("/livekit/rooms/closing-room");
 
     expect(response.status).toBe(404);
-    expect(sdkMocks.listRooms).toHaveBeenCalledTimes(2);
+    expect(roomServiceMocks.listRooms).toHaveBeenCalledTimes(2);
   });
 
   it("distinguishes an unconfigured metrics endpoint from an empty scrape", async () => {

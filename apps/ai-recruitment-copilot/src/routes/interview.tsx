@@ -11,8 +11,7 @@ function InterviewQuickStartRoute() {
 }
 
 export const Route = createFileRoute("/interview")({
-  loader: (loaderContext) => {
-    const { location } = loaderContext as { location: { pathname: string } };
+  loader: ({ location }) => {
     if (location.pathname === "/interview") {
       throw redirect({ href: "/" });
     }

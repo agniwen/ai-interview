@@ -21,17 +21,17 @@ export const DISPLAY_MODES_BY_TYPE = {
   text: ["input", "textarea"],
 } as const satisfies Record<CandidateFormQuestionType, readonly CandidateFormDisplayMode[]>;
 
-export const DEFAULT_DISPLAY_MODE: Record<CandidateFormQuestionType, CandidateFormDisplayMode> = {
+export const DEFAULT_DISPLAY_MODE = {
   multi: "checkbox",
   single: "select",
   text: "textarea",
-};
+} satisfies Record<CandidateFormQuestionType, CandidateFormDisplayMode>;
 
 export function isDisplayModeAllowed(
   type: CandidateFormQuestionType,
   displayMode: CandidateFormDisplayMode,
 ): boolean {
-  return (DISPLAY_MODES_BY_TYPE[type] as readonly CandidateFormDisplayMode[]).includes(displayMode);
+  return DISPLAY_MODES_BY_TYPE[type].some((allowedMode) => allowedMode === displayMode);
 }
 
 export const candidateFormOptionSchema = z.object({
@@ -264,34 +264,61 @@ export function buildTemplateSnapshot(params: {
 export function buildCandidateFormAnswersSchema(
   snapshot: CandidateFormTemplateSnapshot,
 ): z.ZodType<Record<string, string | string[]>> {
-  const shape: Record<string, z.ZodTypeAny> = {};
-  for (const question of snapshot.questions) {
-    const allowedValues = new Set(question.options.map((option) => option.value));
-    if (question.type === "single") {
-      let base: z.ZodTypeAny = z.string().refine((val) => allowedValues.has(val), {
-        message: "答案不在可选项范围内",
-      });
-      if (!question.required) {
-        base = base.optional().or(z.literal(""));
+  const questionsById = new Map(snapshot.questions.map((question) => [question.id, question]));
+
+  return z
+    .record(z.string(), z.union([z.string(), z.array(z.string())]))
+    .superRefine((answers, ctx) => {
+      for (const answerId of Object.keys(answers)) {
+        if (!questionsById.has(answerId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.unrecognized_keys,
+            keys: [answerId],
+          });
+        }
       }
-      shape[question.id] = base;
-    } else if (question.type === "multi") {
-      let base: z.ZodTypeAny = z
-        .array(z.string())
-        .refine((arr) => arr.every((val) => allowedValues.has(val)), {
-          message: "答案包含无效选项",
-        });
-      base = question.required
-        ? (base as z.ZodArray<z.ZodString>).min(1, "请至少选择一项")
-        : base.optional();
-      shape[question.id] = base;
-    } else {
-      let base: z.ZodTypeAny = z.string().max(5000, "答案不能超过 5000 字");
-      base = question.required
-        ? (base as z.ZodString).min(1, "答案不能为空")
-        : base.optional().or(z.literal(""));
-      shape[question.id] = base;
-    }
-  }
-  return z.object(shape).strict() as z.ZodType<Record<string, string | string[]>>;
+
+      for (const question of snapshot.questions) {
+        const answer = answers[question.id];
+        const path = [question.id];
+        if (question.type === "multi") {
+          if (!Array.isArray(answer)) {
+            if (question.required || answer !== undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案格式无效", path });
+            }
+            continue;
+          }
+          if (question.required && answer.length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "请至少选择一项", path });
+          }
+          const allowedValues = new Set(question.options.map((option) => option.value));
+          if (!answer.every((value) => allowedValues.has(value))) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案包含无效选项", path });
+          }
+          continue;
+        }
+
+        const parsedAnswer = z.string().safeParse(answer);
+        if (!parsedAnswer.success) {
+          if (question.required || answer !== undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案格式无效", path });
+          }
+          continue;
+        }
+        const stringAnswer = parsedAnswer.data;
+        if (question.required && stringAnswer.length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案不能为空", path });
+        }
+        if (question.type === "text") {
+          if (stringAnswer.length > 5000) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案不能超过 5000 字", path });
+          }
+          continue;
+        }
+        const allowedValues = new Set(question.options.map((option) => option.value));
+        if (stringAnswer.length > 0 && !allowedValues.has(stringAnswer)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "答案不在可选项范围内", path });
+        }
+      }
+    });
 }

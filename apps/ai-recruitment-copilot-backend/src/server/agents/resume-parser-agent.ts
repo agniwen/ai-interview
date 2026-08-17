@@ -1,4 +1,5 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { JsonValue } from "@arc/db-schema/json";
 import { readPdfBytes } from "@arc/shared/resume-pdf";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
@@ -58,7 +59,9 @@ export function toResumeProfile(structured: ResumeParserStructured): ResumeProfi
 // ResumeProfile. Callers use this to decide whether they can skip
 // parseResumeFast. Returns null on shape mismatch so callers fall back
 // to a full parse.
-export function projectAttachmentToResumeProfile(parsedStructured: unknown): ResumeProfile | null {
+export function projectAttachmentToResumeProfile(
+  parsedStructured: JsonValue | ResumeParserStructured | undefined,
+): ResumeProfile | null {
   if (parsedStructured === null || parsedStructured === undefined) {
     return null;
   }

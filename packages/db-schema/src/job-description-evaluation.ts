@@ -211,6 +211,7 @@ export function toJobEvaluationRuleDraft(
   return {
     auxiliarySkills: blueprint.auxiliarySkills.map((skill) => skill.normalizedSkill),
     coreSkills: blueprint.coreSkills.map((skill) => skill.normalizedSkill),
+    // SAFETY: blueprint.dimensionExpectations is schema-validated with the exact draft dimension keys.
     dimensionExpectations: Object.fromEntries(
       Object.entries(blueprint.dimensionExpectations).map(([dimension, expectations]) => [
         dimension,

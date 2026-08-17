@@ -59,19 +59,23 @@ interface OrgDetail {
   };
 }
 
-const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
+const ROLE_BADGE_VARIANT = {
   admin: "default",
   hr: "secondary",
   owner: "default",
   viewer: "outline",
-};
+} as const;
 
-const ROLE_LABEL: Record<string, string> = {
+const ROLE_LABEL = {
   admin: "管理员",
   hr: "HR",
   owner: "所有者",
   viewer: "只读",
-};
+} as const;
+
+function isKnownWorkspaceRole(value: string): value is keyof typeof ROLE_LABEL {
+  return value in ROLE_LABEL;
+}
 
 function MemberSkeletonList() {
   return (
@@ -109,8 +113,8 @@ function MemberList({ data }: { data: OrgDetail }) {
               <p className="truncate font-medium text-sm">{m.userName}</p>
               <p className="truncate text-muted-foreground text-xs">{m.userEmail}</p>
             </div>
-            <Badge variant={ROLE_BADGE_VARIANT[m.role] ?? "outline"}>
-              {ROLE_LABEL[m.role] ?? m.role}
+            <Badge variant={isKnownWorkspaceRole(m.role) ? ROLE_BADGE_VARIANT[m.role] : "outline"}>
+              {isKnownWorkspaceRole(m.role) ? ROLE_LABEL[m.role] : m.role}
             </Badge>
           </CardContent>
         </Card>
@@ -218,7 +222,9 @@ export function OrgDetailDialog({
             <div className="flex gap-2">
               <Button
                 disabled={page <= 1 || loading}
-                onClick={() => void fetchDetail(page - 1)}
+                onClick={() => {
+                  fetchDetail(page - 1);
+                }}
                 size="sm"
                 variant="outline"
               >
@@ -226,7 +232,9 @@ export function OrgDetailDialog({
               </Button>
               <Button
                 disabled={page >= members.totalPages || loading}
-                onClick={() => void fetchDetail(page + 1)}
+                onClick={() => {
+                  fetchDetail(page + 1);
+                }}
                 size="sm"
                 variant="outline"
               >

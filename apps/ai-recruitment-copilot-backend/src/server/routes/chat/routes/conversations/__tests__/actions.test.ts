@@ -1,56 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { confirmRecruitingAction as confirmRecruitingActionWithDependencies } from "../actions";
+import type { RecruitingActionDependencies } from "../actions";
 
-const mocks = vi.hoisted(() => ({
-  loadJobDescriptionById: vi.fn(),
+const mocks = {
   loadRecruitingJobDescriptionById: vi.fn(),
   loadResumePoolItem: vi.fn(),
   patchRecruitingActionConfirmationInConversation: vi.fn(),
-  selectLimit: vi.fn(),
+  resumeRecordExists: vi.fn(),
   upsertConversationContextJobBinding: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: mocks.selectLimit,
-        }),
-      }),
-    }),
-  },
-}));
+const dependencies: RecruitingActionDependencies = {
+  loadJobDescription: mocks.loadRecruitingJobDescriptionById,
+  loadPoolItem: mocks.loadResumePoolItem,
+  patchConfirmation: mocks.patchRecruitingActionConfirmationInConversation,
+  resumeRecordExists: mocks.resumeRecordExists,
+  upsertBinding: mocks.upsertConversationContextJobBinding,
+};
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({
-    loadJobDescriptionById: mocks.loadJobDescriptionById,
-    loadRecruitingJobDescriptionById: mocks.loadRecruitingJobDescriptionById,
-  }),
-);
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao", () => ({
-  loadResumePoolItem: mocks.loadResumePoolItem,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
-  patchRecruitingActionConfirmationInConversation:
-    mocks.patchRecruitingActionConfirmationInConversation,
-  upsertConversationContextJobBinding: mocks.upsertConversationContextJobBinding,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { confirmRecruitingAction } from "../actions";
+function confirmRecruitingAction(
+  input: Parameters<typeof confirmRecruitingActionWithDependencies>[0],
+) {
+  return confirmRecruitingActionWithDependencies(input, dependencies);
+}
 
 describe("confirmRecruitingAction bind_* conversation context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-1", name: "前端工程师" });
     mocks.loadRecruitingJobDescriptionById.mockResolvedValue({
       id: "jd-1",
       name: "前端工程师",
     });
-    mocks.selectLimit.mockResolvedValue([{ id: "resume-1" }]);
+    mocks.resumeRecordExists.mockResolvedValue(true);
     mocks.loadResumePoolItem.mockResolvedValue({
       id: "pool-1",
       jobDescriptionId: null,
@@ -64,6 +45,7 @@ describe("confirmRecruitingAction bind_* conversation context", () => {
 
   it("stores resume-record bind as a chat message binding", async () => {
     const result = await confirmRecruitingAction({
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       authorize: vi.fn() as never,
       conversationId: "conversation-1",
       operatorId: "user-1",
@@ -114,6 +96,7 @@ describe("confirmRecruitingAction bind_* conversation context", () => {
 
   it("stores pool-item bind as a chat message binding", async () => {
     const result = await confirmRecruitingAction({
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       authorize: vi.fn() as never,
       conversationId: "conversation-1",
       operatorId: "user-1",
@@ -153,6 +136,7 @@ describe("confirmRecruitingAction bind_* conversation context", () => {
 
   it("persists ignore decision into tool JSON without writing a job binding", async () => {
     const result = await confirmRecruitingAction({
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       authorize: vi.fn() as never,
       conversationId: "conversation-1",
       decision: "ignore",

@@ -8,7 +8,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@arc/shared/utils";
 import { ResumeLibraryCharts } from "./resume-library-charts";
 
-type MetricsRetry = () => Promise<unknown>;
+type MetricsRetry = () => Promise<void>;
+
+function MetricsChartRenderer({
+  metrics,
+  renderCharts,
+}: {
+  metrics: ResumeLibraryMetrics;
+  renderCharts: (metrics: ResumeLibraryMetrics) => ReactNode;
+}) {
+  return renderCharts(metrics);
+}
 
 function MetricsLoadError({ onRetry }: { onRetry: MetricsRetry }) {
   return (
@@ -53,6 +63,7 @@ export function ResumeLibraryMetricsSection({
   isSwitching = false,
   metrics,
   onRetry,
+  renderCharts,
 }: {
   /** Forces chart remount when scope data changes (TanStack Charts is definition-identity driven). */
   chartKey?: string;
@@ -60,6 +71,7 @@ export function ResumeLibraryMetricsSection({
   isSwitching?: boolean;
   metrics: ResumeLibraryMetrics | undefined;
   onRetry: MetricsRetry;
+  renderCharts?: (metrics: ResumeLibraryMetrics) => ReactNode;
 }) {
   if (error && !metrics) {
     return <MetricsLoadError onRetry={onRetry} />;
@@ -82,7 +94,11 @@ export function ResumeLibraryMetricsSection({
           isSwitching && "pointer-events-none opacity-50",
         )}
       >
-        <ResumeLibraryCharts key={chartKey ?? "metrics"} metrics={metrics} />
+        {renderCharts ? (
+          <MetricsChartRenderer metrics={metrics} renderCharts={renderCharts} />
+        ) : (
+          <ResumeLibraryCharts key={chartKey ?? "metrics"} metrics={metrics} />
+        )}
       </div>
     </MetricsErrorBoundary>
   );

@@ -84,7 +84,12 @@ export function ResumeDetailPage() {
 
   const detailQuery = useQuery({
     enabled: Boolean(slug && recordId),
-    queryFn: () => fetchStudioResume(slug as string, recordId),
+    queryFn: () => {
+      if (!slug) {
+        throw new Error("当前工作区不可用");
+      }
+      return fetchStudioResume(slug, recordId);
+    },
     queryKey: ["studio-resumes", slug, "detail", recordId],
     staleTime: 30_000,
   });

@@ -237,13 +237,19 @@ function CalendarSkeleton() {
   );
 }
 
-export function StudioCalendarPage({ slug }: { slug: string }) {
+export function StudioCalendarPage({
+  fetchCalendar = fetchStudioCalendar,
+  slug,
+}: {
+  fetchCalendar?: typeof fetchStudioCalendar;
+  slug: string;
+}) {
   const [range, setRange] = useState(initialRange);
   const start = range.start.toISOString();
   const end = range.end.toISOString();
   const calendarQuery = useQuery({
     placeholderData: keepPreviousData,
-    queryFn: () => fetchStudioCalendar(slug, start, end),
+    queryFn: () => fetchCalendar(slug, start, end),
     queryKey: studioCalendarKeys.range(slug, start, end),
     staleTime: 30_000,
   });

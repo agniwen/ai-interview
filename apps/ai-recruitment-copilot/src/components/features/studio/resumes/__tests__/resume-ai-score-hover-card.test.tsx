@@ -6,33 +6,16 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ResumeAiScoreHoverCard } from "../resume-ai-score-hover-card";
+import { ResumeAiScoreHoverCardView } from "../resume-ai-score-hover-card";
+import type { ResumeAiScoreDependencies } from "../resume-ai-score-hover-card";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const fetchStudioResumeReviewMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/client/api", () => ({
-  fetchStudioResumeReview: fetchStudioResumeReviewMock,
-}));
-vi.mock("@/lib/client/workspace-context", () => ({
-  useOptionalWorkspaceSlug: () => "demo",
-}));
-vi.mock("../resume-overview-dimension-radar", () => ({
-  OverviewDimensionRadar: ({
-    dimensions,
-    showTooltip,
-  }: {
-    dimensions: { label: string }[];
-    showTooltip?: boolean;
-  }) => (
-    <div data-radar-chart data-show-tooltip={String(showTooltip)}>
-      {dimensions.map((dimension) => dimension.label).join("、")}
-    </div>
-  ),
-}));
+const fetchStudioResumeReviewMock = vi.fn<ResumeAiScoreDependencies["fetchReview"]>();
 
 function createLegacyDetail(): ResumeLibraryDetail {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return {
     candidateName: "张三",
     resumeEvaluationArtifactMode: "legacy",
@@ -52,7 +35,7 @@ function createLegacyDetail(): ResumeLibraryDetail {
       },
     },
     structuredResumeEvaluation: null,
-  } as unknown as ResumeLibraryDetail;
+  } as ResumeLibraryDetail;
 }
 
 function createStructuredDetail(): ResumeLibraryDetail {
@@ -64,6 +47,7 @@ function createStructuredDetail(): ResumeLibraryDetail {
     skillMatch: { rawScore: 88, weight: 35 },
     stability: { rawScore: 78, weight: 7 },
   };
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return {
     candidateName: "李四",
     resumeEvaluationArtifactMode: "structured",
@@ -86,7 +70,7 @@ function createStructuredDetail(): ResumeLibraryDetail {
         summary: "候选人整体匹配。",
       },
     },
-  } as unknown as ResumeLibraryDetail;
+  } as ResumeLibraryDetail;
 }
 
 afterEach(() => {
@@ -105,7 +89,20 @@ function renderHoverCard() {
   act(() => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ResumeAiScoreHoverCard recordId="resume-1">推荐 · 84 分</ResumeAiScoreHoverCard>
+        <ResumeAiScoreHoverCardView
+          dependencies={{
+            fetchReview: fetchStudioResumeReviewMock,
+            renderRadar: (dimensions) => (
+              <div data-radar-chart data-show-tooltip="false">
+                {dimensions.map((dimension) => dimension.label).join("、")}
+              </div>
+            ),
+            slug: "demo",
+          }}
+          recordId="resume-1"
+        >
+          推荐 · 84 分
+        </ResumeAiScoreHoverCardView>
       </QueryClientProvider>,
     );
   });

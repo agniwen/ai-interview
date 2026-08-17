@@ -25,9 +25,25 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 
-gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
+export interface HomeSmoothScrollDependencies {
+  createSmoother: (options: Parameters<typeof ScrollSmoother.create>[0]) => { kill: () => void };
+  getWindow: () => Window | undefined;
+  refreshTriggers: () => void;
+}
 
-export function HomeSmoothScroll({ children }: { children: ReactNode }) {
+const defaultHomeSmoothScrollDependencies: HomeSmoothScrollDependencies = {
+  createSmoother: ScrollSmoother.create,
+  getWindow: () => globalThis.window,
+  refreshTriggers: ScrollTrigger.refresh,
+};
+
+export function HomeSmoothScroll({
+  children,
+  dependencies = defaultHomeSmoothScrollDependencies,
+}: {
+  children: ReactNode;
+  dependencies?: HomeSmoothScrollDependencies;
+}) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +56,9 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
   // the lookup returns null and ScrollSmoother silently fails to initialize.
   // Pass DOM nodes directly instead of selector strings.
   useGSAP(() => {
-    if (typeof window === "undefined") {
+    gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
+    const browserWindow = dependencies.getWindow();
+    if (!browserWindow) {
       return;
     }
 
@@ -50,18 +68,18 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
     // The homepage is a standalone landing page, so don't restore a previous position.
     // Router restoration can otherwise move to a stale offset before GSAP creates its pin
     // spacer, briefly stacking the absolutely-positioned scenes during initialization.
-    window.scrollTo(0, 0);
+    browserWindow.scrollTo(0, 0);
 
     // reduced-motion 时直接退出，让浏览器原生滚动接管
     // Bail out for reduced-motion users — keep native scrolling.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (browserWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
     if (!(wrapperRef.current && contentRef.current)) {
       return;
     }
 
-    const smoother = ScrollSmoother.create({
+    const smoother = dependencies.createSmoother({
       content: contentRef.current,
       // 启用基于滚动方向的 effects（data-speed / data-lag 暂未使用，留接口）。
       // Enable speed/lag effects (we don't use data-speed yet but keep the option open).
@@ -96,7 +114,7 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
     // Existing ScrollTriggers from children already mounted (their useLayoutEffect runs
     // before this parent's) need a refresh so their start/end get recomputed against
     // the smoother's virtual scroll axis.
-    ScrollTrigger.refresh();
+    dependencies.refreshTriggers();
 
     return () => {
       smoother.kill();
@@ -106,7 +124,7 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [dependencies]);
 
   return (
     <div id="smooth-wrapper" ref={wrapperRef}>

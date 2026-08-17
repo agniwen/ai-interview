@@ -27,10 +27,7 @@ function stopStream(stream: MediaStream) {
   }
 }
 
-function formatMediaError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "设备不可用";
-  }
+function formatMediaError(error: Error) {
   if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
     return "浏览器权限未允许";
   }
@@ -49,7 +46,7 @@ async function checkMediaDevice(constraints: MediaStreamConstraints) {
     stopStream(stream);
     return { ok: true, reason: null };
   } catch (error) {
-    return { ok: false, reason: formatMediaError(error) };
+    return { ok: false, reason: error instanceof Error ? formatMediaError(error) : "设备不可用" };
   }
 }
 

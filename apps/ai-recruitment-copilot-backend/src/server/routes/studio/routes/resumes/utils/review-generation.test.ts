@@ -1,25 +1,21 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ResumeReviewGenerationDependencies } from "./review-generation";
+import { generateResumeReviewBestEffort } from "./review-generation";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   generateResumeReview: vi.fn(),
   generateResumeScreeningResult: vi.fn(),
   loadRecruitingJobDescriptionById: vi.fn(),
-}));
+  runStructuredReview: vi.fn(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  generateResumeReview: mocks.generateResumeReview,
-  generateResumeScreeningResult: mocks.generateResumeScreeningResult,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({
-    loadRecruitingJobDescriptionById: mocks.loadRecruitingJobDescriptionById,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { generateResumeReviewBestEffort } from "./review-generation";
+const dependencies = {
+  generateReview: mocks.generateResumeReview,
+  generateScreeningResult: mocks.generateResumeScreeningResult,
+  loadJobDescription: mocks.loadRecruitingJobDescriptionById,
+  runStructuredReview: mocks.runStructuredReview,
+} satisfies ResumeReviewGenerationDependencies;
 
 const RESUME_PROFILE: ResumeProfile = {
   age: null,
@@ -66,15 +62,18 @@ describe("generateResumeReviewBestEffort", () => {
       structuredReview,
     });
 
-    const result = await generateResumeReviewBestEffort({
-      evaluationAsOf: "2026-07-29",
-      jobDescriptionId: "jd-1",
-      organizationId: "org-1",
-      resumeContentHash: null,
-      resumeInputHash: "input-hash",
-      resumeProfile: RESUME_PROFILE,
-      runId: "run-1",
-    });
+    const result = await generateResumeReviewBestEffort(
+      {
+        evaluationAsOf: "2026-07-29",
+        jobDescriptionId: "jd-1",
+        organizationId: "org-1",
+        resumeContentHash: null,
+        resumeInputHash: "input-hash",
+        resumeProfile: RESUME_PROFILE,
+        runId: "run-1",
+      },
+      dependencies,
+    );
 
     expect(result?.mode).toBe("legacy");
     expect(result?.mode === "legacy" ? result.resumeReview : null).toBe(structuredReview);
@@ -106,15 +105,18 @@ describe("generateResumeReviewBestEffort", () => {
     });
     mocks.generateResumeReview.mockRejectedValue(new Error("model unavailable"));
 
-    const result = await generateResumeReviewBestEffort({
-      evaluationAsOf: "2026-07-29",
-      jobDescriptionId: "jd-1",
-      organizationId: "org-1",
-      resumeContentHash: null,
-      resumeInputHash: "input-hash",
-      resumeProfile: RESUME_PROFILE,
-      runId: "run-1",
-    });
+    const result = await generateResumeReviewBestEffort(
+      {
+        evaluationAsOf: "2026-07-29",
+        jobDescriptionId: "jd-1",
+        organizationId: "org-1",
+        resumeContentHash: null,
+        resumeInputHash: "input-hash",
+        resumeProfile: RESUME_PROFILE,
+        runId: "run-1",
+      },
+      dependencies,
+    );
 
     expect(result).toBeNull();
   });

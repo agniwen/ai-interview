@@ -1,13 +1,12 @@
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 import { ResumePoolCard } from "../resume-pool-details";
 import { uploaderMetaLabel } from "../resume-pool-page-model";
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "test-workspace",
-}));
 
 const record = {
   candidateEmail: null,
@@ -75,9 +74,19 @@ const record = {
   workYears: null,
 } satisfies ResumePoolListRecord;
 
+function renderCard(card: ReactElement) {
+  return renderToStaticMarkup(
+    <QueryClientProvider client={new QueryClient()}>
+      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="test-workspace">
+        {card}
+      </WorkspaceSlugProvider>
+    </QueryClientProvider>,
+  );
+}
+
 describe("ResumePoolCard", () => {
   it("shows nine skills and detailed latest company and project information", () => {
-    const html = renderToStaticMarkup(
+    const html = renderCard(
       <ResumePoolCard
         canDelete={false}
         canImport={false}
@@ -124,7 +133,7 @@ describe("ResumePoolCard", () => {
   });
 
   it("offers an enabled reimport action for an imported resume", () => {
-    const html = renderToStaticMarkup(
+    const html = renderCard(
       <ResumePoolCard
         canDelete={false}
         canImport={true}

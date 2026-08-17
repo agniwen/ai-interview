@@ -75,7 +75,7 @@ export function useSetChatHeaderTitle() {
 
 export function ChatHeader() {
   const activeSessionId = useParams({
-    select: (params) => (typeof params.sessionId === "string" ? params.sessionId : null),
+    select: (params) => params.sessionId ?? null,
     strict: false,
   });
   const sessionTitle = useContext(ChatHeaderTitleContext);

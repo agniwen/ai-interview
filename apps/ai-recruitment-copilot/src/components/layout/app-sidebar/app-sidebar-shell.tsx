@@ -10,10 +10,15 @@ import {
 } from "./portals";
 import { WorkspaceSidebarSlots } from "./workspace-sidebar-slots";
 
-const sidebarStyle = {
+interface SidebarStyle extends CSSProperties {
+  "--header-height": string;
+  "--sidebar-width": string;
+}
+
+const sidebarStyle: SidebarStyle = {
   "--header-height": "calc(var(--spacing) * 12)",
   "--sidebar-width": "calc(var(--spacing) * 72)",
-} as CSSProperties;
+};
 
 export function AppSidebarShell({ children }: { children: ReactNode }) {
   return (

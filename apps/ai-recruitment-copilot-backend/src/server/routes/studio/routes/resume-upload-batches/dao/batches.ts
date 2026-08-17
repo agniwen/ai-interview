@@ -27,6 +27,8 @@ type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ItemRow = typeof resumeUploadBatchItem.$inferSelect;
 
 const RETRIABLE_FAILURE_MESSAGES = ["简历文件不可用（S3 对象缺失）。"] as const;
+const ACTIVE_BATCH_STATUSES: ResumeUploadBatchStatus[] = ["pending", "running"];
+const PENDING_BATCH_ITEM_STATUS: ResumeUploadBatchItemStatus = "pending";
 
 export function toBatchDto(row: BatchRow): BulkResumeBatchDto {
   return {
@@ -202,7 +204,7 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
         poolItemId,
         queuedAt: now,
         resumeRecordId: recordId,
-        status: "pending" as ResumeUploadBatchItemStatus,
+        status: PENDING_BATCH_ITEM_STATUS,
         storageKey: file.storageKey,
       })),
     );
@@ -292,7 +294,7 @@ export async function loadActiveBatches(
       and(
         eq(resumeUploadBatch.organizationId, organizationId),
         eq(resumeUploadBatch.createdBy, userId),
-        inArray(resumeUploadBatch.status, ["pending", "running"] as ResumeUploadBatchStatus[]),
+        inArray(resumeUploadBatch.status, ACTIVE_BATCH_STATUSES),
       ),
     )
     .orderBy(desc(resumeUploadBatch.createdAt));

@@ -1,29 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { platformRouter } from "../../../route";
+import { createPlatformResumeParseCacheRouter } from "../route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   deleteCache: vi.fn(),
   getCacheJson: vi.fn(),
   queryCache: vi.fn(),
-}));
-
-vi.mock("../dao", () => ({
-  deleteResumeParseCache: mocks.deleteCache,
-  getResumeParseCacheJson: mocks.getCacheJson,
-  queryPaginatedResumeParseCache: mocks.queryCache,
-}));
+};
 
 function makeApp(role?: string) {
   return factory
     .createApp()
     .use("*", async (c, next) => {
-      if (role) {
-        c.set("user", { id: "user_1", role } as never);
+      if (!role) {
+        return c.json({ error: "未登录" }, 401);
       }
+      // SAFETY: This test constructs the minimal authenticated user fields consumed by the route boundary.
+      c.set("user", { id: "user_1", role } as never);
       await next();
     })
-    .route("/platform", platformRouter);
+    .route(
+      "/platform/resume-parse-cache",
+      createPlatformResumeParseCacheRouter({
+        deleteCache: mocks.deleteCache,
+        getCacheJson: mocks.getCacheJson,
+        queryCache: mocks.queryCache,
+      }),
+    );
 }
 
 describe("platform resume parse cache routes", () => {

@@ -8,6 +8,7 @@ import {
   getMeetingTranscriptionQueue,
   meetingTranscriptionJobSchema,
 } from "@arc/meeting-processing-queue/meeting-transcription";
+import { z } from "zod";
 
 const MODE = process.env.MEETING_LOAD_MODE?.trim();
 const BASE_URL = process.env.MEETING_LOAD_BASE_URL?.replace(/\/$/, "");
@@ -16,6 +17,30 @@ const COOKIE = process.env.MEETING_LOAD_COOKIE?.trim();
 const DEFAULT_DURATION_SECONDS = 120;
 const FINAL_LOAD_POLL_MS = 100;
 const FINAL_LOAD_TIMEOUT_MS = 60 * 60 * 1000;
+
+const liveSessionCookiesSchema = z.array(z.string().min(1)).length(100);
+const directUploadPlanSchema = z.object({
+  uploads: z.array(
+    z.object({
+      headers: z.record(z.string(), z.string()),
+      track: z.enum(["microphone", "system"]),
+      url: z.string(),
+    }),
+  ),
+});
+const operationsSnapshotSchema = z.object({
+  queues: z
+    .object({
+      finalTranscription: z
+        .object({
+          active: z.number().optional(),
+          concurrency: z.number().optional(),
+          waiting: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
 function required(value: string | undefined, name: string): string {
   if (!value) {
@@ -33,12 +58,13 @@ async function apiFetchWithCookie(
   init: RequestInit,
   cookie: string | undefined,
 ): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (cookie) {
+    headers.set("Cookie", cookie);
+  }
   const response = await fetch(`${required(BASE_URL, "MEETING_LOAD_BASE_URL")}${path}`, {
     ...init,
-    headers: {
-      ...init.headers,
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
+    headers,
   });
   if (!response.ok) {
     throw new Error(`Load request failed with HTTP ${response.status}`);
@@ -55,15 +81,11 @@ async function loadLiveSessionCookies(): Promise<string[]> {
     process.env.MEETING_LOAD_LIVE_COOKIES_FILE,
     "MEETING_LOAD_LIVE_COOKIES_FILE",
   );
-  const parsed = JSON.parse(await readFile(file, "utf-8")) as unknown;
-  if (
-    !Array.isArray(parsed) ||
-    parsed.length !== 100 ||
-    parsed.some((cookie) => typeof cookie !== "string" || cookie.length === 0)
-  ) {
+  const parsed = liveSessionCookiesSchema.safeParse(JSON.parse(await readFile(file, "utf-8")));
+  if (!parsed.success) {
     throw new Error("MEETING_LOAD_LIVE_COOKIES_FILE must contain exactly 100 session cookies");
   }
-  return parsed;
+  return parsed.data;
 }
 
 async function runLiveLeaseLoad(): Promise<void> {
@@ -156,21 +178,18 @@ async function runDirectUploadLoad(): Promise<void> {
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
-      const plan = (await response.json()) as {
-        uploads: { headers: Record<string, string>; track: "microphone" | "system"; url: string }[];
-      };
+      const plan = directUploadPlanSchema.parse(await response.json());
       await Promise.all(
-        plan.uploads.map((upload) =>
-          fetch(upload.url, {
+        plan.uploads.map(async (upload) => {
+          const result = await fetch(upload.url, {
             body: upload.track === "microphone" ? microphone : system,
             headers: upload.headers,
             method: "PUT",
-          }).then((result) => {
-            if (!result.ok) {
-              throw new Error(`Object upload failed with HTTP ${result.status}`);
-            }
-          }),
-        ),
+          });
+          if (!result.ok) {
+            throw new Error(`Object upload failed with HTTP ${result.status}`);
+          }
+        }),
       );
       await apiFetch(`/api/w/${slug}/meetings/${meetingId}/complete`, {
         body: JSON.stringify({ manifestSha256 }),
@@ -187,8 +206,10 @@ async function runFinalTranscriptionLoad(): Promise<void> {
     process.env.MEETING_LOAD_FINAL_JOBS_FILE,
     "MEETING_LOAD_FINAL_JOBS_FILE",
   );
-  const parsed = JSON.parse(await readFile(jobsFile, "utf-8")) as unknown;
-  const jobs = meetingTranscriptionJobSchema.array().length(20).parse(parsed);
+  const jobs = meetingTranscriptionJobSchema
+    .array()
+    .length(20)
+    .parse(JSON.parse(await readFile(jobsFile, "utf-8")));
   const jobIds = jobs.map(buildMeetingTranscriptionJobId);
   if (new Set(jobIds).size !== 20 || new Set(jobs.map((job) => job.meetingId)).size !== 20) {
     throw new Error("Final transcription load requires 20 distinct meeting and job identities");
@@ -239,9 +260,7 @@ async function runFinalTranscriptionLoad(): Promise<void> {
     const response = await apiFetch("/operations/meetings", {
       headers: { Authorization: `Bearer ${diagnosticsSecret}` },
     });
-    const snapshot = (await response.json()) as {
-      queues?: { finalTranscription?: { active?: number; concurrency?: number; waiting?: number } };
-    };
+    const snapshot = operationsSnapshotSchema.parse(await response.json());
     console.info("meeting final transcription load completed", {
       completed: terminalStates.filter((state) => state === "completed").length,
       failed: terminalStates.filter((state) => state === "failed").length,

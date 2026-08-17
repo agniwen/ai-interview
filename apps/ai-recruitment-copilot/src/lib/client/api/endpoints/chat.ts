@@ -10,8 +10,10 @@
  */
 
 import type { UIMessage } from "ai";
+import { z } from "zod";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
+import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
@@ -67,23 +69,58 @@ export interface PatchConversationPayload {
   resumeImports?: Record<string, string>;
 }
 
-export interface RecruitingActionProposal {
+interface RecruitingActionProposalBase {
   explanation: string;
   id: string;
-  payload: Record<string, unknown>;
   title: string;
-  type:
-    | "bind_candidate_to_job"
-    | "bind_pool_item_to_job"
-    | "advance_candidate_stage"
-    | "generate_interview_questions";
 }
+
+export type RecruitingActionProposal = RecruitingActionProposalBase &
+  (
+    | {
+        payload: { jobDescriptionId?: string | null; resumeRecordId: string };
+        type: "bind_candidate_to_job";
+      }
+    | {
+        payload: { jobDescriptionId?: string | null; poolItemId: string };
+        type: "bind_pool_item_to_job";
+      }
+    | {
+        payload: {
+          closedMeta?: Omit<ClosedMeta, "previousStage">;
+          closedReason?: string | null;
+          outcome?: CandidateOutcome;
+          pipelineStage: PipelineStage;
+          reactivationReason?: string;
+          resumeRecordId: string;
+        };
+        type: "advance_candidate_stage";
+      }
+    | {
+        payload: {
+          interviewQuestions?: {
+            difficulty: "easy" | "hard" | "medium";
+            evaluationFocus?: string | null;
+            followUpDirections?: string | null;
+            order: number;
+            question: string;
+          }[];
+          resumeRecordId: string;
+        };
+        type: "generate_interview_questions";
+      }
+  );
 
 export interface RecruitingActionConfirmation {
   confirmedAt: string;
   jobDescriptionId?: string;
   jobDescriptionName?: string | null;
   status: "confirmed" | "ignored";
+}
+
+export interface RecruitingActionProposalResult {
+  confirmation?: RecruitingActionConfirmation;
+  proposal?: RecruitingActionProposal;
 }
 
 export interface ConfirmRecruitingActionResult {
@@ -193,16 +230,10 @@ export async function upsertChatMessageOnServer(
   conversationId: string,
   message: UIMessage,
 ): Promise<void> {
-  // hc 把 z.loose() 推断成 `{ [x: string]: unknown; id; role }`，UIMessage 没有
-  // 字符串索引签名，所以这里需要一次明确的 cast；运行时仍由 server 端 zValidator 校验。
-  // hc infers z.loose() as `{ [x: string]: unknown; id; role }`. UIMessage has
-  // no string index signature, so a one-shot cast bridges them; runtime
-  // validation still enforced by the server's zValidator.
-  const wireMessage = message as unknown as {
-    [x: string]: unknown;
-    id: string;
-    role: typeof message.role;
-  };
+  const wireMessage = z
+    .object({ id: z.string(), role: z.enum(["system", "user", "assistant"]) })
+    .catchall(z.json())
+    .parse(message);
   await rpcFetch<{ ok: true }>(
     rpc.api.w[":slug"].chat.conversations[":id"].messages.$post({
       json: { message: wireMessage },
@@ -222,7 +253,7 @@ export async function confirmRecruitingAction(
     rpc.api.w[":slug"].chat.conversations[":id"].actions.confirm.$post({
       json: {
         decision: options?.decision ?? "confirm",
-        proposal: proposal as never,
+        proposal,
       },
       param: { id: conversationId, slug },
     }),

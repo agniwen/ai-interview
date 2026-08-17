@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { JsonValue } from "@arc/db-schema/json";
 import { runAliyunResumeExtraction } from "../../lib/server/aliyun-docmining";
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: JsonValue, status = 200) {
   return Response.json(body, { status });
 }
 

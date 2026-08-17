@@ -10,7 +10,7 @@ function relativeLuminance(hex: string) {
   );
   const [r, g, b] = [red, green, blue].map((channel) => {
     const value = channel / 255;
-    return value <= 0.040_45 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   });
 
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;

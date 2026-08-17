@@ -8,12 +8,12 @@ import { cn } from "@arc/shared/utils";
 
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 
-const lifecycleHoverRingClass: Record<ResumeLifecycleBadgeTone, string> = {
+const lifecycleHoverRingClass = {
   info: "hover:ring-sky-500/10",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
   success: "hover:ring-emerald-500/10",
   warning: "hover:ring-amber-500/10",
-};
+} satisfies Record<ResumeLifecycleBadgeTone, string>;
 
 interface ResumeLifecycleBadgeProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,

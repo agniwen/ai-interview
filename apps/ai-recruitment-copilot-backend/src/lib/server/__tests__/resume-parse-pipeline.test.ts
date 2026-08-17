@@ -1,46 +1,70 @@
 import { setTimeout as delay } from "node:timers/promises";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createResumeParsePipeline } from "../resume-parse-pipeline";
+import type { ResumeParsePipelineDependencies } from "../resume-parse-pipeline";
+import { createResumeParseWithAliyun } from "../resume-parse-aliyun";
+import type { ResumeParseAliyunDependencies } from "../resume-parse-aliyun";
 
-const mocks = vi.hoisted(() => ({
-  convertLegacyOfficeToOoxml: vi.fn(),
-  generateStructuredWithMastraAgent: vi.fn(),
-  processPdfPagesWithMeta: vi.fn(),
-  qwenVlOcr: vi.fn(),
-  resumeStructuredAgent: { id: "resume-structured-agent" },
-  runAliyunResumeExtraction: vi.fn(),
-}));
+const runAliyunResumeExtraction =
+  vi.fn<ResumeParseAliyunDependencies["runAliyunResumeExtraction"]>();
+// SAFETY: This test double only needs the stable agent identity read by the pipeline.
+const resumeStructuredAgent = {
+  id: "resume-structured-agent",
+} as ResumeParsePipelineDependencies["resumeStructuredAgent"];
+// SAFETY: The fake resolves the schema supplied by each test; generic inference is exercised by the production call.
+type GenerateStructuredWithMastraAgent =
+  ResumeParsePipelineDependencies["generateStructuredWithMastraAgent"];
+// SAFETY: The Vitest mock retains the generic production call signature and exposes test controls.
+const generateStructuredWithMastraAgent = vi.fn<GenerateStructuredWithMastraAgent>() as ReturnType<
+  typeof vi.fn<GenerateStructuredWithMastraAgent>
+> &
+  GenerateStructuredWithMastraAgent;
+// SAFETY: The fake renderer implements the callback contract through runMockPdfPageProcessor.
+type ProcessPdfPagesWithMeta = ResumeParsePipelineDependencies["processPdfPagesWithMeta"];
+// SAFETY: The Vitest mock retains the generic production call signature and exposes test controls.
+const processPdfPagesWithMeta = vi.fn<ProcessPdfPagesWithMeta>() as ReturnType<
+  typeof vi.fn<ProcessPdfPagesWithMeta>
+> &
+  ProcessPdfPagesWithMeta;
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
-    resumeStructuredAgent: mocks.resumeStructuredAgent,
-  }),
-);
+const mocks = {
+  convertLegacyOfficeToOoxml:
+    vi.fn<ResumeParsePipelineDependencies["convertLegacyOfficeToOoxml"]>(),
+  generateStructuredWithMastraAgent,
+  getResumeParseProvider: vi.fn<ResumeParsePipelineDependencies["getResumeParseProvider"]>(),
+  isQwenOcrConfigured: vi.fn<ResumeParsePipelineDependencies["isQwenOcrConfigured"]>(),
+  parseResumeWithAliyun: vi.fn<ResumeParsePipelineDependencies["parseResumeWithAliyun"]>(),
+  processPdfPagesWithMeta,
+  qwenVlOcr: vi.fn<ResumeParsePipelineDependencies["qwenVlOcr"]>(),
+  resumeStructuredAgent,
+  runAliyunResumeExtraction,
+} satisfies Omit<ResumeParsePipelineDependencies, "parseResumeWithAliyun"> & {
+  parseResumeWithAliyun: ResumeParsePipelineDependencies["parseResumeWithAliyun"];
+  resumeStructuredAgent: ResumeParsePipelineDependencies["resumeStructuredAgent"];
+  runAliyunResumeExtraction: ResumeParseAliyunDependencies["runAliyunResumeExtraction"];
+};
 
-vi.mock("../office-conversion", () => ({
-  convertLegacyOfficeToOoxml: mocks.convertLegacyOfficeToOoxml,
-}));
-
-vi.mock("../pdf-rasterize", () => ({
-  processPdfPagesWithMeta: mocks.processPdfPagesWithMeta,
-}));
-
-vi.mock("../qwen-ocr", () => ({
-  isQwenOcrConfigured: () => true,
-  qwenVlOcr: mocks.qwenVlOcr,
-}));
-
-vi.mock("../aliyun-docmining", () => ({
-  runAliyunResumeExtraction: mocks.runAliyunResumeExtraction,
-}));
-
+const parseResumeWithAliyun = createResumeParseWithAliyun({
+  runAliyunResumeExtraction,
+});
+const pipeline = createResumeParsePipeline({
+  ...mocks,
+  parseResumeWithAliyun,
+});
 const { extractResumeDocumentText, generateResumeStructured, parseResumeFast, parseResumeOcrOnly } =
-  await import("../resume-parse-pipeline");
+  pipeline;
 
 let pdfPageCount = 3;
 let pdfPages = [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")];
+
+function resetPipelineMocks() {
+  vi.resetAllMocks();
+  mocks.isQwenOcrConfigured.mockReturnValue(true);
+  mocks.getResumeParseProvider.mockImplementation(() =>
+    process.env.RESUME_PARSE_PROVIDER === "aliyun-docmining" ? "aliyun-docmining" : "ocr-llm",
+  );
+}
 
 async function runMockPdfPageProcessor(
   _bytes: Uint8Array,
@@ -59,6 +83,7 @@ async function runMockPdfPageProcessor(
       while (nextPage < pdfPages.length) {
         const index = nextPage;
         nextPage += 1;
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         results[index] = await processPage(pdfPages[index] as Buffer, index);
       }
     }),
@@ -124,7 +149,7 @@ const STRUCTURED_RESUME = {
 
 function aliyunExtractionResult(content = JSON.stringify(STRUCTURED_RESUME)) {
   return {
-    cleanup: { deleted: true, error: null },
+    cleanup: { deleted: true },
     content,
     extractionAttempts: 1,
     pageCount: 2,
@@ -157,13 +182,14 @@ describe("parseResumeOcrOnly", () => {
   const originalRetryDelay = process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS;
 
   beforeEach(() => {
-    vi.resetAllMocks();
+    resetPipelineMocks();
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY = "1";
     process.env.RESUME_PARSE_OCR_ATTEMPTS = "2";
     process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS = "0";
     pdfPageCount = 3;
     pdfPages = [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")];
-    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor);
+    // SAFETY: This deterministic renderer covers the callback contract used by the pipeline tests.
+    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor as never);
   });
 
   afterEach(() => {
@@ -221,7 +247,7 @@ describe("parseResumeOcrOnly", () => {
   });
 
   it("emits page-level OCR progress without changing the OCR result", async () => {
-    mocks.qwenVlOcr.mockImplementation((png: Buffer) => png.toString());
+    mocks.qwenVlOcr.mockImplementation((png: Buffer) => Promise.resolve(png.toString()));
     const events: unknown[] = [];
 
     const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]), {
@@ -309,13 +335,14 @@ describe("parseResumeOcrOnly", () => {
 
 describe("extractResumeDocumentText", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    resetPipelineMocks();
     process.env.ALIBABA_API_KEY = "test-key";
     process.env.ALIBABA_BASE_URL = "https://example.test";
     process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     pdfPageCount = 1;
     pdfPages = [Buffer.from("pdf-page")];
-    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor);
+    // SAFETY: This deterministic renderer covers the callback contract used by the pipeline tests.
+    mocks.processPdfPagesWithMeta.mockImplementation(runMockPdfPageProcessor as never);
     mocks.qwenVlOcr.mockResolvedValue("PDF 候选人 TypeScript");
   });
 
@@ -591,7 +618,7 @@ describe("extractResumeDocumentText", () => {
 
 describe("generateResumeStructured", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    resetPipelineMocks();
     mocks.generateStructuredWithMastraAgent.mockResolvedValue(STRUCTURED_RESUME);
   });
 
@@ -642,7 +669,7 @@ describe("parseResumeFast provider selection", () => {
     process.env.ALIBABA_API_KEY = "test-key";
     mocks.generateStructuredWithMastraAgent.mockClear();
     mocks.qwenVlOcr.mockClear();
-    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+    runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
 
     const result = await parseResumeFast({
       bytes: new Uint8Array([1, 2, 3]),
@@ -656,7 +683,7 @@ describe("parseResumeFast provider selection", () => {
       text: JSON.stringify(STRUCTURED_RESUME),
       textSource: "aliyun-docmining",
     });
-    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+    expect(runAliyunResumeExtraction).toHaveBeenCalledWith(
       expect.objectContaining({
         apiKey: "test-key",
         fileName: "resume.docx",
@@ -669,8 +696,8 @@ describe("parseResumeFast provider selection", () => {
   it("retries once when Aliyun returns truncated structured JSON", async () => {
     process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
     process.env.ALIBABA_API_KEY = "test-key";
-    mocks.runAliyunResumeExtraction.mockReset();
-    mocks.runAliyunResumeExtraction
+    runAliyunResumeExtraction.mockReset();
+    runAliyunResumeExtraction
       .mockResolvedValueOnce(aliyunExtractionResult('{"name":"候选人"'))
       .mockResolvedValueOnce(aliyunExtractionResult());
 
@@ -681,7 +708,7 @@ describe("parseResumeFast provider selection", () => {
     });
 
     expect(result.structured).toEqual(STRUCTURED_RESUME);
-    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledTimes(2);
+    expect(runAliyunResumeExtraction).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -699,15 +726,15 @@ describe("parseResumeFast provider selection", () => {
   ])("passes supported format %s to Aliyun as %s", async (fileName, expectedFileName) => {
     process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
     process.env.ALIBABA_API_KEY = "test-key";
-    mocks.runAliyunResumeExtraction.mockReset();
-    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+    runAliyunResumeExtraction.mockReset();
+    runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
 
     await parseResumeFast({
       bytes: new Uint8Array([1, 2, 3]),
       fileName,
     });
 
-    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+    expect(runAliyunResumeExtraction).toHaveBeenCalledWith(
       expect.objectContaining({ fileName: expectedFileName }),
     );
   });

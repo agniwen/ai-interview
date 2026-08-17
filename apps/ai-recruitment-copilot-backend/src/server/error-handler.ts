@@ -3,10 +3,14 @@ import { HTTPException } from "hono/http-exception";
 import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
 
 interface InternalErrorResponseOptions {
-  context?: Record<string, unknown>;
+  context?: object;
   error: unknown;
   operation: string;
   publicMessage: string;
+}
+
+interface InternalErrorResponse {
+  error: string;
 }
 
 export function createInternalErrorResponse({
@@ -14,7 +18,7 @@ export function createInternalErrorResponse({
   error,
   operation,
   publicMessage,
-}: InternalErrorResponseOptions): { error: string } {
+}: InternalErrorResponseOptions): InternalErrorResponse {
   console.error(`[${operation}] failed`, { ...context, error });
   return { error: publicMessage };
 }

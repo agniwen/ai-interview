@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, Job, JobsOptions } from "bullmq";
 import { z } from "zod";
 
 export const MEETING_ANSWER_QUEUE_NAME = "meeting-answer";
@@ -15,7 +15,7 @@ export type MeetingAnswerJobProcessor = (
 ) => Promise<void>;
 
 interface MeetingAnswerQueuePort {
-  add: (name: string, data: MeetingAnswerJobData, options: JobsOptions) => Promise<unknown>;
+  add: (name: string, data: MeetingAnswerJobData, options: JobsOptions) => Promise<Job | undefined>;
   getJob: (
     jobId: string,
   ) => Promise<{ getState: () => Promise<string>; remove: () => Promise<void> } | undefined>;
@@ -124,9 +124,10 @@ export function createMeetingAnswerWorker(
   const worker = new Worker<MeetingAnswerJobData>(
     MEETING_ANSWER_QUEUE_NAME,
     async (job) => {
+      const parsedAttempts = z.number().safeParse(job.opts.attempts);
       await processJob(meetingAnswerJobSchema.parse(job.data), {
         attempt: job.attemptsMade + 1,
-        maxAttempts: typeof job.opts.attempts === "number" ? job.opts.attempts : 1,
+        maxAttempts: parsedAttempts.success ? parsedAttempts.data : 1,
       });
     },
     {

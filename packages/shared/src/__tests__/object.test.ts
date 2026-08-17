@@ -10,21 +10,35 @@ describe("pick", () => {
   });
 
   it("ignores keys that don't exist on the source (hasOwn-based)", () => {
-    const source = { a: 1 } as { a: number; b?: number };
+    interface OptionalBFixture {
+      a: number;
+      b?: number;
+    }
+    const source: OptionalBFixture = { a: 1 };
     expect(pick(source, ["a", "b"])).toEqual({ a: 1 });
   });
 
   it("ignores inherited properties", () => {
     const parent = { inherited: 1 };
-    const child = Object.create(parent) as { inherited?: number; own?: number };
+    interface InheritedFixture {
+      inherited?: number;
+      own?: number;
+    }
+    // SAFETY: Object.create(parent) is immediately populated and used only as this test fixture contract.
+    const child = Object.create(parent) as InheritedFixture;
     child.own = 2;
-    expect(pick(child as { own: number }, ["own"])).toEqual({ own: 2 });
+    // SAFETY: `child.own = 2` above establishes the required property for this assertion.
+    expect(pick(child as Required<Pick<InheritedFixture, "own">>, ["own"])).toEqual({ own: 2 });
     // 继承属性即便键名匹配也不被拾取 / inherited keys are skipped even if listed
-    expect(pick(child, ["inherited" as never])).toEqual({});
+    expect(pick(child, ["inherited"])).toEqual({});
   });
 
   it("preserves own properties whose value is undefined", () => {
-    const source = { a: undefined, b: 2 } as { a: undefined; b: number };
+    interface UndefinedValueFixture {
+      a: undefined;
+      b: number;
+    }
+    const source: UndefinedValueFixture = { a: undefined, b: 2 };
     const result = pick(source, ["a", "b"]);
     expect(result).toEqual({ a: undefined, b: 2 });
     expect(Object.hasOwn(result, "a")).toBe(true);
@@ -54,7 +68,12 @@ describe("omit", () => {
   });
 
   it("ignores keys not present on the source", () => {
-    expect(omit({ a: 1 }, ["b" as never])).toEqual({ a: 1 });
+    interface OptionalBFixture {
+      a: number;
+      b?: number;
+    }
+    const source: OptionalBFixture = { a: 1 };
+    expect(omit(source, ["b"])).toEqual({ a: 1 });
   });
 
   it("does not mutate the source", () => {

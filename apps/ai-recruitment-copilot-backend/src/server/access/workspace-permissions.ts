@@ -3,6 +3,26 @@ import type { statement } from "@arc/shared/permissions";
 
 type Resource = keyof typeof statement;
 type Action<R extends Resource> = (typeof statement)[R][number];
+type PermissionMap = { [R in Resource]?: Action<R>[] };
+
+interface WorkspacePermissionCheckInput {
+  body: {
+    organizationId: string;
+    permissions: PermissionMap;
+  };
+  headers: Headers;
+}
+
+export interface WorkspacePermissionDependencies {
+  hasPermission: (input: WorkspacePermissionCheckInput) => Promise<{ success: boolean }>;
+}
+
+const defaultDependencies: WorkspacePermissionDependencies = {
+  hasPermission: async (input) => {
+    const result = await auth.api.hasPermission(input);
+    return { success: result.success };
+  },
+};
 
 /**
  * Check a permission against the organization resolved for this request.
@@ -12,21 +32,24 @@ type Action<R extends Resource> = (typeof statement)[R][number];
  * another browser tab can mutate the session between scope resolution and this
  * check. Keep the explicit organization id mandatory at this single boundary.
  */
-export async function hasWorkspacePermission<R extends Resource>({
-  action,
-  headers,
-  organizationId,
-  resource,
-}: {
-  action: Action<R>;
-  headers: Headers;
-  organizationId: string;
-  resource: R;
-}): Promise<boolean> {
-  const result = await auth.api.hasPermission({
+export async function hasWorkspacePermission<R extends Resource>(
+  {
+    action,
+    headers,
+    organizationId,
+    resource,
+  }: {
+    action: Action<R>;
+    headers: Headers;
+    organizationId: string;
+    resource: R;
+  },
+  dependencies: WorkspacePermissionDependencies = defaultDependencies,
+): Promise<boolean> {
+  const result = await dependencies.hasPermission({
     body: {
       organizationId,
-      permissions: { [resource]: [action] } as Record<string, string[]>,
+      permissions: { [resource]: [action] },
     },
     headers,
   });

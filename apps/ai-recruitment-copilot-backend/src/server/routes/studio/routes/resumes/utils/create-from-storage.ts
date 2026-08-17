@@ -44,6 +44,15 @@ export interface CreateResumeRecordFromStorageInput {
   };
 }
 
+export interface CreateResumeRecordFromStorageDependencies {
+  syncSkills: typeof syncResumeSkills;
+}
+
+const defaultCreateResumeRecordFromStorageDependencies: CreateResumeRecordFromStorageDependencies =
+  {
+    syncSkills: syncResumeSkills,
+  };
+
 // 仅"从已经上传好的简历文件 + 已经解析过的 profile"装配一行 studio_interview。
 // 不做：dedup / JD 匹配 / 上传 / 解析——由调用方负责。
 //
@@ -54,6 +63,7 @@ export interface CreateResumeRecordFromStorageInput {
 export async function createResumeRecordFromStorage(
   input: CreateResumeRecordFromStorageInput,
   tx?: Tx,
+  dependencies: CreateResumeRecordFromStorageDependencies = defaultCreateResumeRecordFromStorageDependencies,
 ): Promise<string> {
   const now = new Date();
   const recordId = crypto.randomUUID();
@@ -105,7 +115,7 @@ export async function createResumeRecordFromStorage(
       targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
       updatedAt: now,
     });
-    await syncResumeSkills(executor, {
+    await dependencies.syncSkills(executor, {
       interviewId: recordId,
       organizationId: input.organizationId,
       skills: input.resumeProfile?.skills,

@@ -4,7 +4,10 @@ import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
-  InterviewQuestionTemplateScope,
+} from "@arc/db-schema/interview-question-templates";
+import {
+  interviewQuestionTemplateScopeSchema,
+  interviewQuestionTemplateSchema,
 } from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
@@ -12,6 +15,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -26,13 +30,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
 const QUESTION_MAX_LENGTH = 1000;
+const errorPayloadSchema = z.object({ error: z.string().optional() });
 
 export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
   return {
@@ -126,9 +130,11 @@ export function InterviewQuestionTemplateEditorDialog({
             json: body,
             param: { slug },
           });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const payload = errorPayloadSchema.safeParse(await response.json().catch(() => null));
       if (!response.ok) {
-        toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
+        toast.error(
+          (payload.success ? payload.data.error : undefined) ?? (isEdit ? "更新失败" : "创建失败"),
+        );
         return;
       }
       toast.success(isEdit ? "沟通题已更新" : "已创建沟通题");
@@ -246,8 +252,12 @@ export function InterviewQuestionTemplateEditorDialog({
                     <FieldContent className="gap-2">
                       <Select
                         onValueChange={(value) => {
-                          field.handleChange(value as InterviewQuestionTemplateScope);
-                          if (value === "global") {
+                          const scope = interviewQuestionTemplateScopeSchema.safeParse(value);
+                          if (!scope.success) {
+                            return;
+                          }
+                          field.handleChange(scope.data);
+                          if (scope.data === "global") {
                             form.setFieldValue("jobDescriptionIds", []);
                           }
                         }}

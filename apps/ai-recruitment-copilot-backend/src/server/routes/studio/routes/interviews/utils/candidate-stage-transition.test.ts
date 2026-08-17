@@ -1,30 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { transitionCandidateStage } from "./candidate-stage-transition";
+import type { CandidateStageTransitionDependencies } from "./candidate-stage-transition";
+
+type TransactionValueRecord = Readonly<Record<string, string | number | null>>;
+type TransactionValue = TransactionValueRecord | string | number | null;
+interface AuditDetail {
+  copilotActionProposalId?: string;
+  source?: string;
+}
 
 // oxlint-disable promise/prefer-await-to-callbacks -- the fake transaction must execute Drizzle's callback.
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   getReadinessError: vi.fn(),
   invalidateCaches: vi.fn(),
   loadReadiness: vi.fn(),
   transaction: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: { transaction: mocks.transaction },
-}));
+const dependencies: CandidateStageTransitionDependencies = mocks;
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
-  invalidateStudioInterviewCaches: mocks.invalidateCaches,
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds",
-  () => ({
-    getHumanInterviewOfferReadinessError: mocks.getReadinessError,
-    loadHumanInterviewRoundReadiness: mocks.loadReadiness,
-  }),
-);
+function transition(command: Parameters<typeof transitionCandidateStage>[0]) {
+  return transitionCandidateStage(command, dependencies);
+}
 
 function createTransaction(existing: {
   closedMeta: null;
@@ -32,8 +30,8 @@ function createTransaction(existing: {
   outcome: "in_pipeline";
   pipelineStage: "human_interview" | "screening";
 }) {
-  const insertedValues = vi.fn(async (_value: unknown) => {});
-  const updatedWhere = vi.fn(async (_value: unknown) => {});
+  const insertedValues = vi.fn(async (_value: TransactionValue) => {});
+  const updatedWhere = vi.fn(async (_value: TransactionValue) => {});
   const tx = {
     insert: vi.fn(() => ({ values: insertedValues })),
     select: vi.fn(() => ({
@@ -59,7 +57,7 @@ describe("transitionCandidateStage", () => {
     const authorize = vi.fn().mockResolvedValue(false);
 
     await expect(
-      transitionCandidateStage({
+      transition({
         authorize,
         candidateId: "candidate-a",
         input: { pipelineStage: "offer" },
@@ -90,7 +88,7 @@ describe("transitionCandidateStage", () => {
     const authorize = vi.fn().mockResolvedValue(true);
 
     await expect(
-      transitionCandidateStage({
+      transition({
         authorize,
         candidateId: "candidate-a",
         input: { pipelineStage: "offer" },
@@ -132,7 +130,7 @@ describe("transitionCandidateStage", () => {
     mocks.transaction.mockImplementation(async (callback) => await callback(tx));
 
     await expect(
-      transitionCandidateStage({
+      transition({
         authorize: vi.fn(),
         candidateId: "candidate-a",
         input: { pipelineStage: "screening" },
@@ -157,7 +155,7 @@ describe("transitionCandidateStage", () => {
     mocks.transaction.mockImplementation(async (callback) => await callback(tx));
 
     await expect(
-      transitionCandidateStage({
+      transition({
         authorize: vi.fn(),
         candidateId: "candidate-a",
         input: { pipelineStage: "ai_interview" },
@@ -167,7 +165,8 @@ describe("transitionCandidateStage", () => {
       }),
     ).resolves.toEqual({ kind: "ok" });
 
-    const audit = insertedValues.mock.calls[0]?.[0] as { detail?: Record<string, unknown> };
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    const audit = insertedValues.mock.calls[0]?.[0] as { detail?: AuditDetail };
     expect(audit.detail).not.toHaveProperty("source");
     expect(audit.detail).not.toHaveProperty("copilotActionProposalId");
   });

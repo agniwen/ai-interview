@@ -77,6 +77,19 @@ const tingwuUrlSchema = z.record(
   ),
 );
 
+const nodeFileErrorSchema = z.object({ code: z.string().optional() }).passthrough();
+const benchmarkDeletionSchema = z.enum([
+  "deleted",
+  "delete-failed",
+  "not-applicable",
+  "unsupported",
+]);
+
+interface AmbiguousRecovery {
+  actualCostUsd: number;
+  deletion: MeetingTranscriptionBenchmarkRun["deletion"];
+}
+
 const { values: cliOptions } = parseArgs({
   allowPositionals: false,
   options: {
@@ -124,7 +137,8 @@ async function assertOutputDoesNotExist(path: string): Promise<void> {
   try {
     await access(path);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    const fileError = nodeFileErrorSchema.safeParse(error);
+    if (fileError.success && fileError.data.code === "ENOENT") {
       return;
     }
     throw error;
@@ -132,24 +146,19 @@ async function assertOutputDoesNotExist(path: string): Promise<void> {
   throw new Error(`Benchmark output already exists: ${path}`);
 }
 
-function requiredAmbiguousRecovery(): {
-  actualCostUsd: number;
-  deletion: MeetingTranscriptionBenchmarkRun["deletion"];
-} {
+function requiredAmbiguousRecovery(): AmbiguousRecovery {
   const costValue = cliOptions["ambiguous-cost-usd"];
   const cost = costValue === undefined ? Number.NaN : Number(costValue);
   const deletion = cliOptions["ambiguous-deletion"];
-  if (
-    !(Number.isFinite(cost) && cost >= 0) ||
-    !["deleted", "delete-failed", "not-applicable", "unsupported"].includes(deletion ?? "")
-  ) {
+  const deletionResult = benchmarkDeletionSchema.safeParse(deletion);
+  if (!(Number.isFinite(cost) && cost >= 0) || !deletionResult.success) {
     throw new Error(
       "--retry-ambiguous requires --ambiguous-cost-usd and --ambiguous-deletion after provider-console reconciliation",
     );
   }
   return {
     actualCostUsd: cost,
-    deletion: deletion as MeetingTranscriptionBenchmarkRun["deletion"],
+    deletion: deletionResult.data,
   };
 }
 

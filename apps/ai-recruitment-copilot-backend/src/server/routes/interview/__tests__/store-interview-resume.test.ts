@@ -4,83 +4,35 @@
 // Unit tests for the three branches of storeInterviewResume: registry hit / miss both succeed / miss parse fail / miss S3 fail.
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResumeAnalysisError } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-
-const mocks = vi.hoisted(() => ({
-  buildAttachmentKeyByHash: vi.fn(),
-  createAttachment: vi.fn(),
-  findAttachmentByContentHash: vi.fn(),
-  generateResumeStructured: vi.fn(),
-  parseResumeFastToProfile: vi.fn(),
-  projectAttachmentToResumeProfile: vi.fn(),
-  putObjectBytes: vi.fn(),
-  sha256HexOfBytes: vi.fn(),
-  updateStructuredByHash: vi.fn(),
-}));
-
-vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  putObjectBytes: mocks.putObjectBytes,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
-  createAttachment: mocks.createAttachment,
-  findAttachmentByContentHash: mocks.findAttachmentByContentHash,
-  updateStructuredByHash: mocks.updateStructuredByHash,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  generateResumeStructured: mocks.generateResumeStructured,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  // ResumeAnalysisError 必须真实存在，因为函数内部 instanceof 它。
-  // ResumeAnalysisError must be a real class because the function uses instanceof.
-  ResumeAnalysisError: class MockResumeAnalysisError extends Error {
-    stage: string;
-    constructor(message: string, stage: string) {
-      super(message);
-      this.name = "MockResumeAnalysisError";
-      this.stage = stage;
-    }
-  },
-  parseResumeFastToProfile: mocks.parseResumeFastToProfile,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent", () => ({
-  projectAttachmentToResumeProfile: mocks.projectAttachmentToResumeProfile,
-}));
-
-// db 不会被这条函数路径直接调用（cross-table 查询走的是 chat-attachments
-// 的封装），但 utils.ts 顶层 import 用到 — 给个最小 stub。
-// db isn't on the function's hot path (the cross-table query goes through the
-// chat-attachments wrapper), but utils.ts top-level imports it — minimal stub.
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
-vi.mock("@arc/db-schema/schema", () => ({
-  interviewQuestionTemplate: {},
-  interviewer: {},
-  jobDescription: {},
-  jobDescriptionInterviewer: {},
-  studioInterview: {},
-  studioInterviewSchedule: {},
-}));
-vi.mock("@arc/shared/interview/interview-record", () => ({
-  buildCandidateInterviewView: vi.fn(),
-  buildInterviewLink: vi.fn(),
-  pickCurrentScheduleEntry: vi.fn(),
-  sortScheduleEntries: vi.fn(),
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
-  () => ({
-    flattenPresetQuestionsFromContextSnapshot: vi.fn(),
-    loadActiveInterviewContextSnapshot: vi.fn(),
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
+import { toBadRequest } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import {
+  createResumeUploadStorage,
   resolveResumeUploadStorage,
-  storeInterviewResume,
-  storeResumeObjectOnly,
-  toBadRequest,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/resume-upload-storage";
+import type { ResumeUploadStorageDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/resume-upload-storage";
+
+const mocks = {
+  buildAttachmentKeyByHash: vi.fn<ResumeUploadStorageDependencies["buildAttachmentKeyByHash"]>(),
+  createAttachment: vi.fn<ResumeUploadStorageDependencies["createAttachment"]>(),
+  findAttachmentByContentHash:
+    vi.fn<ResumeUploadStorageDependencies["findAttachmentByContentHash"]>(),
+  generateResumeStructured: vi.fn<ResumeUploadStorageDependencies["generateResumeStructured"]>(),
+  getResumeDocumentExtension:
+    vi.fn<ResumeUploadStorageDependencies["getResumeDocumentExtension"]>(),
+  isResumeAnalysisError: vi.fn<ResumeUploadStorageDependencies["isResumeAnalysisError"]>(),
+  isResumeParseCacheEnabled: vi.fn<ResumeUploadStorageDependencies["isResumeParseCacheEnabled"]>(),
+  isResumeParseCacheSourceCompatible:
+    vi.fn<ResumeUploadStorageDependencies["isResumeParseCacheSourceCompatible"]>(),
+  parseResumeFastToProfile: vi.fn<ResumeUploadStorageDependencies["parseResumeFastToProfile"]>(),
+  projectAttachmentToResumeProfile:
+    vi.fn<ResumeUploadStorageDependencies["projectAttachmentToResumeProfile"]>(),
+  putObjectBytes: vi.fn<ResumeUploadStorageDependencies["putObjectBytes"]>(),
+  sha256HexOfBytes: vi.fn<ResumeUploadStorageDependencies["sha256HexOfBytes"]>(),
+  updateStructuredByHash: vi.fn<ResumeUploadStorageDependencies["updateStructuredByHash"]>(),
+} satisfies ResumeUploadStorageDependencies;
+
+const storage = createResumeUploadStorage(mocks);
+const { storeInterviewResume, storeResumeObjectOnly } = storage;
 
 const HASH = "a".repeat(64);
 const STORAGE_KEY = "chat-attachments/aaa.pdf";
@@ -129,13 +81,31 @@ describe("storeInterviewResume", () => {
     delete process.env.RESUME_PARSE_DISABLE_CACHE;
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
+    mocks.getResumeDocumentExtension.mockImplementation(({ mediaType }) => {
+      if (mediaType === "image/png") {
+        return "png";
+      }
+      if (mediaType === "image/jpeg") {
+        return "jpeg";
+      }
+      return "pdf";
+    });
+    mocks.isResumeParseCacheEnabled.mockImplementation(
+      () => process.env.RESUME_PARSE_DISABLE_CACHE !== "true",
+    );
+    mocks.isResumeParseCacheSourceCompatible.mockReturnValue(true);
+    mocks.isResumeAnalysisError.mockReturnValue(false);
   });
 
   it("registry hit: reuses storageKey + cached profile, no PUT, copies attachment row", async () => {
+    // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
-      parsedStructured: { name: "郭靖" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "郭靖" } as never,
       storageKey: STORAGE_KEY,
-    });
+      // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
+    } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "郭靖" } as never);
 
     const result = await storeInterviewResume("interview-1", makeFile(), "user-1", "org-test");
@@ -159,17 +129,24 @@ describe("storeInterviewResume", () => {
 
   it("cache disabled: ignores registry hit and parses the uploaded PDF", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "true";
+    // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
-      parsedStructured: { name: "缓存候选人" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "缓存候选人" } as never,
       storageKey: "chat-attachments/cached.pdf",
-    });
+      // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
+    } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "缓存候选人" } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
     mocks.parseResumeFastToProfile.mockResolvedValue({
       parsedPageCount: 1,
-      parsedStructured: { name: "新候选人" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "新候选人" } as never,
       parsedText: "fresh raw",
       parsedTextSource: "qwen-ocr",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       resumeProfile: { name: "新候选人" } as never,
     });
 
@@ -197,12 +174,15 @@ describe("storeInterviewResume", () => {
     mocks.findAttachmentByContentHash.mockResolvedValue(null);
     // putObjectBytes resolves void — pass undefined to satisfy the typed mock.
     // putObjectBytes 解析 void 类型，传入 undefined 以满足类型约束。
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
     mocks.parseResumeFastToProfile.mockResolvedValue({
       parsedPageCount: 2,
-      parsedStructured: { name: "李四" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "李四" } as never,
       parsedText: "raw",
       parsedTextSource: "qwen-ocr",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       resumeProfile: { name: "李四" } as never,
     });
 
@@ -228,12 +208,15 @@ describe("storeInterviewResume", () => {
 
   it("miss + image resume: stores by the image media type extension", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue(null);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
     mocks.parseResumeFastToProfile.mockResolvedValue({
       parsedPageCount: 1,
-      parsedStructured: { name: "图片候选人" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "图片候选人" } as never,
       parsedText: "image raw",
       parsedTextSource: "qwen-ocr",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       resumeProfile: { name: "图片候选人" } as never,
     });
 
@@ -259,6 +242,7 @@ describe("storeInterviewResume", () => {
 
   it("miss + parse fails: PUT succeeds, no createAttachment, profile is null", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue(null);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
     mocks.parseResumeFastToProfile.mockRejectedValue(new Error("OCR boom"));
 
@@ -279,9 +263,11 @@ describe("storeInterviewResume", () => {
     mocks.putObjectBytes.mockRejectedValue(new Error("S3 boom"));
     mocks.parseResumeFastToProfile.mockResolvedValue({
       parsedPageCount: 1,
-      parsedStructured: {},
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: {} as never,
       parsedText: "",
       parsedTextSource: "qwen-ocr",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       resumeProfile: {} as never,
     });
 
@@ -306,10 +292,25 @@ describe("storeResumeObjectOnly", () => {
     }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
+    mocks.getResumeDocumentExtension.mockImplementation(({ mediaType }) => {
+      if (mediaType === "image/png") {
+        return "png";
+      }
+      if (mediaType === "image/jpeg") {
+        return "jpeg";
+      }
+      return "pdf";
+    });
+    mocks.isResumeParseCacheEnabled.mockImplementation(
+      () => process.env.RESUME_PARSE_DISABLE_CACHE !== "true",
+    );
+    mocks.isResumeParseCacheSourceCompatible.mockReturnValue(true);
+    mocks.isResumeAnalysisError.mockReturnValue(false);
   });
 
   it("miss: uploads to S3 and writes a pending attachment without parsing", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue(null);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
 
     const result = await storeResumeObjectOnly(makeFile(), "user-5", "org-test");
@@ -331,13 +332,17 @@ describe("storeResumeObjectOnly", () => {
 
   it("cache disabled: does not read existing attachment metadata during object-only upload", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "true";
+    // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
       filename: "cached.pdf",
       mediaType: "application/pdf",
       parsedStatus: "ready",
-      parsedStructured: { name: "缓存候选人" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "缓存候选人" } as never,
       storageKey: "chat-attachments/cached.pdf",
-    });
+      // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
+    } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
 
     const result = await storeResumeObjectOnly(
@@ -368,12 +373,15 @@ describe("storeResumeObjectOnly", () => {
   });
 
   it("registry hit: rewrites the object bytes so the queued parser can read S3", async () => {
+    // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
       filename: "resume.pptx",
       mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       parsedStatus: "pending",
       storageKey: STORAGE_KEY,
-    });
+      // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
+    } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
 
     const result = await storeResumeObjectOnly(
@@ -403,14 +411,18 @@ describe("storeResumeObjectOnly", () => {
 
   it("registry hit: uses a freshly written current-file key instead of a stale cached key", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "false";
+    // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
       filename: "old-resume.pdf",
       mediaType: "application/pdf",
       parsedStatus: "ready",
-      parsedStructured: { name: "缓存候选人" },
+      // SAFETY: This test supplies only the fields read by the storage boundary.
+      parsedStructured: { name: "缓存候选人" } as never,
       storageKey: "chat-attachments/stale.pdf",
-    });
+      // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
+    } as never);
     mocks.buildAttachmentKeyByHash.mockResolvedValue("chat-attachments/fresh.jpeg");
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
 
     const result = await storeResumeObjectOnly(
@@ -454,6 +466,7 @@ describe("resolveResumeUploadStorage", () => {
       parsedResumePayload: {
         fileName: "resume.pdf",
         interviewQuestions: [],
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         resumeProfile: { name: "客户端解析候选人" } as never,
         resumeText: "客户端预解析 OCR 原文",
       },

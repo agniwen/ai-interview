@@ -1,22 +1,26 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createMeetingTrashActionRouter } from "./route";
+import type { MeetingTrashActionDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({ trashSavedMeeting: vi.fn() }));
-vi.mock("../../lifecycle-service", () => mocks);
+const mocks = {
+  trashSavedMeeting: vi.fn<MeetingTrashActionDependencies["trashSavedMeeting"]>(),
+};
 
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingTrashActionRouter } from "./route";
+const dependencies: MeetingTrashActionDependencies = mocks;
 
 function makeClient() {
   const app = factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-84" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-84" } as never);
       await next();
     })
-    .route("/meetings/:id/trash", meetingTrashActionRouter);
+    .route("/meetings/:id/trash", createMeetingTrashActionRouter(dependencies));
   return testClient(app);
 }
 

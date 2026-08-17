@@ -5,6 +5,7 @@ import { mkdir, open, readFile, readdir, rm, stat, unlink } from "node:fs/promis
 import { dirname, join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 import { z } from "zod";
+import type { JsonValue } from "@arc/db-schema/json";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
@@ -47,7 +48,7 @@ interface LocalMeetingRecordingStoreOptions {
   sessionStore?: LocalMeetingSessionStore;
 }
 
-const jsonBytes = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+const jsonBytes = (value: JsonValue) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 
 /**
@@ -144,7 +145,7 @@ type StoredFragment = z.infer<typeof storedFragmentSchema>;
 type StoredManifest = z.infer<typeof storedManifestSchema>;
 type SaveIntent = z.infer<typeof saveIntentSchema>;
 
-function parseStoredManifest(value: unknown, captureId: string): StoredManifest {
+function parseStoredManifest(value: JsonValue, captureId: string): StoredManifest {
   const parsed = storedManifestSchema.safeParse(value);
   if (!parsed.success || parsed.data.captureId !== captureId) {
     throw new Error("本地录音清单结构无效");
@@ -152,14 +153,19 @@ function parseStoredManifest(value: unknown, captureId: string): StoredManifest 
   return parsed.data;
 }
 
-function emptyTrackSummary(): Record<CaptureTrack, RecordingTrackSummary> {
+interface RecordingTracksSummary {
+  microphone: RecordingTrackSummary;
+  system: RecordingTrackSummary;
+}
+
+function emptyTrackSummary(): RecordingTracksSummary {
   return {
     microphone: { bytes: 0, committedThroughMs: 0, fragmentCount: 0 },
     system: { bytes: 0, committedThroughMs: 0, fragmentCount: 0 },
   };
 }
 
-function summarize(fragments: StoredFragment[]): Record<CaptureTrack, RecordingTrackSummary> {
+function summarize(fragments: StoredFragment[]): RecordingTracksSummary {
   const tracks = emptyTrackSummary();
   for (const fragment of fragments) {
     const track = tracks[fragment.track];
@@ -168,6 +174,10 @@ function summarize(fragments: StoredFragment[]): Record<CaptureTrack, RecordingT
     track.fragmentCount += 1;
   }
   return tracks;
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function manifestDigest(manifest: StoredManifest): string {
@@ -258,9 +268,9 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
 
   private async readManifest(captureId: string): Promise<StoredManifest> {
     const contents = await readFile(this.manifestPath(captureId), "utf-8");
-    let parsed: unknown;
+    let parsed: JsonValue;
     try {
-      parsed = JSON.parse(contents);
+      parsed = z.json().parse(JSON.parse(contents));
     } catch {
       throw new Error("本地录音清单 JSON 损坏");
     }
@@ -294,7 +304,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         this.operations.delete(captureId);
       }
     };
-    void current.then(cleanup, cleanup);
+    current.then(cleanup).catch(cleanup);
     return current;
   }
 
@@ -305,7 +315,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     try {
       lock = await open(this.activeLockPath(), "wx", 0o600);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      if (isErrnoException(error) && error.code === "EEXIST") {
         throw new Error("此电脑已有一个正在录制的会议", { cause: error });
       }
       throw error;
@@ -422,7 +432,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   }> {
     // 恢复只信任序号连续且大小、SHA-256 都匹配的前缀；损坏尾部永不进入后续上传。
     // Recovery trusts only a contiguous size-and-SHA-256-verified prefix; a damaged tail is never uploaded.
-    const expected: Record<CaptureTrack, number> = { microphone: 0, system: 0 };
+    const expected = { microphone: 0, system: 0 };
     const verified: StoredFragment[] = [];
     let truncated = false;
     for (const fragment of manifest.fragments) {
@@ -705,7 +715,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         status: stored.status,
       };
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      if (!isErrnoException(error) || error.code !== "ENOENT") {
         throw error;
       }
       await atomicWrite(this.saveIntentPath(manifest.captureId), jsonBytes(expected));
@@ -765,7 +775,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       try {
         lock = await open(this.activeLockPath(), "wx", 0o600);
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        if (isErrnoException(error) && error.code === "EEXIST") {
           throw new Error("此电脑已有一个正在录制的会议", { cause: error });
         }
         throw error;
@@ -842,7 +852,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         await unlink(this.activeLockPath());
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      if (!isErrnoException(error) || error.code !== "ENOENT") {
         throw error;
       }
     }
@@ -854,7 +864,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       const lockContents = await readFile(this.activeLockPath(), "utf-8");
       captureId = lockContents.trim();
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if (isErrnoException(error) && error.code === "ENOENT") {
         return;
       }
       throw error;
@@ -931,12 +941,13 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           }
           await this.releaseActiveLock(manifest.captureId);
           if (manifest.status === "interrupted") {
-            this.sessionStore.update(manifest.captureId, {
-              ...(manifest.liveTranscriptDraft
-                ? { liveTranscriptDraft: manifest.liveTranscriptDraft }
-                : {}),
+            const sessionPatch: Parameters<LocalMeetingSessionStore["update"]>[1] = {
               state: "interrupted",
-            });
+            };
+            if (manifest.liveTranscriptDraft) {
+              sessionPatch.liveTranscriptDraft = manifest.liveTranscriptDraft;
+            }
+            this.sessionStore.update(manifest.captureId, sessionPatch);
             recoverable.push({
               captureId: manifest.captureId,
               possibleTailGap: manifest.possibleTailGap || verification.truncated,

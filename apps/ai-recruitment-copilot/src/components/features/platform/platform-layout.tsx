@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useRouterState } from "@tanstack/react-router";
 import { AppVersionProvider } from "@/components/features/app-version/app-version-provider";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
@@ -10,21 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { PlatformHeader } from "./platform-header";
 import { PlatformSidebarSlots } from "./platform-sidebar-slots";
-import { resolvePlatformSidebarTab } from "./platform-sidebar-tabs";
 
 function PlatformContent({ children }: { children: ReactNode }) {
-  const isMastraStudio = useRouterState({
-    select: (state) => resolvePlatformSidebarTab(state.location.pathname) === "mastra",
-  });
-
-  if (isMastraStudio) {
-    return (
-      <div className="@container/main flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <PendingOutlet className="min-h-0 flex-1 overflow-hidden">{children}</PendingOutlet>
-      </div>
-    );
-  }
-
   return (
     <ScrollArea className="@container/main min-h-0 flex-1 bg-background">
       <PlatformHeader />

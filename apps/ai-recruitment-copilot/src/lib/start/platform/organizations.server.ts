@@ -6,6 +6,7 @@ import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { member, organization } from "@arc/db-schema/schema";
+import { z } from "zod";
 
 type EmptyFilters = Record<string, never>;
 
@@ -73,5 +74,6 @@ export async function loadPlatformOrganizationsHydrationState(
     queryKey: buildDataGridQueryKey(["platform-organizations"], query),
   });
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

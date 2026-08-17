@@ -3,15 +3,9 @@
 "use client";
 
 import { useEditor } from "@tiptap/react";
-import type { Editor } from "@tiptap/react";
 import { useEffect, useRef } from "react";
 import { createMarkdownExtensions } from "./extensions";
-
-function readMarkdown(editor: Editor): string {
-  return (
-    editor.storage as unknown as { markdown: { getMarkdown(): string } }
-  ).markdown.getMarkdown();
-}
+import { readMarkdown } from "./markdown-io";
 
 interface Options {
   value: string;
@@ -39,7 +33,7 @@ export function useMarkdownEditor({ value, onChange, maxLength, placeholder, dis
     onUpdate: ({ editor: e }) => {
       const md = readMarkdown(e);
       const max = maxLengthRef.current;
-      if (typeof max === "number" && md.length > max) {
+      if (max !== undefined && md.length > max) {
         e.commands.setContent(lastEmittedRef.current, { emitUpdate: false });
         return;
       }

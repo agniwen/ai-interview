@@ -69,12 +69,17 @@ export function InterviewResultTabContent({
     updatingRoundId,
   } = model;
   const showRoundActions = canUseManagementActions && !isPublic;
+  const selectedRoundId = record.roundId;
+  const handleResetSelectedRound = selectedRoundId ? () => handleResetRound(selectedRoundId) : null;
+  const handleToggleSelectedRoundTextInput = selectedRoundId
+    ? (allowTextInput: boolean) => handleToggleAllowTextInput(selectedRoundId, allowTextInput)
+    : null;
   const frozenInput = report?.snapshotMetadata?.fullTextInput;
   const frozenCandidate = frozenInput?.candidate;
   const canResetResultRound =
     showRoundActions &&
     isLatestResultReportSelected &&
-    Boolean(record.roundId) &&
+    handleResetSelectedRound &&
     record.pipelineStage === "ai_interview";
   const activeEvidence = report
     ? resolveActiveEvidence(selectedEvidence, report.conversationId)
@@ -133,7 +138,9 @@ export function InterviewResultTabContent({
                   resumeFileName={record.resumeFileName}
                   targetRole={frozenCandidate ? frozenCandidate.targetRole : record.targetRole}
                 />
-                {showRoundActions && isLatestResultReportSelected && record.roundId ? (
+                {showRoundActions &&
+                isLatestResultReportSelected &&
+                handleToggleSelectedRoundTextInput ? (
                   <Field className="mt-4 w-auto max-w-full gap-0 border-border/50 border-t pt-4">
                     <FieldContent>
                       <div className="flex items-center justify-between gap-3">
@@ -147,9 +154,7 @@ export function InterviewResultTabContent({
                             record.roundStatus === "completed" || updatingRoundId === record.roundId
                           }
                           id={`round-allow-text-input-${record.roundId}`}
-                          onCheckedChange={(next) =>
-                            void handleToggleAllowTextInput(record.roundId as string, next)
-                          }
+                          onCheckedChange={handleToggleSelectedRoundTextInput}
                         />
                       </div>
                       <FieldDescription className="text-xs">
@@ -195,11 +200,11 @@ export function InterviewResultTabContent({
                   <FrameHeader className="flex-row items-center gap-2">
                     <FrameTitle>沟通题</FrameTitle>
                     <Badge variant="outline">共{interviewItems.length}题</Badge>
-                    {canResetResultRound ? (
+                    {canResetResultRound && handleResetSelectedRound ? (
                       <Button
                         className="ml-auto"
                         disabled={resettingRoundId === record.roundId}
-                        onClick={() => void handleResetRound(record.roundId as string)}
+                        onClick={handleResetSelectedRound}
                         size="xs"
                         type="button"
                         variant="outline"

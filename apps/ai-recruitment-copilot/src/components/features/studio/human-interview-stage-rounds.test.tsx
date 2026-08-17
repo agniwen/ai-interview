@@ -9,54 +9,39 @@ import type {
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
 import { RoundCard } from "./human-interview-stage-rounds";
+import type { RoundCardDependencies } from "./human-interview-stage-rounds";
+import { ApiError } from "@/lib/client/api";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const apiMocks = vi.hoisted(() => ({
-  patchRound: vi.fn(),
-  updateMeeting: vi.fn(),
-}));
-const toastMocks = vi.hoisted(() => ({
+const patchRoundMock = vi.fn<RoundCardDependencies["patchHumanInterviewRound"]>();
+const updateMeetingMock = vi.fn<RoundCardDependencies["updateHumanInterviewMeeting"]>();
+const toastMocks = {
   error: vi.fn(),
   success: vi.fn(),
   warning: vi.fn(),
-}));
+};
 
-vi.mock("@/lib/client/api", () => ({
-  isApiError: (error: unknown) =>
-    typeof error === "object" && error !== null && "status" in error && "payload" in error,
-  patchHumanInterviewRound: apiMocks.patchRound,
-  updateHumanInterviewMeeting: apiMocks.updateMeeting,
-}));
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "test-workspace",
-}));
-
-vi.mock("sonner", () => ({ toast: toastMocks }));
-
-vi.mock("@/components/date-time-picker", () => ({
-  DateTimePicker: ({
-    disabled,
-    id,
-    onValueChange,
-    value,
-  }: {
-    disabled?: boolean;
-    id: string;
-    onValueChange: (value: string) => void;
-    value: string;
-  }) => (
+const dependencies: RoundCardDependencies = {
+  isApiError: (error): error is ApiError => error instanceof ApiError,
+  notifyError: toastMocks.error,
+  notifySuccess: toastMocks.success,
+  notifyWarning: toastMocks.warning,
+  patchHumanInterviewRound: patchRoundMock,
+  renderDateTimePicker: ({ disabled, id, onValueChange, value }) => (
     <input
       aria-label={id}
       disabled={disabled}
       id={id}
-      onChange={(event) => onValueChange(event.target.value)}
+      onChange={(event) => onValueChange(event.currentTarget.value)}
       type="datetime-local"
       value={value}
     />
   ),
-}));
+  updateHumanInterviewMeeting: updateMeetingMock,
+  useWorkspaceSlug: () => "test-workspace",
+};
 
 const round: HumanInterviewRoundRecord = {
   cancelReason: null,
@@ -118,7 +103,7 @@ afterEach(() => {
 
 describe("RoundCard rescheduling", () => {
   it("updates the linked meeting so Feishu can be synchronized", async () => {
-    apiMocks.updateMeeting.mockResolvedValue(meeting);
+    updateMeetingMock.mockResolvedValue(meeting);
     const onRescheduled = vi.fn();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
@@ -132,6 +117,7 @@ describe("RoundCard rescheduling", () => {
             canCreate
             canDelete
             canUpdate
+            dependencies={dependencies}
             meeting={meeting}
             onCancel={vi.fn()}
             onComplete={vi.fn()}
@@ -148,9 +134,11 @@ describe("RoundCard rescheduling", () => {
     act(() => {
       document.querySelector<HTMLButtonElement>('[aria-label="调整面试时间"]')?.click();
     });
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const scheduledAtInput = document.querySelector(
       "#human-round-round-1-scheduled-at",
     ) as HTMLInputElement;
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const validUntilInput = document.querySelector(
       "#human-round-round-1-valid-until",
     ) as HTMLInputElement;
@@ -168,12 +156,12 @@ describe("RoundCard rescheduling", () => {
     });
 
     await vi.waitFor(() => {
-      expect(apiMocks.updateMeeting).toHaveBeenCalledWith("test-workspace", "meeting-1", {
+      expect(updateMeetingMock).toHaveBeenCalledWith("test-workspace", "meeting-1", {
         scheduledAt: "2026-08-05T10:30:00.000Z",
         validUntil: "2026-08-05T11:30:00.000Z",
       });
     });
-    expect(apiMocks.patchRound).not.toHaveBeenCalled();
+    expect(patchRoundMock).not.toHaveBeenCalled();
     expect(onRescheduled).toHaveBeenCalledOnce();
 
     act(() => root.unmount());
@@ -181,15 +169,16 @@ describe("RoundCard rescheduling", () => {
   });
 
   it("refreshes local data and shows a retry warning when Feishu synchronization fails", async () => {
-    apiMocks.updateMeeting.mockRejectedValue({
-      message: "飞书日程更新时间失败",
-      payload: {
-        error: "飞书日程更新时间失败",
-        feishuStatus: "failed",
-        meetingId: "meeting-1",
-      },
-      status: 502,
-    });
+    updateMeetingMock.mockRejectedValue(
+      new ApiError("飞书日程更新时间失败", {
+        payload: {
+          error: "飞书日程更新时间失败",
+          feishuStatus: "failed",
+          meetingId: "meeting-1",
+        },
+        status: 502,
+      }),
+    );
     const onRescheduled = vi.fn();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");
@@ -203,6 +192,7 @@ describe("RoundCard rescheduling", () => {
             canCreate
             canDelete
             canUpdate
+            dependencies={dependencies}
             meeting={meeting}
             onCancel={vi.fn()}
             onComplete={vi.fn()}

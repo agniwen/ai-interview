@@ -321,10 +321,9 @@ function CopilotToolContextReporter({
   proposal?: RecruitingActionProposal;
 }) {
   const { upsertCitations, upsertProposal } = useRecruitingCopilotContext();
-  const citationsKey = JSON.stringify(citations);
   useEffect(() => {
-    upsertCitations(JSON.parse(citationsKey) as CopilotCitation[]);
-  }, [citationsKey, upsertCitations]);
+    upsertCitations(citations);
+  }, [citations, upsertCitations]);
   useEffect(() => {
     if (proposal) {
       upsertProposal(proposal);
@@ -478,7 +477,7 @@ const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRe
         {cards.map((card) => (
           <CandidateSummaryCardButton card={card} key={card.id} />
         ))}
-        {typeof result?.total === "number" && result.total > cards.length ? (
+        {result?.total !== undefined && result.total > cards.length ? (
           <p className="text-muted-foreground text-xs">
             还有 {result.total - cards.length} 个候选人未展示。
           </p>

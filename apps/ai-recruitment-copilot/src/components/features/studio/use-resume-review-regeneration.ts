@@ -19,18 +19,24 @@ interface UseResumeReviewRegenerationOptions {
   onGenerated: (result: GenerateResumeReviewResult) => void;
 }
 
-function isAbortError(error: unknown, signal: AbortSignal) {
-  return (
-    signal.aborted ||
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
+interface ResumeReviewRegenerationDependencies {
+  generateResumeReviewMarkdownFirst: typeof generateResumeReviewMarkdownFirst;
+  toast: Pick<typeof toast, "error" | "success">;
 }
 
-export function useResumeReviewRegeneration({
-  onDraftChange,
-  onGenerated,
-}: UseResumeReviewRegenerationOptions) {
+const defaultResumeReviewRegenerationDependencies: ResumeReviewRegenerationDependencies = {
+  generateResumeReviewMarkdownFirst,
+  toast,
+};
+
+function isAbortError(error: Error, signal: AbortSignal): boolean {
+  return signal.aborted || error.name === "AbortError";
+}
+
+export function useResumeReviewRegeneration(
+  { onDraftChange, onGenerated }: UseResumeReviewRegenerationOptions,
+  dependencies: ResumeReviewRegenerationDependencies = defaultResumeReviewRegenerationDependencies,
+) {
   const workspaceSlug = useWorkspaceSlug();
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressStatus, setProgressStatus] = useState("");
@@ -108,11 +114,11 @@ export function useResumeReviewRegeneration({
         },
         onError: (error) => {
           if (!isAbortError(error, abortController.signal)) {
-            toast.error(error instanceof Error ? error.message : "简历评价生成失败");
+            dependencies.toast.error(error.message);
           }
         },
         operation: async () => {
-          const review = await generateResumeReviewMarkdownFirst({
+          const review = await dependencies.generateResumeReviewMarkdownFirst({
             jobDescriptionId,
             onDraftChange: (draft) => {
               if (!abortController.signal.aborted) {
@@ -127,12 +133,12 @@ export function useResumeReviewRegeneration({
 
           if (review && !abortController.signal.aborted) {
             onGenerated(review);
-            toast.success("已重新生成简历评价");
+            dependencies.toast.success("已重新生成简历评价");
           }
         },
       });
     },
-    [handleEvent, onDraftChange, onGenerated, resetProgress, workspaceSlug],
+    [dependencies, handleEvent, onDraftChange, onGenerated, resetProgress, workspaceSlug],
   );
 
   useEffect(() => cancel, [cancel]);

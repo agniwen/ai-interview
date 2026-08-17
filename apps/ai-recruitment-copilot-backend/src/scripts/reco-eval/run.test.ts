@@ -24,6 +24,7 @@ describe("runEval", () => {
       ),
     };
     const r = await runEval({
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       deps: deps as never,
       labels: [lab("j", "c1")],
       organizationId: "org",
@@ -46,6 +47,7 @@ describe("runEval", () => {
       ),
     };
     const r = await runEval({
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       deps: deps as never,
       labels: [lab("j", "c1"), lab("j", "c2")],
       organizationId: "org",

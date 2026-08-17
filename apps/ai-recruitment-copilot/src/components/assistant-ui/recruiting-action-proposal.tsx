@@ -5,6 +5,13 @@ import type { ToolApprovalResponse } from "@assistant-ui/react";
 import { IconLoader2 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+import {
+  candidateOutcomeSchema,
+  closedMetaSchema,
+  pipelineStageSchema,
+  studioInterviewQuestionClientSchema,
+} from "@arc/db-schema/studio-interviews";
 import { Button } from "@/components/ui/button";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
@@ -52,22 +59,65 @@ interface JobBindPayload {
   resumeRecordId: string | null;
 }
 
-function readJobBindPayload(payload: Record<string, unknown>): JobBindPayload {
-  const resumeRecordId =
-    typeof payload.resumeRecordId === "string" && payload.resumeRecordId.length > 0
-      ? payload.resumeRecordId
-      : null;
-  const rawPoolItemId =
-    typeof payload.poolItemId === "string" && payload.poolItemId.length > 0
-      ? payload.poolItemId
-      : null;
+const jobBindPayloadSchema = z.object({
+  jobDescriptionId: z.string().min(1).nullish(),
+  poolItemId: z.string().min(1).nullish(),
+  resumeRecordId: z.string().min(1).nullish(),
+});
+const recruitingActionTypeSchema = z.enum([
+  "bind_candidate_to_job",
+  "bind_pool_item_to_job",
+  "advance_candidate_stage",
+  "generate_interview_questions",
+]);
+const recruitingActionToolArgsBaseSchema = z.object({
+  explanation: z.string(),
+  title: z.string(),
+});
+const recruitingActionToolArgsSchema = z.discriminatedUnion("type", [
+  recruitingActionToolArgsBaseSchema.extend({
+    payload: z.object({
+      jobDescriptionId: z.string().min(1).nullish(),
+      resumeRecordId: z.string().min(1),
+    }),
+    type: z.literal(recruitingActionTypeSchema.enum.bind_candidate_to_job),
+  }),
+  recruitingActionToolArgsBaseSchema.extend({
+    payload: z.object({
+      jobDescriptionId: z.string().min(1).nullish(),
+      poolItemId: z.string().min(1),
+    }),
+    type: z.literal(recruitingActionTypeSchema.enum.bind_pool_item_to_job),
+  }),
+  recruitingActionToolArgsBaseSchema.extend({
+    payload: z.object({
+      closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
+      closedReason: z.string().optional().nullable(),
+      outcome: candidateOutcomeSchema.optional(),
+      pipelineStage: pipelineStageSchema,
+      reactivationReason: z.string().optional(),
+      resumeRecordId: z.string().min(1),
+    }),
+    type: z.literal(recruitingActionTypeSchema.enum.advance_candidate_stage),
+  }),
+  recruitingActionToolArgsBaseSchema.extend({
+    payload: z.object({
+      interviewQuestions: z.array(studioInterviewQuestionClientSchema).optional(),
+      resumeRecordId: z.string().min(1),
+    }),
+    type: z.literal(recruitingActionTypeSchema.enum.generate_interview_questions),
+  }),
+]);
+type RecruitingActionToolArgs = z.input<typeof recruitingActionToolArgsSchema>;
+
+function readJobBindPayload(payload: RecruitingActionProposal["payload"]): JobBindPayload {
+  const parsed = jobBindPayloadSchema.parse(payload);
+  const resumeRecordId = parsed.resumeRecordId ?? null;
+  const rawPoolItemId = parsed.poolItemId ?? null;
   const poolItemId = rawPoolItemId?.startsWith("pool:")
     ? rawPoolItemId.slice("pool:".length)
     : rawPoolItemId;
-  const jobDescriptionId =
-    typeof payload.jobDescriptionId === "string" && payload.jobDescriptionId.length > 0
-      ? payload.jobDescriptionId
-      : null;
+  const jobDescriptionId = parsed.jobDescriptionId ?? null;
   return { jobDescriptionId, poolItemId, resumeRecordId };
 }
 
@@ -86,7 +136,7 @@ function withConfirmedJobBindPayload(
       payload: {
         ...proposal.payload,
         jobDescriptionId,
-        resumeRecordId: bindPayload?.resumeRecordId,
+        resumeRecordId: bindPayload?.resumeRecordId ?? proposal.payload.resumeRecordId,
       },
     };
   }
@@ -96,7 +146,7 @@ function withConfirmedJobBindPayload(
       payload: {
         ...proposal.payload,
         jobDescriptionId,
-        poolItemId: bindPayload?.poolItemId,
+        poolItemId: bindPayload?.poolItemId ?? proposal.payload.poolItemId,
       },
     };
   }
@@ -144,40 +194,28 @@ function buildConversationBindProposalId(
   return `conversation-bind:${kind}:${recordId}`;
 }
 
-function isRecruitingActionType(type: unknown): type is RecruitingActionProposal["type"] {
-  return (
-    type === "bind_candidate_to_job" ||
-    type === "bind_pool_item_to_job" ||
-    type === "advance_candidate_stage" ||
-    type === "generate_interview_questions"
-  );
-}
-
-function proposalFromToolArgs(args: unknown, toolCallId: string): RecruitingActionProposal | null {
-  if (!args || typeof args !== "object" || Array.isArray(args)) {
+function proposalFromToolArgs(
+  args: RecruitingActionToolArgs,
+  toolCallId: string,
+): RecruitingActionProposal | null {
+  const parsed = recruitingActionToolArgsSchema.safeParse(args);
+  if (!parsed.success) {
     return null;
   }
-  const record = args as Record<string, unknown>;
-  const title = typeof record.title === "string" ? record.title.trim() : "";
-  const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
-  const { type } = record;
-  const payload =
-    record.payload && typeof record.payload === "object" && !Array.isArray(record.payload)
-      ? (record.payload as Record<string, unknown>)
-      : null;
-  if (!(title && explanation && payload && isRecruitingActionType(type))) {
+  const explanation = parsed.data.explanation.trim();
+  const title = parsed.data.title.trim();
+  if (!(title && explanation)) {
     return null;
   }
+  const { payload, type } = parsed.data;
+  const bindPayload = readJobBindPayload(payload);
   let id = toolCallId;
-  if (type === "bind_candidate_to_job" && typeof payload.resumeRecordId === "string") {
-    id = buildConversationBindProposalId("resume_record", payload.resumeRecordId);
-  } else if (type === "bind_pool_item_to_job" && typeof payload.poolItemId === "string") {
-    const poolItemId = payload.poolItemId.startsWith("pool:")
-      ? payload.poolItemId.slice("pool:".length)
-      : payload.poolItemId;
-    id = buildConversationBindProposalId("resume_pool_item", poolItemId);
+  if (type === "bind_candidate_to_job" && bindPayload.resumeRecordId) {
+    id = buildConversationBindProposalId("resume_record", bindPayload.resumeRecordId);
+  } else if (type === "bind_pool_item_to_job" && bindPayload.poolItemId) {
+    id = buildConversationBindProposalId("resume_pool_item", bindPayload.poolItemId);
   }
-  return { explanation, id, payload, title, type };
+  return { ...parsed.data, explanation, id, title };
 }
 
 function ActionProposalActions({
@@ -295,11 +333,14 @@ function RecruitingActionProposalCard({
           toast.error(result.message);
           return;
         }
-        const nextConfirmation = result.confirmation ?? {
+        const fallbackConfirmation: RecruitingActionConfirmation = {
           confirmedAt: new Date().toISOString(),
-          ...(jobDescriptionId ? { jobDescriptionId } : {}),
-          status: "confirmed" as const,
+          status: "confirmed",
         };
+        if (jobDescriptionId) {
+          fallbackConfirmation.jobDescriptionId = jobDescriptionId;
+        }
+        const nextConfirmation = result.confirmation ?? fallbackConfirmation;
         if (jobDescriptionId) {
           setSelectedJobDescriptionId(jobDescriptionId);
         }
@@ -383,7 +424,7 @@ function RecruitingActionProposalCard({
 }
 
 export const RecruitingActionProposalToolUI = makeAssistantToolUI<
-  Record<string, unknown>,
+  RecruitingActionToolArgs,
   RecruitingActionProposalResult
 >({
   display: "standalone",

@@ -1,55 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createConversationsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/conversations/route";
+import type { ConversationsRouteDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/conversations/route";
 
-const mocks = vi.hoisted(() => ({
-  authorize: vi.fn(),
-  checkConversationOwner: vi.fn(),
-  confirmRecruitingAction: vi.fn(),
-  createRequestWorkspaceAuthorizer: vi.fn(),
-  loadResumeDetail: vi.fn(),
-  loadResumePoolItem: vi.fn(),
-  resolveRecruitingVisibilityScope: vi.fn(),
-  upsertConversation: vi.fn(),
-}));
+const authorize = vi.fn<WorkspaceAuthorizer>();
+const mocks = {
+  checkConversationOwner: vi.fn<ConversationsRouteDependencies["checkConversationOwner"]>(),
+  confirmRecruitingAction: vi.fn<ConversationsRouteDependencies["confirmRecruitingAction"]>(),
+  createRequestWorkspaceAuthorizer:
+    vi.fn<ConversationsRouteDependencies["createRequestWorkspaceAuthorizer"]>(),
+  deleteUserConversation: vi.fn<ConversationsRouteDependencies["deleteUserConversation"]>(),
+  getUserConversation: vi.fn<ConversationsRouteDependencies["getUserConversation"]>(),
+  listUserConversations: vi.fn<ConversationsRouteDependencies["listUserConversations"]>(),
+  loadResumeDetail: vi.fn<ConversationsRouteDependencies["loadResumeDetail"]>(),
+  loadResumePoolItem: vi.fn<ConversationsRouteDependencies["loadResumePoolItem"]>(),
+  resolveRecruitingVisibilityScope:
+    vi.fn<ConversationsRouteDependencies["resolveRecruitingVisibilityScope"]>(),
+  upsertChatMessage: vi.fn<ConversationsRouteDependencies["upsertChatMessage"]>(),
+  upsertConversation: vi.fn<ConversationsRouteDependencies["upsertConversation"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
-  createRequestWorkspaceAuthorizer: mocks.createRequestWorkspaceAuthorizer,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes",
-  () => ({
-    loadResumeDetail: mocks.loadResumeDetail,
+const dependencies: ConversationsRouteDependencies = {
+  ...mocks,
+  requireResumeLibraryUpdatePermission: factory.createMiddleware(async (c, next) => {
+    if (c.req.header("x-test-permission") === "deny") {
+      return c.json({ message: "Forbidden" }, 403);
+    }
+    return await next();
   }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao", () => ({
-  loadResumePoolItem: mocks.loadResumePoolItem,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
-  checkConversationOwner: mocks.checkConversationOwner,
-  deleteUserConversation: vi.fn(),
-  getUserConversation: vi.fn(),
-  listUserConversations: vi.fn(),
-  upsertChatMessage: vi.fn(),
-  upsertConversation: mocks.upsertConversation,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => async (_c: unknown, next: () => Promise<void>) => {
-    await next();
-  },
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/conversations/actions",
-  () => ({
-    confirmRecruitingAction: mocks.confirmRecruitingAction,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { conversationsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/conversations/route";
+};
 
 const USER_ID = "user_conversations_route";
 const ORG_ID = "org_conversations_route";
@@ -58,23 +38,24 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORG_ID } as never);
       await next();
     })
-    .route("/conversations", conversationsRouter);
+    .route("/conversations", createConversationsRouter(dependencies));
 }
 
 async function jsonOf(res: Response) {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return (await res.json()) as { error?: unknown; ok?: boolean };
 }
 
 describe("conversationsRouter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createRequestWorkspaceAuthorizer.mockReturnValue(mocks.authorize);
-    mocks.loadResumeDetail.mockResolvedValue({ id: "resume-1" });
-    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-1" });
+    mocks.createRequestWorkspaceAuthorizer.mockReturnValue(authorize);
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
   });
 
@@ -87,12 +68,12 @@ describe("conversationsRouter", () => {
 
     expect(res.status).toBe(400);
     const json = await jsonOf(res);
-    expect(typeof json.error).toBe("string");
+    expect(json.error).toEqual(expect.any(String));
     expect(mocks.upsertConversation).not.toHaveBeenCalled();
   });
 
   it("returns explicit 200 responses for successful conversation writes", async () => {
-    mocks.upsertConversation.mockResolvedValue({ id: "conversation_1" });
+    mocks.upsertConversation.mockResolvedValue("ok");
 
     const res = await makeApp().request("/conversations", {
       body: JSON.stringify({ id: "conversation_1", title: "新对话" }),
@@ -114,6 +95,7 @@ describe("conversationsRouter", () => {
 
     const res = await makeApp().request("/conversations/conversation_1/actions/confirm", {
       body: JSON.stringify({
+        decision: "ignore",
         proposal: {
           explanation: "候选人与岗位匹配。",
           id: "proposal-1",
@@ -133,7 +115,7 @@ describe("conversationsRouter", () => {
     expect(mocks.checkConversationOwner).toHaveBeenCalledWith(USER_ID, "conversation_1", ORG_ID);
     expect(mocks.confirmRecruitingAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        authorize: mocks.authorize,
+        authorize,
         conversationId: "conversation_1",
         operatorId: USER_ID,
         organizationId: ORG_ID,
@@ -152,6 +134,7 @@ describe("conversationsRouter", () => {
 
     const res = await makeApp().request("/conversations/conversation_2/actions/confirm", {
       body: JSON.stringify({
+        decision: "ignore",
         proposal: {
           explanation: "候选人与岗位匹配。",
           id: "proposal-1",

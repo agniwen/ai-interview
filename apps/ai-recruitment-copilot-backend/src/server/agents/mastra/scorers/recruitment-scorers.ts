@@ -19,7 +19,7 @@ const interviewQuestionsOutputSchema = z.object({
 
 const resumeReviewOutputSchema = z.object({
   review: z.string(),
-  structuredReview: z.unknown().nullable().optional(),
+  structuredReview: z.json().nullable().optional(),
 });
 
 const interviewTranscriptTurnSchema = z
@@ -79,22 +79,21 @@ function scoreBooleanFields(values: boolean[]) {
   return values.filter(Boolean).length / values.length;
 }
 
-function hasValue(value: unknown) {
-  if (typeof value === "string") {
-    return value.trim().length > 0 && value.trim() !== "未发现信息";
-  }
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-  return value !== null && value !== undefined;
+function hasMeaningfulText(value: string | null | undefined) {
+  return (
+    value !== null &&
+    value !== undefined &&
+    value.trim().length > 0 &&
+    value.trim() !== "未发现信息"
+  );
 }
 
 function normalizeGroundingText(value: string) {
   return value.toLowerCase().replaceAll(/[\p{P}\p{S}\s]+/gu, "");
 }
 
-function normalizedTextIncludesTerm(text: string, term: unknown) {
-  if (typeof term !== "string") {
+function normalizedTextIncludesTerm(text: string, term: string | null | undefined) {
+  if (term === null || term === undefined) {
     return false;
   }
   const normalizedTerm = normalizeGroundingText(term);
@@ -153,7 +152,7 @@ function scoreJdMatchEvidence(input: {
 
   return scoreBooleanFields([
     true,
-    hasValue(reason),
+    hasMeaningfulText(reason),
     resumeTerms.some((term) => normalizedTextIncludesTerm(normalizedReason, term)),
     selectedJobTerms.some((term) => normalizedTextIncludesTerm(normalizedReason, term)),
   ]);
@@ -166,13 +165,13 @@ export const resumeProfileCompletenessScorer = createScorer({
 }).generateScore(({ run }) => {
   const profile = run.output.resumeProfile;
   return scoreBooleanFields([
-    hasValue(profile.name),
-    hasValue(profile.phone),
-    hasValue(profile.email),
-    hasValue(profile.targetRoles),
-    hasValue(profile.skills),
-    hasValue(profile.schools),
-    hasValue(profile.workYears),
+    hasMeaningfulText(profile.name),
+    hasMeaningfulText(profile.phone),
+    hasMeaningfulText(profile.email),
+    profile.targetRoles.length > 0,
+    profile.skills.length > 0,
+    profile.schools.length > 0,
+    profile.workYears !== null && profile.workYears !== undefined,
   ]);
 });
 
@@ -187,7 +186,10 @@ export const resumeReviewStructureScorer = createScorer({
   id: "resume-review-structure-scorer",
   type: { input: z.unknown(), output: resumeReviewOutputSchema },
 }).generateScore(({ run }) =>
-  scoreBooleanFields([hasValue(run.output.review), hasValue(run.output.structuredReview)]),
+  scoreBooleanFields([
+    hasMeaningfulText(run.output.review),
+    run.output.structuredReview !== null && run.output.structuredReview !== undefined,
+  ]),
 );
 
 export const reportEvidenceGroundingScorer = createScorer({

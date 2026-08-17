@@ -4,10 +4,11 @@ export const DEFAULT_JOB_CODE_PREFIX = "AUR";
 
 const jobCodePrefixSchema = z.preprocess(
   (value) => {
-    if (typeof value !== "string") {
+    const parsed = z.string().safeParse(value);
+    if (!parsed.success) {
       return value;
     }
-    const normalized = value.trim().toUpperCase();
+    const normalized = parsed.data.trim().toUpperCase();
     return normalized.length > 0 ? normalized : undefined;
   },
   z

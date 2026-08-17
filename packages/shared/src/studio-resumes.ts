@@ -239,6 +239,19 @@ interface Description {
   tone: "success" | "warning" | "info" | "outline";
 }
 
+interface ResumeProgressInput {
+  pipelineStage: PipelineStage;
+  outcome: CandidateOutcome;
+  resumeParseStatus?: ResumeParseStatus;
+  resumeReviewStatus?: ResumeReviewStatus;
+  stageProgress: ResumeStageProgress;
+}
+
+interface ResumeEvaluationStatusDescription {
+  label: string;
+  tone: "outline" | "success" | "danger";
+}
+
 function describeAiInterview(p: AiInterviewProgress | null): Description {
   if (!p || p.totalRounds === 0) {
     return { label: "AI 面试 · 未排期", tone: "outline" };
@@ -322,13 +335,7 @@ function describeOffer(p: OfferProgress | null): Description {
  * Reduce (pipelineStage, outcome, stageProgress) to a single display string +
  * tone for the resume library "面试进度" cell, detail panel, and elsewhere.
  */
-export function describeResumeProgress(record: {
-  pipelineStage: PipelineStage;
-  outcome: CandidateOutcome;
-  resumeParseStatus?: ResumeParseStatus;
-  resumeReviewStatus?: ResumeReviewStatus;
-  stageProgress: ResumeStageProgress;
-}): { label: string; tone: "success" | "warning" | "info" | "outline" } {
+export function describeResumeProgress(record: ResumeProgressInput): Description {
   const { pipelineStage, outcome, resumeParseStatus, resumeReviewStatus, stageProgress } = record;
 
   if (resumeParseStatus && resumeParseStatus !== "ready") {
@@ -438,10 +445,9 @@ export { resumeEvaluationStatusSchema };
 export type { ResumeEvaluationStatus };
 export type ResumeEvaluationStatusFormValue = z.infer<typeof resumeEvaluationStatusFormValueSchema>;
 
-export function describeResumeEvaluationStatus(status: ResumeEvaluationStatus | null): {
-  label: string;
-  tone: "outline" | "success" | "danger";
-} {
+export function describeResumeEvaluationStatus(
+  status: ResumeEvaluationStatus | null,
+): ResumeEvaluationStatusDescription {
   if (!status) {
     return { label: "未评估", tone: "outline" };
   }

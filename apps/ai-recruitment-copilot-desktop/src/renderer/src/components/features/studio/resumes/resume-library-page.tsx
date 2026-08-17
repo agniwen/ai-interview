@@ -35,7 +35,13 @@ export function ResumeLibraryPage() {
         <p className="text-sm text-muted-foreground">
           {workspaceError instanceof Error ? workspaceError.message : "加载工作区失败"}
         </p>
-        <Button onClick={() => void refetch()} type="button" variant="outline">
+        <Button
+          onClick={() => {
+            refetch();
+          }}
+          type="button"
+          variant="outline"
+        >
           重试
         </Button>
       </div>

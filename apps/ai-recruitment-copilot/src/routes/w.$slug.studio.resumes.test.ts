@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { Route } from "./w.$slug.studio.resumes";
 
+function isReloadCallback(
+  value: typeof Route.options.shouldReload,
+): value is Extract<typeof Route.options.shouldReload, (...args: never[]) => boolean> {
+  return typeof value === "function";
+}
+
 function shouldReloadAt(pathname: string) {
   const { shouldReload } = Route.options;
 
-  return typeof shouldReload === "function"
-    ? shouldReload({
-        location: { pathname },
-        params: { slug: "acme" },
-      } as never)
-    : shouldReload;
+  if (isReloadCallback(shouldReload)) {
+    // SAFETY: The test provides the route location and slug fields required by the route callback.
+    return shouldReload({
+      location: { pathname },
+      params: { slug: "acme" },
+    } as never);
+  }
+  return shouldReload;
 }
 
 describe("Studio resumes route reload behavior", () => {

@@ -7,11 +7,13 @@ import {
 
 describe("recruiting-action-message-utils", () => {
   it("patches confirmation into propose tool parts and detects pending proposals", () => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const messages = [
       {
         id: "a1",
         parts: [
           {
+            input: {},
             output: {
               proposal: {
                 id: "p1",
@@ -26,7 +28,7 @@ describe("recruiting-action-message-utils", () => {
         ],
         role: "assistant",
       },
-    ] as unknown as UIMessage[];
+    ] as UIMessage[];
 
     expect(lastAssistantHasPendingRecruitingBindProposal(messages)).toBe(true);
 

@@ -39,6 +39,16 @@ export interface ProcessPdfPagesResult<T> {
   results: T[];
 }
 
+export interface PdfPageDocument {
+  destroy: () => void;
+  pageCount: number;
+  renderPage: (index: number) => Buffer;
+}
+
+export interface PdfPageRenderer {
+  openDocument: (bytes: Uint8Array, scale: number) => Promise<PdfPageDocument>;
+}
+
 function renderPdfPage(
   mupdf: MupdfModule,
   doc: MupdfModuleNs.Document,
@@ -59,18 +69,30 @@ function renderPdfPage(
   }
 }
 
+const defaultPdfPageRenderer: PdfPageRenderer = {
+  openDocument: async (bytes, scale) => {
+    const mupdf = await loadMupdf();
+    const doc = mupdf.Document.openDocument(bytes, "application/pdf");
+    const matrix = mupdf.Matrix.scale(scale, scale);
+    return {
+      destroy: () => doc.destroy(),
+      pageCount: doc.countPages(),
+      renderPage: (index) => renderPdfPage(mupdf, doc, matrix, index),
+    };
+  },
+};
+
 export async function processPdfPagesWithMeta<T>(
   bytes: Uint8Array,
   { concurrency = 1, maxPages = 6, onReady, scale = 2 }: ProcessPdfPagesOptions,
   processPage: (png: Buffer, index: number) => Promise<T>,
+  renderer: PdfPageRenderer = defaultPdfPageRenderer,
 ): Promise<ProcessPdfPagesResult<T>> {
-  const mupdf = await loadMupdf();
-  const doc = mupdf.Document.openDocument(bytes, "application/pdf");
+  const doc = await renderer.openDocument(bytes, scale);
 
   try {
-    const pageCount = doc.countPages();
+    const { pageCount } = doc;
     const total = Math.min(pageCount, maxPages);
-    const matrix = mupdf.Matrix.scale(scale, scale);
     const renderedSizes = Array.from<number>({ length: total });
     const results = Array.from<T>({ length: total });
     const requestedConcurrency =
@@ -90,7 +112,7 @@ export async function processPdfPagesWithMeta<T>(
         nextPage += 1;
 
         try {
-          const png = renderPdfPage(mupdf, doc, matrix, index);
+          const png = doc.renderPage(index);
           renderedSizes[index] = png.byteLength;
           results[index] = await processPage(png, index);
         } catch (error) {

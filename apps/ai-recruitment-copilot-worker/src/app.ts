@@ -10,28 +10,66 @@ import { getMeetingPlaybackQueueStats } from "@arc/meeting-processing-queue/meet
 import { getMeetingTranscriptionQueueStats } from "@arc/meeting-processing-queue/meeting-transcription";
 import { getResumeParseReadinessIssue } from "./parse-config";
 
+export interface WorkerAppDependencies {
+  getMeetingIntelligenceQueueStats: typeof getMeetingIntelligenceQueueStats;
+  getMeetingOperationsSnapshot: () => Promise<{
+    alerts: unknown[];
+    capacity: unknown;
+    generatedAt: string;
+    latency: unknown;
+    providerFailures: unknown[];
+    purgeOutcomes: unknown[];
+    queueRetries: unknown[];
+  }>;
+  getMeetingPlaybackQueueStats: typeof getMeetingPlaybackQueueStats;
+  getMeetingTranscriptionQueueStats: typeof getMeetingTranscriptionQueueStats;
+  getResumeParseQueueStats: typeof getResumeParseQueueStats;
+  getResumeParseReadinessIssue: typeof getResumeParseReadinessIssue;
+  getResumeReviewGenerationQueueStats: typeof getResumeReviewGenerationQueueStats;
+  isResumeParseQueueConfigured: typeof isResumeParseQueueConfigured;
+  pingDatabase: () => Promise<void>;
+}
+
 async function pingDatabase(): Promise<void> {
   const { pingDatabase: pingBackendDatabase } =
     await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
   await pingBackendDatabase();
 }
 
-export function createWorkerApp() {
+async function getMeetingOperationsSnapshot() {
+  const { loadMeetingOperationsSnapshot } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/operations-dao");
+  return loadMeetingOperationsSnapshot();
+}
+
+const defaultDependencies: WorkerAppDependencies = {
+  getMeetingIntelligenceQueueStats,
+  getMeetingOperationsSnapshot,
+  getMeetingPlaybackQueueStats,
+  getMeetingTranscriptionQueueStats,
+  getResumeParseQueueStats,
+  getResumeParseReadinessIssue,
+  getResumeReviewGenerationQueueStats,
+  isResumeParseQueueConfigured,
+  pingDatabase,
+};
+
+export function createWorkerApp(dependencies: WorkerAppDependencies = defaultDependencies) {
   const app = new Hono();
 
   app.get("/healthz", (c) => c.json({ ok: true }, 200));
 
   app.get("/readyz", async (c) => {
-    if (!isResumeParseQueueConfigured()) {
+    if (!dependencies.isResumeParseQueueConfigured()) {
       return c.json({ ok: false, reason: "REDIS_URL is not set" }, 503);
     }
-    const parseConfigIssue = getResumeParseReadinessIssue();
+    const parseConfigIssue = dependencies.getResumeParseReadinessIssue();
     if (parseConfigIssue) {
       return c.json({ ok: false, reason: parseConfigIssue }, 503);
     }
     try {
-      await pingDatabase();
-      await getResumeParseQueueStats();
+      await dependencies.pingDatabase();
+      await dependencies.getResumeParseQueueStats();
       return c.json({ ok: true }, 200);
     } catch (error) {
       console.error("[worker] readiness check failed", {
@@ -61,23 +99,21 @@ export function createWorkerApp() {
   );
 
   app.get("/queues/resume-parse/stats", async (c) => {
-    const stats = await getResumeParseQueueStats();
+    const stats = await dependencies.getResumeParseQueueStats();
     return c.json(stats, 200);
   });
 
   app.get("/queues/resume-review-generation/stats", async (c) => {
-    const stats = await getResumeReviewGenerationQueueStats();
+    const stats = await dependencies.getResumeReviewGenerationQueueStats();
     return c.json(stats, 200);
   });
 
   app.get("/operations/meetings", async (c) => {
-    const { loadMeetingOperationsSnapshot } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/operations-dao");
     const [database, mediaFinalization, finalTranscription, intelligence] = await Promise.all([
-      loadMeetingOperationsSnapshot(),
-      getMeetingPlaybackQueueStats(),
-      getMeetingTranscriptionQueueStats(),
-      getMeetingIntelligenceQueueStats(),
+      dependencies.getMeetingOperationsSnapshot(),
+      dependencies.getMeetingPlaybackQueueStats(),
+      dependencies.getMeetingTranscriptionQueueStats(),
+      dependencies.getMeetingIntelligenceQueueStats(),
     ]);
     return c.json(
       {

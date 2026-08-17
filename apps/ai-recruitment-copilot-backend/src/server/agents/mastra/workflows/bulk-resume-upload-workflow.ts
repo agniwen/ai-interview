@@ -56,11 +56,14 @@ export const bulkResumeUploadWorkflow = createBulkResumeUploadWorkflow({
   processItem: processBatchItem,
 });
 
-export async function runBulkResumeUploadWorkflow(input: {
-  bypassCache?: boolean;
-  itemId: string;
-}): Promise<BulkResumeUploadWorkflowOutput> {
-  const run = await bulkResumeUploadWorkflow.createRun();
+export async function runBulkResumeUploadWorkflow(
+  input: {
+    bypassCache?: boolean;
+    itemId: string;
+  },
+  workflow = bulkResumeUploadWorkflow,
+): Promise<BulkResumeUploadWorkflowOutput> {
+  const run = await workflow.createRun();
   const result = await run.start({ inputData: input });
 
   if (result.status === "success") {

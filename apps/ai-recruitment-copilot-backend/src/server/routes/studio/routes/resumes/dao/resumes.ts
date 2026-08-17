@@ -28,7 +28,7 @@ import { intersectRequestedCreatorIds } from "@arc/ai-recruitment-copilot-backen
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { department, jobDescription, studioInterview, user } from "@arc/db-schema/schema";
 import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { JsonValue } from "@arc/db-schema/json";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
@@ -72,6 +72,15 @@ const ORDER_COLUMNS = {
 } as const;
 
 const paginationSchema = makePaginationSchema(SORT_COLUMNS);
+const paginationInputSchema = z.object({
+  page: z.union([z.string(), z.number()]).optional(),
+  pageSize: z.union([z.string(), z.number()]).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+const pipelineStageSchema = z.enum(pipelineStageValues);
+const candidateOutcomeSchema = z.enum(candidateOutcomeValues);
+const resumeSkillsSchema = z.array(z.string());
 
 // 允许调用方原样传入 CSV 拆分结果（可能含空串）；buildWhere 内统一 trim + drop blank。
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
@@ -88,6 +97,7 @@ const filtersSchema = z.object({
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
+type PaginationInput = z.input<typeof paginationInputSchema>;
 type Filters = z.infer<typeof filtersSchema>;
 type ResumeQueryFilters = z.infer<typeof filtersSchema> & { forceEmpty?: boolean };
 
@@ -145,16 +155,18 @@ function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
 }
 
 function buildStagesCondition(stages: string[] | null | undefined) {
-  const filtered = (stages ?? []).filter((s): s is PipelineStage =>
-    pipelineStageValues.includes(s as PipelineStage),
-  );
+  const filtered = (stages ?? []).flatMap((stage) => {
+    const parsed = pipelineStageSchema.safeParse(stage);
+    return parsed.success ? [parsed.data] : [];
+  });
   return filtered.length > 0 ? inArray(studioInterview.pipelineStage, filtered) : null;
 }
 
 function buildOutcomesCondition(outcomes: string[] | null | undefined) {
-  const filtered = (outcomes ?? []).filter((o): o is CandidateOutcome =>
-    candidateOutcomeValues.includes(o as CandidateOutcome),
-  );
+  const filtered = (outcomes ?? []).flatMap((outcome) => {
+    const parsed = candidateOutcomeSchema.safeParse(outcome);
+    return parsed.success ? [parsed.data] : [];
+  });
   return filtered.length > 0 ? inArray(studioInterview.outcome, filtered) : null;
 }
 
@@ -272,7 +284,9 @@ const SELECTED_COLUMNS = {
   resumeScreeningEvaluatedAt: studioInterview.resumeScreeningEvaluatedAt,
   resumeScreeningResult: studioInterview.resumeScreeningResult,
   resumeScreeningStatus: studioInterview.resumeScreeningStatus,
-  resumeSkills: sql<unknown>`${studioInterview.resumeProfile}->'skills'`.as("resume_skills"),
+  resumeSkills: sql<JsonValue | null>`${studioInterview.resumeProfile}->'skills'`.as(
+    "resume_skills",
+  ),
   resumeStorageKey: studioInterview.resumeStorageKey,
   resumeWorkCompany: sql<
     string | null
@@ -482,16 +496,17 @@ function toDuplicateMatchSummary(
   return value && value.count > 0 ? { count: value.count, highestLevel: value.highestLevel } : null;
 }
 
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((item): item is string => typeof item === "string");
+function parseStoredJson<TSchema extends z.ZodType>(
+  value: JsonValue | null,
+  schema: TSchema,
+): z.output<TSchema> | null {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
-function buildResumeSkills(value: unknown) {
+function buildResumeSkills(skills: z.output<typeof resumeSkillsSchema>) {
   const seen = new Set<string>();
-  return toStringArray(value)
+  return skills
     .map((item) => item.trim())
     .filter((item) => {
       const key = item.toLowerCase();
@@ -502,11 +517,6 @@ function buildResumeSkills(value: unknown) {
       return true;
     })
     .slice(0, 6);
-}
-
-function parseResumeScreeningResult(value: unknown) {
-  const parsed = resumeScreeningResultSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 function resolveResumeEvaluationArtifactMode(row: {
@@ -570,7 +580,7 @@ function toRecord(
     resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
     resumeReviewRunId: row.resumeReviewRunId,
     resumeReviewStatus: row.resumeReviewStatus,
-    resumeSkills: buildResumeSkills(row.resumeSkills),
+    resumeSkills: buildResumeSkills(parseStoredJson(row.resumeSkills, resumeSkillsSchema) ?? []),
     resumeSummary:
       row.structuredResumeSummary ?? row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
@@ -595,12 +605,12 @@ export async function queryPaginatedResumeRecords(
     structuredMaxScore?: number | null;
     structuredMinScore?: number | null;
   },
-  pagination?: Record<string, unknown>,
+  pagination?: PaginationInput,
   visibilityScope?: RecruitingVisibilityScope,
   knownTotal?: number,
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
-  const parsedPagination = paginationSchema.parse(pagination ?? {});
+  const parsedPagination = paginationSchema.parse(paginationInputSchema.parse(pagination ?? {}));
   const requestsStructuredScores =
     parsedPagination.sortBy === "structuredScore" ||
     (parsedFilters.structuredMinScore !== null && parsedFilters.structuredMinScore !== undefined) ||
@@ -609,7 +619,8 @@ export async function queryPaginatedResumeRecords(
     const selectedJobIds = [
       ...new Set((parsedFilters.jobDescriptionIds ?? []).filter((id) => id.trim().length > 0)),
     ];
-    if (selectedJobIds.length !== 1) {
+    const [selectedJobId] = selectedJobIds;
+    if (selectedJobIds.length !== 1 || selectedJobId === undefined) {
       throw new ResumeStructuredScoreQueryError("结构化评分排序或筛选必须且只能选择一个岗位。");
     }
     const [selectedJob] = await db
@@ -617,7 +628,7 @@ export async function queryPaginatedResumeRecords(
       .from(jobDescription)
       .where(
         and(
-          eq(jobDescription.id, selectedJobIds[0] as string),
+          eq(jobDescription.id, selectedJobId),
           eq(jobDescription.organizationId, organizationId),
           eq(jobDescription.lifecycleStatus, "published"),
         ),
@@ -752,7 +763,10 @@ export async function loadResumeDetail(
   }
 
   const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
-  const resumeScreeningResult = parseResumeScreeningResult(rest.resumeScreeningResult);
+  const resumeScreeningResult = parseStoredJson(
+    rest.resumeScreeningResult,
+    resumeScreeningResultSchema,
+  );
   const structuredEvaluation = structuredResumeEvaluationV1Schema.safeParse(
     rest.structuredResumeEvaluation,
   );

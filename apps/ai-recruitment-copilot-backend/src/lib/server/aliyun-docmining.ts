@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { setTimeout as delay } from "node:timers/promises";
 
 // Alibaba Cloud Model Studio document mining upload and extraction client.
@@ -50,6 +51,40 @@ interface CleanupResult {
   error?: string;
 }
 
+function apiEnvelopeSchema<T extends z.ZodType>(data: T) {
+  return z.object({
+    code: z.number(),
+    data: data.optional(),
+    message: z.string().optional(),
+    success: z.boolean().optional(),
+  });
+}
+const uploadLeaseSchema = z.object({
+  lease_id: z.string(),
+  param: z.object({
+    headers: z.record(z.string(), z.string()),
+    method: z.string(),
+    url: z.string(),
+  }),
+});
+const submitParseDataSchema = z.object({ fileId: z.string(), pageSize: z.number().optional() });
+const extractionResponseSchema = z.object({
+  output: z
+    .object({
+      choices: z
+        .array(z.object({ message: z.object({ content: z.string().optional() }).optional() }))
+        .optional(),
+    })
+    .optional(),
+  usage: z
+    .object({
+      inputTokens: z.number().optional(),
+      outputTokens: z.number().optional(),
+      totalTokens: z.number().optional(),
+    })
+    .optional(),
+});
+
 export interface AliyunResumeExtractionResult {
   cleanup: CleanupResult;
   content: string;
@@ -69,6 +104,8 @@ export interface AliyunResumeExtractionResult {
   };
 }
 
+type SleepPort = (milliseconds: number) => Promise<void>;
+
 interface RunAliyunResumeExtractionInput {
   apiKey: string;
   bytes: Uint8Array;
@@ -76,7 +113,7 @@ interface RunAliyunResumeExtractionInput {
   fileName: string;
   parseTimeoutMs?: number;
   prompt: string;
-  sleep?: (milliseconds: number) => Promise<unknown>;
+  sleep?: SleepPort;
 }
 
 class AliyunDocminingError extends Error {
@@ -95,14 +132,22 @@ function elapsed(startedAt: number) {
   return Math.round(performance.now() - startedAt);
 }
 
-function requiredString(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value.trim()) {
+const nonEmptyStringSchema = z.string().trim().min(1);
+const finiteNumberSchema = z.coerce.number().finite();
+
+function requiredString(value: string, label: string): string {
+  const parsed = nonEmptyStringSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`Aliyun response is missing ${label}.`);
   }
-  return value;
+  return parsed.data;
 }
 
-async function readJsonResponse<T>(response: Response, label: string): Promise<T> {
+async function readJsonResponse<T>(
+  response: Response,
+  label: string,
+  schema: z.ZodType<T>,
+): Promise<T> {
   const responseBody = await response.text();
   if (!response.ok) {
     throw new AliyunDocminingError(
@@ -112,7 +157,7 @@ async function readJsonResponse<T>(response: Response, label: string): Promise<T
     );
   }
   try {
-    return JSON.parse(responseBody) as T;
+    return schema.parse(JSON.parse(responseBody));
   } catch (error) {
     throw new Error(`${label} returned invalid JSON.`, { cause: error });
   }
@@ -125,7 +170,7 @@ function assertSuccessfulEnvelope<T>(envelope: ApiEnvelope<T>, label: string): T
   return envelope.data;
 }
 
-function isFileParsingInProgress(error: unknown): boolean {
+function isFileParsingInProgress(error: Error): boolean {
   return (
     error instanceof AliyunDocminingError &&
     error.status === 400 &&
@@ -147,7 +192,7 @@ async function deleteRemoteFile(input: {
       },
       method: "POST",
     });
-    const result = await readJsonResponse<ApiEnvelope<unknown>>(response, "delete file");
+    const result = await readJsonResponse(response, "delete file", apiEnvelopeSchema(z.unknown()));
     if (result.success === false || result.code !== 200) {
       return {
         deleted: false,
@@ -181,7 +226,11 @@ async function applyUploadLease(input: {
     },
     method: "POST",
   });
-  const envelope = await readJsonResponse<ApiEnvelope<UploadLease>>(response, "apply upload lease");
+  const envelope = await readJsonResponse(
+    response,
+    "apply upload lease",
+    apiEnvelopeSchema(uploadLeaseSchema),
+  );
   return assertSuccessfulEnvelope(envelope, "apply upload lease");
 }
 
@@ -213,9 +262,10 @@ async function submitParseFile(input: {
     },
     method: "POST",
   });
-  const envelope = await readJsonResponse<ApiEnvelope<SubmitParseData>>(
+  const envelope = await readJsonResponse(
     response,
     "submit parse file",
+    apiEnvelopeSchema(submitParseDataSchema),
   );
   return assertSuccessfulEnvelope(envelope, "submit parse file");
 }
@@ -226,7 +276,7 @@ async function extractResumeWithRetry(input: {
   fileId: string;
   parseTimeoutMs: number;
   prompt: string;
-  sleep: (milliseconds: number) => Promise<unknown>;
+  sleep: SleepPort;
 }): Promise<{ attempts: number; extraction: ExtractionResponse }> {
   const deadline = performance.now() + input.parseTimeoutMs;
   let attempts = 0;
@@ -248,10 +298,10 @@ async function extractResumeWithRetry(input: {
       });
       return {
         attempts,
-        extraction: await readJsonResponse<ExtractionResponse>(response, "resume extraction"),
+        extraction: await readJsonResponse(response, "resume extraction", extractionResponseSchema),
       };
     } catch (error) {
-      if (!isFileParsingInProgress(error)) {
+      if (!(error instanceof Error) || !isFileParsingInProgress(error)) {
         throw error;
       }
       await input.sleep(Math.min(attempts * 1000, 5000));
@@ -260,8 +310,9 @@ async function extractResumeWithRetry(input: {
   throw new Error(`Aliyun resume extraction timed out after ${input.parseTimeoutMs}ms.`);
 }
 
-function finiteNumberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+function finiteNumberOrNull(value: number | string): number | null {
+  const parsed = finiteNumberSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function runAliyunResumeExtraction(
@@ -325,13 +376,13 @@ export async function runAliyunResumeExtraction(
     timingsMs.total = elapsed(totalStartedAt);
 
     const content = requiredString(
-      extraction.output?.choices?.[0]?.message?.content,
+      extraction.output?.choices?.[0]?.message?.content ?? "",
       "extraction content",
     );
     result = {
       content,
       extractionAttempts: attempts,
-      pageCount: finiteNumberOrNull(parseData.pageSize),
+      pageCount: parseData.pageSize === undefined ? null : finiteNumberOrNull(parseData.pageSize),
       timingsMs,
       usage: {
         inputTokens: extraction.usage?.inputTokens ?? null,

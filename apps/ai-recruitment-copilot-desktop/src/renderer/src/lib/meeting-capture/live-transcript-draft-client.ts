@@ -5,19 +5,18 @@ import {
 } from "@/lib/client/meetings";
 import { isApiError } from "@/lib/client/api-error";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
+import { z } from "zod";
 import { createBrowserPcmSidecar } from "./browser-pcm-sidecar";
 import { createLiveTranscriptDraft } from "./live-transcript-draft";
 import { connectQwenRealtimeTranscription } from "./qwen-realtime-transport";
 
+const liveTranscriptCapacityErrorSchema = z.object({
+  code: z.literal("live-transcript-capacity-exhausted"),
+});
+
 export const meetingLiveTranscriptDraft = createLiveTranscriptDraft({
   authorizationFailureReason: (error) => {
-    if (
-      isApiError(error) &&
-      typeof error.payload === "object" &&
-      error.payload !== null &&
-      "code" in error.payload &&
-      error.payload.code === "live-transcript-capacity-exhausted"
-    ) {
+    if (isApiError(error) && liveTranscriptCapacityErrorSchema.safeParse(error.payload).success) {
       return "capacity";
     }
     return "authorization";

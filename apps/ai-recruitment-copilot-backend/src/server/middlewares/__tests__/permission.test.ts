@@ -1,20 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import type { WorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
+import type { PermissionMiddlewareDependencies } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 
-const mocks = vi.hoisted(() => ({ authorize: vi.fn() }));
+const mocks = {
+  authorize: vi.fn<WorkspaceAuthorizer>(),
+  createRequestWorkspaceAuthorizer:
+    vi.fn<PermissionMiddlewareDependencies["createRequestWorkspaceAuthorizer"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
-  createRequestWorkspaceAuthorizer: vi.fn(() => mocks.authorize),
-}));
+const dependencies: PermissionMiddlewareDependencies = mocks;
 
 describe("requirePermission", () => {
-  beforeEach(() => mocks.authorize.mockReset());
+  beforeEach(() => {
+    mocks.authorize.mockReset();
+    mocks.createRequestWorkspaceAuthorizer.mockReset();
+    mocks.createRequestWorkspaceAuthorizer.mockReturnValue(mocks.authorize);
+  });
 
   it("fails closed when the workspace boundary was not mounted", async () => {
     const app = factory
       .createApp()
-      .get("/", requirePermission("interview", "read"), (c) => c.json({ ok: true }));
+      .get("/", requirePermission("interview", "read", dependencies), (c) => c.json({ ok: true }));
 
     const response = await app.request("/");
 
@@ -28,12 +36,15 @@ describe("requirePermission", () => {
     const app = factory
       .createApp()
       .use("*", async (c, next) => {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("activeOrg", { id: "org_1" } as never);
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("member", { role: "owner" } as never);
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("user", { id: "user_1" } as never);
         await next();
       })
-      .get("/", requirePermission("interview", "read"), (c) => c.json({ ok: true }));
+      .get("/", requirePermission("interview", "read", dependencies), (c) => c.json({ ok: true }));
 
     const response = await app.request("/");
 

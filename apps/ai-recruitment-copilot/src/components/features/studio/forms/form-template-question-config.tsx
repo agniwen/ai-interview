@@ -7,9 +7,16 @@ import type {
   CandidateFormQuestionInput,
   CandidateFormQuestionType,
 } from "@arc/db-schema/candidate-forms";
-import { DEFAULT_DISPLAY_MODE, DISPLAY_MODES_BY_TYPE } from "@arc/db-schema/candidate-forms";
+import {
+  candidateFormDisplayModeSchema,
+  candidateFormQuestionInputSchema,
+  candidateFormQuestionTypeSchema,
+  DEFAULT_DISPLAY_MODE,
+  DISPLAY_MODES_BY_TYPE,
+} from "@arc/db-schema/candidate-forms";
 import { useStore } from "@tanstack/react-form";
 import { useMemo } from "react";
+import { z } from "zod";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
@@ -29,18 +36,19 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { cn } from "@arc/shared/utils";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 
-const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
+const DISPLAY_MODE_LABELS = {
   checkbox: "复选框",
   input: "单行输入",
   radio: "单选框",
   select: "下拉选择",
   textarea: "多行输入",
-};
-const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
+} satisfies Record<CandidateFormDisplayMode, string>;
+const QUESTION_TYPE_LABELS = {
   multi: "多选题",
   single: "单选题",
   text: "填写题",
-};
+} satisfies Record<CandidateFormQuestionType, string>;
+const optionItemsSchema = z.array(z.object({ label: z.string(), value: z.string() }));
 const QUESTION_LABEL_MAX_LENGTH = 500;
 const QUESTION_HELPER_MAX_LENGTH = 500;
 const OPTION_TEXT_MAX_LENGTH = 200;
@@ -130,22 +138,32 @@ export function QuestionConfigPanel({
   const questionType = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) =>
-      ((state.values.questions ?? [])[index]?.type ?? "single") as CandidateFormQuestionType,
+    (state: any) => {
+      const parsed = candidateFormQuestionTypeSchema.safeParse(
+        (state.values.questions ?? [])[index]?.type,
+      );
+      return parsed.success ? parsed.data : "single";
+    },
   );
 
   const questionId = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => ((state.values.questions ?? [])[index]?.id ?? "") as string,
+    (state: any) => {
+      const parsed = z.string().safeParse((state.values.questions ?? [])[index]?.id);
+      return parsed.success ? parsed.data : "";
+    },
   );
 
   const displayMode = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) =>
-      ((state.values.questions ?? [])[index]?.displayMode ??
-        DEFAULT_DISPLAY_MODE[questionType]) as CandidateFormDisplayMode,
+    (state: any) => {
+      const parsed = candidateFormDisplayModeSchema.safeParse(
+        (state.values.questions ?? [])[index]?.displayMode,
+      );
+      return parsed.success ? parsed.data : DEFAULT_DISPLAY_MODE[questionType];
+    },
   );
 
   // questionType 理论上一定是合法枚举值，但旧数据 / schema 漂移可能塞入非法字符串。
@@ -154,7 +172,7 @@ export function QuestionConfigPanel({
   // schema drift could leak invalid strings. Fall back to [] so the Select
   // renders an empty dropdown instead of crashing the row.
   const allowedDisplayModes = useMemo(
-    () => (DISPLAY_MODES_BY_TYPE[questionType] ?? []) as readonly CandidateFormDisplayMode[],
+    () => DISPLAY_MODES_BY_TYPE[questionType] ?? [],
     [questionType],
   );
 
@@ -187,7 +205,11 @@ export function QuestionConfigPanel({
               <FieldContent>
                 <Select
                   onValueChange={(value) => {
-                    const nextType = value as CandidateFormQuestionType;
+                    const parsedType = candidateFormQuestionTypeSchema.safeParse(value);
+                    if (!parsedType.success) {
+                      return;
+                    }
+                    const nextType = parsedType.data;
                     if (nextType === field.state.value) {
                       return;
                     }
@@ -195,9 +217,13 @@ export function QuestionConfigPanel({
                     // stored options — replace the whole question atomically so
                     // sibling Field subscriptions (displayMode/options) pick up
                     // the new defaults in the same render cycle.
-                    const current = form.getFieldValue(
-                      `questions[${index}]`,
-                    ) as CandidateFormQuestionInput;
+                    const parsedCurrent = candidateFormQuestionInputSchema.safeParse(
+                      form.getFieldValue(`questions[${index}]`),
+                    );
+                    if (!parsedCurrent.success) {
+                      return;
+                    }
+                    const current = parsedCurrent.data;
                     form.setFieldValue(`questions[${index}]`, {
                       ...current,
                       displayMode: DEFAULT_DISPLAY_MODE[nextType],
@@ -217,13 +243,11 @@ export function QuestionConfigPanel({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(QUESTION_TYPE_LABELS) as CandidateFormQuestionType[]).map(
-                      (type) => (
-                        <SelectItem key={type} value={type}>
-                          {QUESTION_TYPE_LABELS[type]}
-                        </SelectItem>
-                      ),
-                    )}
+                    {candidateFormQuestionTypeSchema.options.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {QUESTION_TYPE_LABELS[type]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </FieldContent>
@@ -236,12 +260,12 @@ export function QuestionConfigPanel({
           <FieldContent>
             <Select
               key={questionType}
-              onValueChange={(value) =>
-                form.setFieldValue(
-                  `questions[${index}].displayMode`,
-                  value as CandidateFormDisplayMode,
-                )
-              }
+              onValueChange={(value) => {
+                const parsed = candidateFormDisplayModeSchema.safeParse(value);
+                if (parsed.success) {
+                  form.setFieldValue(`questions[${index}].displayMode`, parsed.data);
+                }
+              }}
               value={displayMode}
             >
               <SelectTrigger className="w-full">
@@ -376,7 +400,8 @@ function OptionsList({
   // swap (parent questions[index] is replaced wholesale while this child field is
   // still mounted for one render). Default to [] so `.length` doesn't throw; an
   // empty SortableList renders harmlessly during that transient frame.
-  const items = (field.state.value ?? []) as { value: string; label: string }[];
+  const parsedItems = optionItemsSchema.safeParse(field.state.value ?? []);
+  const items = parsedItems.success ? parsedItems.data : [];
   const errors = toFieldErrors(field.state.meta.errors);
   const {
     ids: optionIds,

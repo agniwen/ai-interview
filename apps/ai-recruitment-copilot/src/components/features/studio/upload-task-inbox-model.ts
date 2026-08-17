@@ -3,10 +3,12 @@ import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/up
 
 export type UploadTaskStatusTone = "cancelled" | "completed" | "failed" | "pending" | "processing";
 
-export function getUploadTaskStatusMeta(state: UploadTaskQueueState): {
+interface UploadTaskStatusMeta {
   label: string;
   tone: UploadTaskStatusTone;
-} {
+}
+
+export function getUploadTaskStatusMeta(state: UploadTaskQueueState): UploadTaskStatusMeta {
   if (state === "active") {
     return { label: "解析中", tone: "processing" };
   }

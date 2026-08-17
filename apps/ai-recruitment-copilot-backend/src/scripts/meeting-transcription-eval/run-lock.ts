@@ -1,24 +1,33 @@
 import { randomUUID } from "node:crypto";
 import { link, mkdir, open, readFile, stat, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 
 interface RunLockOwner {
   pid: number;
   token: string;
 }
 
+const runLockOwnerSchema = z.object({
+  pid: z.number().int(),
+  token: z.string().min(1),
+});
+
+const filesystemErrorSchema = z.object({ code: z.string().optional() }).passthrough();
+
+type FilesystemError = z.output<typeof filesystemErrorSchema>;
+
 function parseOwner(value: string): RunLockOwner | null {
   try {
-    const owner = JSON.parse(value) as { pid?: unknown; token?: unknown };
-    return typeof owner.pid === "number" &&
-      Number.isInteger(owner.pid) &&
-      typeof owner.token === "string" &&
-      owner.token.length > 0
-      ? { pid: owner.pid, token: owner.token }
-      : null;
+    const result = runLockOwnerSchema.safeParse(JSON.parse(value));
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
+}
+
+function isLockAlreadyPublished(error: FilesystemError): boolean {
+  return error.code === "EEXIST";
 }
 
 export async function acquireMeetingTranscriptionBenchmarkRunLock(
@@ -40,7 +49,8 @@ export async function acquireMeetingTranscriptionBenchmarkRunLock(
     } catch {
       // The unpublished inode may already have been cleaned after a failed link.
     }
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+    const parsedError = filesystemErrorSchema.safeParse(error);
+    if (parsedError.success && isLockAlreadyPublished(parsedError.data)) {
       const owner = await readFile(lockPath, "utf-8")
         .then(parseOwner)
         .catch(() => null);

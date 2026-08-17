@@ -6,11 +6,11 @@ import { cn } from "@arc/shared/utils";
 import { useMemo } from "react";
 import { useKeywordHighlight } from "./context";
 
-const CATEGORY_CLASS: Record<KeywordCategory, string> = {
+const CATEGORY_CLASS = {
   metric: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   risk: "bg-amber-500/20 text-amber-800 dark:text-amber-300",
   skill: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-};
+} satisfies Record<KeywordCategory, string>;
 
 interface HighlightedTextProps {
   text: string;

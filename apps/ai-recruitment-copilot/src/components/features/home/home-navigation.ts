@@ -3,10 +3,6 @@ import type { ActiveOrganizationState } from "@/lib/start/auth-session-types";
 
 export type HomeGotoTarget = "agent" | "chat" | "studio";
 
-export function readHomeGoto(value: unknown): HomeGotoTarget | undefined {
-  return value === "agent" || value === "chat" || value === "studio" ? value : undefined;
-}
-
 export function resolveHomeRedirect(
   state: ActiveOrganizationState,
   goto?: HomeGotoTarget,

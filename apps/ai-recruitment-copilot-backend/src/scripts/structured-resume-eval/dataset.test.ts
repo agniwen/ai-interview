@@ -6,10 +6,7 @@ import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
 } from "@arc/shared/structured-resume-scoring";
-import type {
-  StructuredResumeDimension,
-  StructuredResumeRuleJudgment,
-} from "@arc/shared/structured-resume-scoring";
+import type { StructuredResumeRuleJudgment } from "@arc/shared/structured-resume-scoring";
 import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 import {
   bindStructuredResumeEvalCandidate,
@@ -18,6 +15,15 @@ import {
 } from "./dataset";
 
 const fixtureManifest = resolve(import.meta.dirname, "fixtures/v1-synthetic/manifest.json");
+
+interface DimensionRuleJudgments {
+  educationBackground: StructuredResumeRuleJudgment[];
+  experienceRelevance: StructuredResumeRuleJudgment[];
+  potential: StructuredResumeRuleJudgment[];
+  projectMatch: StructuredResumeRuleJudgment[];
+  skillMatch: StructuredResumeRuleJudgment[];
+  stability: StructuredResumeRuleJudgment[];
+}
 
 function createValidRawArtifact(engine: {
   engineVersion: string;
@@ -49,19 +55,19 @@ function createValidRawArtifact(engine: {
     requiredRelevantExperience: null,
     schemaVersion: 1 as const,
   };
-  const dimensionRuleJudgments: Record<StructuredResumeDimension, StructuredResumeRuleJudgment[]> =
-    {
-      educationBackground: [],
-      experienceRelevance: [],
-      potential: [],
-      projectMatch: [],
-      skillMatch: [],
-      stability: [],
-    };
+  const dimensionRuleJudgments: DimensionRuleJudgments = {
+    educationBackground: [],
+    experienceRelevance: [],
+    potential: [],
+    projectMatch: [],
+    skillMatch: [],
+    stability: [],
+  };
   for (const [ruleId, rule] of Object.entries(STRUCTURED_RESUME_DEDUCTION_CATALOG)) {
     dimensionRuleJudgments[rule.dimension].push({
       evidence: [],
       reason: "合成产物不适用该规则",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       ruleId: ruleId as StructuredResumeRuleJudgment["ruleId"],
       status: "not_applicable",
     });

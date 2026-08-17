@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, max } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   meetingAuditLog,
@@ -13,11 +14,13 @@ import type {
   CreateMeetingTranscriptCorrectionInput,
   FinalMeetingTranscriptRevision,
   MeetingTranscriptRevisionSummary,
-  MeetingTranscriptionProviderId,
 } from "@arc/shared/meeting-transcription";
+import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 
 const TRANSCRIPT_TURN_INSERT_BATCH_SIZE = 1000;
+const transcriptRevisionKindSchema = z.enum(["final", "human"]);
+const transcriptTurnTrackSchema = z.enum(["local", "remote"]);
 
 async function serializeTranscriptRevision(
   revision: typeof meetingTranscriptRevision.$inferSelect,
@@ -34,10 +37,10 @@ async function serializeTranscriptRevision(
     createdAt: revision.createdAt.toISOString(),
     createdBy: creator ?? null,
     id: revision.id,
-    kind: revision.kind as "final" | "human",
+    kind: transcriptRevisionKindSchema.parse(revision.kind),
     language: revision.language,
     model: revision.model,
-    provider: revision.provider as MeetingTranscriptionProviderId,
+    provider: meetingTranscriptionProviderSchema.parse(revision.provider),
     region: revision.region,
     revision: revision.revision,
     turns: turns.map((turn) => ({
@@ -49,7 +52,7 @@ async function serializeTranscriptRevision(
       speakerKey: turn.speakerKey,
       startMs: turn.startMs,
       text: turn.text,
-      track: turn.track as "local" | "remote",
+      track: transcriptTurnTrackSchema.parse(turn.track),
     })),
   };
 }
@@ -97,10 +100,10 @@ export async function createHumanMeetingTranscriptRevision(input: {
       )
       .for("update");
     if (!meeting) {
-      return "not-found" as const;
+      return { status: "not-found" as const };
     }
     if (meeting.activeTranscriptRevisionId !== input.correction.sourceRevisionId) {
-      return "conflict" as const;
+      return { status: "conflict" as const };
     }
     const [source] = await tx
       .select()
@@ -114,7 +117,7 @@ export async function createHumanMeetingTranscriptRevision(input: {
       )
       .limit(1);
     if (!source) {
-      return "conflict" as const;
+      return { status: "conflict" as const };
     }
     const sourceTurns = await tx
       .select({
@@ -146,7 +149,7 @@ export async function createHumanMeetingTranscriptRevision(input: {
       );
     const durationMs = Number(duration?.durationMs ?? 0);
     if (input.correction.turns.some((turn) => turn.endMs > durationMs)) {
-      return "invalid-range" as const;
+      return { status: "invalid-range" as const };
     }
     const [latest] = await tx
       .select({ revision: max(meetingTranscriptRevision.revision) })
@@ -228,11 +231,12 @@ export async function createHumanMeetingTranscriptRevision(input: {
       organizationId: input.organizationId,
     });
     await rebuildMeetingSearchProjection(tx, input);
-    return { revision, turns };
+    return { revision, status: "revision" as const, turns };
   });
-  return typeof result === "string"
-    ? result
-    : serializeTranscriptRevision(result.revision, result.turns);
+  if (result.status !== "revision") {
+    return result.status;
+  }
+  return serializeTranscriptRevision(result.revision, result.turns);
 }
 
 export async function listMeetingTranscriptRevisions(input: {
@@ -270,10 +274,10 @@ export async function listMeetingTranscriptRevisions(input: {
         ? { id: row.createdById, name: row.createdByName }
         : null,
     id: row.id,
-    kind: row.kind as "final" | "human",
+    kind: transcriptRevisionKindSchema.parse(row.kind),
     language: row.language,
     model: row.model,
-    provider: row.provider as MeetingTranscriptionProviderId,
+    provider: meetingTranscriptionProviderSchema.parse(row.provider),
     region: row.region,
     revision: row.revision,
   }));

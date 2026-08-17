@@ -49,7 +49,11 @@ function extractJsonObjects(text: string): string[] {
  * blocks or output it inline. This helper tries both patterns, then validates
  * the extracted object against the supplied Zod schema.
  */
-export function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: string): T {
+export function parseJsonOutput<TSchema extends z.ZodType>(
+  text: string,
+  schema: TSchema,
+  label: string,
+): z.output<TSchema> {
   const trimmed = text.trim();
 
   const blockMatch = JSON_BLOCK_RE.exec(trimmed);

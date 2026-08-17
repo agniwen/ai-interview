@@ -1,4 +1,5 @@
 import { presignRecordingGetObjectUrl } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { z } from "zod";
 import {
   formatMeetingExportFooter,
   formatMeetingExportHeader,
@@ -10,11 +11,36 @@ import type {
   MeetingExportSnapshot,
   MeetingTextExportFormat,
 } from "@arc/shared/meeting-export";
-import { meetingIntelligencePayloadSchema } from "@arc/shared/meeting-intelligence";
+import type { JsonObject } from "@arc/db-schema/json";
+import {
+  meetingIntelligencePayloadSchema,
+  meetingIntelligenceTemplateSchema,
+} from "@arc/shared/meeting-intelligence";
 import { recordMeetingAudit } from "../../dao";
 import { loadMeetingExportContext, loadMeetingExportTurnsPage } from "./dao";
 
+export interface MeetingExportDependencies {
+  loadContext: typeof loadMeetingExportContext;
+  loadTurnsPage: typeof loadMeetingExportTurnsPage;
+  presign: typeof presignRecordingGetObjectUrl;
+  recordAudit: typeof recordMeetingAudit;
+}
+
+const defaultDependencies: MeetingExportDependencies = {
+  loadContext: loadMeetingExportContext,
+  loadTurnsPage: loadMeetingExportTurnsPage,
+  presign: presignRecordingGetObjectUrl,
+  recordAudit: recordMeetingAudit,
+};
+
 const EXPORT_TURN_PAGE_SIZE = 500;
+const meetingTranscriptKindSchema = z.enum(["final", "human"]);
+const meetingTranscriptTurnTrackSchema = z.enum(["local", "remote"]);
+const recordingTrackPriority = [
+  "playback",
+  "system",
+  "microphone",
+] satisfies readonly MeetingAudioExportTrack[];
 
 class MeetingExportAuthorizationRevokedError extends Error {
   constructor() {
@@ -23,9 +49,9 @@ class MeetingExportAuthorizationRevokedError extends Error {
   }
 }
 
-function logAuditFailure(error: unknown): void {
+function logAuditFailure(error: Error): void {
   console.error("[meeting-export] audit write failed", {
-    errorName: error instanceof Error ? error.name : "UnknownError",
+    errorName: error.name,
   });
 }
 
@@ -38,6 +64,14 @@ export type PreparedMeetingExport =
       filename: string;
       kind: "text";
     };
+
+interface MeetingExportAuditDetail extends JsonObject {
+  code?: string;
+  format: MeetingExportFormat;
+  intelligenceRevisionId: string | null;
+  requestedTrack?: MeetingAudioExportTrack | "automatic";
+  transcriptRevisionId: string | null;
+}
 
 function safeFilename(title: string): string {
   return (
@@ -70,21 +104,24 @@ function textExportMetadata(format: MeetingTextExportFormat) {
   }
 }
 
-function createAuditedStream(input: {
-  activeIntelligenceRevisionId: string | null;
-  actorId: string;
-  format: MeetingTextExportFormat;
-  meetingId: string;
-  organizationId: string;
-  snapshot: MeetingExportSnapshot;
-}): ReadableStream<Uint8Array> {
+function createAuditedStream(
+  input: {
+    activeIntelligenceRevisionId: string | null;
+    actorId: string;
+    format: MeetingTextExportFormat;
+    meetingId: string;
+    organizationId: string;
+    snapshot: MeetingExportSnapshot;
+  },
+  dependencies: MeetingExportDependencies,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   async function* chunks() {
     let afterSequence = -1;
     let first = true;
     let headerSent = false;
     while (true) {
-      const turns = await loadMeetingExportTurnsPage({
+      const turns = await dependencies.loadTurnsPage({
         afterSequence,
         expectedIntelligenceRevisionId: input.activeIntelligenceRevisionId,
         limit: EXPORT_TURN_PAGE_SIZE,
@@ -112,7 +149,7 @@ function createAuditedStream(input: {
               (turn.track === "local" ? "本地说话人" : "远端说话人"),
             startMs: turn.startMs,
             text: turn.text,
-            track: turn.track as "local" | "remote",
+            track: meetingTranscriptTurnTrackSchema.parse(turn.track),
           },
           first,
         );
@@ -137,15 +174,18 @@ function createAuditedStream(input: {
     }
     finalizing = true;
     try {
-      await recordMeetingAudit({
+      const detail: MeetingExportAuditDetail = {
+        format: input.format,
+        intelligenceRevisionId: input.snapshot.intelligence?.id ?? null,
+        transcriptRevisionId: input.snapshot.transcript.id,
+      };
+      if (code) {
+        detail.code = code;
+      }
+      await dependencies.recordAudit({
         action,
         actorId: input.actorId,
-        detail: {
-          ...(code ? { code } : {}),
-          format: input.format,
-          intelligenceRevisionId: input.snapshot.intelligence?.id ?? null,
-          transcriptRevisionId: input.snapshot.transcript.id,
-        },
+        detail,
         meetingId: input.meetingId,
         organizationId: input.organizationId,
       });
@@ -159,7 +199,11 @@ function createAuditedStream(input: {
       try {
         await iterator.return?.();
       } finally {
-        await audit("meeting.export_failed", "cancelled").catch(logAuditFailure);
+        await audit("meeting.export_failed", "cancelled").catch((error) =>
+          logAuditFailure(
+            error instanceof Error ? error : new Error("Meeting export audit failed"),
+          ),
+        );
       }
     },
     async pull(controller) {
@@ -177,23 +221,30 @@ function createAuditedStream(input: {
           error instanceof MeetingExportAuthorizationRevokedError
             ? "authorization-revoked"
             : "stream-failed",
-        ).catch(logAuditFailure);
+        ).catch((auditError) =>
+          logAuditFailure(
+            auditError instanceof Error ? auditError : new Error("Meeting export audit failed"),
+          ),
+        );
         controller.error(error);
       }
     },
   });
 }
 
-export async function prepareMeetingExport(input: {
-  audioTrack?: MeetingAudioExportTrack;
-  format: MeetingExportFormat;
-  meetingId: string;
-  organizationId: string;
-  userId: string;
-}): Promise<PreparedMeetingExport> {
-  const context = await loadMeetingExportContext(input);
+export async function prepareMeetingExport(
+  input: {
+    audioTrack?: MeetingAudioExportTrack;
+    format: MeetingExportFormat;
+    meetingId: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingExportDependencies = defaultDependencies,
+): Promise<PreparedMeetingExport> {
+  const context = await dependencies.loadContext(input);
   if (context.kind !== "authorized") {
-    await recordMeetingAudit({
+    await dependencies.recordAudit({
       action: "meeting.export_denied",
       actorId: input.userId,
       detail: { code: context.kind, format: input.format },
@@ -201,13 +252,15 @@ export async function prepareMeetingExport(input: {
     });
     return context;
   }
-  const baseDetail = {
+  const baseDetail: MeetingExportAuditDetail = {
     format: input.format,
-    ...(input.format === "audio" ? { requestedTrack: input.audioTrack ?? "automatic" } : {}),
     intelligenceRevisionId: context.intelligence?.id ?? null,
     transcriptRevisionId: context.transcript?.id ?? null,
   };
-  await recordMeetingAudit({
+  if (input.format === "audio") {
+    baseDetail.requestedTrack = input.audioTrack ?? "automatic";
+  }
+  await dependencies.recordAudit({
     action: "meeting.export_requested",
     actorId: input.userId,
     detail: baseDetail,
@@ -217,11 +270,11 @@ export async function prepareMeetingExport(input: {
   if (input.format === "audio") {
     const selectedAsset = input.audioTrack
       ? context.recordingAssets.find((asset) => asset.track === input.audioTrack)
-      : (["playback", "system", "microphone"] as const)
+      : recordingTrackPriority
           .map((track) => context.recordingAssets.find((asset) => asset.track === track))
           .find(Boolean);
     if (!selectedAsset) {
-      await recordMeetingAudit({
+      await dependencies.recordAudit({
         action: "meeting.export_failed",
         actorId: input.userId,
         detail: { code: "recording-not-ready", ...baseDetail },
@@ -231,12 +284,12 @@ export async function prepareMeetingExport(input: {
       return { kind: "not-ready" };
     }
     try {
-      const url = await presignRecordingGetObjectUrl(
+      const url = await dependencies.presign(
         selectedAsset.storageKey,
         300,
         `${safeFilename(context.meeting.title)}-${selectedAsset.track}.webm`,
       );
-      await recordMeetingAudit({
+      await dependencies.recordAudit({
         action: "meeting.export_authorization_issued",
         actorId: input.userId,
         detail: {
@@ -249,7 +302,7 @@ export async function prepareMeetingExport(input: {
       });
       return { kind: "audio", url };
     } catch {
-      await recordMeetingAudit({
+      await dependencies.recordAudit({
         action: "meeting.export_failed",
         actorId: input.userId,
         detail: { code: "authorization-failed", ...baseDetail },
@@ -260,7 +313,7 @@ export async function prepareMeetingExport(input: {
     }
   }
   if (!context.transcript) {
-    await recordMeetingAudit({
+    await dependencies.recordAudit({
       action: "meeting.export_failed",
       actorId: input.userId,
       detail: { code: "transcript-not-ready", ...baseDetail },
@@ -277,12 +330,12 @@ export async function prepareMeetingExport(input: {
           createdAt: context.intelligence.createdAt.toISOString(),
           id: context.intelligence.id,
           revision: context.intelligence.revision,
-          template: context.intelligence.templateKey as "general" | "recruiting-interview",
+          template: meetingIntelligenceTemplateSchema.parse(context.intelligence.templateKey),
           transcriptRevisionId: context.intelligence.transcriptRevisionId,
         }
       : null;
   } catch {
-    await recordMeetingAudit({
+    await dependencies.recordAudit({
       action: "meeting.export_failed",
       actorId: input.userId,
       detail: { code: "snapshot-invalid", ...baseDetail },
@@ -302,21 +355,24 @@ export async function prepareMeetingExport(input: {
     transcript: {
       createdAt: context.transcript.createdAt.toISOString(),
       id: context.transcript.id,
-      kind: context.transcript.kind as "final" | "human",
+      kind: meetingTranscriptKindSchema.parse(context.transcript.kind),
       language: context.transcript.language,
       revision: context.transcript.revision,
     },
   };
   const metadata = textExportMetadata(input.format);
   return {
-    body: createAuditedStream({
-      activeIntelligenceRevisionId: context.activeIntelligenceRevisionId,
-      actorId: input.userId,
-      format: input.format,
-      meetingId: input.meetingId,
-      organizationId: input.organizationId,
-      snapshot,
-    }),
+    body: createAuditedStream(
+      {
+        activeIntelligenceRevisionId: context.activeIntelligenceRevisionId,
+        actorId: input.userId,
+        format: input.format,
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+        snapshot,
+      },
+      dependencies,
+    ),
     contentType: metadata.contentType,
     filename: `${safeFilename(context.meeting.title)}.${metadata.extension}`,
     kind: "text",

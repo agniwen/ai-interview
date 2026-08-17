@@ -5,8 +5,10 @@ import type { ResumePoolReadinessDeps } from "./readiness";
 function createStore() {
   const state = {
     duplicateSnapshotReady: false,
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     error: null as string | null,
     semanticIndexReady: false,
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     status: "processing" as "failed" | "processing" | "ready",
   };
   const deps: ResumePoolReadinessDeps = {

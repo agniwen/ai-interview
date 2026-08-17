@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { JsonValue } from "@arc/db-schema/json";
 import {
   createFeishuDocx,
   grantFeishuDocxAccess,
@@ -6,7 +7,7 @@ import {
   resolveFeishuDocxDocumentId,
 } from "../utils/feishu-docx";
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: JsonValue, status = 200): Response {
   return Response.json(body, { status });
 }
 
@@ -22,6 +23,7 @@ describe("createFeishuDocx", () => {
         documentId: "docx-existing",
         recipientOpenId: "ou_admin",
       },
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       { fetcher: fetcher as typeof fetch, sleep: vi.fn() },
     );
 

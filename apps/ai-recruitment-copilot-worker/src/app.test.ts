@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { WorkerAppDependencies } from "./app";
 import { createWorkerApp } from "./app";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   getMeetingIntelligenceQueueStats: vi.fn(() =>
     Promise.resolve({ active: 0, concurrency: 4, delayed: 0, failed: 0, waiting: 3 }),
   ),
@@ -32,34 +33,14 @@ const mocks = vi.hoisted(() => ({
   ),
   getResumeParseQueueStats: vi.fn(() => Promise.resolve({ waiting: 0 })),
   getResumeParseReadinessIssue: vi.fn(() => null),
+  getResumeReviewGenerationQueueStats: vi.fn(() => Promise.resolve({ waiting: 0 })),
   isResumeParseQueueConfigured: vi.fn(() => true),
   pingDatabase: vi.fn(() => Promise.resolve()),
-}));
+};
 
-vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
-  getResumeParseQueueStats: mocks.getResumeParseQueueStats,
-  isResumeParseQueueConfigured: mocks.isResumeParseQueueConfigured,
-}));
-vi.mock("@arc/meeting-processing-queue/meeting-playback", () => ({
-  getMeetingPlaybackQueueStats: mocks.getMeetingPlaybackQueueStats,
-}));
-vi.mock("@arc/meeting-processing-queue/meeting-transcription", () => ({
-  getMeetingTranscriptionQueueStats: mocks.getMeetingTranscriptionQueueStats,
-}));
-vi.mock("@arc/meeting-processing-queue/meeting-intelligence", () => ({
-  getMeetingIntelligenceQueueStats: mocks.getMeetingIntelligenceQueueStats,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/operations-dao", () => ({
-  loadMeetingOperationsSnapshot: mocks.getMeetingOperationsSnapshot,
-}));
-
-vi.mock("./parse-config", () => ({
-  getResumeParseReadinessIssue: mocks.getResumeParseReadinessIssue,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  pingDatabase: mocks.pingDatabase,
-}));
+function createTestWorkerApp() {
+  return createWorkerApp(mocks satisfies WorkerAppDependencies);
+}
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -73,7 +54,7 @@ describe("worker readiness", () => {
     mocks.pingDatabase.mockRejectedValueOnce(dependencyError);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const response = await createWorkerApp().request("/readyz");
+    const response = await createTestWorkerApp().request("/readyz");
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
@@ -91,7 +72,7 @@ describe("worker diagnostics", () => {
   it("rejects queue statistics requests without a bearer token", async () => {
     vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "diagnostics-secret");
 
-    const response = await createWorkerApp().request("/queues/resume-parse/stats");
+    const response = await createTestWorkerApp().request("/queues/resume-parse/stats");
 
     expect(response.status).toBe(401);
     expect(mocks.getResumeParseQueueStats).not.toHaveBeenCalled();
@@ -100,7 +81,7 @@ describe("worker diagnostics", () => {
   it("returns queue statistics to an authorized operator", async () => {
     vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "diagnostics-secret");
 
-    const response = await createWorkerApp().request("/queues/resume-parse/stats", {
+    const response = await createTestWorkerApp().request("/queues/resume-parse/stats", {
       headers: { Authorization: "Bearer diagnostics-secret" },
     });
 
@@ -111,7 +92,7 @@ describe("worker diagnostics", () => {
   it("fails closed when the diagnostics secret is not configured", async () => {
     vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "");
 
-    const response = await createWorkerApp().request("/queues/resume-review-generation/stats", {
+    const response = await createTestWorkerApp().request("/queues/resume-review-generation/stats", {
       headers: { Authorization: "Bearer any-token" },
     });
 
@@ -121,7 +102,7 @@ describe("worker diagnostics", () => {
   it("keeps process health public", async () => {
     vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "diagnostics-secret");
 
-    const response = await createWorkerApp().request("/healthz");
+    const response = await createTestWorkerApp().request("/healthz");
 
     expect(response.status).toBe(200);
   });
@@ -129,7 +110,7 @@ describe("worker diagnostics", () => {
   it("separates Meeting pipeline queues and returns only bounded operational evidence", async () => {
     vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "diagnostics-secret");
 
-    const response = await createWorkerApp().request("/operations/meetings", {
+    const response = await createTestWorkerApp().request("/operations/meetings", {
       headers: { Authorization: "Bearer diagnostics-secret" },
     });
     const body = await response.json();

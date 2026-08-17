@@ -11,6 +11,7 @@ function detail(
     "jobEvaluationMode" | "structuredGateStatus" | "structuredScoreGrade"
   >,
 ): ResumeLibraryDetail {
+  // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
   return {
     ...input,
     resumeEvaluationArtifactMode: input.jobEvaluationMode,
@@ -62,6 +63,7 @@ describe("structured AI interview launch confirmation", () => {
 
   it("binds confirmation to the displayed run, gate, and grade", () => {
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       getStructuredLaunchConfirmation({
         jobEvaluationMode: "structured",
         resumeEvaluationArtifactMode: "structured",

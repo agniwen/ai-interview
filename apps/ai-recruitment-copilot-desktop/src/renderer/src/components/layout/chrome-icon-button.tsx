@@ -2,10 +2,15 @@ import type { CSSProperties } from "react";
 import { cn } from "@arc/shared/utils";
 
 /** Electron frameless windows need an explicit no-drag on every chrome control. */
-const noDragStyle = {
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /** Shared square chrome icon control (toggle / history / settings). */
 export const chromeIconControlClassName =

@@ -1,5 +1,28 @@
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
+import { z } from "zod";
+
+export type OfficeXmlNode = OfficeXmlElement | OfficeXmlNode[] | boolean | null | number | string;
+
+export interface OfficeXmlElement {
+  [key: string]: OfficeXmlNode;
+}
+
+const officeXmlNodeSchema: z.ZodType<OfficeXmlNode> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(officeXmlNodeSchema),
+    z.record(z.string(), officeXmlNodeSchema),
+  ]),
+);
+const officeXmlElementSchema: z.ZodType<OfficeXmlElement> = z.record(
+  z.string(),
+  officeXmlNodeSchema,
+);
+const officeXmlTextScalarSchema = z.union([z.string(), z.number()]);
 
 const xmlParser = new XMLParser({
   attributeNamePrefix: "@_",
@@ -9,30 +32,33 @@ const xmlParser = new XMLParser({
   trimValues: false,
 });
 
-export function parseOfficeXml(xml: string): unknown {
-  return xmlParser.parse(xml);
+export function parseOfficeXml(xml: string): OfficeXmlNode {
+  return officeXmlNodeSchema.parse(xmlParser.parse(xml));
 }
 
 export function officeXmlLocalName(name: string): string {
   return name.includes(":") ? (name.split(":").pop() ?? name) : name;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isOfficeXmlElement(value: OfficeXmlNode | undefined): value is OfficeXmlElement {
+  return officeXmlElementSchema.safeParse(value).success;
 }
 
-function asArray(value: unknown): unknown[] {
+function asArray(value: OfficeXmlNode | undefined): OfficeXmlNode[] {
   if (value === undefined || value === null) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
 }
 
-export function getOfficeXmlChildren(node: unknown, childLocalName: string): unknown[] {
-  if (!isRecord(node)) {
+export function getOfficeXmlChildren(
+  node: OfficeXmlNode | undefined,
+  childLocalName: string,
+): OfficeXmlNode[] {
+  if (!isOfficeXmlElement(node)) {
     return [];
   }
-  const results: unknown[] = [];
+  const results: OfficeXmlNode[] = [];
   for (const [key, value] of Object.entries(node)) {
     if (!key.startsWith("@_") && officeXmlLocalName(key) === childLocalName) {
       results.push(...asArray(value));
@@ -41,11 +67,17 @@ export function getOfficeXmlChildren(node: unknown, childLocalName: string): unk
   return results;
 }
 
-export function getFirstOfficeXmlChild(node: unknown, childLocalName: string): unknown {
+export function getFirstOfficeXmlChild(
+  node: OfficeXmlNode | undefined,
+  childLocalName: string,
+): OfficeXmlNode | undefined {
   return getOfficeXmlChildren(node, childLocalName)[0];
 }
 
-export function findFirstOfficeXmlDescendant(node: unknown, descendantLocalName: string): unknown {
+export function findFirstOfficeXmlDescendant(
+  node: OfficeXmlNode | undefined,
+  descendantLocalName: string,
+): OfficeXmlNode | undefined {
   if (Array.isArray(node)) {
     for (const item of node) {
       const found = findFirstOfficeXmlDescendant(item, descendantLocalName);
@@ -55,7 +87,7 @@ export function findFirstOfficeXmlDescendant(node: unknown, descendantLocalName:
     }
     return undefined;
   }
-  if (!isRecord(node)) {
+  if (!isOfficeXmlElement(node)) {
     return undefined;
   }
   for (const [key, value] of Object.entries(node)) {
@@ -73,28 +105,35 @@ export function findFirstOfficeXmlDescendant(node: unknown, descendantLocalName:
   return undefined;
 }
 
-export function readOfficeXmlAttribute(node: unknown, attributeName: string): string | null {
-  if (!isRecord(node)) {
+export function readOfficeXmlAttribute(
+  node: OfficeXmlNode | undefined,
+  attributeName: string,
+): string | null {
+  if (!isOfficeXmlElement(node)) {
     return null;
   }
   const direct = node[`@_${attributeName}`];
-  if (typeof direct === "string") {
-    return direct;
+  const parsedDirect = z.string().safeParse(direct);
+  if (parsedDirect.success) {
+    return parsedDirect.data;
   }
   for (const [key, value] of Object.entries(node)) {
-    if (
-      key.startsWith("@_") &&
-      officeXmlLocalName(key.slice(2)) === attributeName &&
-      typeof value === "string"
-    ) {
-      return value;
+    if (key.startsWith("@_") && officeXmlLocalName(key.slice(2)) === attributeName) {
+      const parsedValue = z.string().safeParse(value);
+      if (parsedValue.success) {
+        return parsedValue.data;
+      }
     }
   }
   return null;
 }
 
-export function collectOfficeXmlText(node: unknown, textLocalName: string, output: string[]): void {
-  if (typeof node === "string" || typeof node === "number") {
+export function collectOfficeXmlText(
+  node: OfficeXmlNode | undefined,
+  textLocalName: string,
+  output: string[],
+): void {
+  if (officeXmlTextScalarSchema.safeParse(node).success) {
     return;
   }
   if (Array.isArray(node)) {
@@ -103,7 +142,7 @@ export function collectOfficeXmlText(node: unknown, textLocalName: string, outpu
     }
     return;
   }
-  if (!isRecord(node)) {
+  if (!isOfficeXmlElement(node)) {
     return;
   }
   for (const [key, value] of Object.entries(node)) {
@@ -112,10 +151,14 @@ export function collectOfficeXmlText(node: unknown, textLocalName: string, outpu
     }
     if (officeXmlLocalName(key) === textLocalName) {
       for (const textNode of asArray(value)) {
-        if (typeof textNode === "string" || typeof textNode === "number") {
-          output.push(String(textNode));
-        } else if (isRecord(textNode) && typeof textNode["#text"] === "string") {
-          output.push(textNode["#text"]);
+        const parsedText = officeXmlTextScalarSchema.safeParse(textNode);
+        if (parsedText.success) {
+          output.push(String(parsedText.data));
+        } else if (isOfficeXmlElement(textNode)) {
+          const parsedNestedText = z.string().safeParse(textNode["#text"]);
+          if (parsedNestedText.success) {
+            output.push(parsedNestedText.data);
+          }
         }
       }
       continue;

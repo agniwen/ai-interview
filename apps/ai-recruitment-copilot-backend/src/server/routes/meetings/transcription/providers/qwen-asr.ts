@@ -139,7 +139,7 @@ export function createQwenAsrMeetingTranscriptionProvider(
   const pollIntervalMs = dependencies.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const pollTimeoutMs = dependencies.pollTimeoutMs ?? DEFAULT_POLL_TIMEOUT_MS;
 
-  const authHeaders = (): Record<string, string> => ({
+  const authHeaders = () => ({
     Authorization: `Bearer ${dependencies.apiKey}`,
     "Content-Type": "application/json",
     "X-DashScope-Async": "enable",

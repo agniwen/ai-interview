@@ -100,7 +100,13 @@ function DimensionDetail({ dimension }: { dimension: ReviewDimensionDisplay }) {
   );
 }
 
-function AiScorePreviewContent({ preview }: { preview: AiScorePreview }) {
+function AiScorePreviewContent({
+  preview,
+  renderRadar,
+}: {
+  preview: AiScorePreview;
+  renderRadar: (dimensions: ReviewDimensionDisplay[]) => ReactNode;
+}) {
   return (
     <ScrollArea className="max-h-[calc(100vh-2rem)] w-full min-w-0 sm:max-h-[34rem]" scrollFade>
       <div className="flex min-w-0 flex-col overflow-hidden" data-slot="ai-score-content-shell">
@@ -118,7 +124,7 @@ function AiScorePreviewContent({ preview }: { preview: AiScorePreview }) {
             className="mx-auto w-full max-w-52 min-w-0 overflow-hidden px-1"
             data-slot="ai-score-radar"
           >
-            <OverviewDimensionRadar compact dimensions={preview.dimensions} showTooltip={false} />
+            {renderRadar(preview.dimensions)}
           </div>
           <section className="flex min-w-0 flex-col gap-2 wrap-break-word">
             <div className="flex items-end gap-1">
@@ -147,21 +153,29 @@ function AiScorePreviewContent({ preview }: { preview: AiScorePreview }) {
   );
 }
 
-export function ResumeAiScoreHoverCard({
+export interface ResumeAiScoreDependencies {
+  fetchReview: typeof fetchStudioResumeReview;
+  renderRadar: (dimensions: ReviewDimensionDisplay[]) => ReactNode;
+  slug: string | null;
+}
+
+export function ResumeAiScoreHoverCardView({
   children,
   className,
+  dependencies,
   recordId,
 }: {
   children: ReactNode;
   className?: string;
+  dependencies: ResumeAiScoreDependencies;
   recordId: string;
 }) {
-  const slug = useOptionalWorkspaceSlug();
+  const { fetchReview, renderRadar, slug } = dependencies;
   const [open, setOpen] = useState(false);
   const querySlug = slug ?? "";
   const detailQuery = useQuery({
     enabled: open && Boolean(slug),
-    queryFn: () => fetchStudioResumeReview(querySlug, recordId),
+    queryFn: () => fetchReview(querySlug, recordId),
     queryKey: ["studio-resumes", slug, "review", recordId] as const,
     staleTime: 60_000,
   });
@@ -204,8 +218,35 @@ export function ResumeAiScoreHoverCard({
         {detailQuery.data && !preview ? (
           <p className="p-4 text-muted-foreground text-sm">暂无 AI评分详情。</p>
         ) : null}
-        {preview ? <AiScorePreviewContent preview={preview} /> : null}
+        {preview ? <AiScorePreviewContent preview={preview} renderRadar={renderRadar} /> : null}
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+export function ResumeAiScoreHoverCard({
+  children,
+  className,
+  recordId,
+}: {
+  children: ReactNode;
+  className?: string;
+  recordId: string;
+}) {
+  const slug = useOptionalWorkspaceSlug();
+  return (
+    <ResumeAiScoreHoverCardView
+      className={className}
+      dependencies={{
+        fetchReview: fetchStudioResumeReview,
+        renderRadar: (dimensions) => (
+          <OverviewDimensionRadar compact dimensions={dimensions} showTooltip={false} />
+        ),
+        slug,
+      }}
+      recordId={recordId}
+    >
+      {children}
+    </ResumeAiScoreHoverCardView>
   );
 }

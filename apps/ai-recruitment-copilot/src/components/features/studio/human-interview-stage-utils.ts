@@ -5,13 +5,15 @@ import type {
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
 
+interface HumanInterviewStatusDescription {
+  label: string;
+  tone: "success" | "warning" | "info" | "outline";
+}
+
 export function describeRoundSummaryStatus(
   round: HumanInterviewRoundRecord,
   meeting: HumanInterviewMeetingRecord | null,
-): {
-  label: string;
-  tone: "success" | "warning" | "info" | "outline";
-} {
+): HumanInterviewStatusDescription {
   if (round.status === "cancelled") {
     return { label: "已取消", tone: "outline" };
   }
@@ -30,10 +32,9 @@ export function describeRoundSummaryStatus(
   return { label: "待安排", tone: "info" };
 }
 
-export function describeMeetingStatus(meeting: HumanInterviewMeetingRecord): {
-  label: string;
-  tone: "success" | "warning" | "info" | "outline";
-} {
+export function describeMeetingStatus(
+  meeting: HumanInterviewMeetingRecord,
+): HumanInterviewStatusDescription {
   if (meeting.status === "cancelled") {
     return { label: "已取消", tone: "outline" };
   }

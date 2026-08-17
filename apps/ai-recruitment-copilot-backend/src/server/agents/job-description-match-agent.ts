@@ -88,10 +88,33 @@ export interface JobDescriptionMatchOptions {
   resumeFileName?: string | null;
 }
 
+interface JobDescriptionMatchGenerationInput {
+  prompt: string;
+  schema: ReturnType<typeof buildMatchResultSchema>;
+}
+
+export interface JobDescriptionMatchDependencies {
+  generateMatch: (
+    input: JobDescriptionMatchGenerationInput,
+  ) => Promise<z.infer<ReturnType<typeof buildMatchResultSchema>>>;
+}
+
+const defaultJobDescriptionMatchDependencies: JobDescriptionMatchDependencies = {
+  generateMatch: (input) =>
+    generateStructuredWithMastraAgent({
+      agent: jobDescriptionMatchAgent,
+      prompt: input.prompt,
+      retryOnInvalid: true,
+      schema: input.schema,
+      temperature: 0,
+    }),
+};
+
 export async function matchJobDescriptionForResume(
   resumeProfile: ResumeProfile,
   candidates: JobDescriptionListRecord[],
   options: JobDescriptionMatchOptions = {},
+  dependencies: JobDescriptionMatchDependencies = defaultJobDescriptionMatchDependencies,
 ): Promise<JobDescriptionMatchResult | null> {
   if (candidates.length === 0) {
     return null;
@@ -105,12 +128,9 @@ export async function matchJobDescriptionForResume(
   const resumeBlock = summarizeResumeProfile(resumeProfile, options.resumeFileName);
   const candidateIds = new Set(candidates.map((candidate) => candidate.id));
 
-  const output = await generateStructuredWithMastraAgent({
-    agent: jobDescriptionMatchAgent,
+  const output = await dependencies.generateMatch({
     prompt: `${MATCH_INSTRUCTIONS}\n\n候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`,
-    retryOnInvalid: true,
     schema: buildMatchResultSchema(candidateIds),
-    temperature: 0,
   });
 
   const matched = candidates.find((jd) => jd.id === output.jobDescriptionId);

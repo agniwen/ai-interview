@@ -321,7 +321,7 @@ export const interviewRouter = factory
     }));
 
     if (required.length === 0) {
-      return c.json({ required: [], submitted: {} as Record<string, true> }, 200);
+      return c.json({ required: [], submitted: {} satisfies Record<string, true> }, 200);
     }
 
     const templateIds = required.map((form) => form.templateId);

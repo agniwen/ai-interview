@@ -17,6 +17,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioAiCalendarEventPreview } from "@/lib/client/api/endpoints/studio-calendar";
 import { studioCalendarKeys } from "@/lib/client/api/query-keys";
 
+interface AiInterviewEventHoverCardDependencies {
+  fetchPreview: typeof fetchStudioAiCalendarEventPreview;
+  renderNavigation: (args: { candidateId: string; roundId: string; slug: string }) => ReactElement;
+}
+
+const defaultAiInterviewEventHoverCardDependencies: AiInterviewEventHoverCardDependencies = {
+  fetchPreview: fetchStudioAiCalendarEventPreview,
+  renderNavigation: ({ candidateId, roundId, slug }) => (
+    <div className="flex justify-end gap-1 border-border/70 border-t pt-2">
+      <Link
+        className={buttonVariants({ size: "xs", variant: "ghost" })}
+        params={{ recordId: candidateId, slug }}
+        search={{ tab: "rounds" }}
+        to="/w/$slug/studio/resumes/$recordId"
+      >
+        查看候选人
+      </Link>
+      <Link
+        className={buttonVariants({ size: "xs", variant: "outline" })}
+        params={{ slug }}
+        search={{ roundId }}
+        to="/w/$slug/studio/interviews"
+      >
+        查看面试
+      </Link>
+    </div>
+  ),
+};
+
 function formatDateTime(value: string | null): string {
   return value ? format(new Date(value), "M月d日 HH:mm") : "未记录";
 }
@@ -82,10 +111,12 @@ function PreviewSkeleton() {
 
 function PreviewContent({
   preview,
+  renderNavigation,
   source,
   slug,
 }: {
   preview: StudioAiCalendarEventPreview;
+  renderNavigation: AiInterviewEventHoverCardDependencies["renderNavigation"];
   source: StudioAiCalendarEvent["source"];
   slug: string;
 }) {
@@ -150,24 +181,7 @@ function PreviewContent({
         </p>
       )}
 
-      <div className="flex justify-end gap-1 border-border/70 border-t pt-2">
-        <Link
-          className={buttonVariants({ size: "xs", variant: "ghost" })}
-          params={{ recordId: preview.candidate.id, slug }}
-          search={{ tab: "rounds" }}
-          to="/w/$slug/studio/resumes/$recordId"
-        >
-          查看候选人
-        </Link>
-        <Link
-          className={buttonVariants({ size: "xs", variant: "outline" })}
-          params={{ slug }}
-          search={{ roundId: preview.round.id }}
-          to="/w/$slug/studio/interviews"
-        >
-          查看面试
-        </Link>
-      </div>
+      {renderNavigation({ candidateId: preview.candidate.id, roundId: preview.round.id, slug })}
     </div>
   );
 }
@@ -176,7 +190,9 @@ export function AiInterviewEventHoverCard({
   event,
   slug,
   trigger,
+  dependencies = defaultAiInterviewEventHoverCardDependencies,
 }: {
+  dependencies?: AiInterviewEventHoverCardDependencies;
   event: StudioAiCalendarEvent;
   slug: string;
   trigger: ReactElement;
@@ -187,7 +203,7 @@ export function AiInterviewEventHoverCard({
   const { conversationId } = event;
   const previewQuery = useQuery({
     enabled: open && roundId.length > 0,
-    queryFn: () => fetchStudioAiCalendarEventPreview(slug, roundId, conversationId),
+    queryFn: () => dependencies.fetchPreview(slug, roundId, conversationId),
     queryKey: studioCalendarKeys.aiEventPreview(slug, roundId, conversationId),
     staleTime: 60_000,
   });
@@ -219,7 +235,12 @@ export function AiInterviewEventHoverCard({
           </div>
         ) : null}
         {previewQuery.data ? (
-          <PreviewContent preview={previewQuery.data} slug={slug} source={event.source} />
+          <PreviewContent
+            preview={previewQuery.data}
+            renderNavigation={dependencies.renderNavigation}
+            slug={slug}
+            source={event.source}
+          />
         ) : null}
       </HoverCardContent>
     </HoverCard>

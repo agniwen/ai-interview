@@ -1,43 +1,18 @@
 // @vitest-environment jsdom
 
-import { act, useLayoutEffect } from "react";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HomeSmoothScroll } from "./smooth-scroll";
 
-const animationCalls = vi.hoisted(() => [] as string[]);
-const killSmoother = vi.hoisted(() => vi.fn());
-
-vi.mock("@gsap/react", () => ({ useGSAP: useLayoutEffect }));
-
-vi.mock("gsap", () => ({
-  gsap: {
-    registerPlugin: () => {},
-  },
-}));
-
-vi.mock("gsap/ScrollSmoother", () => ({
-  ScrollSmoother: {
-    create: () => {
-      animationCalls.push("create-smoother");
-      return { kill: killSmoother };
-    },
-  },
-}));
-
-vi.mock("gsap/ScrollTrigger", () => ({
-  ScrollTrigger: {
-    refresh: () => {
-      animationCalls.push("refresh-triggers");
-    },
-  },
-}));
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
+const animationCalls: string[] = [];
+const killSmoother = vi.fn();
 
 afterEach(() => {
   animationCalls.length = 0;
   killSmoother.mockClear();
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 describe("HomeSmoothScroll", () => {
@@ -45,17 +20,36 @@ describe("HomeSmoothScroll", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {
       animationCalls.push("reset-scroll");
     });
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: false }) as MediaQueryList),
-    );
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: () => ({
+        addEventListener: () => {},
+        addListener: () => {},
+        dispatchEvent: () => false,
+        matches: false,
+        media: "",
+        onchange: null,
+        removeEventListener: () => {},
+        removeListener: () => {},
+      }),
+    });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    const dependencies = {
+      createSmoother: () => {
+        animationCalls.push("create-smoother");
+        return { kill: killSmoother };
+      },
+      getWindow: () => window,
+      refreshTriggers: () => {
+        animationCalls.push("refresh-triggers");
+      },
+    };
 
     act(() => {
       root.render(
-        <HomeSmoothScroll>
+        <HomeSmoothScroll dependencies={dependencies}>
           <div>Homepage</div>
         </HomeSmoothScroll>,
       );

@@ -1,5 +1,7 @@
 "use client";
 
+import { z } from "zod";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { resolveRecommendationVariant } from "./helpers";
@@ -9,44 +11,44 @@ import type { KeywordCategory } from "@arc/shared/answer-keywords";
 import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import type { InterviewQuestionOutcome } from "@arc/shared/interview/question-outcomes";
 
-export interface EvidenceQuote {
-  quote?: string;
-  timeInCallSecs?: number | null;
-  turnIndex?: number | null;
-}
-
-interface EvaluationQuestion {
-  order?: number;
-  question?: string;
-  maxScore?: number;
-  assessment?: string;
-  evidence?: EvidenceQuote[];
-  questionId?: string;
-  score?: number | null;
-}
+const evidenceQuoteSchema = z.object({
+  quote: z.string().optional(),
+  timeInCallSecs: z.number().nullable().optional(),
+  turnIndex: z.number().nullable().optional(),
+});
+export type EvidenceQuote = z.infer<typeof evidenceQuoteSchema>;
 
 /**
  * Agent 报告的结构化字段（与 Record<string, unknown> 兼容，便于 type guard 使用）。
  * Structured agent evaluation payload (compatible with Record<string, unknown> for guards).
  */
-type AgentEvaluation = Record<string, unknown> & {
-  questions: EvaluationQuestion[];
-  overallScore?: number | null;
-  overallAssessment?: string;
-  recommendation?: string;
-};
+const agentEvaluationSchema = z.object({
+  overallAssessment: z.string().optional(),
+  overallScore: z.number().nullable().optional(),
+  questions: z.array(
+    z.object({
+      assessment: z.string().optional(),
+      evidence: z.array(evidenceQuoteSchema).optional(),
+      maxScore: z.number().optional(),
+      order: z.number().optional(),
+      question: z.string().optional(),
+      questionId: z.string().optional(),
+      score: z.number().nullable().optional(),
+    }),
+  ),
+  recommendation: z.string().optional(),
+});
+type AgentEvaluation = z.infer<typeof agentEvaluationSchema>;
+export const evaluationPayloadSchema = z.record(z.string(), z.json());
+type EvaluationPayload = z.infer<typeof evaluationPayloadSchema>;
 
-function isAgentEvaluation(data: Record<string, unknown>): data is AgentEvaluation {
-  return Array.isArray(data.questions);
-}
-
-const QUESTION_STATUS_LABELS: Record<InterviewQuestionOutcome["status"], string> = {
+const QUESTION_STATUS_LABELS = {
   answered: "已回答",
   insufficient: "信息不足",
   interrupted: "已中断",
   skipped: "已跳过",
   unasked: "未提问",
-};
+} satisfies Record<InterviewQuestionOutcome["status"], string>;
 
 const QUESTION_STATUS_VARIANTS = {
   answered: "secondary",
@@ -67,7 +69,7 @@ const REASON_LABELS = {
  * 兜底渲染：把任意键值对扁平展示。
  * Fallback renderer that flattens arbitrary key/value entries.
  */
-function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
+function KeyValueEntries({ entries }: { entries: EvaluationPayload }) {
   const items = Object.entries(entries).filter(
     ([, value]) => value !== null && value !== undefined && value !== "",
   );
@@ -82,7 +84,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
         <div className="border-border/50 border-t pt-3 text-sm" key={key}>
           <p className="font-medium">{key}</p>
           <p className="mt-1 wrap-break-word text-muted-foreground leading-6">
-            {typeof value === "string" ? value : JSON.stringify(value)}
+            {z.string().safeParse(value).success ? String(value) : JSON.stringify(value)}
           </p>
         </div>
       ))}
@@ -124,7 +126,7 @@ export function EvidenceList({
             />
             ”
           </span>
-          {typeof item.timeInCallSecs === "number" ? (
+          {item.timeInCallSecs !== null && item.timeInCallSecs !== undefined ? (
             <span className="shrink-0 text-muted-foreground tabular-nums">
               {item.timeInCallSecs}s
             </span>
@@ -146,7 +148,7 @@ function OverallEvaluation({
     <div className="space-y-3">
       <div className="flex items-center gap-3 rounded-xl border border-muted/60 bg-muted/30 px-4 py-3">
         <span className="font-medium text-2xl text-primary tabular-nums">
-          {typeof data.overallScore === "number" ? data.overallScore : "—"}
+          {data.overallScore ?? "—"}
         </span>
         <span className="text-muted-foreground text-sm">/ 100</span>
         {data.recommendation ? (
@@ -175,11 +177,12 @@ function QuestionCoverageResults({
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
   outcomes: InterviewQuestionOutcome[];
 }) {
-  const evaluationById = new Map(
-    data.questions
-      .filter((question) => question.questionId)
-      .map((question) => [question.questionId as string, question]),
-  );
+  const evaluationById = new Map<string, AgentEvaluation["questions"][number]>();
+  for (const question of data.questions) {
+    if (question.questionId) {
+      evaluationById.set(question.questionId, question);
+    }
+  }
   const scorableCount = outcomes.filter((outcome) =>
     ["answered", "insufficient", "skipped"].includes(outcome.status),
   ).length;
@@ -231,7 +234,9 @@ function QuestionCoverageResults({
                     <span>用时 {duration} 秒</span>
                     {outcome.reason ? <span>{REASON_LABELS[outcome.reason]}</span> : null}
                     <span className="ml-auto font-medium text-foreground tabular-nums">
-                      {typeof evaluation?.score === "number" ? `${evaluation.score}/10` : "不评分"}
+                      {evaluation?.score !== null && evaluation?.score !== undefined
+                        ? `${evaluation.score}/10`
+                        : "不评分"}
                     </span>
                   </div>
                   {outcome.evaluationFocus ? (
@@ -288,14 +293,15 @@ export function EvaluationResults({
   dataCollectionResults,
   onEvidenceSelect,
 }: {
-  data: Record<string, unknown>;
+  data: EvaluationPayload;
   dataCollectionResults?: unknown;
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
 }) {
   const { enabledCategories } = useKeywordHighlight();
   const parsedDataCollectionResults = parseInterviewDataCollectionResults(dataCollectionResults);
+  const parsedEvaluation = agentEvaluationSchema.safeParse(data);
   if (parsedDataCollectionResults) {
-    const evaluation: AgentEvaluation = isAgentEvaluation(data) ? data : { questions: [] };
+    const evaluation = parsedEvaluation.success ? parsedEvaluation.data : { questions: [] };
     return (
       <QuestionCoverageResults
         data={evaluation}
@@ -310,33 +316,41 @@ export function EvaluationResults({
     return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
   }
 
-  if (!isAgentEvaluation(data)) {
+  if (!parsedEvaluation.success) {
     return <KeyValueEntries entries={data} />;
   }
 
+  const evaluation = parsedEvaluation.data;
+
   return (
     <div className="space-y-3">
-      {typeof data.overallScore === "number" && (
+      {evaluation.overallScore !== null && evaluation.overallScore !== undefined && (
         <div className="flex items-center gap-3 rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border">
           <span className="font-medium text-2xl text-primary tabular-nums">
-            {data.overallScore}
+            {evaluation.overallScore}
           </span>
           <span className="text-muted-foreground text-sm">/ 100</span>
-          {data.recommendation && (
-            <Badge className="ml-auto" variant={resolveRecommendationVariant(data.recommendation)}>
-              {data.recommendation}
+          {evaluation.recommendation && (
+            <Badge
+              className="ml-auto"
+              variant={resolveRecommendationVariant(evaluation.recommendation)}
+            >
+              {evaluation.recommendation}
             </Badge>
           )}
         </div>
       )}
-      {data.overallAssessment && (
+      {evaluation.overallAssessment && (
         <p className="text-muted-foreground text-sm leading-normal">
-          <HighlightedText enabledCategories={enabledCategories} text={data.overallAssessment} />
+          <HighlightedText
+            enabledCategories={enabledCategories}
+            text={evaluation.overallAssessment}
+          />
         </p>
       )}
-      {data.questions.length > 0 && (
+      {evaluation.questions.length > 0 && (
         <div className="flex flex-col">
-          {data.questions.map((q) => (
+          {evaluation.questions.map((q) => (
             <div
               className="border-border/50 border-t py-3 text-sm"
               key={`${q.order ?? "unknown"}-${q.question ?? "unknown"}`}

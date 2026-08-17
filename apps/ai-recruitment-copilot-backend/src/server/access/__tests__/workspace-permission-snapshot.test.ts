@@ -1,42 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type * as RecruitingGroupAccess from "../recruiting-group-access";
 import { computeWorkspacePermissionSnapshot } from "../workspace-permission-snapshot";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   listGroupRoles: vi.fn(),
-  selectDynamicRole: vi.fn(),
-}));
+  loadDynamicRolePermission: vi.fn(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: mocks.selectDynamicRole,
-        })),
-      })),
-    })),
-  },
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-group-access", async () => {
-  const actual = (await vi.importActual(
-    "../recruiting-group-access",
-  )) as typeof RecruitingGroupAccess;
-  return {
-    ...actual,
-    listRecruitingGroupRoles: mocks.listGroupRoles,
-  };
-});
+function computeSnapshot(input: { memberRole: string; organizationId: string; userId: string }) {
+  return computeWorkspacePermissionSnapshot(input, mocks);
+}
 
 describe("computeWorkspacePermissionSnapshot", () => {
   beforeEach(() => {
     mocks.listGroupRoles.mockReset();
-    mocks.selectDynamicRole.mockReset();
+    mocks.loadDynamicRolePermission.mockReset();
   });
 
   it("returns empty statements for noAccess", async () => {
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "noAccess",
       organizationId: "org-a",
       userId: "user-a",
@@ -46,7 +27,7 @@ describe("computeWorkspacePermissionSnapshot", () => {
   });
 
   it("returns built-in admin matrix without consulting recruiting groups", async () => {
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "admin",
       organizationId: "org-a",
       userId: "user-a",
@@ -63,7 +44,7 @@ describe("computeWorkspacePermissionSnapshot", () => {
   it("replaces member recruiting resources with group grants only", async () => {
     mocks.listGroupRoles.mockResolvedValue(["viewer"]);
 
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "member",
       organizationId: "org-a",
       userId: "user-a",
@@ -82,7 +63,7 @@ describe("computeWorkspacePermissionSnapshot", () => {
   it("gives member recruiting writers full catalog actions on gated resources", async () => {
     mocks.listGroupRoles.mockResolvedValue(["hr"]);
 
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "member",
       organizationId: "org-a",
       userId: "user-a",
@@ -99,7 +80,7 @@ describe("computeWorkspacePermissionSnapshot", () => {
   it("clears recruiting resources when member has no group membership", async () => {
     mocks.listGroupRoles.mockResolvedValue([]);
 
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "member",
       organizationId: "org-a",
       userId: "user-a",
@@ -111,16 +92,14 @@ describe("computeWorkspacePermissionSnapshot", () => {
   });
 
   it("loads dynamic role permissions from organizationRole", async () => {
-    mocks.selectDynamicRole.mockResolvedValue([
-      {
-        permission: JSON.stringify({
-          interview: ["read"],
-          page: ["dashboard", "resumes"],
-        }),
-      },
-    ]);
+    mocks.loadDynamicRolePermission.mockResolvedValue(
+      JSON.stringify({
+        interview: ["read"],
+        page: ["dashboard", "resumes"],
+      }),
+    );
 
-    const snapshot = await computeWorkspacePermissionSnapshot({
+    const snapshot = await computeSnapshot({
       memberRole: "custom-lead",
       organizationId: "org-a",
       userId: "user-a",

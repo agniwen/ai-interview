@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines -- workflow contract coverage intentionally stays together for shared fixtures. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import type { JsonObject } from "@arc/db-schema/json";
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,
@@ -11,22 +12,47 @@ import {
   judgeStructuredDimensionEvidence,
   judgeStructuredHardGates,
   structuredDimensionAgentOutputSchema,
+  validateStructuredResumeInput,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
+import type { StructuredResumeGenerator } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
 import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
-import { runStructuredResumeReviewWorkflow } from "../workflows/structured-resume-review-workflow";
+import {
+  createStructuredResumeReviewWorkflow,
+  runStructuredResumeReviewWorkflow,
+} from "../workflows/structured-resume-review-workflow";
 
-const generator = vi.hoisted(() => vi.fn());
+interface RecordedGeneratorCall {
+  maxOutputTokens?: number;
+  prompt: string;
+  timeoutMs?: number;
+  validate?: (output: JsonObject) => void;
+}
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: generator,
-    structuredResumeAdjustmentAgent: {},
-    structuredResumeDimensionAgent: {},
-    structuredResumeGateAgent: {},
-    structuredResumeNarrativeAgent: {},
-  }),
-);
+const generatorCall = vi.fn<() => Promise<JsonObject>>();
+const generatorCalls: RecordedGeneratorCall[] = [];
+const generator: StructuredResumeGenerator = async (input) => {
+  const recordedCall: RecordedGeneratorCall = {
+    maxOutputTokens: input.maxOutputTokens,
+    prompt: input.prompt,
+    timeoutMs: input.timeoutMs,
+  };
+  if (input.validate) {
+    recordedCall.validate = (output) => input.validate?.(input.schema.parse(output));
+  }
+  generatorCalls.push(recordedCall);
+  const output = input.schema.parse(await generatorCall());
+  return output;
+};
+
+const testWorkflow = createStructuredResumeReviewWorkflow({
+  assemble: assembleStructuredResumeEvaluation,
+  compute: computeStructuredResumeCalculation,
+  generateNarrative: (input) => generateStructuredNarrative(input, generator),
+  judgeAdjustments: (input, gateOutput) => judgeStructuredAdjustments(input, gateOutput, generator),
+  judgeDimensionEvidence: (input) => judgeStructuredDimensionEvidence(input, generator),
+  judgeHardGates: (input) => judgeStructuredHardGates(input, generator),
+  validate: validateStructuredResumeInput,
+});
 
 const blueprint = {
   auxiliarySkills: [],
@@ -114,14 +140,15 @@ const narrativeOutput = {
 
 describe("structured resume workflow contracts", () => {
   beforeEach(() => {
-    generator.mockReset();
+    generatorCall.mockReset();
+    generatorCalls.length = 0;
   });
 
   it("rejects a blueprint hash mismatch before any Agent call", async () => {
     await expect(evaluateStructuredResume(workflowInput)).rejects.toThrow(
       "STRUCTURED_BLUEPRINT_HASH_MISMATCH",
     );
-    expect(generator).not.toHaveBeenCalled();
+    expect(generatorCall).not.toHaveBeenCalled();
   });
 
   it("rejects model-owned duration, score, and grade fields", () => {
@@ -205,7 +232,7 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("sends the versioned rule definitions and frozen skill expectations to the dimension Agent", async () => {
-    generator.mockResolvedValue({
+    generatorCall.mockResolvedValue({
       employmentEpisodes: [],
       projects: [],
       ruleJudgments: [],
@@ -228,9 +255,9 @@ describe("structured resume workflow contracts", () => {
       },
     };
 
-    await judgeStructuredDimensionEvidence(input);
+    await judgeStructuredDimensionEvidence(input, generator);
 
-    const prompt = generator.mock.calls[0]?.[0]?.prompt as string;
+    const prompt = generatorCalls[0]?.prompt ?? "";
     expect(prompt).toContain("扣分规则目录版本：1");
     expect(prompt).toContain("education.below_tier");
     expect(prompt).toContain("每低一个学历层级");
@@ -241,17 +268,13 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("quote 必须是声明来源中的逐字连续片段");
     expect(prompt).toContain("不得跨字段拼接");
     expect(prompt).toContain('"normalizedSkill":"TypeScript"');
-    expect(generator.mock.calls[0]?.[0]?.maxOutputTokens).toBe(16_000);
-    expect(generator.mock.calls[0]?.[0]?.timeoutMs).toBe(240_000);
-    expect(generator.mock.calls[0]?.[0]?.validate).toEqual(expect.any(Function));
-    const validate = generator.mock.calls[0]?.[0]?.validate as (output: {
-      employmentEpisodes: unknown[];
-      projects: unknown[];
-      ruleJudgments: unknown[];
-      skillFacts: {
-        evidence: { quote: string; source: "resume_profile" | "resume_text" }[];
-      }[];
-    }) => void;
+    expect(generatorCalls[0]?.maxOutputTokens).toBe(16_000);
+    expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
+    const validate = generatorCalls[0]?.validate;
+    expect(validate).toEqual(expect.any(Function));
+    if (!validate) {
+      throw new Error("expected dimension output validator");
+    }
     expect(() =>
       validate({
         employmentEpisodes: [],
@@ -260,9 +283,15 @@ describe("structured resume workflow contracts", () => {
         skillFacts: [
           {
             evidence: [{ quote: "不存在的逐字引文", source: "resume_text" }],
+            normalizedSkill: "TypeScript",
+            reason: "存在文本证据",
+            status: "applied",
           },
           {
             evidence: [{ quote: "另一条不存在的引文", source: "resume_profile" }],
+            normalizedSkill: "React",
+            reason: "存在结构化证据",
+            status: "applied",
           },
         ],
       }),
@@ -272,11 +301,11 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("treats an omitted hard-gate requirement as failed rather than pending verification", async () => {
-    generator.mockResolvedValue({ judgments: [] });
+    generatorCall.mockResolvedValue({ judgments: [] });
 
-    await judgeStructuredHardGates(workflowInput);
+    await judgeStructuredHardGates(workflowInput, generator);
 
-    const prompt = generator.mock.calls[0]?.[0]?.prompt as string;
+    const prompt = generatorCalls[0]?.prompt ?? "";
     expect(prompt).toContain("简历没有写明或没有证据支持门槛要求时，判定 failed");
     expect(prompt).toContain("needs_verification 仅用于简历已有相关证据但证据相互冲突");
 
@@ -330,19 +359,14 @@ describe("structured resume workflow contracts", () => {
         },
       },
     };
-    generator.mockResolvedValue({ judgments: [] });
+    generatorCall.mockResolvedValue({ judgments: [] });
 
-    await judgeStructuredHardGates(input);
+    await judgeStructuredHardGates(input, generator);
 
-    const validate = generator.mock.calls[0]?.[0]?.validate as (output: {
-      judgments: {
-        aiStatus: "failed";
-        evidence: [];
-        experienceEpisodes?: [];
-        reason: string;
-        requirementId: string;
-      }[];
-    }) => void;
+    const validate = generatorCalls[0]?.validate;
+    if (!validate) {
+      throw new Error("expected hard-gate output validator");
+    }
     expect(() =>
       validate({
         judgments: [
@@ -1137,30 +1161,34 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("gives adjustment judging the completed gate context and conjunctive-condition rule", async () => {
-    generator.mockResolvedValue({ judgments: [] });
+    generatorCall.mockResolvedValue({ judgments: [] });
 
-    await judgeStructuredAdjustments(workflowInput, {
-      judgments: [
-        {
-          aiStatus: "failed",
-          evidence: [],
-          reason: "未体现可常驻海外",
-          requirementId: "gate-overseas",
-        },
-      ],
-    });
+    await judgeStructuredAdjustments(
+      workflowInput,
+      {
+        judgments: [
+          {
+            aiStatus: "failed",
+            evidence: [],
+            reason: "未体现可常驻海外",
+            requirementId: "gate-overseas",
+          },
+        ],
+      },
+      generator,
+    );
 
-    const prompt = generator.mock.calls[0]?.[0]?.prompt as string;
+    const prompt = generatorCalls[0]?.prompt ?? "";
     expect(prompt).toContain("逗号、分号、且、并、同时连接的子条件默认按 AND");
     expect(prompt).toContain("只有所有 AND 子条件均有明确证据时");
     expect(prompt).toContain("“等”表示列举项是同类示例而非穷举");
     expect(prompt).toContain('"requirementId":"gate-overseas"');
     expect(prompt).toContain('"aiStatus":"failed"');
-    expect(generator.mock.calls[0]?.[0]?.timeoutMs).toBe(240_000);
+    expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
   });
 
   it("tells the narrative Agent to explain only actually applied adjustment points", async () => {
-    generator.mockResolvedValue(narrativeOutput);
+    generatorCall.mockResolvedValue(narrativeOutput);
     const calculationResult = computeStructuredResumeCalculation({
       adjustmentOutput: { judgments: [] },
       dimensionOutput: {
@@ -1173,9 +1201,9 @@ describe("structured resume workflow contracts", () => {
       workflowInput,
     });
 
-    await generateStructuredNarrative({ calculationResult, workflowInput });
+    await generateStructuredNarrative({ calculationResult, workflowInput }, generator);
 
-    const prompt = generator.mock.calls[0]?.[0]?.prompt as string;
+    const prompt = generatorCalls[0]?.prompt ?? "";
     expect(prompt).toContain("未命中的优先条件 appliedPoints=0，不加分也不扣分");
     expect(prompt).toContain("只解释 appliedPoints 实际非零的加减分");
     expect(prompt).toContain("门槛状态不改变代码给出的分数等级");
@@ -1190,7 +1218,7 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain('"ruleJudgments":');
     expect(prompt).toContain('"weightedContribution":');
     expect(prompt).not.toContain("weightedContributionHundredths");
-    expect(generator.mock.calls[0]?.[0]?.timeoutMs).toBe(240_000);
+    expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
   });
 
   it("replaces a factually inconsistent narrative with a deterministic explanation", () => {
@@ -1420,7 +1448,7 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("executes semantic judgment, code scoring, narrative, and assembly as real steps", async () => {
-    generator
+    generatorCall
       .mockResolvedValueOnce({ judgments: [] })
       .mockResolvedValueOnce({
         employmentEpisodes: [],
@@ -1431,15 +1459,18 @@ describe("structured resume workflow contracts", () => {
       .mockResolvedValueOnce({ judgments: [] })
       .mockResolvedValueOnce(narrativeOutput);
 
-    const result = await runStructuredResumeReviewWorkflow({
-      ...workflowInput,
-      jobSnapshot: {
-        ...workflowInput.jobSnapshot,
-        blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+    const result = await runStructuredResumeReviewWorkflow(
+      {
+        ...workflowInput,
+        jobSnapshot: {
+          ...workflowInput.jobSnapshot,
+          blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+        },
       },
-    });
+      testWorkflow,
+    );
 
-    expect(generator).toHaveBeenCalledTimes(4);
+    expect(generatorCall).toHaveBeenCalledTimes(4);
     expect(result).toMatchObject({
       calculations: { compositeScore: 93 },
       grade: "recommended",
@@ -1455,15 +1486,18 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("preserves a readable error when Mastra serializes a failed workflow step", async () => {
-    generator.mockRejectedValueOnce(new Error("STRUCTURED_RESUME_EVIDENCE_MISMATCH"));
+    generatorCall.mockRejectedValueOnce(new Error("STRUCTURED_RESUME_EVIDENCE_MISMATCH"));
 
-    const rejection = runStructuredResumeReviewWorkflow({
-      ...workflowInput,
-      jobSnapshot: {
-        ...workflowInput.jobSnapshot,
-        blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+    const rejection = runStructuredResumeReviewWorkflow(
+      {
+        ...workflowInput,
+        jobSnapshot: {
+          ...workflowInput.jobSnapshot,
+          blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+        },
       },
-    });
+      testWorkflow,
+    );
 
     await expect(rejection).rejects.toBeInstanceOf(Error);
     await expect(rejection).rejects.toThrow("STRUCTURED_RESUME_EVIDENCE_MISMATCH");

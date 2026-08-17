@@ -12,6 +12,7 @@ import {
   completeHumanInterviewRound,
   createHumanInterviewMeeting,
   createHumanInterviewRound,
+  isApiError,
 } from "@/lib/client/api";
 import { invalidateHumanInterviewCandidateQueries } from "@/lib/client/api/query-keys";
 import { rpc } from "@/lib/client/rpc";
@@ -64,8 +65,7 @@ function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProvi
   return commonProviderIds;
 }
 
-function useWorkspaceMembers() {
-  const slug = useWorkspaceSlug();
+function useWorkspaceMembers(slug: string) {
   return useQuery({
     queryFn: () =>
       rpcFetch<{ feishuHumanInterviewEnabled: boolean; records: WorkspaceMember[] }>(
@@ -93,17 +93,22 @@ function defaultRoundLabel(existingCount: number): string {
   return labels[existingCount] ?? `第 ${existingCount + 1} 轮`;
 }
 
-export function ScheduleRoundDialog({
+export interface ScheduleRoundDialogDependencies {
+  slug: string;
+}
+
+export function ScheduleRoundDialogView({
+  dependencies,
   open,
   onOpenChange,
   candidateId,
   candidateName,
   existingCount,
   onScheduled,
-}: ScheduleDialogProps) {
-  const slug = useWorkspaceSlug();
+}: ScheduleDialogProps & { dependencies: ScheduleRoundDialogDependencies }) {
+  const { slug } = dependencies;
   const queryClient = useQueryClient();
-  const { data: members } = useWorkspaceMembers();
+  const { data: members } = useWorkspaceMembers(slug);
   const [label, setLabel] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -160,7 +165,7 @@ export function ScheduleRoundDialog({
         });
         return { feishuFailure: null, round };
       } catch (error) {
-        const feishuFailure = getCreatedMeetingFeishuFailure(error);
+        const feishuFailure = isApiError(error) ? getCreatedMeetingFeishuFailure(error) : null;
         if (!feishuFailure) {
           throw error;
         }
@@ -286,6 +291,10 @@ export function ScheduleRoundDialog({
   );
 }
 
+export function ScheduleRoundDialog(props: ScheduleDialogProps) {
+  return <ScheduleRoundDialogView {...props} dependencies={{ slug: useWorkspaceSlug() }} />;
+}
+
 // ── 标记完成 dialog ──
 // Complete-round dialog.
 
@@ -294,6 +303,10 @@ interface CompleteDialogProps {
   candidateId: string;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
+}
+
+function isHumanInterviewRoundOutcome(value: string): value is HumanInterviewRoundOutcome {
+  return value in humanInterviewRoundOutcomeMeta;
 }
 
 export function CompleteRoundDialog({
@@ -363,19 +376,23 @@ export function CompleteRoundDialog({
             <Label className="text-sm">结果</Label>
             <RadioGroup
               className="grid grid-cols-3 gap-2"
-              onValueChange={(v) => setOutcome(v as HumanInterviewRoundOutcome)}
+              onValueChange={(v) => {
+                if (isHumanInterviewRoundOutcome(v)) {
+                  setOutcome(v);
+                }
+              }}
               value={outcome}
             >
-              {(Object.keys(humanInterviewRoundOutcomeMeta) as HumanInterviewRoundOutcome[]).map(
-                (v) => (
+              {Object.keys(humanInterviewRoundOutcomeMeta)
+                .filter(isHumanInterviewRoundOutcome)
+                .map((v) => (
                   <div className="flex items-center gap-2" key={v}>
                     <RadioGroupItem id={`outcome-${v}`} value={v} />
                     <Label className="cursor-pointer text-sm" htmlFor={`outcome-${v}`}>
                       {humanInterviewRoundOutcomeMeta[v].label}
                     </Label>
                   </div>
-                ),
-              )}
+                ))}
             </RadioGroup>
           </div>
 

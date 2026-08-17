@@ -1,37 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createReportsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/reports/route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   queryInterviewConversationReportByRound: vi.fn(),
   queryInterviewConversationReportsByRound: vi.fn(),
   resolveCandidateIdForRound: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: vi.fn().mockResolvedValue({ kind: "none" }),
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations",
-  () => ({
-    queryInterviewConversationReportByRound: mocks.queryInterviewConversationReportByRound,
-    queryInterviewConversationReportsByRound: mocks.queryInterviewConversationReportsByRound,
-  }),
-);
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds",
-  () => ({
-    resolveCandidateIdForRound: mocks.resolveCandidateIdForRound,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { reportsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/reports/route";
+const reportsRouter = createReportsRouter({
+  queryReport: mocks.queryInterviewConversationReportByRound,
+  queryReports: mocks.queryInterviewConversationReportsByRound,
+  requireReadPermission: async (_c, next) => await next(),
+  resolveCandidateId: mocks.resolveCandidateIdForRound,
+});
 
 const ORG_ID = "org_reports_route";
 const ROUND_ID = "round_reports_route";
@@ -40,6 +22,7 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORG_ID } as never);
       await next();
     })

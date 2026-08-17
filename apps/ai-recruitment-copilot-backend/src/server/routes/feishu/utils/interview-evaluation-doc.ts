@@ -1,3 +1,6 @@
+import { z } from "zod";
+import type { JsonObject } from "@arc/db-schema/json";
+
 interface FeishuTextRun {
   text_run: {
     content: string;
@@ -43,19 +46,19 @@ export interface FeishuDocumentBlock {
   todo?: FeishuTextContent;
 }
 
-interface HrEvaluation {
-  availability?: unknown;
-  careerProgression?: unknown;
-  compensationExpectations?: unknown;
-  jobMotivation?: unknown;
-  overseasTravel?: unknown;
-  projectHighlights?: unknown;
-  recentWork?: unknown;
-}
+const hrEvaluationSchema = z.object({
+  availability: z.string().optional(),
+  careerProgression: z.string().optional(),
+  compensationExpectations: z.string().optional(),
+  jobMotivation: z.string().optional(),
+  overseasTravel: z.string().optional(),
+  projectHighlights: z.string().optional(),
+  recentWork: z.string().optional(),
+});
 
 export interface HrInterviewEvaluationInput {
   candidateName: string;
-  evaluation: Record<string, unknown>;
+  evaluation: JsonObject;
 }
 
 export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationInput {
@@ -65,6 +68,11 @@ export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationI
 
 export interface HrInterviewEvaluationPreview {
   block: FeishuDocumentBlock;
+  title: string;
+}
+
+export interface InterviewEvaluationDocument {
+  blocks: FeishuDocumentBlock[];
   title: string;
 }
 
@@ -140,14 +148,14 @@ function interviewStageCallout(
   ]);
 }
 
-function stringValue(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+function stringValue(value: string | undefined, fallback: string): string {
+  return value?.trim() || fallback;
 }
 
 function hrQuestionBlocks(
   questionNumber: number,
   question: string,
-  answer: unknown,
+  answer: string | undefined,
   fallback = "未收集到",
 ): FeishuDocumentBlock[] {
   return [
@@ -160,10 +168,8 @@ function hrQuestionBlocks(
 export function buildHrInterviewEvaluationBlock(
   input: HrInterviewEvaluationInput,
 ): HrInterviewEvaluationPreview {
-  const hrEvaluation =
-    input.evaluation.hrEvaluation && typeof input.evaluation.hrEvaluation === "object"
-      ? (input.evaluation.hrEvaluation as HrEvaluation)
-      : {};
+  const parsedHrEvaluation = hrEvaluationSchema.safeParse(input.evaluation.hrEvaluation);
+  const hrEvaluation = parsedHrEvaluation.success ? parsedHrEvaluation.data : {};
   const hrChildren = [
     textBlock("HR面试评价", true),
     ...hrQuestionBlocks(1, "求职动机：", hrEvaluation.jobMotivation),
@@ -181,10 +187,9 @@ export function buildHrInterviewEvaluationBlock(
   };
 }
 
-export function buildInterviewEvaluationDocument(input: InterviewEvaluationDocumentInput): {
-  blocks: FeishuDocumentBlock[];
-  title: string;
-} {
+export function buildInterviewEvaluationDocument(
+  input: InterviewEvaluationDocumentInput,
+): InterviewEvaluationDocument {
   const hrEvaluationBlock = buildHrInterviewEvaluationBlock(input);
   const resumeLinkBlocks =
     input.includeResumeLink === false

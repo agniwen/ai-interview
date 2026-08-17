@@ -1,6 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import { z } from "zod";
 import {
   getFeishuAppCredentials,
   getFeishuEvaluationFolderToken,
@@ -12,27 +13,56 @@ const EDIT_THROTTLE_MS = 350;
 const MAX_BLOCKS_PER_REQUEST = 50;
 const MAX_ATTEMPTS = 3;
 
-interface FeishuApiResponse<T> {
-  code: number;
-  data?: T;
-  msg: string;
+function discardFeishuResponse(): undefined {
+  return undefined;
 }
 
-interface CreateDocumentResponse {
-  document?: { document_id?: string };
-}
+const feishuApiResponseSchema = z.object({
+  code: z.number(),
+  data: z.unknown().optional(),
+  msg: z.string().optional(),
+});
 
-interface CreateBlocksResponse {
-  children?: { block_id?: string; children?: string[] }[];
-}
+const createDocumentResponseSchema = z.object({
+  document: z.object({ document_id: z.string().min(1).optional() }).optional(),
+});
 
-interface UploadMediaResponse {
-  file_token?: string;
-}
+const createBlocksResponseSchema = z.object({
+  children: z
+    .array(
+      z.object({
+        block_id: z.string().min(1).optional(),
+        children: z.array(z.string().min(1)).optional(),
+      }),
+    )
+    .optional(),
+});
+
+const uploadMediaResponseSchema = z.object({ file_token: z.string().min(1).optional() });
+
+const emptyFeishuResponseSchema = z
+  .object({})
+  .passthrough()
+  .optional()
+  .transform(discardFeishuResponse);
 
 interface FeishuDocxAttachment {
   bytes: Uint8Array;
   fileName: string;
+}
+
+interface FeishuRequestBody {
+  children?: FeishuDocumentBlock[];
+  folder_token?: string;
+  member_id?: string;
+  member_type?: "openid";
+  perm?: "edit";
+  replace_file?: { token: string };
+  title?: string;
+  type?: "docx" | "user";
+  update_text_elements?: {
+    elements: NonNullable<FeishuDocumentBlock["text"]>["elements"];
+  };
 }
 
 interface CreateFeishuDocxOptions {
@@ -96,13 +126,14 @@ export function resolveFeishuDocxDocumentId(
   }
 }
 
-async function requestFeishu<T>(
+async function requestFeishu<T extends z.ZodType>(
   path: string,
   accessToken: string,
-  body: unknown,
+  body: FeishuRequestBody,
+  responseDataSchema: T,
   dependencies: FeishuDocxDependencies,
   method: "DELETE" | "PATCH" | "POST" = "POST",
-): Promise<T> {
+): Promise<z.output<T>> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const response = await dependencies.fetcher(`${FEISHU_API_ROOT}${path}`, {
       body: JSON.stringify(body),
@@ -112,13 +143,21 @@ async function requestFeishu<T>(
       },
       method,
     });
-    const result = (await response.json()) as FeishuApiResponse<T>;
+    const parsedResponse = feishuApiResponseSchema.safeParse(await response.json());
+    if (!parsedResponse.success) {
+      throw new Error("Feishu API returned an invalid JSON response");
+    }
+    const result = parsedResponse.data;
     if (response.ok && result.code === 0) {
-      return result.data as T;
+      const parsedData = responseDataSchema.safeParse(result.data);
+      if (parsedData.success) {
+        return parsedData.data;
+      }
+      throw new Error("Feishu API returned an invalid success payload");
     }
 
     const error = new Error(
-      `Feishu API request failed: ${result.code || response.status} ${result.msg || ""}`,
+      `Feishu API request failed: ${result.code || response.status} ${result.msg ?? ""}`,
     );
     const rateLimited = response.status === 429 || result.code === 99_991_400;
     if (!rateLimited || attempt === MAX_ATTEMPTS) {
@@ -139,10 +178,11 @@ async function appendBlocks(
 ): Promise<{ block_id?: string; children?: string[] }[]> {
   const created: { block_id?: string; children?: string[] }[] = [];
   for (const blockChunk of chunks(blocks, MAX_BLOCKS_PER_REQUEST)) {
-    const response = await requestFeishu<CreateBlocksResponse>(
+    const response = await requestFeishu(
       `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children`,
       accessToken,
       { children: blockChunk.map(withoutChildren) },
+      createBlocksResponseSchema,
       dependencies,
     );
     created.push(...(response.children ?? []));
@@ -166,6 +206,7 @@ async function updateCalloutTitle(
     `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(titleBlockId)}`,
     accessToken,
     { update_text_elements: { elements } },
+    emptyFeishuResponseSchema,
     dependencies,
     "PATCH",
   );
@@ -197,13 +238,21 @@ async function uploadFeishuDocxAttachment(
     headers: { authorization: `Bearer ${accessToken}` },
     method: "POST",
   });
-  const result = (await response.json()) as FeishuApiResponse<UploadMediaResponse>;
+  const parsedResponse = feishuApiResponseSchema.safeParse(await response.json());
+  if (!parsedResponse.success) {
+    throw new Error("Feishu API returned an invalid JSON response");
+  }
+  const result = parsedResponse.data;
   if (!response.ok || result.code !== 0) {
     throw new Error(
-      `Feishu API request failed: ${result.code || response.status} ${result.msg || ""}`,
+      `Feishu API request failed: ${result.code || response.status} ${result.msg ?? ""}`,
     );
   }
-  const fileToken = result.data?.file_token;
+  const parsedData = uploadMediaResponseSchema.safeParse(result.data);
+  if (!parsedData.success) {
+    throw new Error("Feishu media upload response had an invalid success payload");
+  }
+  const fileToken = parsedData.data.file_token;
   if (!fileToken) {
     throw new Error("Feishu media upload response did not include file_token");
   }
@@ -221,6 +270,7 @@ async function replaceFeishuDocxFile(
     `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(blockId)}`,
     accessToken,
     { replace_file: { token: fileToken } },
+    emptyFeishuResponseSchema,
     dependencies,
     "PATCH",
   );
@@ -239,6 +289,7 @@ export async function grantFeishuDocxAccess(
       perm: "edit",
       type: "user",
     },
+    emptyFeishuResponseSchema,
     dependencies,
   );
 }
@@ -254,6 +305,7 @@ export async function moveFeishuDocx(
       folder_token: options.folderToken,
       type: "docx",
     },
+    emptyFeishuResponseSchema,
     dependencies,
   );
 }
@@ -262,10 +314,11 @@ export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<{ documentId: string; documentUrl: string }> {
-  const created = await requestFeishu<CreateDocumentResponse>(
+  const created = await requestFeishu(
     "/docx/v1/documents",
     options.accessToken,
     { title: options.title },
+    createDocumentResponseSchema,
     dependencies,
   );
   const documentId = created.document?.document_id;

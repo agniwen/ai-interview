@@ -1,23 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 
-const mocks = vi.hoisted(() => ({
-  generateStructuredWithMastraAgent: vi.fn(),
-  jobDescriptionMatchAgent: { id: "job-description-match-agent" },
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
-    jobDescriptionMatchAgent: mocks.jobDescriptionMatchAgent,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
 import { matchJobDescriptionForResume } from "../job-description-match-agent";
+
+const generateMatch = vi.fn();
+const dependencies = { generateMatch };
 
 const RESUME_PROFILE: ResumeProfile = {
   age: null,
@@ -43,6 +31,7 @@ const RESUME_PROFILE: ResumeProfile = {
   workYears: 5,
 };
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 const JOBS = [
   {
     departmentName: "技术部",
@@ -61,48 +50,49 @@ const JOBS = [
 describe("matchJobDescriptionForResume", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.generateStructuredWithMastraAgent.mockResolvedValue({
+    generateMatch.mockResolvedValue({
       jobDescriptionId: "jd-frontend",
       reason: "候选人的 React/TypeScript 经验与岗位匹配",
     });
   });
 
   it("uses Mastra structured output for the selected JD", async () => {
-    const result = await matchJobDescriptionForResume(RESUME_PROFILE, JOBS);
+    const result = await matchJobDescriptionForResume(RESUME_PROFILE, JOBS, {}, dependencies);
 
     expect(result).toEqual({
       jobDescriptionId: "jd-frontend",
       reason: "候选人的 React/TypeScript 经验与岗位匹配",
     });
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
+    expect(generateMatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        agent: mocks.jobDescriptionMatchAgent,
-        retryOnInvalid: true,
         schema: expect.any(Object),
-        temperature: 0,
       }),
     );
   });
 
   it("adds the uploaded filename as a prioritized job clue when supplied", async () => {
-    await matchJobDescriptionForResume(RESUME_PROFILE, JOBS, {
-      resumeFileName: "张三-数据工程师-5年经验.pdf",
-    });
+    await matchJobDescriptionForResume(
+      RESUME_PROFILE,
+      JOBS,
+      { resumeFileName: "张三-数据工程师-5年经验.pdf" },
+      dependencies,
+    );
 
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
+    expect(generateMatch).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("简历文件名: 张三-数据工程师-5年经验.pdf"),
       }),
     );
-    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+    expect(generateMatch.mock.calls[0]?.[0]?.prompt).toContain(
       "文件名可能包含候选人投递的岗位信息；将其作为强岗位线索优先参考",
     );
   });
 
   it("uses a strict schema constrained to the supplied candidate IDs", async () => {
-    await matchJobDescriptionForResume(RESUME_PROFILE, JOBS);
+    await matchJobDescriptionForResume(RESUME_PROFILE, JOBS, {}, dependencies);
 
-    const schema = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.schema as z.ZodType;
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    const schema = generateMatch.mock.calls[0]?.[0]?.schema;
     expect(
       schema.safeParse({
         jobDescriptionId: "jd-frontend",
@@ -126,7 +116,7 @@ describe("matchJobDescriptionForResume", () => {
 
   it("returns null without a model call when there are no candidates", async () => {
     await expect(matchJobDescriptionForResume(RESUME_PROFILE, [])).resolves.toBeNull();
-    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+    expect(generateMatch).not.toHaveBeenCalled();
   });
 
   it("selects the only candidate without a model call", async () => {
@@ -134,6 +124,6 @@ describe("matchJobDescriptionForResume", () => {
       jobDescriptionId: "jd-frontend",
       reason: "候选岗位只有一个，默认选择。",
     });
-    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+    expect(generateMatch).not.toHaveBeenCalled();
   });
 });

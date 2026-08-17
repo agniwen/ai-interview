@@ -32,7 +32,11 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 });
 
 const TASK_ROW_ESTIMATE = 76;
-const INITIAL_PAGE_PARAM: { cursor: string | null } = { cursor: null };
+interface UploadTaskPageParam {
+  cursor: string | null;
+}
+
+const INITIAL_PAGE_PARAM: UploadTaskPageParam = { cursor: null };
 
 const statusVariants = {
   cancelled: "outline",
@@ -199,7 +203,13 @@ export function UploadTaskInbox() {
             {query.error instanceof Error ? query.error.message : "请稍后重试"}
           </p>
         </div>
-        <Button onClick={() => void query.refetch()} size="sm" variant="outline">
+        <Button
+          onClick={() => {
+            query.refetch();
+          }}
+          size="sm"
+          variant="outline"
+        >
           重新加载
         </Button>
       </div>
@@ -286,7 +296,9 @@ export function UploadTaskInbox() {
               <Button
                 aria-label="刷新上传任务"
                 disabled={query.isFetching}
-                onClick={() => void query.refetch()}
+                onClick={() => {
+                  query.refetch();
+                }}
                 size="icon-sm"
                 variant="ghost"
               >

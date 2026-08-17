@@ -6,6 +6,7 @@ import type { GenericOAuthConfig } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
+import { z } from "zod";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
@@ -64,7 +65,7 @@ export const trustedOrigins = uniq([
 ]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
-  return values.find((v) => typeof v === "string" && v.length > 0);
+  return values.find((value): value is string => value !== undefined && value.length > 0);
 }
 
 function isBuiltInAdminAssignableRole(role: string): boolean {
@@ -87,47 +88,39 @@ async function canOwnerSetRole(organizationId: string, role: string): Promise<bo
   );
 }
 
-interface FeishuTokenResponse {
-  code?: number;
-  msg?: string;
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  refresh_token_expires_in?: number;
-  token_type?: string;
-  scope?: string;
-}
-
-interface FeishuUserInfoResponse {
-  code: number;
-  msg: string;
-  data?: {
-    open_id: string;
-    union_id?: string;
-    user_id?: string;
-    tenant_key?: string;
-    name?: string;
-    en_name?: string;
-    email?: string;
-    enterprise_email?: string;
-    mobile?: string;
-    avatar_url?: string;
-  };
-}
-
-interface FeishuTenantQueryResponse {
-  code: number;
-  msg: string;
-  data?: {
-    tenant?: {
-      name?: string;
-      display_id?: string;
-      tenant_tag?: number;
-      tenant_key?: string;
-      avatar?: Record<string, string>;
-    };
-  };
-}
+const feishuTenantQueryResponseSchema = z.object({
+  code: z.number(),
+  data: z.object({ tenant: z.object({ name: z.string().optional() }).optional() }).optional(),
+  msg: z.string().optional(),
+});
+const feishuTokenResponseSchema = z.object({
+  access_token: z.string().optional(),
+  code: z.number().optional(),
+  expires_in: z.number().optional(),
+  msg: z.string().optional(),
+  refresh_token: z.string().optional(),
+  refresh_token_expires_in: z.number().optional(),
+  scope: z.string().optional(),
+  token_type: z.string().optional(),
+});
+const feishuUserInfoResponseSchema = z.object({
+  code: z.number(),
+  data: z
+    .object({
+      avatar_url: z.string().optional(),
+      email: z.string().optional(),
+      en_name: z.string().optional(),
+      enterprise_email: z.string().optional(),
+      mobile: z.string().optional(),
+      name: z.string().optional(),
+      open_id: z.string(),
+      tenant_key: z.string().optional(),
+      union_id: z.string().optional(),
+      user_id: z.string().optional(),
+    })
+    .optional(),
+  msg: z.string().optional(),
+});
 
 async function fetchFeishuOrganizationName(
   appId: string,
@@ -138,7 +131,7 @@ async function fetchFeishuOrganizationName(
     const res = await fetch("https://open.feishu.cn/open-apis/tenant/v2/tenant/query", {
       headers: { authorization: `Bearer ${token}` },
     });
-    const json = (await res.json()) as FeishuTenantQueryResponse;
+    const json = feishuTenantQueryResponseSchema.parse(await res.json());
     if (json.code !== 0) {
       return null;
     }
@@ -179,7 +172,7 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
         headers: { "content-type": "application/json; charset=utf-8" },
         method: "POST",
       });
-      const json = (await res.json()) as FeishuTokenResponse;
+      const json = feishuTokenResponseSchema.parse(await res.json());
       if (!res.ok || !json.access_token) {
         throw new Error(
           `Feishu token exchange failed: ${json.code ?? res.status} ${json.msg ?? ""}`,
@@ -190,7 +183,7 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
         accessTokenExpiresAt: json.expires_in
           ? new Date(Date.now() + json.expires_in * 1000)
           : undefined,
-        raw: json as unknown as Record<string, unknown>,
+        raw: z.record(z.string(), z.json()).parse(json),
         refreshToken: json.refresh_token,
         refreshTokenExpiresAt: json.refresh_token_expires_in
           ? new Date(Date.now() + json.refresh_token_expires_in * 1000)
@@ -206,7 +199,7 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
         }),
         fetchFeishuOrganizationName(appId, appSecret),
       ]);
-      const json = (await userInfoRes.json()) as FeishuUserInfoResponse;
+      const json = feishuUserInfoResponseSchema.parse(await userInfoRes.json());
       if (json.code !== 0 || !json.data) {
         return null;
       }

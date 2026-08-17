@@ -1,4 +1,5 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { JsonValue } from "@arc/db-schema/json";
 import { z } from "zod";
 
 const nonEmptyStringSchema = z.string().trim().min(1);
@@ -120,7 +121,7 @@ export function createDefaultResumeScreeningPolicy(): ResumeScreeningPolicy {
  * 只取 `type:"skill"` 规则的 `requiredSkills`，扁平化并按大小写不敏感去重（忽略首尾空白）。
  * 可直接传入 DB 里的原始 jsonb（`Record`/`unknown`）：内部 safeParse，无策略/解析失败返回 `[]`。
  */
-export function deriveJdRequiredSkills(policy: unknown): string[] {
+export function deriveJdRequiredSkills(policy: JsonValue | undefined): string[] {
   const parsed = resumeScreeningPolicySchema.safeParse(policy);
   if (!parsed.success) {
     return [];
@@ -238,7 +239,8 @@ function evaluateFieldRule(
     };
   }
 
-  if (typeof resumeProfile.workYears !== "number") {
+  const parsedWorkYears = z.number().safeParse(resumeProfile.workYears);
+  if (!parsedWorkYears.success) {
     return {
       evidence: [],
       label: ruleLabel(rule),
@@ -252,18 +254,18 @@ function evaluateFieldRule(
 
   return {
     evidence: makeEvidence({
-      explanation: `结构化简历工作年限为 ${resumeProfile.workYears} 年。`,
+      explanation: `结构化简历工作年限为 ${parsedWorkYears.data} 年。`,
       fieldPath: "workYears",
       source: "resume_profile",
     }),
     label: ruleLabel(rule),
     reason:
-      resumeProfile.workYears >= rule.years
+      parsedWorkYears.data >= rule.years
         ? `候选人工作年限满足 ${rule.years} 年要求。`
         : `候选人工作年限未满足 ${rule.years} 年要求。`,
     ruleId: rule.id,
     severity: rule.severity,
-    status: resumeProfile.workYears >= rule.years ? "pass" : "fail",
+    status: parsedWorkYears.data >= rule.years ? "pass" : "fail",
     type: "field",
   };
 }

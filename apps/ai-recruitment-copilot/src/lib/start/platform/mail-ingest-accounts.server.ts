@@ -4,6 +4,7 @@ import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { queryPaginatedPlatformMailIngestAccounts } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
 import { createQueryClient } from "@arc/shared/query-client";
+import { z } from "zod";
 
 type EmptyFilters = Record<string, never>;
 
@@ -25,5 +26,6 @@ export async function loadPlatformMailIngestAccountsHydrationState(
     queryKey: buildDataGridQueryKey(["platform-mail-ingest-accounts"], query),
   });
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

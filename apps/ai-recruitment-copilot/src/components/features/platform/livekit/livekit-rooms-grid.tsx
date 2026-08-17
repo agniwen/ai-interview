@@ -40,6 +40,12 @@ interface RoomDetailResult {
   room: LiveKitRoomRecord;
 }
 
+interface LiveKitRoomsQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+}
+
 const EMPTY_FILTERS = {};
 
 function ParticipantCard({ participant }: { participant: LiveKitParticipantRecord }) {
@@ -175,20 +181,19 @@ function RoomDetailDrawer({
 export function LiveKitRoomsGrid() {
   const [detailRoomName, setDetailRoomName] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const fetchRooms = useCallback(
-    (params: { page: number; pageSize: number; search: string }) =>
-      rpcFetch<PaginatedResult<LiveKitRoomRecord>>(
-        rpc.api.platform.livekit.rooms.$get({
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-          },
-        }),
-        "加载 LiveKit 房间失败",
-      ),
-    [],
-  );
+  const fetchRooms = useCallback((params: { page: number; pageSize: number; search: string }) => {
+    const query: LiveKitRoomsQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
+    return rpcFetch<PaginatedResult<LiveKitRoomRecord>>(
+      rpc.api.platform.livekit.rooms.$get({ query }),
+      "加载 LiveKit 房间失败",
+    );
+  }, []);
   const grid = useDataGridState<LiveKitRoomRecord, Record<string, never>>({
     defaultPageSize: 20,
     initialFilters: EMPTY_FILTERS,

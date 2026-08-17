@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import type { JsonValue } from "@arc/db-schema/json";
 import {
   createQwenRealtimeTranscriptionAuthorization,
   DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL,
   MAX_MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS,
 } from "./qwen-realtime";
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: JsonValue, status = 200) {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return {
     json: () => Promise.resolve(body),
     ok: status >= 200 && status < 300,

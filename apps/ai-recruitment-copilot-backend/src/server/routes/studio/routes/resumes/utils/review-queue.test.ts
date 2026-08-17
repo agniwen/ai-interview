@@ -1,80 +1,47 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  ResumeEvaluationRecord,
+  ResumeEvaluationSchedulingContext,
+  ResumeEvaluationSchedulingDependencies,
+} from "./review-queue";
+import { scheduleResumeEvaluationForRecord } from "./review-queue";
 
-// oxlint-disable promise/prefer-await-to-callbacks -- the fake transaction executes Drizzle's callback API.
+interface ReviewEvaluationUpdate {
+  jobDescriptionId?: string;
+  resumeReviewError?: string | null;
+  resumeReviewRunId?: string;
+  resumeReviewStatus?: string;
+  resumeScreeningError?: string | null;
+  resumeScreeningStatus?: string;
+}
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
+  // SAFETY: The fixture state is intentionally absent until each test calls setContext.
   claimJob: null as null | {
     evaluationMode: "legacy" | "structured";
     id: string;
     lifecycleStatus: "draft" | "published";
   },
-  enqueue: vi.fn(),
-  job: null as null | { evaluationMode: "legacy" | "structured"; id: string },
+  // SAFETY: The fixture state is intentionally absent until each test calls setContext.
+  context: null as null | ResumeEvaluationSchedulingContext,
+  enqueueReviewJobs: vi.fn<ResumeEvaluationSchedulingDependencies["enqueueReviewJobs"]>(),
+  // SAFETY: The fixture state is intentionally absent until each test calls setContext.
+  isQueueConfigured: vi.fn<ResumeEvaluationSchedulingDependencies["isQueueConfigured"]>(),
+  loadSchedulingContext: vi.fn<ResumeEvaluationSchedulingDependencies["loadSchedulingContext"]>(),
+  markQueueFailure: vi.fn<ResumeEvaluationSchedulingDependencies["markQueueFailure"]>(),
+  persistQueuedRun: vi.fn<ResumeEvaluationSchedulingDependencies["persistQueuedRun"]>(),
   queueConfigured: true,
-  record: null as null | Record<string, unknown>,
-  updates: [] as Record<string, unknown>[],
-}));
+  // SAFETY: Every recorded patch is built with the exact fields asserted by this test suite.
+  updates: [] as ReviewEvaluationUpdate[],
+};
 
-function updateBuilder() {
-  return {
-    set: (patch: Record<string, unknown>) => {
-      mocks.updates.push(patch);
-      return {
-        where: () => ({
-          returning: () =>
-            Promise.resolve(
-              "jobDescriptionId" in patch
-                ? [{ jobDescriptionId: patch.jobDescriptionId }]
-                : [{ id: "resume-1" }],
-            ),
-        }),
-      };
-    },
-  };
-}
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: () => Promise.resolve(mocks.record ? [mocks.record] : []),
-        }),
-      }),
-    }),
-    transaction: (callback: (tx: unknown) => unknown) =>
-      callback({
-        select: () => ({
-          from: () => ({
-            where: () => ({
-              limit: () => ({
-                for: () => Promise.resolve(mocks.claimJob ? [mocks.claimJob] : []),
-              }),
-            }),
-          }),
-        }),
-        update: updateBuilder,
-      }),
-    update: updateBuilder,
-  },
-}));
-vi.mock("@arc/resume-parse-queue/resume-review-generation", () => ({
-  enqueueResumeReviewGenerationJobs: mocks.enqueue,
-  isResumeReviewGenerationQueueConfigured: () => mocks.queueConfigured,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({
-    listRecruitingJobDescriptions: vi.fn().mockResolvedValue([]),
-    loadRecruitingJobDescriptionById: () => Promise.resolve(mocks.job),
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent", () => ({
-  matchJobDescriptionForResume: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- mocks must be installed before module import.
-import { scheduleResumeEvaluationForRecord } from "./review-queue";
+const dependencies: ResumeEvaluationSchedulingDependencies = {
+  enqueueReviewJobs: mocks.enqueueReviewJobs,
+  isQueueConfigured: mocks.isQueueConfigured,
+  loadSchedulingContext: mocks.loadSchedulingContext,
+  markQueueFailure: mocks.markQueueFailure,
+  persistQueuedRun: mocks.persistQueuedRun,
+};
 
 const PROFILE = {
   age: null,
@@ -93,14 +60,14 @@ const PROFILE = {
 };
 
 function setContext(mode: "legacy" | "structured") {
-  mocks.job = { evaluationMode: mode, id: "jd-1" };
   mocks.claimJob = { evaluationMode: mode, id: "jd-1", lifecycleStatus: "published" };
-  mocks.record = {
+  const record: ResumeEvaluationRecord = {
     jobDescriptionId: "jd-1",
     outcome: "in_pipeline",
     pipelineStage: "screening",
     resumeEvaluationArtifactMode: null,
     resumeEvaluationAttemptMode: null,
+    resumeFileName: "resume.pdf",
     resumeParseStatus: "ready",
     resumeProfile: PROFILE,
     resumeReview: null,
@@ -110,6 +77,10 @@ function setContext(mode: "legacy" | "structured") {
     structuredGateStatus: null,
     structuredResumeEvaluation: null,
     structuredScoreGrade: null,
+  };
+  mocks.context = {
+    job: { ...mocks.claimJob },
+    record: { ...record, jobDescriptionId: "jd-1" },
   };
 }
 
@@ -126,17 +97,50 @@ describe("scheduleResumeEvaluationForRecord", () => {
     mocks.queueConfigured = true;
     mocks.updates.length = 0;
     setContext("structured");
+    mocks.loadSchedulingContext.mockImplementation(() => Promise.resolve(mocks.context));
+    mocks.isQueueConfigured.mockImplementation(() => mocks.queueConfigured);
+    mocks.persistQueuedRun.mockImplementation((input) => {
+      if (
+        !mocks.claimJob ||
+        mocks.claimJob.evaluationMode !== input.mode ||
+        mocks.claimJob.lifecycleStatus !== "published"
+      ) {
+        return Promise.resolve(false);
+      }
+      const update: ReviewEvaluationUpdate = {
+        resumeReviewRunId: input.runId,
+        resumeReviewStatus: "queued",
+      };
+      if (input.mode === "legacy") {
+        update.resumeScreeningError = null;
+        update.resumeScreeningStatus = "processing";
+      }
+      mocks.updates.push(update);
+      return Promise.resolve(true);
+    });
+    mocks.markQueueFailure.mockImplementation((input) => {
+      const update: ReviewEvaluationUpdate = {
+        resumeReviewError: input.errorMessage,
+        resumeReviewStatus: "failed",
+      };
+      if (input.mode === "legacy") {
+        update.resumeScreeningError = input.errorMessage;
+        update.resumeScreeningStatus = "failed";
+      }
+      mocks.updates.push(update);
+      return Promise.resolve();
+    });
   });
 
   it("persists one run identity and carries it in the queue payload", async () => {
-    const result = await scheduleResumeEvaluationForRecord(INPUT);
+    const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
     expect(result.status).toBe("enqueued");
     const [queuedPatch] = mocks.updates;
     expect(queuedPatch).toMatchObject({
       resumeReviewStatus: "queued",
     });
     expect(queuedPatch).not.toHaveProperty("resumeScreeningStatus");
-    expect(mocks.enqueue).toHaveBeenCalledWith([
+    expect(mocks.enqueueReviewJobs).toHaveBeenCalledWith([
       expect.objectContaining({
         runId: queuedPatch?.resumeReviewRunId,
       }),
@@ -145,7 +149,7 @@ describe("scheduleResumeEvaluationForRecord", () => {
 
   it("uses the same persisted run for the in-process fallback", async () => {
     mocks.queueConfigured = false;
-    const result = await scheduleResumeEvaluationForRecord(INPUT);
+    const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
     expect(result).toEqual({
       runId: mocks.updates[0]?.resumeReviewRunId,
       status: "fallback_sync",
@@ -153,22 +157,29 @@ describe("scheduleResumeEvaluationForRecord", () => {
   });
 
   it("does not automatically replace a persisted legacy artifact after the job upgrades", async () => {
-    mocks.record = {
-      ...mocks.record,
-      resumeEvaluationArtifactMode: "legacy",
-      resumeReview: { overall: { baseScore: 82 } },
+    const { context } = mocks;
+    if (!context) {
+      throw new Error("Test context was not initialized.");
+    }
+    mocks.context = {
+      ...context,
+      record: {
+        ...context.record,
+        resumeEvaluationArtifactMode: "legacy",
+        resumeReview: { overall: { baseScore: 82 } },
+      },
     };
 
-    await expect(scheduleResumeEvaluationForRecord(INPUT)).resolves.toEqual({
+    await expect(scheduleResumeEvaluationForRecord(INPUT, dependencies)).resolves.toEqual({
       status: "already_current",
     });
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.enqueue).not.toHaveBeenCalled();
+    expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
   });
 
   it("keeps legacy screening lifecycle behavior", async () => {
     setContext("legacy");
-    await scheduleResumeEvaluationForRecord(INPUT);
+    await scheduleResumeEvaluationForRecord(INPUT, dependencies);
     expect(mocks.updates[0]).toMatchObject({
       resumeScreeningError: null,
       resumeScreeningStatus: "processing",
@@ -176,8 +187,8 @@ describe("scheduleResumeEvaluationForRecord", () => {
   });
 
   it("marks a structured enqueue failure without touching legacy screening fields", async () => {
-    mocks.enqueue.mockRejectedValueOnce(new Error("redis unavailable"));
-    const result = await scheduleResumeEvaluationForRecord(INPUT);
+    mocks.enqueueReviewJobs.mockRejectedValueOnce(new Error("redis unavailable"));
+    const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
     expect(result.status).toBe("failed");
     expect(mocks.updates[1]).toMatchObject({
       resumeReviewError: "redis unavailable",
@@ -187,8 +198,8 @@ describe("scheduleResumeEvaluationForRecord", () => {
   });
 
   it("rejects an unpublished or stale job before writing queue state", async () => {
-    mocks.job = null;
-    const result = await scheduleResumeEvaluationForRecord(INPUT);
+    mocks.context = null;
+    const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
     expect(result.status).toBe("failed");
     expect(mocks.updates).toHaveLength(0);
   });
@@ -201,10 +212,10 @@ describe("scheduleResumeEvaluationForRecord", () => {
       lifecycleStatus: "published",
     };
 
-    const result = await scheduleResumeEvaluationForRecord(INPUT);
+    const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
 
     expect(result.status).toBe("failed");
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.enqueue).not.toHaveBeenCalled();
+    expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
   });
 });

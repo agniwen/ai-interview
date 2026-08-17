@@ -3,27 +3,15 @@ import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import {
   applyQuestionOutcomesToEvaluation,
+  buildInterviewEvaluationPrompt,
   formatCandidateFormSubmissions,
   generateInterviewReport,
 } from "../interview-report";
 import type { InterviewEvaluationQuestion } from "../interview-report";
 
-const mocks = vi.hoisted(() => ({
-  generateStructuredWithMastraAgent: vi.fn(),
-  generateTextWithMastraAgent: vi.fn(),
-  interviewReportEvaluationAgent: { id: "interview-report-evaluation-agent" },
-  interviewReportSummaryAgent: { id: "interview-report-summary-agent" },
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
-    generateTextWithMastraAgent: mocks.generateTextWithMastraAgent,
-    interviewReportEvaluationAgent: mocks.interviewReportEvaluationAgent,
-    interviewReportSummaryAgent: mocks.interviewReportSummaryAgent,
-  }),
-);
+const generateEvaluation = vi.fn();
+const generateSummary = vi.fn();
+const dependencies = { generateEvaluation, generateSummary };
 
 const TRANSCRIPT: InterviewTranscriptTurn[] = [
   { message: "请介绍你的项目。", role: "agent", timeInCallSecs: 1 },
@@ -62,64 +50,73 @@ const EVALUATION = {
 
 describe("generateInterviewReport", () => {
   beforeEach(() => {
-    mocks.generateStructuredWithMastraAgent.mockReset();
-    mocks.generateTextWithMastraAgent.mockReset();
+    generateEvaluation.mockReset();
+    generateSummary.mockReset();
   });
 
   it("returns empty report when transcript is empty", async () => {
     await expect(
-      generateInterviewReport({ candidateFormResponses: "", questions: QUESTIONS, transcript: [] }),
+      generateInterviewReport(
+        { candidateFormResponses: "", questions: QUESTIONS, transcript: [] },
+        dependencies,
+      ),
     ).resolves.toEqual({
       evaluation: null,
       summary: null,
     });
-    expect(mocks.generateTextWithMastraAgent).not.toHaveBeenCalled();
-    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+    expect(generateSummary).not.toHaveBeenCalled();
+    expect(generateEvaluation).not.toHaveBeenCalled();
   });
 
   it("generates summary and structured evaluation with Mastra agents", async () => {
-    mocks.generateTextWithMastraAgent.mockResolvedValue(" 面试摘要 ");
-    mocks.generateStructuredWithMastraAgent.mockResolvedValue(EVALUATION);
+    generateSummary.mockResolvedValue(" 面试摘要 ");
+    generateEvaluation.mockResolvedValue(EVALUATION);
 
     await expect(
-      generateInterviewReport({
-        candidateFormResponses: "当前求职状态：在职，一个月内到岗",
-        questions: QUESTIONS,
-        transcript: TRANSCRIPT,
-      }),
+      generateInterviewReport(
+        {
+          candidateFormResponses: "当前求职状态：在职，一个月内到岗",
+          questions: QUESTIONS,
+          transcript: TRANSCRIPT,
+        },
+        dependencies,
+      ),
     ).resolves.toEqual({
       evaluation: EVALUATION,
       summary: "面试摘要",
     });
 
-    expect(mocks.generateTextWithMastraAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agent: mocks.interviewReportSummaryAgent,
-        temperature: 0.2,
+    expect(generateSummary).toHaveBeenCalledWith({ transcript: TRANSCRIPT });
+    expect(generateEvaluation).toHaveBeenCalledWith({
+      candidateFormResponses: "当前求职状态：在职，一个月内到岗",
+      dataCollectionResults: undefined,
+      questions: QUESTIONS,
+      transcript: TRANSCRIPT,
+    });
+    expect(
+      buildInterviewEvaluationPrompt({
+        candidateFormResponses: "当前求职状态：在职，一个月内到岗",
+        questions: QUESTIONS,
+        transcript: TRANSCRIPT,
       }),
-    );
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agent: mocks.interviewReportEvaluationAgent,
-        prompt: expect.stringMatching(
-          /当前求职状态：在职，一个月内到岗[\s\S]*年龄、成家情况、是否可以接受短期海外出差及周期[\s\S]*hrEvaluation\.projectHighlights：候选人分享的亮点项目/,
-        ),
-        schema: expect.any(Object),
-        temperature: 0,
-      }),
+    ).toMatch(
+      /当前求职状态：在职，一个月内到岗[\s\S]*年龄、成家情况、是否可以接受短期海外出差及周期[\s\S]*hrEvaluation\.projectHighlights：候选人分享的亮点项目/,
     );
   });
 
   it("preserves partial success when evaluation fails", async () => {
-    mocks.generateTextWithMastraAgent.mockResolvedValue("摘要");
-    mocks.generateStructuredWithMastraAgent.mockRejectedValue(new Error("evaluation failed"));
+    generateSummary.mockResolvedValue("摘要");
+    generateEvaluation.mockRejectedValue(new Error("evaluation failed"));
 
     await expect(
-      generateInterviewReport({
-        candidateFormResponses: "",
-        questions: QUESTIONS,
-        transcript: TRANSCRIPT,
-      }),
+      generateInterviewReport(
+        {
+          candidateFormResponses: "",
+          questions: QUESTIONS,
+          transcript: TRANSCRIPT,
+        },
+        dependencies,
+      ),
     ).resolves.toEqual({
       evaluation: null,
       evaluationError: "evaluation failed",

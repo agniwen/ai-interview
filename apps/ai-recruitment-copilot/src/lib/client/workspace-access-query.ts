@@ -18,10 +18,10 @@ export interface WorkspaceAccessSnapshot {
 }
 
 function assignLocation(href: string) {
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     return;
   }
-  window.location.assign(href);
+  globalThis.window.location.assign(href);
 }
 
 /**
@@ -32,10 +32,9 @@ export async function fetchWorkspaceAccessSnapshot(slug: string): Promise<Worksp
   const state = await getWorkspaceAccessState({ data: { slug } });
 
   if (state.status === "unauthenticated") {
-    const callbackURL =
-      typeof window === "undefined"
-        ? `/w/${slug}`
-        : `${window.location.pathname}${window.location.search}`;
+    const callbackURL = globalThis.window
+      ? `${globalThis.window.location.pathname}${globalThis.window.location.search}`
+      : `/w/${slug}`;
     assignLocation(`/login?callbackURL=${encodeURIComponent(callbackURL)}`);
     throw new Error("Workspace access unauthenticated");
   }

@@ -436,9 +436,9 @@ export function MeetingDetailPage({
       <MeetingRecordingSessionLayout
         composer={
           <MeetingCaptureComposer
-            onPause={() => void pauseRecording()}
-            onResume={() => void resumeRecording()}
-            onSave={(captureId) => void saveRecording(captureId)}
+            onPause={pauseRecording}
+            onResume={resumeRecording}
+            onSave={saveRecording}
             snapshot={captureSnapshot}
           />
         }
@@ -497,11 +497,13 @@ export function MeetingDetailPage({
     <MeetingRecordingSessionLayout
       composer={sessionComposer({
         interrupted: localSession?.state === "interrupted",
-        onContinueInterrupted: () => void continueInterruptedRecording(meetingId),
-        onPlaybackError: () => {
-          void playbackQuery.refetch();
+        onContinueInterrupted: () => {
+          continueInterruptedRecording(meetingId);
         },
-        onSaveInterrupted: () => void saveRecording(meetingId),
+        onPlaybackError: playbackQuery.refetch,
+        onSaveInterrupted: () => {
+          saveRecording(meetingId);
+        },
         playback,
         seekToSeconds,
       })}
@@ -561,7 +563,9 @@ export function MeetingDetailPage({
             }}
             onRetryPlayback={() => retryPlaybackMutation.mutate()}
             onRetryTranscript={() => retryTranscriptMutation.mutate()}
-            onRetryUpload={() => void saveRecording(meetingId)}
+            onRetryUpload={() => {
+              saveRecording(meetingId);
+            }}
             renamePending={renameMutation.isPending}
             retryPlaybackPending={retryPlaybackMutation.isPending}
             retryTranscriptPending={retryTranscriptMutation.isPending}

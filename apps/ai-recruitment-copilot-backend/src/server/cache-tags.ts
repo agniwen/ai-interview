@@ -70,7 +70,7 @@ async function warnOnAsyncInvalidationFailure(tag: string, result: PromiseLike<v
 export function safeUpdateTag(tag: string) {
   try {
     const result = cacheInvalidator.revalidateTag(tag);
-    if (result && typeof result.then === "function") {
+    if (result instanceof Promise) {
       void warnOnAsyncInvalidationFailure(tag, result);
     }
   } catch (error) {

@@ -2,15 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { downloadMeetingRecordingObjectToFile } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
+import type { downloadMeetingRecordingObjectToFile } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import type {
   claimMeetingTranscriptionChunk,
   claimMeetingTranscriptionRun,
-  loadMeetingTranscriptionSource,
   markMeetingTranscriptionChunkFailed,
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
-  saveMeetingTranscriptionChunkCheckpoint,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao";
 import { createQwenAsrMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/qwen-asr";
 import {
@@ -24,7 +22,7 @@ import {
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
-import { requestAutomaticMeetingIntelligence } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service";
+import type { requestAutomaticMeetingIntelligence } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service";
 import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
@@ -154,43 +152,52 @@ export function createMeetingTranscriptionProviderForJob(
   });
 }
 
-const defaultDependencies: MeetingTranscriptionDependencies = {
-  claim: claimMeetingTranscriptionRun,
-  claimChunk: claimMeetingTranscriptionChunk,
-  createRunId: randomUUID,
-  createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-transcription-")),
-  downloadSource: downloadMeetingRecordingObjectToFile,
-  ensureDiskCapacity: async ({ directory, requiredBytes }) => {
-    const filesystem = await statfs(directory);
-    const availableBytes = filesystem.bavail * filesystem.bsize;
-    if (availableBytes < requiredBytes + MIN_DISK_HEADROOM_BYTES) {
-      throw new Error("Meeting transcription 工作目录可用空间不足");
-    }
-  },
-  loadSource: loadMeetingTranscriptionSource,
-  markChunkFailed: markMeetingTranscriptionChunkFailed,
-  markFailed: markMeetingTranscriptionFailed,
-  prepareChunks: (input) =>
-    prepareMeetingTranscriptionAudioChunks({
-      ...input,
-      ffmpegBin: process.env.FFMPEG_BIN,
-      ffmpegTimeoutMs: positiveEnvInteger(
-        "MEETING_TRANSCRIPTION_FFMPEG_TIMEOUT_MS",
-        30 * 60 * 1000,
-      ),
-    }),
-  provider: {
-    transcribeFinal: () => {
-      throw new Error("最终转录必须使用任务绑定的通义千问 ASR");
+type MeetingTranscriptionRuntimeAdapters = Pick<
+  MeetingTranscriptionDependencies,
+  | "claim"
+  | "claimChunk"
+  | "downloadSource"
+  | "loadSource"
+  | "markChunkFailed"
+  | "markFailed"
+  | "publish"
+  | "requestIntelligence"
+  | "saveChunkCheckpoint"
+>;
+
+export function createDefaultMeetingTranscriptionDependencies(
+  adapters: MeetingTranscriptionRuntimeAdapters,
+): MeetingTranscriptionDependencies {
+  return {
+    ...adapters,
+    createRunId: randomUUID,
+    createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-transcription-")),
+    ensureDiskCapacity: async ({ directory, requiredBytes }) => {
+      const filesystem = await statfs(directory);
+      const availableBytes = filesystem.bavail * filesystem.bsize;
+      if (availableBytes < requiredBytes + MIN_DISK_HEADROOM_BYTES) {
+        throw new Error("Meeting transcription 工作目录可用空间不足");
+      }
     },
-  },
-  providerForJob: createMeetingTranscriptionProviderForJob,
-  publish: publishMeetingTranscript,
-  removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
-  requestIntelligence: requestAutomaticMeetingIntelligence,
-  saveChunkCheckpoint: saveMeetingTranscriptionChunkCheckpoint,
-  withMediaPermit,
-};
+    prepareChunks: (input) =>
+      prepareMeetingTranscriptionAudioChunks({
+        ...input,
+        ffmpegBin: process.env.FFMPEG_BIN,
+        ffmpegTimeoutMs: positiveEnvInteger(
+          "MEETING_TRANSCRIPTION_FFMPEG_TIMEOUT_MS",
+          30 * 60 * 1000,
+        ),
+      }),
+    provider: {
+      transcribeFinal: () => {
+        throw new Error("最终转录必须使用任务绑定的通义千问 ASR");
+      },
+    },
+    providerForJob: createMeetingTranscriptionProviderForJob,
+    removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
+    withMediaPermit,
+  };
+}
 
 export async function validateMeetingTranscriptionRuntime(): Promise<void> {
   const versionLine = await readMeetingTranscriptionFfmpegVersion(process.env.FFMPEG_BIN);
@@ -294,7 +301,7 @@ async function requestAutomaticIntelligenceBestEffort(input: {
 export async function runMeetingTranscriptionProcessing(
   input: MeetingTranscriptionJobData,
   context: { attempt: number; maxAttempts: number },
-  dependencies: MeetingTranscriptionDependencies = defaultDependencies,
+  dependencies: MeetingTranscriptionDependencies,
 ): Promise<void> {
   const meeting = await dependencies.loadSource(input);
   if (!meeting) {

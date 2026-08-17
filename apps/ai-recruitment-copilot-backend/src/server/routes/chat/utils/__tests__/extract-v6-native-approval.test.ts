@@ -5,6 +5,7 @@ import { extractV6NativeApproval } from "../extract-v6-native-approval";
 describe("extractV6NativeApproval", () => {
   it("returns null when there is no approval response", () => {
     expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       extractV6NativeApproval([
         {
           id: "u1",
@@ -16,6 +17,7 @@ describe("extractV6NativeApproval", () => {
   });
 
   it("recovers runId and approved resumeData from approval-responded tool parts", () => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const messages = [
       {
         id: "a1",
@@ -25,6 +27,7 @@ describe("extractV6NativeApproval", () => {
               approved: true,
               id: "run-abc::tool-call-1",
             },
+            input: {},
             state: "approval-responded",
             toolCallId: "tool-call-1",
             type: "tool-propose_recruiting_action",
@@ -32,7 +35,7 @@ describe("extractV6NativeApproval", () => {
         ],
         role: "assistant",
       },
-    ] as unknown as UIMessage[];
+    ] as UIMessage[];
 
     expect(extractV6NativeApproval(messages)).toEqual({
       resumeData: { approved: true },
@@ -41,6 +44,7 @@ describe("extractV6NativeApproval", () => {
   });
 
   it("includes deny reason when present", () => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const messages = [
       {
         id: "a1",
@@ -51,6 +55,7 @@ describe("extractV6NativeApproval", () => {
               id: "run-xyz::tool-call-9",
               reason: "user_ignored",
             },
+            input: {},
             state: "approval-responded",
             toolCallId: "tool-call-9",
             type: "tool-propose_recruiting_action",
@@ -58,7 +63,7 @@ describe("extractV6NativeApproval", () => {
         ],
         role: "assistant",
       },
-    ] as unknown as UIMessage[];
+    ] as UIMessage[];
 
     expect(extractV6NativeApproval(messages)).toEqual({
       resumeData: { approved: false, reason: "user_ignored" },

@@ -62,7 +62,7 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   if (value === null || typeof value !== "object") {
     return false;
   }
-  const proto = Object.getPrototypeOf(value) as unknown;
+  const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
 
@@ -70,10 +70,10 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
  * 是否拥有自身属性 key（绕过 prototype 查找的安全 hasOwn）。
  * Safe `hasOwn` check that ignores prototype chain.
  */
-export function hasOwn<K extends PropertyKey>(
-  object: object,
+export function hasOwn<ObjectLike extends object, K extends PropertyKey>(
+  object: ObjectLike,
   key: K,
-): object is Record<K, unknown> {
+): object is ObjectLike & Record<K, unknown> {
   return Object.hasOwn(object, key);
 }
 

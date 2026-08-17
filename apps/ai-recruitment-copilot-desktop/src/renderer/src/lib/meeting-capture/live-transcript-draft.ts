@@ -80,7 +80,7 @@ export interface LiveTranscriptPcmTap {
 }
 
 interface LiveTranscriptDraftDependencies {
-  authorizationFailureReason?: (error: unknown) => "authorization" | "capacity";
+  authorizationFailureReason?: (error: Error) => "authorization" | "capacity";
   authorize: (input: {
     captureId: string;
     track: MeetingLiveTranscriptTrack;
@@ -107,7 +107,7 @@ interface LiveTranscriptDraftDependencies {
   reconnectDelayMs?: number;
   scheduleReconnect?: (callback: () => void, delayMs: number) => () => void;
   scheduleLeaseHeartbeat?: (callback: () => void, delayMs: number) => () => void;
-  shouldReconnect?: (error: unknown) => boolean;
+  shouldReconnect?: (error: Error) => boolean;
 }
 
 interface TrackRuntime {
@@ -120,6 +120,11 @@ interface TrackRuntime {
   reconnectAttempts: number;
   sectionId: string | null;
   status: LiveTranscriptDraftStatus;
+}
+
+interface DroppedPcmSummary {
+  audioMs: number;
+  frames: number;
 }
 
 const DEFAULT_MAX_QUEUED_PCM_BYTES = 512 * 1024;
@@ -165,7 +170,7 @@ class BoundedPcmQueue {
     this.sizeBytes = 0;
   }
 
-  enqueueLatest(frame: Int16Array): { audioMs: number; frames: number } {
+  enqueueLatest(frame: Int16Array): DroppedPcmSummary {
     const audioMs = (frame.length / PCM_SAMPLE_RATE) * 1000;
     if (frame.byteLength > this.maxBytes || audioMs > this.maxAudioMs) {
       return { audioMs, frames: 1 };
@@ -243,30 +248,21 @@ function closeConnection(runtime: TrackRuntime): void {
 export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDependencies) {
   const maxQueuedPcmBytes = dependencies.maxQueuedPcmBytesPerTrack ?? DEFAULT_MAX_QUEUED_PCM_BYTES;
   const maxQueuedAudioMs = dependencies.maxQueuedAudioMsPerTrack ?? DEFAULT_MAX_QUEUED_AUDIO_MS;
-  const runtimes: Record<MeetingLiveTranscriptTrack, TrackRuntime> = {
-    microphone: {
-      cancelReconnect: null,
-      connection: null,
-      generation: 0,
-      mediaTrack: null,
-      pcmTap: null,
-      queue: new BoundedPcmQueue(maxQueuedPcmBytes, maxQueuedAudioMs),
-      reconnectAttempts: 0,
-      sectionId: null,
-      status: "idle",
-    },
-    system: {
-      cancelReconnect: null,
-      connection: null,
-      generation: 0,
-      mediaTrack: null,
-      pcmTap: null,
-      queue: new BoundedPcmQueue(maxQueuedPcmBytes, maxQueuedAudioMs),
-      reconnectAttempts: 0,
-      sectionId: null,
-      status: "idle",
-    },
-  };
+  const createTrackRuntime = (): TrackRuntime => ({
+    cancelReconnect: null,
+    connection: null,
+    generation: 0,
+    mediaTrack: null,
+    pcmTap: null,
+    queue: new BoundedPcmQueue(maxQueuedPcmBytes, maxQueuedAudioMs),
+    reconnectAttempts: 0,
+    sectionId: null,
+    status: "idle",
+  });
+  const runtimes = {
+    microphone: createTrackRuntime(),
+    system: createTrackRuntime(),
+  } satisfies Record<MeetingLiveTranscriptTrack, TrackRuntime>;
   const listeners = new Set<(snapshot: LiveTranscriptDraftSnapshot) => void>();
   const scheduleReconnect =
     dependencies.scheduleReconnect ??
@@ -485,7 +481,10 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
         track,
       });
     } else {
-      const current = turns[index] as LiveTranscriptDraftTurn;
+      const current = turns[index];
+      if (!current) {
+        return;
+      }
       turns[index] = {
         ...current,
         final: event.type === "completed",
@@ -567,10 +566,9 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       runtime.status = "interrupted";
       publish({ error: publicError(reason) });
       if (reconnect && !runtime.cancelReconnect) {
-        runtime.cancelReconnect = scheduleTrackReconnect(
-          runtime,
-          () => void connectTrack(track, true),
-        );
+        runtime.cancelReconnect = scheduleTrackReconnect(runtime, async () => {
+          await connectTrack(track, true);
+        });
       }
       releaseLeaseWhenAllTracksTerminal(captureId);
     };
@@ -621,9 +619,10 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       }
       publish({ error: null });
     } catch (error) {
+      const connectionError = error instanceof Error ? error : new Error("实时字幕连接失败");
       interrupt(
-        dependencies.authorizationFailureReason?.(error) ?? "authorization",
-        dependencies.shouldReconnect?.(error) ?? true,
+        dependencies.authorizationFailureReason?.(connectionError) ?? "authorization",
+        dependencies.shouldReconnect?.(connectionError) ?? true,
       );
     }
   };

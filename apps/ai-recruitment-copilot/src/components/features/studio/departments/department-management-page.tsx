@@ -52,20 +52,24 @@ export function DepartmentManagementPage() {
         filters: Record<string, never>;
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedDepartmentResult> =>
-        rpcFetch<PaginatedDepartmentResult>(
+      }): Promise<PaginatedDepartmentResult> => {
+        const query = {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          sortBy: params.sortBy ?? "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
+        };
+        if (params.search) {
+          Object.assign(query, { search: params.search });
+        }
+        return rpcFetch<PaginatedDepartmentResult>(
           rpc.api.w[":slug"].studio.departments.$get({
             param: { slug },
-            query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
-              sortBy: params.sortBy ?? "createdAt",
-              sortOrder: params.sortOrder ?? "desc",
-            },
+            query,
           }),
           "加载部门列表失败",
-        ),
+        );
+      },
     [slug],
   );
 
@@ -96,7 +100,7 @@ export function DepartmentManagementPage() {
   const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio.departments[":id"].$delete({ param: { id: record.id, slug } }),
-    detailFromList: (record) => record as unknown as DepartmentRecord,
+    detailFromList: (record) => record,
     invalidate: invalidateDepartmentData,
     messages: {
       deleteSuccess: "部门已删除",
@@ -170,7 +174,7 @@ export function DepartmentManagementPage() {
         inline: [
           {
             label: "编辑",
-            onClick: (r) => void crud.openEdit(r),
+            onClick: (record) => crud.openEdit(record),
             show: () => canUpdateDepartment,
           },
         ],

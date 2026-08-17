@@ -1,26 +1,25 @@
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
 import { InterviewerManagementPage } from "@/components/features/studio/interviewers/interviewer-management-page";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
-import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
+
+const routeApi = getRouteApi("/w/$slug/studio/interviewers");
 
 function StudioInterviewersRoute() {
-  const state = useLoaderData({
-    from: "/w/$slug/studio/interviewers",
-  }) as unknown as StudioInterviewersState;
+  const state = routeApi.useLoaderData();
   return state.status === "ready" ? (
     <InterviewerManagementPage departments={state.departments} />
   ) : null;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  validateSearch: coerceSearchParams,
   loader: async ({ params }) => {
-    const state = (await loadStudioInterviewersState({
+    const state = await loadStudioInterviewersState({
       data: { slug: params.slug },
-    })) as StudioInterviewersState;
+    });
     if (state.status === "unauthenticated") {
       throw redirect({
         href: `/login?callbackURL=${encodeURIComponent(`/w/${params.slug}/studio/interviewers`)}`,

@@ -1,5 +1,7 @@
 import { DetailRow } from "./detail-row";
+import type { JsonObject } from "@arc/db-schema/json";
 import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
+import { z } from "zod";
 
 /**
  * Agent 端 metrics_collected 聚合后落库的形状。与 agent.py 中的 metrics_state 对齐:
@@ -11,63 +13,94 @@ import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
  * have an empty {} stored, and partial metrics are possible if a session crashes
  * mid-pipeline.
  */
-interface MetricsShape {
-  session?: {
-    llm?: {
-      request_count?: number;
-      total_completion_tokens?: number;
-      total_prompt_tokens?: number;
-      total_tokens?: number;
-      total_duration?: number;
-      ttft_sum?: number;
-      ttft_count?: number;
-    };
-    stt?: {
-      request_count?: number;
-      total_audio_duration?: number;
-      total_duration?: number;
-    };
-    tts?: {
-      request_count?: number;
-      total_audio_duration?: number;
-      total_characters?: number;
-      total_duration?: number;
-      ttfb_sum?: number;
-      ttfb_count?: number;
-    };
-    eou?: {
-      count?: number;
-      end_of_utterance_delay_sum?: number;
-      transcription_delay_sum?: number;
-      on_user_turn_completed_delay_sum?: number;
-    };
-    interruption?: {
-      num_interruptions?: number;
-      num_backchannels?: number;
-      num_requests?: number;
-      latest_detection_delay?: number;
-    };
-    vad?: {
-      total_inference_duration?: number;
-      total_inference_count?: number;
-    };
-  };
-  turns?: Record<
-    string,
-    {
-      llm_ttft?: number;
-      llm_duration?: number;
-      llm_total_tokens?: number;
-      tts_ttfb?: number;
-      tts_duration?: number;
-      tts_characters?: number;
-      eou_delay?: number;
-      transcription_delay?: number;
-    }
-  >;
+const optionalNumber = z.number().finite().optional();
+
+const metricsCollectionSchema = z
+  .object({
+    session: z
+      .object({
+        eou: z
+          .object({
+            count: optionalNumber,
+            end_of_utterance_delay_sum: optionalNumber,
+            on_user_turn_completed_delay_sum: optionalNumber,
+            transcription_delay_sum: optionalNumber,
+          })
+          .optional(),
+        interruption: z
+          .object({
+            latest_detection_delay: optionalNumber,
+            num_backchannels: optionalNumber,
+            num_interruptions: optionalNumber,
+            num_requests: optionalNumber,
+          })
+          .optional(),
+        llm: z
+          .object({
+            request_count: optionalNumber,
+            total_completion_tokens: optionalNumber,
+            total_duration: optionalNumber,
+            total_prompt_tokens: optionalNumber,
+            total_tokens: optionalNumber,
+            ttft_count: optionalNumber,
+            ttft_sum: optionalNumber,
+          })
+          .optional(),
+        stt: z
+          .object({
+            request_count: optionalNumber,
+            total_audio_duration: optionalNumber,
+            total_duration: optionalNumber,
+          })
+          .optional(),
+        tts: z
+          .object({
+            request_count: optionalNumber,
+            total_audio_duration: optionalNumber,
+            total_characters: optionalNumber,
+            total_duration: optionalNumber,
+            ttfb_count: optionalNumber,
+            ttfb_sum: optionalNumber,
+          })
+          .optional(),
+        vad: z
+          .object({
+            total_inference_count: optionalNumber,
+            total_inference_duration: optionalNumber,
+          })
+          .optional(),
+      })
+      .optional(),
+    turns: z
+      .record(
+        z.string(),
+        z.object({
+          eou_delay: optionalNumber,
+          llm_duration: optionalNumber,
+          llm_total_tokens: optionalNumber,
+          llm_ttft: optionalNumber,
+          transcription_delay: optionalNumber,
+          tts_characters: optionalNumber,
+          tts_duration: optionalNumber,
+          tts_ttfb: optionalNumber,
+        }),
+      )
+      .optional(),
+  })
+  .strip();
+
+type MetricsCollection = z.infer<typeof metricsCollectionSchema>;
+
+/*
+ * The persisted JSON can be absent or partial for historical/crashed sessions.
+ * Parse it once at this UI boundary before using its numeric metrics.
+ */
+function parseMetricsCollection(metrics: JsonObject): MetricsCollection {
+  const parsed = metricsCollectionSchema.safeParse(metrics);
+  return parsed.success ? parsed.data : {};
 }
 
-function isEmptyMetrics(m: MetricsShape): boolean {
+function isEmptyMetrics(m: MetricsCollection): boolean {
   const { session } = m;
   if (!session) {
     return Object.keys(m.turns ?? {}).length === 0;
@@ -79,7 +112,7 @@ function isEmptyMetrics(m: MetricsShape): boolean {
 }
 
 function formatSeconds(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+  if (value === null || value === undefined || value <= 0) {
     return "—";
   }
   if (value < 1) {
@@ -89,7 +122,7 @@ function formatSeconds(value: number | null | undefined): string {
 }
 
 function formatNumber(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (value === null || value === undefined) {
     return "—";
   }
   return Math.round(value).toLocaleString();
@@ -124,7 +157,7 @@ function quantile(sorted: number[], q: number): number | null {
  * speaks first audio byte" by summing the four pipeline-stage delays we
  * record per speech_id.
  */
-function computeTurnE2eLatencies(turns: NonNullable<MetricsShape["turns"]>): number[] {
+function computeTurnE2eLatencies(turns: NonNullable<MetricsCollection["turns"]>): number[] {
   const latencies: number[] = [];
   for (const turn of Object.values(turns)) {
     const eou = turn.eou_delay ?? 0;
@@ -146,7 +179,7 @@ function computeTurnE2eLatencies(turns: NonNullable<MetricsShape["turns"]>): num
  * the count is zero so the UI can show "—" instead of NaN.
  */
 function safeAvg(sum: number | undefined, count: number | undefined): number | null {
-  if (typeof sum !== "number" || typeof count !== "number" || count <= 0) {
+  if (sum === undefined || count === undefined || count <= 0) {
     return null;
   }
   return sum / count;
@@ -159,8 +192,8 @@ function safeAvg(sum: number | undefined, count: number | undefined): number | n
  * metrics_collected listener. Falls back to a friendly empty state for
  * conversations that predate the metrics column.
  */
-export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unknown> }) {
-  const m = metrics as MetricsShape;
+export function InterviewMetricsPanel({ metrics }: { metrics: JsonObject }) {
+  const m = parseMetricsCollection(metrics);
 
   if (isEmptyMetrics(m)) {
     return (

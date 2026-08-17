@@ -118,11 +118,11 @@ export async function deleteDuplicateMatchesForSource(input: {
   return deleted.length;
 }
 
-const LEVEL_PRIORITY: Record<ResumeSemanticDuplicateLevel, number> = {
+const LEVEL_PRIORITY = {
   high: 2,
   low: 0,
   medium: 1,
-};
+} satisfies Record<ResumeSemanticDuplicateLevel, number>;
 
 /**
  * 把「subjectId → otherId → level」行聚合成每个 subject 的重复数量与最高风险等级；

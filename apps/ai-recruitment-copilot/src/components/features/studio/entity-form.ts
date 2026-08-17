@@ -11,8 +11,8 @@ interface StandardSchemaLike<TValues> {
   readonly "~standard": {
     readonly version: 1;
     readonly vendor: string;
-    readonly validate: (
-      value: unknown,
+    readonly validate: <TInput>(
+      value: TInput,
     ) =>
       | { value: TValues }
       | { issues: readonly { message: string }[] }

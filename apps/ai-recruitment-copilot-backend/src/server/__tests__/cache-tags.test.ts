@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
-vi.mock("@arc/db-schema/schema", () => ({ studioInterview: {} }));
-
-// oxlint-disable-next-line import/first -- cache-tags imports DB at module load; mocks must be registered first.
 import {
   cacheTags,
   configureCacheInvalidator,

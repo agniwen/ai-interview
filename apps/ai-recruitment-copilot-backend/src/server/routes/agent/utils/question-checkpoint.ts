@@ -10,6 +10,6 @@ export const questionCheckpointPayloadSchema = z
   })
   .strict();
 
-export function parseQuestionCheckpoint(value: unknown) {
+export function parseQuestionCheckpoint(value: z.input<typeof questionCheckpointPayloadSchema>) {
   return questionCheckpointPayloadSchema.parse(value);
 }

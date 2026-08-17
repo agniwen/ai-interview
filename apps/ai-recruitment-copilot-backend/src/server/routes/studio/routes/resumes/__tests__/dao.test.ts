@@ -266,7 +266,7 @@ describe("queryPaginatedResumeRecords", () => {
     expect(sample.pipelineStage).toBeTypeOf("string");
     expect(sample.outcome).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
-    expect(typeof sample.createdAt).toBe("string");
+    expect(sample.createdAt).toEqual(expect.any(String));
   });
 
   it.each([
@@ -295,6 +295,7 @@ describe("queryPaginatedResumeRecords", () => {
         structuredCompositeScore: 65,
         structuredGateSortRank: 0,
         structuredGateStatus: "passed",
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         structuredResumeEvaluation: {
           narrative,
         } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],

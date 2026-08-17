@@ -112,11 +112,16 @@ export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   );
 }
 
-export async function requestRecordingTitle(slug: string, transcript: string): Promise<string> {
+export async function requestRecordingTitle(
+  slug: string,
+  transcript: string,
+  dependencies: { apiUrl?: typeof apiUrl } = {},
+): Promise<string> {
+  const resolveApiUrl = dependencies.apiUrl ?? apiUrl;
   const text = transcript.slice(0, 6000);
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/title`;
   try {
-    const result = await apiJson<{ title: string }>(apiUrl(path), "生成录制标题失败", {
+    const result = await apiJson<{ title: string }>(resolveApiUrl(path), "生成录制标题失败", {
       body: JSON.stringify({ transcript: text }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
@@ -132,7 +137,7 @@ export async function requestRecordingTitle(slug: string, transcript: string): P
   // meeting-specific title route. This is still AI summarization, not a local
   // substring fallback, and can be removed after that route is fully deployed.
   const fallback = await apiJson<{ title: string }>(
-    apiUrl("/api/resume/title"),
+    resolveApiUrl("/api/resume/title"),
     "生成录制标题失败",
     {
       body: JSON.stringify({ hasFiles: false, text }),

@@ -28,6 +28,7 @@ function caseFixture(index: number) {
       { category: "technical" as const, text: "TypeScript" },
     ],
     id: `case-${String(index).padStart(2, "0")}`,
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     overlapIntervals: [] as { endMs: number; referenceTexts: string[]; startMs: number }[],
     reference: { language: "zh", turns: [turn] },
     tags: ["mandarin", "technical"],
@@ -58,6 +59,7 @@ describe("Meeting transcription evaluation dataset", () => {
     const cases = Array.from({ length: 20 }, (_, index) => caseFixture(index));
     cases[0] = {
       ...cases[0],
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       consent: { confirmed: false as never, scope: "provider-benchmark-v1" },
     };
     expect(() =>

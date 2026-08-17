@@ -6,7 +6,8 @@ export type ResumeMetricsScope = "team" | "personal";
 const STORAGE_KEY = "arc:resume-metrics-scope";
 
 const storage = createJSONStorage<ResumeMetricsScope>(() => {
-  if (typeof window === "undefined") {
+  const browserWindow = globalThis.window;
+  if (!browserWindow) {
     // SSR / prerender: fall back to an in-memory map so atomWithStorage
     // never touches window.localStorage during server render.
     const memory = new Map<string, string>();
@@ -20,7 +21,7 @@ const storage = createJSONStorage<ResumeMetricsScope>(() => {
       },
     };
   }
-  return localStorage;
+  return browserWindow.localStorage;
 });
 
 /**

@@ -21,8 +21,33 @@ interface RecruitingContextAccessInput {
   userId: string;
 }
 
-async function loadRecruitingVisibility(input: RecruitingContextAccessInput) {
-  return await resolveRecruitingVisibilityScope({
+export interface RecruitingContextServiceDependencies {
+  listCandidates: typeof listMeetingRecruitingRecordCandidates;
+  loadAuthorizedMeeting: (
+    input: RecruitingContextAccessInput,
+  ) => Promise<Parameters<typeof meetingRole>[0] | null>;
+  loadContext: typeof loadMeetingRecruitingContext;
+  loadRecordCandidate: typeof loadMeetingRecruitingRecordCandidate;
+  meetingRole: typeof meetingRole;
+  replaceContext: typeof replaceMeetingRecruitingContext;
+  resolveVisibility: typeof resolveRecruitingVisibilityScope;
+}
+
+const defaultDependencies: RecruitingContextServiceDependencies = {
+  listCandidates: listMeetingRecruitingRecordCandidates,
+  loadAuthorizedMeeting,
+  loadContext: loadMeetingRecruitingContext,
+  loadRecordCandidate: loadMeetingRecruitingRecordCandidate,
+  meetingRole,
+  replaceContext: replaceMeetingRecruitingContext,
+  resolveVisibility: resolveRecruitingVisibilityScope,
+};
+
+async function loadRecruitingVisibility(
+  input: RecruitingContextAccessInput,
+  dependencies: RecruitingContextServiceDependencies,
+) {
+  return await dependencies.resolveVisibility({
     currentRole: input.memberRole,
     organizationId: input.organizationId,
     userId: input.userId,
@@ -31,12 +56,13 @@ async function loadRecruitingVisibility(input: RecruitingContextAccessInput) {
 
 export async function getMeetingRecruitingContext(
   input: RecruitingContextAccessInput,
+  dependencies = defaultDependencies,
 ): Promise<MeetingRecruitingContextSettings | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+  const meeting = await dependencies.loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
   }
-  const role = meetingRole(meeting, input);
+  const role = dependencies.meetingRole(meeting, input);
   const canManageMeetingLink = meetingAccessCapabilities(role).canManageRecruitingContext;
   if (role === "administrator") {
     await recordMeetingAudit({
@@ -50,8 +76,8 @@ export async function getMeetingRecruitingContext(
   if (!input.canReadRecruitingRecords) {
     return { canManage: false, link: null };
   }
-  const visibilityScope = await loadRecruitingVisibility(input);
-  const link = await loadMeetingRecruitingContext({
+  const visibilityScope = await loadRecruitingVisibility(input, dependencies);
+  const link = await dependencies.loadContext({
     meetingId: input.meetingId,
     organizationId: input.organizationId,
     visibilityScope,
@@ -61,49 +87,53 @@ export async function getMeetingRecruitingContext(
 
 export async function getMeetingRecruitingRecordCandidates(
   input: RecruitingContextAccessInput & { limit: number; search?: string },
+  dependencies = defaultDependencies,
 ): Promise<"forbidden" | MeetingRecruitingRecordSummary[] | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+  const meeting = await dependencies.loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
   }
   if (
     !input.canReadRecruitingRecords ||
-    !meetingAccessCapabilities(meetingRole(meeting, input)).canManageRecruitingContext
+    !meetingAccessCapabilities(dependencies.meetingRole(meeting, input)).canManageRecruitingContext
   ) {
     return "forbidden";
   }
-  return await listMeetingRecruitingRecordCandidates({
+  return await dependencies.listCandidates({
     limit: input.limit,
     organizationId: input.organizationId,
     search: input.search,
-    visibilityScope: await loadRecruitingVisibility(input),
+    visibilityScope: await loadRecruitingVisibility(input, dependencies),
   });
 }
 
 export async function changeMeetingRecruitingContext(
   input: RecruitingContextAccessInput & { recruitingRecordId: string | null },
+  dependencies = defaultDependencies,
 ): Promise<"forbidden" | "invalid-record" | "unchanged" | "updated" | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+  const meeting = await dependencies.loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
   }
-  if (!meetingAccessCapabilities(meetingRole(meeting, input)).canManageRecruitingContext) {
+  if (
+    !meetingAccessCapabilities(dependencies.meetingRole(meeting, input)).canManageRecruitingContext
+  ) {
     return "forbidden";
   }
   if (input.recruitingRecordId) {
     if (!input.canReadRecruitingRecords) {
       return "invalid-record";
     }
-    const candidate = await loadMeetingRecruitingRecordCandidate({
+    const candidate = await dependencies.loadRecordCandidate({
       organizationId: input.organizationId,
       recruitingRecordId: input.recruitingRecordId,
-      visibilityScope: await loadRecruitingVisibility(input),
+      visibilityScope: await loadRecruitingVisibility(input, dependencies),
     });
     if (!candidate) {
       return "invalid-record";
     }
   }
-  const result = await replaceMeetingRecruitingContext({
+  const result = await dependencies.replaceContext({
     actorId: input.userId,
     meetingId: input.meetingId,
     organizationId: input.organizationId,

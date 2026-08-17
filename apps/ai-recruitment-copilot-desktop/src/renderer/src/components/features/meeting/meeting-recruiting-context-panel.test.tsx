@@ -11,6 +11,7 @@ import {
   useDebouncedMeetingRecruitingSearch,
 } from "./meeting-recruiting-context-panel";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const linked: MeetingRecruitingContextSettings = {

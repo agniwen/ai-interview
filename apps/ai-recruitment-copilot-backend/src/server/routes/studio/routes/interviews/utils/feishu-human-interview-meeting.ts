@@ -1,5 +1,6 @@
 /* oxlint-disable max-lines -- Feishu sync checkpoints stay together so retry state remains auditable. */
 import { and, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -25,6 +26,49 @@ interface FeishuResponse<T> {
   data?: T;
   msg?: string;
 }
+
+function feishuResponseSchema<T extends z.ZodType>(data: T) {
+  return z.object({ code: z.number(), data: data.optional(), msg: z.string().optional() });
+}
+
+const addCalendarAttendeesResponseSchema = feishuResponseSchema(
+  z.object({ attendees: z.array(z.object({ user_id: z.string().optional() })).optional() }),
+);
+const createCalendarEventResponseSchema = feishuResponseSchema(
+  z.object({
+    event: z
+      .object({ app_link: z.string().optional(), event_id: z.string().optional() })
+      .optional(),
+  }),
+);
+const createReserveResponseSchema = feishuResponseSchema(
+  z.object({
+    reserve: z.object({
+      app_link: z.string().optional(),
+      id: z.string().optional(),
+      meeting_no: z.string().optional(),
+      url: z.string().optional(),
+    }),
+    reserve_correction_check_info: z
+      .object({ invalid_host_id_list: z.array(z.string()).optional() })
+      .optional(),
+  }),
+);
+const primaryCalendarResponseSchema = feishuResponseSchema(
+  z.object({
+    calendars: z
+      .array(z.object({ calendar: z.object({ calendar_id: z.string().optional() }).optional() }))
+      .optional(),
+  }),
+);
+const resolveOpenIdsResponseSchema = feishuResponseSchema(
+  z.object({
+    user_list: z
+      .array(z.object({ email: z.string().optional(), user_id: z.string().optional() }))
+      .optional(),
+  }),
+);
+const emptyFeishuResponseSchema = feishuResponseSchema(z.object({}));
 
 interface CreateReserveInput {
   endAt: Date;
@@ -65,34 +109,6 @@ interface UpdateCalendarEventTimeInput {
 interface UpdateReserveInput {
   endAt: Date;
   reserveId: string;
-}
-
-interface CreateCalendarEventResponse {
-  event?: {
-    app_link?: string;
-    event_id?: string;
-  };
-}
-
-interface AddCalendarAttendeesResponse {
-  attendees?: {
-    user_id?: string;
-  }[];
-}
-
-interface ResolveOpenIdsResponse {
-  user_list?: {
-    email?: string;
-    user_id?: string;
-  }[];
-}
-
-interface PrimaryCalendarResponse {
-  calendars?: {
-    calendar?: {
-      calendar_id?: string;
-    };
-  }[];
 }
 
 export interface FeishuReserve {
@@ -238,7 +254,7 @@ export function createFeishuHumanInterviewClient({
           method: "POST",
         },
       );
-      const result = (await response.json()) as FeishuResponse<AddCalendarAttendeesResponse>;
+      const result = addCalendarAttendeesResponseSchema.parse(await response.json());
       const addedOpenIds = result.data?.attendees
         ?.map((attendee) => attendee.user_id)
         .filter((openId): openId is string => typeof openId === "string");
@@ -289,7 +305,7 @@ export function createFeishuHumanInterviewClient({
           method: "POST",
         },
       );
-      const result = (await response.json()) as FeishuResponse<CreateCalendarEventResponse>;
+      const result = createCalendarEventResponseSchema.parse(await response.json());
       const event = result.data?.event;
       if (!response.ok || result.code !== 0 || !event?.app_link || !event.event_id) {
         throw new Error(`飞书日程创建失败：${result.msg || result.code || response.status}`);
@@ -328,7 +344,7 @@ export function createFeishuHumanInterviewClient({
       }
       let result: FeishuResponse<CreateReserveResponse>;
       try {
-        result = (await response.json()) as FeishuResponse<CreateReserveResponse>;
+        result = createReserveResponseSchema.parse(await response.json());
       } catch (error) {
         throw new FeishuReserveResultUnknownError(
           `飞书会议创建响应无法读取，结果未知：${error instanceof Error ? error.message : "响应解析失败"}`,
@@ -366,7 +382,7 @@ export function createFeishuHumanInterviewClient({
           method: "POST",
         },
       );
-      const result = (await response.json()) as FeishuResponse<PrimaryCalendarResponse>;
+      const result = primaryCalendarResponseSchema.parse(await response.json());
       const calendarId = result.data?.calendars?.[0]?.calendar?.calendar_id;
       if (!response.ok || result.code !== 0 || !calendarId) {
         throw new Error(`飞书主日历查询失败：${result.msg || result.code || response.status}`);
@@ -385,7 +401,7 @@ export function createFeishuHumanInterviewClient({
           method: "POST",
         },
       );
-      const result = (await response.json()) as FeishuResponse<ResolveOpenIdsResponse>;
+      const result = resolveOpenIdsResponseSchema.parse(await response.json());
       if (!response.ok || result.code !== 0 || !result.data?.user_list) {
         throw new Error(`飞书用户身份查询失败：${result.msg || result.code || response.status}`);
       }
@@ -417,7 +433,7 @@ export function createFeishuHumanInterviewClient({
           method: "PATCH",
         },
       );
-      const result = (await response.json()) as FeishuResponse<unknown>;
+      const result = emptyFeishuResponseSchema.parse(await response.json());
       if (!response.ok || result.code !== 0) {
         throw new Error(`飞书日程更新时间失败：${result.msg || result.code || response.status}`);
       }
@@ -436,7 +452,7 @@ export function createFeishuHumanInterviewClient({
           method: "PUT",
         },
       );
-      const result = (await response.json()) as FeishuResponse<unknown>;
+      const result = emptyFeishuResponseSchema.parse(await response.json());
       if (!response.ok || result.code !== 0) {
         throw new Error(`飞书会议更新时间失败：${result.msg || result.code || response.status}`);
       }
@@ -822,21 +838,22 @@ export async function recordFeishuHumanInterviewSyncFailure({
   ) {
     status = "unknown";
   }
+  const updateValues = {
+    feishuLastError: message.slice(0, 1000),
+    feishuSyncStatus: status,
+    updatedAt: new Date(),
+  };
+  if (reserve) {
+    Object.assign(updateValues, {
+      feishuAppLink: reserve.appLink,
+      feishuMeetingNo: reserve.meetingNo,
+      feishuMeetingUrl: reserve.meetingUrl,
+      feishuReserveId: reserve.reserveId,
+    });
+  }
   await db
     .update(studioHumanInterviewMeeting)
-    .set({
-      ...(reserve
-        ? {
-            feishuAppLink: reserve.appLink,
-            feishuMeetingNo: reserve.meetingNo,
-            feishuMeetingUrl: reserve.meetingUrl,
-            feishuReserveId: reserve.reserveId,
-          }
-        : {}),
-      feishuLastError: message.slice(0, 1000),
-      feishuSyncStatus: status,
-      updatedAt: new Date(),
-    })
+    .set(updateValues)
     .where(
       and(
         eq(studioHumanInterviewMeeting.id, meetingId),

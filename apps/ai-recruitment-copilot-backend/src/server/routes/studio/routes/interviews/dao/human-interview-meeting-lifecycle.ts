@@ -10,6 +10,8 @@ import type {
 } from "@arc/db-schema/studio-interviews";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
+type FeishuMeetingProviderId = "feishu" | "feishu-jiguang-hr";
+
 type LifecycleStatus = "in_progress" | "ended";
 
 export type MeetingLifecycleApplyResult = "applied" | "duplicate" | "ignored";
@@ -153,7 +155,7 @@ export async function resolveHumanInterviewMeetingByFeishuMeeting({
 }: {
   meetingId?: string;
   meetingNo?: string;
-  providerId: string;
+  providerId: FeishuMeetingProviderId;
 }): Promise<string | null> {
   const identifiers = [
     meetingId ? eq(studioHumanInterviewMeeting.feishuMeetingId, meetingId) : undefined,
@@ -165,15 +167,7 @@ export async function resolveHumanInterviewMeetingByFeishuMeeting({
   const [meeting] = await db
     .select({ id: studioHumanInterviewMeeting.id })
     .from(studioHumanInterviewMeeting)
-    .where(
-      and(
-        eq(
-          studioHumanInterviewMeeting.feishuProviderId,
-          providerId as "feishu" | "feishu-jiguang-hr",
-        ),
-        or(...identifiers),
-      ),
-    )
+    .where(and(eq(studioHumanInterviewMeeting.feishuProviderId, providerId), or(...identifiers)))
     .limit(1);
   return meeting?.id ?? null;
 }

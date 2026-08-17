@@ -7,6 +7,7 @@ import {
   shouldRenderMailIngestOutlet,
 } from "./w.$slug.studio.mail-ingest-accounts";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 afterEach(() => {

@@ -36,11 +36,13 @@ const loginSearchSchema = z.object({
   error: z.string().optional(),
 });
 
+const meetingTimestampSchema = z.number().nonnegative();
+
 const meetingDetailSearchSchema = z.object({
-  at: z.preprocess(
-    (value) => (typeof value === "number" && value >= 0 ? value : undefined),
-    z.number().nonnegative().optional(),
-  ),
+  at: z.preprocess((value) => {
+    const parsed = meetingTimestampSchema.safeParse(value);
+    return parsed.success ? parsed.data : undefined;
+  }, meetingTimestampSchema.optional()),
 });
 
 const meetingNewSearchSchema = z.object({

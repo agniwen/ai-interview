@@ -18,6 +18,7 @@ export function clearStudioDashboardMetricsCache(): void {
 
 export function loadStudioDashboardMetrics(
   workspaceId: string,
+  loadMetrics: typeof loadRecruitingDashboardMetrics = loadRecruitingDashboardMetrics,
 ): Promise<RecruitingDashboardMetrics> {
   const cached = dashboardMetricsCache.get(workspaceId);
   if (cached && (cached.expiresAt === null || cached.expiresAt > Date.now())) {
@@ -28,7 +29,7 @@ export function loadStudioDashboardMetrics(
   const token = Symbol(workspaceId);
   const promise = (async () => {
     try {
-      const metrics = await loadRecruitingDashboardMetrics(workspaceId);
+      const metrics = await loadMetrics(workspaceId);
       const current = dashboardMetricsCache.get(workspaceId);
       if (current?.token === token) {
         current.expiresAt = Date.now() + 10_000;

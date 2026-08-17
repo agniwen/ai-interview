@@ -7,6 +7,9 @@ import react from "ultracite/oxlint/react";
 export default defineConfig({
   extends: [core, react, next],
   ignorePatterns: [
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
     "**/src/components/agents-ui/**",
     "**/src/hooks/agents-ui/**",
     "**/src/components/ui/**",
@@ -15,9 +18,11 @@ export default defineConfig({
     "**/src/components/spell-ui/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",
+    "tools/oxlint/anti-slop/**",
     // Upstream/shared shadcn-style UI — keep parity with web exclusions.
     "apps/ai-recruitment-copilot-desktop/src/renderer/src/components/ui/**",
   ],
+  jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
   overrides: [
     {
       files: ["packages/db-schema/src/schema.ts"],
@@ -51,6 +56,21 @@ export default defineConfig({
     },
   ],
   rules: {
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-conditional-empty-object-spread": "error",
+    "anti-slop/no-known-value-widening": "error",
+    "anti-slop/no-module-mocking": "error",
+    "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
+    "anti-slop/no-shape-in-symbol-names": "error",
+    "anti-slop/no-unknown-parameters": "error",
+    "anti-slop/no-unknown-returns": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-unsafe-dictionary-type": "error",
+    "anti-slop/no-widen-then-assert": "error",
+    "anti-slop/require-safety-comment-for-type-assertion": "error",
     "func-style": "off",
     "max-lines": [
       "error",

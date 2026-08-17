@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import { z } from "zod";
 
 export interface WorkspaceOrg {
   id: string;
@@ -10,6 +11,10 @@ export const desktopWorkspaceKeys = {
   active: ["desktop-active-workspace"] as const,
   list: ["desktop-organizations"] as const,
 };
+
+const sessionUserSchema = z.object({
+  lastActiveOrganizationId: z.string().nullable().optional(),
+});
 
 function toWorkspaceOrg(org: {
   id: string;
@@ -56,9 +61,8 @@ export async function resolveActiveWorkspace(): Promise<WorkspaceOrg | null> {
     }
   }
 
-  const lastId = (
-    sessionResult.data?.user as { lastActiveOrganizationId?: string | null } | undefined
-  )?.lastActiveOrganizationId;
+  const sessionUser = sessionUserSchema.safeParse(sessionResult.data?.user);
+  const lastId = sessionUser.success ? sessionUser.data.lastActiveOrganizationId : null;
 
   if (lastId) {
     const preferred = orgs.find((org) => org.id === lastId);

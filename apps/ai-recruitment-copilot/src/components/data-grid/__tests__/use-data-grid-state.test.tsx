@@ -14,10 +14,16 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useDataGridState } from "@/components/data-grid/use-data-grid-state";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 window.scrollTo = vi.fn();
 
 type Grid = ReturnType<typeof useDataGridState<{ id: string }, { status: string }>>;
+
+interface GridSearchParams {
+  page?: number;
+  status?: string;
+}
 
 async function renderGridHook({
   queryFn = vi.fn(() => Promise.resolve({ records: [], total: 0, totalPages: 5 })),
@@ -47,7 +53,7 @@ async function renderGridHook({
 
   const rootRoute = createRootRoute({
     component: Outlet,
-    validateSearch: (search: Record<string, unknown>) => search,
+    validateSearch: (search: GridSearchParams) => search,
   });
   const indexRoute = createRoute({
     component: () => (

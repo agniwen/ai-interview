@@ -12,9 +12,8 @@ interface PdfPreviewDialogModule {
   PdfPreviewDialog: ComponentType<PdfPreviewDialogProps>;
 }
 
-function isDynamicImportFetchError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes("Failed to fetch dynamically imported module");
+function isDynamicImportFetchError(error: Error) {
+  return error.message.includes("Failed to fetch dynamically imported module");
 }
 
 async function loadPdfPreviewDialog(): Promise<{
@@ -24,10 +23,10 @@ async function loadPdfPreviewDialog(): Promise<{
     const mod = await import("@/components/features/pdf/pdf-preview-dialog");
     return { default: mod.PdfPreviewDialog };
   } catch (error) {
-    if (import.meta.env.DEV && isDynamicImportFetchError(error)) {
+    if (import.meta.env.DEV && error instanceof Error && isDynamicImportFetchError(error)) {
       const retryUrl = `/src/components/features/pdf/pdf-preview-dialog.tsx?retry=${Date.now()}`;
       // eslint-disable-next-line no-inline-comments -- Vite requires this marker inside import().
-      const mod = (await import(/* @vite-ignore */ retryUrl)) as PdfPreviewDialogModule;
+      const mod: PdfPreviewDialogModule = await import(/* @vite-ignore */ retryUrl);
       return { default: mod.PdfPreviewDialog };
     }
     throw error;

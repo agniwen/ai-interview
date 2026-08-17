@@ -16,6 +16,23 @@ import {
 } from "./resume-library-filter-model";
 import type { ResumeLibraryFilters } from "./resume-library-filter-model";
 
+interface ResumeLibraryPageParam {
+  knownTotal: number | undefined;
+  page: number;
+}
+
+const initialResumeLibraryPage: ResumeLibraryPageParam = {
+  knownTotal: undefined,
+  page: 1,
+};
+
+function requireWorkspaceSlug(slug: string | null): string {
+  if (!slug) {
+    throw new Error("当前工作区不可用");
+  }
+  return slug;
+}
+
 export function useResumeLibraryList() {
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
@@ -31,21 +48,21 @@ export function useResumeLibraryList() {
 
   const membersQuery = useQuery({
     enabled: Boolean(slug),
-    queryFn: () => fetchWorkspaceMembers(slug as string),
+    queryFn: () => fetchWorkspaceMembers(requireWorkspaceSlug(slug)),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
   });
 
   const jobDescriptionsQuery = useQuery({
     enabled: Boolean(slug),
-    queryFn: () => fetchRecruitingJobDescriptions(slug as string),
+    queryFn: () => fetchRecruitingJobDescriptions(requireWorkspaceSlug(slug)),
     queryKey: ["job-descriptions", "recruiting", slug],
     staleTime: 60_000,
   });
 
   const skillSuggestionsQuery = useQuery({
     enabled: Boolean(slug),
-    queryFn: () => fetchStudioResumeSkillSuggestions(slug as string, { limit: 100 }),
+    queryFn: () => fetchStudioResumeSkillSuggestions(requireWorkspaceSlug(slug), { limit: 100 }),
     queryKey: ["studio-resumes", "skill-suggestions", slug],
     staleTime: 60_000,
   });
@@ -86,9 +103,9 @@ export function useResumeLibraryList() {
       lastPage.page < lastPage.totalPages
         ? { knownTotal: allPages[0]?.total, page: lastPage.page + 1 }
         : undefined,
-    initialPageParam: { knownTotal: undefined as number | undefined, page: 1 },
+    initialPageParam: initialResumeLibraryPage,
     queryFn: ({ pageParam }) =>
-      fetchStudioResumes(slug as string, {
+      fetchStudioResumes(requireWorkspaceSlug(slug), {
         creatorIds: parseCsvValues(effectiveFilters.creatorIds),
         jobDescriptionIds: parseCsvValues(effectiveFilters.jdIds),
         knownTotal: pageParam.knownTotal,

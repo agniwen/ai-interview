@@ -9,6 +9,26 @@ const TITLE_QUOTES_REGEX = /["'`“”‘’]/g;
 const TITLE_TRAILING_PUNCTUATION_REGEX = /[。！？!?；;，,：:、]+$/g;
 const TITLE_WHITESPACE_REGEX = /\s+/g;
 
+interface RecordingTitlePrompt {
+  maxOutputTokens: number;
+  prompt: string;
+  temperature: number;
+}
+
+export interface RecordingTitleDependencies {
+  generateTitleText: (input: RecordingTitlePrompt) => Promise<string>;
+  isModelConfigured: () => boolean;
+}
+
+const defaultDependencies: RecordingTitleDependencies = {
+  generateTitleText: async (input) =>
+    await generateTextWithMastraAgent({
+      ...input,
+      agent: titleAgent,
+    }),
+  isModelConfigured: () => Boolean(getMastraModelApiKey()),
+};
+
 export function sanitizeRecordingTitle(value: string): string {
   return value
     .replace(TITLE_QUOTES_REGEX, "")
@@ -18,12 +38,14 @@ export function sanitizeRecordingTitle(value: string): string {
     .slice(0, MAX_TITLE_LENGTH);
 }
 
-export async function generateRecordingTitle(transcript: string): Promise<string> {
-  if (!getMastraModelApiKey()) {
+export async function generateRecordingTitle(
+  transcript: string,
+  dependencies: RecordingTitleDependencies = defaultDependencies,
+): Promise<string> {
+  if (!dependencies.isModelConfigured()) {
     throw new Error("标题生成模型尚未配置");
   }
-  const generated = await generateTextWithMastraAgent({
-    agent: titleAgent,
+  const generated = await dependencies.generateTitleText({
     // Reasoning models count hidden reasoning against this budget. A very small
     // limit can finish with only reasoning tokens and an empty visible title.
     maxOutputTokens: 256,

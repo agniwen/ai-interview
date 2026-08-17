@@ -6,6 +6,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 import { useCallback } from "react";
+import { z } from "zod";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,7 @@ import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
+const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
 
 function defaultValues(): DepartmentFormValues {
   return { description: "", name: "" };
@@ -61,9 +63,9 @@ export function DepartmentFormDialog({
           })
         : await rpc.api.w[":slug"].studio.departments.$post({ json: body, param: { slug } });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
+      const rawPayload = await response.json().catch(() => null);
+      const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
+      const payload = parsedPayload.success ? parsedPayload.data : null;
 
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
@@ -85,7 +87,9 @@ export function DepartmentFormDialog({
       isEdit={isEdit}
       isSubmitting={isSubmitting}
       onOpenChange={onOpenChange}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={async () => {
+        await form.handleSubmit();
+      }}
       open={open}
       size="md"
       title={isEdit ? "编辑部门" : "新建部门"}

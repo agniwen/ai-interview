@@ -8,6 +8,7 @@ import type {
   ResumeParseCacheFilters,
   ResumeParseCacheQuery,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/resume-parse-cache/schema";
+import { z } from "zod";
 
 type ResumeParseCacheGridQuery = DataGridQueryState<ResumeParseCacheFilters>;
 
@@ -38,5 +39,6 @@ export async function loadPlatformResumeParseCacheHydrationState(
     queryKey: buildDataGridQueryKey(["platform-resume-parse-cache"], query),
   });
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

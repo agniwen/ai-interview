@@ -54,7 +54,12 @@ export function ResumeLibraryDeleteDialogs({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void onDelete()} variant="destructive">
+            <AlertDialogAction
+              onClick={() => {
+                onDelete();
+              }}
+              variant="destructive"
+            >
               删除
             </AlertDialogAction>
           </AlertDialogFooter>

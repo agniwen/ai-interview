@@ -6,15 +6,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { normalizeMeetingRecordingSegments } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
-import {
+import type {
   buildMeetingPlaybackAssetKey,
   deleteMeetingRecordingObject,
   downloadMeetingRecordingObjectToFile,
-  headMeetingRecordingObject,
   putMeetingRecordingFile,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
-  loadMeetingPlaybackSource,
+import type {
   markMeetingPlaybackFailed,
   markMeetingPlaybackProcessing,
   publishMeetingPlaybackAsset,
@@ -41,18 +39,26 @@ interface PlaybackSource {
 
 const execFileAsync = promisify(execFile);
 
-function execFileStream(error: Error, key: "stderr" | "stdout"): string {
-  const value = key in error ? Reflect.get(error, key) : undefined;
-  return typeof value === "string" ? value.trim() : "";
+type ExecFileOutputKey = "stderr" | "stdout";
+type ExecFileFailure = Error & Partial<Record<ExecFileOutputKey, string | Uint8Array>>;
+
+function isExecFileFailure(error: Error): error is ExecFileFailure {
+  return "stderr" in error || "stdout" in error;
 }
 
-export function describeMeetingPlaybackError(error: unknown): string {
-  if (!(error instanceof Error)) {
+function execFileStream(error: ExecFileFailure, key: ExecFileOutputKey): string {
+  const value = error[key];
+  return value === undefined ? "" : Buffer.from(value).toString().trim();
+}
+
+export function describeMeetingPlaybackError(cause: unknown): string {
+  if (!(cause instanceof Error)) {
     return "Meeting playback processing failed";
   }
-  const details = [error.message, execFileStream(error, "stderr"), execFileStream(error, "stdout")]
-    .filter(Boolean)
-    .join("\n");
+  const streams = isExecFileFailure(cause)
+    ? [execFileStream(cause, "stderr"), execFileStream(cause, "stdout")]
+    : [];
+  const details = [cause.message, ...streams].filter(Boolean).join("\n");
   return details.slice(0, 1000);
 }
 
@@ -143,48 +149,49 @@ async function runFfmpeg(input: {
   );
 }
 
-const defaultDependencies: MeetingPlaybackDependencies = {
-  buildPlaybackStorageKey: buildMeetingPlaybackAssetKey,
-  createRunId: randomUUID,
-  createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-playback-")),
-  deletePlayback: deleteMeetingRecordingObject,
-  downloadSource: downloadMeetingRecordingObjectToFile,
-  enqueueTranscription: async (input) => {
-    const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
-      await Promise.all([
-        import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao"),
-        import("@arc/meeting-processing-queue/meeting-transcription"),
-      ]);
-    const job = await getMeetingTranscriptionJobForMeeting(input);
-    if (job) {
-      await enqueueMeetingTranscriptionJobs([job]);
-    }
-  },
-  inspectOutput: inspectFile,
-  loadSource: loadMeetingPlaybackSource,
-  markFailed: markMeetingPlaybackFailed,
-  markProcessing: markMeetingPlaybackProcessing,
-  mixSources: runFfmpeg,
-  publishPlayback: publishMeetingPlaybackAsset,
-  registerCleanupKey: registerMeetingPlaybackCleanupKey,
-  removeCleanupKey: removeMeetingPlaybackCleanupKey,
-  removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
-  uploadPlayback: putMeetingRecordingFile,
-  verifyPlayback: async (input) => {
-    const object = await headMeetingRecordingObject(input.storageKey);
-    return Boolean(
-      object &&
-      object.contentLength === input.sizeBytes &&
-      object.contentType === input.contentType &&
-      object.sha256 === input.sha256,
-    );
-  },
-};
+type MeetingPlaybackRuntimeAdapters = Pick<
+  MeetingPlaybackDependencies,
+  | "buildPlaybackStorageKey"
+  | "deletePlayback"
+  | "downloadSource"
+  | "loadSource"
+  | "markFailed"
+  | "markProcessing"
+  | "publishPlayback"
+  | "registerCleanupKey"
+  | "removeCleanupKey"
+  | "uploadPlayback"
+  | "verifyPlayback"
+>;
+
+export function createDefaultMeetingPlaybackDependencies(
+  adapters: MeetingPlaybackRuntimeAdapters,
+): MeetingPlaybackDependencies {
+  return {
+    ...adapters,
+    createRunId: randomUUID,
+    createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-playback-")),
+    enqueueTranscription: async (input) => {
+      const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
+        await Promise.all([
+          import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao"),
+          import("@arc/meeting-processing-queue/meeting-transcription"),
+        ]);
+      const job = await getMeetingTranscriptionJobForMeeting(input);
+      if (job) {
+        await enqueueMeetingTranscriptionJobs([job]);
+      }
+    },
+    inspectOutput: inspectFile,
+    mixSources: runFfmpeg,
+    removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
+  };
+}
 
 // oxlint-disable-next-line complexity -- claim, external upload, CAS publish, and loser cleanup form one job boundary.
 export async function runMeetingPlaybackProcessing(
   input: MeetingPlaybackJobData,
-  dependencies: MeetingPlaybackDependencies = defaultDependencies,
+  dependencies: MeetingPlaybackDependencies,
 ): Promise<void> {
   const meeting = await dependencies.loadSource(input);
   if (!meeting) {

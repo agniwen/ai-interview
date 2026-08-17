@@ -1,6 +1,5 @@
 import { IconUsers } from "@tabler/icons-react";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { ResumeUploadEntryButton } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import {
   Empty,
@@ -22,6 +21,8 @@ export function ResumeLibraryPageEmptyState({
   stageFilter: string;
   uploadEntryDisabled: boolean;
 }) {
+  const stageLabel = Object.entries(pipelineStageMeta).find(([stage]) => stage === stageFilter)?.[1]
+    ?.label;
   if (stageFilter) {
     return (
       <Empty className="border-border">
@@ -31,7 +32,7 @@ export function ResumeLibraryPageEmptyState({
           </EmptyMedia>
           <EmptyTitle>
             暂无处于「
-            {pipelineStageMeta[stageFilter as PipelineStage]?.label ?? stageFilter}
+            {stageLabel ?? stageFilter}
             」阶段的候选人
           </EmptyTitle>
           <EmptyDescription>切换到其他阶段或「全部」查看更多候选人。</EmptyDescription>

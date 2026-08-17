@@ -2,7 +2,10 @@
 import { desktopCapturer, ipcMain, session } from "electron";
 import { z } from "zod";
 import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron";
-import type { AppendLocalFragmentInput } from "../../preload/meeting-capture";
+import type {
+  AppendLocalFragmentInput,
+  BeginLocalCaptureInput,
+} from "../../preload/meeting-capture";
 import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
 import type {
   MultipartMeetingUploadInstruction,
@@ -11,10 +14,66 @@ import type {
 import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
 import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 import { getMainWindowWebContents } from "../window";
+import { registerMeetingCaptureMediaSessionHandlers } from "./media-session";
 
 const MAX_FRAGMENT_BYTES = 32 * 1024 * 1024;
 const CAPTURE_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const captureIdSchema = z.string().regex(CAPTURE_ID_PATTERN);
+const contentTypeSchema = z.string().min(1).max(256);
+const nonNegativeFiniteNumberSchema = z.number().finite().nonnegative();
+const meetingTrackSchema = z.enum(["microphone", "system"]);
+const uploadExpirySchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
+const uploadHeadersSchema = z.object({
+  "content-type": contentTypeSchema,
+  "x-amz-checksum-sha256": z.string().regex(/^[A-Za-z\d+/]{43}=$/),
+  "x-amz-meta-sha256": z.string().regex(/^[a-f\d]{64}$/i),
+});
+const smallUploadInstructionSchema = z.object({
+  contentType: contentTypeSchema,
+  expiresAt: uploadExpirySchema,
+  headers: uploadHeadersSchema,
+  method: z.literal("PUT"),
+  sizeBytes: nonNegativeFiniteNumberSchema.int(),
+  track: meetingTrackSchema,
+  url: z.string().max(8192),
+});
+const multipartUploadInstructionSchema = z.object({
+  expiresAt: uploadExpirySchema,
+  headers: z.object({ "content-md5": z.string().regex(/^[A-Za-z\d+/]{22}==$/) }),
+  method: z.literal("PUT"),
+  offsetBytes: nonNegativeFiniteNumberSchema.int(),
+  partNumber: z.number().int().positive().max(10_000),
+  sizeBytes: z.number().int().positive(),
+  track: meetingTrackSchema,
+  url: z.string().max(8192),
+});
+const beginRequestSchema = z.object({
+  captureId: captureIdSchema,
+  recruitingRecordId: z.string().nullable(),
+  startedAt: z.string(),
+  trackContentTypes: z.object({
+    microphone: contentTypeSchema,
+    system: contentTypeSchema,
+  }),
+  videoTracksDiscarded: nonNegativeFiniteNumberSchema.int(),
+});
+const fragmentInputSchema = z.object({
+  captureId: captureIdSchema,
+  contentType: contentTypeSchema,
+  durationMs: nonNegativeFiniteNumberSchema,
+  endedAtMonotonicMs: nonNegativeFiniteNumberSchema,
+  sequence: nonNegativeFiniteNumberSchema.int(),
+  startedAtMonotonicMs: nonNegativeFiniteNumberSchema,
+  track: meetingTrackSchema,
+});
+const recoveryCopyDeleteAfterSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)));
+const trackContentTypesSchema = z.object({
+  microphone: contentTypeSchema,
+  system: contentTypeSchema,
+});
 const localMeetingSessionPatchSchema = z
   .object({
     endedAt: z.string().datetime({ offset: true }).nullable().optional(),
@@ -40,137 +99,28 @@ function isTrustedApplicationContents(contents: WebContents | null): boolean {
   return Boolean(contents && getMainWindowWebContents() === contents);
 }
 
-function isTrustedMainDocument(
-  contents: WebContents | null,
-  details: { isMainFrame: boolean; requestingUrl?: string },
-): boolean {
-  const trustedContents = getMainWindowWebContents();
-  return Boolean(
-    contents &&
-    trustedContents === contents &&
-    details.isMainFrame &&
-    details.requestingUrl === trustedContents.mainFrame.url,
-  );
-}
-
 export function isTrustedMainFrame(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
   return isTrustedApplicationContents(event.sender) && event.senderFrame === event.sender.mainFrame;
 }
 
-function isFiniteNonNegative(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
-
 function isCaptureId(value: unknown): value is string {
-  return typeof value === "string" && CAPTURE_ID_PATTERN.test(value);
-}
-
-function isContentType(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 256;
-}
-
-function hasValidUploadHeaders(value: unknown): value is Record<string, string> {
-  if (!(value && typeof value === "object")) {
-    return false;
-  }
-  const headers = value as Record<string, unknown>;
-  return (
-    isContentType(headers["content-type"]) &&
-    typeof headers["x-amz-meta-sha256"] === "string" &&
-    /^[a-f\d]{64}$/i.test(headers["x-amz-meta-sha256"]) &&
-    typeof headers["x-amz-checksum-sha256"] === "string" &&
-    /^[A-Za-z\d+/]{43}=$/.test(headers["x-amz-checksum-sha256"])
-  );
+  return captureIdSchema.safeParse(value).success;
 }
 
 function isUploadInstruction(value: unknown): value is SmallMeetingUploadInstruction {
-  if (!(value && typeof value === "object")) {
-    return false;
-  }
-  const instruction = value as Record<string, unknown>;
-  return (
-    (instruction.track === "microphone" || instruction.track === "system") &&
-    instruction.method === "PUT" &&
-    isContentType(instruction.contentType) &&
-    Number.isInteger(instruction.sizeBytes) &&
-    isFiniteNonNegative(instruction.sizeBytes) &&
-    typeof instruction.url === "string" &&
-    instruction.url.length <= 8192 &&
-    typeof instruction.expiresAt === "string" &&
-    !Number.isNaN(Date.parse(instruction.expiresAt)) &&
-    hasValidUploadHeaders(instruction.headers)
-  );
-}
-
-function isMultipartPartIdentity(instruction: Record<string, unknown>): boolean {
-  return (
-    Number.isInteger(instruction.partNumber) &&
-    typeof instruction.partNumber === "number" &&
-    instruction.partNumber > 0 &&
-    instruction.partNumber <= 10_000 &&
-    Number.isInteger(instruction.offsetBytes) &&
-    isFiniteNonNegative(instruction.offsetBytes) &&
-    Number.isInteger(instruction.sizeBytes) &&
-    typeof instruction.sizeBytes === "number" &&
-    instruction.sizeBytes > 0
-  );
+  return smallUploadInstructionSchema.safeParse(value).success;
 }
 
 function isMultipartUploadInstruction(value: unknown): value is MultipartMeetingUploadInstruction {
-  if (!(value && typeof value === "object")) {
-    return false;
-  }
-  const instruction = value as Record<string, unknown>;
-  const headers = instruction.headers as Record<string, unknown> | undefined;
-  return (
-    (instruction.track === "microphone" || instruction.track === "system") &&
-    instruction.method === "PUT" &&
-    isMultipartPartIdentity(instruction) &&
-    typeof instruction.url === "string" &&
-    instruction.url.length <= 8192 &&
-    typeof instruction.expiresAt === "string" &&
-    !Number.isNaN(Date.parse(instruction.expiresAt)) &&
-    Boolean(headers) &&
-    typeof headers?.["content-md5"] === "string" &&
-    /^[A-Za-z\d+/]{22}==$/.test(headers["content-md5"])
-  );
+  return multipartUploadInstructionSchema.safeParse(value).success;
 }
 
-function isBeginRequest(
-  input: unknown,
-): input is Parameters<LocalMeetingRecordingStore["begin"]>[0] {
-  if (!(input && typeof input === "object")) {
-    return false;
-  }
-  const request = input as Record<string, unknown>;
-  const trackContentTypes = request.trackContentTypes as Record<string, unknown> | undefined;
-  return (
-    isCaptureId(request.captureId) &&
-    (request.recruitingRecordId === null || typeof request.recruitingRecordId === "string") &&
-    typeof request.startedAt === "string" &&
-    Boolean(trackContentTypes) &&
-    isContentType(trackContentTypes?.microphone) &&
-    isContentType(trackContentTypes?.system) &&
-    Number.isInteger(request.videoTracksDiscarded) &&
-    isFiniteNonNegative(request.videoTracksDiscarded)
-  );
+function isBeginRequest(input: unknown): input is BeginLocalCaptureInput {
+  return beginRequestSchema.safeParse(input).success;
 }
 
 function isFragmentInput(input: unknown): input is AppendLocalFragmentInput {
-  if (!(input && typeof input === "object")) {
-    return false;
-  }
-  const fragment = input as Record<string, unknown>;
-  return (
-    isCaptureId(fragment.captureId) &&
-    isContentType(fragment.contentType) &&
-    (fragment.track === "microphone" || fragment.track === "system") &&
-    Number.isInteger(fragment.sequence) &&
-    isFiniteNonNegative(fragment.sequence) &&
-    isFiniteNonNegative(fragment.durationMs) &&
-    isFiniteNonNegative(fragment.startedAtMonotonicMs) &&
-    isFiniteNonNegative(fragment.endedAtMonotonicMs)
-  );
+  return fragmentInputSchema.safeParse(input).success;
 }
 
 function isFragmentBytes(value: unknown): value is Uint8Array {
@@ -179,10 +129,10 @@ function isFragmentBytes(value: unknown): value is Uint8Array {
   );
 }
 
-async function logCaptureOperation(
+async function logCaptureOperation<Result>(
   operation: string,
-  run: () => Promise<unknown>,
-): Promise<unknown> {
+  run: () => Promise<Result>,
+): Promise<Result> {
   const startedAt = Date.now();
   try {
     const result = await run();
@@ -294,8 +244,7 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
       if (
         !isTrustedMainFrame(event) ||
         !isCaptureId(captureId) ||
-        typeof recoveryCopyDeleteAfter !== "string" ||
-        Number.isNaN(Date.parse(recoveryCopyDeleteAfter))
+        !recoveryCopyDeleteAfterSchema.safeParse(recoveryCopyDeleteAfter).success
       ) {
         throw new Error("不受信任的录制验证请求");
       }
@@ -312,9 +261,7 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     if (
       !isTrustedMainFrame(event) ||
       !isCaptureId(captureId) ||
-      !(trackContentTypes && typeof trackContentTypes === "object") ||
-      !isContentType(trackContentTypes.microphone) ||
-      !isContentType(trackContentTypes.system)
+      !trackContentTypesSchema.safeParse(trackContentTypes).success
     ) {
       throw new Error("不受信任的继续录制请求");
     }
@@ -373,50 +320,12 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
  */
 export function registerMeetingCaptureMediaSession(): void {
   const appSession = session.defaultSession;
-  appSession.setPermissionCheckHandler((contents, permission, _requestingOrigin, details) => {
-    const allowedPermission =
-      permission === "media" && (details.mediaType === undefined || details.mediaType === "audio");
-    return allowedPermission && isTrustedMainDocument(contents, details);
+  registerMeetingCaptureMediaSessionHandlers({
+    getMainWindowWebContents,
+    getSources: (options) => desktopCapturer.getSources(options),
+    setDisplayMediaRequestHandler: (handler, options) =>
+      appSession.setDisplayMediaRequestHandler(handler, options),
+    setPermissionCheckHandler: (handler) => appSession.setPermissionCheckHandler(handler),
+    setPermissionRequestHandler: (handler) => appSession.setPermissionRequestHandler(handler),
   });
-  appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-    const isDisplayMedia = "mediaTypes" in details && details.mediaTypes?.length === 0;
-    const isAudioOnly =
-      "mediaTypes" in details &&
-      details.mediaTypes?.length === 1 &&
-      details.mediaTypes[0] === "audio";
-    const allowedPermission =
-      permission === "display-capture" ||
-      (permission === "media" && (isAudioOnly || isDisplayMedia));
-    callback(allowedPermission && isTrustedMainDocument(contents, details));
-  });
-  appSession.setDisplayMediaRequestHandler(
-    async (request, callback) => {
-      const trustedContents = getMainWindowWebContents();
-      if (!trustedContents || request.frame !== trustedContents.mainFrame) {
-        callback({});
-        return;
-      }
-      try {
-        const sources = await desktopCapturer.getSources({
-          thumbnailSize: { height: 0, width: 0 },
-          types: ["screen"],
-        });
-        const [source] = sources;
-        if (!source) {
-          callback({});
-          return;
-        }
-        callback({
-          audio: request.audioRequested ? "loopback" : undefined,
-          video: request.videoRequested ? source : undefined,
-        });
-      } catch (error) {
-        console.error("[meeting-capture] display-media grant failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
-        });
-        callback({});
-      }
-    },
-    { useSystemPicker: false },
-  );
 }

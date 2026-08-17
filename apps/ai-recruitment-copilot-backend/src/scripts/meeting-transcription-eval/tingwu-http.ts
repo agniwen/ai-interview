@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import type { JsonValue } from "@arc/db-schema/json";
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
@@ -105,7 +106,7 @@ export function createTingwuHttpClient(input: {
     method: "GET" | "PUT";
     path: string;
     signal: AbortSignal;
-  }): Promise<unknown> => {
+  }): Promise<JsonValue> => {
     const body = requestInput.body === undefined ? "" : JSON.stringify(requestInput.body);
     const url = new URL(requestInput.path, baseUrl);
     const headers = signAlibabaCloudRequest({
@@ -131,7 +132,7 @@ export function createTingwuHttpClient(input: {
     if (!response.ok) {
       throw new Error(`Tingwu request failed with HTTP ${response.status}`);
     }
-    return response.json();
+    return z.json().parse(await response.json());
   };
   return {
     async createTask(task: {

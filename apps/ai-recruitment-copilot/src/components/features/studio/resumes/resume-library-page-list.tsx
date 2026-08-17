@@ -38,8 +38,8 @@ interface ResumeLibraryCardListProps {
   currentMemberRole: string;
   currentUserId: string | null;
   empty: ReactNode;
-  error: unknown;
-  fetchNextPage: () => Promise<unknown>;
+  error: Error | null;
+  fetchNextPage: () => Promise<void>;
   filters: ToolbarFilterConfig[];
   grid: ResumeLibraryGridState;
   hasNextPage: boolean;
@@ -191,10 +191,11 @@ export function ResumeLibraryCardList({
 
   useEffect(() => {
     const node = loadMoreRef.current;
-    if (!node || !hasNextPage || typeof IntersectionObserver === "undefined") {
+    const IntersectionObserverConstructor = globalThis.IntersectionObserver;
+    if (!node || !hasNextPage || !IntersectionObserverConstructor) {
       return;
     }
-    const observer = new IntersectionObserver(
+    const observer = new IntersectionObserverConstructor(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
           void fetchNextPage();

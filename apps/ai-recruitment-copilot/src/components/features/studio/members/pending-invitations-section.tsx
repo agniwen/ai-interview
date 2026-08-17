@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,14 @@ interface InvitationItem {
   status: string;
   expiresAt: string | Date;
 }
+
+const invitationItemSchema = z.object({
+  email: z.string(),
+  expiresAt: z.union([z.string(), z.date()]),
+  id: z.string(),
+  role: z.string().nullable(),
+  status: z.string(),
+});
 
 function InvitationsList({
   isPending,
@@ -132,7 +141,7 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
       if (error) {
         throw new Error(error.message ?? "加载邀请列表失败");
       }
-      return (list ?? []) as InvitationItem[];
+      return z.array(invitationItemSchema).parse(list ?? []);
     },
     queryKey: ["workspace-invitations", organizationId],
     refetchOnWindowFocus: false,

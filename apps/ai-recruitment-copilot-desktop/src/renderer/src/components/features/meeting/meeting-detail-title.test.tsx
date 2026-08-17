@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
 import { MeetingDetailTitle } from "./meeting-detail-title";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("MeetingDetailTitle", () => {

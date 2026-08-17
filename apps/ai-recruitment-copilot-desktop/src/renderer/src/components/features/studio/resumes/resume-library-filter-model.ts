@@ -26,9 +26,14 @@ export const EMPTY_RESUME_LIBRARY_FILTERS: ResumeLibraryFilters = {
   structuredMinScore: "",
 };
 
-export const RESUME_LIBRARY_FILTER_KEYS = Object.keys(
-  EMPTY_RESUME_LIBRARY_FILTERS,
-) as (keyof ResumeLibraryFilters)[];
+export const RESUME_LIBRARY_FILTER_KEYS = [
+  "creatorIds",
+  "jdIds",
+  "skills",
+  "stage",
+  "structuredMaxScore",
+  "structuredMinScore",
+] as const satisfies readonly (keyof ResumeLibraryFilters)[];
 
 /** 与 web `PIPELINE_STAGE_TAB_DESCRIPTIONS` + `pipelineStageMeta` 对齐；隐藏笔试。 */
 export const PIPELINE_STAGE_TABS = [

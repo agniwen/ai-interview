@@ -4,6 +4,7 @@ import { and, asc, desc, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
 import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import type { JsonValue } from "@arc/db-schema/json";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { loadStandaloneEnv } from "../standalone/env";
@@ -19,7 +20,7 @@ export interface ResumeTextBackfillRecord {
 }
 
 interface ResumeTextBackfillLog {
-  [key: string]: unknown;
+  [key: string]: JsonValue | undefined;
   event: string;
 }
 

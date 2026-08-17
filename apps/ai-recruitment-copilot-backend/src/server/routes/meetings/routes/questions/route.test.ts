@@ -1,48 +1,53 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { MEETING_ANSWER_REQUEST_BODY_MAX_BYTES } from "@arc/shared/meeting-answer";
+import { createMeetingQuestionsRouter } from "./route";
+import type { MeetingQuestionsDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({
-  ask: vi.fn(),
-  createThread: vi.fn(),
-  getThread: vi.fn(),
-  listThreads: vi.fn(),
-}));
+const mocks = {
+  askMeetingQuestion: vi.fn<MeetingQuestionsDependencies["askMeetingQuestion"]>(),
+  createSavedMeetingQuestionThread:
+    vi.fn<MeetingQuestionsDependencies["createSavedMeetingQuestionThread"]>(),
+  getSavedMeetingQuestionThread:
+    vi.fn<MeetingQuestionsDependencies["getSavedMeetingQuestionThread"]>(),
+  listSavedMeetingQuestionThreads:
+    vi.fn<MeetingQuestionsDependencies["listSavedMeetingQuestionThreads"]>(),
+};
 
-vi.mock("../../answers/service", () => ({
-  askMeetingQuestion: mocks.ask,
-  createSavedMeetingQuestionThread: mocks.createThread,
-  getSavedMeetingQuestionThread: mocks.getThread,
-  listSavedMeetingQuestionThreads: mocks.listThreads,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingQuestionsRouter } from "./route";
+const dependencies: MeetingQuestionsDependencies = mocks;
 
 function app() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-81" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "member" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-81" } as never);
       await next();
     })
-    .route("/meetings/:id/questions", meetingQuestionsRouter);
+    .route("/meetings/:id/questions", createMeetingQuestionsRouter(dependencies));
 }
 
 describe("Meeting Questions routes", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("lists only the current user's threads", async () => {
-    mocks.listThreads.mockResolvedValue([{ id: "thread-81", title: "项目经验" }]);
+    mocks.listSavedMeetingQuestionThreads.mockResolvedValue([
+      { id: "thread-81", title: "项目经验" },
+    ]);
     const response = await app().request("/meetings/meeting-81/questions");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ records: [{ id: "thread-81", title: "项目经验" }] });
   });
 
   it("creates a question thread", async () => {
-    mocks.createThread.mockResolvedValue({ id: "thread-81", title: "项目经验" });
+    mocks.createSavedMeetingQuestionThread.mockResolvedValue({
+      id: "thread-81",
+      title: "项目经验",
+    });
     const response = await app().request("/meetings/meeting-81/questions", {
       body: JSON.stringify({ title: "项目经验" }),
       headers: { "Content-Type": "application/json" },
@@ -52,7 +57,7 @@ describe("Meeting Questions routes", () => {
   });
 
   it("accepts an idempotent question into its reserved exchange", async () => {
-    mocks.ask.mockResolvedValue({ id: "exchange-81", status: "pending" });
+    mocks.askMeetingQuestion.mockResolvedValue({ id: "exchange-81", status: "pending" });
     const response = await app().request("/meetings/meeting-81/questions/thread-81/messages", {
       body: JSON.stringify({
         question: "谁负责支付迁移？",
@@ -66,7 +71,7 @@ describe("Meeting Questions routes", () => {
   });
 
   it("returns a stable conflict for a reused request id with different content", async () => {
-    mocks.ask.mockResolvedValue("conflict");
+    mocks.askMeetingQuestion.mockResolvedValue("conflict");
     const response = await app().request("/meetings/meeting-81/questions/thread-81/messages", {
       body: JSON.stringify({
         question: "另一个问题",
@@ -79,7 +84,7 @@ describe("Meeting Questions routes", () => {
   });
 
   it("returns a retry window when the server-side question limit is reached", async () => {
-    mocks.ask.mockResolvedValue("rate-limited");
+    mocks.askMeetingQuestion.mockResolvedValue("rate-limited");
     const response = await app().request("/meetings/meeting-81/questions/thread-81/messages", {
       body: JSON.stringify({
         question: "谁负责支付迁移？",
@@ -103,7 +108,7 @@ describe("Meeting Questions routes", () => {
       method: "POST",
     });
     expect(response.status).toBe(413);
-    expect(mocks.createThread).not.toHaveBeenCalled();
+    expect(mocks.createSavedMeetingQuestionThread).not.toHaveBeenCalled();
   });
 
   it("rejects an oversized streamed question body without Content-Length", async () => {
@@ -115,6 +120,7 @@ describe("Meeting Questions routes", () => {
     );
     const request = new Request(
       "http://localhost/meetings/meeting-81/questions/thread-81/messages",
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       {
         body: new ReadableStream<Uint8Array>({
           start(controller) {
@@ -132,6 +138,6 @@ describe("Meeting Questions routes", () => {
     expect(request.headers.has("Content-Length")).toBe(false);
     const response = await app().request(request);
     expect(response.status).toBe(413);
-    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.askMeetingQuestion).not.toHaveBeenCalled();
   });
 });

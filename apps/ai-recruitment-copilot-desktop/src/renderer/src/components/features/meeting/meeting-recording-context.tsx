@@ -424,7 +424,13 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
             <Button onClick={() => setPendingDiscard(null)} type="button" variant="outline">
               取消
             </Button>
-            <Button onClick={() => void discardRecording()} type="button" variant="destructive">
+            <Button
+              onClick={() => {
+                discardRecording();
+              }}
+              type="button"
+              variant="destructive"
+            >
               确认放弃
             </Button>
           </DialogFooter>

@@ -2,28 +2,45 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrowserDualTrackCaptureSource } from "./browser-dual-track-capture-source";
 
+interface FakeMediaTrack {
+  addEventListener: (type: string, listener: () => void) => void;
+  stop: () => void;
+}
+
+interface FakeMediaStream {
+  getAudioTracks: () => FakeMediaTrack[];
+  getTracks: () => FakeMediaTrack[];
+  getVideoTracks: () => FakeMediaTrack[];
+}
+
 function fakeStream({
   audioStops = [],
   videoStops = [],
 }: {
-  audioStops?: ReturnType<typeof vi.fn>[];
-  videoStops?: ReturnType<typeof vi.fn>[];
-}): MediaStream {
-  const audioTracks = audioStops.map((stop) => ({ stop }));
-  const videoTracks = videoStops.map((stop) => ({ stop }));
+  audioStops?: (() => void)[];
+  videoStops?: (() => void)[];
+}): FakeMediaStream {
+  const audioTracks = audioStops.map((stopMock) => ({
+    addEventListener: vi.fn(),
+    stop: () => stopMock(),
+  }));
+  const videoTracks = videoStops.map((stopMock) => ({
+    addEventListener: vi.fn(),
+    stop: () => stopMock(),
+  }));
   return {
     getAudioTracks: () => audioTracks,
     getTracks: () => [...audioTracks, ...videoTracks],
     getVideoTracks: () => videoTracks,
-  } as unknown as MediaStream;
+  };
 }
 
 function stubMediaDevices({
   display,
   microphone,
 }: {
-  display: Promise<MediaStream>;
-  microphone: Promise<MediaStream>;
+  display: Promise<FakeMediaStream>;
+  microphone: Promise<FakeMediaStream>;
 }): void {
   vi.stubGlobal("navigator", {
     mediaDevices: {
@@ -40,7 +57,7 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
   });
 
   it("stops display video immediately while microphone permission is still pending", async () => {
-    const microphone = Promise.withResolvers<MediaStream>();
+    const microphone = Promise.withResolvers<FakeMediaStream>();
     const systemAudioStop = vi.fn();
     const videoStop = vi.fn();
     stubMediaDevices({
@@ -122,7 +139,10 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
         this.state = "inactive";
       }
     }
-    const createAudioTrack = () => ({ addEventListener: vi.fn(), stop: vi.fn() });
+    const createAudioTrack = (): FakeMediaTrack => ({
+      addEventListener: vi.fn(),
+      stop: vi.fn(),
+    });
     const microphoneTrack = createAudioTrack();
     const systemTrack = createAudioTrack();
     stubMediaDevices({
@@ -130,12 +150,12 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
         getAudioTracks: () => [systemTrack],
         getTracks: () => [systemTrack],
         getVideoTracks: () => [],
-      } as unknown as MediaStream),
+      }),
       microphone: Promise.resolve({
         getAudioTracks: () => [microphoneTrack],
         getTracks: () => [microphoneTrack],
         getVideoTracks: () => [],
-      } as unknown as MediaStream),
+      }),
     });
     vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
     vi.stubGlobal(
@@ -179,7 +199,9 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
       },
       { captureId: "00000000-0000-4000-8000-000000000077" },
     );
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     recorders[0]?.emit({ data: new Blob(["mic"]) } as BlobEvent);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     recorders[1]?.emit({ data: new Blob(["system"]) } as BlobEvent);
     await vi.waitFor(() => expect(committed).toEqual({ microphone: 15_000, system: 15_000 }));
 

@@ -3,6 +3,7 @@
 // English: Feishu router. The bot does NOT chat inside Feishu — any inbound DM gets
 // a short greeter pointing the user to the Studio Web app. The bot's primary role
 // is as a notification channel for interview events (Workflow 3).
+import { toCardElement } from "chat";
 import type { Message, MessageContext, Thread } from "chat";
 import { GreeterCard } from "./greeter-card";
 
@@ -20,12 +21,20 @@ const GREETER_LINKS = [
   },
 ];
 
+function createGreeterCard() {
+  const card = toCardElement(GreeterCard({ links: GREETER_LINKS }));
+  if (!card) {
+    throw new Error("GreeterCard did not produce a Chat SDK card element");
+  }
+  return card;
+}
+
 export async function routeDM(
   thread: Thread,
   _message: Message,
   _context?: MessageContext,
 ): Promise<void> {
-  await thread.post(GreeterCard({ links: GREETER_LINKS }) as never);
+  await thread.post(createGreeterCard());
 }
 
 export async function routeGroupMention(
@@ -36,5 +45,5 @@ export async function routeGroupMention(
   // 中文：群里 @bot 等同于 DM，给同一份引导文案；后续 Workflow 3 的通知/决策按钮也在群里发出
   // English: @bot in a group gets the same greeter as DM; Workflow 3 notifications + decision
   // buttons will also live in groups but are pushed by the server, not triggered by chat.
-  await thread.post(GreeterCard({ links: GREETER_LINKS }) as never);
+  await thread.post(createGreeterCard());
 }

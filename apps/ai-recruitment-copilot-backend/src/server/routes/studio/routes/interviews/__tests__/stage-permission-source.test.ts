@@ -11,24 +11,30 @@ const routeSource = `${collectionRouteSource}\n${detailRouteSource}\n${humanRout
 
 describe("late-stage route permissions", () => {
   it("splits human interview routes by CRUD permissions", () => {
-    expect(routeSource).toContain(
-      '"/human-interview-meetings",\n    requirePermission("humanInterview", "read")',
-    );
-    expect(routeSource).toContain(
-      '"/human-interview-meetings",\n    requirePermission("humanInterview", "create")',
-    );
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/human-interview-rounds",\n    requirePermission("humanInterview", "create")',
-    );
-    expect(routeSource).toContain(
-      '.patch(\n    "/:id/human-interview-rounds/:roundId",\n    requirePermission("humanInterview", "update")',
-    );
-    expect(routeSource).toContain(
-      '.delete(\n    "/human-interview-meetings/:meetingId",\n    requirePermission("humanInterview", "delete")',
-    );
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/human-interview-rounds/:roundId/cancel",\n    requirePermission("humanInterview", "delete")',
-    );
+    const expectPermission = (path: string, action: string) => {
+      const pathLiteral = `"${path}"`;
+      const permission = new RegExp(
+        `(?:requirePermission|permission)\\("humanInterview", "${action}"\\)`,
+      );
+      let pathIndex = routeSource.indexOf(pathLiteral);
+      let matched = false;
+      while (pathIndex >= 0) {
+        if (permission.test(routeSource.slice(pathIndex, pathIndex + 320))) {
+          matched = true;
+          break;
+        }
+        pathIndex = routeSource.indexOf(pathLiteral, pathIndex + pathLiteral.length);
+      }
+      expect(matched).toBe(true);
+    };
+
+    expectPermission("/human-interview-meetings", "read");
+    expectPermission("/human-interview-meetings", "create");
+    expectPermission("/:id/human-interview-rounds", "create");
+    expectPermission("/:id/human-interview-rounds/:roundId", "update");
+    expectPermission("/human-interview-meetings/:meetingId", "delete");
+    expectPermission("/:id/human-interview-rounds/:roundId/cancel", "delete");
     expect(routeSource).not.toContain('requirePermission("humanInterview", "manage")');
+    expect(routeSource).not.toContain('permission("humanInterview", "manage")');
   });
 });

@@ -10,8 +10,10 @@ const HOVER_TRANSITION = {
   type: "spring",
 } as const;
 
-export function useSidebarMenuHoverHighlight() {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function useSidebarMenuHoverHighlight<
+  ContainerElement extends HTMLElement = HTMLDivElement,
+>() {
+  const containerRef = useRef<ContainerElement>(null);
   const reduceMotion = useReducedMotion();
   const height = useMotionValue(0);
   const opacity = useMotionValue(0);

@@ -30,6 +30,7 @@ import type {
 } from "./interview-snapshots";
 import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
+import type { JsonObject } from "./json";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
 import type {
@@ -1120,7 +1121,7 @@ export const meetingAuditLog = pgTable(
     action: text("action").notNull(),
     actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    detail: jsonb("detail").$type<JsonObject>().notNull().default({}),
     id: text("id").primaryKey(),
     meetingId: text("meeting_id").references(() => meetingSession.id, { onDelete: "set null" }),
     organizationId: text("organization_id")
@@ -1344,7 +1345,7 @@ export const studioInterview = pgTable(
       .default("idle"),
     resumeScreeningError: text("resume_screening_error"),
     resumeScreeningEvaluatedAt: timestamp("resume_screening_evaluated_at", { withTimezone: true }),
-    resumeScreeningResult: jsonb("resume_screening_result").$type<Record<string, unknown> | null>(),
+    resumeScreeningResult: jsonb("resume_screening_result").$type<JsonObject | null>(),
     resumeScreeningStatus: text("resume_screening_status")
       .$type<ResumeScreeningStatus>()
       .notNull()
@@ -1645,7 +1646,7 @@ export const jobDescription = pgTable(
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
+    resumeScreeningPolicy: jsonb("resume_screening_policy").$type<JsonObject | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
     structuredConfig: jsonb("structured_config")
@@ -1786,7 +1787,7 @@ export const jobDescriptionEvaluationUpgradeAudit = pgTable(
     jobDescriptionId: text("job_description_id")
       .notNull()
       .references(() => jobDescription.id, { onDelete: "cascade" }),
-    legacySnapshot: jsonb("legacy_snapshot").$type<Record<string, unknown>>().notNull(),
+    legacySnapshot: jsonb("legacy_snapshot").$type<JsonObject>().notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -2597,16 +2598,13 @@ export const interviewConversation = pgTable(
     conversationId: text("conversation_id").primaryKey(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     dataCollectionResults: jsonb("data_collection_results")
-      .$type<Record<string, unknown>>()
+      .$type<JsonObject>()
       .notNull()
       .default({}),
-    dynamicVariables: jsonb("dynamic_variables")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    dynamicVariables: jsonb("dynamic_variables").$type<JsonObject>().notNull().default({}),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     evaluationCriteriaResults: jsonb("evaluation_criteria_results")
-      .$type<Record<string, unknown>>()
+      .$type<JsonObject>()
       .notNull()
       .default({}),
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
@@ -2622,8 +2620,8 @@ export const interviewConversation = pgTable(
       .default("pending"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
     latestError: text("latest_error"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
-    metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
+    metadata: jsonb("metadata").$type<JsonObject>().notNull().default({}),
+    metrics: jsonb("metrics").$type<JsonObject>().notNull().default({}),
     mode: text("mode"),
     organizationId: text("organization_id")
       .notNull()
@@ -2795,7 +2793,7 @@ export const interviewAuditLog = pgTable(
   {
     action: text("action").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    detail: jsonb("detail").$type<JsonObject>().notNull().default({}),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()

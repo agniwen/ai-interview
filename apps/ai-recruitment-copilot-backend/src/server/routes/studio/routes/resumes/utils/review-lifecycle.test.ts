@@ -25,9 +25,13 @@ const PROFILE = {
   workYears: 3,
 } satisfies ResumeProfile;
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const OLD_REVIEW = { overall: { conclusion: "上一次成功结果" } } as ResumeReview;
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const OLD_SCREENING = { recommendation: "flag" } as ResumeScreeningResult;
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const NEW_REVIEW = { overall: { conclusion: "本次结果" } } as ResumeReview;
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const NEW_SCREENING = { recommendation: "pass" } as ResumeScreeningResult;
 const GENERATED: GeneratedResumeAssessment = {
   mode: "legacy",

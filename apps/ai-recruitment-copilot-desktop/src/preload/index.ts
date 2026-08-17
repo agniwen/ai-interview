@@ -1,9 +1,28 @@
 import { electronAPI } from "@electron-toolkit/preload";
+import { meetingLiveTranscriptTrackSchema } from "@arc/shared/meeting-transcription";
 import { contextBridge, ipcRenderer } from "electron";
+import { z } from "zod";
 import type { AuthApi } from "./auth-api";
 import type { DownloadApi } from "./download-api";
 import type { MeetingCaptureApi } from "./meeting-capture-api";
 import type { WindowApi } from "./window-api";
+
+const liveTranscriptClientMessageSchema = z
+  .object({
+    authorization: z
+      .object({
+        baseUrl: z.string(),
+        clientSecret: z.string(),
+        expiresAt: z.string(),
+        language: z.string().optional(),
+        model: z.string(),
+        provider: z.literal("qwen"),
+        track: meetingLiveTranscriptTrackSchema,
+      })
+      .strict(),
+    type: z.literal("start-meeting-live-transcript-client"),
+  })
+  .strict();
 
 /**
  * oRPC MessageChannel handoff: the renderer creates a MessageChannel and
@@ -22,15 +41,15 @@ window.addEventListener("message", (event) => {
     const [serverPort] = event.ports;
     ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);
   }
-  if (
-    event.data &&
-    typeof event.data === "object" &&
-    (event.data as { type?: unknown }).type === "start-meeting-live-transcript-client"
-  ) {
+  const liveTranscriptMessage = liveTranscriptClientMessageSchema.safeParse(event.data);
+  if (liveTranscriptMessage.success) {
     const [serverPort] = event.ports;
-    const { authorization } = event.data as { authorization?: unknown };
     console.log("[preload] forwarding live-transcript port");
-    ipcRenderer.postMessage("meeting-live-transcript:port", authorization, [serverPort]);
+    ipcRenderer.postMessage(
+      "meeting-live-transcript:port",
+      liveTranscriptMessage.data.authorization,
+      [serverPort],
+    );
   }
 });
 

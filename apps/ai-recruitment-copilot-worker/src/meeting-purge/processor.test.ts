@@ -1,26 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  abortMeetingRecordingMultipartUpload: vi.fn(),
-  deleteMeetingRecordingObject: vi.fn(),
-  headMeetingRecordingObject: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-dao", () => ({
-  claimMeetingPurge: vi.fn(),
-  completeMeetingPurgeStorageBatch: vi.fn(),
-  continueMeetingPurgeProviderBatch: vi.fn(),
-  finalizeMeetingPurge: vi.fn(),
-  recordMeetingProviderPurgeOutcome: vi.fn(),
-  releaseMeetingPurgeClaim: vi.fn(),
-}));
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { runMeetingPurgeProcessing } from "./processor";
 
 const JOB = { meetingId: "meeting-84", organizationId: "org-84" };
 
+interface MultipartUpload {
+  storageKey: string;
+  uploadId: string;
+}
+interface ProviderOutcomeInput {
+  outcome: string;
+  processingRunId: string;
+  provider: string;
+  stage: string;
+}
+
 function createDependencies() {
   return {
-    abortMultipartUpload: vi.fn(async (_upload: unknown) => {}),
+    abortMultipartUpload: vi.fn(async (_upload: MultipartUpload) => {}),
     claim: vi.fn().mockResolvedValue({
       executionToken: "purge-token-84",
       hasMoreProviderArtifacts: false,
@@ -44,7 +41,7 @@ function createDependencies() {
     deleteStorageObject: vi.fn(async (_storageKey: string) => {}),
     finalize: vi.fn().mockResolvedValue(true),
     headStorageObject: vi.fn().mockResolvedValue(null),
-    recordProviderOutcome: vi.fn((_input: unknown) => Promise.resolve(false)),
+    recordProviderOutcome: vi.fn((_input: ProviderOutcomeInput) => Promise.resolve(false)),
     release: vi.fn().mockResolvedValue(true),
   };
 }

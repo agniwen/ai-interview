@@ -21,7 +21,7 @@ export function textColumn<TData extends RowData>(
   let truncateClass: string | undefined;
   if (opts.truncate === true) {
     truncateClass = "max-w-sm truncate";
-  } else if (typeof opts.truncate === "string") {
+  } else if (opts.truncate !== false && opts.truncate !== undefined) {
     truncateClass = `${opts.truncate} truncate`;
   }
 
@@ -31,7 +31,7 @@ export function textColumn<TData extends RowData>(
       if (opts.cell) {
         return opts.cell(row.original);
       }
-      const raw = row.original[opts.key] as unknown;
+      const raw = row.original[opts.key];
       const display =
         raw === null || raw === undefined || raw === "" ? (opts.fallback ?? "") : String(raw);
 

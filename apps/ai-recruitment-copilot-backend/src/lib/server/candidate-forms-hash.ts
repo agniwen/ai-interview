@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { stableStringify } from "./stable-stringify";
+import { jsonValueSchema, stableStringify } from "./stable-stringify";
 
 /**
  * Content hash of a snapshot — stable across key order and identity. Excludes
@@ -10,5 +10,7 @@ import { stableStringify } from "./stable-stringify";
  */
 export function hashTemplateSnapshot(snapshot: CandidateFormTemplateSnapshot): string {
   const { templateId: _templateId, ...rest } = snapshot;
-  return createHash("sha256").update(stableStringify(rest)).digest("hex");
+  return createHash("sha256")
+    .update(stableStringify(jsonValueSchema.parse(rest)))
+    .digest("hex");
 }

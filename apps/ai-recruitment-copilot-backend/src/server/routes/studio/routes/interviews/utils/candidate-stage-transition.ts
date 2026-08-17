@@ -29,6 +29,20 @@ export type CandidateStageTransitionResult =
   | { kind: "noop" }
   | { kind: "ok" };
 
+export interface CandidateStageTransitionDependencies {
+  getReadinessError: typeof getHumanInterviewOfferReadinessError;
+  invalidateCaches: typeof invalidateStudioInterviewCaches;
+  loadReadiness: typeof loadHumanInterviewRoundReadiness;
+  transaction: typeof db.transaction;
+}
+
+const defaultDependencies: CandidateStageTransitionDependencies = {
+  getReadinessError: getHumanInterviewOfferReadinessError,
+  invalidateCaches: invalidateStudioInterviewCaches,
+  loadReadiness: loadHumanInterviewRoundReadiness,
+  transaction: db.transaction.bind(db),
+};
+
 function resolveTargetStagePermission(target: CandidateTransitionInput["pipelineStage"]) {
   if (target === "human_interview") {
     return { action: "create", resource: "humanInterview" } as const;
@@ -39,21 +53,24 @@ function resolveTargetStagePermission(target: CandidateTransitionInput["pipeline
   return null;
 }
 
-export async function transitionCandidateStage(command: {
-  authorize: WorkspaceAuthorizer;
-  candidateId: string;
-  input: CandidateTransitionInput;
-  operatorId: string | null;
-  organizationId: string;
-  provenance: CandidateStageTransitionProvenance;
-}): Promise<CandidateStageTransitionResult> {
+export async function transitionCandidateStage(
+  command: {
+    authorize: WorkspaceAuthorizer;
+    candidateId: string;
+    input: CandidateTransitionInput;
+    operatorId: string | null;
+    organizationId: string;
+    provenance: CandidateStageTransitionProvenance;
+  },
+  dependencies: CandidateStageTransitionDependencies = defaultDependencies,
+): Promise<CandidateStageTransitionResult> {
   const targetPermission = resolveTargetStagePermission(command.input.pipelineStage);
   if (targetPermission && !(await command.authorize(targetPermission))) {
     return { kind: "forbidden" };
   }
 
   const now = new Date();
-  const result = await db.transaction(async (tx) => {
+  const result = await dependencies.transaction(async (tx) => {
     const [existing] = await tx
       .select({
         closedMeta: studioInterview.closedMeta,
@@ -86,12 +103,12 @@ export async function transitionCandidateStage(command: {
     let humanInterviewOfferReadinessError: string | null = null;
     let humanInterviewReadyForOffer = false;
     if (existing.pipelineStage === "human_interview" && command.input.pipelineStage === "offer") {
-      const readiness = await loadHumanInterviewRoundReadiness(
+      const readiness = await dependencies.loadReadiness(
         command.candidateId,
         command.organizationId,
         tx,
       );
-      humanInterviewOfferReadinessError = getHumanInterviewOfferReadinessError(readiness);
+      humanInterviewOfferReadinessError = dependencies.getReadinessError(readiness);
       humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
     }
     const stageTransitionError = getCandidateStageTransitionError({
@@ -148,7 +165,7 @@ export async function transitionCandidateStage(command: {
   });
 
   if (result.kind === "ok") {
-    invalidateStudioInterviewCaches(command.organizationId);
+    dependencies.invalidateCaches(command.organizationId);
   }
   return result;
 }

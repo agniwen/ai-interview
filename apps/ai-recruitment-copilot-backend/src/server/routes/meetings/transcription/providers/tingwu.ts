@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { JsonValue } from "@arc/db-schema/json";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
@@ -49,7 +50,7 @@ interface TingwuMeetingTranscriptionDependencies {
     signal: AbortSignal;
     taskKey: string;
   }) => Promise<{ taskId: string }>;
-  fetchResult: (url: string, signal: AbortSignal) => Promise<unknown>;
+  fetchResult: (url: string, signal: AbortSignal) => Promise<JsonValue>;
   pollTask: (
     taskId: string,
     signal: AbortSignal,

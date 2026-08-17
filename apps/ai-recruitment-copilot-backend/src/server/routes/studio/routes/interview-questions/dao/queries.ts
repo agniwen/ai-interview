@@ -48,8 +48,16 @@ const ORDER_COLUMNS = {
 } as const;
 
 const templatePaginationSchema = makePaginationSchema(SORT_COLUMNS);
+const templatePaginationInputSchema = z.object({
+  page: z.union([z.string(), z.number()]).optional(),
+  pageSize: z.union([z.string(), z.number()]).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+const interviewQuestionTemplateScopeSchema = z.enum(["global", "job_description"]);
 
 export type InterviewQuestionTemplatePaginationParams = PaginationParams<SortColumn>;
+type InterviewQuestionTemplatePaginationInput = z.input<typeof templatePaginationInputSchema>;
 
 export type PaginatedInterviewQuestionTemplateResult =
   PaginatedResult<InterviewQuestionTemplateListRecord>;
@@ -312,16 +320,15 @@ function csvToIds(value?: string | null): string[] | undefined {
   return ids.length > 0 ? ids : undefined;
 }
 
-const VALID_SCOPES: readonly InterviewQuestionTemplateScope[] = ["global", "job_description"];
-
 function parseScopes(value?: string | null): InterviewQuestionTemplateScope[] | undefined {
   const ids = csvToIds(value);
   if (!ids) {
     return;
   }
-  const valid = ids.filter((id): id is InterviewQuestionTemplateScope =>
-    (VALID_SCOPES as readonly string[]).includes(id),
-  );
+  const valid = ids.flatMap((id) => {
+    const parsed = interviewQuestionTemplateScopeSchema.safeParse(id);
+    return parsed.success ? [parsed.data] : [];
+  });
   return valid.length > 0 ? valid : undefined;
 }
 
@@ -346,9 +353,9 @@ function parseFilters(filters?: {
 }
 
 function parseInterviewQuestionTemplatePagination(
-  params?: Record<string, unknown>,
+  params?: InterviewQuestionTemplatePaginationInput,
 ): InterviewQuestionTemplatePaginationParams {
-  return templatePaginationSchema.parse(params ?? {});
+  return templatePaginationSchema.parse(templatePaginationInputSchema.parse(params ?? {}));
 }
 
 // =====================================================================
@@ -363,7 +370,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
     jobDescriptionId?: string | null;
     archivedFilter?: ArchivedFilter;
   },
-  pagination?: Record<string, unknown>,
+  pagination?: InterviewQuestionTemplatePaginationInput,
 ): Promise<PaginatedInterviewQuestionTemplateResult> {
   const { search, scopes, jobDescriptionIds } = parseFilters(filters);
   const archivedFilter: ArchivedFilter = filters?.archivedFilter ?? "active";
@@ -417,7 +424,7 @@ export function listInterviewQuestionTemplates(
     jobDescriptionId?: string | null;
     archivedFilter?: ArchivedFilter;
   },
-  pagination?: Record<string, unknown>,
+  pagination?: InterviewQuestionTemplatePaginationInput,
 ) {
   return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
 }

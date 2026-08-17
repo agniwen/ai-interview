@@ -276,7 +276,12 @@ export function CandidateInterviewFeedbackPanel({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>返回修改</AlertDialogCancel>
-            <AlertDialogAction disabled={isSubmitting} onClick={() => void confirmSubmission()}>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={() => {
+                confirmSubmission();
+              }}
+            >
               {isSubmitting ? "提交中..." : "确认提交"}
             </AlertDialogAction>
           </AlertDialogFooter>

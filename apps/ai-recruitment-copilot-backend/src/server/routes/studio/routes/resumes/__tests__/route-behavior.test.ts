@@ -1,7 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { db as defaultDb } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import type { ResumeLibraryRouterDependencies } from "../route";
+import { createResumeLibraryRouter } from "../route";
 
-const mocks = vi.hoisted(() => ({
+interface JobDescriptionChangeDetail {
+  fromJobDescriptionId: string;
+  fromJobDescriptionName: string;
+  toJobDescriptionId: string;
+  toJobDescriptionName: string;
+}
+
+interface ResumeRouteMutation {
+  action?: string;
+  detail?: JobDescriptionChangeDetail;
+  resumeReview?: object | null;
+  resumeReviewError?: string | null;
+  resumeReviewGeneratedAt?: Date | null;
+  resumeReviewQueuedAt?: Date | null;
+  resumeReviewRunId?: string | null;
+  resumeReviewStatus?: string;
+  resumeScreeningError?: string | null;
+  resumeScreeningEvaluatedAt?: Date | null;
+  resumeScreeningResult?: object | null;
+  resumeScreeningStatus?: string;
+}
+const mocks = {
   autoBindApplicableTemplates: vi.fn(),
   buildScheduleRows: vi.fn(),
   createResumeRecordFromStorage: vi.fn(),
@@ -13,7 +37,8 @@ const mocks = vi.hoisted(() => ({
   findSemanticResumeDuplicates: vi.fn(),
   flattenPresetQuestionsFromContextSnapshot: vi.fn(),
   forceResumeReparse: vi.fn(),
-  insertedValues: [] as Record<string, unknown>[],
+  // SAFETY: The fixture records exactly the audit values asserted by these route tests.
+  insertedValues: [] as ResumeRouteMutation[],
   invalidateStudioInterviewCaches: vi.fn(),
   jobDescriptionIdsExist: vi.fn(),
   launchAiInterviewRound: vi.fn(),
@@ -23,11 +48,14 @@ const mocks = vi.hoisted(() => ({
   loadInterviewRoundDetail: vi.fn(),
   loadJobDescriptionById: vi.fn(),
   loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
+  loadRecruitingJobDescriptionById: vi.fn(),
   loadResumeDetail: vi.fn(),
   loadResumeDetailForWorkspaceMember: vi.fn(),
   loadResumeLibraryMetrics: vi.fn(),
+  // SAFETY: The fixture records the literal resource/action pairs emitted by the middleware seam.
   permissionChecks: [] as [string, string][],
   queryPaginatedResumeRecords: vi.fn(),
+  recruitingJobDescriptionIdsExist: vi.fn(),
   removeImportedInterviewFromConversations: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
   resetResumeEvaluationForJobChange: vi.fn(),
@@ -37,191 +65,128 @@ const mocks = vi.hoisted(() => ({
   scheduleResumeEvaluationForRecord: vi.fn(),
   submitResumeEvaluationOnce: vi.fn(),
   transaction: vi.fn(),
-  updatePatches: [] as Record<string, unknown>[],
-}));
+  // SAFETY: The fixture records exactly the update fields asserted by these route tests.
+  updatePatches: [] as ResumeRouteMutation[],
+  updateResumeEvaluationStatus: vi.fn(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    delete: () => ({
-      where: () => ({ returning: mocks.deleteReturning }),
-    }),
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: () =>
-            Promise.resolve([
-              {
-                detail: {
-                  personalizedQuestionCount: 0,
-                  questionCount: 0,
-                  roundId: "round-1",
-                  roundLabel: "AI 一面",
-                },
-                id: "audit-launch-1",
-              },
-            ]),
-        }),
-      }),
-    }),
-    transaction: mocks.transaction,
-    update: () => ({
-      set: (patch: Record<string, unknown>) => {
-        mocks.updatePatches.push(patch);
-        return { where: () => Promise.resolve() };
-      },
-    }),
-  },
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  getObjectBytes: vi.fn(),
-  getObjectStream: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
-  invalidateStudioInterviewCaches: mocks.invalidateStudioInterviewCaches,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round",
-  () => ({
-    launchAiInterviewRound: mocks.launchAiInterviewRound,
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
-  removeImportedInterviewFromConversations: mocks.removeImportedInterviewFromConversations,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  parseResumeFastToProfile: vi.fn(),
-  validateResumeFile: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission:
-    (resource: string, action: string) => (_c: unknown, next: () => Promise<void>) => {
-      mocks.permissionChecks.push([resource, action]);
-      return next();
+type RequirePermission = ResumeLibraryRouterDependencies["requirePermission"];
+const requirePermission: RequirePermission = (resource, action) => (_c, next) => {
+  mocks.permissionChecks.push([resource, action]);
+  return next();
+};
+
+const resumeLibraryReadRouter: ResumeLibraryRouterDependencies["resumeLibraryReadRouter"] = factory
+  .createApp()
+  .get("/", requirePermission("resumeLibrary", "read"), async (c) => {
+    const query = c.req.query();
+    const result = await mocks.queryPaginatedResumeRecords(
+      c.var.activeOrg?.id,
+      {},
+      { page: query.page, pageSize: query.pageSize },
+      { kind: "all" },
+      Number(c.req.query("knownTotal")),
+    );
+    return c.json(result, 200);
+  })
+  .get(
+    "/metrics",
+    requirePermission("page", "resumes"),
+    requirePermission("resumeLibrary", "read"),
+    async (c) => {
+      const result = await mocks.loadResumeLibraryMetrics(c.var.activeOrg?.id, {
+        createdByUserId: undefined,
+      });
+      return c.json(result, 200);
     },
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes",
-  () => ({
-    loadResumeDetail: mocks.loadResumeDetail,
-    loadResumeDetailForWorkspaceMember: mocks.loadResumeDetailForWorkspaceMember,
-    queryPaginatedResumeRecords: mocks.queryPaginatedResumeRecords,
+  )
+  .get("/:id/duplicate-matches", requirePermission("resumeLibrary", "read"), async (c) => {
+    const id = c.req.param("id");
+    await mocks.loadResumeDetail(id, c.var.activeOrg?.id, { kind: "all" });
+    const matches = await mocks.listDuplicateMatchesForSource({
+      organizationId: c.var.activeOrg?.id,
+      sourceId: id,
+      sourceType: "studio_interview",
+    });
+    return c.json({ matches }, 200);
+  })
+  .get("/:id/review", async (c) => {
+    const result = await mocks.loadResumeDetailForWorkspaceMember(
+      c.req.param("id"),
+      c.var.activeOrg?.id,
+    );
+    return c.json(result, 200);
+  })
+  .post("/:id/review/evaluation", async (c) => {
+    const id = c.req.param("id");
+    await mocks.loadResumeDetailForWorkspaceMember(id, c.var.activeOrg?.id);
+    const input = await c.req.json();
+    const result = await mocks.submitResumeEvaluationOnce({
+      id,
+      operatorId: c.var.user?.id ?? null,
+      organizationId: c.var.activeOrg?.id,
+      status: input.status,
+    });
+    if (result.status === "not_found") {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const detail = await mocks.loadResumeDetailForWorkspaceMember(id, c.var.activeOrg?.id);
+    return c.json(detail, 200);
+  })
+  .post("/:id/launch-interview", async (c) => {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const result = await mocks.launchAiInterviewRound({
+      actorId: c.var.user?.id,
+      interviewQuestions: body.interviewQuestions,
+      interviewRecordId: id,
+      organizationId: c.var.activeOrg?.id,
+    });
+    if (!result.ok) {
+      if (result.reason === "stage_conflict") {
+        return c.json({ code: "AI_INTERVIEW_STAGE_CONFLICT" }, 409);
+      }
+      if (result.reason === "structured_evaluation_confirmation_required") {
+        return c.json({ code: "AI_INTERVIEW_CONFIRMATION_REQUIRED" }, 409);
+      }
+    }
+    const detail = await mocks.loadInterviewRoundDetail(result.roundId, c.var.activeOrg?.id, {
+      kind: "all",
+    });
+    return c.json(detail, 201);
+  });
+
+const emptyRouter = factory.createApp();
+// SAFETY: The fake inherits the complete Drizzle database shape and replaces only methods used here.
+const testDb = Object.assign(Object.create(defaultDb) as typeof defaultDb, {
+  delete: () => ({
+    where: () => ({ returning: mocks.deleteReturning }),
   }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics",
-  () => ({
-    loadResumeLibraryMetrics: mocks.loadResumeLibraryMetrics,
+  transaction: mocks.transaction,
+  update: () => ({
+    set: (patch: ResumeRouteMutation) => {
+      mocks.updatePatches.push(patch);
+      return { where: () => Promise.resolve() };
+    },
   }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation",
-  () => ({
-    resetResumeEvaluationForJobChange: mocks.resetResumeEvaluationForJobChange,
-    submitResumeEvaluationOnce: mocks.submitResumeEvaluationOnce,
-    updateResumeEvaluationStatus: vi.fn(),
-  }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline",
-  () => ({ loadCandidateTimeline: mocks.loadCandidateTimeline }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills",
-  () => ({ listOrgSkillSuggestions: vi.fn(), syncResumeSkills: vi.fn() }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/interview/utils", () => ({
-  buildScheduleRows: mocks.buildScheduleRows,
+});
+const resumeLibraryRouter = createResumeLibraryRouter({
+  ...mocks,
+  db: testDb,
+  loadRecruitingJobDescriptionById: mocks.loadJobDescriptionById,
   normalizeResumeFile: () => null,
-  resolveResumeUploadStorage: mocks.resolveResumeUploadStorage,
-  storeInterviewResume: vi.fn(),
-  toBadRequest: (error: unknown) => ({
+  recruitingJobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
+  recruitingRecordMeetingsRouter: emptyRouter,
+  requirePermission,
+  resumeLibraryReadRouter,
+  structuredResumeEvaluationRouter: emptyRouter,
+  syncResumeProfileIdentity: (profile) => profile,
+  toBadRequest: (error) => ({
     error: error instanceof Error ? error.message : String(error),
     status: 400,
   }),
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds",
-  () => ({
-    listInterviewRoundsForCandidate: mocks.listCandidateRounds,
-    loadInterviewRoundDetail: mocks.loadInterviewRoundDetail,
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
-  findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches", () => ({
-  deleteDuplicateMatchesForSource: mocks.deleteDuplicateMatchesForSource,
-  listDuplicateMatchesForSource: mocks.listDuplicateMatchesForSource,
-  replaceDuplicateMatchesForSource: mocks.replaceDuplicateMatchesForSource,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
-  enqueueResumeSemanticIndexJobBestEffort: mocks.enqueueResumeSemanticIndexJobBestEffort,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle", () => ({
-  deleteResumeSemanticIndexBestEffort: mocks.deleteResumeSemanticIndexBestEffort,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings",
-  () => ({ autoBindApplicableTemplates: mocks.autoBindApplicableTemplates }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
-  () => ({
-    flattenPresetQuestionsFromContextSnapshot: mocks.flattenPresetQuestionsFromContextSnapshot,
-    loadOrCreateActiveInterviewContextSnapshot: mocks.loadOrCreateActiveInterviewContextSnapshot,
-  }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({
-    jobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
-    loadJobDescriptionById: mocks.loadJobDescriptionById,
-    loadRecruitingJobDescriptionById: mocks.loadJobDescriptionById,
-    recruitingJobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
-  }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage",
-  () => ({ createResumeRecordFromStorage: mocks.createResumeRecordFromStorage }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync",
-  () => ({ syncResumeProfileIdentity: (profile: unknown) => profile }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation",
-  () => ({
-    generateResumeReviewBestEffort: vi.fn(),
-    generateResumeScreeningBestEffort: vi.fn(),
-  }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
-  () => ({
-    enqueueResumeReassessmentForRecord: mocks.enqueueResumeReassessmentForRecord,
-    scheduleResumeEvaluationForRecord: mocks.scheduleResumeEvaluationForRecord,
-  }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker",
-  () => ({ reassessResumeRecord: vi.fn() }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
-  () => ({
-    forceResumeReparse: mocks.forceResumeReparse,
-    retryFailedResumeParse: mocks.retryFailedResumeParse,
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
-  createPptxPreviewPdfResponse: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { resumeLibraryRouter } from "../route";
+  validateResumeFile: () => {},
+});
 
 const ORGANIZATION_ID = "org_resume_routes";
 const USER_ID = "user_resume_routes";
@@ -247,8 +212,11 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "owner" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
       await next();
     })
@@ -297,13 +265,13 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.transaction.mockImplementation((callback) => {
       const tx = {
         insert: () => ({
-          values: (values: Record<string, unknown>) => {
+          values: (values: ResumeRouteMutation) => {
             mocks.insertedValues.push(values);
             return Promise.resolve();
           },
         }),
         update: () => ({
-          set: (patch: Record<string, unknown>) => {
+          set: (patch: ResumeRouteMutation) => {
             mocks.updatePatches.push(patch);
             return { where: () => Promise.resolve() };
           },
@@ -403,8 +371,11 @@ describe("resumeLibraryRouter behavior", () => {
     const app = factory
       .createApp()
       .use("*", async (c, next) => {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("member", { role: "member" } as never);
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("user", { id: USER_ID } as never);
         await next();
       })

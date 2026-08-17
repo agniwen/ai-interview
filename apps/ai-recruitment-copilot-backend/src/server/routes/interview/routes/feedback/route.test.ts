@@ -1,21 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createCandidateInterviewFeedbackRouter } from "./route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   loadCandidateInterviewRecord: vi.fn(),
   submitCandidateInterviewFeedback: vi.fn(),
-}));
+};
 
-vi.mock("../../utils", () => ({
-  loadCandidateInterviewRecord: mocks.loadCandidateInterviewRecord,
-}));
-
-vi.mock("./dao", () => ({
-  submitCandidateInterviewFeedback: mocks.submitCandidateInterviewFeedback,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { candidateInterviewFeedbackRouter } from "./route";
+const candidateInterviewFeedbackRouter = createCandidateInterviewFeedbackRouter(mocks);
 
 const payload = {
   categories: ["audio", "network"],

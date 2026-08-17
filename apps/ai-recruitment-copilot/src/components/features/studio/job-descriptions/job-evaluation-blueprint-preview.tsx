@@ -3,6 +3,7 @@ import type {
   JobDescriptionDeductionRules,
   StructuredResumeRuleId,
 } from "@arc/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
 import {
   STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DIMENSIONS,
@@ -12,16 +13,16 @@ import { JobDescriptionMarkdownSurface } from "./job-description-markdown-surfac
 
 type Dimension = (typeof STRUCTURED_RESUME_DIMENSIONS)[number];
 
-const DIMENSION_LABELS: Record<Dimension, string> = {
+const DIMENSION_LABELS = {
   educationBackground: "学历",
   experienceRelevance: "经验",
   potential: "潜力",
   projectMatch: "项目",
   skillMatch: "技能",
   stability: "稳定",
-};
+} satisfies Record<Dimension, string>;
 
-const RULE_LABELS: Record<StructuredResumeRuleId, string> = {
+const RULE_LABELS = {
   "education.below_tier": "学历每低于门槛一档",
   "education.major_unrelated": "专业与岗位无关",
   "experience.fragmented": "相关经验碎片化或多次转行断档",
@@ -45,7 +46,7 @@ const RULE_LABELS: Record<StructuredResumeRuleId, string> = {
   "stability.three_changes_one_year": "1 年内跳槽至少 3 次",
   "stability.two_changes_one_year": "1 年内跳槽 2 次",
   "stability.two_changes_two_years": "近 2 年跳槽 2 次",
-};
+} satisfies Record<StructuredResumeRuleId, string>;
 
 const DEGREE_LABELS = {
   associate: "大专及以上",
@@ -110,9 +111,10 @@ export function serializeEvaluationRules({
       lines.push(...serializeList("岗位判断依据：", ruleDraft.dimensionExpectations[dimension]));
     }
     lines.push("计分规则：");
-    for (const ruleId of Object.keys(deductionRules) as StructuredResumeRuleId[]) {
-      if (STRUCTURED_RESUME_DEDUCTION_CATALOG[ruleId].dimension === dimension) {
-        lines.push(serializeDeductionRule(ruleId, deductionRules[ruleId]));
+    for (const [rawRuleId, rule] of Object.entries(STRUCTURED_RESUME_DEDUCTION_CATALOG)) {
+      const ruleId = structuredResumeRuleIdSchema.safeParse(rawRuleId);
+      if (ruleId.success && rule.dimension === dimension) {
+        lines.push(serializeDeductionRule(ruleId.data, deductionRules[ruleId.data]));
       }
     }
   }

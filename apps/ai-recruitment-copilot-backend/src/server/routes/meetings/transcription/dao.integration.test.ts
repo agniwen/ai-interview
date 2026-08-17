@@ -34,6 +34,14 @@ const MEETING_ID = `meeting_transcription_test_meeting_${TEST_SUFFIX}`;
 const SOURCE_SHA = "a".repeat(64);
 const runId = (name: string) => `${name}-${TEST_SUFFIX}`;
 
+type HumanRevisionResult = Awaited<ReturnType<typeof createHumanMeetingTranscriptRevision>>;
+
+function isHumanRevision(
+  value: HumanRevisionResult,
+): value is Exclude<HumanRevisionResult, string> {
+  return typeof value !== "string";
+}
+
 const job = {
   meetingId: MEETING_ID,
   model: "qwen3-asr-flash-filetrans",
@@ -229,9 +237,9 @@ describe("Meeting transcription publication", () => {
       .where(
         and(
           eq(meetingProcessingRun.meetingId, MEETING_ID),
-          eq(meetingProcessingRun.provider, "openai"),
-          eq(meetingProcessingRun.model, "gpt-4o-transcribe-diarize"),
-          eq(meetingProcessingRun.region, "openai-default"),
+          eq(meetingProcessingRun.provider, job.provider),
+          eq(meetingProcessingRun.model, job.model),
+          eq(meetingProcessingRun.region, job.region),
         ),
       );
     expect(runs).toEqual(
@@ -309,7 +317,7 @@ describe("Meeting transcription publication", () => {
       createHumanMeetingTranscriptRevision(correction),
     ]);
     expect(results.filter((result) => result === "conflict")).toHaveLength(1);
-    const human = results.find((result) => typeof result !== "string");
+    const human = results.find(isHumanRevision);
     expect(human).toMatchObject({
       basedOnRevisionId: machine?.id,
       createdBy: { id: USER_ID },
@@ -317,7 +325,7 @@ describe("Meeting transcription publication", () => {
       revision: 2,
       turns: [{ speakerDisplayName: "面试官", text: "人工修正文" }],
     });
-    if (!human || typeof human === "string") {
+    if (!human || !isHumanRevision(human)) {
       throw new Error("expected one human correction winner");
     }
     const secondHuman = await createHumanMeetingTranscriptRevision({
@@ -336,7 +344,7 @@ describe("Meeting transcription publication", () => {
       kind: "human",
       revision: 3,
     });
-    if (typeof secondHuman === "string") {
+    if (!isHumanRevision(secondHuman)) {
       throw new TypeError("expected a second human correction");
     }
     await expect(searchTranscript("机器原文")).resolves.toEqual([]);
@@ -451,7 +459,7 @@ describe("Meeting transcription publication", () => {
     });
 
     expect(result).toMatchObject({ kind: "human", revision: 2 });
-    if (typeof result === "string") {
+    if (!isHumanRevision(result)) {
       throw new TypeError("expected a human correction");
     }
     expect(result.turns).toHaveLength(10_000);
@@ -817,6 +825,7 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBeNull();
     await expect(
       loadMeetingTranscriptionChunkCheckpoint(
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         { ...job, pipelineVersion: "final-v2" as never },
         chunk,
       ),

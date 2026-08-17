@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
 import { DateTimePicker } from "@/components/date-time-picker";
 import {
@@ -98,21 +99,20 @@ function ResumeEditSkeleton() {
   );
 }
 
-function getFormErrorMessage(error: unknown): string | null {
-  if (!error) {
+const formErrorSchema = z.union([
+  z.string().transform((message) => ({ message })),
+  z.object({ message: z.string() }),
+]);
+
+function getFormErrorMessage<const T>(error: T): string | null {
+  const parsed = formErrorSchema.safeParse(error);
+  if (!parsed.success) {
     return null;
   }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (typeof error === "object" && "message" in error) {
-    const { message } = error as { message?: unknown };
-    return typeof message === "string" ? message : null;
-  }
-  return null;
+  return parsed.data.message;
 }
 
-function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[] }>) {
+function getFirstResumeEditErrorMessage(meta: Partial<Record<string, { errors?: unknown[] }>>) {
   const fieldOrder = [
     "candidateName",
     "candidateEmail",
@@ -131,7 +131,7 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
   return "请检查简历信息后再保存";
 }
 
-function createResumeEditFormValues(
+export function createResumeEditFormValues(
   detail: ResumeLibraryDetail | null | undefined,
 ): ReturnType<typeof createResumeLibraryFormValues> {
   if (!detail) {
@@ -199,7 +199,12 @@ function ResumeEditBody({
   // Fetch the existing record; only enabled when the dialog is open and has a target id.
   const query = useQuery({
     enabled: open && Boolean(recordId),
-    queryFn: () => fetchStudioResume(slug, recordId as string),
+    queryFn: () => {
+      if (!recordId) {
+        throw new Error("缺少简历记录 ID");
+      }
+      return fetchStudioResume(slug, recordId);
+    },
     queryKey: ["studio-resumes", slug, "edit-detail", recordId] as const,
     staleTime: 0,
   });
@@ -241,8 +246,7 @@ function ResumeEditBody({
       }
     },
     onSubmitInvalid: ({ formApi }) => {
-      const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
-      toast.error(getFirstResumeEditErrorMessage(meta));
+      toast.error(getFirstResumeEditErrorMessage(formApi.store.state.fieldMeta));
     },
     validators: { onSubmit: resumeLibraryEditFormSchema },
   });
@@ -382,7 +386,12 @@ function InterviewEditBody({
     refetch,
   } = useQuery({
     enabled: open && !!recordId,
-    queryFn: () => fetchStudioInterviewRound(slug, recordId as string),
+    queryFn: () => {
+      if (!recordId) {
+        throw new Error("缺少面试轮次 ID");
+      }
+      return fetchStudioInterviewRound(slug, recordId);
+    },
     queryKey: ["studio-interview-round-edit", slug, recordId],
     staleTime: 0,
   });
@@ -488,7 +497,13 @@ function InterviewEditBody({
         {isLoading ? (
           <InterviewEditSkeleton />
         ) : (
-          <form className="space-y-5" id="edit-round-form" onSubmit={(e) => void handleSubmit(e)}>
+          <form
+            className="space-y-5"
+            id="edit-round-form"
+            onSubmit={(event) => {
+              handleSubmit(event);
+            }}
+          >
             {/* 候选人字段说明横幅 / Banner explaining where to edit candidate fields */}
             <Card className="gap-0 rounded-lg py-0">
               <CardContent className="flex flex-col gap-3 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -589,7 +604,13 @@ function InterviewEditBody({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleReset()}>确认重置</AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                handleReset();
+              }}
+            >
+              确认重置
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -161,6 +161,18 @@ function formatResumeEmploymentContext(resumeProfile: ResumeProfile | null): str
   ].join("\n");
 }
 
+export interface FeishuHrEvaluationDependencies {
+  agent: typeof interviewReportEvaluationAgent;
+  createEvidenceSnapshot: typeof createInterviewEvidenceSnapshot;
+  generate: typeof generateStructuredWithMastraAgent;
+}
+
+const defaultFeishuHrEvaluationDependencies: FeishuHrEvaluationDependencies = {
+  agent: interviewReportEvaluationAgent,
+  createEvidenceSnapshot: createInterviewEvidenceSnapshot,
+  generate: generateStructuredWithMastraAgent,
+};
+
 function buildFeishuHrEvaluationPrompt(options: FeishuHrEvaluationInput): string {
   return FEISHU_HR_EVALUATION_PROMPT.replace(
     "{resumeEmploymentContext}",
@@ -172,10 +184,11 @@ function buildFeishuHrEvaluationPrompt(options: FeishuHrEvaluationInput): string
 
 export async function generateFeishuHrEvaluationWithPrompt(
   options: FeishuHrEvaluationInput,
+  dependencies: FeishuHrEvaluationDependencies = defaultFeishuHrEvaluationDependencies,
 ): Promise<FeishuHrEvaluationGeneration> {
   const prompt = buildFeishuHrEvaluationPrompt(options);
-  const evaluation = await generateStructuredWithMastraAgent({
-    agent: interviewReportEvaluationAgent,
+  const evaluation = await dependencies.generate({
+    agent: dependencies.agent,
     prompt,
     schema: feishuHrEvaluationSchema,
     temperature: 0,
@@ -185,16 +198,20 @@ export async function generateFeishuHrEvaluationWithPrompt(
 
 export async function generateFeishuHrEvaluation(
   options: FeishuHrEvaluationInput,
+  dependencies: FeishuHrEvaluationDependencies = defaultFeishuHrEvaluationDependencies,
 ): Promise<FeishuHrEvaluation> {
-  const generated = await generateFeishuHrEvaluationWithPrompt(options);
+  const generated = await generateFeishuHrEvaluationWithPrompt(options, dependencies);
   return generated.evaluation;
 }
 
-async function loadFeishuHrEvaluationInput(options: {
-  conversationId: string;
-  interviewRecordId: string;
-}): Promise<FeishuHrEvaluationInput> {
-  const evidence = await createInterviewEvidenceSnapshot(options);
+async function loadFeishuHrEvaluationInput(
+  options: {
+    conversationId: string;
+    interviewRecordId: string;
+  },
+  dependencies: FeishuHrEvaluationDependencies,
+): Promise<FeishuHrEvaluationInput> {
+  const evidence = await dependencies.createEvidenceSnapshot(options);
   if (evidence.payload.transcript.length === 0) {
     throw new Error("该通知没有可供 AI 分析的面试记录");
   }
@@ -207,16 +224,28 @@ async function loadFeishuHrEvaluationInput(options: {
   };
 }
 
-export async function generateFeishuHrEvaluationForInterview(options: {
-  conversationId: string;
-  interviewRecordId: string;
-}): Promise<FeishuHrEvaluation> {
-  return await generateFeishuHrEvaluation(await loadFeishuHrEvaluationInput(options));
+export async function generateFeishuHrEvaluationForInterview(
+  options: {
+    conversationId: string;
+    interviewRecordId: string;
+  },
+  dependencies: FeishuHrEvaluationDependencies = defaultFeishuHrEvaluationDependencies,
+): Promise<FeishuHrEvaluation> {
+  return await generateFeishuHrEvaluation(
+    await loadFeishuHrEvaluationInput(options, dependencies),
+    dependencies,
+  );
 }
 
-export async function generateFeishuHrEvaluationWithPromptForInterview(options: {
-  conversationId: string;
-  interviewRecordId: string;
-}): Promise<FeishuHrEvaluationGeneration> {
-  return await generateFeishuHrEvaluationWithPrompt(await loadFeishuHrEvaluationInput(options));
+export async function generateFeishuHrEvaluationWithPromptForInterview(
+  options: {
+    conversationId: string;
+    interviewRecordId: string;
+  },
+  dependencies: FeishuHrEvaluationDependencies = defaultFeishuHrEvaluationDependencies,
+): Promise<FeishuHrEvaluationGeneration> {
+  return await generateFeishuHrEvaluationWithPrompt(
+    await loadFeishuHrEvaluationInput(options, dependencies),
+    dependencies,
+  );
 }

@@ -10,6 +10,7 @@ import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-for
  * Single answer: string for single / text questions, string[] for multi.
  */
 export type AnswerValue = string | string[];
+export type AnswerMap = Record<string, AnswerValue>;
 
 /**
  * 必须填写的表单模板（来自服务端的 forms 接口）。

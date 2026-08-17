@@ -16,6 +16,21 @@
  */
 
 import { ApiError } from "./errors";
+import { z } from "zod";
+
+const apiErrorPayloadSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.json()),
+  z.record(z.string(), z.json()),
+]);
+const apiErrorMessageSchema = z.object({
+  error: z.string().min(1).optional(),
+  message: z.string().min(1).optional(),
+});
+type ApiErrorPayload = z.infer<typeof apiErrorPayloadSchema>;
 
 /**
  * `apiFetch` 的额外配置。
@@ -47,12 +62,12 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
  */
 function isRawBody(value: unknown): value is BodyInit {
   return (
-    typeof value === "string" ||
+    z.string().safeParse(value).success ||
     value instanceof FormData ||
     value instanceof Blob ||
     value instanceof URLSearchParams ||
     value instanceof ArrayBuffer ||
-    ArrayBuffer.isView(value as ArrayBufferView)
+    ArrayBuffer.isView(value)
   );
 }
 
@@ -60,13 +75,13 @@ function isRawBody(value: unknown): value is BodyInit {
  * 尝试把错误响应解码为对象 / 文本，失败则返回 null。
  * Best-effort decode of an error response body.
  */
-async function readErrorPayload(response: Response): Promise<unknown> {
+async function readErrorPayload(response: Response): Promise<ApiErrorPayload> {
   const text = await response.text().catch(() => "");
   if (!text) {
     return null;
   }
   try {
-    return JSON.parse(text);
+    return apiErrorPayloadSchema.parse(JSON.parse(text));
   } catch {
     return text;
   }
@@ -76,18 +91,14 @@ async function readErrorPayload(response: Response): Promise<unknown> {
  * 从 payload 中提取人类可读的错误信息。
  * Extract a human-readable message from an error payload.
  */
-function extractMessage(payload: unknown): string | null {
-  if (typeof payload === "string" && payload.length > 0) {
-    return payload;
+function extractMessage(payload: ApiErrorPayload): string | null {
+  const parsedText = z.string().min(1).safeParse(payload);
+  if (parsedText.success) {
+    return parsedText.data;
   }
-  if (payload && typeof payload === "object") {
-    const record = payload as Record<string, unknown>;
-    if (typeof record.message === "string" && record.message.length > 0) {
-      return record.message;
-    }
-    if (typeof record.error === "string" && record.error.length > 0) {
-      return record.error;
-    }
+  const parsedMessage = apiErrorMessageSchema.safeParse(payload);
+  if (parsedMessage.success) {
+    return parsedMessage.data.message ?? parsedMessage.data.error ?? null;
   }
   return null;
 }
@@ -138,6 +149,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (response.status === 404 && allow404) {
+    // SAFETY: allow404 is the caller-selected null branch of this generic response contract.
     return null as T;
   }
 
@@ -148,14 +160,18 @@ export async function apiFetch<T = unknown>(
   }
 
   if (decode === "raw") {
-    return response as unknown as T;
+    // SAFETY: decode="raw" explicitly selects Response as the caller's generic result.
+    return response as T;
   }
 
   // `json` 默认；空响应安全降级为 null。
   // `json` default; empty responses fall back to null.
   const text = await response.text();
   if (!text) {
+    // SAFETY: empty successful responses use the documented null fallback for the generic contract.
     return null as T;
   }
-  return JSON.parse(text) as T;
+  const parsedJson = z.json().parse(JSON.parse(text));
+  // SAFETY: apiFetch callers supply the endpoint DTO; z.json establishes a valid JSON wire value first.
+  return parsedJson as T;
 }

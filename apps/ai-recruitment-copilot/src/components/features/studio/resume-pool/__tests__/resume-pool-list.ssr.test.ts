@@ -1,12 +1,7 @@
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("../resume-pool-details", () => ({
-  ResumePoolCard: ({ record }: { record: { id: string } }) =>
-    createElement("article", { "data-record-id": record.id }),
-}));
+import { describe, expect, it } from "vitest";
 
 describe("resume pool list SSR boundary", () => {
   it("loads without evaluating the client-only masonry package", async () => {
@@ -40,12 +35,14 @@ describe("resume pool list SSR boundary", () => {
         onUpload: () => {},
         publishing: false,
         records: [
+          // SAFETY: This test constructs the value with the asserted contract before this boundary.
           {
             createdAt: "2026-08-14T16:00:00.000Z",
             createdBy: null,
             id: "resume-1",
           } as ResumePoolListRecord,
         ],
+        renderCard: (record) => createElement("article", { "data-record-id": record.id }),
         retriedRecordIds: new Set<string>(),
         retryingRecordId: null,
         scope: "public",

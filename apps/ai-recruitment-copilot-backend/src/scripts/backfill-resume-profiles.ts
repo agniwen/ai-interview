@@ -5,6 +5,7 @@ import { config as loadEnvFile } from "dotenv";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
+import type { JsonValue } from "@arc/db-schema/json";
 import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
@@ -33,7 +34,7 @@ interface EducationBackfillResult {
 }
 
 interface ResumeBackfillLog {
-  [key: string]: unknown;
+  [key: string]: JsonValue | undefined;
   event: string;
 }
 

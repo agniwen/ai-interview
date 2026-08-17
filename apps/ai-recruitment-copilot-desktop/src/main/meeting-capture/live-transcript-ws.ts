@@ -1,6 +1,8 @@
 // oxlint-disable promise/avoid-new -- Node ws exposes readiness only through event callbacks.
 import { randomUUID } from "node:crypto";
+import type { JsonValue } from "@arc/db-schema/json";
 import { WebSocket } from "ws";
+import { z } from "zod";
 
 const MAX_BUFFERED_BYTES = 256 * 1024;
 const LOW_WATER_BYTES = 64 * 1024;
@@ -20,8 +22,37 @@ export interface DashScopeRealtimeWsDependencies {
   model: string;
   onClose?: (reason: string) => void;
   onDrain?: () => void;
-  onEvent?: (event: unknown) => void;
+  onEvent?: (event: JsonValue) => void;
   token: string;
+  webSocket?: RealtimeWebSocketConstructor;
+}
+
+interface RealtimeWebSocket {
+  bufferedAmount: number;
+  close: () => void;
+  on<K extends keyof RealtimeWebSocketEventMap>(
+    event: K,
+    callback: (...args: RealtimeWebSocketEventMap[K]) => void,
+  ): RealtimeWebSocket;
+  readyState: number;
+  send: (data: string, callback?: (error?: Error) => void) => void;
+  terminate: () => void;
+  url: string;
+}
+
+interface RealtimeWebSocketEventMap {
+  close: [code: number, reason: Buffer];
+  error: [error: { message?: string }];
+  message: [data: Buffer | string, isBinary: boolean];
+  open: [];
+}
+
+interface RealtimeWebSocketConstructor {
+  new (
+    url: string,
+    options: { handshakeTimeout: number; headers: { Authorization: string } },
+  ): RealtimeWebSocket;
+  OPEN: number;
 }
 
 function pcmBytesToBase64(bytes: Uint8Array): string {
@@ -37,7 +68,8 @@ function pcmBytesToBase64(bytes: Uint8Array): string {
 export function connectDashScopeRealtimeWs(
   dependencies: DashScopeRealtimeWsDependencies,
 ): DashScopeRealtimeWsConnection {
-  const socket = new WebSocket(
+  const WebSocketImpl = dependencies.webSocket ?? WebSocket;
+  const socket = new WebSocketImpl(
     `${dependencies.baseUrl}?model=${encodeURIComponent(dependencies.model)}`,
     {
       handshakeTimeout: CONNECTION_TIMEOUT_MS,
@@ -87,7 +119,7 @@ export function connectDashScopeRealtimeWs(
       return false;
     }
   };
-  const sendJson = (payload: unknown): boolean => sendText(JSON.stringify(payload));
+  const sendJson = (payload: JsonValue): boolean => sendText(JSON.stringify(payload));
 
   const scheduleDrainPoll = () => {
     if (closed || !backpressured || drainTimer) {
@@ -95,7 +127,7 @@ export function connectDashScopeRealtimeWs(
     }
     drainTimer = setTimeout(() => {
       drainTimer = null;
-      if (closed || socket.readyState !== WebSocket.OPEN) {
+      if (closed || socket.readyState !== WebSocketImpl.OPEN) {
         return;
       }
       if (socket.bufferedAmount <= LOW_WATER_BYTES) {
@@ -126,7 +158,7 @@ export function connectDashScopeRealtimeWs(
       model: dependencies.model,
       url: socket.url,
     });
-    const session: Record<string, unknown> = {
+    const baseSession = {
       input_audio_format: "pcm",
       sample_rate: 16_000,
       turn_detection: {
@@ -135,9 +167,9 @@ export function connectDashScopeRealtimeWs(
         type: "server_vad",
       },
     };
-    if (dependencies.language) {
-      session.input_audio_transcription = { language: dependencies.language };
-    }
+    const session = dependencies.language
+      ? { ...baseSession, input_audio_transcription: { language: dependencies.language } }
+      : baseSession;
     sendJson({ event_id: randomUUID(), session, type: "session.update" });
   });
 
@@ -146,7 +178,10 @@ export function connectDashScopeRealtimeWs(
       return;
     }
     try {
-      dependencies.onEvent?.(JSON.parse(data.toString()) as unknown);
+      const providerEvent = z.json().safeParse(JSON.parse(data.toString()));
+      if (providerEvent.success) {
+        dependencies.onEvent?.(providerEvent.data);
+      }
     } catch {
       // Ignore malformed provider events without failing the sidecar.
     }
@@ -166,7 +201,7 @@ export function connectDashScopeRealtimeWs(
       if (closed) {
         return;
       }
-      if (socket.readyState === WebSocket.OPEN && !finishSent) {
+      if (socket.readyState === WebSocketImpl.OPEN && !finishSent) {
         finishSent = true;
         if (sendJson({ event_id: randomUUID(), type: "session.finish" })) {
           const timer = setTimeout(() => {
@@ -185,7 +220,7 @@ export function connectDashScopeRealtimeWs(
       notifyClose("closed-by-client");
     },
     sendPcm: (bytes) => {
-      if (closed || socket.readyState !== WebSocket.OPEN) {
+      if (closed || socket.readyState !== WebSocketImpl.OPEN) {
         return false;
       }
       const payload = JSON.stringify({

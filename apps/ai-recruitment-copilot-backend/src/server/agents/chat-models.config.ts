@@ -61,7 +61,7 @@ export const LOCAL_CHAT_MODEL_IDS: ReadonlySet<string> = new Set(
  * Clamp an arbitrary id to the local catalog; unknown values fall back to the default.
  */
 export function resolveChatModelId(id: string | null | undefined): string {
-  if (typeof id === "string" && LOCAL_CHAT_MODEL_IDS.has(id)) {
+  if (id && LOCAL_CHAT_MODEL_IDS.has(id)) {
     return id;
   }
   return LOCAL_DEFAULT_MODEL_ID;

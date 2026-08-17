@@ -159,13 +159,38 @@ export interface QueueJobsResult {
 }
 
 type BadgeVariant = ComponentProps<typeof Badge>["variant"];
+interface StatusMeta {
+  label: string;
+  variant: BadgeVariant;
+}
+
+interface QueueJobData {
+  batchId?: string;
+  itemId?: string;
+  jobDescriptionId?: string;
+  resumeRecordId?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
+}
+
+export function isQueueJobData(value: unknown): value is QueueJobData {
+  return (
+    isRecord(value) &&
+    isOptionalString(value.itemId) &&
+    isOptionalString(value.batchId) &&
+    isOptionalString(value.resumeRecordId) &&
+    isOptionalString(value.jobDescriptionId)
+  );
+}
 
 export function formatCount(value: number): string {
   return countFormatter.format(value);
-}
-
-export function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? "null";
 }
 
 export function getInitials(name?: string | null, email?: string | null): string {
@@ -196,21 +221,15 @@ export function stateLabel(state: string): string {
 }
 
 export function normalizeStateFilter(value: string): JobStateFilter {
-  return JOB_STATE_OPTIONS.some((option) => option.value === value)
-    ? (value as JobStateFilter)
-    : "all";
+  return JOB_STATE_OPTIONS.find((option) => option.value === value)?.value ?? "all";
 }
 
 export function normalizeUploadStatusFilter(value: string): UploadStatusFilter {
-  return UPLOAD_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as UploadStatusFilter)
-    : "all";
+  return UPLOAD_STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.value ?? "all";
 }
 
 export function normalizeParseStatusFilter(value: string): ParseStatusFilter {
-  return PARSE_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as ParseStatusFilter)
-    : "all";
+  return PARSE_STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.value ?? "all";
 }
 
 export function stateVariant(state: string): BadgeVariant {
@@ -229,10 +248,7 @@ export function stateVariant(state: string): BadgeVariant {
   return "outline";
 }
 
-export function uploadItemStatusMeta(
-  status: string,
-  target: string,
-): { label: string; variant: BadgeVariant } {
+export function uploadItemStatusMeta(status: string, target: string): StatusMeta {
   if (status === "pending") {
     return { label: "排队中", variant: "outline" };
   }
@@ -254,10 +270,7 @@ export function uploadItemStatusMeta(
   return { label: status || "未知", variant: "outline" };
 }
 
-export function resumeParseStatusMeta(status: string | null): {
-  label: string;
-  variant: BadgeVariant;
-} {
+export function resumeParseStatusMeta(status: string | null): StatusMeta {
   if (status === "ready") {
     return { label: "已解析", variant: "success" };
   }
@@ -273,7 +286,7 @@ export function resumeParseStatusMeta(status: string | null): {
   return { label: status || "—", variant: "outline" };
 }
 
-export function batchStatusMeta(status: string): { label: string; variant: BadgeVariant } {
+export function batchStatusMeta(status: string): StatusMeta {
   if (status === "running") {
     return { label: "运行中", variant: "info" };
   }
@@ -289,19 +302,14 @@ export function batchStatusMeta(status: string): { label: string; variant: Badge
   return { label: status || "未知", variant: "outline" };
 }
 
-export function getJobDataSummary(data: unknown): string {
-  if (!data || typeof data !== "object") {
+export function getJobDataSummary(data: QueueJobData | null): string {
+  if (!data) {
     return "—";
   }
-  const record = data as Record<string, unknown>;
-  const itemId = typeof record.itemId === "string" ? record.itemId : null;
-  const batchId = typeof record.batchId === "string" ? record.batchId : null;
+  const { batchId, itemId, jobDescriptionId, resumeRecordId } = data;
   if (itemId && batchId) {
     return `${itemId} / ${batchId}`;
   }
-  const resumeRecordId = typeof record.resumeRecordId === "string" ? record.resumeRecordId : null;
-  const jobDescriptionId =
-    typeof record.jobDescriptionId === "string" ? record.jobDescriptionId : null;
   if (resumeRecordId && jobDescriptionId) {
     return `${resumeRecordId} / ${jobDescriptionId}`;
   }

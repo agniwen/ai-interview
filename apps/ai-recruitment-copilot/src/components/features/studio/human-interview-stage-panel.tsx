@@ -13,6 +13,7 @@ import type {
 import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
+  isApiError,
   listHumanInterviewMeetings,
   listHumanInterviewRounds,
 } from "@/lib/client/api";
@@ -156,7 +157,7 @@ export function HumanInterviewStagePanel({
         });
         return { feishuFailure: null };
       } catch (error) {
-        const feishuFailure = getCreatedMeetingFeishuFailure(error);
+        const feishuFailure = isApiError(error) ? getCreatedMeetingFeishuFailure(error) : null;
         if (!feishuFailure) {
           throw error;
         }

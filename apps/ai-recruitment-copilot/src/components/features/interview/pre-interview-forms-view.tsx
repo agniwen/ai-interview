@@ -3,6 +3,8 @@
 import { IconClipboardList, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -19,22 +21,22 @@ import type {
   RequiredTemplate,
 } from "./pre-interview-forms/types";
 
+const formErrorPayloadSchema = z.object({ error: z.string().optional() });
+
 function omitFieldError(errors: FieldErrorMap, questionId: string): FieldErrorMap {
   return Object.fromEntries(Object.entries(errors).filter(([key]) => key !== questionId));
 }
 
-export async function fetchPreInterviewForms(
+export function fetchPreInterviewForms(
   interviewId: string,
   roundId: string,
 ): Promise<FormsPayload> {
-  const response = await rpc.api.interview[":id"][":roundId"].forms.$get({
-    param: { id: interviewId, roundId },
-  });
-  const payload = (await response.json()) as FormsPayload | { error?: string };
-  if (!response.ok) {
-    throw new Error("error" in payload && payload.error ? payload.error : "加载面试表单失败");
-  }
-  return payload as FormsPayload;
+  return rpcFetch<FormsPayload>(
+    rpc.api.interview[":id"][":roundId"].forms.$get({
+      param: { id: interviewId, roundId },
+    }),
+    "加载面试表单失败",
+  );
 }
 
 async function submitForm(
@@ -48,9 +50,12 @@ async function submitForm(
     json: { answers, versionId },
     param: { id: interviewId, roundId, templateId },
   });
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  const payload = formErrorPayloadSchema.safeParse(await response.json().catch(() => null));
   if (!response.ok) {
-    return { error: payload?.error ?? "提交失败", success: false };
+    return {
+      error: payload.success ? (payload.data.error ?? "提交失败") : "提交失败",
+      success: false,
+    };
   }
   return { success: true };
 }
@@ -210,7 +215,9 @@ export function PreInterviewFormsView({
         actions={
           <Button
             disabled={submitting || pendingTemplates.length === 0}
-            onClick={() => void handleSubmitAll()}
+            onClick={() => {
+              handleSubmitAll();
+            }}
             size="sm"
           >
             {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}

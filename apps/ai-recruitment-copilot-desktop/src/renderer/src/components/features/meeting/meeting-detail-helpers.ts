@@ -8,13 +8,13 @@ import type { LiveTranscriptDraftStatus } from "@/lib/meeting-capture/live-trans
 import type { LocalMeetingSessionState } from "../../../../../preload/local-meeting-session";
 import type { WorkspaceSavePhase } from "../../../../../preload/meeting-capture";
 
-const LOCAL_WORKSPACE_SAVE_LABEL: Record<WorkspaceSavePhase, string> = {
+const LOCAL_WORKSPACE_SAVE_LABEL = {
   "action-required": "上传需要处理",
   uploading: "正在上传",
   verifying: "正在验证",
   "waiting-for-network": "等待网络后自动上传",
   "workspace-verified": "已保存到工作区",
-};
+} satisfies Record<WorkspaceSavePhase, string>;
 
 export function localWorkspaceSaveLabel(state: WorkspaceSavePhase): string {
   return LOCAL_WORKSPACE_SAVE_LABEL[state];

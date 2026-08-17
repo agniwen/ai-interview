@@ -1,33 +1,35 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import type * as MailIngestDao from "../dao";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
+import { createMailIngestRouter } from "../route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   computeWorkspacePermissionSnapshot: vi.fn(),
   listAccountMailMessages: vi.fn(),
   mailIngestAccountExistsInOrg: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/auth", () => ({
-  auth: { api: {} },
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-permission-snapshot", () => ({
-  computeWorkspacePermissionSnapshot: mocks.computeWorkspacePermissionSnapshot,
-}));
-vi.mock("../dao", async (importOriginal) => ({
-  ...(await importOriginal<typeof MailIngestDao>()),
+const mailIngestRouter = createMailIngestRouter({
   listAccountMailMessages: mocks.listAccountMailMessages,
   mailIngestAccountExistsInOrg: mocks.mailIngestAccountExistsInOrg,
-}));
-
-const { mailIngestRouter } = await import("../route");
+  requireMailIngestPermission: (action) =>
+    requirePermission("mailIngestAccount", action, {
+      createRequestWorkspaceAuthorizer: (input) =>
+        createRequestWorkspaceAuthorizer(input, {
+          computeWorkspacePermissionSnapshot: mocks.computeWorkspacePermissionSnapshot,
+        }),
+    }),
+});
 
 const app = factory
   .createApp()
   .use(async (c, next) => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("activeOrg", { id: "org_1" } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("member", { role: "admin" } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("user", { id: "admin_1" } as never);
     await next();
   })

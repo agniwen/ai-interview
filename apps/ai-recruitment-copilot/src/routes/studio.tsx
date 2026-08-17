@@ -7,8 +7,7 @@ function StudioRoute() {
 
 export const Route = createFileRoute("/studio")({
   component: StudioRoute,
-  loader: async (loaderContext) => {
-    const { location } = loaderContext as { location: { pathname: string } };
+  loader: async ({ location }) => {
     if (location.pathname !== "/studio") {
       return null;
     }

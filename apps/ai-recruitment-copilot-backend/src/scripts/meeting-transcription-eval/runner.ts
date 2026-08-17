@@ -12,24 +12,25 @@ import { MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS } from "./dataset"
 import type { MeetingTranscriptionEvalCase } from "./dataset";
 import { scoreMeetingTranscription } from "./metrics";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
+import type { JsonValue } from "@arc/db-schema/json";
 
 export interface MeetingTranscriptionBenchmarkAdapter {
-  deleteArtifact?: (artifact: unknown) => Promise<void>;
+  deleteArtifact?: (artifact: JsonValue) => Promise<void>;
   transcribe: (input: {
     benchmarkCase: MeetingTranscriptionEvalCase;
     signal: AbortSignal;
   }) => Promise<{
-    artifact?: unknown;
+    artifact?: JsonValue;
     retryCount?: number;
     transcript: CanonicalMeetingTranscript;
   }>;
 }
 
 export class MeetingTranscriptionBenchmarkCallError extends Error {
-  readonly artifact: unknown;
+  readonly artifact: JsonValue | undefined;
   readonly retryCount: number;
 
-  constructor(cause: unknown, artifact: unknown, retryCount = 0) {
+  constructor(cause: unknown, artifact: JsonValue | undefined, retryCount = 0) {
     super("Meeting transcription benchmark provider call failed after creating an artifact", {
       cause,
     });
@@ -41,7 +42,7 @@ export class MeetingTranscriptionBenchmarkCallError extends Error {
 
 async function cleanupArtifact(
   adapter: MeetingTranscriptionBenchmarkAdapter,
-  artifact: unknown,
+  artifact: JsonValue | undefined,
 ): Promise<MeetingTranscriptionBenchmarkRun["deletion"]> {
   if (artifact === undefined) {
     return "not-applicable";
@@ -57,7 +58,9 @@ async function cleanupArtifact(
   }
 }
 
-function classifyError(error: unknown): NonNullable<MeetingTranscriptionBenchmarkRun["errorCode"]> {
+function classifyError(
+  error: Error | undefined,
+): NonNullable<MeetingTranscriptionBenchmarkRun["errorCode"]> {
   if (error instanceof MeetingProviderQuotaError) {
     return "rate-limited";
   }
@@ -84,9 +87,9 @@ export async function runMeetingTranscriptionBenchmarkCase(input: {
   const startedAt = performance.now();
   let attempts = 0;
   let adapterRetryCount = 0;
-  let artifact: unknown;
+  let artifact: JsonValue | undefined;
   let transcript: CanonicalMeetingTranscript | null = null;
-  let failure: unknown;
+  let failure: Error | undefined;
   try {
     transcript = await pRetry(
       async (attemptNumber) => {
@@ -125,10 +128,16 @@ export async function runMeetingTranscriptionBenchmarkCase(input: {
       },
     );
   } catch (error) {
-    failure = error instanceof MeetingTranscriptionBenchmarkCallError ? error.cause : error;
-    if (error instanceof MeetingTranscriptionBenchmarkCallError) {
-      ({ artifact } = error);
-      adapterRetryCount = error.retryCount;
+    const caughtError = error instanceof Error ? error : new Error(String(error));
+    if (caughtError instanceof MeetingTranscriptionBenchmarkCallError) {
+      failure =
+        caughtError.cause instanceof Error
+          ? caughtError.cause
+          : new Error(String(caughtError.cause));
+      ({ artifact } = caughtError);
+      adapterRetryCount = caughtError.retryCount;
+    } else {
+      failure = caughtError;
     }
   }
   const latencyMs = Math.round(performance.now() - startedAt);

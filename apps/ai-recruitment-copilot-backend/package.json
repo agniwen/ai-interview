@@ -30,7 +30,6 @@
     "eval:structured-resumes": "tsx src/scripts/structured-resume-eval.ts",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "repair:resume-pool-job-associations": "tsx src/scripts/repair-resume-pool-job-associations.ts",
-    "studio:dev": "mastra dev --env ../ai-recruitment-copilot/.env",
     "start": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -52,9 +51,7 @@
     "@livekit/protocol": "^1.45.8",
     "@mastra/ai-sdk": "^1.6.1",
     "@mastra/core": "^1.50.1",
-    "@mastra/editor": "0.13.6",
     "@mastra/evals": "^1.5.0",
-    "@mastra/hono": "^1.5.2",
     "@mastra/mcp": "^1.13.1",
     "@mastra/memory": "^1.22.2",
     "@mastra/observability": "^1.16.0",
@@ -94,7 +91,6 @@
     "@types/node": "24.11.2",
     "@types/react": "catalog:",
     "@types/write-file-atomic": "^4.0.3",
-    "mastra": "1.18.2",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

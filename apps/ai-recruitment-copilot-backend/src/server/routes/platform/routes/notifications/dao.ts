@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   interviewConversation,
@@ -14,6 +15,7 @@ import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/
 export const platformNotificationStatusFilterValues = ["all", "pending", "sent", "failed"] as const;
 
 export const platformNotificationProviderFilterValues = ["all", ...FEISHU_PROVIDER_IDS] as const;
+const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);
 
 export type PlatformNotificationStatusFilter =
   (typeof platformNotificationStatusFilterValues)[number];
@@ -213,7 +215,7 @@ export async function queryPaginatedPlatformNotifications(
         name: row.organizationName,
         slug: row.organizationSlug,
       },
-      providerId: row.providerId as FeishuProviderId,
+      providerId: feishuProviderIdSchema.parse(row.providerId),
       recipientOpenId: row.recipientOpenId,
       recipientUser: {
         email: row.recipientEmail,

@@ -1,17 +1,8 @@
 import { isRedirect } from "@tanstack/react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Route } from "@/routes/w.$slug";
 
 const mocks = vi.hoisted(() => ({
   getWorkspaceAccessState: vi.fn(),
-}));
-
-vi.mock("@/lib/start/auth-session", () => ({
-  getWorkspaceAccessState: mocks.getWorkspaceAccessState,
-}));
-
-vi.mock("@/lib/client/build-info", () => ({
-  BUILD_TIME: "2026-08-01T00:00:00.000Z",
 }));
 
 describe("workspace route access", () => {
@@ -20,20 +11,20 @@ describe("workspace route access", () => {
   });
 
   it("preserves the requested workspace page in the login callback", async () => {
+    vi.stubGlobal("__ARC_BUILD_TIME__", "2026-08-01T00:00:00.000Z");
+    const { loadWorkspaceRoute } = await import("@/routes/w.$slug");
     mocks.getWorkspaceAccessState.mockResolvedValue({ status: "unauthenticated" });
-    const { loader } = Route.options;
-    if (typeof loader !== "function") {
-      throw new TypeError("Workspace route loader is unavailable.");
-    }
-
     try {
-      await loader({
-        location: {
-          href: "/w/acme/studio/resumes/record-1?tab=offer",
-          pathname: "/w/acme/studio/resumes/record-1",
+      await loadWorkspaceRoute(
+        {
+          location: {
+            href: "/w/acme/studio/resumes/record-1?tab=offer",
+            pathname: "/w/acme/studio/resumes/record-1",
+          },
+          params: { slug: "acme" },
         },
-        params: { slug: "acme" },
-      } as never);
+        { getWorkspaceAccessState: mocks.getWorkspaceAccessState },
+      );
       throw new Error("Expected the workspace loader to redirect.");
     } catch (error) {
       expect(isRedirect(error)).toBe(true);

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { DatePicker } from "@/components/date-time-picker";
 import { customColumn, DataGrid, dateColumn, useDataGridState } from "@/components/data-grid";
@@ -75,18 +76,40 @@ const STATUS_LABELS = {
 } as const;
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ label, value }));
-const JD_BIND_LABELS: Record<string, string> = {
+const mailMessageStatusSchema = z.enum(["failed", "processing", "queued", "skipped"]);
+const mailIngestRouteParamsSchema = z.object({ id: z.string(), slug: z.string() });
+const JD_BIND_LABELS = {
   ambiguous: "多个匹配",
   bound: "已绑定",
   fallback: "兜底绑定",
   unmatched: "未匹配",
-};
-const POOL_SUMMARY_LABELS: Record<string, string> = {
+} as const;
+const POOL_SUMMARY_LABELS = {
   all_failed: "全部失败",
   all_pooled: "全部入池",
   parsing: "解析中",
   partial_failed: "部分失败",
-};
+} as const;
+
+function isJdBindStatus(value: string): value is keyof typeof JD_BIND_LABELS {
+  return value in JD_BIND_LABELS;
+}
+
+function isPoolSummary(value: string): value is keyof typeof POOL_SUMMARY_LABELS {
+  return value in POOL_SUMMARY_LABELS;
+}
+
+interface MailIngestDateRange {
+  receivedFrom?: string;
+  receivedTo?: string;
+}
+
+interface MailIngestMessagesQuery extends MailIngestDateRange {
+  keyword?: string;
+  page: string;
+  pageSize: string;
+  status?: MailMessageRecord["status"];
+}
 
 function statusVariant(status: MailMessageRecord["status"]) {
   if (status === "failed") {
@@ -102,7 +125,7 @@ function statusVariant(status: MailMessageRecord["status"]) {
 }
 
 export function MailIngestLogPage() {
-  const { id, slug } = useParams({ strict: false }) as { id: string; slug: string };
+  const { id, slug } = mailIngestRouteParamsSchema.parse(useParams({ strict: false }));
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<string | null>(null);
   const headerOverride = useMemo(
@@ -110,9 +133,13 @@ export function MailIngestLogPage() {
       <div className="flex min-w-0 items-center gap-2">
         <Button
           className="-ml-1 h-8 shrink-0 px-2 text-muted-foreground hover:text-foreground"
-          onClick={() =>
-            void navigate({ params: { slug }, to: "/w/$slug/studio/mail-ingest-accounts" })
-          }
+          onClick={async () => {
+            try {
+              await navigate({ params: { slug }, to: "/w/$slug/studio/mail-ingest-accounts" });
+            } catch {
+              toast.error("返回邮箱监听失败");
+            }
+          }}
           size="sm"
           type="button"
           variant="ghost"
@@ -144,18 +171,22 @@ export function MailIngestLogPage() {
       params.filters.receivedFrom || null,
       params.filters.receivedTo || null,
     );
+    const query: MailIngestMessagesQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      ...range,
+    };
+    if (params.search) {
+      query.keyword = params.search;
+    }
+    const status = mailMessageStatusSchema.safeParse(params.filters.status);
+    if (status.success) {
+      query.status = status.data;
+    }
     const result = await rpcFetch<{ records: MailMessageRecord[]; total: number }>(
       rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
         param: { id, slug },
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { keyword: params.search } : {}),
-          ...(params.filters.status
-            ? { status: params.filters.status as MailMessageRecord["status"] }
-            : {}),
-          ...range,
-        },
+        query,
       }),
       "加载入库记录失败",
     );
@@ -197,11 +228,16 @@ export function MailIngestLogPage() {
         cell: (record) => (
           <div className="flex min-w-40 flex-col gap-1">
             <span>
-              {record.boundJobDescriptionName ?? JD_BIND_LABELS[record.jdBindStatus ?? ""] ?? "—"}
+              {record.boundJobDescriptionName ??
+                (record.jdBindStatus && isJdBindStatus(record.jdBindStatus)
+                  ? JD_BIND_LABELS[record.jdBindStatus]
+                  : "—")}
             </span>
             {record.boundJobDescriptionName && record.jdBindStatus ? (
               <span className="text-muted-foreground text-xs">
-                {JD_BIND_LABELS[record.jdBindStatus] ?? record.jdBindStatus}
+                {isJdBindStatus(record.jdBindStatus)
+                  ? JD_BIND_LABELS[record.jdBindStatus]
+                  : record.jdBindStatus}
               </span>
             ) : null}
           </div>
@@ -215,7 +251,7 @@ export function MailIngestLogPage() {
             <span>
               {`${record.resumeAttachmentCount ?? "—"}/${record.attachmentCount ?? "—"}`}
               {record.poolSummary
-                ? ` · ${POOL_SUMMARY_LABELS[record.poolSummary] ?? record.poolSummary}`
+                ? ` · ${isPoolSummary(record.poolSummary) ? POOL_SUMMARY_LABELS[record.poolSummary] : record.poolSummary}`
                 : ""}
             </span>
             {record.attachments.length > 0 ? (

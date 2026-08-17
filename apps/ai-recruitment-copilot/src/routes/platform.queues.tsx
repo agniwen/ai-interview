@@ -1,12 +1,12 @@
 import { HydrationBoundary } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { QueuesGrid } from "@/components/features/platform/queues/queues-grid";
+import { coerceSearchParams } from "@/lib/client/data-grid-search";
+import { parseDehydratedState } from "@/lib/client/query-hydration";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformQueuesState } from "@/lib/start/platform/queues.functions";
-import type { PlatformQueuesState } from "@/lib/start/platform/queues.functions";
 import type { PlatformQueueFilters } from "@/lib/start/platform/queues.server";
 
 const INITIAL_PAGE_SIZE = 20;
@@ -15,35 +15,8 @@ const INITIAL_FILTERS: PlatformQueueFilters = {
   state: "all",
 };
 
-type SearchParamsPrimitive = boolean | number | string;
-type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
-
-function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string") {
-      out[key] = value;
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is boolean | number | string =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
-}
-
 function parsePlatformQueuesQuery(
-  searchParams: SearchParamsRecord,
+  searchParams: ReturnType<typeof coerceSearchParams>,
 ): DataGridQueryState<PlatformQueueFilters> {
   return parseDataGridSearchParams(searchParams, {
     defaultPageSize: INITIAL_PAGE_SIZE,
@@ -59,7 +32,7 @@ function PlatformQueuesRoute() {
   }
 
   return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
+    <HydrationBoundary state={parseDehydratedState(state.dehydratedState)}>
       <div className="container mx-auto">
         <QueuesGrid />
       </div>
@@ -68,15 +41,12 @@ function PlatformQueuesRoute() {
 }
 
 export const Route = createFileRoute("/platform/queues")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
-  loader: async (loaderContext) => {
-    const { location } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-    };
+  validateSearch: coerceSearchParams,
+  loader: async ({ location }) => {
     const query = parsePlatformQueuesQuery(location.search);
-    const state = (await loadPlatformQueuesState({
+    const state = await loadPlatformQueuesState({
       data: { query },
-    })) as PlatformQueuesState;
+    });
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });
     }

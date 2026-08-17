@@ -144,11 +144,7 @@ function ResumeReviewDetailPage() {
 }
 
 export const Route = createFileRoute("/resume-review/$slug/$recordId")({
-  loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { pathname: string };
-      params: { recordId: string; slug: string };
-    };
+  loader: async ({ location, params }) => {
     const state = await getWorkspaceAccessState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

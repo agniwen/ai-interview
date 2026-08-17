@@ -4,6 +4,11 @@ import { studioInterview, studioOrgSkill } from "@arc/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+interface NormalizedSkillEntry {
+  display: string;
+  normalized: string;
+}
+
 /**
  * 技能归一化：trim + 连续空白折叠为单空格 + lowercase。
  * 「React」/「react」/「  React  」/「Claude  Code」 → 「react」/「claude code」。
@@ -13,14 +18,9 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * Display keeps the trimmed + space-collapsed original casing — stored once
  * per org in studio_org_skill rather than duplicated per candidate.
  */
-export function normalizeSkill(raw: string): { normalized: string; display: string } {
+export function normalizeSkill(raw: string): NormalizedSkillEntry {
   const display = raw.trim().replaceAll(/\s+/g, " ");
   return { display, normalized: display.toLowerCase() };
-}
-
-interface NormalizedSkillEntry {
-  normalized: string;
-  display: string;
 }
 
 function collectNormalizedSkills(
@@ -31,9 +31,6 @@ function collectNormalizedSkills(
   }
   const seen = new Map<string, string>();
   for (const raw of skills) {
-    if (typeof raw !== "string") {
-      continue;
-    }
     const { normalized, display } = normalizeSkill(raw);
     if (normalized.length === 0 || seen.has(normalized)) {
       continue;

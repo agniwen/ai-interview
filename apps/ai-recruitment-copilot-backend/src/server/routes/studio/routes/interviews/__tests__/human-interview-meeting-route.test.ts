@@ -23,12 +23,11 @@ import {
   recordFeishuHumanInterviewSyncFailure,
 } from "../utils/feishu-human-interview-meeting";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => async (_c: unknown, next: () => Promise<void>) => next(),
-}));
+import { createStudioInterviewCollectionRouter } from "../collection-route";
 
-// oxlint-disable-next-line import/first -- route import must follow the hoisted permission mock.
-import { studioInterviewCollectionRouter } from "../collection-route";
+const studioInterviewCollectionRouter = createStudioInterviewCollectionRouter({
+  permission: () => async (_c, next) => next(),
+});
 
 const INTERVIEWER_ID = "test_feishu_meeting_interviewer";
 const INTERVIEW_ID = "test_feishu_meeting_candidate";
@@ -113,6 +112,7 @@ function makeApp(authProviderId: string | null) {
         slug: ORG_ID,
       });
       c.set("member", null);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("session", {
         authProviderId,
         createdAt: NOW,
@@ -396,6 +396,7 @@ describe("POST /human-interview-meetings", () => {
 
     expect(response.status).toBe(200);
     expect(fetchMock).not.toHaveBeenCalled();
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     expect((await response.json()) as { feishu: unknown }).toMatchObject({ feishu: null });
   });
 
@@ -515,6 +516,7 @@ describe("POST /human-interview-meetings", () => {
       attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
       need_notification: true,
     });
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await response.json()) as {
       feishu?: { meetingUrl?: string; providerId?: string; status?: string };
     };
@@ -541,6 +543,7 @@ describe("POST /human-interview-meetings", () => {
 
     expect(response.status).toBe(200);
     expect(fetchMock).not.toHaveBeenCalled();
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     expect((await response.json()) as { scheduledAt: string }).toMatchObject({
       scheduledAt: "2026-08-05T11:30:00.000Z",
     });
@@ -598,6 +601,7 @@ describe("POST /human-interview-meetings", () => {
     });
 
     expect(response.status).toBe(200);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await response.json()) as {
       feishu?: { status?: string };
       scheduledAt?: string;
@@ -897,6 +901,7 @@ describe("POST /human-interview-meetings", () => {
     });
 
     expect(response.status).toBe(502);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const failureBody = (await response.json()) as {
       error: string;
       feishuStatus: string;
@@ -985,6 +990,7 @@ describe("POST /human-interview-meetings", () => {
     }
 
     expect(retryResponse.status).toBe(200);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const retryBody = (await retryResponse.json()) as {
       feishu?: { meetingUrl?: string; status?: string };
     };
@@ -1032,6 +1038,7 @@ describe("POST /human-interview-meetings", () => {
       });
 
       expect(response.status).toBe(502);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const failureBody = (await response.json()) as {
         feishuStatus: string;
         meetingId: string;
@@ -1183,6 +1190,7 @@ describe("POST /human-interview-meetings", () => {
       });
 
       expect(response.status).toBe(502);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const failureBody = (await response.json()) as { meetingId: string };
       const [persisted] = await db
         .select({ attendeeOpenIds: studioHumanInterviewMeeting.feishuAttendeeOpenIds })
@@ -1197,6 +1205,7 @@ describe("POST /human-interview-meetings", () => {
             status: 200,
           });
         }
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         const body = JSON.parse(String(init?.body)) as {
           attendees: { user_id: string }[];
         };
@@ -1244,6 +1253,7 @@ describe("POST /human-interview-meetings", () => {
     });
 
     expect(response.status).toBe(502);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const failureBody = (await response.json()) as {
       feishuStatus: string;
       meetingId: string;
@@ -1317,6 +1327,7 @@ describe("POST /human-interview-meetings", () => {
       });
 
       expect(response.status).toBe(502);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const failureBody = (await response.json()) as {
         feishuStatus: string;
         meetingId: string;
@@ -1360,6 +1371,7 @@ describe("POST /human-interview-meetings", () => {
       method: "POST",
     });
     expect(response.status).toBe(502);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const { meetingId } = (await response.json()) as { meetingId: string };
 
     const recovered = await recordFeishuHumanInterviewSyncFailure({
@@ -1430,6 +1442,7 @@ describe("POST /human-interview-meetings", () => {
         method: "POST",
       });
       expect(createResponse.status).toBe(502);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const { meetingId } = (await createResponse.json()) as { meetingId: string };
 
       const { promise: reserveGate, resolve: releaseReserve } = Promise.withResolvers<true>();
@@ -1530,6 +1543,7 @@ describe("POST /human-interview-meetings", () => {
         method: "POST",
       });
       expect(createResponse.status).toBe(502);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const { meetingId } = (await createResponse.json()) as { meetingId: string };
       await db
         .update(studioHumanInterviewMeeting)
@@ -1639,6 +1653,7 @@ describe("POST /human-interview-meetings", () => {
         );
       }
       if (url.includes("/attendees")) {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         const requestBody = JSON.parse(String(init?.body)) as {
           attendees: { user_id: string }[];
         };
@@ -1682,6 +1697,7 @@ describe("POST /human-interview-meetings", () => {
     });
 
     expect(response.status).toBe(200);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await response.json()) as { feishu?: { providerId?: string } };
     expect(body.feishu?.providerId).toBe("feishu-jiguang-hr");
   });

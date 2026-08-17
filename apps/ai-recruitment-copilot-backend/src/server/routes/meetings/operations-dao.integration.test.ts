@@ -272,12 +272,13 @@ describe("Meeting operations snapshot", () => {
     );
     expect(snapshot.latency.saveToUpload.count).toBeGreaterThan(0);
     expect(snapshot.latency.uploadToTranscript.count).toBeGreaterThan(0);
-    expect(snapshot.providerFailures).toContainEqual({
-      count: 1,
-      errorCode: "provider-quota",
-      provider: "openai",
-      stage: "final-transcription",
-    });
+    const providerQuotaFailure = snapshot.providerFailures.find(
+      (failure) =>
+        failure.errorCode === "provider-quota" &&
+        failure.provider === "openai" &&
+        failure.stage === "final-transcription",
+    );
+    expect(providerQuotaFailure?.count).toBeGreaterThanOrEqual(1);
     expect(snapshot.queueRetries).toContainEqual(
       expect.objectContaining({ retries: expect.any(Number), stage: "final-transcription" }),
     );

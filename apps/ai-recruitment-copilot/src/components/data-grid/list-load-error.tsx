@@ -4,10 +4,6 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : "加载列表失败，请稍后重试。";
-}
-
 export function ListLoadError({
   compact = false,
   error,
@@ -17,6 +13,8 @@ export function ListLoadError({
   error: unknown;
   onRetry?: () => void;
 }) {
+  const message =
+    error instanceof Error && error.message ? error.message : "加载列表失败，请稍后重试。";
   return (
     <div
       className={cn(
@@ -30,7 +28,7 @@ export function ListLoadError({
       <IconAlertCircle className={cn("shrink-0 text-destructive", compact ? "size-5" : "size-6")} />
       <div className={cn("space-y-1", compact && "min-w-0 flex-1")}>
         <p className="font-medium text-sm">列表加载失败</p>
-        <p className="text-muted-foreground text-sm">{errorMessage(error)}</p>
+        <p className="text-muted-foreground text-sm">{message}</p>
       </div>
       {onRetry ? (
         <Button onClick={onRetry} size="sm" variant="outline">

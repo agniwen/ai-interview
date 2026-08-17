@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import type { MeetingAccessRole, MeetingGrantRole } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +11,8 @@ import {
   updateMeetingShare,
 } from "@/lib/client/meetings";
 import { fetchWorkspaceMembers } from "@/lib/client/studio-resumes";
+
+const meetingGrantRoleSchema = z.enum(["editor", "viewer"]);
 
 export function canManageMeetingSharing(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
@@ -123,14 +126,21 @@ export function MeetingSharePanel({
             <select
               className="h-9 rounded-md border bg-background px-2"
               onChange={(event) => {
-                const role = event.target.value as MeetingGrantRole | "none";
+                const role = event.currentTarget.value;
                 setGrants((current) => {
                   if (role === "none") {
-                    return Object.fromEntries(
-                      Object.entries(current).filter(([userId]) => userId !== workspaceMember.id),
-                    ) as Record<string, MeetingGrantRole>;
+                    const next: Record<string, MeetingGrantRole> = {};
+                    for (const [userId, grantRole] of Object.entries(current)) {
+                      if (userId !== workspaceMember.id) {
+                        next[userId] = grantRole;
+                      }
+                    }
+                    return next;
                   }
-                  return { ...current, [workspaceMember.id]: role };
+                  const result = meetingGrantRoleSchema.safeParse(role);
+                  return result.success
+                    ? { ...current, [workspaceMember.id]: result.data }
+                    : current;
                 });
               }}
               value={grants[workspaceMember.id] ?? "none"}

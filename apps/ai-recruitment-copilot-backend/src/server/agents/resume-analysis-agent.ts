@@ -31,7 +31,10 @@ import {
   runResumeParseWorkflow,
   streamResumeParseWorkflow,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow";
-import type { ResumeParseWorkflowProgressEvent } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow";
+import type {
+  ResumeParseWorkflowProgressEvent,
+  ResumeParseWorkflowOutput,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   createAttachment,
@@ -206,7 +209,7 @@ function trimToNull(value: string | null) {
 }
 
 function normalizeNumber(value: number | null) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  return value !== null && Number.isFinite(value) ? value : null;
 }
 
 function normalizeEducationExperiences(
@@ -336,6 +339,22 @@ const generatedInterviewQuestionsWithGuidanceSchema = generatedInterviewQuestion
     .length(10),
 });
 
+export interface InterviewQuestionGenerationDependencies {
+  generateQuestions: (
+    prompt: string,
+  ) => Promise<z.infer<typeof generatedInterviewQuestionsWithGuidanceSchema>>;
+}
+
+const defaultInterviewQuestionGenerationDependencies: InterviewQuestionGenerationDependencies = {
+  generateQuestions: (prompt) =>
+    generateStructuredWithMastraAgent({
+      agent: interviewQuestionAgent,
+      prompt,
+      schema: generatedInterviewQuestionsWithGuidanceSchema,
+      temperature: 0.3,
+    }),
+};
+
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
@@ -352,6 +371,48 @@ export interface StreamParseResumeContext {
   userId: string;
   organizationId: string | null;
 }
+
+export interface ResumeParseDependencies {
+  findCachedAttachment: (contentHash: string) => Promise<CachedResumeAttachment | null>;
+  generateStructured: typeof generateResumeStructured;
+  hashBytes: typeof sha256HexOfBytes;
+  runWorkflow: (
+    input: Parameters<typeof runResumeParseWorkflow>[0],
+  ) => Promise<ResumeParseWorkflowResult>;
+  streamWorkflow: (
+    input: Parameters<typeof streamResumeParseWorkflow>[0],
+    options: Parameters<typeof streamResumeParseWorkflow>[1],
+  ) => Promise<ResumeParseWorkflowResult>;
+  updateCachedStructured: typeof updateStructuredByHash;
+}
+
+type CachedResumeAttachment = Omit<
+  NonNullable<Awaited<ReturnType<typeof findAttachmentByContentHash>>>,
+  "parsedTextSource"
+> & {
+  parsedTextSource?: NonNullable<
+    Awaited<ReturnType<typeof findAttachmentByContentHash>>
+  >["parsedTextSource"];
+};
+
+type ResumeParseWorkflowResult = Pick<
+  ResumeParseWorkflowOutput,
+  "fileHash" | "pageCount" | "structured" | "text" | "textSource"
+> & {
+  bytesBase64?: string;
+  fileName?: string;
+  mediaType?: string;
+  preview?: ResumeParseWorkflowOutput["preview"];
+};
+
+const defaultResumeParseDependencies: ResumeParseDependencies = {
+  findCachedAttachment: findAttachmentByContentHash,
+  generateStructured: generateResumeStructured,
+  hashBytes: sha256HexOfBytes,
+  runWorkflow: runResumeParseWorkflow,
+  streamWorkflow: streamResumeParseWorkflow,
+  updateCachedStructured: updateStructuredByHash,
+};
 
 /**
  * 在 parseResumeFast 成功后把解析结果回写 chat_attachment + S3，使后续
@@ -430,6 +491,7 @@ async function persistParseToRegistry(args: {
 export function streamParseResumeProfile(
   file: File,
   context?: StreamParseResumeContext,
+  dependencies = defaultResumeParseDependencies,
 ): ReadableStream<Uint8Array> {
   validateResumeFile(file);
 
@@ -437,6 +499,7 @@ export function streamParseResumeProfile(
   return createAiRunEventStream({
     run: async (emit) => {
       const emitAiRun = (event: AiRunEventDraft) => {
+        // SAFETY: AiRunEventDraft is derived from AiRunEvent with only runId made optional, and this expression always restores runId.
         emit({ ...event, runId: event.runId ?? runId } as AiRunEvent);
       };
 
@@ -451,9 +514,9 @@ export function streamParseResumeProfile(
       //   B. only OCR text cached (chat upload path, no structured yet) → run
       //      structured extraction alone, then backfill all rows sharing the hash.
       //   C. nothing usable → fall through to the full parseResumeFast.
-      const contentHash = await sha256HexOfBytes(bytes);
+      const contentHash = await dependencies.hashBytes(bytes);
       const cachedAttachment = isResumeParseCacheEnabled()
-        ? await findAttachmentByContentHash(contentHash)
+        ? await dependencies.findCachedAttachment(contentHash)
         : null;
       const existing =
         cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
@@ -481,8 +544,8 @@ export function streamParseResumeProfile(
           type: "step.started",
         });
 
-        const structured = await generateResumeStructured(existing.parsedText);
-        await updateStructuredByHash(contentHash, structured);
+        const structured = await dependencies.generateStructured(existing.parsedText);
+        await dependencies.updateCachedStructured(contentHash, structured);
 
         emitAiRun({
           artifactType: "resume.profile.preview",
@@ -512,7 +575,7 @@ export function streamParseResumeProfile(
         fileName: file.name,
         mediaType: file.type,
       };
-      const parsed = await streamResumeParseWorkflow(workflowInput, {
+      const parsed = await dependencies.streamWorkflow(workflowInput, {
         onProgress: (event) => emitResumeParseProgressEvent(event, emitAiRun),
         onWorkflowEvent: (event) => emitForegroundWorkflowEvent(event, emitAiRun),
       });
@@ -539,20 +602,50 @@ export function streamParseResumeProfile(
  * Stage 2: Generate interview questions from an already-parsed resume profile.
  * Returns an AiRun event stream with progress events and final result.
  */
+async function generateInterviewQuestionsWithDependencies(
+  resumeProfile: ResumeProfile,
+  dependencies: InterviewQuestionGenerationDependencies,
+): Promise<ResumeAnalysisResult["interviewQuestions"]> {
+  try {
+    const parsed = await dependencies.generateQuestions(
+      `${QUESTION_INSTRUCTIONS}\n\n候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
+    );
+    return normalizeInterviewQuestions(parsed.interviewQuestions);
+  } catch (error) {
+    if (error instanceof ResumeAnalysisError) {
+      throw error;
+    }
+    throw new ResumeAnalysisError(
+      error instanceof Error ? error.message : "Failed to generate interview questions.",
+      "question-generation",
+      resumeProfile,
+    );
+  }
+}
+
 export function streamGenerateInterviewQuestions(
   resumeProfile: ResumeProfile,
+  dependencies = defaultInterviewQuestionGenerationDependencies,
 ): ReadableStream<Uint8Array> {
   const runId = crypto.randomUUID();
   return createAiRunEventStream({
     run: async (emit) => {
-      const { streamInterviewQuestionsWorkflow } =
+      const { createInterviewQuestionsWorkflow, streamInterviewQuestionsWorkflow } =
         await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/interview-questions-workflow");
-      return streamInterviewQuestionsWorkflow(resumeProfile, {
-        onWorkflowEvent: (event) =>
-          emitForegroundWorkflowEvent(event, (draft) => {
-            emit({ ...draft, runId: draft.runId ?? runId } as AiRunEvent);
-          }),
-      });
+      return streamInterviewQuestionsWorkflow(
+        resumeProfile,
+        {
+          onWorkflowEvent: (event) =>
+            emitForegroundWorkflowEvent(event, (draft) => {
+              // SAFETY: AiRunEventDraft is derived from AiRunEvent with only runId made optional, and this expression always restores runId.
+              emit({ ...draft, runId: draft.runId ?? runId } as AiRunEvent);
+            }),
+        },
+        createInterviewQuestionsWorkflow({
+          generateQuestions: (profile) =>
+            generateInterviewQuestionsWithDependencies(profile, dependencies),
+        }),
+      );
     },
     runId,
     title: "生成面试题",
@@ -577,18 +670,21 @@ export interface ParsedResumeProfileResult {
   parsedText: string;
 }
 
-export async function parseResumeBytesToProfile(input: {
-  bytes: Uint8Array;
-  fileName: string;
-  mediaType?: string;
-}): Promise<ParsedResumeProfileResult> {
+export async function parseResumeBytesToProfile(
+  input: {
+    bytes: Uint8Array;
+    fileName: string;
+    mediaType?: string;
+  },
+  dependencies = defaultResumeParseDependencies,
+): Promise<ParsedResumeProfileResult> {
   validateResumeDocumentInput({
     fileName: input.fileName,
     mediaType: input.mediaType,
     size: input.bytes.byteLength,
   });
   try {
-    const parsed = await runResumeParseWorkflow({
+    const parsed = await dependencies.runWorkflow({
       bytes: input.bytes,
       fileName: input.fileName,
       mediaType: input.mediaType,
@@ -611,37 +707,26 @@ export async function parseResumeBytesToProfile(input: {
   }
 }
 
-export async function parseResumeFastToProfile(file: File): Promise<ParsedResumeProfileResult> {
+export async function parseResumeFastToProfile(
+  file: File,
+  dependencies = defaultResumeParseDependencies,
+): Promise<ParsedResumeProfileResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  return parseResumeBytesToProfile({
-    bytes,
-    fileName: file.name,
-    mediaType: file.type,
-  });
+  return parseResumeBytesToProfile(
+    {
+      bytes,
+      fileName: file.name,
+      mediaType: file.type,
+    },
+    dependencies,
+  );
 }
 
-export async function generateInterviewQuestionsForProfile(
+export function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
+  dependencies = defaultInterviewQuestionGenerationDependencies,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
-  try {
-    const parsed = await generateStructuredWithMastraAgent({
-      agent: interviewQuestionAgent,
-      prompt: `${QUESTION_INSTRUCTIONS}\n\n候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-      schema: generatedInterviewQuestionsWithGuidanceSchema,
-      temperature: 0.3,
-    });
-
-    return normalizeInterviewQuestions(parsed.interviewQuestions);
-  } catch (error) {
-    if (error instanceof ResumeAnalysisError) {
-      throw error;
-    }
-    throw new ResumeAnalysisError(
-      error instanceof Error ? error.message : "Failed to generate interview questions.",
-      "question-generation",
-      resumeProfile,
-    );
-  }
+  return generateInterviewQuestionsWithDependencies(resumeProfile, dependencies);
 }
 
 // =====================================================================

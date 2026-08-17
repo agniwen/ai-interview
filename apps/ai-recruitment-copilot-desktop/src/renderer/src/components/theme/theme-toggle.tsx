@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ThemeMode } from "@/lib/settings";
 import { cn } from "@arc/shared/utils";
+import { themeModeSchema } from "../../../../preload/orpc-contract";
 
 const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = [
   { icon: "ph:sun", label: "浅色", value: "light" },
@@ -19,10 +20,15 @@ const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = 
   { icon: "ph:monitor", label: "跟随系统", value: "system" },
 ];
 
-const noDragStyle = {
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /**
  * Icon-only theme dropdown for chrome bars.
@@ -37,7 +43,7 @@ export function ThemeToggle({ className }: { className?: string }): React.JSX.El
     setMounted(true);
   }, []);
 
-  const activeTheme = (mounted ? (theme ?? "system") : "system") as ThemeMode;
+  const activeTheme = themeModeSchema.safeParse(mounted ? theme : "system").data ?? "system";
   const current = THEME_OPTIONS.find((option) => option.value === activeTheme) ?? THEME_OPTIONS[2];
 
   return (

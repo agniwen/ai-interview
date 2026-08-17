@@ -121,7 +121,9 @@ export function InterviewQuestionTemplateAiCreateDialog({
           </Button>
           <Button
             disabled={generating || !jobDescriptionId || !prompt.trim()}
-            onClick={() => void handleGenerate()}
+            onClick={() => {
+              handleGenerate();
+            }}
             type="button"
           >
             {generating ? <IconLoader2 className="size-4 animate-spin" /> : null}

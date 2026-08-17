@@ -1,5 +1,6 @@
 import type { ResumeParseQueueJobsResult } from "@arc/resume-parse-queue/resume-parse";
 import { and, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import {
   organization,
   resumePoolItem,
@@ -90,6 +91,12 @@ export interface ResumeQueueDetailFilters {
   uploadStatus?: string;
 }
 
+const resumeParseQueueJobDataSchema = z
+  .object({ itemId: z.string().min(1).optional() })
+  .passthrough();
+
+type ResumeParseQueueJobData = z.output<typeof resumeParseQueueJobDataSchema>;
+
 function isAllFilter(value: string | undefined): boolean {
   return !value || value === "all";
 }
@@ -105,12 +112,8 @@ function toIsoString(value: Date | string | null | undefined): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function getResumeParseItemId(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-  const { itemId } = data as { itemId?: unknown };
-  return typeof itemId === "string" && itemId.length > 0 ? itemId : null;
+function getResumeParseItemId(data: ResumeParseQueueJobData): string | null {
+  return data.itemId ?? null;
 }
 
 export function mergeResumeParseQueueJobsWithResumeDetails(
@@ -120,7 +123,8 @@ export function mergeResumeParseQueueJobsWithResumeDetails(
   const detailsByItemId = new Map(details.map((detail) => [detail.itemId, detail]));
 
   return jobs.map((job) => {
-    const itemId = getResumeParseItemId(job.data);
+    const parsedJobData = resumeParseQueueJobDataSchema.safeParse(job.data);
+    const itemId = parsedJobData.success ? getResumeParseItemId(parsedJobData.data) : null;
     const detail = itemId ? (detailsByItemId.get(itemId) ?? null) : null;
     return {
       ...job,
@@ -280,7 +284,10 @@ export async function enrichResumeParseQueueJobs(
   result: ResumeParseQueueJobsResult,
 ): Promise<PlatformQueueJobsResult> {
   const itemIds = result.records
-    .map((job) => getResumeParseItemId(job.data))
+    .map((job) => {
+      const parsedJobData = resumeParseQueueJobDataSchema.safeParse(job.data);
+      return parsedJobData.success ? getResumeParseItemId(parsedJobData.data) : null;
+    })
     .filter((itemId): itemId is string => itemId !== null);
   const details = await loadResumeQueueDetailsByItemIds([...new Set(itemIds)]);
   return {

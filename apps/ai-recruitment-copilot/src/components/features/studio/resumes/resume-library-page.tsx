@@ -88,6 +88,7 @@ export function ResumeLibraryPage() {
     workspaceMembers,
   } = useResumeLibraryPageQueries({
     duplicateMatchRecord,
+    // SAFETY: The route validator defines the search shape consumed by the page query hooks.
     routeSearch: routeSearch as SearchParamsRecord,
   });
 
@@ -122,6 +123,7 @@ export function ResumeLibraryPage() {
     grid,
     invalidateAll,
     loadedResumeRowsById,
+    // SAFETY: The route validator defines the search shape consumed by the page action hooks.
     routeSearch: routeSearch as SearchParamsRecord,
     setBulkDeleteOpen,
     setConfirmOpen,
@@ -161,7 +163,9 @@ export function ResumeLibraryPage() {
         metricsFetching={metricsQuery.isFetching}
         metricsScope={metricsScope}
         metricsSwitching={metricsSwitching}
-        onMetricsRetry={() => metricsQuery.refetch()}
+        onMetricsRetry={async () => {
+          await metricsQuery.refetch();
+        }}
         onMetricsScopeChange={setMetricsScope}
         slug={slug}
       >
@@ -184,7 +188,9 @@ export function ResumeLibraryPage() {
             />
           }
           error={resumeLibraryListQuery.error}
-          fetchNextPage={resumeLibraryListQuery.fetchNextPage}
+          fetchNextPage={async () => {
+            await resumeLibraryListQuery.fetchNextPage();
+          }}
           filters={filtersConfig}
           grid={grid}
           hasActiveUploadBatches={hasActiveUploadBatches}

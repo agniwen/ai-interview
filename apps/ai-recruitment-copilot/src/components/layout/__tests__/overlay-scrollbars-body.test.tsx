@@ -11,10 +11,7 @@ const overlayScrollbarMocks = vi.hoisted(() => ({
   initialize: vi.fn(),
 }));
 
-vi.mock("overlayscrollbars-react", () => ({
-  useOverlayScrollbars: () => [overlayScrollbarMocks.initialize, overlayScrollbarMocks.getInstance],
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 afterEach(() => {
@@ -33,7 +30,7 @@ describe("OverlayScrollbarsBody", () => {
     const root = createRoot(container);
 
     act(() => {
-      root.render(<OverlayScrollbarsBody />);
+      root.render(<OverlayScrollbarsBody dependencies={overlayScrollbarMocks} />);
     });
 
     expect(overlayScrollbarMocks.initialize).toHaveBeenCalledTimes(1);

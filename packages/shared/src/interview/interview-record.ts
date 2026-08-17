@@ -233,7 +233,7 @@ export function buildCandidateInterviewView(
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),
-    currentRoundStatus: (currentEntry?.status as ScheduleEntryStatus) ?? null,
+    currentRoundStatus: currentEntry?.status ?? null,
     currentRoundTime: currentEntry?.scheduledAt ?? null,
     id: record.id,
     interviewQuestions: record.interviewQuestions,

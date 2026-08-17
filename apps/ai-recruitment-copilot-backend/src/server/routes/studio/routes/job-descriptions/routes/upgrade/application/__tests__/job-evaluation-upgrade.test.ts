@@ -4,8 +4,6 @@ import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-
 import type { JobEvaluationUpgradeError } from "../job-evaluation-upgrade";
 import { createJobEvaluationUpgradeApplication } from "../job-evaluation-upgrade";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
-
 const CONFIG = createDefaultJobDescriptionStructuredConfig();
 
 const BLUEPRINT = {
@@ -129,6 +127,7 @@ describe("job evaluation upgrade application", () => {
     ["version_conflict", "UPGRADE_DRAFT_VERSION_CONFLICT"],
   ] as const)("maps create failure %s to %s", async (status, code) => {
     const deps = dependencies();
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     deps.createDraft.mockResolvedValueOnce({ status } as never);
     const app = createJobEvaluationUpgradeApplication(deps);
 

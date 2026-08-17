@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { z } from "zod";
+
+const jsonStringSchema = z.string();
 
 export function DetailFields({ fields }: { fields: { label: string; value: ReactNode }[] }) {
   return (
@@ -18,7 +21,8 @@ export function DetailFields({ fields }: { fields: { label: string; value: React
 }
 
 export function JsonBlock({ value }: { value: unknown }) {
-  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  const result = jsonStringSchema.safeParse(value);
+  const text = result.success ? result.data : JSON.stringify(value, null, 2);
   return (
     <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
       {text || "—"}

@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { toAbsoluteUrl } from "@/lib/client/clipboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -202,10 +203,7 @@ function LinkRow({
   onToggleExpand,
   roleLabelByValue,
 }: LinkRowProps) {
-  const url =
-    typeof window === "undefined"
-      ? `/join/${link.code}`
-      : `${window.location.origin}/join/${link.code}`;
+  const url = toAbsoluteUrl(`/join/${link.code}`);
   const disabled = Boolean(link.disabledAt);
   return (
     <Card className="min-w-0 gap-0 rounded-lg py-0">

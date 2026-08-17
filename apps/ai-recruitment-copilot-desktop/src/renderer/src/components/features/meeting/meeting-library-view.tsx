@@ -21,14 +21,14 @@ import {
 import { formatAppDateTime } from "@/lib/client/datetime";
 import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
-const PROCESSING_STATE_META: Record<
-  MeetingProcessingState,
-  { label: string; variant: "success" | "warning" | "danger" }
-> = {
+const PROCESSING_STATE_META = {
   failed: { label: "处理失败", variant: "danger" },
   processing: { label: "处理中", variant: "warning" },
   ready: { label: "可播放", variant: "success" },
-};
+} satisfies Record<
+  MeetingProcessingState,
+  { label: string; variant: "success" | "warning" | "danger" }
+>;
 
 export function formatMeetingDuration(durationMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));

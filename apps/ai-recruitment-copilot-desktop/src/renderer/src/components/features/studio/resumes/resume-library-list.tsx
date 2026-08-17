@@ -19,8 +19,8 @@ import {
 
 interface ResumeLibraryListProps {
   emptyHint?: string;
-  error: unknown;
-  fetchNextPage: () => Promise<unknown>;
+  error: Error | null;
+  fetchNextPage: () => Promise<void>;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
@@ -29,8 +29,8 @@ interface ResumeLibraryListProps {
   total: number;
 }
 
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
+function errorMessage(error: Error | null): string {
+  if (error?.message) {
     return error.message;
   }
   return "加载失败";
@@ -110,10 +110,11 @@ export function ResumeLibraryList({
 
   useEffect(() => {
     const node = loadMoreRef.current;
-    if (!node || !hasNextPage || typeof IntersectionObserver === "undefined") {
+    const IntersectionObserverConstructor = globalThis.IntersectionObserver;
+    if (!node || !hasNextPage || !IntersectionObserverConstructor) {
       return;
     }
-    const observer = new IntersectionObserver(
+    const observer = new IntersectionObserverConstructor(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
           void fetchNextPage();

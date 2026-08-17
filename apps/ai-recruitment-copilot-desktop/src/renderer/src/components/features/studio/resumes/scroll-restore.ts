@@ -15,9 +15,11 @@ export interface ResumeLibraryScrollRestoreSnapshot {
   viewportWidth: number;
 }
 
-export const resumeLibraryScrollRestoreSnapshot: {
+interface ResumeLibraryScrollRestoreRef {
   current: ResumeLibraryScrollRestoreSnapshot | null;
-} = { current: null };
+}
+
+export const resumeLibraryScrollRestoreSnapshot: ResumeLibraryScrollRestoreRef = { current: null };
 
 export function setResumeLibraryScrollRestoreSnapshot(
   snapshot: ResumeLibraryScrollRestoreSnapshot | null,
@@ -34,8 +36,7 @@ export function findDesktopMainScrollElement(): HTMLElement | null {
 export function useResumeLibraryInitialScrollRestore(
   restoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null,
 ) {
-  const initialScrollElement =
-    typeof document === "undefined" ? null : findDesktopMainScrollElement();
+  const initialScrollElement = globalThis.document ? findDesktopMainScrollElement() : null;
   const canUseInitialMeasurements =
     Boolean(restoreSnapshot) &&
     Boolean(initialScrollElement) &&
@@ -141,7 +142,11 @@ function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null 
     }
     parent = parent.parentElement;
   }
-  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+  const { scrollingElement } = document;
+  if (scrollingElement === document.documentElement) {
+    return document.documentElement;
+  }
+  return scrollingElement === document.body ? document.body : null;
 }
 
 export function useResumeLibraryScrollElement(listRootRef: RefObject<HTMLDivElement | null>) {
@@ -159,14 +164,12 @@ export function useResumeLibraryScrollElement(listRootRef: RefObject<HTMLDivElem
       return true;
     };
 
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(selectDesktopViewport);
-      observer.observe(document.body, {
-        attributeFilter: ["data-scroll-restoration-id"],
-        attributes: true,
-        subtree: true,
-      });
-    }
+    observer = new MutationObserver(selectDesktopViewport);
+    observer.observe(document.body, {
+      attributeFilter: ["data-scroll-restoration-id"],
+      attributes: true,
+      subtree: true,
+    });
 
     const frame = window.requestAnimationFrame(() => {
       if (!selectDesktopViewport()) {

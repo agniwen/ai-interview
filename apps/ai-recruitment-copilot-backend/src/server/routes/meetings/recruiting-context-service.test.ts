@@ -1,35 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  listMeetingRecruitingRecordCandidates: vi.fn(),
-  loadAuthorizedMeeting: vi.fn(),
-  loadMeetingRecruitingContext: vi.fn(),
-  loadMeetingRecruitingRecordCandidate: vi.fn(),
-  meetingRole: vi.fn(),
-  replaceMeetingRecruitingContext: vi.fn(),
-  resolveRecruitingVisibilityScope: vi.fn(),
-}));
-
-vi.mock("./authorized-meeting", () => ({
-  loadAuthorizedMeeting: mocks.loadAuthorizedMeeting,
-  meetingRole: mocks.meetingRole,
-}));
-vi.mock("./recruiting-context-dao", () => ({
-  listMeetingRecruitingRecordCandidates: mocks.listMeetingRecruitingRecordCandidates,
-  loadMeetingRecruitingContext: mocks.loadMeetingRecruitingContext,
-  loadMeetingRecruitingRecordCandidate: mocks.loadMeetingRecruitingRecordCandidate,
-  replaceMeetingRecruitingContext: mocks.replaceMeetingRecruitingContext,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
   changeMeetingRecruitingContext,
   getMeetingRecruitingContext,
   getMeetingRecruitingRecordCandidates,
 } from "./recruiting-context-service";
+import type { RecruitingContextServiceDependencies } from "./recruiting-context-service";
+
+const mocks = {
+  listCandidates: vi.fn<RecruitingContextServiceDependencies["listCandidates"]>(),
+  loadAuthorizedMeeting: vi.fn<RecruitingContextServiceDependencies["loadAuthorizedMeeting"]>(),
+  loadContext: vi.fn<RecruitingContextServiceDependencies["loadContext"]>(),
+  loadRecordCandidate: vi.fn<RecruitingContextServiceDependencies["loadRecordCandidate"]>(),
+  meetingRole: vi.fn<RecruitingContextServiceDependencies["meetingRole"]>(),
+  replaceContext: vi.fn<RecruitingContextServiceDependencies["replaceContext"]>(),
+  resolveVisibility: vi.fn<RecruitingContextServiceDependencies["resolveVisibility"]>(),
+};
+
+const dependencies: RecruitingContextServiceDependencies = mocks;
 
 const baseInput = {
   canReadRecruitingRecords: true,
@@ -42,49 +29,65 @@ const baseInput = {
 describe("Meeting Recruiting Context permissions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.loadAuthorizedMeeting.mockResolvedValue({ id: "meeting-1" });
-    mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
-    mocks.loadMeetingRecruitingContext.mockResolvedValue(null);
-    mocks.loadMeetingRecruitingRecordCandidate.mockResolvedValue({ id: "candidate-1" });
-    mocks.replaceMeetingRecruitingContext.mockResolvedValue("updated");
+    mocks.loadAuthorizedMeeting.mockResolvedValue({ ownerId: "user-1", visibility: "workspace" });
+    mocks.resolveVisibility.mockResolvedValue({ kind: "all" });
+    mocks.loadContext.mockResolvedValue(null);
+    mocks.loadRecordCandidate.mockResolvedValue({
+      candidateName: "候选人",
+      id: "candidate-1",
+      jobDescriptionName: null,
+      outcome: "in_pipeline",
+      pipelineStage: "screening",
+      targetRole: "前端工程师",
+    });
+    mocks.replaceContext.mockResolvedValue("updated");
   });
 
   it.each(["editor", "viewer"] as const)("does not let a %s change the link", async (role) => {
     mocks.meetingRole.mockReturnValue(role);
 
     await expect(
-      changeMeetingRecruitingContext({
-        ...baseInput,
-        recruitingRecordId: "candidate-1",
-      }),
+      changeMeetingRecruitingContext(
+        {
+          ...baseInput,
+          recruitingRecordId: "candidate-1",
+        },
+        dependencies,
+      ),
     ).resolves.toBe("forbidden");
-    expect(mocks.replaceMeetingRecruitingContext).not.toHaveBeenCalled();
+    expect(mocks.replaceContext).not.toHaveBeenCalled();
   });
 
   it("does not reveal an inaccessible recruiting record to an Owner", async () => {
     mocks.meetingRole.mockReturnValue("owner");
-    mocks.loadMeetingRecruitingRecordCandidate.mockResolvedValue(null);
+    mocks.loadRecordCandidate.mockResolvedValue(null);
 
     await expect(
-      changeMeetingRecruitingContext({
-        ...baseInput,
-        recruitingRecordId: "candidate-outside-scope",
-      }),
+      changeMeetingRecruitingContext(
+        {
+          ...baseInput,
+          recruitingRecordId: "candidate-outside-scope",
+        },
+        dependencies,
+      ),
     ).resolves.toBe("invalid-record");
-    expect(mocks.replaceMeetingRecruitingContext).not.toHaveBeenCalled();
+    expect(mocks.replaceContext).not.toHaveBeenCalled();
   });
 
   it("lets an Owner remove a stale link without recruiting-record read permission", async () => {
     mocks.meetingRole.mockReturnValue("owner");
 
     await expect(
-      changeMeetingRecruitingContext({
-        ...baseInput,
-        canReadRecruitingRecords: false,
-        recruitingRecordId: null,
-      }),
+      changeMeetingRecruitingContext(
+        {
+          ...baseInput,
+          canReadRecruitingRecords: false,
+          recruitingRecordId: null,
+        },
+        dependencies,
+      ),
     ).resolves.toBe("updated");
-    expect(mocks.replaceMeetingRecruitingContext).toHaveBeenCalledWith(
+    expect(mocks.replaceContext).toHaveBeenCalledWith(
       expect.objectContaining({ recruitingRecordId: null }),
     );
   });
@@ -93,19 +96,31 @@ describe("Meeting Recruiting Context permissions", () => {
     mocks.meetingRole.mockReturnValue("viewer");
 
     await expect(
-      getMeetingRecruitingContext({ ...baseInput, canReadRecruitingRecords: false }),
+      getMeetingRecruitingContext({ ...baseInput, canReadRecruitingRecords: false }, dependencies),
     ).resolves.toEqual({ canManage: false, link: null });
-    expect(mocks.loadMeetingRecruitingContext).not.toHaveBeenCalled();
+    expect(mocks.loadContext).not.toHaveBeenCalled();
   });
 
   it("lists only visible recruiting candidates for an Owner", async () => {
     mocks.meetingRole.mockReturnValue("owner");
-    mocks.listMeetingRecruitingRecordCandidates.mockResolvedValue([{ id: "candidate-1" }]);
+    mocks.listCandidates.mockResolvedValue([
+      {
+        candidateName: "候选人",
+        id: "candidate-1",
+        jobDescriptionName: null,
+        outcome: "in_pipeline",
+        pipelineStage: "screening",
+        targetRole: "前端工程师",
+      },
+    ]);
 
     await expect(
-      getMeetingRecruitingRecordCandidates({ ...baseInput, limit: 20, search: "Alice" }),
-    ).resolves.toEqual([{ id: "candidate-1" }]);
-    expect(mocks.listMeetingRecruitingRecordCandidates).toHaveBeenCalledWith({
+      getMeetingRecruitingRecordCandidates(
+        { ...baseInput, limit: 20, search: "Alice" },
+        dependencies,
+      ),
+    ).resolves.toEqual([expect.objectContaining({ candidateName: "候选人", id: "candidate-1" })]);
+    expect(mocks.listCandidates).toHaveBeenCalledWith({
       limit: 20,
       organizationId: "org-1",
       search: "Alice",

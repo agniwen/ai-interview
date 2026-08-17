@@ -24,13 +24,13 @@ import {
   MeetingComposerRow,
 } from "./meeting-recording-session-layout";
 
-const HEALTH_LABEL: Record<CaptureTrackState["health"], string> = {
+const HEALTH_LABEL = {
   checking: "检测中",
   ended: "已中断",
   healthy: "正常",
   muted: "已静音",
   silent: "疑似无声",
-};
+} satisfies Record<CaptureTrackState["health"], string>;
 
 function formatElapsed(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -79,10 +79,19 @@ function visualizerStateFor(
   return "speaking";
 }
 
-export function createCapturePreviewAudioTrack(mediaTrack: MediaStreamTrack): LocalAudioTrack {
+export function createCapturePreviewAudioTrack(mediaTrack: MediaStreamTrack): LocalAudioTrack;
+export function createCapturePreviewAudioTrack<T extends { stop(): void }>(
+  mediaTrack: MediaStreamTrack,
+  createTrack: (clonedTrack: MediaStreamTrack) => T,
+): T;
+export function createCapturePreviewAudioTrack(
+  mediaTrack: MediaStreamTrack,
+  createTrack?: (clonedTrack: MediaStreamTrack) => { stop(): void },
+): { stop(): void } {
   // The visualizer owns only a clone. LocalAudioTrack.stop() always stops its underlying
   // MediaStreamTrack, so wrapping the recording source directly would end capture on route unmount.
-  return new LocalAudioTrack(mediaTrack.clone(), undefined, true);
+  const clonedTrack = mediaTrack.clone();
+  return createTrack ? createTrack(clonedTrack) : new LocalAudioTrack(clonedTrack, undefined, true);
 }
 
 /** Wrap a capture MediaStream as LiveKit LocalAudioTrack without taking ownership of the track. */
@@ -150,10 +159,7 @@ function TrackMeter({
   );
 }
 
-const WORKSPACE_SAVE_COPY: Record<
-  WorkspaceSaveState["state"],
-  { description: string; title: string }
-> = {
+const WORKSPACE_SAVE_COPY = {
   "action-required": {
     description: "本地录音仍然安全，可检查网络或工作区后重试。",
     title: "保存到工作区需要处理",
@@ -168,7 +174,7 @@ const WORKSPACE_SAVE_COPY: Record<
     description: "两条源音轨已由服务器验证并保存到工作区。",
     title: "已保存到工作区",
   },
-};
+} satisfies Record<WorkspaceSaveState["state"], { description: string; title: string }>;
 
 function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
   if (state === "workspace-verified") {
@@ -473,7 +479,9 @@ export function MeetingActiveRecordingIndicator({
   return (
     <button
       className="fixed right-5 bottom-5 z-[60] flex items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2.5 shadow-xl backdrop-blur transition-colors hover:bg-accent"
-      onClick={() => void navigate({ params: { meetingId: activeId }, to: "/meetings/$meetingId" })}
+      onClick={() => {
+        navigate({ params: { meetingId: activeId }, to: "/meetings/$meetingId" });
+      }}
       type="button"
     >
       <span className="relative flex size-2.5">

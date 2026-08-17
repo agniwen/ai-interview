@@ -79,6 +79,8 @@ export function InviteDialog({
       .inviteMember({
         email: trimmedEmail,
         organizationId: workspaceId,
+        // SAFETY: authClient is configured with the shared roles map, and the selected value
+        // is constrained by the caller-provided subset of those configured assignable roles.
         role: role as "admin" | "member",
       })
       .finally(() => setSubmitting(false));

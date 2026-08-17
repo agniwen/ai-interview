@@ -263,6 +263,7 @@ describe("mail ingest workspace administration dao", () => {
   }, 30_000);
 
   it("stores IMAP command response details in account errors", async () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const error = new Error("Command failed") as Error & {
       responseStatus?: string;
       responseText?: string;

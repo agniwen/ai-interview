@@ -63,7 +63,9 @@ export function AppVersionProvider({ children }: { children: ReactNode }) {
         void checkVersion();
       }
     };
-    const checkWhenOnline = () => void checkVersion();
+    const checkWhenOnline = () => {
+      checkVersion();
+    };
 
     void checkVersion();
     const interval = window.setInterval(checkWhenVisible, APP_VERSION_CHECK_INTERVAL_MS);

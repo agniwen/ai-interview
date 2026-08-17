@@ -32,6 +32,11 @@ interface IntelligenceTranscriptTurn {
   text: string;
 }
 
+export interface MeetingIntelligenceGeneratorSnapshot {
+  model: string;
+  provider: string;
+}
+
 interface MeetingIntelligenceGenerationRuntime {
   heartbeat?: () => Promise<boolean>;
   progress?: MeetingIntelligenceGenerationProgress | null;
@@ -495,10 +500,7 @@ export async function generateMeetingIntelligence(
   }
 }
 
-export function getMeetingIntelligenceGeneratorSnapshot(): {
-  model: string;
-  provider: string;
-} {
+export function getMeetingIntelligenceGeneratorSnapshot(): MeetingIntelligenceGeneratorSnapshot {
   const model = getMastraModelIdentifier(mastraModels.structuredModel);
   return { model, provider: model.split("/", 1)[0] || "unknown" };
 }

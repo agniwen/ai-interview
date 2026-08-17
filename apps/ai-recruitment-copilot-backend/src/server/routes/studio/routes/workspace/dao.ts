@@ -12,6 +12,7 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
+import { recruitingGroupRoleSchema } from "./schema";
 
 export const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";
 export const UNGROUPED_RECRUITING_GROUP_ID = "__ungrouped__";
@@ -272,13 +273,17 @@ export async function listRecruitingGroupBoard(
       groups.set(row.groupId, group);
     }
     if (row.memberId && row.memberUserId && row.memberRole) {
+      const roleResult = recruitingGroupRoleSchema.safeParse(row.memberRole);
+      if (!roleResult.success) {
+        continue;
+      }
       group.memberUserIds.push(row.memberUserId);
       group.members.push({
         email: row.memberEmail ?? "—",
         id: row.memberId,
         image: row.memberImage ?? null,
         name: row.memberName ?? row.memberEmail ?? "未命名",
-        role: row.memberRole as RecruitingGroupRole,
+        role: roleResult.data,
         userId: row.memberUserId,
       });
     }
@@ -458,15 +463,11 @@ export interface MemberLastActiveRow {
   lastActiveAt: string | null;
 }
 
-function toIso(value: unknown): string | null {
-  if (value === null || value === undefined || value === "") {
+function toIso(value: Date | null): string | null {
+  if (value === null) {
     return null;
   }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  const date = new Date(value as string);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return value.toISOString();
 }
 
 /**

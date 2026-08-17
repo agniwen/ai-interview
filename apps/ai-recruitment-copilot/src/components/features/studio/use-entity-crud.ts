@@ -2,6 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const deleteErrorPayloadSchema = z.object({ error: z.string().optional() });
 
 interface UseEntityCrudOptions<TList, TFull> {
   /** 调用 RPC 删除接口；返回原始 Response 由 hook 解析 error。 */
@@ -84,9 +87,9 @@ export function useEntityCrud<TList, TFull>(options: UseEntityCrudOptions<TList,
       return;
     }
     const response = await deleteEntity(deleteRecord);
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    const payload = deleteErrorPayloadSchema.safeParse(await response.json().catch(() => null));
     if (!response.ok) {
-      toast.error(payload?.error ?? deleteFallbackError);
+      toast.error((payload.success ? payload.data.error : undefined) ?? deleteFallbackError);
       return;
     }
     setDeleteRecord(null);

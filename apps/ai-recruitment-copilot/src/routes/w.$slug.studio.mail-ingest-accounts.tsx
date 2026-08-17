@@ -22,7 +22,6 @@ import {
   WORKSPACE_ROLES,
   buildWorkspaceRoleOptions,
 } from "@/components/features/studio/members/role-display";
-import type { DynamicWorkspaceRoleDisplay } from "@/components/features/studio/members/role-display";
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,18 +71,6 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
-const DEFAULT_FORM = {
-  emailAddress: "",
-  enabled: true,
-  imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
-  imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
-  listenStartAt: "",
-  password: "",
-  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID as MailIngestProviderId,
-  subjectKeyword: "boss直聘",
-  userId: "",
-  username: "",
-};
 
 interface MailIngestAccountRecord {
   createdAt: string;
@@ -127,6 +114,14 @@ interface ManagedMailIngestResult extends DataGridFetchResult<ManagedMailIngestR
   pageSize: number;
 }
 
+interface ManagedMailIngestQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
 interface MailIngestFormState {
   emailAddress: string;
   enabled: boolean;
@@ -139,6 +134,19 @@ interface MailIngestFormState {
   userId: string;
   username: string;
 }
+
+const DEFAULT_FORM = {
+  emailAddress: "",
+  enabled: true,
+  imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
+  imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
+  listenStartAt: "",
+  password: "",
+  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID,
+  subjectKeyword: "boss直聘",
+  userId: "",
+  username: "",
+} satisfies MailIngestFormState;
 
 function buildNewForm(user: ManagedMailIngestRow["user"]): MailIngestFormState {
   return {
@@ -244,12 +252,10 @@ function MailIngestAccountDialog({
       const password = form.password.trim();
 
       if (row.account) {
+        const updatePayload = password ? { ...payload, password } : payload;
         await rpcFetch<MailIngestAccountRecord>(
           rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$patch({
-            json: {
-              ...payload,
-              ...(password ? { password } : {}),
-            },
+            json: updatePayload,
             param: { id: row.account.id, slug },
           }),
           "邮箱监听配置更新失败",
@@ -371,14 +377,15 @@ function MailIngestAccountDialog({
               <Select
                 disabled={pending}
                 value={form.providerId}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
+                  const provider = MAIL_INGEST_PROVIDERS.find((item) => item.id === value);
+                  if (!provider) {
+                    return;
+                  }
                   setForm((current) =>
-                    applyMailIngestProvider(
-                      { ...current, providerId: value as MailIngestProviderId },
-                      value as MailIngestProviderId,
-                    ),
-                  )
-                }
+                    applyMailIngestProvider({ ...current, providerId: provider.id }, provider.id),
+                  );
+                }}
               >
                 <SelectTrigger className="w-full" id="mail-ingest-provider">
                   <SelectValue />
@@ -469,7 +476,7 @@ function ManagedMailIngestPage() {
       if (error) {
         throw new Error(error.message ?? "加载自定义角色失败");
       }
-      return (data ?? []) as (DynamicWorkspaceRoleDisplay & { createdAt: Date | string })[];
+      return data ?? [];
     },
     queryKey: ["workspace-dynamic-roles", workspaceId],
     refetchOnWindowFocus: false,
@@ -479,16 +486,23 @@ function ManagedMailIngestPage() {
   function fetchMailIngestRows(
     params: DataGridFetchParams<Record<string, never>>,
   ): Promise<ManagedMailIngestResult> {
+    const query: ManagedMailIngestQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
+    if (params.sortBy) {
+      query.sortBy = params.sortBy;
+    }
+    if (params.sortOrder) {
+      query.sortOrder = params.sortOrder;
+    }
     return rpcFetch<ManagedMailIngestResult>(
       rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$get({
         param: { slug },
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { search: params.search } : {}),
-          ...(params.sortBy ? { sortBy: params.sortBy } : {}),
-          ...(params.sortOrder ? { sortOrder: params.sortOrder } : {}),
-        },
+        query,
       }),
       "加载邮箱监听配置失败",
     );

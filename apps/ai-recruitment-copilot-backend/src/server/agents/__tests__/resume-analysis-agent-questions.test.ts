@@ -1,50 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-
-const mocks = vi.hoisted(() => ({
-  buildAttachmentKeyByHash: vi.fn(),
-  createAttachment: vi.fn(),
-  extractResumeDocumentText: vi.fn(),
-  findAttachmentByContentHash: vi.fn(),
-  generateResumeStructured: vi.fn(),
-  generateStructuredWithMastraAgent: vi.fn(),
-  interviewQuestionAgent: { id: "interview-question-agent" },
-  parseResumeDocument: vi.fn(),
-  parseResumeFast: vi.fn(),
-  putObjectBytes: vi.fn(),
-  sha256HexOfBytes: vi.fn(),
-  updateStructuredByHash: vi.fn(),
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
-    interviewQuestionAgent: mocks.interviewQuestionAgent,
-  }),
-);
-vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  putObjectBytes: mocks.putObjectBytes,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  extractResumeDocumentText: mocks.extractResumeDocumentText,
-  generateResumeStructured: mocks.generateResumeStructured,
-  parseResumeDocument: mocks.parseResumeDocument,
-  parseResumeFast: mocks.parseResumeFast,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
-  createAttachment: mocks.createAttachment,
-  findAttachmentByContentHash: mocks.findAttachmentByContentHash,
-  updateStructuredByHash: mocks.updateStructuredByHash,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
 import {
   generateInterviewQuestionsForProfile,
   streamGenerateInterviewQuestions,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type { InterviewQuestionGenerationDependencies } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+
+const mocks = {
+  generateStructuredWithMastraAgent: vi.fn(),
+  interviewQuestionAgent: { id: "interview-question-agent" },
+};
+
+const dependencies: InterviewQuestionGenerationDependencies = {
+  generateQuestions: (prompt) =>
+    mocks.generateStructuredWithMastraAgent({
+      agent: mocks.interviewQuestionAgent,
+      prompt,
+      schema: {},
+      temperature: 0.3,
+    }),
+};
 
 const PROFILE: ResumeProfile = {
   age: null,
@@ -105,6 +80,7 @@ async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
       if (!data) {
         throw new Error(`Missing SSE data frame: ${frame}`);
       }
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       return JSON.parse(data) as { type: string; output?: unknown; stepId?: string };
     });
 }
@@ -116,7 +92,7 @@ describe("resume interview question generation", () => {
   });
 
   it("uses structured output for blocking question generation", async () => {
-    const result = await generateInterviewQuestionsForProfile(PROFILE);
+    const result = await generateInterviewQuestionsForProfile(PROFILE, dependencies);
 
     expect(result).toHaveLength(10);
     expect(result.slice(0, 2)).toEqual([
@@ -145,8 +121,9 @@ describe("resume interview question generation", () => {
   });
 
   it("uses structured output for streaming question generation", async () => {
-    const events = await readStreamEvents(streamGenerateInterviewQuestions(PROFILE));
+    const events = await readStreamEvents(streamGenerateInterviewQuestions(PROFILE, dependencies));
 
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const result = events.find((event) => event.type === "run.completed")?.output as {
       interviewQuestions?: unknown[];
     };

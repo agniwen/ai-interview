@@ -1,31 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor",
-  () => ({ processBatchItem: vi.fn() }),
-);
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  buildHardFilterRejectReview: vi.fn(),
-  composeResumeReviewResult: vi.fn(),
-  generateInterviewQuestionsForProfile: vi.fn(),
-  generateResumeQualitativeReview: vi.fn(),
-  generateResumeReviewScoring: vi.fn(),
-  parseResumeBytesToProfile: vi.fn(),
-  runResumeReviewHardFilter: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
+import { describe, expect, it } from "vitest";
 import { recruitmentWorkflows } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows";
+
+function isWorkflowEntry(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 function stepIds(workflow: { serializedStepGraph: unknown[] }) {
   const ids: string[] = [];
   const visit = (entries: unknown[]) => {
     for (const entry of entries) {
-      if (typeof entry !== "object" || entry === null || !("type" in entry)) {
+      if (!isWorkflowEntry(entry) || !("type" in entry)) {
         continue;
       }
       if (entry.type === "step" && "step" in entry) {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         ids.push((entry as { step: { id: string } }).step.id);
       }
       if (entry.type === "parallel" && "steps" in entry && Array.isArray(entry.steps)) {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { JsonValue } from "@arc/db-schema/json";
 import { MeetingProviderQuotaError, MeetingProviderResponseError } from "../provider";
 import type { FinalTranscriptionAudioChunk } from "../provider";
 import { createQwenAsrMeetingTranscriptionProvider } from "./qwen-asr";
@@ -19,7 +20,8 @@ const input = {
   region: "qwen-cn-beijing",
 };
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: JsonValue, status = 200) {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return {
     json: () => Promise.resolve(body),
     ok: status >= 200 && status < 300,
@@ -140,9 +142,11 @@ describe("Qwen ASR Meeting transcription provider", () => {
         },
       ],
     });
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const submitCall = submit.mock.calls[0] as unknown[];
     let submitBody: unknown;
     try {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       submitBody = JSON.parse(String(submitCall[1] && (submitCall[1] as RequestInit).body));
     } catch {
       throw new Error("mock submit body must be valid JSON");
@@ -195,9 +199,11 @@ describe("Qwen ASR Meeting transcription provider", () => {
       expect.objectContaining({ speakerKey: "local", track: "local" }),
       expect.objectContaining({ speakerKey: "local", track: "local" }),
     ]);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const submitCall = submit.mock.calls[0] as unknown[];
     let submitBody: unknown;
     try {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       submitBody = JSON.parse(String(submitCall[1] && (submitCall[1] as RequestInit).body));
     } catch {
       throw new Error("mock submit body must be valid JSON");

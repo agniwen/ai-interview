@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   canLaunchInterviewFromResume,
@@ -30,51 +31,35 @@ import { fetchStudioResume } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
-type ResumeDetailPageSearchValue = boolean | number | string;
-type ResumeDetailPageSearch = Record<
-  string,
-  ResumeDetailPageSearchValue | ResumeDetailPageSearchValue[] | undefined
->;
-
-const RESUME_DETAIL_TABS = new Set<StudioPersonDetailTab>([
+const RESUME_DETAIL_TABS = [
   "overview",
   "rounds",
   "human-interview",
   "offer",
-]);
+] as const satisfies readonly StudioPersonDetailTab[];
 
-function firstSearchValue(value: ResumeDetailPageSearch[string]) {
+const resumeDetailPageSearchValueSchema = z.union([z.boolean(), z.number(), z.string()]);
+const resumeDetailPageSearchSchema = z.record(
+  z.string(),
+  z.union([resumeDetailPageSearchValueSchema, z.array(resumeDetailPageSearchValueSchema)]),
+);
+const resumeDetailTabSchema = z.enum(RESUME_DETAIL_TABS);
+const recruiterResumeListLocationStateSchema = z.object({
+  fromRecruiterResumeList: z.literal(true).optional(),
+});
+
+function firstSearchValue(value: z.infer<typeof resumeDetailPageSearchSchema>[string]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function coerceSearchParams(search: Record<string, unknown>): ResumeDetailPageSearch {
-  const out: ResumeDetailPageSearch = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is ResumeDetailPageSearchValue =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
+function resolveDefaultTab(search: z.infer<typeof resumeDetailPageSearchSchema>) {
+  const parsedTab = resumeDetailTabSchema.safeParse(firstSearchValue(search.tab));
+  return parsedTab.success ? parsedTab.data : "overview";
 }
 
-function resolveDefaultTab(search: ResumeDetailPageSearch): StudioPersonDetailTab {
-  const tab = firstSearchValue(search.tab);
-  return typeof tab === "string" && RESUME_DETAIL_TABS.has(tab as StudioPersonDetailTab)
-    ? (tab as StudioPersonDetailTab)
-    : "overview";
-}
-
-function listSearchFromDetailSearch(search: ResumeDetailPageSearch): ResumeDetailPageSearch {
-  const next = { ...search };
-  delete next.tab;
-  return next;
+function listSearchFromDetailSearch(search: z.infer<typeof resumeDetailPageSearchSchema>) {
+  const { tab: _tab, ...listSearch } = search;
+  return listSearch;
 }
 
 function getRecruiterResumeDocumentTitle(candidateName: string | null | undefined) {
@@ -256,8 +241,10 @@ function RecruiterResumeDetailPage() {
   };
 
   const navigateBackToList = useCallback(() => {
-    const locationState = router.state.location.state as { fromRecruiterResumeList?: boolean };
-    if (locationState.fromRecruiterResumeList && router.history.canGoBack()) {
+    const locationState = recruiterResumeListLocationStateSchema.safeParse(
+      router.state.location.state,
+    );
+    if (locationState.data?.fromRecruiterResumeList && router.history.canGoBack()) {
       router.history.back();
       return;
     }
@@ -265,7 +252,7 @@ function RecruiterResumeDetailPage() {
       params: { slug },
       search: listSearchFromDetailSearch(routeSearch),
       to: "/w/$slug/studio/resumes",
-    } as never);
+    });
   }, [navigate, routeSearch, router, slug]);
 
   if (detailQuery.isLoading) {
@@ -402,7 +389,7 @@ function RecruiterResumeDetailPage() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  validateSearch: resumeDetailPageSearchSchema,
   head: () => ({
     meta: [{ title: formatDocumentTitle("候选人详情") }],
   }),

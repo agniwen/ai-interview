@@ -9,6 +9,11 @@ export interface DedupResult {
   labels: PositiveLabel[];
 }
 
+export interface ValidatedLabels {
+  invalid: number;
+  valid: PositiveLabel[];
+}
+
 export function dedupeLabels(raw: PositiveLabel[]): DedupResult {
   const map = new Map<string, PositiveLabel>();
   let conflicts = 0;
@@ -27,10 +32,7 @@ export function dedupeLabels(raw: PositiveLabel[]): DedupResult {
   return { conflicts, labels: [...map.values()] };
 }
 
-export function validateLabels(
-  labels: PositiveLabel[],
-  validKeys: Set<string>,
-): { valid: PositiveLabel[]; invalid: number } {
+export function validateLabels(labels: PositiveLabel[], validKeys: Set<string>): ValidatedLabels {
   const valid = labels.filter((l) => validKeys.has(labelKey(l)));
   return { invalid: labels.length - valid.length, valid };
 }

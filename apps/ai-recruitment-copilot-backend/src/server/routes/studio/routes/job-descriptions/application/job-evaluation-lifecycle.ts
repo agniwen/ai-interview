@@ -193,6 +193,8 @@ export function applyManualRuleDraft(
   input: JobEvaluationRuleDraft,
 ): JobEvaluationBlueprint {
   const draft = jobEvaluationRuleDraftSchema.parse(input);
+  // SAFETY: draft has passed jobEvaluationRuleDraftSchema; every key/value pair is derived
+  // from its dimensionExpectations, with manual provenance added to each expectation.
   const dimensionExpectations = Object.fromEntries(
     Object.entries(draft.dimensionExpectations).map(([dimension, expectations]) => [
       dimension,
@@ -418,16 +420,27 @@ function saveManualPreviewDefault(
   });
 }
 
+export interface CompileJobEvaluationDraftDependencies {
+  generate: typeof generateEvaluationBlueprintCandidate;
+  getModelId(): string;
+}
+
+const defaultCompileDependencies: CompileJobEvaluationDraftDependencies = {
+  generate: generateEvaluationBlueprintCandidate,
+  getModelId: () => getMastraModelIdentifier(mastraModels.structuredModel),
+};
+
 export async function compileJobEvaluationDraft(
   job: Pick<JobEvaluationDraft, "description" | "id" | "prompt" | "structuredConfig">,
   onProgress?: JobEvaluationRuleDraftProgress,
+  dependencies: CompileJobEvaluationDraftDependencies = defaultCompileDependencies,
 ): Promise<JobEvaluationBlueprint> {
   const startedAt = Date.now();
   const generatedAt = new Date().toISOString();
-  const modelId = getMastraModelIdentifier(mastraModels.structuredModel);
+  const modelId = dependencies.getModelId();
   let modelOutput;
   try {
-    modelOutput = await generateEvaluationBlueprintCandidate(job, onProgress);
+    modelOutput = await dependencies.generate(job, onProgress);
   } catch (error) {
     console.error("[job-evaluation-blueprint] generation failed", {
       durationMs: Date.now() - startedAt,

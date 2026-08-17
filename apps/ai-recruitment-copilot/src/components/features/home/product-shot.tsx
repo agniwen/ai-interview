@@ -24,10 +24,11 @@ export function ProductShot() {
   // the animation to wrapperRef and reverts automatically on unmount.
   useGSAP(
     () => {
-      if (typeof window === "undefined") {
+      const browserWindow = globalThis.window;
+      if (!browserWindow) {
         return;
       }
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (browserWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         return;
       }
       const target = wrapperRef.current;

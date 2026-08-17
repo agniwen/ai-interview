@@ -54,7 +54,10 @@ describe("candidate lifecycle status boundary", () => {
       "utf-8",
     );
     const agentRoute = readFileSync(
-      path.join(repoRoot, "apps/ai-recruitment-copilot-backend/src/server/routes/agent/route.ts"),
+      path.join(
+        repoRoot,
+        "apps/ai-recruitment-copilot-backend/src/server/routes/agent/route-runtime.ts",
+      ),
       "utf-8",
     );
 

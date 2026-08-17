@@ -32,9 +32,27 @@ export type InterviewSnapshotBackfillRecord =
   | EvidenceSnapshotBackfillRecord;
 
 interface InterviewSnapshotBackfillLog {
-  [key: string]: unknown;
+  conversationId?: string;
+  dryRun?: boolean;
+  error?: string;
   event: string;
+  failed?: number;
+  index?: number;
+  interviewRecordId?: string;
+  limit?: number | null;
+  recordCount?: number;
+  recordType?: InterviewSnapshotBackfillRecord["recordType"];
+  remaining?: number;
+  scheduleEntryId?: string | null;
+  succeeded?: number;
+  target?: InterviewSnapshotBackfillTarget;
+  timestamp?: string;
+  total?: number;
 }
+
+type InterviewSnapshotBackfillLogContext =
+  | Pick<ContextSnapshotBackfillRecord, "interviewRecordId" | "recordType" | "scheduleEntryId">
+  | Pick<EvidenceSnapshotBackfillRecord, "conversationId" | "interviewRecordId" | "recordType">;
 
 interface RunInterviewSnapshotBackfillInput {
   backfillContext: (record: ContextSnapshotBackfillRecord) => Promise<void>;
@@ -100,7 +118,9 @@ function calculateRemaining(completed: number, total: number): number {
   return Math.max(total - completed, 0);
 }
 
-function logContextForRecord(record: InterviewSnapshotBackfillRecord): Record<string, unknown> {
+function logContextForRecord(
+  record: InterviewSnapshotBackfillRecord,
+): InterviewSnapshotBackfillLogContext {
   if (record.recordType === "context_snapshot") {
     return {
       interviewRecordId: record.interviewRecordId,

@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
+const routeSource = readFileSync(new URL("../route-runtime.ts", import.meta.url), "utf-8");
 
 function queryBeforeLimit(declaration: string): string {
-  const start = routeSource.indexOf(declaration);
+  const start = routeSource.indexOf(`function ${declaration}`);
   const end = routeSource.indexOf(".limit(RECOVERY_BATCH_SIZE);", start);
 
   expect(start).toBeGreaterThanOrEqual(0);
@@ -14,14 +14,14 @@ function queryBeforeLimit(declaration: string): string {
 
 describe("report generation recovery queries", () => {
   it("filters exhausted or orphaned summary jobs before applying the batch limit", () => {
-    const query = queryBeforeLimit("const candidates = await db");
+    const query = queryBeforeLimit("listSummaryRetryCandidates");
 
     expect(query).toContain("isNotNull(interviewConversation.interviewRecordId)");
     expect(query).toContain("lt(interviewConversation.summaryAttempts, RECOVERY_MAX_ATTEMPTS)");
   });
 
   it("filters exhausted or orphaned key-information jobs before applying the batch limit", () => {
-    const query = queryBeforeLimit("const keyInformationCandidates = await db");
+    const query = queryBeforeLimit("listKeyInformationRetryCandidates");
 
     expect(query).toContain("isNotNull(interviewConversation.interviewRecordId)");
     expect(query).toContain(

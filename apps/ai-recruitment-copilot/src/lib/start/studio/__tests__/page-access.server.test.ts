@@ -6,10 +6,6 @@ const mocks = vi.hoisted(() => ({
   resolveAccess: vi.fn(),
 }));
 
-vi.mock("@/lib/start/auth-session.server", () => ({
-  resolveWorkspaceAccessFromRequest: mocks.resolveAccess,
-}));
-
 function readyAccess(
   page: Extract<WorkspaceAccessState, { status: "ready" }>["permissions"]["page"],
 ): Extract<WorkspaceAccessState, { status: "ready" }> {
@@ -31,16 +27,20 @@ describe("resolveAuthorizedStudioPageAccessFromRequest", () => {
     const access = readyAccess(["dashboard"]);
     mocks.resolveAccess.mockResolvedValue(access);
 
-    await expect(resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard")).resolves.toBe(
-      access,
-    );
+    await expect(
+      resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard", {
+        resolveWorkspaceAccess: mocks.resolveAccess,
+      }),
+    ).resolves.toBe(access);
   });
 
   it("hides the page when the workspace member lacks its page permission", async () => {
     mocks.resolveAccess.mockResolvedValue(readyAccess([]));
 
     await expect(
-      resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard"),
+      resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard", {
+        resolveWorkspaceAccess: mocks.resolveAccess,
+      }),
     ).resolves.toEqual({ status: "not_found" });
   });
 
@@ -50,7 +50,9 @@ describe("resolveAuthorizedStudioPageAccessFromRequest", () => {
       mocks.resolveAccess.mockResolvedValue(access);
 
       await expect(
-        resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard"),
+        resolveAuthorizedStudioPageAccessFromRequest("acme", "dashboard", {
+          resolveWorkspaceAccess: mocks.resolveAccess,
+        }),
       ).resolves.toEqual(access);
     },
   );

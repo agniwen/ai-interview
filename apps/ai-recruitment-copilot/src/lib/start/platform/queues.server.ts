@@ -11,6 +11,7 @@ import {
 } from "@arc/resume-parse-queue/resume-parse";
 import type { ResumeParseJobListState } from "@arc/resume-parse-queue/resume-parse";
 import { enrichResumeParseQueueJobs } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/queue-details";
+import { z } from "zod";
 
 export interface PlatformQueueFilters extends Record<string, string> {
   queue: string;
@@ -18,9 +19,7 @@ export interface PlatformQueueFilters extends Record<string, string> {
 }
 
 function normalizeJobState(value: string): ResumeParseJobListState {
-  return RESUME_PARSE_JOB_LIST_STATES.includes(value as ResumeParseJobListState)
-    ? (value as ResumeParseJobListState)
-    : "all";
+  return RESUME_PARSE_JOB_LIST_STATES.find((state) => state === value) ?? "all";
 }
 
 export async function listPlatformQueuesOverview() {
@@ -64,5 +63,6 @@ export async function loadPlatformQueuesHydrationState(
     }),
   ]);
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

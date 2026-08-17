@@ -6,138 +6,106 @@ import {
   createAttachment,
   findAttachmentByContentHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { chatAttachment, organization, user } from "@arc/db-schema/schema";
 
-interface DbRow {
-  contentHash: string | null;
-  parsedStatus: "ready" | "pending" | "failed";
-  storageKey: string;
-  [key: string]: unknown;
+const ORG_ID = "chat_dedup_test_org";
+const USER_ID = "chat_dedup_test_user";
+
+async function cleanup() {
+  await db.delete(chatAttachment).where(eq(chatAttachment.organizationId, ORG_ID));
+  await db.delete(organization).where(eq(organization.id, ORG_ID));
+  await db.delete(user).where(eq(user.id, USER_ID));
 }
 
-// Shared in-memory row store — reset between tests via beforeEach.
-// 共享内存行存储 — 每个测试前通过 beforeEach 重置。
-const rows: DbRow[] = [];
+beforeAll(async () => {
+  await cleanup();
+  const now = new Date("2026-08-18T00:00:00.000Z");
+  await db.insert(user).values({
+    createdAt: now,
+    email: "chat-dedup@example.com",
+    emailVerified: false,
+    id: USER_ID,
+    name: "Chat Dedup",
+    updatedAt: now,
+  });
+  await db.insert(organization).values({
+    createdAt: now,
+    id: ORG_ID,
+    name: "Chat Dedup Test",
+    slug: "chat-dedup-test",
+  });
+});
 
-interface WhereCondition {
-  matches: (row: DbRow) => boolean;
-}
+beforeEach(async () => {
+  await db.delete(chatAttachment).where(eq(chatAttachment.organizationId, ORG_ID));
+});
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    // insert(table).values(record) — push to in-memory store.
-    // insert(table).values(record) — 写入内存存储。
-    insert: (_table: unknown) => ({
-      values: (record: DbRow) => {
-        rows.push(record);
-      },
-    }),
-    // select().from(table).where(condition).limit(n) — filter in-memory rows.
-    // select().from(table).where(condition).limit(n) — 过滤内存行。
-    select: () => ({
-      from: (_table: unknown) => ({
-        where: (condition: WhereCondition) => ({
-          orderBy: () => ({
-            limit: (_n: number) => rows.filter((r) => condition.matches(r)).slice(0, 1),
-          }),
-        }),
-      }),
-    }),
-  },
-}));
-
-// Intercept drizzle-orm helpers and convert them to plain JS predicates so the
-// fake db.where() can evaluate them against our in-memory rows.
-// 拦截 drizzle-orm 工厂，将其转换为纯 JS 谓词，供 fake db.where() 评估内存行。
-vi.mock("drizzle-orm", () => ({
-  and: (...conds: WhereCondition[]) => ({
-    matches: (row: DbRow) => conds.every((c) => c.matches(row)),
-  }),
-  desc: (column: unknown) => column,
-  eq: (col: { name: string }, value: unknown) => ({
-    matches: (row: DbRow) => row[col.name] === value,
-  }),
-  inArray: (col: { name: string }, values: unknown[]) => ({
-    matches: (row: DbRow) => values.includes(row[col.name]),
-  }),
-  ne: (col: { name: string }, value: unknown) => ({
-    matches: (row: DbRow) => row[col.name] !== value,
-  }),
-}));
-
-// Mock schema: expose camelCase column objects whose `.name` matches the
-// camelCase keys used in the in-memory row objects above.
-// Mock schema：列对象的 .name 与内存行中的 camelCase 键名一致。
-vi.mock("@arc/db-schema/schema", () => ({
-  chatAttachment: {
-    contentHash: { name: "contentHash" },
-    id: { name: "id" },
-    parsedStatus: { name: "parsedStatus" },
-    storageKey: { name: "storageKey" },
-    userId: { name: "userId" },
-  },
-}));
+afterAll(cleanup);
 
 describe("chat-attachment dedup query layer", () => {
-  beforeEach(() => {
-    // Clear in-memory store before each test.
-    // 每个测试前清空内存存储。
-    rows.length = 0;
-  });
-
   it("createAttachment persists contentHash", async () => {
+    const hash = `${ORG_ID}:persisted`;
     await createAttachment({
-      contentHash: "a".repeat(64),
+      contentHash: hash,
       filename: "r.pdf",
       id: "att-1",
       mediaType: "application/pdf",
-      organizationId: "org-test",
+      organizationId: ORG_ID,
       parsedStatus: "ready",
       parsedText: "hello",
       size: 1234,
       storageKey: "chat-attachments/aaaa.pdf",
-      userId: "user-1",
+      userId: USER_ID,
     });
 
-    expect(rows[0]?.contentHash).toBe("a".repeat(64));
+    const [row] = await db
+      .select({ contentHash: chatAttachment.contentHash })
+      .from(chatAttachment)
+      .where(eq(chatAttachment.id, "att-1"));
+    expect(row?.contentHash).toBe(hash);
   });
 
   it("findAttachmentByContentHash returns the matching ready row", async () => {
+    const hash = `${ORG_ID}:ready`;
     await createAttachment({
-      contentHash: "b".repeat(64),
+      contentHash: hash,
       filename: "r.pdf",
       id: "att-2",
       mediaType: "application/pdf",
-      organizationId: "org-test",
+      organizationId: ORG_ID,
       parsedStatus: "ready",
       size: 100,
       storageKey: "chat-attachments/bbbb.pdf",
-      userId: "user-2",
+      userId: USER_ID,
     });
 
-    const found = await findAttachmentByContentHash("b".repeat(64));
+    const found = await findAttachmentByContentHash(hash);
     expect(found?.storageKey).toBe("chat-attachments/bbbb.pdf");
   });
 
   it("findAttachmentByContentHash skips rows where parsedStatus is 'failed'", async () => {
+    const hash = `${ORG_ID}:failed`;
     await createAttachment({
-      contentHash: "c".repeat(64),
+      contentHash: hash,
       filename: "r.pdf",
       id: "att-3",
       mediaType: "application/pdf",
-      organizationId: "org-test",
+      organizationId: ORG_ID,
       parsedStatus: "failed",
       size: 100,
       storageKey: "chat-attachments/cccc.pdf",
-      userId: "user-3",
+      userId: USER_ID,
     });
 
-    const found = await findAttachmentByContentHash("c".repeat(64));
+    const found = await findAttachmentByContentHash(hash);
     expect(found).toBeNull();
   });
 
   it("findAttachmentByContentHash returns null when nothing matches", async () => {
-    const found = await findAttachmentByContentHash("d".repeat(64));
+    const found = await findAttachmentByContentHash(`${ORG_ID}:missing`);
     expect(found).toBeNull();
   });
 });

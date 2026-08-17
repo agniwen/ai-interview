@@ -78,7 +78,7 @@ function formatSessionTimeAgo(value: string, now: number | null) {
 
 function useActiveSessionId() {
   return useParams({
-    select: (params) => (typeof params.sessionId === "string" ? params.sessionId : null),
+    select: (params) => params.sessionId ?? null,
     strict: false,
   });
 }
@@ -380,7 +380,7 @@ function ChatSidebarBody({
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { containerRef, hideMenuHighlight, hoverHighlight, moveToMenuItem } =
-    useSidebarMenuHoverHighlight();
+    useSidebarMenuHoverHighlight<HTMLUListElement>();
 
   const closeOnNavigate = useCallback(() => {
     if (isMobile) {
@@ -709,7 +709,7 @@ export function ChatSidebarSlots({
             editMode={editMode}
             isLoading={isListPending}
             now={now}
-            onConfirmDelete={(conversation) => void confirmDelete(conversation)}
+            onConfirmDelete={confirmDelete}
             onDeleteOpenChange={handleDeleteOpenChange}
             onToggleSelect={handleToggleSelect}
             selectedIds={selectedIds}

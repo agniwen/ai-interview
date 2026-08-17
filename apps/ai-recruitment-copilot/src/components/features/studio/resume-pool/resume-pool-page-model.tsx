@@ -14,6 +14,7 @@ import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { Badge } from "@/components/ui/badge";
+import { rpcFetch } from "@/lib/client/api";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -398,13 +399,12 @@ export function filterPoolRecords(
 export function useJobDescriptions(slug: string) {
   return useQuery({
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
-        param: { slug },
-      });
-      if (!response.ok) {
-        throw new Error("加载在招岗位列表失败");
-      }
-      const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
+      const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+        rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
+          param: { slug },
+        }),
+        "加载在招岗位列表失败",
+      );
       return payload.records;
     },
     queryKey: ["job-descriptions", "recruiting", slug],

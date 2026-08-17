@@ -1,13 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { WindowControls } from "@/components/window-controls";
 import { handleTitleBarDoubleClick } from "@/components/layout/chrome";
+import { z } from "zod";
 
-function errorMessage(error: unknown): string {
+interface AppErrorFallbackProps {
+  error: unknown;
+  onReload: () => void;
+}
+
+function errorMessage(error: AppErrorFallbackProps["error"]): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
-  if (typeof error === "string" && error.trim()) {
-    return error;
+  const stringResult = z.string().safeParse(error);
+  if (stringResult.success && stringResult.data.trim()) {
+    return stringResult.data;
   }
   return "发生了未知错误";
 }
@@ -16,11 +23,11 @@ function errorMessage(error: unknown): string {
  * Full-window error surface: the page is a drag region, the message sits
  * in the center, and reload is the only interactive control.
  */
-export function AppErrorFallback({ error, onReload }: { error: unknown; onReload: () => void }) {
+export function AppErrorFallback({ error, onReload }: AppErrorFallbackProps) {
   return (
     <main className="relative h-full min-h-0 bg-background text-foreground">
       <div className="app-drag absolute inset-0" onDoubleClick={handleTitleBarDoubleClick} />
-      {typeof window !== "undefined" && window.api ? (
+      {globalThis.window?.api ? (
         <div className="app-no-drag absolute inset-y-0 right-0 z-10">
           <WindowControls />
         </div>

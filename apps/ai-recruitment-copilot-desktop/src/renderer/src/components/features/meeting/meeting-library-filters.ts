@@ -48,11 +48,18 @@ export function filterArchivedMeetings(
   return [...matched].toSorted(compareArchivedNewestFirst);
 }
 
+export interface PaginatedRecords<T> {
+  items: T[];
+  page: number;
+  total: number;
+  totalPages: number;
+}
+
 export function paginateRecords<T>(
   items: T[],
   page: number,
   pageSize: number,
-): { items: T[]; page: number; total: number; totalPages: number } {
+): PaginatedRecords<T> {
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);

@@ -330,10 +330,6 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                     const headerContent = header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext());
-                    const headerLabel =
-                      typeof header.column.columnDef.header === "string"
-                        ? header.column.columnDef.header
-                        : header.column.id;
                     return (
                       <TableHead
                         className={cn(
@@ -357,7 +353,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                           <div className="flex items-center gap-0.5">
                             <span>{headerContent}</span>
                             <Button
-                              aria-label={`按${headerLabel}排序`}
+                              aria-label="切换排序"
                               onClick={() =>
                                 header.column.toggleSorting(header.column.getIsSorted() === "asc")
                               }

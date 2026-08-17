@@ -85,7 +85,10 @@ type LarkInteractiveAction =
         tag: "plain_text";
       };
       type?: "default" | "primary" | "danger";
-      value: Record<string, unknown>;
+      value: {
+        actionId: string;
+        value?: string;
+      };
       tag: "button";
     };
 
@@ -215,12 +218,18 @@ function cardChildToLarkElements(child: CardChild): LarkInteractiveElement[] {
           ];
         }
         if (action.type === "button") {
+          const value: Extract<LarkInteractiveAction, { tag: "button"; value: object }>["value"] = {
+            actionId: action.id,
+          };
+          if (action.value !== undefined) {
+            value.value = action.value;
+          }
           return [
             {
               tag: "button",
               text: { content: action.label, tag: "plain_text" },
               type: action.style,
-              value: { actionId: action.id, value: action.value },
+              value,
             },
           ];
         }
@@ -327,13 +336,12 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
   const adapter = createLarkAdapter({
     appId,
     appSecret,
-    channelFactory: (options) =>
-      createLarkChannel({
-        ...options,
-        ...(isFeishuHumanInterviewEnabled()
-          ? { eventHandlers: createFeishuMeetingLifecycleEventHandlers(providerId) }
-          : {}),
-      }),
+    channelFactory: (options) => {
+      const eventHandlers = isFeishuHumanInterviewEnabled()
+        ? createFeishuMeetingLifecycleEventHandlers(providerId)
+        : undefined;
+      return createLarkChannel({ ...options, eventHandlers });
+    },
     userName: "resume-bot",
   });
 

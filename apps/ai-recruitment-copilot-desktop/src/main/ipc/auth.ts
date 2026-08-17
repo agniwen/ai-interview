@@ -1,4 +1,6 @@
 import { BrowserWindow, ipcMain } from "electron";
+import type { JsonValue } from "@arc/db-schema/json";
+import { z } from "zod";
 
 export type OAuthOpenResult =
   | { ok: true; reason: "success" | "closed" }
@@ -13,6 +15,26 @@ export interface OAuthOpenPayload {
   callbackURL: string;
   errorCallbackURL: string;
 }
+
+const oauthOpenPayloadSchema = z.object({
+  appOrigin: z.string(),
+  authApiOrigin: z.string(),
+  authBaseURL: z.string(),
+  callbackURL: z.string(),
+  errorCallbackURL: z.string(),
+  providerId: z.string(),
+});
+
+const signInResultSchema = z.object({
+  data: z
+    .object({
+      message: z.string().optional(),
+      raw: z.string().optional(),
+      url: z.string().optional(),
+    })
+    .nullable(),
+  status: z.number(),
+});
 
 function windowFromEvent(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
@@ -222,14 +244,9 @@ async function beginOAuthInWindow(
     })()
   `;
 
-  interface SignInResult {
-    status: number;
-    data: { url?: string; message?: string; raw?: string } | null;
-  }
-
-  let result: SignInResult;
+  let result: z.infer<typeof signInResultSchema>;
   try {
-    result = (await authWin.webContents.executeJavaScript(script)) as SignInResult;
+    result = signInResultSchema.parse(await authWin.webContents.executeJavaScript(script));
   } catch (error) {
     const message = error instanceof Error ? error.message : "发起登录请求失败";
     return { message, ok: false };
@@ -243,11 +260,9 @@ async function beginOAuthInWindow(
   }
 
   const oauthUrl = result.data?.url;
-  if (result.status < 200 || result.status >= 300 || !oauthUrl || typeof oauthUrl !== "string") {
+  if (result.status < 200 || result.status >= 300 || !oauthUrl) {
     const detail =
-      result.data?.message ||
-      (typeof result.data?.raw === "string" ? result.data.raw.slice(0, 120) : null) ||
-      `HTTP ${result.status}`;
+      result.data?.message || result.data?.raw?.slice(0, 120) || `HTTP ${result.status}`;
     return { message: `未能获取飞书授权地址：${detail}`, ok: false };
   }
 
@@ -407,25 +422,18 @@ function openOAuthWindow(
 export function registerAuthIpc(): void {
   ipcMain.handle(
     "auth:open-oauth",
-    async (event, payload: OAuthOpenPayload): Promise<OAuthOpenResult> => {
+    async (event, rawPayload: JsonValue): Promise<OAuthOpenResult> => {
       const parent = windowFromEvent(event);
       if (!parent) {
         return { message: "No parent window", ok: false, reason: "error" };
       }
 
-      if (
-        !payload ||
-        typeof payload.authBaseURL !== "string" ||
-        typeof payload.authApiOrigin !== "string" ||
-        typeof payload.appOrigin !== "string" ||
-        typeof payload.providerId !== "string" ||
-        typeof payload.callbackURL !== "string" ||
-        typeof payload.errorCallbackURL !== "string"
-      ) {
+      const payload = oauthOpenPayloadSchema.safeParse(rawPayload);
+      if (!payload.success) {
         return { message: "Invalid OAuth payload", ok: false, reason: "error" };
       }
 
-      return await openOAuthWindow(parent, payload);
+      return await openOAuthWindow(parent, payload.data);
     },
   );
 }

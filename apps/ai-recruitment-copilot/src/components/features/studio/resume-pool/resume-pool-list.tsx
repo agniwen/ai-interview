@@ -7,6 +7,7 @@ import { cn } from "@arc/shared/utils";
 
 import { ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -193,6 +194,7 @@ export function ResumePoolListContent({
   publishing,
   retryingRecordId,
   retriedRecordIds,
+  renderCard: renderCardOverride,
   records,
   scope,
   showEmptyState,
@@ -222,42 +224,47 @@ export function ResumePoolListContent({
   onUpload: () => void;
   retryingRecordId: string | null;
   retriedRecordIds: ReadonlySet<string>;
+  renderCard?: (record: ResumePoolListRecord) => ReactNode;
 }) {
   const groupSectionRefs = useRef(new Map<string, HTMLElement>());
 
   if (records.length > 0) {
-    const renderCard = (record: ResumePoolListRecord) => {
-      const canDelete =
-        canDeletePoolRecord(record, {
-          currentOrganizationId,
-          currentUserId,
-        }) && canDeletePoolRecords;
-      const canManageRecord = scope !== "private" || record.createdBy === currentUserId;
-      return (
-        <ResumePoolCard
-          canDelete={canDelete}
-          canImport={canImportToLibrary && canManageRecord}
-          canPublish={canPublishToPool && canManageRecord}
-          canRetryParse={canRetryResumeParse && canManageRecord && !retriedRecordIds.has(record.id)}
-          deleting={deleting}
-          key={record.id}
-          onDelete={onDelete}
-          onImport={onImport}
-          onOpenDuplicateMatches={onOpenDuplicateMatches}
-          onOpenDetail={onOpenDetail}
-          onOpenPdf={onOpenPdf}
-          onPublish={onPublish}
-          onRetryParse={onRetryParse}
-          publishing={publishing}
-          retrying={retryingRecordId === record.id}
-          record={record}
-          selected={false}
-          selectionDisabled={false}
-          scope={scope}
-          onSelectionChange={ignoreResumePoolSelection}
-        />
-      );
-    };
+    const renderCard =
+      renderCardOverride ??
+      ((record: ResumePoolListRecord) => {
+        const canDelete =
+          canDeletePoolRecord(record, {
+            currentOrganizationId,
+            currentUserId,
+          }) && canDeletePoolRecords;
+        const canManageRecord = scope !== "private" || record.createdBy === currentUserId;
+        return (
+          <ResumePoolCard
+            canDelete={canDelete}
+            canImport={canImportToLibrary && canManageRecord}
+            canPublish={canPublishToPool && canManageRecord}
+            canRetryParse={
+              canRetryResumeParse && canManageRecord && !retriedRecordIds.has(record.id)
+            }
+            deleting={deleting}
+            key={record.id}
+            onDelete={onDelete}
+            onImport={onImport}
+            onOpenDuplicateMatches={onOpenDuplicateMatches}
+            onOpenDetail={onOpenDetail}
+            onOpenPdf={onOpenPdf}
+            onPublish={onPublish}
+            onRetryParse={onRetryParse}
+            publishing={publishing}
+            retrying={retryingRecordId === record.id}
+            record={record}
+            selected={false}
+            selectionDisabled={false}
+            scope={scope}
+            onSelectionChange={ignoreResumePoolSelection}
+          />
+        );
+      });
     const groups = groupResumePoolRecordsByCreatedAt(records);
     return (
       <div className="space-y-8">

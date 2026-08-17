@@ -5,16 +5,15 @@
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
-import type { AnswerValue, FieldErrorMap } from "./types";
+import { z } from "zod";
+import type { AnswerMap, FieldErrorMap } from "./types";
 
 /**
  * 根据题目类型预填初始答案：单选 / 文本 → 空串，多选 → 空数组。
  * Build the initial answer map: single / text → empty string, multi → empty array.
  */
-export function buildInitialAnswers(
-  snapshot: CandidateFormTemplateSnapshot,
-): Record<string, AnswerValue> {
-  const answers: Record<string, AnswerValue> = {};
+export function buildInitialAnswers(snapshot: CandidateFormTemplateSnapshot): AnswerMap {
+  const answers: AnswerMap = {};
   for (const question of snapshot.questions) {
     answers[question.id] = question.type === "multi" ? [] : "";
   }
@@ -48,16 +47,16 @@ export function friendlyMessage(raw: string): string {
  */
 export function validateAnswers(
   snapshot: CandidateFormTemplateSnapshot,
-  answers: Record<string, AnswerValue>,
+  answers: AnswerMap,
 ): FieldErrorMap {
   const schema = buildCandidateFormAnswersSchema(snapshot);
-  const normalized: Record<string, AnswerValue> = {};
+  const normalized: AnswerMap = {};
   for (const question of snapshot.questions) {
     const raw = answers[question.id];
     if (question.type === "multi") {
       normalized[question.id] = Array.isArray(raw) ? raw : [];
     } else {
-      normalized[question.id] = typeof raw === "string" ? raw : "";
+      normalized[question.id] = Array.isArray(raw) ? "" : raw;
     }
   }
 
@@ -68,11 +67,11 @@ export function validateAnswers(
 
   const errors: FieldErrorMap = {};
   for (const issue of result.error.issues) {
-    const [questionId] = issue.path;
-    if (typeof questionId !== "string" || errors[questionId]) {
+    const questionId = z.string().safeParse(issue.path[0]);
+    if (!questionId.success || errors[questionId.data]) {
       continue;
     }
-    errors[questionId] = friendlyMessage(issue.message);
+    errors[questionId.data] = friendlyMessage(issue.message);
   }
   return errors;
 }

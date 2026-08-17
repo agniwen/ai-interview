@@ -47,11 +47,11 @@ function platformWindowOptions(): BrowserWindowConstructorOptions {
   }
 
   // Linux: no stable system acrylic; solid fallback.
-  return {
+  const options = {
     backgroundColor: "#ffffff",
     frame: false,
-    ...(process.platform === "linux" ? { icon } : {}),
   };
+  return process.platform === "linux" ? { ...options, icon } : options;
 }
 
 /**

@@ -45,6 +45,9 @@ const outputSchema = z
   })
   .strict();
 
+const casesModuleSchema = z.object({ cases: z.json().optional() });
+const candidateModuleSchema = z.object({ candidate: z.json().optional() });
+
 const evalCaseSchema = z
   .object({
     baseline: outputSchema,
@@ -212,24 +215,20 @@ function validateCorpusCoverage(cases: StructuredResumeEvalCase[]) {
   }
 }
 
-async function loadCases(casesPath: string): Promise<unknown> {
+async function loadCases(casesPath: string): Promise<z.output<typeof casesModuleSchema>["cases"]> {
   if (casesPath.endsWith(".json")) {
     return JSON.parse(await readFile(casesPath, "utf-8"));
   }
-  const importedCases = (await import(pathToFileURL(casesPath).href)) as {
-    cases?: unknown;
-  };
-  return importedCases.cases;
+  return casesModuleSchema.parse(await import(pathToFileURL(casesPath).href)).cases;
 }
 
-async function loadCandidate(candidatePath: string): Promise<unknown> {
+async function loadCandidate(
+  candidatePath: string,
+): Promise<z.output<typeof candidateModuleSchema>["candidate"]> {
   if (candidatePath.endsWith(".json")) {
     return JSON.parse(await readFile(candidatePath, "utf-8"));
   }
-  const importedCandidate = (await import(pathToFileURL(candidatePath).href)) as {
-    candidate?: unknown;
-  };
-  return importedCandidate.candidate;
+  return candidateModuleSchema.parse(await import(pathToFileURL(candidatePath).href)).candidate;
 }
 
 interface LoadedStructuredResumeEvalCorpus {
@@ -250,7 +249,7 @@ function invalidCandidateOutput(): StructuredResumeEvalCase["baseline"] {
   };
 }
 
-function sameValue(left: unknown, right: unknown): boolean {
+function sameValue<T>(left: T, right: T): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
@@ -280,9 +279,7 @@ function validateArtifactInvariants(
   const ruleIds = STRUCTURED_RESUME_DIMENSIONS.flatMap((dimension) =>
     artifact.dimensions[dimension].ruleJudgments.map((item) => item.ruleId),
   );
-  const catalogRuleIds = Object.keys(
-    STRUCTURED_RESUME_DEDUCTION_CATALOG,
-  ) as StructuredResumeRuleId[];
+  const catalogRuleIds = Object.keys(STRUCTURED_RESUME_DEDUCTION_CATALOG).filter(isKnownRuleId);
   const expectedGateById = new Map(
     caseInput.jobInput.blueprint.hardGateRequirements.map((item) => [item.requirementId, item]),
   );
@@ -365,11 +362,13 @@ function validateArtifactInvariants(
     ) {
       return false;
     }
+    // SAFETY: The tuple contains every StructuredResumeDimension exactly once and each mapped value is validated above.
     const dimensionRuleJudgments = Object.fromEntries(
       STRUCTURED_RESUME_DIMENSIONS.map((dimension) => [
         dimension,
         artifact.dimensions[dimension].ruleJudgments.map((item) => ({
           ...item,
+          // SAFETY: The ruleIds check above rejects every artifact rule id absent from the catalog.
           ruleId: item.ruleId as StructuredResumeRuleId,
         })),
       ]),
@@ -500,7 +499,7 @@ export async function loadStructuredResumeEvalCandidate(
   corpus: LoadedStructuredResumeEvalCorpus,
 ): Promise<{ candidate: StructuredResumeEvalCandidate; cases: StructuredResumeEvalCase[] }> {
   const rawCandidate = await loadCandidate(candidatePath);
-  const candidate = candidateSchema.parse(rawCandidate) as StructuredResumeEvalCandidate;
+  const candidate = candidateSchema.parse(rawCandidate);
   return {
     candidate,
     cases: bindStructuredResumeEvalCandidate(corpus, candidate),
@@ -514,7 +513,7 @@ export async function loadStructuredResumeEvalCorpus(manifestPath: string) {
       throw new Error("STRUCTURED_EVAL_DIRECT_PII_IN_MANIFEST");
     }
   }
-  const manifest = manifestSchema.parse(JSON.parse(rawManifest)) as StructuredResumeEvalManifest;
+  const manifest = manifestSchema.parse(JSON.parse(rawManifest));
   const casesPath = resolve(dirname(manifestPath), manifest.casesFile);
   const rawCases = await loadCases(casesPath);
   const serializedCases = JSON.stringify(rawCases);

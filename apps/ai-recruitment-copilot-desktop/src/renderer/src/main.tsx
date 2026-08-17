@@ -7,6 +7,7 @@ import { LazyMotion, domAnimation } from "motion/react";
 import { Provider as JotaiProvider } from "jotai";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { themeModeSchema } from "../../preload/orpc-contract";
 import { getQueryClient } from "@/lib/query-client";
 import { hydrateSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
@@ -17,10 +18,8 @@ import { ThemeSync } from "@/components/theme/theme-sync";
 import { meetingRecordingStore } from "@/components/features/meeting/meeting-recording-store";
 import { initializeMeetingRecordingStore } from "@/components/features/meeting/meeting-recording-store-init";
 
-const THEME_VALUES: readonly ThemeMode[] = ["light", "dark", "system"];
-
 function resolveTheme(raw: string | null): ThemeMode {
-  return (THEME_VALUES as readonly string[]).includes(raw ?? "") ? (raw as ThemeMode) : "system";
+  return themeModeSchema.safeParse(raw).data ?? "system";
 }
 
 /**

@@ -5,6 +5,13 @@ import type {
   MeetingTranscriptionBenchmarkScore,
 } from "./types";
 
+interface SpeakerBoundaryEvents {
+  addPrediction: string[];
+  addReference: string[];
+  removePrediction: string[];
+  removeReference: string[];
+}
+
 function clampRatio(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -185,25 +192,17 @@ function speakerErrorRate(
   if (referenceSpeakers.size > 64 || predictionSpeakers.size > 64) {
     return 1;
   }
-  const events = new Map<
-    number,
-    {
-      addPrediction: string[];
-      addReference: string[];
-      removePrediction: string[];
-      removeReference: string[];
-    }
-  >();
+  const events = new Map<number, SpeakerBoundaryEvents>();
   const eventAt = (atMs: number) => {
     const existing = events.get(atMs);
     if (existing) {
       return existing;
     }
-    const created = {
-      addPrediction: [] as string[],
-      addReference: [] as string[],
-      removePrediction: [] as string[],
-      removeReference: [] as string[],
+    const created: SpeakerBoundaryEvents = {
+      addPrediction: [],
+      addReference: [],
+      removePrediction: [],
+      removeReference: [],
     };
     events.set(atMs, created);
     return created;

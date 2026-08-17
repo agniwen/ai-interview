@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
 import type {
@@ -309,9 +310,9 @@ export async function upsertConversationContextJobBinding(input: {
   };
   const message: ArcMessage = {
     id: messageId,
-    metadata: {
-      [RECRUITING_CONTEXT_JOB_BINDING_META_KEY]: binding,
-    },
+    metadata: z
+      .record(z.string(), z.json())
+      .parse({ [RECRUITING_CONTEXT_JOB_BINDING_META_KEY]: binding }),
     parts: [{ text: input.summaryText, type: "text" }],
     role: "assistant",
   };

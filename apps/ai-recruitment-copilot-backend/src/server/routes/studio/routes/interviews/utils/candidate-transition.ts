@@ -49,6 +49,11 @@ export interface CandidateTransitionAuditDetail {
   toStage: PipelineStage;
 }
 
+export interface CandidateTransitionResolution {
+  auditDetail: CandidateTransitionAuditDetail;
+  patch: CandidateTransitionPatch;
+}
+
 export function getCandidateReactivationError({
   from,
   reactivationReason,
@@ -110,10 +115,7 @@ export function resolveCandidateTransitionPatch({
   existing: CandidateTransitionExisting;
   input: CandidateTransitionInput;
   now: Date;
-}): {
-  auditDetail: CandidateTransitionAuditDetail;
-  patch: CandidateTransitionPatch;
-} {
+}): CandidateTransitionResolution {
   const isClosing = input.pipelineStage === "closed";
   const wasClosed = existing.pipelineStage === "closed";
 

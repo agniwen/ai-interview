@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataGrid } from "@/components/data-grid/data-grid";
 import type { DataGridColumnDef } from "@/components/data-grid/data-grid";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface Row {

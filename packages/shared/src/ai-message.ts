@@ -8,6 +8,7 @@ import type {
   ArcTextPart,
   ArcToolPart,
 } from "@arc/db-schema/ai-message";
+import { z } from "zod";
 
 export type {
   ArcFilePart,
@@ -20,13 +21,13 @@ export type {
   ArcToolPart,
 };
 
+const arcFilePartGuardSchema = z.object({
+  mediaType: z.string(),
+  type: z.literal("file"),
+});
+
 export function isArcFilePart(part: ArcMessagePart | unknown): part is ArcFilePart {
-  return (
-    typeof part === "object" &&
-    part !== null &&
-    (part as { type?: unknown }).type === "file" &&
-    typeof (part as { mediaType?: unknown }).mediaType === "string"
-  );
+  return arcFilePartGuardSchema.safeParse(part).success;
 }
 
 export function getArcFileName(part: ArcFilePart): string | undefined {

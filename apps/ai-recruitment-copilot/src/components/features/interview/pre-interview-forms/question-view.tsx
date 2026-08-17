@@ -29,6 +29,10 @@ import type { AnswerValue } from "./types";
 
 const TEXT_ANSWER_MAX_LENGTH = 5000;
 
+function toTextAnswer(value: AnswerValue): string {
+  return Array.isArray(value) ? "" : value;
+}
+
 // oxlint-disable-next-line complexity -- one branch per question type/display-mode combo, all flat conditionals.
 export function QuestionView({
   question,
@@ -67,7 +71,7 @@ export function QuestionView({
         aria-invalid={invalidProp}
         className={invalid ? "gap-1.5 rounded-md p-2 ring-2 ring-destructive/40" : "gap-1.5"}
         onValueChange={(next) => onChange(next)}
-        value={typeof value === "string" ? value : ""}
+        value={toTextAnswer(value)}
       >
         {question.options.map((option) => (
           <Label
@@ -90,7 +94,7 @@ export function QuestionView({
             onChange(next);
           }
         }}
-        value={typeof value === "string" ? value : undefined}
+        value={toTextAnswer(value) || undefined}
       >
         <SelectTrigger aria-invalid={invalidProp} className="w-full" id={inputId}>
           <SelectValue placeholder="请选择" />
@@ -154,7 +158,7 @@ export function QuestionView({
     );
   }
   if (question.type === "text" && question.displayMode === "textarea") {
-    const textValue = typeof value === "string" ? value : "";
+    const textValue = toTextAnswer(value);
     return (
       <div className="relative">
         <Textarea
@@ -177,7 +181,7 @@ export function QuestionView({
       maxLength={TEXT_ANSWER_MAX_LENGTH}
       onChange={(event) => onChange(event.target.value)}
       placeholder="请输入你的回答…"
-      value={typeof value === "string" ? value : ""}
+      value={toTextAnswer(value)}
     />
   );
 }

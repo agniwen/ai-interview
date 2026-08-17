@@ -13,7 +13,7 @@ import { mailIngestAccount, member, organization, user as userTable } from "@arc
 import { encryptMailIngestSecret } from "@arc/ai-recruitment-copilot-backend/lib/server/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
 import type { MailIngestLoginConfig } from "./validation";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   toMailIngestAccountDto,
   toMailIngestLoginConfig,
@@ -72,17 +72,26 @@ const workspaceMailIngestPaginationSchema = makePaginationSchema(
   },
 );
 
-function truncateError(error: unknown): string {
-  const parts = [error instanceof Error ? error.message : String(error)];
-  if (error && typeof error === "object") {
-    const responseStatus = "responseStatus" in error ? error.responseStatus : null;
-    const responseText = "responseText" in error ? error.responseText : null;
-    if (typeof responseStatus === "string" && responseStatus.trim()) {
-      parts.push(responseStatus.trim());
-    }
-    if (typeof responseText === "string" && responseText.trim()) {
-      parts.push(responseText.trim());
-    }
+const mailIngestErrorSchema = z.object({
+  message: z.string().optional(),
+  responseStatus: z.string().optional(),
+  responseText: z.string().optional(),
+});
+
+interface MailIngestPaginationInput {
+  page?: number | string;
+  pageSize?: number | string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+function truncateError(error: z.output<typeof mailIngestErrorSchema>): string {
+  const parts = [error.message ?? "未知错误"];
+  if (error.responseStatus?.trim()) {
+    parts.push(error.responseStatus.trim());
+  }
+  if (error.responseText?.trim()) {
+    parts.push(error.responseText.trim());
   }
   const message = parts.join(" · ");
   return message.length > ERROR_MESSAGE_MAX ? message.slice(0, ERROR_MESSAGE_MAX) : message;
@@ -453,7 +462,7 @@ export async function getWorkspaceMailIngestAccount(
 export async function queryPaginatedWorkspaceMailIngestAccounts(
   organizationId: string,
   options: { search?: string | null; userId?: string } = {},
-  pagination?: Record<string, unknown>,
+  pagination?: MailIngestPaginationInput,
 ): Promise<PaginatedWorkspaceMailIngestAccountResult> {
   const { page, pageSize, sortBy, sortOrder } = workspaceMailIngestPaginationSchema.parse(
     pagination ?? {},
@@ -489,7 +498,7 @@ export async function queryPaginatedWorkspaceMailIngestAccounts(
 
 export async function queryPaginatedPlatformMailIngestAccounts(
   options: { search?: string | null } = {},
-  pagination?: Record<string, unknown>,
+  pagination?: MailIngestPaginationInput,
 ): Promise<PaginatedPlatformMailIngestAccountResult> {
   const { page, pageSize, sortBy, sortOrder } = workspaceMailIngestPaginationSchema.parse(
     pagination ?? {},
@@ -609,7 +618,7 @@ function buildAccountUpdateValues(input: UpdateAccountInput) {
     "username",
   ] as const) {
     if (input[key] !== undefined) {
-      updateValues[key] = input[key] as never;
+      Object.assign(updateValues, { [key]: input[key] });
     }
   }
   if (input.listenStartAt !== undefined) {
@@ -742,22 +751,20 @@ export async function finishMailIngestAccountRun(
   },
 ): Promise<void> {
   const now = new Date();
-  await db
-    .update(mailIngestAccount)
-    .set({
-      lastCheckedAt: now,
-      lastError: opts?.error ? truncateError(opts.error) : null,
-      pollingStartedAt: null,
-      updatedAt: now,
-      ...(opts?.counts
-        ? {
-            lastRunFailed: opts.counts.failed,
-            lastRunMatched: opts.counts.matched,
-            lastRunQueued: opts.counts.queued,
-            lastRunReceived: opts.counts.received,
-            lastRunSubjectSkipped: opts.counts.subjectSkipped,
-          }
-        : {}),
-    })
-    .where(eq(mailIngestAccount.id, accountId));
+  const updateValues = {
+    lastCheckedAt: now,
+    lastError: opts?.error ? truncateError(mailIngestErrorSchema.parse(opts.error)) : null,
+    pollingStartedAt: null,
+    updatedAt: now,
+  };
+  if (opts?.counts) {
+    Object.assign(updateValues, {
+      lastRunFailed: opts.counts.failed,
+      lastRunMatched: opts.counts.matched,
+      lastRunQueued: opts.counts.queued,
+      lastRunReceived: opts.counts.received,
+      lastRunSubjectSkipped: opts.counts.subjectSkipped,
+    });
+  }
+  await db.update(mailIngestAccount).set(updateValues).where(eq(mailIngestAccount.id, accountId));
 }

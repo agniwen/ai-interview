@@ -18,17 +18,19 @@ export interface FeishuMeetingLifecyclePayload {
   meeting?: { end_time?: string; id?: string; meeting_no?: string; start_time?: string };
 }
 
-export function parseFeishuMeetingLifecycleEvent(
-  event: FeishuMeetingLifecyclePayload,
-  type: FeishuMeetingLifecycleEventType,
-): {
+export interface ParsedFeishuMeetingLifecycleEvent {
   eventId: string | null;
   meetingId: string | undefined;
   meetingNo: string | undefined;
   occurredAt: Date;
   status: "ended" | "in_progress";
   type: FeishuMeetingLifecycleEventType;
-} {
+}
+
+export function parseFeishuMeetingLifecycleEvent(
+  event: FeishuMeetingLifecyclePayload,
+  type: FeishuMeetingLifecycleEventType,
+): ParsedFeishuMeetingLifecycleEvent {
   const rawTimestamp =
     type === "vc.meeting.meeting_started_v1"
       ? (event.meeting?.start_time ?? event.create_time ?? event.header?.create_time)

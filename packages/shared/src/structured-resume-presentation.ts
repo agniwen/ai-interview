@@ -31,10 +31,12 @@ export function resolveStructuredResumePrimaryLabel(
   }
   return {
     kind: "grade",
-    label: {
-      matched: "匹配",
-      recommended: "推荐",
-      unmatched: "不匹配",
-    }[input.grade] as "不匹配" | "匹配" | "推荐",
+    label: (
+      {
+        matched: "匹配",
+        recommended: "推荐",
+        unmatched: "不匹配",
+      } satisfies Record<StructuredResumeGrade, "不匹配" | "匹配" | "推荐">
+    )[input.grade],
   };
 }

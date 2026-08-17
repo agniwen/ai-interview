@@ -1,5 +1,5 @@
 import type { ReactVirtualizer, VirtualItem } from "@tanstack/react-virtual";
-import { useElementScrollRestoration, useRouter } from "@tanstack/react-router";
+import { useElementScrollRestoration, useNavigate } from "@tanstack/react-router";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
@@ -21,6 +21,8 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { toast } from "sonner";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { coerceSearchParams } from "@/lib/client/data-grid-search";
+import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 
 export const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -49,8 +51,14 @@ export const EMPTY_FILTERS: ResumeFilters = {
   structuredMaxScore: "",
   structuredMinScore: "",
 };
-export const RESUME_LIBRARY_FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters &
-  string)[];
+export const RESUME_LIBRARY_FILTER_KEYS =
+  // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
+  Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
+const resumeLibraryFilterKeySet = new Set<string>(RESUME_LIBRARY_FILTER_KEYS);
+
+function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & string {
+  return resumeLibraryFilterKeySet.has(key);
+}
 export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
 const RESUME_LIBRARY_CARD_HEIGHTS = {
   base: 564,
@@ -111,9 +119,13 @@ export interface ResumeLibraryScrollRestoreSnapshot {
   viewportWidth: number;
 }
 
-export const resumeLibraryScrollRestoreSnapshot: {
+interface ResumeLibraryScrollRestoreRef {
   current: ResumeLibraryScrollRestoreSnapshot | null;
-} = { current: null };
+}
+
+export const resumeLibraryScrollRestoreSnapshot: ResumeLibraryScrollRestoreRef = {
+  current: null,
+};
 
 export function setResumeLibraryScrollRestoreSnapshot(
   snapshot: ResumeLibraryScrollRestoreSnapshot | null,
@@ -124,12 +136,9 @@ export function setResumeLibraryScrollRestoreSnapshot(
 export function useResumeLibraryInitialScrollRestore(
   restoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null,
 ) {
-  const initialScrollElement =
-    typeof document === "undefined"
-      ? null
-      : document.querySelector<HTMLElement>(
-          `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
-        );
+  const initialScrollElement = globalThis.document?.querySelector<HTMLElement>(
+    `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
+  );
   const canUseInitialMeasurements =
     !!restoreSnapshot &&
     !!initialScrollElement &&
@@ -226,17 +235,15 @@ export interface WorkspaceMember {
   image: string | null;
 }
 
-export function firstSearchValue(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
-  return Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
+export function firstSearchValue(value: SearchParamsRecord[string]): string | undefined {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  return firstValue === undefined ? undefined : String(firstValue);
 }
 
 // pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
 // Short helper text shown inside each pipelineStage tab; hidden on mobile so
 // tabs stay compact in narrow viewports.
-export const PIPELINE_STAGE_TAB_DESCRIPTIONS: Record<string, string> = {
+export const PIPELINE_STAGE_TAB_DESCRIPTIONS = {
   ai_interview: "AI 面试阶段",
   all: "全部候选人",
   closed: "已结案候选人",
@@ -244,7 +251,7 @@ export const PIPELINE_STAGE_TAB_DESCRIPTIONS: Record<string, string> = {
   offer: "Offer 协商中",
   screening: "简历筛选中",
   written_test: "笔试阶段",
-};
+} as const satisfies Record<(typeof pipelineStageValues)[number] | "all", string>;
 
 // 笔试阶段暂未启用对应的入口/元数据 UI，先在 tabs 中隐藏，避免点进去发现啥也没有。
 // schema、后端 API 仍保留，把 UI 建出来后只要从这里删掉对应 key 即可。
@@ -307,8 +314,9 @@ export function useResumeLibraryScrollElement(listRootRef: RefObject<HTMLDivElem
       return true;
     };
 
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(selectStudioViewport);
+    const MutationObserverClass = globalThis.MutationObserver;
+    if (MutationObserverClass) {
+      observer = new MutationObserverClass(selectStudioViewport);
       observer.observe(document.body, {
         attributeFilter: ["data-scroll-restoration-id"],
         attributes: true,
@@ -374,37 +382,13 @@ export interface ResumeLibraryGridState {
   sorting: { desc: boolean; id: string }[];
 }
 
-export type SearchParamsPrimitive = boolean | number | string;
-export type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
+export { coerceSearchParams } from "@/lib/client/data-grid-search";
+export type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 
 export interface UseResumeLibrarySearchStateOptions {
   onRefresh: () => void;
   search: SearchParamsRecord;
   slug: string;
-}
-
-export function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string") {
-      out[key] = value;
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is boolean | number | string =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
 }
 
 export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibraryQueryState {
@@ -421,34 +405,32 @@ export function useResumeLibrarySearchState({
   search: routeSearch,
   slug,
 }: UseResumeLibrarySearchStateOptions): ResumeLibraryGridState {
-  const router = useRouter();
+  const navigate = useNavigate({ from: "/w/$slug/studio/resumes" });
   const query = useMemo(() => parseResumeQuery(routeSearch), [routeSearch]);
   const deferredSearch = useDeferredValue(query.search);
   const [rowSelection, setRowSelection] = useState<ResumeLibraryRowSelection>({});
 
   const updateRouteSearch = useCallback(
     (updates: Record<string, number | string | undefined>) => {
-      void router.navigate({
+      void navigate({
         params: { slug },
         replace: true,
         resetScroll: false,
         search: (prev: SearchParamsRecord) => {
-          const next = Object.fromEntries(
-            Object.entries(coerceSearchParams(prev)).filter(
-              ([key]) => !(Object.hasOwn(updates, key) && updates[key] === undefined),
-            ),
-          ) as SearchParamsRecord;
+          const next = coerceSearchParams(prev);
           for (const [key, value] of Object.entries(updates)) {
-            if (value !== undefined) {
+            if (value === undefined) {
+              Reflect.deleteProperty(next, key);
+            } else {
               next[key] = value;
             }
           }
           return next;
         },
         to: "/w/$slug/studio/resumes",
-      } as never);
+      });
     },
-    [router, slug],
+    [navigate, slug],
   );
 
   const updateRouteSearchAndResetPage = useCallback(
@@ -471,29 +453,30 @@ export function useResumeLibrarySearchState({
         updateRouteSearchAndResetPage({ search: value || undefined });
         return;
       }
-      setFilter(key as keyof ResumeFilters & string, value);
+      if (isResumeLibraryFilterKey(key)) {
+        setFilter(key, value);
+      }
     },
     [setFilter, updateRouteSearchAndResetPage],
   );
 
-  const filterValues = useMemo(() => {
-    const out: Record<string, string> = { search: query.search };
-    for (const key of RESUME_LIBRARY_FILTER_KEYS) {
-      out[key] = query.filters[key];
-    }
-    return out;
-  }, [query.filters, query.search]);
+  const filterValues = useMemo(
+    () => ({ ...query.filters, search: query.search }),
+    [query.filters, query.search],
+  );
 
   const canResetFilters =
     query.search.trim() !== "" ||
     RESUME_LIBRARY_FILTER_KEYS.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
 
   const onResetFilters = useCallback(() => {
-    const updates: Record<string, number | string | undefined> = { page: 1, search: undefined };
-    for (const key of RESUME_LIBRARY_FILTER_KEYS) {
-      updates[key] = EMPTY_FILTERS[key] || undefined;
-    }
-    updateRouteSearch(updates);
+    updateRouteSearch({
+      page: 1,
+      search: undefined,
+      ...Object.fromEntries(
+        RESUME_LIBRARY_FILTER_KEYS.map((key) => [key, EMPTY_FILTERS[key] || undefined]),
+      ),
+    });
   }, [updateRouteSearch]);
 
   const sorting = useMemo(

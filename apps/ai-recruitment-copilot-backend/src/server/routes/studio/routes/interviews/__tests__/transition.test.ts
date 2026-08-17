@@ -70,7 +70,7 @@ afterAll(async () => {
 async function expectCheckViolation(promise: Promise<unknown>) {
   const err = await promise.then(
     () => null,
-    (error: unknown) => error,
+    (error: Error) => error,
   );
   expect(err, "expected the UPDATE to reject").toBeTruthy();
   // PG error 23514 = check_violation。drizzle 的 wrapper 跟 client 版本不同，
@@ -79,7 +79,9 @@ async function expectCheckViolation(promise: Promise<unknown>) {
   // either the top-level error or .cause; constraint name matched via
   // message text is most portable.
   const code =
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     (err as { cause?: { code?: string }; code?: string })?.cause?.code ??
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     (err as { code?: string })?.code;
   expect(code).toBe("23514");
   // 这张表上只有这一个 CHECK 约束，code=23514 + 表名匹配就足以确认是我们的不变量在生效。

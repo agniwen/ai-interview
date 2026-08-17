@@ -15,11 +15,11 @@ export interface ExtractOptions {
   extraSkills?: string[];
 }
 
-const CATEGORY_PRIORITY: Record<KeywordCategory, number> = {
+const CATEGORY_PRIORITY = {
   metric: 1,
   risk: 3,
   skill: 2,
-};
+} satisfies Record<KeywordCategory, number>;
 
 const LATIN_CHAR = /[A-Za-z0-9]/;
 const HAS_LATIN_LETTER = /[A-Za-z]/;

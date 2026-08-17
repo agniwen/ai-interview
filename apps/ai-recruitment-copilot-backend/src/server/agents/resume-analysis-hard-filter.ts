@@ -120,7 +120,8 @@ function checkHardFilter(
 
   if (
     criteria.minimumWorkYears !== null &&
-    typeof resumeProfile.workYears === "number" &&
+    resumeProfile.workYears !== null &&
+    resumeProfile.workYears !== undefined &&
     resumeProfile.workYears < criteria.minimumWorkYears
   ) {
     violations.push({
@@ -239,10 +240,12 @@ export async function runResumeReviewHardFilter(
   };
 }
 
-function activeAiEvidenceRules(policy: ResumeScreeningPolicy | null): {
+interface ActiveAiEvidenceRules {
   semanticRules: ResumeScreeningSemanticRule[];
   skillRules: ResumeScreeningSkillRule[];
-} {
+}
+
+function activeAiEvidenceRules(policy: ResumeScreeningPolicy | null): ActiveAiEvidenceRules {
   if (!policy?.enabled) {
     return { semanticRules: [], skillRules: [] };
   }

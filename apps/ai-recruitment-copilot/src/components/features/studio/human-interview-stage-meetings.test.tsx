@@ -8,8 +8,9 @@ import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
 } from "@arc/shared/studio-pipeline-stages";
-import { MeetingLinksDialog } from "./human-interview-stage-meetings";
+import { MeetingLinksDialogView } from "./human-interview-stage-meetings";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -23,15 +24,12 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-const issueLinksMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/client/api", () => ({
-  issueHumanInterviewMeetingLinks: issueLinksMock,
-}));
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "test-workspace",
-}));
+const issueLinksMock = vi.fn();
+const meetingLinksDependencies = {
+  issueLinks: issueLinksMock,
+  retryFeishu: vi.fn(),
+  slug: "test-workspace",
+};
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -105,7 +103,11 @@ describe("MeetingLinksDialog", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MeetingLinksDialog meeting={meeting} onOpenChange={vi.fn()} />
+          <MeetingLinksDialogView
+            dependencies={meetingLinksDependencies}
+            meeting={meeting}
+            onOpenChange={vi.fn()}
+          />
         </QueryClientProvider>,
       );
     });
@@ -145,7 +147,8 @@ describe("MeetingLinksDialog", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MeetingLinksDialog
+          <MeetingLinksDialogView
+            dependencies={meetingLinksDependencies}
             meeting={{
               ...meeting,
               feishu: {
@@ -198,7 +201,8 @@ describe("MeetingLinksDialog", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MeetingLinksDialog
+          <MeetingLinksDialogView
+            dependencies={meetingLinksDependencies}
             meeting={{
               ...meeting,
               feishu: {
@@ -247,7 +251,8 @@ describe("MeetingLinksDialog", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MeetingLinksDialog
+          <MeetingLinksDialogView
+            dependencies={meetingLinksDependencies}
             meeting={{
               ...meeting,
               feishu: {

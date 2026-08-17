@@ -17,7 +17,6 @@ import type {
   CandidateFormDisplayMode,
   CandidateFormQuestionInput,
   CandidateFormQuestionType,
-  CandidateFormScope,
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
@@ -56,28 +55,32 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { cn } from "@arc/shared/utils";
-import { candidateFormTemplateSchema, DEFAULT_DISPLAY_MODE } from "@arc/db-schema/candidate-forms";
+import {
+  candidateFormQuestionInputSchema,
+  candidateFormQuestionTypeSchema,
+  candidateFormScopeSchema,
+  candidateFormTemplateSchema,
+  DEFAULT_DISPLAY_MODE,
+} from "@arc/db-schema/candidate-forms";
+import { z } from "zod";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { QuestionConfigPanel, QuestionPreview } from "./form-template-question-config";
 
-const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
+const DISPLAY_MODE_LABELS = {
   checkbox: "复选框",
   input: "单行输入",
   radio: "单选框",
   select: "下拉选择",
   textarea: "多行输入",
-};
+} satisfies Record<CandidateFormDisplayMode, string>;
 
-const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
+const QUESTION_TYPE_LABELS = {
   multi: "多选题",
   single: "单选题",
   text: "填写题",
-};
+} satisfies Record<CandidateFormQuestionType, string>;
 
-const QUESTION_TYPE_META: Record<
-  CandidateFormQuestionType,
-  { description: string; icon: typeof IconCircleDot }
-> = {
+const QUESTION_TYPE_META = {
   multi: {
     description: "候选人可选择多个答案",
     icon: IconSquareCheck,
@@ -90,7 +93,9 @@ const QUESTION_TYPE_META: Record<
     description: "候选人填写文本内容",
     icon: IconTypeface,
   },
-};
+} satisfies Record<CandidateFormQuestionType, { description: string; icon: typeof IconCircleDot }>;
+
+const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -203,7 +208,9 @@ export function CandidateFormTemplateEditorDialog({
             param: { id: record.id, slug },
           })
         : await rpc.api.w[":slug"].studio.forms.$post({ json: body, param: { slug } });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const rawPayload = await response.json().catch(() => null);
+      const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
+      const payload = parsedPayload.success ? parsedPayload.data : null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
@@ -340,8 +347,12 @@ export function CandidateFormTemplateEditorDialog({
                       <FieldContent className="gap-2">
                         <Select
                           onValueChange={(value) => {
-                            field.handleChange(value as CandidateFormScope);
-                            if (value === "global") {
+                            const parsed = candidateFormScopeSchema.safeParse(value);
+                            if (!parsed.success) {
+                              return;
+                            }
+                            field.handleChange(parsed.data);
+                            if (parsed.data === "global") {
                               form.setFieldValue("jobDescriptionIds", []);
                             }
                           }}
@@ -450,7 +461,12 @@ function QuestionBuilderBody({
   const questions = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => (state.values.questions ?? []) as CandidateFormQuestionInput[],
+    (state: any) => {
+      const parsed = candidateFormQuestionInputSchema
+        .array()
+        .safeParse(state.values.questions ?? []);
+      return parsed.success ? parsed.data : [];
+    },
   );
   const items = questions.filter(
     (item): item is CandidateFormQuestionInput & { id: string } =>
@@ -468,12 +484,18 @@ function QuestionBuilderBody({
   const templateTitle = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => (state.values.title?.trim() || "未命名表单题") as string,
+    (state: any) => {
+      const parsed = z.string().safeParse(state.values.title);
+      return parsed.success ? parsed.data.trim() || "未命名表单题" : "未命名表单题";
+    },
   );
   const templateDescription = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => (state.values.description?.trim() || "") as string,
+    (state: any) => {
+      const parsed = z.string().safeParse(state.values.description);
+      return parsed.success ? parsed.data.trim() : "";
+    },
   );
 
   function addQuestion(type: CandidateFormQuestionType) {
@@ -524,7 +546,7 @@ function QuestionBuilderBody({
             <h3 className="font-medium text-sm">题目类型</h3>
           </div>
           <div className="flex flex-col gap-2">
-            {(Object.keys(QUESTION_TYPE_LABELS) as CandidateFormQuestionType[]).map((type) => {
+            {candidateFormQuestionTypeSchema.options.map((type) => {
               const Icon = QUESTION_TYPE_META[type].icon;
               return (
                 <Button

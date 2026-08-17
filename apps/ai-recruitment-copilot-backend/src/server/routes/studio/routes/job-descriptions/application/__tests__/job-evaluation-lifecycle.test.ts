@@ -2,10 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { createJobEvaluationLifecycle } from "../job-evaluation-lifecycle";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {},
-}));
-
 const preview = {
   auxiliarySkills: [],
   compiler: {

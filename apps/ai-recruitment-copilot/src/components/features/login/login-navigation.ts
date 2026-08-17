@@ -1,13 +1,13 @@
 export type LoginGotoTarget = "agent" | "studio";
 
+export function readLoginGoto(value: string | null | undefined): LoginGotoTarget | undefined {
+  return value === "agent" || value === "studio" ? value : undefined;
+}
+
 interface LoginDestinationInput {
   callbackURL?: string;
   goto?: LoginGotoTarget;
   returnTo?: string;
-}
-
-export function readLoginGoto(value: unknown): LoginGotoTarget | undefined {
-  return value === "agent" || value === "studio" ? value : undefined;
 }
 
 function sanitizeCallbackURL(raw: string | undefined): string {

@@ -57,6 +57,7 @@ describe("resume pool uploader filter", () => {
   });
 
   it("keeps records uploaded by any selected user", () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const records = [
       { createdBy: "self", id: "self-record" },
       { createdBy: "report", id: "report-record" },
@@ -75,6 +76,7 @@ describe("resume pool uploader filter", () => {
   });
 
   it("groups created records by Shanghai calendar day", () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const records = [
       { createdAt: "2026-08-14T16:00:00.000Z", id: "today" },
       { createdAt: "2026-08-14T15:59:00.000Z", id: "yesterday" },

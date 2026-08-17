@@ -15,14 +15,16 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+interface UploadBatchStatusMeta {
+  label: string;
+  variant: "success" | "secondary" | "outline";
+}
+
 function isActiveBatch(status: BulkResumeBatchDto["status"]) {
   return status === "pending" || status === "running";
 }
 
-function statusMeta(status: BulkResumeBatchDto["status"]): {
-  label: string;
-  variant: "success" | "secondary" | "outline";
-} {
+function statusMeta(status: BulkResumeBatchDto["status"]): UploadBatchStatusMeta {
   switch (status) {
     case "pending": {
       return { label: "排队中", variant: "secondary" };

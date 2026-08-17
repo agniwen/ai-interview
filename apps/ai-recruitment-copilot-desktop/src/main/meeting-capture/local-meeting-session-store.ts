@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import { DesktopDatabase } from "../database";
 import type {
   LocalMeetingSession,
@@ -23,6 +24,27 @@ interface SessionRow {
   title: string;
   updated_at: string;
 }
+
+const sessionRowSchema = z.object({
+  ended_at: z.string().nullable(),
+  id: z.string(),
+  live_transcript_draft: z.string().nullable(),
+  recruiting_record_id: z.string().nullable(),
+  segment_count: z.number(),
+  started_at: z.string(),
+  state: z.enum([
+    "recording",
+    "paused",
+    "interrupted",
+    "finalizing-local",
+    "saved-local",
+    "uploading",
+    "workspace-verified",
+    "sync-failed",
+  ]),
+  title: z.string(),
+  updated_at: z.string(),
+});
 
 function fromRow(row: SessionRow): LocalMeetingSession {
   const parsedDraft = row.live_transcript_draft
@@ -53,18 +75,18 @@ export class LocalMeetingSessionStore {
     databaseOrPath: DesktopDatabase | string,
     options: LocalMeetingSessionStoreOptions = {},
   ) {
-    const path = typeof databaseOrPath === "string" ? databaseOrPath : databaseOrPath.path;
+    const suppliedDatabase = databaseOrPath instanceof DesktopDatabase ? databaseOrPath : null;
+    const path = suppliedDatabase?.path ?? z.string().parse(databaseOrPath);
     mkdirSync(dirname(path), { mode: 0o700, recursive: true });
     this.path = path;
     this.now = options.now ?? (() => new Date());
-    this.ownsDatabase = typeof databaseOrPath === "string";
+    this.ownsDatabase = suppliedDatabase === null;
     this.database =
-      typeof databaseOrPath === "string"
-        ? new DesktopDatabase({
-            migrationsFolder: options.migrationsFolder ?? join(process.cwd(), "drizzle-local"),
-            path,
-          })
-        : databaseOrPath;
+      suppliedDatabase ??
+      new DesktopDatabase({
+        migrationsFolder: options.migrationsFolder ?? join(process.cwd(), "drizzle-local"),
+        path,
+      });
   }
 
   acknowledgeRemoteVisibility(id: string): void {
@@ -101,16 +123,20 @@ export class LocalMeetingSessionStore {
   }
 
   get(id: string): LocalMeetingSession | null {
-    const row = this.database.sqlite
-      .prepare("SELECT * FROM local_meeting_session WHERE id = ?")
-      .get(id) as unknown as SessionRow | undefined;
-    return row ? fromRow(row) : null;
+    const row = sessionRowSchema.safeParse(
+      this.database.sqlite.prepare("SELECT * FROM local_meeting_session WHERE id = ?").get(id),
+    );
+    return row.success ? fromRow(row.data) : null;
   }
 
   list(): LocalMeetingSession[] {
-    const rows = this.database.sqlite
-      .prepare("SELECT * FROM local_meeting_session ORDER BY updated_at DESC")
-      .all() as unknown as SessionRow[];
+    const rows = sessionRowSchema
+      .array()
+      .parse(
+        this.database.sqlite
+          .prepare("SELECT * FROM local_meeting_session ORDER BY updated_at DESC")
+          .all(),
+      );
     return rows.map(fromRow);
   }
 

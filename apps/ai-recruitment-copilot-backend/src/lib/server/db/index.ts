@@ -9,6 +9,8 @@ if (!process.env.DATABASE_URL) {
 
 type PostgresClient = ReturnType<typeof postgres>;
 
+// SAFETY: this module exclusively owns the optional __arcPostgresClient global cache slot,
+// and only assigns clients returned by postgres().
 const globalForDb = globalThis as typeof globalThis & {
   __arcPostgresClient?: PostgresClient;
 };

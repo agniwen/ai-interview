@@ -1,73 +1,110 @@
-import { candidateOutcomeMeta, pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
-import type {
-  CandidateTimelineEventTone,
-  ResumeEvaluationStatus,
-} from "@arc/shared/studio-resumes";
+import { z } from "zod";
+import {
+  candidateOutcomeMeta,
+  candidateOutcomeSchema,
+  pipelineStageMeta,
+  pipelineStageSchema,
+  resumeEvaluationStatusSchema,
+} from "@arc/db-schema/studio-interviews";
+import type { CandidateTimelineEventTone } from "@arc/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 
-function isPipelineStage(value: unknown): value is PipelineStage {
-  return typeof value === "string" && Object.hasOwn(pipelineStageMeta, value);
+const auditDetailSchema = z
+  .object({
+    fromJobDescriptionId: z.string().optional(),
+    fromJobDescriptionName: z.string().optional(),
+    fromStage: z.string().optional(),
+    fromStatus: resumeEvaluationStatusSchema.nullable().optional(),
+    outcome: z.string().optional(),
+    position: z.string().optional(),
+    questionCount: z.number().optional(),
+    reactivationReason: z.string().optional(),
+    reason: z.string().optional(),
+    response: z.string().optional(),
+    roundLabel: z.string().optional(),
+    toJobDescriptionId: z.string().optional(),
+    toJobDescriptionName: z.string().optional(),
+    toOutcome: z.string().optional(),
+    toStage: z.string().optional(),
+    toStatus: resumeEvaluationStatusSchema.nullable().optional(),
+    turnCount: z.number().optional(),
+    version: z.number().optional(),
+  })
+  .passthrough();
+
+type AuditDetail = z.output<typeof auditDetailSchema>;
+
+const AUDIT_TITLES = new Map([
+  ["agent_report_received", "AI 报告已接收"],
+  ["ai_interview_launched", "发起 AI 面试"],
+  ["context_snapshot_refresh", "上下文已刷新"],
+  ["human_interview_round_cancelled", "真人复面取消"],
+  ["human_interview_round_completed", "真人复面完成"],
+  ["human_interview_round_created", "创建真人复面"],
+  ["human_interview_round_updated", "更新真人复面"],
+  ["interview_questions_drafted", "面试题草稿已生成"],
+  ["job_description_changed", "关联岗位已变更"],
+  ["offer_draft_cancelled", "Offer 已撤回"],
+  ["offer_draft_created", "创建 Offer"],
+  ["offer_draft_responded", "候选人回复 Offer"],
+  ["offer_draft_sent", "Offer 已发送"],
+  ["offer_draft_updated", "更新 Offer"],
+  ["resume_evaluation_reset_for_job_change", "简历评估已重置"],
+  ["resume_evaluation_submitted", "简历评估已提交"],
+  ["resume_evaluation_updated", "简历评估状态变更"],
+  ["round_reset", "AI 面试轮次重置"],
+]);
+
+export function stageLabel(value: string | undefined): string {
+  const result = pipelineStageSchema.safeParse(value);
+  return result.success ? pipelineStageMeta[result.data].label : "未知阶段";
 }
 
-function isCandidateOutcome(value: unknown): value is CandidateOutcome {
-  return typeof value === "string" && Object.hasOwn(candidateOutcomeMeta, value);
+function outcomeLabel(value: string | undefined): string {
+  const result = candidateOutcomeSchema.safeParse(value);
+  return result.success ? candidateOutcomeMeta[result.data].label : "进行中";
 }
 
-export function stageLabel(value: unknown): string {
-  return isPipelineStage(value) ? pipelineStageMeta[value].label : "未知阶段";
-}
-
-function outcomeLabel(value: unknown): string {
-  return isCandidateOutcome(value) ? candidateOutcomeMeta[value].label : "进行中";
-}
-
-function isResumeEvaluationStatus(value: unknown): value is ResumeEvaluationStatus | null {
-  return value === null || value === "pass" || value === "fail";
-}
-
-function resumeEvaluationLabel(value: unknown): string {
-  return isResumeEvaluationStatus(value) ? describeResumeEvaluationStatus(value).label : "未知状态";
+function resumeEvaluationLabel(
+  value: z.input<typeof resumeEvaluationStatusSchema> | null | undefined,
+): string {
+  const result = resumeEvaluationStatusSchema.nullable().safeParse(value);
+  return result.success ? describeResumeEvaluationStatus(result.data).label : "未知状态";
 }
 
 function jobDescriptionChangeLabel(
-  detail: Record<string, unknown>,
+  detail: AuditDetail,
   idKey: "fromJobDescriptionId" | "toJobDescriptionId",
   nameKey: "fromJobDescriptionName" | "toJobDescriptionName",
 ) {
-  const name = typeof detail[nameKey] === "string" ? detail[nameKey].trim() : "";
-  if (name) {
-    return name;
-  }
-  const id = typeof detail[idKey] === "string" ? detail[idKey].trim() : "";
-  return id || "未绑定岗位";
+  return detail[nameKey]?.trim() || detail[idKey]?.trim() || "未绑定岗位";
 }
 
 // oxlint-disable-next-line complexity -- Audit copy stays centralized by action.
-export function auditDescription(detail: Record<string, unknown>, action: string): string | null {
+export function auditDescription(
+  detailInput: z.input<typeof auditDetailSchema>,
+  action: string,
+): string | null {
+  const detail = auditDetailSchema.parse(detailInput);
   if (action === "candidate_transition") {
     const from = stageLabel(detail.fromStage);
     const to = stageLabel(detail.toStage);
     const outcome = outcomeLabel(detail.toOutcome);
-    const reason =
-      typeof detail.reactivationReason === "string" && detail.reactivationReason
-        ? detail.reactivationReason
-        : null;
+    const reason = detail.reactivationReason || null;
     return reason
       ? `${from} -> ${to}，结论：${outcome}，原因：${reason}`
       : `${from} -> ${to}，结论：${outcome}`;
   }
   if (action === "round_reset") {
-    const label = typeof detail.roundLabel === "string" ? detail.roundLabel : "AI 面试轮次";
-    return `${label} 已重置为待开始`;
+    return `${detail.roundLabel ?? "AI 面试轮次"} 已重置为待开始`;
   }
   if (action === "ai_interview_launched") {
-    const label = typeof detail.roundLabel === "string" ? detail.roundLabel : "AI 面试轮次";
-    return `${label} 已发起`;
+    return `${detail.roundLabel ?? "AI 面试轮次"} 已发起`;
   }
   if (action === "agent_report_received") {
-    const count = typeof detail.turnCount === "number" ? detail.turnCount : null;
-    return count === null ? "AI 面试报告已同步" : `AI 面试报告已同步，共 ${count} 条转写`;
+    return detail.turnCount === undefined
+      ? "AI 面试报告已同步"
+      : `AI 面试报告已同步，共 ${detail.turnCount} 条转写`;
   }
   if (action === "resume_evaluation_submitted") {
     return `评估结果：${resumeEvaluationLabel(detail.toStatus)}`;
@@ -76,7 +113,7 @@ export function auditDescription(detail: Record<string, unknown>, action: string
     return `评估状态：${resumeEvaluationLabel(detail.fromStatus)} -> ${resumeEvaluationLabel(detail.toStatus)}`;
   }
   if (action === "resume_evaluation_reset_for_job_change") {
-    return typeof detail.reason === "string" ? detail.reason : "岗位变更后需重新评估";
+    return detail.reason ?? "岗位变更后需重新评估";
   }
   if (action === "job_description_changed") {
     const from = jobDescriptionChangeLabel(
@@ -88,11 +125,12 @@ export function auditDescription(detail: Record<string, unknown>, action: string
     return `${from} -> ${to}`;
   }
   if (action === "interview_questions_drafted") {
-    const count = typeof detail.questionCount === "number" ? detail.questionCount : null;
-    return count === null ? "面试题草稿已生成" : `已生成 ${count} 道面试题草稿`;
+    return detail.questionCount === undefined
+      ? "面试题草稿已生成"
+      : `已生成 ${detail.questionCount} 道面试题草稿`;
   }
   if (action.startsWith("human_interview_round_")) {
-    const label = typeof detail.roundLabel === "string" ? detail.roundLabel : "真人复面";
+    const label = detail.roundLabel ?? "真人复面";
     if (action === "human_interview_round_created") {
       return `创建真人复面：${label}`;
     }
@@ -100,20 +138,19 @@ export function auditDescription(detail: Record<string, unknown>, action: string
       return `更新真人复面：${label}`;
     }
     if (action === "human_interview_round_completed") {
-      const outcome = typeof detail.outcome === "string" ? detail.outcome : null;
-      return outcome ? `完成真人复面：${label}，结果：${outcome}` : `完成真人复面：${label}`;
+      return detail.outcome
+        ? `完成真人复面：${label}，结果：${detail.outcome}`
+        : `完成真人复面：${label}`;
     }
     if (action === "human_interview_round_cancelled") {
-      const reason =
-        typeof detail.reason === "string" && detail.reason ? `，原因：${detail.reason}` : "";
+      const reason = detail.reason ? `，原因：${detail.reason}` : "";
       return `取消真人复面：${label}${reason}`;
     }
   }
   if (action.startsWith("offer_draft_")) {
-    const version = typeof detail.version === "number" ? ` v${detail.version}` : "";
+    const version = detail.version === undefined ? "" : ` v${detail.version}`;
     if (action === "offer_draft_created") {
-      const position = typeof detail.position === "string" ? detail.position : "Offer";
-      return `创建 Offer${version}：${position}`;
+      return `创建 Offer${version}：${detail.position ?? "Offer"}`;
     }
     if (action === "offer_draft_updated") {
       return `更新 Offer${version}`;
@@ -122,8 +159,7 @@ export function auditDescription(detail: Record<string, unknown>, action: string
       return `发送 Offer${version}`;
     }
     if (action === "offer_draft_responded") {
-      const response = typeof detail.response === "string" ? detail.response : "已响应";
-      return `记录候选人 Offer${version} 回复：${response}`;
+      return `记录候选人 Offer${version} 回复：${detail.response ?? "已响应"}`;
     }
     if (action === "offer_draft_cancelled") {
       return `撤回 Offer${version}`;
@@ -135,27 +171,11 @@ export function auditDescription(detail: Record<string, unknown>, action: string
   return null;
 }
 
-export function auditTitle(action: string, detail: Record<string, unknown> = {}): string {
-  const titles: Record<string, string> = {
-    agent_report_received: "AI 报告已接收",
-    ai_interview_launched: "发起 AI 面试",
-    context_snapshot_refresh: "上下文已刷新",
-    human_interview_round_cancelled: "真人复面取消",
-    human_interview_round_completed: "真人复面完成",
-    human_interview_round_created: "创建真人复面",
-    human_interview_round_updated: "更新真人复面",
-    interview_questions_drafted: "面试题草稿已生成",
-    job_description_changed: "关联岗位已变更",
-    offer_draft_cancelled: "Offer 已撤回",
-    offer_draft_created: "创建 Offer",
-    offer_draft_responded: "候选人回复 Offer",
-    offer_draft_sent: "Offer 已发送",
-    offer_draft_updated: "更新 Offer",
-    resume_evaluation_reset_for_job_change: "简历评估已重置",
-    resume_evaluation_submitted: "简历评估已提交",
-    resume_evaluation_updated: "简历评估状态变更",
-    round_reset: "AI 面试轮次重置",
-  };
+export function auditTitle(
+  action: string,
+  detailInput: z.input<typeof auditDetailSchema> = {},
+): string {
+  const detail = auditDetailSchema.parse(detailInput);
   if (action === "candidate_transition") {
     if (detail.toStage === "closed") {
       return "候选人结案";
@@ -165,7 +185,7 @@ export function auditTitle(action: string, detail: Record<string, unknown> = {})
     }
     return "候选人阶段流转";
   }
-  return titles[action] ?? "系统操作";
+  return AUDIT_TITLES.get(action) ?? "系统操作";
 }
 
 export function auditTone(action: string): CandidateTimelineEventTone {

@@ -96,6 +96,8 @@ function getActivityActor(event: CandidateTimelineEvent): ActivityActor {
 
 type ActivityFormatter = (event: CandidateTimelineEvent) => string;
 
+type ActivityFormatters = Readonly<Record<string, ActivityFormatter | undefined>>;
+
 function formatWithDescription(prefix: string, fallback: string): ActivityFormatter {
   return (event) => (event.description ? `${prefix}：${event.description}` : fallback);
 }
@@ -107,7 +109,13 @@ function formatWithRound(verb: string): ActivityFormatter {
   };
 }
 
-const ACTIVITY_FORMATTERS: Record<string, ActivityFormatter> = {
+function createActivityFormatters<T extends Record<string, ActivityFormatter>>(
+  formatters: T,
+): ActivityFormatters {
+  return formatters;
+}
+
+const ACTIVITY_FORMATTERS = createActivityFormatters({
   "AI 报告同步": () => "同步 AI 面试报告",
   "AI 通话开始": () => "开始 AI 通话",
   "AI 面试中断": formatWithRound("中断 AI 面试"),
@@ -151,7 +159,7 @@ const ACTIVITY_FORMATTERS: Record<string, ActivityFormatter> = {
   面试邀约邮件发送失败: () => "发送面试邀约邮件失败",
   面试邀约邮件已发送: () => "发送面试邀约邮件",
   面试题草稿已生成: () => "生成面试题草稿",
-};
+});
 
 function formatActivityEvent(event: CandidateTimelineEvent) {
   const formatter = ACTIVITY_FORMATTERS[event.title];

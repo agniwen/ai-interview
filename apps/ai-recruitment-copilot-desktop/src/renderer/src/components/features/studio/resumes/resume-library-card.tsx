@@ -1,4 +1,4 @@
-import AvvvatarsModule from "avvvatars-react";
+import Avvvatars from "avvvatars-react";
 import { m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
@@ -21,18 +21,12 @@ import {
   getResumeLibraryJobDescriptionLabel,
 } from "./resume-display";
 
-// CJS/ESM interop: Vite may surface either the function or `{ default: fn }`.
-const Avvvatars =
-  typeof AvvvatarsModule === "function"
-    ? AvvvatarsModule
-    : (AvvvatarsModule as unknown as { default: typeof AvvvatarsModule }).default;
-
-const REVIEW_ACTION_TONE_CLASS: Record<ResumeReviewActionTone, string> = {
+const REVIEW_ACTION_TONE_CLASS = {
   danger: "text-rose-700 dark:text-rose-300",
   muted: "text-muted-foreground",
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-700 dark:text-amber-300",
-};
+} satisfies Record<ResumeReviewActionTone, string>;
 
 const LIFECYCLE_TONE_CLASS = {
   info: "border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200",
@@ -144,10 +138,14 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
   };
 }
 
-function describeStructuredReviewCard(record: ResumeLibraryListRecord): {
+interface StructuredReviewCardDescription {
   label: string;
   tone: ResumeReviewActionTone;
-} {
+}
+
+function describeStructuredReviewCard(
+  record: ResumeLibraryListRecord,
+): StructuredReviewCardDescription {
   if (record.resumeEvaluationStatus === "pass") {
     return { label: "HR 已通过", tone: "success" };
   }

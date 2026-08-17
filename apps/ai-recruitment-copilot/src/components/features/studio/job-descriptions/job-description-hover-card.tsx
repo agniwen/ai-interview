@@ -78,16 +78,23 @@ function JobDescriptionPreview({ record }: { record: JobDescriptionRecord }) {
   );
 }
 
-export function JobDescriptionHoverCard({
+export interface JobDescriptionHoverCardDependencies {
+  fetchDetail: (slug: string, id: string) => Promise<JobDescriptionRecord>;
+  slug: string | null;
+}
+
+export function JobDescriptionHoverCardView({
+  dependencies,
   className,
   jobDescriptionId,
   name,
 }: {
+  dependencies: JobDescriptionHoverCardDependencies;
   className?: string;
   jobDescriptionId: string | null | undefined;
   name: string | null | undefined;
 }) {
-  const slug = useOptionalWorkspaceSlug();
+  const { fetchDetail, slug } = dependencies;
   const [open, setOpen] = useState(false);
   const displayName = name?.trim() || "暂未关联岗位";
   const canLoad = Boolean(jobDescriptionId && slug);
@@ -99,13 +106,7 @@ export function JobDescriptionHoverCard({
     isPending,
   } = useQuery({
     enabled: open && canLoad,
-    queryFn: () =>
-      rpcFetch<JobDescriptionRecord>(
-        rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
-          param: { id: queryId, slug: querySlug },
-        }),
-        "加载岗位详情失败",
-      ),
+    queryFn: () => fetchDetail(querySlug, queryId),
     queryKey: ["job-descriptions", slug, "detail", jobDescriptionId] as const,
     staleTime: 60_000,
   });
@@ -147,5 +148,28 @@ export function JobDescriptionHoverCard({
         {record ? <JobDescriptionPreview record={record} /> : null}
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+export function JobDescriptionHoverCard(props: {
+  className?: string;
+  jobDescriptionId: string | null | undefined;
+  name: string | null | undefined;
+}) {
+  const slug = useOptionalWorkspaceSlug();
+  return (
+    <JobDescriptionHoverCardView
+      {...props}
+      dependencies={{
+        fetchDetail: (workspaceSlug, id) =>
+          rpcFetch<JobDescriptionRecord>(
+            rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
+              param: { id, slug: workspaceSlug },
+            }),
+            "加载岗位详情失败",
+          ),
+        slug,
+      }}
+    />
   );
 }

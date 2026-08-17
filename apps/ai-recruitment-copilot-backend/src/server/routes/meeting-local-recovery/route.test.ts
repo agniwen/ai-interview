@@ -1,26 +1,33 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createMeetingLocalRecoveryRouter } from "./route";
+import type { MeetingLocalRecoveryDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({
-  loadMeetingLocalRecoveryDirective: vi.fn(),
-  recordMeetingLocalRecoveryCleanup: vi.fn(),
-}));
+const mocks = {
+  loadMeetingLocalRecoveryDirective:
+    vi.fn<MeetingLocalRecoveryDependencies["loadMeetingLocalRecoveryDirective"]>(),
+  recordMeetingLocalRecoveryCleanup:
+    vi.fn<MeetingLocalRecoveryDependencies["recordMeetingLocalRecoveryCleanup"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/auth", () => ({
-  authMiddleware: (c: { set: (key: string, value: unknown) => void }, next: () => unknown) => {
-    c.set("user", { id: "former-owner-84" });
-    return Promise.resolve(next());
+const dependencies: MeetingLocalRecoveryDependencies = {
+  ...mocks,
+  authMiddleware: async (_c, next) => {
+    await next();
   },
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-dao", () => mocks);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingLocalRecoveryRouter } from "./route";
+};
 
 const MANIFEST_SHA = "a".repeat(64);
 const client = testClient(
-  factory.createApp().route("/meeting-local-recovery", meetingLocalRecoveryRouter),
+  factory
+    .createApp()
+    .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
+      c.set("user", { id: "former-owner-84" } as never);
+      await next();
+    })
+    .route("/meeting-local-recovery", createMeetingLocalRecoveryRouter(dependencies)),
 );
 
 describe("Meeting local recovery route", () => {

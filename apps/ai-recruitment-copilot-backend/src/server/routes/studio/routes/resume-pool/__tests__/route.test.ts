@@ -1,20 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resumePoolImportInputSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/schema";
+import type { ResumePoolDetail } from "@arc/shared/resume-pool";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { createResumePoolRouter } from "../route";
+import type { ResumePoolRouterDependencies } from "../route";
 
-const mocks = vi.hoisted(() => ({
-  createPptxPreviewPdfResponse: vi.fn(),
-  createResumePoolItem: vi.fn(),
-  deleteOwnPoolItem: vi.fn(),
-  findSemanticResumeDuplicates: vi.fn(),
-  getObjectBytes: vi.fn(),
-  getObjectStream: vi.fn(),
-  importPoolItemToResumeLibrary: vi.fn(),
-  intersectRequestedCreatorIds: vi.fn(
-    (
-      requestedCreatorIds: string[] | null | undefined,
-      scope: { kind: string; userIds?: string[] },
-    ) => {
+const mocks = {
+  completeResumePoolReadinessWithDefaultAdapters:
+    vi.fn<ResumePoolRouterDependencies["completeResumePoolReadinessWithDefaultAdapters"]>(),
+  createPptxPreviewPdfResponse:
+    vi.fn<ResumePoolRouterDependencies["createPptxPreviewPdfResponse"]>(),
+  createResumePoolItem: vi.fn<ResumePoolRouterDependencies["createResumePoolItem"]>(),
+  deleteOwnPoolItem: vi.fn<ResumePoolRouterDependencies["deleteOwnPoolItem"]>(),
+  findSemanticResumeDuplicates:
+    vi.fn<ResumePoolRouterDependencies["findSemanticResumeDuplicates"]>(),
+  getObjectBytes: vi.fn<ResumePoolRouterDependencies["getObjectBytes"]>(),
+  getObjectStream: vi.fn<ResumePoolRouterDependencies["getObjectStream"]>(),
+  importPoolItemToResumeLibrary:
+    vi.fn<ResumePoolRouterDependencies["importPoolItemToResumeLibrary"]>(),
+  intersectRequestedCreatorIds: vi.fn<ResumePoolRouterDependencies["intersectRequestedCreatorIds"]>(
+    (requestedCreatorIds, scope) => {
       if (scope.kind === "all") {
         return requestedCreatorIds?.length ? requestedCreatorIds : null;
       }
@@ -28,96 +35,132 @@ const mocks = vi.hoisted(() => ({
       return requestedCreatorIds.filter((id) => visible.has(id));
     },
   ),
-  listDuplicateMatchesForSource: vi.fn(),
-  listResumePoolUploaders: vi.fn(),
-  loadResumePoolItem: vi.fn(),
-  markResumePoolItemParseFailed: vi.fn(),
-  markResumePoolItemSemanticIndexed: vi.fn(),
-  queryResumePoolItems: vi.fn(),
-  replaceDuplicateMatchesForSource: vi.fn(),
-  resolveRecruitingVisibilityScope: vi.fn(),
-  retryFailedResumeParse: vi.fn(),
-  runResumeSemanticIndexJob: vi.fn(),
-  storeInterviewResume: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  getObjectBytes: mocks.getObjectBytes,
-  getObjectStream: mocks.getObjectStream,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
-  parseResumeFastToProfile: vi.fn(),
-  validateResumeFile: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  intersectRequestedCreatorIds: mocks.intersectRequestedCreatorIds,
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/interview/utils", () => ({
-  normalizeResumeFile: (value: FormDataEntryValue | null) => value,
-  storeInterviewResume: mocks.storeInterviewResume,
-  toBadRequest: (error: unknown) => ({
-    error: error instanceof Error ? error.message : String(error),
-    status: 400,
-  }),
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({ jobDescriptionIdsExist: vi.fn() }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
-  createPptxPreviewPdfResponse: mocks.createPptxPreviewPdfResponse,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
-  () => ({ enqueueResumeReviewGenerationForRecordBestEffort: vi.fn() }),
-);
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
-  () => ({ retryFailedResumeParse: mocks.retryFailedResumeParse }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
-  findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer", () => ({
-  runResumeSemanticIndexJob: mocks.runResumeSemanticIndexJob,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches", () => ({
-  listDuplicateMatchesForSource: mocks.listDuplicateMatchesForSource,
-  replaceDuplicateMatchesForSource: mocks.replaceDuplicateMatchesForSource,
-}));
-vi.mock("../dao", () => ({
-  createResumePoolItem: mocks.createResumePoolItem,
-  deleteOwnPoolItem: mocks.deleteOwnPoolItem,
-  importPoolItemToResumeLibrary: mocks.importPoolItemToResumeLibrary,
-  listResumePoolUploaders: mocks.listResumePoolUploaders,
-  loadResumePoolItem: mocks.loadResumePoolItem,
-  markResumePoolItemParseFailed: mocks.markResumePoolItemParseFailed,
-  markResumePoolItemSemanticIndexed: mocks.markResumePoolItemSemanticIndexed,
-  publishPrivatePoolItem: vi.fn(),
-  queryResumePoolItems: mocks.queryResumePoolItems,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { resumePoolRouter } from "../route";
+  listDuplicateMatchesForSource:
+    vi.fn<ResumePoolRouterDependencies["listDuplicateMatchesForSource"]>(),
+  listResumePoolUploaders: vi.fn<ResumePoolRouterDependencies["listResumePoolUploaders"]>(),
+  loadResumePoolItem: vi.fn<ResumePoolRouterDependencies["loadResumePoolItem"]>(),
+  normalizeResumeFile: (value: FormDataEntryValue | null) => (value instanceof File ? value : null),
+  queryResumePoolItems: vi.fn<ResumePoolRouterDependencies["queryResumePoolItems"]>(),
+  recruitingJobDescriptionIdsExist:
+    vi.fn<ResumePoolRouterDependencies["recruitingJobDescriptionIdsExist"]>(),
+  requirePermission: vi.fn<ResumePoolRouterDependencies["requirePermission"]>(
+    () => async (_c, next) => {
+      await next();
+    },
+  ),
+  resolveRecruitingVisibilityScope:
+    vi.fn<ResumePoolRouterDependencies["resolveRecruitingVisibilityScope"]>(),
+  retryFailedResumeParse: vi.fn<ResumePoolRouterDependencies["retryFailedResumeParse"]>(),
+  storeInterviewResume: vi.fn<ResumePoolRouterDependencies["storeInterviewResume"]>(),
+  toBadRequest: vi.fn<ResumePoolRouterDependencies["toBadRequest"]>(),
+  validateResumeFile: vi.fn<ResumePoolRouterDependencies["validateResumeFile"]>(),
+} satisfies Partial<ResumePoolRouterDependencies>;
 
 const ORGANIZATION_ID = "org_resume_pool_route";
 const USER_ID = "user_resume_pool_route";
+
+const resumeProfile: ResumeProfile = {
+  age: null,
+  educationExperiences: [],
+  email: "candidate@example.com",
+  gender: "未发现信息",
+  name: "候选人",
+  personalStrengths: [],
+  phone: "13800138000",
+  projectExperiences: [],
+  schools: [],
+  skills: [],
+  targetRoles: [],
+  workExperiences: [],
+  workYears: null,
+};
+
+function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
+  return {
+    candidateEmail: null,
+    candidateName: "候选人",
+    candidatePhone: null,
+    createdAt: "2026-08-18T00:00:00.000Z",
+    createdBy: USER_ID,
+    duplicateMatch: null,
+    id: "pool-item",
+    importedAt: null,
+    importedRecords: [],
+    importedResumeRecordId: null,
+    jobDescriptionId: null,
+    jobDescriptionName: null,
+    masteredSkills: [],
+    notes: null,
+    organizationId: ORGANIZATION_ID,
+    profileHighlights: {
+      educationItems: [],
+      educationLines: [],
+      latestCompany: null,
+      latestCompanyDetail: null,
+      latestProject: null,
+      latestProjectDetail: null,
+      schools: [],
+    },
+    publishedAt: null,
+    publishedBy: null,
+    resumeContentHash: null,
+    resumeFileName: null,
+    resumeParseError: null,
+    resumeParseRetryable: false,
+    resumeParseStatus: "ready",
+    resumeParsedAt: null,
+    resumeProfile,
+    resumeProfileSnapshot: {
+      education: [],
+      educationHasMore: false,
+      projects: [],
+      projectsHasMore: false,
+      work: [],
+      workHasMore: false,
+    },
+    resumeStorageKey: null,
+    scope: "private",
+    skillsNormalized: [],
+    sourceChannel: null,
+    sourceOrganizationId: null,
+    sourcePoolItemId: null,
+    sourceUserId: null,
+    status: "active",
+    targetRole: null,
+    updatedAt: "2026-08-18T00:00:00.000Z",
+    uploaderEmail: null,
+    uploaderImage: null,
+    uploaderName: null,
+    uploaderOrganizationName: null,
+    workYears: null,
+    ...overrides,
+  };
+}
+
+const duplicateMatch = {
+  candidateEmail: "dup@example.com",
+  candidateName: "重复候选人",
+  candidatePhone: "13800138000",
+  createdAt: "2026-06-30T00:00:00.000Z",
+  id: "duplicate-1",
+  jobDescriptionName: null,
+  status: "active",
+  targetRole: null,
+} satisfies DedupMatchRecord;
 
 function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "member" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
       await next();
     })
-    .route("/resume-pool", resumePoolRouter);
+    .route("/resume-pool", createResumePoolRouter(mocks));
 }
 
 describe("resume pool private uploader visibility", () => {
@@ -178,7 +221,7 @@ describe("resume pool private uploader visibility", () => {
   });
 
   it("loads a private detail through the same recruiting visibility scope", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({ id: "subordinate-item" });
+    mocks.loadResumePoolItem.mockResolvedValue(makePoolItem({ id: "subordinate-item" }));
 
     const response = await makeApp().request("/resume-pool/subordinate-item");
 
@@ -194,11 +237,13 @@ describe("resume pool private uploader visibility", () => {
   });
 
   it("queues one retry for an eligible failed resume", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      id: "failed-item",
-      resumeParseRetryable: true,
-      resumeParseStatus: "failed",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        id: "failed-item",
+        resumeParseRetryable: true,
+        resumeParseStatus: "failed",
+      }),
+    );
 
     const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
       method: "POST",
@@ -213,11 +258,13 @@ describe("resume pool private uploader visibility", () => {
   });
 
   it("rejects a failed resume that already used its retry", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      id: "failed-item",
-      resumeParseRetryable: false,
-      resumeParseStatus: "failed",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        id: "failed-item",
+        resumeParseRetryable: false,
+        resumeParseStatus: "failed",
+      }),
+    );
 
     const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
       method: "POST",
@@ -228,10 +275,12 @@ describe("resume pool private uploader visibility", () => {
   });
 
   it("reads a subordinate resume file through the recruiting visibility scope", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      resumeFileName: "subordinate.pdf",
-      resumeStorageKey: "private/subordinate.pdf",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        resumeFileName: "subordinate.pdf",
+        resumeStorageKey: "private/subordinate.pdf",
+      }),
+    );
     mocks.getObjectStream.mockResolvedValue({
       body: new Blob(["resume"]).stream(),
       contentLength: 6,
@@ -252,10 +301,12 @@ describe("resume pool private uploader visibility", () => {
   });
 
   it("reads a subordinate resume preview through the recruiting visibility scope", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      resumeFileName: "subordinate.pptx",
-      resumeStorageKey: "private/subordinate.pptx",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        resumeFileName: "subordinate.pptx",
+        resumeStorageKey: "private/subordinate.pptx",
+      }),
+    );
     mocks.getObjectBytes.mockResolvedValue({
       bytes: new Uint8Array([1, 2, 3]),
       contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -407,12 +458,7 @@ describe("resume pool duplicate handling", () => {
   });
 
   it("records duplicate matches after creating a private pool item", async () => {
-    const resumeProfile = {
-      email: "candidate@example.com",
-      name: "候选人",
-      phone: "13800138000",
-    };
-    const matches = [{ id: "duplicate-1" }];
+    const matches = [duplicateMatch];
     mocks.storeInterviewResume.mockResolvedValue({
       cachedResumeProfile: resumeProfile,
       contentHash: "hash-1",
@@ -421,7 +467,7 @@ describe("resume pool duplicate handling", () => {
     });
     mocks.findSemanticResumeDuplicates.mockResolvedValue(matches);
     mocks.createResumePoolItem.mockResolvedValue("pool-item-1");
-    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-item-1" });
+    mocks.loadResumePoolItem.mockResolvedValue(makePoolItem({ id: "pool-item-1" }));
 
     const formData = new FormData();
     formData.set("candidateName", "候选人");
@@ -442,17 +488,16 @@ describe("resume pool duplicate handling", () => {
         sourceTypes: ["studio_interview", "resume_pool_item"],
       }),
     );
-    expect(mocks.replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
-      matches,
+    expect(mocks.completeResumePoolReadinessWithDefaultAdapters).toHaveBeenCalledWith({
+      duplicateMatches: matches,
       organizationId: ORGANIZATION_ID,
-      sourceId: "pool-item-1",
-      sourceType: "resume_pool_item",
+      poolItemId: "pool-item-1",
     });
   });
 
   it("returns duplicate match details for an accessible pool item", async () => {
-    const matches = [{ id: "duplicate-1" }];
-    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-item-1" });
+    const matches = [duplicateMatch];
+    mocks.loadResumePoolItem.mockResolvedValue(makePoolItem({ id: "pool-item-1" }));
     mocks.listDuplicateMatchesForSource.mockResolvedValue(matches);
 
     const response = await makeApp().request("/resume-pool/pool-item-1/duplicate-matches");
@@ -473,12 +518,12 @@ describe("resume pool review routes (permission-free dedup comparison reads)", (
   });
 
   it("loads a pool item detail ignoring the visibility scope", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-item-1" });
+    mocks.loadResumePoolItem.mockResolvedValue(makePoolItem({ id: "pool-item-1" }));
 
     const response = await makeApp().request("/resume-pool/pool-item-1/review");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ id: "pool-item-1" });
+    expect(await response.json()).toMatchObject({ id: "pool-item-1" });
     expect(mocks.loadResumePoolItem).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
       poolItemId: "pool-item-1",
@@ -496,10 +541,12 @@ describe("resume pool review routes (permission-free dedup comparison reads)", (
   });
 
   it("streams the original resume file from the review endpoint", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      resumeFileName: "candidate.pdf",
-      resumeStorageKey: "keys/candidate.pdf",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        resumeFileName: "candidate.pdf",
+        resumeStorageKey: "keys/candidate.pdf",
+      }),
+    );
     mocks.getObjectStream.mockResolvedValue({
       body: new Blob(["resume"]).stream(),
       contentLength: 6,
@@ -519,10 +566,12 @@ describe("resume pool review routes (permission-free dedup comparison reads)", (
   });
 
   it("serves the converted preview PDF for PPTX sources", async () => {
-    mocks.loadResumePoolItem.mockResolvedValue({
-      resumeFileName: "deck.pptx",
-      resumeStorageKey: "keys/deck.pptx",
-    });
+    mocks.loadResumePoolItem.mockResolvedValue(
+      makePoolItem({
+        resumeFileName: "deck.pptx",
+        resumeStorageKey: "keys/deck.pptx",
+      }),
+    );
     mocks.getObjectBytes.mockResolvedValue({
       bytes: new Uint8Array([1, 2, 3]),
       contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",

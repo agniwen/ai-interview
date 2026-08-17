@@ -205,14 +205,18 @@ export function NewMeetingRecordingPage({
   const listQuery = useQuery({
     enabled: linkRecruiting && Boolean(slug),
     placeholderData: (previous) => previous,
-    queryFn: () =>
-      fetchStudioResumes(slug as string, {
+    queryFn: () => {
+      if (!slug) {
+        throw new Error("当前工作区不可用");
+      }
+      return fetchStudioResumes(slug, {
         page: 1,
         pageSize: MEETING_RESUME_PICKER_PAGE_SIZE,
         search: deferredSearch || undefined,
         sortBy: "createdAt",
         sortOrder: "desc",
-      }),
+      });
+    },
     queryKey: [
       "studio-resumes",
       slug,
@@ -306,7 +310,7 @@ export function NewMeetingRecordingPage({
         <MeetingSetupComposer
           disabled={starting || (linkRecruiting && isWorkspaceMissing)}
           error={startError}
-          onStart={() => void handleConfirm()}
+          onStart={handleConfirm}
           starting={starting}
         />
       }

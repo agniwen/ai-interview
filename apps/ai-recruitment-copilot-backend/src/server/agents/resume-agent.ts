@@ -55,7 +55,7 @@ export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
     stopWhen,
     temperature,
     tools,
-  } as unknown as ToolLoopAgentSettings<never, TOOLS, AgentOutputSpec<OUTPUT>>;
+  } satisfies ToolLoopAgentSettings<never, TOOLS, AgentOutputSpec<OUTPUT>>;
 
   return new ToolLoopAgent<never, TOOLS, AgentOutputSpec<OUTPUT>>(settings);
 }

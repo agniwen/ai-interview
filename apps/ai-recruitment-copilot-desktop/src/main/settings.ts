@@ -1,6 +1,7 @@
 import { app, nativeTheme } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { desktopSettingsSchema } from "../preload/orpc-contract";
 import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
 
 const DEFAULTS: DesktopSettings = {
@@ -23,13 +24,21 @@ function applySettings(settings: DesktopSettings): void {
   nativeTheme.themeSource = settings.theme;
 }
 
+interface SettingsStartupDependencies {
+  applySettings: (settings: DesktopSettings) => void;
+  readSettings: () => DesktopSettings;
+}
+
 export function readSettings(): DesktopSettings {
   try {
     const raw = readFileSync(settingsPath(), "utf-8");
-    const parsed = JSON.parse(raw) as Partial<DesktopSettings>;
+    const parsed = desktopSettingsSchema.partial().safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      return { ...DEFAULTS };
+    }
     return {
-      notifyOnFinish: parsed.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
-      theme: parsed.theme ?? DEFAULTS.theme,
+      notifyOnFinish: parsed.data.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
+      theme: parsed.data.theme ?? DEFAULTS.theme,
     };
   } catch {
     return { ...DEFAULTS };
@@ -45,8 +54,9 @@ export function updateSettings(patch: Partial<DesktopSettings>): DesktopSettings
 }
 
 /** Apply native effects once at startup. */
-export function applySettingsAtStartup(): void {
-  applySettings(readSettings());
+export function applySettingsAtStartup(dependencies?: SettingsStartupDependencies): void {
+  const runtime = dependencies ?? { applySettings, readSettings };
+  runtime.applySettings(runtime.readSettings());
 }
 
 export type { DesktopSettings, ThemeMode };

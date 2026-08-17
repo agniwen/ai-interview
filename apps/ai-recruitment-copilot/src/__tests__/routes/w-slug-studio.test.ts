@@ -3,6 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { WorkspaceAccessState } from "@/lib/start/auth-session-types";
 import { Route } from "@/routes/w.$slug.studio";
 
+type LoaderFunction<T> = T extends (...args: infer Arguments) => infer Result
+  ? (...args: Arguments) => Result
+  : never;
+type StudioLoader = LoaderFunction<NonNullable<typeof Route.options.loader>>;
+
+function isStudioLoader(value: typeof Route.options.loader): value is StudioLoader {
+  return typeof value === "function";
+}
+
 function readyAccess(
   page: Extract<WorkspaceAccessState, { status: "ready" }>["permissions"]["page"],
 ): Extract<WorkspaceAccessState, { status: "ready" }> {
@@ -17,9 +26,10 @@ function readyAccess(
 
 async function runStudioLoader(state: WorkspaceAccessState) {
   const { loader } = Route.options;
-  if (typeof loader !== "function") {
+  if (!isStudioLoader(loader)) {
     throw new TypeError("Studio route loader is unavailable.");
   }
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return await loader({
     location: { pathname: "/w/acme/studio/resumes" },
     params: { slug: "acme" },

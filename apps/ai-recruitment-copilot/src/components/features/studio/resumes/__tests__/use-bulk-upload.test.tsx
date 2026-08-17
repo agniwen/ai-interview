@@ -9,23 +9,24 @@ import type {
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
 } from "@arc/shared/bulk-resume-upload";
-import { useBulkUpload } from "../use-bulk-upload";
+import { useBulkUploadWithDependencies } from "../use-bulk-upload";
+import type { BulkUploadDependencies } from "../use-bulk-upload";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const apiMocks = vi.hoisted(() => ({
+const apiMocks = {
   cancelBulkResumeBatch: vi.fn(),
   createBulkResumeBatch: vi.fn(),
   getBulkResumeBatchDetail: vi.fn(),
   resumeBulkResumeBatch: vi.fn(),
   uploadResumeForBulk: vi.fn(),
-}));
+};
 
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "acme",
-}));
-
-vi.mock("@/lib/client/api/endpoints/bulk-resume-upload", () => apiMocks);
+const bulkUploadDependencies: BulkUploadDependencies = {
+  ...apiMocks,
+  slug: "acme",
+};
 
 const batch: BulkResumeBatchDto = {
   completedAt: null,
@@ -74,7 +75,11 @@ function renderHookHarness({
   const root = createRoot(container);
 
   function Harness() {
-    const bulk = useBulkUpload({ onBatchQueued, onRecordsChanged });
+    const bulk = useBulkUploadWithDependencies({
+      dependencies: bulkUploadDependencies,
+      onBatchQueued,
+      onRecordsChanged,
+    });
     const startedRef = useRef(false);
     useEffect(() => {
       if (startedRef.current) {

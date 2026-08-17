@@ -27,7 +27,7 @@ function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["d
       tooltipBody={(dimension) => (
         <div className="flex max-w-72 flex-col gap-1.5">
           <span className="font-medium text-foreground">{dimension.label}</span>
-          {typeof dimension.rationale === "string" ? (
+          {dimension.rationale !== null && dimension.rationale !== undefined ? (
             <p className="text-muted-foreground text-xs leading-5">{dimension.rationale}</p>
           ) : null}
         </div>

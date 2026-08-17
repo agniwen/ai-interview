@@ -1,5 +1,20 @@
 const TRUE_VALUES = new Set(["1", "true", "yes"]);
 
+export interface ResumeParseConfigSummary {
+  alibabaApiKeyConfigured: boolean;
+  alibabaBaseUrlHost: string;
+  cacheDisabled: boolean;
+  ocrAttempts: string;
+  ocrPageConcurrency: string;
+  ocrRetryDelayMs: string;
+  parseProvider: string;
+  parseStepLogsEnabled: boolean;
+  qwenOcrBaseUrlHost: string;
+  qwenOcrModel: string;
+  s3Configured: boolean;
+  staleProcessingSeconds: string;
+}
+
 export function isResumeParseCacheDisabled(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
@@ -41,7 +56,7 @@ function getEnvNumberString(raw: string | undefined, fallback: number): string {
 
 export function getResumeParseConfigSummary(
   env: Record<string, string | undefined> = process.env,
-): Record<string, boolean | string> {
+): ResumeParseConfigSummary {
   return {
     alibabaApiKeyConfigured: Boolean(env.ALIBABA_API_KEY?.trim()),
     alibabaBaseUrlHost: getUrlHost(

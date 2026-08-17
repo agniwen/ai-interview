@@ -11,6 +11,7 @@ import {
   serializeEvaluationRules,
 } from "./job-evaluation-blueprint-preview";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const sourceRef = { kind: "job_description" as const, path: "prompt" };

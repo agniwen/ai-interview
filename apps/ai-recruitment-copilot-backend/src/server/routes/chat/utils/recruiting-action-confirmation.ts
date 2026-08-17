@@ -1,87 +1,115 @@
+import { z } from "zod";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
 import type { RecruitingActionConfirmationSnapshot } from "@arc/db-schema/chat-context-bindings";
 
 export type RecruitingActionConfirmationStatus = "confirmed" | "ignored";
-
 export type RecruitingActionConfirmation = RecruitingActionConfirmationSnapshot;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** AI SDK stores tools as `tool-${name}` / `dynamic-tool`; Arc uses `type: "tool"`. */
-function isToolLikePart(part: unknown): part is {
+interface ToolLikePart {
   output?: unknown;
   state?: string;
   type: string;
-} {
-  if (!isRecord(part) || typeof part.type !== "string") {
-    return false;
-  }
-  return part.type === "tool" || part.type === "dynamic-tool" || part.type.startsWith("tool-");
 }
 
-function readProposalId(output: unknown): string | null {
-  if (!isRecord(output)) {
+const toolLikePartSchema = z
+  .object({
+    output: z.unknown().optional(),
+    state: z.string().optional(),
+    type: z.string(),
+  })
+  .passthrough();
+
+const proposalSchema = z
+  .object({
+    id: z.string(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+    type: z.string().optional(),
+  })
+  .passthrough();
+
+const confirmationSchema = z.object({
+  confirmedAt: z.string(),
+  jobDescriptionId: z.string().optional(),
+  jobDescriptionName: z.string().nullable().optional(),
+  status: z.enum(["confirmed", "ignored"]),
+}) satisfies z.ZodType<RecruitingActionConfirmation>;
+
+const toolOutputSchema = z
+  .object({
+    confirmation: confirmationSchema.optional(),
+    conversationJobBindingProposal: proposalSchema.optional(),
+    proposal: proposalSchema.optional(),
+  })
+  .passthrough();
+
+type ToolOutput = z.output<typeof toolOutputSchema>;
+
+/** AI SDK stores tools as `tool-${name}` / `dynamic-tool`; Arc uses `type: "tool"`. */
+function parseToolLikePart(part: ArcMessage["parts"][number]): ToolLikePart | null {
+  const result = toolLikePartSchema.safeParse(part);
+  if (!result.success) {
     return null;
   }
-  if (isRecord(output.proposal) && typeof output.proposal.id === "string") {
-    return output.proposal.id;
+  return result.data.type === "tool" ||
+    result.data.type === "dynamic-tool" ||
+    result.data.type.startsWith("tool-")
+    ? result.data
+    : null;
+}
+
+function parseToolOutput(part: ToolLikePart): ToolOutput | null {
+  const result = toolOutputSchema.safeParse(part.output);
+  return result.success ? result.data : null;
+}
+
+function proposalIdFromOutput(output: ToolOutput): string | null {
+  return output.proposal?.id ?? output.conversationJobBindingProposal?.id ?? null;
+}
+
+function patchProposal(
+  proposal: z.output<typeof proposalSchema>,
+  confirmation: RecruitingActionConfirmation,
+): z.output<typeof proposalSchema> {
+  if (!confirmation.jobDescriptionId) {
+    return proposal;
   }
-  if (
-    isRecord(output.conversationJobBindingProposal) &&
-    typeof output.conversationJobBindingProposal.id === "string"
-  ) {
-    return output.conversationJobBindingProposal.id;
-  }
-  return null;
+  return {
+    ...proposal,
+    payload: {
+      ...proposal.payload,
+      jobDescriptionId: confirmation.jobDescriptionId,
+    },
+  };
 }
 
 function patchProposalOutput(
-  output: unknown,
+  output: ToolOutput,
   confirmation: RecruitingActionConfirmation,
   proposalId: string,
-): unknown {
-  if (!isRecord(output)) {
-    return output;
+): ToolOutput {
+  const next = { ...output, confirmation };
+  if (output.proposal?.id === proposalId) {
+    next.proposal = patchProposal(output.proposal, confirmation);
   }
-  const next: Record<string, unknown> = { ...output, confirmation };
-  if (isRecord(output.proposal) && output.proposal.id === proposalId) {
-    const payload = isRecord(output.proposal.payload) ? { ...output.proposal.payload } : {};
-    if (confirmation.jobDescriptionId) {
-      payload.jobDescriptionId = confirmation.jobDescriptionId;
-    }
-    next.proposal = {
-      ...output.proposal,
-      payload,
-    };
-  }
-  if (
-    isRecord(output.conversationJobBindingProposal) &&
-    output.conversationJobBindingProposal.id === proposalId
-  ) {
-    const payload = isRecord(output.conversationJobBindingProposal.payload)
-      ? { ...output.conversationJobBindingProposal.payload }
-      : {};
-    if (confirmation.jobDescriptionId) {
-      payload.jobDescriptionId = confirmation.jobDescriptionId;
-    }
-    next.conversationJobBindingProposal = {
-      ...output.conversationJobBindingProposal,
-      payload,
-    };
+  if (output.conversationJobBindingProposal?.id === proposalId) {
+    next.conversationJobBindingProposal = patchProposal(
+      output.conversationJobBindingProposal,
+      confirmation,
+    );
   }
   return next;
 }
 
-function isMatchingToolPart(
-  part: ArcMessage["parts"][number] | Record<string, unknown>,
+function matchingToolOutput(
+  part: ArcMessage["parts"][number],
   proposalId: string,
-): boolean {
-  if (!isToolLikePart(part) || part.state !== "output-available") {
-    return false;
+): ToolOutput | null {
+  const toolPart = parseToolLikePart(part);
+  if (!toolPart || toolPart.state !== "output-available") {
+    return null;
   }
-  return readProposalId(part.output) === proposalId;
+  const output = parseToolOutput(toolPart);
+  return output && proposalIdFromOutput(output) === proposalId ? output : null;
 }
 
 /** Returns patched message when a matching propose/detail tool result was updated. */
@@ -92,82 +120,49 @@ export function patchArcMessageRecruitingActionConfirmation(
 ): ArcMessage | null {
   let changed = false;
   const parts = message.parts.map((part) => {
-    if (!isMatchingToolPart(part, proposalId)) {
+    const output = matchingToolOutput(part, proposalId);
+    if (!output) {
       return part;
     }
     changed = true;
-    const toolPart = part as { output?: unknown };
     return {
       ...part,
-      output: patchProposalOutput(toolPart.output, confirmation, proposalId),
+      output: patchProposalOutput(output, confirmation, proposalId),
     };
   });
-  if (!changed) {
-    return null;
-  }
-  return { ...message, parts };
-}
-
-function readConfirmation(output: unknown): RecruitingActionConfirmation | null {
-  if (!isRecord(output) || !isRecord(output.confirmation)) {
-    return null;
-  }
-  const { status } = output.confirmation;
-  if (status !== "confirmed" && status !== "ignored") {
-    return null;
-  }
-  if (typeof output.confirmation.confirmedAt !== "string") {
-    return null;
-  }
-  return {
-    confirmedAt: output.confirmation.confirmedAt,
-    ...(typeof output.confirmation.jobDescriptionId === "string"
-      ? { jobDescriptionId: output.confirmation.jobDescriptionId }
-      : {}),
-    ...(output.confirmation.jobDescriptionName === undefined
-      ? {}
-      : {
-          jobDescriptionName:
-            typeof output.confirmation.jobDescriptionName === "string"
-              ? output.confirmation.jobDescriptionName
-              : null,
-        }),
-    status,
-  };
+  return changed ? { ...message, parts } : null;
 }
 
 /** Later tool results win when the same proposal id appears more than once. */
-export function deriveRecruitingActionConfirmationsFromMessages(
-  messages: ArcMessage[],
-): Record<string, RecruitingActionConfirmation> {
-  const confirmations: Record<string, RecruitingActionConfirmation> = {};
+export function deriveRecruitingActionConfirmationsFromMessages(messages: ArcMessage[]) {
+  const confirmations = new Map<string, RecruitingActionConfirmation>();
   for (const message of messages) {
     for (const part of message.parts) {
-      if (!isToolLikePart(part) || part.state !== "output-available") {
+      const toolPart = parseToolLikePart(part);
+      if (!toolPart || toolPart.state !== "output-available") {
         continue;
       }
-      const proposalId = readProposalId(part.output);
-      const confirmation = readConfirmation(part.output);
-      if (!(proposalId && confirmation)) {
+      const output = parseToolOutput(toolPart);
+      if (!output?.confirmation) {
         continue;
       }
-      confirmations[proposalId] = confirmation;
+      const proposalId = proposalIdFromOutput(output);
+      if (proposalId) {
+        confirmations.set(proposalId, output.confirmation);
+      }
     }
   }
-  return confirmations;
+  return Object.fromEntries(confirmations);
 }
 
 /** Whether a tool output still shows an unresolved bind proposal (legacy messages). */
-export function hasPendingRecruitingBindProposal(output: unknown): boolean {
-  if (!isRecord(output)) {
+export function hasPendingRecruitingBindProposal(
+  outputInput: z.input<typeof toolOutputSchema>,
+): boolean {
+  const result = toolOutputSchema.safeParse(outputInput);
+  if (!result.success || result.data.confirmation) {
     return false;
   }
-  if (readConfirmation(output)) {
-    return false;
-  }
-  const proposal = output.proposal ?? output.conversationJobBindingProposal;
-  if (!isRecord(proposal)) {
-    return false;
-  }
-  return proposal.type === "bind_candidate_to_job" || proposal.type === "bind_pool_item_to_job";
+  const proposal = result.data.proposal ?? result.data.conversationJobBindingProposal;
+  return proposal?.type === "bind_candidate_to_job" || proposal?.type === "bind_pool_item_to_job";
 }

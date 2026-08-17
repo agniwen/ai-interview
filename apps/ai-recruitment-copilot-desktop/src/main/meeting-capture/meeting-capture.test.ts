@@ -15,6 +15,10 @@ import type {
 } from "../../preload/meeting-capture";
 import { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
 
+function isTextPayload(payload: string | Uint8Array): payload is string {
+  return typeof payload === "string";
+}
+
 class DeterministicCaptureSource {
   private sink: CaptureSink | null = null;
   readonly pause = vi.fn(() => Promise.resolve());
@@ -41,7 +45,7 @@ class DeterministicCaptureSource {
 
   async fragment(track: "microphone" | "system", sequence: number, payload: string | Uint8Array) {
     await this.sink?.fragment({
-      bytes: typeof payload === "string" ? new TextEncoder().encode(payload) : payload,
+      bytes: isTextPayload(payload) ? new TextEncoder().encode(payload) : payload,
       durationMs: 15_000,
       endedAtMonotonicMs: (sequence + 1) * 15_000,
       sequence,
@@ -59,10 +63,12 @@ class DeterministicCaptureSource {
   }
 }
 
-function createDelayedDiscardStore(root: string): {
+interface DelayedDiscardStore {
   finishDiscard: () => void;
   store: MeetingRecordingStore;
-} {
+}
+
+function createDelayedDiscardStore(root: string): DelayedDiscardStore {
   const delegate = new LocalMeetingRecordingStore(root);
   const gate = Promise.withResolvers<null>();
   return {
@@ -88,6 +94,7 @@ function latestSnapshot(capture: ReturnType<typeof createMeetingCapture>) {
     latest = snapshot;
   });
   return {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     read: () => latest as MeetingCaptureSnapshot,
     unsubscribe,
   };

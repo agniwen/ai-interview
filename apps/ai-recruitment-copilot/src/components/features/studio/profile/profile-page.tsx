@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDebouncedCallback } from "use-debounce";
+import { z } from "zod";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { ContributionCalendar } from "@/components/features/studio/charts/contribution-calendar";
 import { MailIngestAccountCard } from "@/components/features/studio/profile/mail-ingest-account-card";
@@ -14,7 +15,10 @@ import {
   SettingsSection,
 } from "@/components/features/studio/profile/profile-settings-ui";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { getWorkspaceRoleLabel } from "@/components/features/studio/members/role-display";
+import {
+  getWorkspaceRoleLabel,
+  isBuiltInWorkspaceRole,
+} from "@/components/features/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +35,16 @@ const WHITESPACE_REGEX = /\s+/u;
 const PROFILE_NAME_MAX_LENGTH = 120;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
 
-const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
+const ROLE_BADGE_VARIANT = {
   admin: "default",
   member: "secondary",
   noAccess: "outline",
   owner: "default",
-};
+} as const satisfies Record<WorkspaceRole, "default" | "secondary" | "outline">;
+
+const sessionUserProfileSchema = z.object({
+  feishuTenantName: z.string().nullable().optional(),
+});
 
 function getInitials(name?: string | null, email?: string | null) {
   const source = (name ?? email ?? "").trim();
@@ -158,7 +166,7 @@ function OrganizationSection({
   currentSlug,
   organizations,
 }: {
-  currentRole: WorkspaceRole | null;
+  currentRole: string | null;
   currentSlug: string;
   organizations: {
     createdAt: Date | string;
@@ -203,7 +211,13 @@ function OrganizationSection({
                   </div>
                 </div>
                 {isActive && currentRole ? (
-                  <Badge variant={ROLE_BADGE_VARIANT[currentRole]}>
+                  <Badge
+                    variant={
+                      isBuiltInWorkspaceRole(currentRole)
+                        ? ROLE_BADGE_VARIANT[currentRole]
+                        : "outline"
+                    }
+                  >
                     {getWorkspaceRoleLabel(currentRole)}
                   </Badge>
                 ) : null}
@@ -220,7 +234,7 @@ export function ProfilePage() {
   const { data: session, isPending, refetch } = authClient.useSession();
   const { data: listOrganizations } = authClient.useListOrganizations();
   const currentSlug = useWorkspaceSlug();
-  const workspaceMemberRole = useWorkspaceMemberRole() as WorkspaceRole;
+  const workspaceMemberRole = useWorkspaceMemberRole();
   const user = session?.user;
   const organizations = listOrganizations ?? [];
 
@@ -244,10 +258,10 @@ export function ProfilePage() {
     latestNameRef.current = name;
   }, [name]);
 
-  const tenantName = useMemo(() => {
-    const maybeUser = user as { feishuTenantName?: string | null } | undefined;
-    return maybeUser?.feishuTenantName ?? null;
-  }, [user]);
+  const tenantName = useMemo(
+    () => sessionUserProfileSchema.safeParse(user).data?.feishuTenantName ?? null,
+    [user],
+  );
 
   const performSave = useCallback(async () => {
     const trimmed = latestNameRef.current.trim();

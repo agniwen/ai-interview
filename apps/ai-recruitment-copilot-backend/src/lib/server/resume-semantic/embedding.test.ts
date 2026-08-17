@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { JsonValue } from "@arc/db-schema/json";
 import { embedResumeSemanticTexts } from "./embedding";
 
-function jsonResponse(body: unknown) {
+function jsonResponse(body: JsonValue) {
   return Response.json(body, {
     headers: { "content-type": "application/json" },
     status: 200,

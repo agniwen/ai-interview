@@ -66,10 +66,21 @@ function WaitRoute() {
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:flex-row">
-          <Button className="flex-1" onClick={() => void navigate({ to: "/" })}>
+          <Button
+            className="flex-1"
+            onClick={async () => {
+              await navigate({ to: "/" });
+            }}
+          >
             刷新状态
           </Button>
-          <Button className="flex-1" onClick={() => void signOut()} variant="outline">
+          <Button
+            className="flex-1"
+            onClick={async () => {
+              await signOut();
+            }}
+            variant="outline"
+          >
             退出登录
           </Button>
         </div>

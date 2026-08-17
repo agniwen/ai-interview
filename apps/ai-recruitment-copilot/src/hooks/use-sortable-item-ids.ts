@@ -2,6 +2,13 @@
 
 import { useCallback, useState } from "react";
 
+interface SortableItemIds {
+  ids: string[];
+  move: (from: number, to: number) => void;
+  push: () => void;
+  remove: (index: number) => void;
+}
+
 /**
  * 为"自身没有 id 的列表项"维持一组稳定 UUID，常配合 @tanstack/react-form 的数组字段使用。
  * Tracks a stable UUID per item of a list whose items don't carry their own id.
@@ -21,15 +28,7 @@ import { useCallback, useState } from "react";
  *   Defensive re-sync keeps ids aligned to `currentCount` if the caller forgets a
  *   helper call — better a fresh id than a mismatched list.
  */
-export function useSortableItemIds(
-  currentCount: number,
-  resetKey: unknown,
-): {
-  ids: string[];
-  push: () => void;
-  remove: (index: number) => void;
-  move: (from: number, to: number) => void;
-} {
+export function useSortableItemIds(currentCount: number, resetKey: string): SortableItemIds {
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   const [ids, setIds] = useState<string[]>(() =>
     Array.from({ length: currentCount }, () => crypto.randomUUID()),

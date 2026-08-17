@@ -1,5 +1,6 @@
 // oxlint-disable class-methods-use-this -- Adapter shape follows WorkspaceRecordingPort.
 import type { WorkspaceRecordingPort } from "../../../../preload/meeting-capture";
+import type { MeetingCaptureApi } from "../../../../preload/meeting-capture-api";
 import type {
   MultipartSavedMeetingResponse,
   SmallSavedMeetingResponse,
@@ -8,18 +9,16 @@ import { MEETING_SINGLE_PUT_MAX_BYTES } from "@arc/shared/meeting-recording";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
 import { apiUrl } from "@/lib/client/rpc";
 import { apiJson } from "@/lib/client/rpc-fetch";
+import type { ApiError } from "@/lib/client/api-error";
 import { isApiError } from "@/lib/client/api-error";
+import { z } from "zod";
 
 const UPLOAD_HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000;
 
-function isPermanentPurgeConflict(error: unknown): boolean {
-  return Boolean(
-    isApiError(error) &&
-    error.payload &&
-    typeof error.payload === "object" &&
-    "code" in error.payload &&
-    error.payload.code === "meeting-purged",
-  );
+const permanentPurgeConflictSchema = z.object({ code: z.literal("meeting-purged") });
+
+function isPermanentPurgeConflict(error: ApiError): boolean {
+  return permanentPurgeConflictSchema.safeParse(error.payload).success;
 }
 
 /**
@@ -27,23 +26,38 @@ function isPermanentPurgeConflict(error: unknown): boolean {
  * Commits a frozen local capture to the workspace: renderer orchestrates APIs while main streams the audio bytes.
  */
 export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
+  private readonly dependencies: DesktopWorkspaceRecordingPortDependencies;
+
+  constructor(dependencies: Partial<DesktopWorkspaceRecordingPortDependencies> = {}) {
+    this.dependencies = {
+      apiJson: dependencies.apiJson ?? apiJson,
+      apiUrl: dependencies.apiUrl ?? apiUrl,
+      meetingCapture: dependencies.meetingCapture ?? window.api.meetingCapture,
+      resolveActiveWorkspace: dependencies.resolveActiveWorkspace ?? resolveActiveWorkspace,
+    };
+  }
+
   async reportRecoveryCopyCleanup(
     captureId: string,
     manifestSha256: string,
     status: "deleted" | "failed",
   ): Promise<void> {
     const path = `/api/meeting-local-recovery/${encodeURIComponent(captureId)}`;
-    await apiJson<null>(apiUrl(path), "回报本地恢复副本清理状态失败", {
-      body: JSON.stringify({ manifestSha256, status }),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
+    await this.dependencies.apiJson<null>(
+      this.dependencies.apiUrl(path),
+      "回报本地恢复副本清理状态失败",
+      {
+        body: JSON.stringify({ manifestSha256, status }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      },
+    );
   }
 
   async shouldDeleteRecoveryCopy(captureId: string, manifestSha256: string): Promise<boolean> {
     const path = `/api/meeting-local-recovery/${encodeURIComponent(captureId)}`;
-    const result = await apiJson<{ deleteRequired: boolean }>(
-      apiUrl(path),
+    const result = await this.dependencies.apiJson<{ deleteRequired: boolean }>(
+      this.dependencies.apiUrl(path),
       "检查本地恢复副本状态失败",
       {
         body: JSON.stringify({ manifestSha256 }),
@@ -59,44 +73,62 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
   ): Promise<{ recoveryCopyDeleteAfter: string }> {
     // 协议顺序是 plan -> heartbeat + upload -> server verification；只有最后一步才可标记 workspace-verified。
     // Protocol order is plan -> heartbeat + upload -> server verification; only the final step marks workspace-verified.
-    const workspace = await resolveActiveWorkspace();
+    const workspace = await this.dependencies.resolveActiveWorkspace();
     if (!workspace) {
       throw new Error("请先加入或选择一个工作区");
     }
-    const descriptor = await window.api.meetingCapture.describeWorkspaceSave(input.captureId);
+    const descriptor = await this.dependencies.meetingCapture.describeWorkspaceSave(
+      input.captureId,
+    );
     if (descriptor.manifestSha256 !== input.manifestSha256) {
       throw new Error("本地录音清单在保存期间发生变化");
     }
-    const meetingsUrl = apiUrl(`/api/w/${encodeURIComponent(workspace.slug)}/meetings`);
+    const meetingsUrl = this.dependencies.apiUrl(
+      `/api/w/${encodeURIComponent(workspace.slug)}/meetings`,
+    );
     const usesMultipart = descriptor.assets.some(
       (asset) => asset.sizeBytes > MEETING_SINGLE_PUT_MAX_BYTES,
     );
     const multipartDescriptor = usesMultipart
-      ? await window.api.meetingCapture.describeMultipartWorkspaceSave(input.captureId)
+      ? await this.dependencies.meetingCapture.describeMultipartWorkspaceSave(input.captureId)
       : null;
-    let plan: MultipartSavedMeetingResponse | SmallSavedMeetingResponse;
+    let multipartPlan: MultipartSavedMeetingResponse | null = null;
+    let smallPlan: SmallSavedMeetingResponse | null = null;
     try {
-      plan = usesMultipart
-        ? await apiJson<MultipartSavedMeetingResponse>(
-            `${meetingsUrl}/multipart`,
-            "创建可恢复会议保存任务失败",
-            {
-              body: JSON.stringify(multipartDescriptor),
-              headers: { "Content-Type": "application/json" },
-              method: "POST",
-            },
-          )
-        : await apiJson<SmallSavedMeetingResponse>(meetingsUrl, "创建会议保存任务失败", {
+      if (usesMultipart) {
+        if (!multipartDescriptor) {
+          throw new Error("本地录音分片清单缺失");
+        }
+        multipartPlan = await this.dependencies.apiJson<MultipartSavedMeetingResponse>(
+          `${meetingsUrl}/multipart`,
+          "创建可恢复会议保存任务失败",
+          {
+            body: JSON.stringify(multipartDescriptor),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          },
+        );
+      } else {
+        smallPlan = await this.dependencies.apiJson<SmallSavedMeetingResponse>(
+          meetingsUrl,
+          "创建会议保存任务失败",
+          {
             body: JSON.stringify(descriptor),
             headers: { "Content-Type": "application/json" },
             method: "POST",
-          });
+          },
+        );
+      }
     } catch (error) {
-      if (!isPermanentPurgeConflict(error)) {
+      if (!isApiError(error) || !isPermanentPurgeConflict(error)) {
         throw error;
       }
-      await window.api.meetingCapture.discard(input.captureId);
+      await this.dependencies.meetingCapture.discard(input.captureId);
       throw new Error("该 Meeting Session 已被永久清除，本地恢复副本也已删除", { cause: error });
+    }
+    const plan = multipartPlan ?? smallPlan;
+    if (!plan) {
+      throw new Error("服务器未返回会议保存任务");
     }
     if (plan.state === "workspace-verified") {
       if (!plan.recoveryCopyDeleteAfter) {
@@ -113,7 +145,9 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
       }
       heartbeatRunning = true;
       try {
-        await apiJson<null>(heartbeatUrl, "续期录音上传租约失败", { method: "POST" });
+        await this.dependencies.apiJson<null>(heartbeatUrl, "续期录音上传租约失败", {
+          method: "POST",
+        });
       } catch (error) {
         console.warn("[meeting-capture] direct-upload heartbeat failed", {
           errorName: error instanceof Error ? error.name : "UnknownError",
@@ -122,23 +156,27 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
         heartbeatRunning = false;
       }
     };
-    const heartbeatTimer = setInterval(() => void heartbeat(), UPLOAD_HEARTBEAT_INTERVAL_MS);
-    const upload = usesMultipart
-      ? window.api.meetingCapture.uploadMultipart(
-          input.captureId,
-          (plan as MultipartSavedMeetingResponse).uploads,
-        )
-      : window.api.meetingCapture.uploadSmall(
-          input.captureId,
-          (plan as SmallSavedMeetingResponse).uploads,
-        );
+    const heartbeatTimer = setInterval(() => {
+      heartbeat();
+    }, UPLOAD_HEARTBEAT_INTERVAL_MS);
+    let upload: Promise<void>;
+    if (multipartPlan) {
+      upload = this.dependencies.meetingCapture.uploadMultipart(
+        input.captureId,
+        multipartPlan.uploads,
+      );
+    } else if (smallPlan) {
+      upload = this.dependencies.meetingCapture.uploadSmall(input.captureId, smallPlan.uploads);
+    } else {
+      throw new Error("服务器未返回上传任务");
+    }
     try {
       await upload;
     } finally {
       clearInterval(heartbeatTimer);
     }
     input.report("verifying");
-    const completed = await apiJson<{
+    const completed = await this.dependencies.apiJson<{
       meetingId: string;
       recoveryCopyDeleteAfter: string;
       state: "workspace-verified";
@@ -149,4 +187,18 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
     });
     return { recoveryCopyDeleteAfter: completed.recoveryCopyDeleteAfter };
   }
+}
+
+export interface DesktopWorkspaceRecordingPortDependencies {
+  apiJson: typeof apiJson;
+  apiUrl: typeof apiUrl;
+  meetingCapture: Pick<
+    MeetingCaptureApi,
+    | "describeMultipartWorkspaceSave"
+    | "describeWorkspaceSave"
+    | "discard"
+    | "uploadMultipart"
+    | "uploadSmall"
+  >;
+  resolveActiveWorkspace: typeof resolveActiveWorkspace;
 }

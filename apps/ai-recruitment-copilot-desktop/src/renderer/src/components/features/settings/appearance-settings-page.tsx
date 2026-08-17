@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { SettingsGroup, SettingsRow } from "@/components/settings/settings-ui";
 import type { ThemeMode } from "@/lib/settings";
+import { themeModeSchema } from "../../../../../preload/orpc-contract";
 
 const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = [
   { icon: "ph:sun", label: "浅色", value: "light" },
@@ -24,8 +25,9 @@ function ThemeSelect(): React.JSX.Element {
     <Select
       aria-label="主题"
       onValueChange={(value) => {
-        if (typeof value === "string") {
-          setTheme(value as ThemeMode);
+        const parsedTheme = themeModeSchema.safeParse(value);
+        if (parsedTheme.success) {
+          setTheme(parsedTheme.data);
         }
       }}
       value={theme}

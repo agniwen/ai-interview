@@ -1,50 +1,31 @@
 import { createHash } from "node:crypto";
-import {
-  abortMeetingRecordingMultipartUpload,
-  buildMeetingRecordingAssetKey,
-  completeMeetingRecordingMultipartUpload,
-  createMeetingRecordingMultipartUpload,
-  headMeetingRecordingObject,
-  listMeetingRecordingUploadParts,
-  presignMeetingRecordingPutObject,
-  presignMeetingRecordingUploadPart,
-  presignRecordingGetObjectUrl,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
-  enqueueMeetingPlaybackJobs,
-  isMeetingProcessingQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-playback";
-import {
-  createOrLoadMeetingSession,
-  isMeetingPurgeTombstoned,
-  listMeetingSessionsForAccess,
-  loadMeetingSession,
-  markMeetingSessionVerified,
-  meetingAcceptsUploadAuthorization,
-  recordMeetingAudit,
-  recordMeetingAssetMultipartUploadId,
-  renameMeetingSession,
-  renewMeetingDirectUploadLease,
-} from "./dao";
+import { z } from "zod";
+import type {
+  MeetingObjectHead,
+  MeetingServiceAsset,
+  MeetingServiceDependencies,
+  MeetingServiceSession,
+} from "./service-dependencies";
+import { defaultMeetingServiceDependencies } from "./service-dependencies";
+import type { listMeetingSessionsForAccess } from "./dao";
 import type {
   CreateMultipartSavedMeetingInput,
-  CreateSmallSavedMeetingInput,
-  MeetingAccessRole,
   MeetingDetail,
-  MeetingGrantRole,
   MeetingLibraryItem,
   MeetingPlaybackAuthorization,
   MeetingProcessingState,
   MeetingSourceTrack,
   MultipartSavedMeetingResponse,
-  SmallSavedMeetingResponse,
 } from "@arc/shared/meeting-recording";
 import {
   isWorkspaceAdministrator,
   meetingAccessCapabilities,
   resolveMeetingAccessRole,
 } from "./access";
-import { loadAuthorizedMeeting, meetingRole } from "./authorized-meeting";
+import { meetingRole } from "./authorized-meeting";
+import { createSmallSavedMeeting as createSmallSavedMeetingWithDependencies } from "./small-service";
+
+const defaultDependencies = defaultMeetingServiceDependencies;
 
 const SERVER_VERIFIED_STATUSES = new Set([
   "workspace-verified",
@@ -53,9 +34,17 @@ const SERVER_VERIFIED_STATUSES = new Set([
   "ready",
 ]);
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
+const meetingGrantRoleSchema = z.enum(["editor", "viewer"]);
+const meetingSourceTrackSchema = z.enum(["microphone", "system"]);
+const meetingVisibilitySchema = z.enum(["restricted", "workspace"]);
 
-function sourceAssets<T extends { track: string }>(assets: T[]): T[] {
-  return assets.filter((asset) => asset.track === "microphone" || asset.track === "system");
+function sourceAssets<T extends { track: string }>(
+  assets: T[],
+): (T & { track: MeetingSourceTrack })[] {
+  return assets.filter(
+    (asset): asset is T & { track: MeetingSourceTrack } =>
+      asset.track === "microphone" || asset.track === "system",
+  );
 }
 
 function processingState(status: string): MeetingProcessingState {
@@ -72,24 +61,30 @@ function shouldAutomaticallyEnqueuePlayback(status: string): boolean {
   return status === "workspace-verified" || status === "processing";
 }
 
-export function heartbeatSavedMeetingUpload(input: {
-  meetingId: string;
-  organizationId: string;
-  ownerId: string;
-}): Promise<boolean> {
-  return renewMeetingDirectUploadLease(input);
+export function heartbeatSavedMeetingUpload(
+  input: {
+    meetingId: string;
+    organizationId: string;
+    ownerId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<boolean> {
+  return dependencies.renewMeetingDirectUploadLease(input);
 }
 
 function isMeetingLifecycleUnavailable(status: string): boolean {
   return status === "trashed" || status === "purging";
 }
 
-async function enqueueMeetingPlaybackBestEffort(input: {
-  meetingId: string;
-  organizationId: string;
-}): Promise<void> {
+async function enqueueMeetingPlaybackBestEffort(
+  input: {
+    meetingId: string;
+    organizationId: string;
+  },
+  dependencies: MeetingServiceDependencies,
+): Promise<void> {
   try {
-    await enqueueMeetingPlaybackJobs([input]);
+    await dependencies.enqueueMeetingPlaybackJobs([input]);
   } catch (error) {
     console.error("[meeting-playback] enqueue failed; startup recovery will retry", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -98,144 +93,10 @@ async function enqueueMeetingPlaybackBestEffort(input: {
   }
 }
 
-type CreateResult =
-  | {
-      code?: "meeting-purged" | "meeting-upload-capacity-exhausted";
-      conflict: true;
-      message: string;
-    }
-  | (SmallSavedMeetingResponse & { created: boolean });
-
-function ownsMeeting(
-  meeting: NonNullable<Awaited<ReturnType<typeof loadMeetingSession>>>,
-  input: { manifestSha256: string; organizationId: string; ownerId: string },
-): boolean {
-  return (
-    meeting.organizationId === input.organizationId &&
-    meeting.ownerId === input.ownerId &&
-    meeting.manifestSha256 === input.manifestSha256
-  );
-}
-
-export async function createSmallSavedMeeting(input: {
-  input: CreateSmallSavedMeetingInput;
-  organizationId: string;
-  ownerId: string;
-}): Promise<CreateResult> {
-  const assets = await Promise.all(
-    input.input.assets.map(async (asset) => ({
-      ...asset,
-      storageKey: await buildMeetingRecordingAssetKey({
-        meetingId: input.input.id,
-        organizationId: input.organizationId,
-        track: asset.track,
-      }),
-    })),
-  );
-  const { blockedByCapacity, blockedByPurge, created, meeting } = await createOrLoadMeetingSession({
-    assets,
-    meeting: {
-      id: input.input.id,
-      liveTranscriptDraft: input.input.liveTranscriptDraft ?? null,
-      manifestSha256: input.input.manifestSha256,
-      organizationId: input.organizationId,
-      ownerId: input.ownerId,
-      savedAt: input.input.savedAt,
-      startedAt: input.input.startedAt,
-      title: input.input.title,
-    },
-  });
-  if (blockedByCapacity) {
-    return {
-      code: "meeting-upload-capacity-exhausted",
-      conflict: true,
-      message: "录音上传容量已满，本地 Meeting Recording 已保留",
-    };
-  }
-  if (blockedByPurge) {
-    return { code: "meeting-purged", conflict: true, message: "Meeting Session 已被永久清除" };
-  }
-  if (!meeting || !ownsMeeting(meeting, { ...input, manifestSha256: input.input.manifestSha256 })) {
-    return {
-      conflict: true,
-      message: "Meeting Session 已绑定另一份本地录音清单",
-    };
-  }
-  if (isMeetingLifecycleUnavailable(meeting.status)) {
-    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
-  }
-  if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
-    const recoveryCopyDeleteAfter =
-      meeting.recoveryCopyDeleteAfter ??
-      (await markMeetingSessionVerified({
-        meetingId: meeting.id,
-        organizationId: input.organizationId,
-        ownerId: input.ownerId,
-      }));
-    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
-      await enqueueMeetingPlaybackBestEffort({
-        meetingId: meeting.id,
-        organizationId: input.organizationId,
-      });
-    }
-    return {
-      created,
-      meetingId: meeting.id,
-      recoveryCopyDeleteAfter: recoveryCopyDeleteAfter.toISOString(),
-      state: "workspace-verified",
-      uploads: [],
-    };
-  }
-
-  const uploads = await Promise.all(
-    meeting.assets.map(async (asset) => {
-      const signed = await presignMeetingRecordingPutObject({
-        contentType: asset.contentType,
-        sha256: asset.sha256,
-        sizeBytes: asset.sizeBytes,
-        storageKey: asset.storageKey,
-      });
-      return {
-        contentType: asset.contentType,
-        expiresAt: signed.expiresAt.toISOString(),
-        headers: signed.headers,
-        method: "PUT" as const,
-        sizeBytes: asset.sizeBytes,
-        track: asset.track as MeetingSourceTrack,
-        url: signed.url,
-      };
-    }),
-  );
-  if (
-    !(await renewMeetingDirectUploadLease({
-      meetingId: meeting.id,
-      organizationId: input.organizationId,
-      ownerId: input.ownerId,
-    }))
-  ) {
-    return {
-      code: "meeting-upload-capacity-exhausted",
-      conflict: true,
-      message: "录音上传容量已满，本地 Meeting Recording 已保留",
-    };
-  }
-  if (
-    !(await meetingAcceptsUploadAuthorization({
-      meetingId: meeting.id,
-      organizationId: input.organizationId,
-      ownerId: input.ownerId,
-    }))
-  ) {
-    return { conflict: true, message: "Meeting Session 已归档或正在永久清除" };
-  }
-  return {
-    created,
-    meetingId: meeting.id,
-    recoveryCopyDeleteAfter: null,
-    state: "uploading",
-    uploads,
-  };
-}
+export const createSmallSavedMeeting = (
+  input: Parameters<typeof createSmallSavedMeetingWithDependencies>[0],
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+) => createSmallSavedMeetingWithDependencies(input, dependencies);
 
 type MultipartCreateResult =
   | {
@@ -255,8 +116,8 @@ function multipartObjectEtag(parts: { md5Base64: string }[]): string {
 }
 
 function matchesMultipartObject(
-  asset: NonNullable<Awaited<ReturnType<typeof loadMeetingSession>>>["assets"][number],
-  object: Awaited<ReturnType<typeof headMeetingRecordingObject>>,
+  asset: MeetingServiceAsset,
+  object: MeetingObjectHead | null,
 ): boolean {
   if (!asset.multipartParts) {
     return false;
@@ -271,12 +132,37 @@ function matchesMultipartObject(
   );
 }
 
-async function abortUnpersistedMultipartUpload(input: {
-  storageKey: string;
-  uploadId: string;
-}): Promise<void> {
+function matchesStoredMultipartPlan(
+  asset: Pick<
+    MeetingServiceAsset,
+    "contentType" | "multipartParts" | "sha256" | "sizeBytes" | "uploadMode"
+  > & { track: string },
+  expected:
+    | (Pick<
+        MeetingServiceAsset,
+        "contentType" | "multipartParts" | "sha256" | "sizeBytes" | "uploadMode"
+      > & { track: string })
+    | undefined,
+): boolean {
+  return Boolean(
+    expected &&
+    asset.uploadMode === "multipart" &&
+    asset.contentType === expected.contentType &&
+    asset.sizeBytes === expected.sizeBytes &&
+    asset.sha256 === expected.sha256 &&
+    JSON.stringify(asset.multipartParts) === JSON.stringify(expected.multipartParts),
+  );
+}
+
+async function abortUnpersistedMultipartUpload(
+  input: {
+    storageKey: string;
+    uploadId: string;
+  },
+  dependencies: MeetingServiceDependencies,
+): Promise<void> {
   try {
-    await abortMeetingRecordingMultipartUpload(input);
+    await dependencies.abortMeetingRecordingMultipartUpload(input);
   } catch (error) {
     console.error("[meeting-recording] failed to abort unpersisted multipart upload", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -284,24 +170,81 @@ async function abortUnpersistedMultipartUpload(input: {
   }
 }
 
-export async function createMultipartSavedMeeting(input: {
-  input: CreateMultipartSavedMeetingInput;
-  organizationId: string;
-  ownerId: string;
-}): Promise<MultipartCreateResult> {
-  const assets = await Promise.all(
-    input.input.assets.map(async (asset) => ({
-      ...asset,
-      multipartParts: asset.parts,
-      storageKey: await buildMeetingRecordingAssetKey({
-        meetingId: input.input.id,
-        organizationId: input.organizationId,
-        track: asset.track,
-      }),
-      uploadMode: "multipart" as const,
-    })),
+type MeetingSession = MeetingServiceSession;
+
+function ownsMeeting(
+  meeting: MeetingSession,
+  input: { manifestSha256: string; organizationId: string; ownerId: string },
+): boolean {
+  return (
+    meeting.organizationId === input.organizationId &&
+    meeting.ownerId === input.ownerId &&
+    meeting.manifestSha256 === input.manifestSha256
   );
-  const createdResult = await createOrLoadMeetingSession({
+}
+
+async function initializeMultipartUploads(
+  meeting: MeetingSession,
+  dependencies: MeetingServiceDependencies,
+): Promise<MeetingSession | undefined> {
+  let initializedUpload = false;
+  for (const asset of meeting.assets) {
+    if (asset.multipartUploadId) {
+      continue;
+    }
+    const uploadId = await dependencies.createMeetingRecordingMultipartUpload({
+      contentType: asset.contentType,
+      sha256: asset.sha256,
+      storageKey: asset.storageKey,
+    });
+    try {
+      const recorded = await dependencies.recordMeetingAssetMultipartUploadId({
+        assetId: asset.id,
+        uploadId,
+      });
+      if (!recorded) {
+        await abortUnpersistedMultipartUpload(
+          { storageKey: asset.storageKey, uploadId },
+          dependencies,
+        );
+      }
+    } catch (error) {
+      await abortUnpersistedMultipartUpload(
+        { storageKey: asset.storageKey, uploadId },
+        dependencies,
+      );
+      throw error;
+    }
+    initializedUpload = true;
+  }
+  return initializedUpload ? dependencies.loadMeetingSession(meeting.id) : meeting;
+}
+
+export async function createMultipartSavedMeeting(
+  input: {
+    input: CreateMultipartSavedMeetingInput;
+    organizationId: string;
+    ownerId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<MultipartCreateResult> {
+  const assets = await Promise.all(
+    input.input.assets.map(async (asset) => {
+      const track = meetingSourceTrackSchema.parse(asset.track);
+      return {
+        ...asset,
+        multipartParts: asset.parts,
+        storageKey: await dependencies.buildMeetingRecordingAssetKey({
+          meetingId: input.input.id,
+          organizationId: input.organizationId,
+          track,
+        }),
+        track,
+        uploadMode: "multipart" as const,
+      };
+    }),
+  );
+  const createdResult = await dependencies.createOrLoadMeetingSession({
     assets,
     meeting: {
       id: input.input.id,
@@ -334,16 +277,19 @@ export async function createMultipartSavedMeeting(input: {
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
       meeting.recoveryCopyDeleteAfter ??
-      (await markMeetingSessionVerified({
+      (await dependencies.markMeetingSessionVerified({
         meetingId: meeting.id,
         organizationId: input.organizationId,
         ownerId: input.ownerId,
       }));
     if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
-      await enqueueMeetingPlaybackBestEffort({
-        meetingId: meeting.id,
-        organizationId: input.organizationId,
-      });
+      await enqueueMeetingPlaybackBestEffort(
+        {
+          meetingId: meeting.id,
+          organizationId: input.organizationId,
+        },
+        dependencies,
+      );
     }
     return {
       created: createdResult.created,
@@ -355,45 +301,14 @@ export async function createMultipartSavedMeeting(input: {
   }
   const expectedByTrack = new Map(assets.map((asset) => [asset.track, asset]));
   const storedSourceAssets = sourceAssets(meeting.assets);
-  const storedPlanMatches = storedSourceAssets.every((asset) => {
-    const expected = expectedByTrack.get(asset.track as MeetingSourceTrack);
-    return Boolean(
-      expected &&
-      asset.uploadMode === "multipart" &&
-      asset.contentType === expected.contentType &&
-      asset.sizeBytes === expected.sizeBytes &&
-      asset.sha256 === expected.sha256 &&
-      JSON.stringify(asset.multipartParts) === JSON.stringify(expected.parts),
-    );
-  });
+  const storedPlanMatches = storedSourceAssets.every((asset) =>
+    matchesStoredMultipartPlan(asset, expectedByTrack.get(asset.track)),
+  );
   if (storedSourceAssets.length !== 2 || !storedPlanMatches) {
     return { conflict: true, message: "Meeting Session multipart 保存计划不一致" };
   }
 
-  let initializedUpload = false;
-  for (const asset of meeting.assets) {
-    if (asset.multipartUploadId) {
-      continue;
-    }
-    const uploadId = await createMeetingRecordingMultipartUpload({
-      contentType: asset.contentType,
-      sha256: asset.sha256,
-      storageKey: asset.storageKey,
-    });
-    try {
-      const recorded = await recordMeetingAssetMultipartUploadId({ assetId: asset.id, uploadId });
-      if (!recorded) {
-        await abortUnpersistedMultipartUpload({ storageKey: asset.storageKey, uploadId });
-      }
-    } catch (error) {
-      await abortUnpersistedMultipartUpload({ storageKey: asset.storageKey, uploadId });
-      throw error;
-    }
-    initializedUpload = true;
-  }
-  if (initializedUpload) {
-    meeting = await loadMeetingSession(meeting.id);
-  }
+  meeting = await initializeMultipartUploads(meeting, dependencies);
   if (!meeting) {
     return { conflict: true, message: "Meeting Session multipart 保存计划不存在" };
   }
@@ -404,10 +319,15 @@ export async function createMultipartSavedMeeting(input: {
         throw new Error("Meeting Session multipart 保存计划不完整");
       }
       const uploadId = asset.multipartUploadId;
-      if (matchesMultipartObject(asset, await headMeetingRecordingObject(asset.storageKey))) {
+      if (
+        matchesMultipartObject(
+          asset,
+          await dependencies.headMeetingRecordingObject(asset.storageKey),
+        )
+      ) {
         return [];
       }
-      const confirmedParts = await listMeetingRecordingUploadParts({
+      const confirmedParts = await dependencies.listMeetingRecordingUploadParts({
         storageKey: asset.storageKey,
         uploadId,
       });
@@ -422,7 +342,7 @@ export async function createMultipartSavedMeeting(input: {
           ) {
             return null;
           }
-          const signed = await presignMeetingRecordingUploadPart({
+          const signed = await dependencies.presignMeetingRecordingUploadPart({
             md5Base64: part.md5Base64,
             partNumber: part.partNumber,
             sizeBytes: part.sizeBytes,
@@ -436,7 +356,7 @@ export async function createMultipartSavedMeeting(input: {
             offsetBytes: part.offsetBytes,
             partNumber: part.partNumber,
             sizeBytes: part.sizeBytes,
-            track: asset.track as MeetingSourceTrack,
+            track: asset.track,
             url: signed.url,
           };
         }),
@@ -445,7 +365,7 @@ export async function createMultipartSavedMeeting(input: {
   );
   const uploads = uploadsByAsset.flatMap((parts) => parts.filter((part) => part !== null));
   if (
-    !(await renewMeetingDirectUploadLease({
+    !(await dependencies.renewMeetingDirectUploadLease({
       meetingId: meeting.id,
       organizationId: input.organizationId,
       ownerId: input.ownerId,
@@ -458,7 +378,7 @@ export async function createMultipartSavedMeeting(input: {
     };
   }
   if (
-    !(await meetingAcceptsUploadAuthorization({
+    !(await dependencies.meetingAcceptsUploadAuthorization({
       meetingId: meeting.id,
       organizationId: input.organizationId,
       ownerId: input.ownerId,
@@ -484,15 +404,18 @@ type CompleteResult =
       state: "workspace-verified";
     };
 
-export async function completeSmallSavedMeeting(input: {
-  manifestSha256: string;
-  meetingId: string;
-  organizationId: string;
-  ownerId: string;
-}): Promise<CompleteResult> {
-  const meeting = await loadMeetingSession(input.meetingId);
+export async function completeSmallSavedMeeting(
+  input: {
+    manifestSha256: string;
+    meetingId: string;
+    organizationId: string;
+    ownerId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<CompleteResult> {
+  const meeting = await dependencies.loadMeetingSession(input.meetingId);
   if (!meeting) {
-    return (await isMeetingPurgeTombstoned(input.meetingId))
+    return (await dependencies.isMeetingPurgeTombstoned(input.meetingId))
       ? { error: "Meeting Session 已被永久清除", status: 409 }
       : { error: "Meeting Session 不存在", status: 404 };
   }
@@ -504,12 +427,15 @@ export async function completeSmallSavedMeeting(input: {
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
-      meeting.recoveryCopyDeleteAfter ?? (await markMeetingSessionVerified(input));
+      meeting.recoveryCopyDeleteAfter ?? (await dependencies.markMeetingSessionVerified(input));
     if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
-      await enqueueMeetingPlaybackBestEffort({
-        meetingId: meeting.id,
-        organizationId: input.organizationId,
-      });
+      await enqueueMeetingPlaybackBestEffort(
+        {
+          meetingId: meeting.id,
+          organizationId: input.organizationId,
+        },
+        dependencies,
+      );
     }
     return {
       completed: false,
@@ -528,11 +454,11 @@ export async function completeSmallSavedMeeting(input: {
         if (!(asset.multipartParts && asset.multipartUploadId)) {
           return false;
         }
-        const existingObject = await headMeetingRecordingObject(asset.storageKey);
+        const existingObject = await dependencies.headMeetingRecordingObject(asset.storageKey);
         if (matchesMultipartObject(asset, existingObject)) {
           return true;
         }
-        const uploadedParts = await listMeetingRecordingUploadParts({
+        const uploadedParts = await dependencies.listMeetingRecordingUploadParts({
           storageKey: asset.storageKey,
           uploadId: asset.multipartUploadId,
         });
@@ -556,20 +482,28 @@ export async function completeSmallSavedMeeting(input: {
           return false;
         }
         try {
-          await completeMeetingRecordingMultipartUpload({
+          await dependencies.completeMeetingRecordingMultipartUpload({
             parts: exactParts.filter((part) => part !== null),
             storageKey: asset.storageKey,
             uploadId: asset.multipartUploadId,
           });
         } catch (error) {
-          if (matchesMultipartObject(asset, await headMeetingRecordingObject(asset.storageKey))) {
+          if (
+            matchesMultipartObject(
+              asset,
+              await dependencies.headMeetingRecordingObject(asset.storageKey),
+            )
+          ) {
             return true;
           }
           throw error;
         }
-        return matchesMultipartObject(asset, await headMeetingRecordingObject(asset.storageKey));
+        return matchesMultipartObject(
+          asset,
+          await dependencies.headMeetingRecordingObject(asset.storageKey),
+        );
       }
-      const object = await headMeetingRecordingObject(asset.storageKey);
+      const object = await dependencies.headMeetingRecordingObject(asset.storageKey);
       return Boolean(
         object &&
         object.checksumSha256 === Buffer.from(asset.sha256, "hex").toString("base64") &&
@@ -582,11 +516,14 @@ export async function completeSmallSavedMeeting(input: {
   if (verified.some((ready) => !ready)) {
     return { error: "源音轨尚未通过对象完整性校验", status: 409 };
   }
-  const recoveryCopyDeleteAfter = await markMeetingSessionVerified(input);
-  await enqueueMeetingPlaybackBestEffort({
-    meetingId: meeting.id,
-    organizationId: input.organizationId,
-  });
+  const recoveryCopyDeleteAfter = await dependencies.markMeetingSessionVerified(input);
+  await enqueueMeetingPlaybackBestEffort(
+    {
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+    },
+    dependencies,
+  );
   return {
     completed: true,
     meetingId: meeting.id,
@@ -595,56 +532,81 @@ export async function completeSmallSavedMeeting(input: {
   };
 }
 
-export async function listSavedMeetings(input: {
-  memberRole: string;
-  organizationId: string;
-  recruitingRecordId?: string;
-  userId: string;
-}): Promise<MeetingLibraryItem[]> {
-  const rows = await listMeetingSessionsForAccess({
+export async function listSavedMeetings(
+  input: {
+    memberRole: string;
+    organizationId: string;
+    recruitingRecordId?: string;
+    userId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<MeetingLibraryItem[]> {
+  const query: Parameters<typeof listMeetingSessionsForAccess>[0] = {
     includeAllPrivateMeetings: isWorkspaceAdministrator(input.memberRole),
     organizationId: input.organizationId,
-    ...(input.recruitingRecordId ? { recruitingRecordId: input.recruitingRecordId } : {}),
     userId: input.userId,
-  });
+  };
+  if (input.recruitingRecordId) {
+    query.recruitingRecordId = input.recruitingRecordId;
+  }
+  const rows = await dependencies.listMeetingSessionsForAccess(query);
   if (isWorkspaceAdministrator(input.memberRole)) {
-    await recordMeetingAudit({
+    await dependencies.recordMeetingAudit({
       action: "meeting.library_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
       organizationId: input.organizationId,
     });
   }
-  return rows.map((row) => ({
-    accessRole: resolveMeetingAccessRole({
-      grantRole: row.grantRole as MeetingGrantRole | null,
+  return rows.map((row) => {
+    const grantRole = meetingGrantRoleSchema.safeParse(row.grantRole);
+    const visibility = meetingVisibilitySchema.parse(row.visibility);
+    const accessRole = resolveMeetingAccessRole({
+      grantRole: grantRole.success ? grantRole.data : null,
       isOwner: row.controllerId === input.userId,
       isWorkspaceAdministrator: isWorkspaceAdministrator(input.memberRole),
-      visibility: row.visibility as "restricted" | "workspace",
-    }) as MeetingAccessRole,
-    creator: {
-      id: row.creatorId,
-      image: row.creatorImage,
-      name: row.creatorName,
-    },
-    durationMs: row.durationMs,
-    id: row.id,
-    processingState: processingState(row.status),
-    recordingAvailable: row.recordingAvailable,
-    savedAt: row.savedAt.toISOString(),
-    title: row.title,
-    workspaceCustodied: row.workspaceCustodied,
-  }));
+      visibility,
+    });
+    if (!accessRole) {
+      throw new Error("Meeting Session access query returned an inaccessible meeting");
+    }
+    return {
+      accessRole,
+      creator: {
+        id: row.creatorId,
+        image: row.creatorImage,
+        name: row.creatorName,
+      },
+      durationMs: row.durationMs,
+      id: row.id,
+      processingState: processingState(row.status),
+      recordingAvailable: row.recordingAvailable,
+      savedAt: row.savedAt.toISOString(),
+      title: row.title,
+      workspaceCustodied: row.workspaceCustodied,
+    };
+  });
 }
 
-export async function getSavedMeetingDetail(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<MeetingDetail | null> {
-  const meeting = await loadAuthorizedMeeting(input);
-  if (!(meeting && meeting.owner)) {
+export async function getSavedMeetingDetail(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<MeetingDetail | null> {
+  const meeting = await dependencies.loadAuthorized(input);
+  if (
+    !(
+      meeting &&
+      meeting.owner &&
+      meeting.savedAt &&
+      meeting.startedAt &&
+      meeting.workspaceCustodied !== undefined
+    )
+  ) {
     return null;
   }
   const sources = sourceAssets(meeting.assets);
@@ -653,7 +615,7 @@ export async function getSavedMeetingDetail(input: {
   );
   const accessRole = meetingRole(meeting, input);
   if (accessRole === "administrator") {
-    await recordMeetingAudit({
+    await dependencies.recordMeetingAudit({
       action: "meeting.detail_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -669,7 +631,7 @@ export async function getSavedMeetingDetail(input: {
       image: meeting.owner.image,
       name: meeting.owner.name,
     },
-    durationMs: Math.max(0, ...sources.map((asset) => asset.durationMs)),
+    durationMs: Math.max(0, ...sources.map((asset) => asset.durationMs ?? 0)),
     id: meeting.id,
     processingState: processingState(
       meeting.status === "trashed" ? (meeting.trashedFromStatus ?? "ready") : meeting.status,
@@ -677,27 +639,30 @@ export async function getSavedMeetingDetail(input: {
     recordingAvailable: Boolean(playback),
     savedAt: meeting.savedAt.toISOString(),
     startedAt: meeting.startedAt.toISOString(),
-    title: meeting.title,
+    title: meeting.title ?? "",
     verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
     workspaceCustodied: meeting.workspaceCustodied,
   };
 }
 
-export async function renameSavedMeeting(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  title: string;
-  userId: string;
-}): Promise<"forbidden" | { title: string } | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function renameSavedMeeting(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    title: string;
+    userId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<"forbidden" | { title: string } | null> {
+  const meeting = await dependencies.loadAuthorized(input);
   if (!meeting) {
     return null;
   }
   if (!meetingAccessCapabilities(meetingRole(meeting, input)).canEditMetadata) {
     return "forbidden";
   }
-  return renameMeetingSession({
+  return dependencies.renameMeetingSession({
     actorId: input.userId,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
@@ -705,13 +670,16 @@ export async function renameSavedMeeting(input: {
   });
 }
 
-export async function createMeetingPlaybackAuthorization(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<MeetingPlaybackAuthorization | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function createMeetingPlaybackAuthorization(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<MeetingPlaybackAuthorization | null> {
+  const meeting = await dependencies.loadAuthorized(input);
   const playback = meeting?.assets.find(
     (asset) => asset.track === "playback" && asset.status === "ready",
   );
@@ -719,7 +687,7 @@ export async function createMeetingPlaybackAuthorization(input: {
     return null;
   }
   if (meetingRole(meeting, input) === "administrator") {
-    await recordMeetingAudit({
+    await dependencies.recordMeetingAudit({
       action: "meeting.playback_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -728,20 +696,26 @@ export async function createMeetingPlaybackAuthorization(input: {
     });
   }
   const expiresInSeconds = 300;
-  const url = await presignRecordingGetObjectUrl(playback.storageKey, expiresInSeconds);
+  const url = await dependencies.presignRecordingGetObjectUrl(
+    playback.storageKey,
+    expiresInSeconds,
+  );
   return {
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
     url,
   };
 }
 
-export async function retryMeetingPlayback(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<{ state: "processing" | "ready" | "unavailable" } | "forbidden" | null> {
-  const meeting = await loadAuthorizedMeeting(input);
+export async function retryMeetingPlayback(
+  input: {
+    meetingId: string;
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: MeetingServiceDependencies = defaultDependencies,
+): Promise<{ state: "processing" | "ready" | "unavailable" } | "forbidden" | null> {
+  const meeting = await dependencies.loadAuthorized(input);
   if (!meeting) {
     return null;
   }
@@ -754,13 +728,13 @@ export async function retryMeetingPlayback(input: {
   if (meeting.status !== "processing-failed") {
     return { state: "processing" };
   }
-  if (!isMeetingProcessingQueueConfigured()) {
+  if (!dependencies.isMeetingProcessingQueueConfigured()) {
     return { state: "unavailable" };
   }
-  await enqueueMeetingPlaybackJobs([
+  await dependencies.enqueueMeetingPlaybackJobs([
     { meetingId: input.meetingId, organizationId: input.organizationId },
   ]);
-  await recordMeetingAudit({
+  await dependencies.recordMeetingAudit({
     action: "meeting.processing_retried",
     actorId: input.userId,
     meetingId: input.meetingId,

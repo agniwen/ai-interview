@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  editMeetingNote as editMeetingNoteWithDependencies,
+  getMeetingNotes as getMeetingNotesWithDependencies,
+  reassignSavedMeetingOwner as reassignSavedMeetingOwnerWithDependencies,
+} from "./collaboration-service";
+import type { MeetingCollaborationDependencies } from "./collaboration-service";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   createMeetingNote: vi.fn(),
   deleteMeetingNote: vi.fn(),
   listMeetingAccessGrants: vi.fn(),
@@ -10,28 +16,33 @@ const mocks = vi.hoisted(() => ({
   recordMeetingAudit: vi.fn(),
   replaceMeetingAccessGrants: vi.fn(),
   updateMeetingNote: vi.fn(),
-}));
+};
 
-vi.mock("./dao", () => ({
-  listMeetingAccessGrants: mocks.listMeetingAccessGrants,
-  loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
-  reassignMeetingOwner: mocks.reassignMeetingOwner,
-  recordMeetingAudit: mocks.recordMeetingAudit,
-  replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
-}));
-vi.mock("./routes/notes/dao", () => ({
-  createMeetingNote: mocks.createMeetingNote,
-  deleteMeetingNote: mocks.deleteMeetingNote,
-  listMeetingNotes: mocks.listMeetingNotes,
-  updateMeetingNote: mocks.updateMeetingNote,
-}));
+const dependencies: MeetingCollaborationDependencies = {
+  createNote: mocks.createMeetingNote,
+  deleteNote: mocks.deleteMeetingNote,
+  listAccessGrants: mocks.listMeetingAccessGrants,
+  listNotes: mocks.listMeetingNotes,
+  loadAuthorized: mocks.loadMeetingSessionForAccess,
+  reassignOwner: mocks.reassignMeetingOwner,
+  recordAudit: mocks.recordMeetingAudit,
+  replaceAccessGrants: mocks.replaceMeetingAccessGrants,
+  updateNote: mocks.updateMeetingNote,
+};
 
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import {
-  editMeetingNote,
-  getMeetingNotes,
-  reassignSavedMeetingOwner,
-} from "./collaboration-service";
+function editMeetingNote(input: Parameters<typeof editMeetingNoteWithDependencies>[0]) {
+  return editMeetingNoteWithDependencies(input, dependencies);
+}
+
+function getMeetingNotes(input: Parameters<typeof getMeetingNotesWithDependencies>[0]) {
+  return getMeetingNotesWithDependencies(input, dependencies);
+}
+
+function reassignSavedMeetingOwner(
+  input: Parameters<typeof reassignSavedMeetingOwnerWithDependencies>[0],
+) {
+  return reassignSavedMeetingOwnerWithDependencies(input, dependencies);
+}
 
 const timestamp = new Date("2026-08-09T06:00:00.000Z");
 const baseMeeting = {

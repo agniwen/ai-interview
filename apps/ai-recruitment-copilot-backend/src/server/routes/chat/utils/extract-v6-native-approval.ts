@@ -1,20 +1,23 @@
 import type { UIMessage } from "ai";
+import { z } from "zod";
 
 const APPROVAL_ID_SEPARATOR = "::";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const nativeApprovalToolPartSchema = z.object({
+  approval: z
+    .object({
+      approved: z.boolean().optional(),
+      id: z.string().min(1).optional(),
+      reason: z.string().optional(),
+    })
+    .optional(),
+  state: z.string().optional(),
+  type: z.string(),
+});
 
-function isToolUiPart(part: unknown): part is {
-  approval?: { approved?: boolean; id?: string; reason?: string };
-  state?: string;
-  type: string;
-} {
-  if (!isRecord(part) || typeof part.type !== "string") {
-    return false;
-  }
-  return part.type === "dynamic-tool" || part.type.startsWith("tool-");
+interface NativeApprovalResumeData {
+  approved: boolean;
+  reason?: string;
 }
 
 /**
@@ -22,7 +25,7 @@ function isToolUiPart(part: unknown): part is {
  * Detects AI SDK v6 `approval-responded` tool parts and recovers runId for resumeStream.
  */
 export function extractV6NativeApproval(messages: UIMessage[]): {
-  resumeData: Record<string, unknown>;
+  resumeData: NativeApprovalResumeData;
   runId: string;
 } | null {
   const lastAssistantMsg = messages.at(-1);
@@ -31,12 +34,19 @@ export function extractV6NativeApproval(messages: UIMessage[]): {
   }
   const parts = lastAssistantMsg.parts ?? [];
   for (let i = parts.length - 1; i >= 0; i -= 1) {
-    const part = parts[i];
-    if (!isToolUiPart(part) || part.state !== "approval-responded") {
+    const parsedPart = nativeApprovalToolPartSchema.safeParse(parts[i]);
+    if (!parsedPart.success) {
+      continue;
+    }
+    const part = parsedPart.data;
+    if (
+      part.state !== "approval-responded" ||
+      (part.type !== "dynamic-tool" && !part.type.startsWith("tool-"))
+    ) {
       continue;
     }
     const approvalId = part.approval?.id;
-    if (typeof approvalId !== "string" || approvalId.length === 0) {
+    if (!approvalId) {
       continue;
     }
     const lastSep = approvalId.lastIndexOf(APPROVAL_ID_SEPARATOR);
@@ -48,11 +58,14 @@ export function extractV6NativeApproval(messages: UIMessage[]): {
       continue;
     }
     const reason = part.approval?.reason;
+    const resumeData: NativeApprovalResumeData = {
+      approved: part.approval?.approved === true,
+    };
+    if (reason) {
+      resumeData.reason = reason;
+    }
     return {
-      resumeData: {
-        approved: part.approval?.approved === true,
-        ...(typeof reason === "string" ? { reason } : {}),
-      },
+      resumeData,
       runId,
     };
   }

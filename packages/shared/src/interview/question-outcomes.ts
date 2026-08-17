@@ -60,8 +60,8 @@ export const interviewDataCollectionResultsSchema = z
 
 export type InterviewDataCollectionResults = z.infer<typeof interviewDataCollectionResultsSchema>;
 
-export function parseInterviewDataCollectionResults(
-  value: unknown,
+export function parseInterviewDataCollectionResults<const T>(
+  value: T,
 ): InterviewDataCollectionResults | null {
   const parsed = interviewDataCollectionResultsSchema.safeParse(value);
   return parsed.success ? parsed.data : null;

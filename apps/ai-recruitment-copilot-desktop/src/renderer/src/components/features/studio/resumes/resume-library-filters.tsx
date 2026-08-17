@@ -14,6 +14,10 @@ import {
 } from "./resume-library-filter-model";
 import type { ResumeLibraryFilters } from "./resume-library-filter-model";
 
+function isResumeLibraryFilterKey(key: string): key is keyof ResumeLibraryFilters {
+  return RESUME_LIBRARY_FILTER_KEYS.some((filterKey) => filterKey === key);
+}
+
 export function ResumeLibraryFiltersBar({
   canResetFilters,
   filters,
@@ -53,12 +57,11 @@ export function ResumeLibraryFiltersBar({
   );
 
   const filterValues = useMemo(() => {
-    const out: Record<string, string> = { search };
-    for (const key of RESUME_LIBRARY_FILTER_KEYS) {
+    const filterEntries = RESUME_LIBRARY_FILTER_KEYS.map(
       // Score filters may be cleared in effectiveFilters when no structured JD.
-      out[key] = filters[key] ?? EMPTY_RESUME_LIBRARY_FILTERS[key];
-    }
-    return out;
+      (key) => [key, filters[key] ?? EMPTY_RESUME_LIBRARY_FILTERS[key]] as const,
+    );
+    return Object.fromEntries([["search", search], ...filterEntries]);
   }, [filters, search]);
 
   return (
@@ -90,7 +93,9 @@ export function ResumeLibraryFiltersBar({
         filterValues={filterValues}
         filters={filterConfigs}
         onFilterChange={(key, value) => {
-          onFilterChange(key as keyof ResumeLibraryFilters | "search", value);
+          if (key === "search" || isResumeLibraryFilterKey(key)) {
+            onFilterChange(key, value);
+          }
         }}
         onRefresh={onRefresh}
         onResetFilters={onResetFilters}

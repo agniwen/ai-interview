@@ -15,6 +15,7 @@ import { IconArrowUpRight } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
 import { createOfferDraft, patchOfferDraft, respondOfferDraft } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -41,6 +42,8 @@ import {
   saveSuccessMessage,
 } from "./offer-stage-form";
 import type { OfferFormState } from "./offer-stage-form";
+
+const offerResponseSchema = z.enum(["accepted", "counter", "declined"]);
 
 interface OfferDialogProps {
   open: boolean;
@@ -238,7 +241,12 @@ export function RespondOfferDialog({
         <div className="space-y-4 py-2">
           <RadioGroup
             className="grid gap-2"
-            onValueChange={(v) => setResponse(v as typeof response)}
+            onValueChange={(value) => {
+              const result = offerResponseSchema.safeParse(value);
+              if (result.success) {
+                setResponse(result.data);
+              }
+            }}
             value={response}
           >
             {(["accepted", "declined", "counter"] as const).map((value) => (

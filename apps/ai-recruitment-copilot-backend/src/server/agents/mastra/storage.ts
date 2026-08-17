@@ -12,6 +12,8 @@ export interface CreateMastraStorageOptions {
   disableInit?: boolean;
 }
 
+// SAFETY: this module exclusively owns the optional __arcMastraStorage global cache slot,
+// and only assigns PostgresStore instances created by createMastraStorage.
 const globalForMastraStorage = globalThis as typeof globalThis & {
   __arcMastraStorage?: PostgresStore;
 };

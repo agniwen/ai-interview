@@ -95,7 +95,7 @@ export function canCorrectMeetingTranscript(role: MeetingAccessRole): boolean {
   return role !== "viewer";
 }
 
-export function isTranscriptCorrectionConflict(error: unknown): boolean {
+export function isTranscriptCorrectionConflict(error: Error): boolean {
   return isApiError(error) && error.status === 409;
 }
 
@@ -486,11 +486,11 @@ function transcriptRefetchInterval(result: MeetingTranscriptResult | undefined):
 
 function transcriptStageEmptyHint(
   result: MeetingTranscriptResult | undefined,
-  error: unknown,
+  error: Error | null,
   hasTurns: boolean,
 ): string {
   if (error) {
-    return error instanceof Error ? error.message : "加载会议字幕失败";
+    return error.message;
   }
   if (result?.state === "processing" || result?.state === "pending") {
     return "录音已保存，正在生成最终字幕…";
@@ -538,7 +538,8 @@ export function MeetingTranscriptStage({
   const draftTurns = result?.draft?.turns ?? [];
   const finalTurns = result?.revision?.turns ?? [];
   const turns = draftTurns.length > 0 ? draftTurns : finalTurns;
-  const emptyHint = transcriptStageEmptyHint(result, error, turns.length > 0);
+  const stageError = error instanceof Error ? error : null;
+  const emptyHint = transcriptStageEmptyHint(result, stageError, turns.length > 0);
 
   return turns.length > 0 ? (
     <MeetingTranscriptStageTurns turns={turns} />
@@ -588,7 +589,12 @@ export function MeetingTranscriptPanel({
   });
   const historicalRevisionQuery = useQuery({
     enabled: Boolean(selectedRevisionId),
-    queryFn: () => fetchMeetingTranscriptRevision(slug, meetingId, selectedRevisionId as string),
+    queryFn: () => {
+      if (!selectedRevisionId) {
+        throw new Error("请选择字幕版本");
+      }
+      return fetchMeetingTranscriptRevision(slug, meetingId, selectedRevisionId);
+    },
     queryKey: desktopMeetingKeys.transcriptRevision(slug, meetingId, selectedRevisionId ?? ""),
   });
   const correctionMutation = useMutation({

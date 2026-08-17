@@ -6,6 +6,10 @@ import { createServerEnv } from "./server";
 
 type RuntimeEnv = Record<string, string | undefined>;
 
+function toRuntimeEnv(value: RuntimeEnv) {
+  return value;
+}
+
 const appRoot = path.resolve(import.meta.dirname, "../..");
 
 export function validateEnv(runtimeEnv: RuntimeEnv) {
@@ -13,11 +17,11 @@ export function validateEnv(runtimeEnv: RuntimeEnv) {
   createClientEnv(runtimeEnv);
 }
 
-export function loadBuildEnv(mode = "production", envDir = appRoot): RuntimeEnv {
-  return {
+export function loadBuildEnv(mode = "production", envDir = appRoot) {
+  return toRuntimeEnv({
     ...loadEnv(mode, envDir, ""),
     ...process.env,
-  };
+  });
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {

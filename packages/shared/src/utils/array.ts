@@ -3,8 +3,15 @@
  * Array helpers. All functions are pure—inputs are never mutated.
  */
 
+import type { JsonValue } from "@arc/db-schema/json";
 import { isPresent } from "./guards";
 import { chunk as lodashChunk, partition as lodashPartition, uniq, uniqBy } from "lodash-es";
+
+type StringArrayCandidate = JsonValue | undefined | (JsonValue | undefined)[];
+
+function isNonEmptyString(value: StringArrayCandidate): value is string {
+  return typeof value === "string" && value.length > 0;
+}
 
 /**
  * 把任意值规范为数组：
@@ -28,11 +35,12 @@ export function ensureArray<T>(value: T | T[] | null | undefined): T[] {
  * 把 `unknown` 安全地转换为 string[]：仅保留非空字符串元素。
  * Safely coerce `unknown` to string[], keeping only non-empty string entries.
  */
-export function ensureStringArray(value: unknown): string[] {
+export function ensureStringArray(value: StringArrayCandidate): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+  const candidates: StringArrayCandidate[] = value;
+  return candidates.filter(isNonEmptyString);
 }
 
 /**

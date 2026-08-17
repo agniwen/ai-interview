@@ -1,128 +1,107 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { InterviewContextSnapshotPayload } from "@arc/db-schema/interview-snapshots";
+import { createInterviewEvidenceSnapshotWithDependencies } from "../evidence-snapshot-core";
+import type {
+  EvidenceSnapshotConversation,
+  EvidenceSnapshotDependencies,
+} from "../evidence-snapshot-core";
 
-const mocks = vi.hoisted(() => ({
-  db: {
-    insert: vi.fn(),
-    select: vi.fn(),
+const generatedAt = new Date("2026-07-27T04:00:00.000Z");
+const contextPayload: InterviewContextSnapshotPayload = {
+  candidate: {
+    candidateEmail: null,
+    candidateName: "候选人",
+    candidatePhone: null,
+    resumeProfile: null,
+    targetRole: null,
   },
-  hashSnapshotPayload: vi.fn(),
-  loadActiveInterviewContextSnapshot: vi.fn(),
-  loadSubmissionsByInterview: vi.fn(),
-}));
+  createdAt: generatedAt.toISOString(),
+  forms: [],
+  globalConfig: {
+    closingInstructions: null,
+    companyContext: null,
+    openingInstructions: null,
+  },
+  interviewRecordId: "interview-1",
+  interviewers: [],
+  jobDescription: null,
+  personalizedQuestions: [],
+  questionTemplates: [],
+  scheduleEntryId: "round-1",
+  schemaVersion: 1,
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: mocks.db,
-}));
+const conversation: EvidenceSnapshotConversation = {
+  lastSyncedAt: generatedAt,
+  organizationId: "org-1",
+  recordingDurationSecs: null,
+  recordingEgressId: null,
+  recordingFileKey: null,
+  recordingStatus: null,
+  scheduleEntryId: "round-1",
+  transcript: [{ message: "候选人回答", role: "user" }],
+  updatedAt: generatedAt,
+  webhookReceivedAt: generatedAt,
+};
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions",
-  () => ({
-    loadSubmissionsByInterview: mocks.loadSubmissionsByInterview,
-  }),
-);
+const inserted: string[] = [];
+const calls = {
+  conversationLoads: 0,
+  hashPayloads: 0,
+  inserted,
+};
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
-  () => ({
-    hashSnapshotPayload: mocks.hashSnapshotPayload,
-    loadActiveInterviewContextSnapshot: mocks.loadActiveInterviewContextSnapshot,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- module must load after mocked DB boundary
-import { createInterviewEvidenceSnapshot } from "../evidence-snapshot";
-
-function selectResult(rows: unknown[]) {
-  return {
-    from: vi.fn(() => ({
-      where: vi.fn(() => ({
-        limit: vi.fn().mockResolvedValue(rows),
-      })),
-    })),
-  };
-}
+const dependencies: EvidenceSnapshotDependencies = {
+  findExistingSnapshot: () => Promise.resolve(null),
+  hashSnapshotPayload: () => {
+    calls.hashPayloads += 1;
+    return "snapshot-hash";
+  },
+  insertSnapshot: (input) => {
+    calls.inserted.push(input.id);
+    return Promise.resolve({
+      ...input,
+      createdAt: input.createdAt.toISOString(),
+    });
+  },
+  loadContextSnapshot: () =>
+    Promise.resolve({
+      id: "context-1",
+      payload: contextPayload,
+    }),
+  loadConversation: () => {
+    calls.conversationLoads += 1;
+    return Promise.resolve(conversation);
+  },
+  loadSubmissions: () => Promise.resolve([]),
+};
 
 describe("createInterviewEvidenceSnapshot migration compatibility", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    const generatedAt = new Date("2026-07-27T04:00:00.000Z");
-    const conversation = {
-      lastSyncedAt: generatedAt,
-      organizationId: "org-1",
-      recordingDurationSecs: null,
-      recordingEgressId: null,
-      recordingFileKey: null,
-      recordingStatus: null,
-      scheduleEntryId: "round-1",
-      transcript: [{ message: "候选人回答", role: "user" }],
-      updatedAt: generatedAt,
-      webhookReceivedAt: generatedAt,
-    };
-
-    mocks.db.select
-      .mockImplementationOnce((fields?: Record<string, unknown>) => {
-        if (
-          !fields ||
-          Object.keys(fields).some((field) => field.toLowerCase().startsWith("keyinformation"))
-        ) {
-          throw Object.assign(new Error('column "key_information" does not exist'), {
-            code: "42703",
-          });
-        }
-        return selectResult([conversation]);
-      })
-      .mockImplementationOnce(() => selectResult([]));
-    mocks.db.insert.mockReturnValue({
-      values: vi.fn(() => ({
-        returning: vi.fn().mockResolvedValue([
-          {
-            contentHash: "snapshot-hash",
-            contextSnapshotId: "context-1",
-            conversationId: "conversation-1",
-            createdAt: generatedAt,
-            id: "evidence-1",
-            interviewRecordId: "interview-1",
-            organizationId: "org-1",
-            payload: {
-              context: {},
-              contextSnapshotId: "context-1",
-              conversationId: "conversation-1",
-              formSubmissions: [],
-              generatedAt: generatedAt.toISOString(),
-              interviewRecordId: "interview-1",
-              recording: {
-                durationSecs: null,
-                egressId: null,
-                fileKey: null,
-                status: null,
-              },
-              scheduleEntryId: "round-1",
-              schemaVersion: 1,
-              transcript: conversation.transcript,
-            },
-            scheduleEntryId: "round-1",
-          },
-        ]),
-      })),
-    });
-    mocks.hashSnapshotPayload.mockReturnValue("snapshot-hash");
-    mocks.loadActiveInterviewContextSnapshot.mockResolvedValue({
-      id: "context-1",
-      payload: {},
-    });
-    mocks.loadSubmissionsByInterview.mockResolvedValue([]);
+    calls.conversationLoads = 0;
+    calls.hashPayloads = 0;
+    calls.inserted.length = 0;
   });
 
-  it("builds the snapshot without selecting newly added conversation columns", async () => {
-    await expect(
-      createInterviewEvidenceSnapshot({
+  it("builds the snapshot through a typed dependency boundary", async () => {
+    const snapshot = await createInterviewEvidenceSnapshotWithDependencies(
+      {
         conversationId: "conversation-1",
         interviewRecordId: "interview-1",
-      }),
-    ).resolves.toMatchObject({
+      },
+      dependencies,
+    );
+
+    expect(snapshot).toMatchObject({
+      contextSnapshotId: "context-1",
       conversationId: "conversation-1",
-      id: "evidence-1",
+      id: expect.any(String),
+      interviewRecordId: "interview-1",
+      organizationId: "org-1",
     });
+    expect(snapshot.payload.transcript).toEqual(conversation.transcript);
+    expect(calls.conversationLoads).toBe(1);
+    expect(calls.hashPayloads).toBe(1);
+    expect(calls.inserted).toHaveLength(1);
   });
 });

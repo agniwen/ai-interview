@@ -1,10 +1,12 @@
 // src/components/data-grid/columns/badge-column.tsx
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 import type { ComponentProps, ReactNode } from "react";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import type { DataGridFeatures } from "../table-features";
 
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
+const badgeValueSchema = z.string();
 
 export interface BadgeColumnOptions<TData> {
   key: keyof TData & string;
@@ -25,7 +27,8 @@ export function badgeColumn<TData extends RowData>(
       if (opts.cell) {
         return opts.cell(row.original);
       }
-      const raw = row.original[opts.key] as string;
+      const result = badgeValueSchema.safeParse(row.original[opts.key]);
+      const raw = result.success ? result.data : "—";
       const entry = opts.meta?.[raw];
       if (!entry) {
         return <Badge variant="outline">{raw}</Badge>;

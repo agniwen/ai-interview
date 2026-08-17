@@ -1,5 +1,5 @@
 import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
-import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -30,8 +30,15 @@ const ORDER_COLUMNS = {
 } as const;
 
 const interviewerPaginationSchema = makePaginationSchema(SORT_COLUMNS);
+const interviewerPaginationInputSchema = z.object({
+  page: z.union([z.string(), z.number()]).optional(),
+  pageSize: z.union([z.string(), z.number()]).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
 
 export type InterviewerPaginationParams = PaginationParams<SortColumn>;
+type InterviewerPaginationInput = z.input<typeof interviewerPaginationInputSchema>;
 
 export type PaginatedInterviewerResult = PaginatedResult<InterviewerListRecord>;
 
@@ -45,7 +52,11 @@ function buildWhereConditions({
   departmentId?: string;
 }) {
   const orgFilter = eq(interviewer.organizationId, organizationId);
-  const conditions = [orgFilter] as ReturnType<typeof eq | typeof and | typeof or>[];
+  type InterviewerWhereCondition =
+    | ReturnType<typeof and>
+    | ReturnType<typeof eq>
+    | ReturnType<typeof or>;
+  const conditions: InterviewerWhereCondition[] = [orgFilter];
 
   if (search) {
     const searchCond = or(
@@ -182,15 +193,15 @@ function parseFilters(filters?: { search?: string | null; departmentId?: string 
 }
 
 export function parseInterviewerPagination(
-  params?: Record<string, unknown>,
+  params?: InterviewerPaginationInput,
 ): InterviewerPaginationParams {
-  return interviewerPaginationSchema.parse(params ?? {});
+  return interviewerPaginationSchema.parse(interviewerPaginationInputSchema.parse(params ?? {}));
 }
 
 export async function queryPaginatedInterviewers(
   organizationId: string,
   filters?: { search?: string | null; departmentId?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: InterviewerPaginationInput,
 ): Promise<PaginatedInterviewerResult> {
   const { search, departmentId } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseInterviewerPagination(pagination);
@@ -225,7 +236,7 @@ export async function queryPaginatedInterviewers(
 export function listInterviewers(
   organizationId: string,
   filters?: { search?: string | null; departmentId?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: InterviewerPaginationInput,
 ) {
   return queryPaginatedInterviewers(organizationId, filters, pagination);
 }
@@ -298,7 +309,7 @@ export async function loadInterviewerById(
     name: row.name,
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
-    voice: row.voice as MinimaxVoiceId,
+    voice: minimaxVoiceSchema.parse(row.voice),
   };
 }
 
@@ -312,6 +323,6 @@ export function serializeInterviewer(row: typeof interviewer.$inferSelect): Inte
     name: row.name,
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
-    voice: row.voice as MinimaxVoiceId,
+    voice: minimaxVoiceSchema.parse(row.voice),
   };
 }

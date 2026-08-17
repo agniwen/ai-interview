@@ -6,8 +6,9 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
 
-import { OfferCard } from "./offer-stage-cards";
+import { OfferCardView } from "./offer-stage-cards";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 window.matchMedia = vi.fn().mockReturnValue({
   addEventListener: vi.fn(),
@@ -15,17 +16,7 @@ window.matchMedia = vi.fn().mockReturnValue({
   removeEventListener: vi.fn(),
 });
 
-vi.mock("@/lib/client/api", () => ({
-  cancelOfferDraft: vi.fn(),
-  fetchStudioResume: vi.fn(),
-  patchOfferDraft: vi.fn(),
-  sendOfferDraft: vi.fn(),
-  updateCandidateExpectations: vi.fn(),
-}));
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "acme",
-}));
+const offerCardDependencies = { slug: "acme" };
 
 const draft: OfferDraftRecord = {
   baseSalary: 30_000,
@@ -65,10 +56,11 @@ describe("OfferCard", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <OfferCard
+          <OfferCardView
             canDelete
             canUpdate
             candidateId="candidate-1"
+            dependencies={offerCardDependencies}
             draft={draft}
             onCancelled={vi.fn()}
             onRespond={vi.fn()}

@@ -23,6 +23,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defineDonutChart } from "@/lib/client/charts/donut";
+import { z } from "zod";
 
 type PipelineBucket =
   | "screening"
@@ -41,23 +42,30 @@ const BUCKET_ORDER: PipelineBucket[] = [
   "closed_rejected",
 ];
 
-const BUCKET_LABEL: Record<PipelineBucket, string> = {
+const BUCKET_LABEL = {
   ai_interview: "AI 面试",
   closed_hired: "已录用",
   closed_rejected: "淘汰 / 撤回",
   human_interview: "真人复面",
   offer: "Offer",
   screening: "简历筛选",
-};
+} satisfies Record<PipelineBucket, string>;
 
-const BUCKET_COLORS: Record<PipelineBucket, string> = {
+const BUCKET_COLORS = {
   ai_interview: "var(--chart-2)",
   closed_hired: "var(--chart-5)",
   closed_rejected: "var(--destructive)",
   human_interview: "var(--chart-3)",
   offer: "var(--chart-4)",
   screening: "var(--chart-1)",
-};
+} satisfies Record<PipelineBucket, string>;
+
+const activityDatumSchema = z.object({
+  day: z.string(),
+  label: z.string(),
+  series: z.string(),
+  value: z.number(),
+});
 
 const activityChartConfig: ChartConfig = {
   aiCompleted: { color: "var(--chart-2)", label: "AI 完成" },
@@ -107,14 +115,14 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
 }
 
 function buildFunnelSnapshot(metrics: ResumeLibraryMetrics) {
-  const counts: Record<PipelineBucket, number> = {
+  const counts = {
     ai_interview: 0,
     closed_hired: 0,
     closed_rejected: 0,
     human_interview: 0,
     offer: 0,
     screening: 0,
-  };
+  } satisfies Record<PipelineBucket, number>;
   let total = 0;
 
   for (const row of metrics.byPipeline) {
@@ -378,8 +386,10 @@ function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
       tooltip: {
         ...chartTooltip,
         format: (point) => {
-          const row = point.datum as (typeof longRows)[number];
-          return `${row.day} · ${row.label}: ${row.value}`;
+          const parsed = activityDatumSchema.safeParse(point.datum);
+          return parsed.success
+            ? `${parsed.data.day} · ${parsed.data.label}: ${parsed.data.value}`
+            : "";
         },
       },
     });

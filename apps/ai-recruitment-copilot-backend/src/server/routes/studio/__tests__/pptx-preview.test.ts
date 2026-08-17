@@ -19,6 +19,7 @@ describe("PPTX preview conversion", () => {
 
         const outputPath = path.join(
           args[outdirIndex + 1],
+          // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
           `${path.basename(inputPath as string, ".pptx")}.pdf`,
         );
         await writeFile(outputPath, new Uint8Array([4, 5, 6]));

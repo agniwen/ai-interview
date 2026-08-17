@@ -5,6 +5,11 @@ interface DepartmentScopedInterviewer {
   name: string;
 }
 
+interface DepartmentSyncedInterviewerSelection {
+  departmentId: string;
+  interviewerIds: string[];
+}
+
 export function getInterviewersForDepartment<T extends DepartmentScopedInterviewer>(
   interviewers: T[],
   departmentId: string,
@@ -62,7 +67,7 @@ export function getDepartmentSyncedInterviewerSelection({
   interviewers: DepartmentScopedInterviewer[];
   nextInterviewerIds: string[];
   previousInterviewerIds: string[];
-}): { departmentId: string; interviewerIds: string[] } {
+}): DepartmentSyncedInterviewerSelection {
   if (allowCrossDepartmentInterviewers) {
     return {
       departmentId: currentDepartmentId,

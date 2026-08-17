@@ -1,15 +1,14 @@
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, notFound, redirect } from "@tanstack/react-router";
 import { JobDescriptionManagementPage } from "@/components/features/studio/job-descriptions/job-description-management-page";
 import { JobDescriptionsPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
-import type { StudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
+
+const routeApi = getRouteApi("/w/$slug/studio/job-descriptions");
 
 function StudioJobDescriptionsRoute() {
-  const state = useLoaderData({
-    from: "/w/$slug/studio/job-descriptions",
-  }) as unknown as StudioJobDescriptionsState;
+  const state = routeApi.useLoaderData();
 
   if (state.status !== "ready") {
     return null;
@@ -25,11 +24,11 @@ function StudioJobDescriptionsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  validateSearch: coerceSearchParams,
   loader: async ({ params }) => {
-    const state = (await loadStudioJobDescriptionsState({
+    const state = await loadStudioJobDescriptionsState({
       data: { slug: params.slug },
-    })) as StudioJobDescriptionsState;
+    });
     if (state.status === "unauthenticated") {
       throw redirect({
         href: `/login?callbackURL=${encodeURIComponent(

@@ -1,5 +1,5 @@
 import { IconBriefcase, IconSparkles, IconUpload } from "@tabler/icons-react";
-import AvvvatarsModule from "avvvatars-react";
+import Avvvatars from "avvvatars-react";
 import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -26,11 +26,6 @@ import { ResumeLibraryCardActions } from "./resume-library-card-actions";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
 
 export type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
-
-const Avvvatars =
-  typeof AvvvatarsModule === "function"
-    ? AvvvatarsModule
-    : (AvvvatarsModule as unknown as { default: typeof AvvvatarsModule }).default;
 
 function lifecycleTargetTab(record: ResumeLibraryListRecord): ResumeDetailDefaultTab {
   if (record.pipelineStage === "ai_interview") {
@@ -143,12 +138,12 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
-const REVIEW_ACTION_TONE_CLASS: Record<ResumeReviewActionTone, string> = {
+const REVIEW_ACTION_TONE_CLASS = {
   danger: "text-rose-700 dark:text-rose-300",
   muted: "text-muted-foreground",
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-700 dark:text-amber-300",
-};
+} satisfies Record<ResumeReviewActionTone, string>;
 
 function isResumeCardInteractiveClick(event: ReactMouseEvent<HTMLElement>) {
   const { target } = event;
@@ -221,10 +216,14 @@ function getResumeAvatarValue(record: ResumeLibraryListRecord) {
   return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
 }
 
-function describeStructuredReviewCard(record: ResumeLibraryListRecord): {
+interface StructuredReviewCardDescription {
   label: string;
   tone: ResumeReviewActionTone;
-} {
+}
+
+function describeStructuredReviewCard(
+  record: ResumeLibraryListRecord,
+): StructuredReviewCardDescription {
   if (record.resumeEvaluationStatus === "pass") {
     return { label: "HR 已通过", tone: "success" };
   }

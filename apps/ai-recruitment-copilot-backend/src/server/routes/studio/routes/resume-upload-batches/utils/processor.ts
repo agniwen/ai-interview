@@ -11,13 +11,13 @@ import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/
 import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import type { toItemDto } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import {
   claimNextPendingItem,
   claimPendingItemById,
   loadBatchDetail,
   reconcileBatchProgress,
   toBatchDto,
-  toItemDto,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
 import {
@@ -68,6 +68,56 @@ type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
+export interface ResumeUploadBatchProcessorDependencies {
+  enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;
+  enqueueResumeReviewGenerationForRecordBestEffort: typeof enqueueResumeReviewGenerationForRecordBestEffort;
+  enqueueResumeSemanticIndexJobBestEffort: typeof enqueueResumeSemanticIndexJobBestEffort;
+  findAttachmentByStorageKey: typeof findAttachmentByStorageKey;
+  getObjectStream: typeof getObjectStream;
+  parseResumeBytesToProfile: typeof parseResumeBytesToProfile;
+  projectAttachmentToResumeProfile: typeof projectAttachmentToResumeProfile;
+  reassessResumeRecord: typeof reassessResumeRecord;
+  updateParseResultByHash: typeof updateParseResultByHash;
+}
+
+const defaultResumeUploadBatchProcessorDependencies: ResumeUploadBatchProcessorDependencies = {
+  enqueueResumePoolReviewGenerationBestEffort,
+  enqueueResumeReviewGenerationForRecordBestEffort,
+  enqueueResumeSemanticIndexJobBestEffort,
+  findAttachmentByStorageKey,
+  getObjectStream,
+  parseResumeBytesToProfile,
+  projectAttachmentToResumeProfile,
+  reassessResumeRecord,
+  updateParseResultByHash,
+};
+
+interface ProcessingOutcome {
+  autoMatchJobDescription: boolean;
+  errorMessage: string | null;
+  jobDescriptionId: string | null;
+  succeededPoolItemId: string | null;
+  succeededRecordId: string | null;
+}
+
+function fallbackItemDto(item: NonNullable<ItemRow>): ReturnType<typeof toItemDto> {
+  return {
+    batchId: item.batchId,
+    contentHash: item.contentHash,
+    dedupMatchSnapshot: item.dedupMatchSnapshot,
+    errorMessage: item.errorMessage,
+    fileSize: item.fileSize,
+    finishedAt: item.finishedAt ? item.finishedAt.toISOString() : null,
+    id: item.id,
+    orderIndex: item.orderIndex,
+    originalFileName: item.originalFileName,
+    poolItemId: item.poolItemId,
+    resumeRecordId: item.resumeRecordId,
+    startedAt: item.startedAt ? item.startedAt.toISOString() : null,
+    status: item.status,
+  };
+}
+
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
@@ -76,6 +126,7 @@ type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 async function resolveResumeProfile(
   item: NonNullable<ItemRow>,
   options: { bypassCache?: boolean } = {},
+  dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<{
   parsed: ParsedResume | null;
   resumeProfile: ParsedResume["resumeProfile"];
@@ -86,10 +137,10 @@ async function resolveResumeProfile(
     logStep("cache.lookup.bypassed", { itemId: item.id });
   } else if (isResumeParseCacheEnabled(process.env)) {
     logStep("cache.lookup.start", { itemId: item.id });
-    const cached = await findAttachmentByStorageKey(item.storageKey);
+    const cached = await dependencies.findAttachmentByStorageKey(item.storageKey);
     const fromCache =
       cached?.parsedStructured && isResumeParseCacheSourceCompatible(cached.parsedTextSource)
-        ? projectAttachmentToResumeProfile(cached.parsedStructured)
+        ? dependencies.projectAttachmentToResumeProfile(cached.parsedStructured)
         : null;
     if (fromCache) {
       logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
@@ -101,7 +152,7 @@ async function resolveResumeProfile(
   }
   const s3StartedAt = Date.now();
   logStep("s3.get.start", { itemId: item.id });
-  const object = await getObjectStream(item.storageKey);
+  const object = await dependencies.getObjectStream(item.storageKey);
   if (!object) {
     throw new Error("简历文件不可用（S3 对象缺失）。");
   }
@@ -113,7 +164,7 @@ async function resolveResumeProfile(
   const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
   const parseStartedAt = Date.now();
   logStep("parse.start", { fileSize: bytes.byteLength, itemId: item.id });
-  const parsed = await parseResumeBytesToProfile({
+  const parsed = await dependencies.parseResumeBytesToProfile({
     bytes,
     fileName: item.originalFileName,
     mediaType: object.contentType ?? "application/octet-stream",
@@ -128,7 +179,7 @@ async function resolveResumeProfile(
   if (item.contentHash) {
     const cacheWriteStartedAt = Date.now();
     logStep("cache.write.start", { itemId: item.id });
-    await updateParseResultByHash({
+    await dependencies.updateParseResultByHash({
       contentHash: item.contentHash,
       parsedPageCount: parsed.parsedPageCount,
       parsedStatus: "ready",
@@ -253,6 +304,7 @@ async function fetchAndParse(
   organizationId: string,
   userId: string,
   options: { bypassCache?: boolean } = {},
+  dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<{
   autoMatchJobDescription: boolean;
   jobDescriptionId: string | null;
@@ -268,7 +320,7 @@ async function fetchAndParse(
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
 
-  const { resumeProfile, resumeText } = await resolveResumeProfile(item, options);
+  const { resumeProfile, resumeText } = await resolveResumeProfile(item, options, dependencies);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
   const autoMatchJobDescription = batchRow.jdMode === "auto";
@@ -338,14 +390,17 @@ async function requireEnrichmentTasks(tasks: Promise<boolean>[]): Promise<void> 
   }
 }
 
-async function scheduleLibraryEvaluation(input: {
-  autoMatchJobDescription: boolean;
-  generationToken: string;
-  jobDescriptionId: string | null;
-  organizationId: string;
-  resumeRecordId: string;
-}): Promise<boolean> {
-  const result = await enqueueResumeReviewGenerationForRecordBestEffort({
+async function scheduleLibraryEvaluation(
+  input: {
+    autoMatchJobDescription: boolean;
+    generationToken: string;
+    jobDescriptionId: string | null;
+    organizationId: string;
+    resumeRecordId: string;
+  },
+  dependencies: ResumeUploadBatchProcessorDependencies,
+): Promise<boolean> {
+  const result = await dependencies.enqueueResumeReviewGenerationForRecordBestEffort({
     ...input,
     source: "resume_upload",
   });
@@ -353,7 +408,7 @@ async function scheduleLibraryEvaluation(input: {
     return false;
   }
   if (result.status === "fallback_sync") {
-    await reassessResumeRecord({
+    await dependencies.reassessResumeRecord({
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,
     });
@@ -361,24 +416,30 @@ async function scheduleLibraryEvaluation(input: {
   return true;
 }
 
-async function enqueueParsedResumeEnrichment(input: {
-  autoMatchJobDescription: boolean;
-  generationToken: string;
-  jobDescriptionId: string | null;
-  organizationId: string;
-  succeededPoolItemId: string | null;
-  succeededRecordId: string | null;
-}): Promise<void> {
+async function enqueueParsedResumeEnrichment(
+  input: {
+    autoMatchJobDescription: boolean;
+    generationToken: string;
+    jobDescriptionId: string | null;
+    organizationId: string;
+    succeededPoolItemId: string | null;
+    succeededRecordId: string | null;
+  },
+  dependencies: ResumeUploadBatchProcessorDependencies,
+): Promise<void> {
   if (input.succeededRecordId) {
     await requireEnrichmentTasks([
-      scheduleLibraryEvaluation({
-        autoMatchJobDescription: input.autoMatchJobDescription,
-        generationToken: input.generationToken,
-        jobDescriptionId: input.jobDescriptionId,
-        organizationId: input.organizationId,
-        resumeRecordId: input.succeededRecordId,
-      }),
-      enqueueResumeSemanticIndexJobBestEffort({
+      scheduleLibraryEvaluation(
+        {
+          autoMatchJobDescription: input.autoMatchJobDescription,
+          generationToken: input.generationToken,
+          jobDescriptionId: input.jobDescriptionId,
+          organizationId: input.organizationId,
+          resumeRecordId: input.succeededRecordId,
+        },
+        dependencies,
+      ),
+      dependencies.enqueueResumeSemanticIndexJobBestEffort({
         organizationId: input.organizationId,
         sourceId: input.succeededRecordId,
         sourceType: "studio_interview",
@@ -390,7 +451,7 @@ async function enqueueParsedResumeEnrichment(input: {
     return;
   }
   const tasks: Promise<boolean>[] = [
-    enqueueResumeSemanticIndexJobBestEffort({
+    dependencies.enqueueResumeSemanticIndexJobBestEffort({
       organizationId: input.organizationId,
       sourceId: input.succeededPoolItemId,
       sourceType: "resume_pool_item",
@@ -398,7 +459,7 @@ async function enqueueParsedResumeEnrichment(input: {
   ];
   if (input.autoMatchJobDescription || input.jobDescriptionId) {
     tasks.push(
-      enqueueResumePoolReviewGenerationBestEffort({
+      dependencies.enqueueResumePoolReviewGenerationBestEffort({
         autoMatchJobDescription: input.autoMatchJobDescription,
         generationToken: input.generationToken,
         jobDescriptionId: input.jobDescriptionId,
@@ -502,7 +563,7 @@ async function loadCancelledProcessResult(
   if (!detail) {
     return null;
   }
-  const updatedItem = detail.items.find((i) => i.id === item.id) ?? toItemDto(item as never);
+  const updatedItem = detail.items.find((i) => i.id === item.id) ?? fallbackItemDto(item);
   logStep("item.process.cancelled", {
     batchId: batchRow.id,
     batchStatus: detail.batch.status,
@@ -521,6 +582,7 @@ async function processClaimedItem(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
   options: { bypassCache?: boolean } = {},
+  dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
   logStep("item.process.start", {
@@ -530,13 +592,7 @@ async function processClaimedItem(
     jdMode: batchRow.jdMode,
     target: batchRow.target,
   });
-  let outcome: {
-    autoMatchJobDescription: boolean;
-    errorMessage: string | null;
-    jobDescriptionId: string | null;
-    succeededPoolItemId: string | null;
-    succeededRecordId: string | null;
-  } = {
+  let outcome: ProcessingOutcome = {
     autoMatchJobDescription: false,
     errorMessage: null,
     jobDescriptionId: null,
@@ -551,6 +607,7 @@ async function processClaimedItem(
       batchRow.organizationId,
       batchRow.createdBy,
       options,
+      dependencies,
     );
     await assertBatchItemNotCancelled(batchRow.id, item.id);
     outcome = { ...outcome, ...result };
@@ -574,11 +631,14 @@ async function processClaimedItem(
 
   if (!outcome.errorMessage) {
     try {
-      await enqueueParsedResumeEnrichment({
-        ...outcome,
-        generationToken: item.id,
-        organizationId: batchRow.organizationId,
-      });
+      await enqueueParsedResumeEnrichment(
+        {
+          ...outcome,
+          generationToken: item.id,
+          organizationId: batchRow.organizationId,
+        },
+        dependencies,
+      );
     } catch (error) {
       await releaseBatchItemForRetry(batchRow.id, item.id);
       throw error;
@@ -590,7 +650,7 @@ async function processClaimedItem(
   if (!detail) {
     return null;
   }
-  const updatedItem = detail.items.find((i) => i.id === item.id) ?? toItemDto(item as never);
+  const updatedItem = detail.items.find((i) => i.id === item.id) ?? fallbackItemDto(item);
   logStep("item.process.done", {
     batchId: batchRow.id,
     batchStatus: detail.batch.status,
@@ -611,6 +671,7 @@ async function processClaimedItem(
 export async function processBatchItem(
   itemId: string,
   options: { bypassCache?: boolean } = {},
+  dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
   logStep("job.claim.start", { bypassCache: Boolean(options.bypassCache), itemId });
@@ -651,7 +712,7 @@ export async function processBatchItem(
     durationMs: elapsed(startedAt),
     itemId: claimed.item.id,
   });
-  return processClaimedItem(claimed.item, claimed.batchRow, options);
+  return processClaimedItem(claimed.item, claimed.batchRow, options, dependencies);
 }
 
 // 処理一個 pending item：拉 S3 → parse → 創建可閲覧記録 → 派發 enrichment → 更新 batch counter。
@@ -666,6 +727,7 @@ export async function processNextItem(
   batchId: string,
   organizationId: string,
   userId: string,
+  dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<ProcessNextResult | null> {
   // 1) Claim next item inside a transaction.
   const claimed = await db.transaction(async (tx) => {
@@ -720,7 +782,18 @@ export async function processNextItem(
     };
   }
 
-  return processClaimedItem(claimed.item, claimed.batchRow);
+  return processClaimedItem(claimed.item, claimed.batchRow, {}, dependencies);
+}
+
+export function createResumeUploadBatchProcessor(
+  dependencies: ResumeUploadBatchProcessorDependencies,
+) {
+  return {
+    processBatchItem: (itemId: string, options: { bypassCache?: boolean } = {}) =>
+      processBatchItem(itemId, options, dependencies),
+    processNextItem: (batchId: string, organizationId: string, userId: string) =>
+      processNextItem(batchId, organizationId, userId, dependencies),
+  };
 }
 
 export { toBatchDto };

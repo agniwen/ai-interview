@@ -32,11 +32,10 @@ function collectAttachmentIds(messages: UIMessage[]): string[] {
       // PDF 等被下游丢掉，没必要拉它们的 chat_attachment 行。
       // Only collect image attachment ids — inlineMessage skips non-images,
       // and they get stripped downstream, so don't fetch their rows.
-      const filePart = part as FileUIPart;
-      if (!filePart.mediaType?.startsWith("image/")) {
+      if (!part.mediaType?.startsWith("image/")) {
         continue;
       }
-      const id = extractAttachmentId(filePart.url);
+      const id = extractAttachmentId(part.url);
       if (id) {
         ids.add(id);
       }
@@ -59,7 +58,6 @@ async function inlineMessage(
       if (part.type !== "file") {
         return part;
       }
-      const filePart = part as FileUIPart;
       // 只对图片做 base64 inline —— 非图片(主要是 PDF)的 file part 会在下游
       // stripNonImageFileParts 阶段被丢掉，inline 它们 = S3 读 + base64 编码全白做。
       // 简历的解析内容已经通过 data-resume-parsed → text part 注入到消息里，
@@ -68,10 +66,10 @@ async function inlineMessage(
       // dropped later by stripNonImageFileParts, so inlining them = wasted
       // S3 read + base64 encode per request. Resume content is already
       // surfaced into the message via the data-resume-parsed → text part path.
-      if (!filePart.mediaType?.startsWith("image/")) {
+      if (!part.mediaType?.startsWith("image/")) {
         return part;
       }
-      const attachmentId = extractAttachmentId(filePart.url);
+      const attachmentId = extractAttachmentId(part.url);
       if (!attachmentId) {
         return part;
       }
@@ -81,20 +79,20 @@ async function inlineMessage(
         // Not owned by this user — strip the url so downstream does not leak
         // a dangling reference to the model.
         touched = true;
-        return { ...filePart, url: "" } satisfies FileUIPart;
+        return { ...part, url: "" } satisfies FileUIPart;
       }
 
       const object = await getObjectBytes(attachment.storageKey);
       if (!object) {
         touched = true;
-        return { ...filePart, url: "" } satisfies FileUIPart;
+        return { ...part, url: "" } satisfies FileUIPart;
       }
 
       const base64 = Buffer.from(object.bytes).toString("base64");
       const mediaType = object.contentType || attachment.mediaType;
       touched = true;
       return {
-        ...filePart,
+        ...part,
         mediaType,
         url: `data:${mediaType};base64,${base64}`,
       } satisfies FileUIPart;
@@ -104,7 +102,7 @@ async function inlineMessage(
   if (!touched) {
     return message;
   }
-  return { ...message, parts: nextParts } as UIMessage;
+  return { ...message, parts: nextParts } satisfies UIMessage;
 }
 
 /**

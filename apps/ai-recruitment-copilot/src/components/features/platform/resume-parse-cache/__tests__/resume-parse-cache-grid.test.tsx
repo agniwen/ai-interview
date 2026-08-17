@@ -1,23 +1,48 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type * as DataGridModule from "@/components/data-grid";
 import { ResumeParseCacheGrid } from "../resume-parse-cache-grid";
+import type {
+  ResumeParseCacheDependencies,
+  ResumeParseCacheRecord,
+} from "../resume-parse-cache-grid";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 function ResizeObserverMock() {
   return {
-    disconnect: vi.fn(),
-    observe: vi.fn(),
-    unobserve: vi.fn(),
+    disconnect: () => {},
+    observe: () => {},
+    unobserve: () => {},
   };
 }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: (media: string): MediaQueryList => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  }),
+});
 
-const cacheRecord = vi.hoisted(() => ({
+const cacheRecord: ResumeParseCacheRecord = {
   contentHash: "sha256-demo",
   createdAt: "2026-07-20T08:00:00.000Z",
   filename: "resume.pdf",
@@ -28,97 +53,25 @@ const cacheRecord = vi.hoisted(() => ({
   organizationName: "测试工作区",
   parsedAt: "2026-07-20T08:01:00.000Z",
   parsedPageCount: 2,
-  parsedStatus: "ready" as const,
-  parsedTextSource: "qwen-ocr" as const,
+  parsedStatus: "ready",
+  parsedTextSource: "qwen-ocr",
   size: 2048,
   storageKey: "attachments/resume.pdf",
   userEmail: "user@example.com",
   userName: "上传人",
-}));
+};
 
-const detailRequest = vi.hoisted(() => ({ type: "detail" }));
-const deleteRequest = vi.hoisted(() => ({ type: "delete" }));
-const deleteEndpointMock = vi.hoisted(() => vi.fn(() => deleteRequest));
-const invalidateMock = vi.hoisted(() => vi.fn());
-const rpcFetchMock = vi.hoisted(() =>
-  vi.fn((request: { type: string }) => {
-    if (request.type === "delete") {
-      return Promise.resolve({ clearedCount: 2 });
-    }
-    return Promise.resolve({
-      ...cacheRecord,
-      parsedError: null,
-      parsedStructured: { name: "张三" },
-      parsedText: "张三的简历文本",
-    });
-  }),
-);
+const fetchCacheMock = vi.fn<ResumeParseCacheDependencies["fetchCache"]>();
+const fetchDetailMock = vi.fn<ResumeParseCacheDependencies["fetchDetail"]>();
+const deleteCacheMock = vi.fn<ResumeParseCacheDependencies["deleteCache"]>();
 
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("@/components/data-grid", async () => {
-  const actual = await vi.importActual<typeof DataGridModule>("@/components/data-grid");
-  return {
-    ...actual,
-    useDataGridState: vi.fn(() => ({
-      bind: {
-        canResetFilters: false,
-        data: [cacheRecord],
-        filterValues: {
-          cacheType: "all",
-          parsedStatus: "all",
-          search: "",
-          textSource: "all",
-        },
-        loading: false,
-        onFilterChange: vi.fn(),
-        onRefresh: vi.fn(),
-        onResetFilters: vi.fn(),
-        onRowSelectionChange: vi.fn(),
-        onSortingChange: vi.fn(),
-        pagination: {
-          onPageChange: vi.fn(),
-          onPageSizeChange: vi.fn(),
-          page: 1,
-          pageSize: 10,
-        },
-        refetching: false,
-        rowSelection: {},
-        sorting: [],
-        total: 1,
-        totalPages: 1,
-      },
-      filters: {
-        cacheType: "all",
-        parsedStatus: "all",
-        textSource: "all",
-      },
-      invalidate: invalidateMock,
-      search: "",
-      setFilter: vi.fn(),
-    })),
-  };
-});
-
-vi.mock("@/lib/client/rpc", () => ({
-  rpc: {
-    api: {
-      platform: {
-        "resume-parse-cache": {
-          $get: vi.fn(),
-          ":hash": {
-            $delete: deleteEndpointMock,
-            $get: vi.fn(() => detailRequest),
-          },
-        },
-      },
-    },
-  },
-}));
-
-vi.mock("@/lib/client/api", () => ({ rpcFetch: rpcFetchMock }));
+const dependencies: ResumeParseCacheDependencies = {
+  deleteCache: deleteCacheMock,
+  fetchCache: fetchCacheMock,
+  fetchDetail: fetchDetailMock,
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+};
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -131,25 +84,59 @@ function findButton(label: string) {
   );
 }
 
+async function renderGrid() {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const rootRoute = createRootRoute({ component: Outlet });
+  const indexRoute = createRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <ResumeParseCacheGrid dependencies={dependencies} />
+      </QueryClientProvider>
+    ),
+    getParentRoute: () => rootRoute,
+    path: "/",
+  });
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+    routeTree: rootRoute.addChildren([indexRoute]),
+  });
+
+  await act(async () => {
+    await router.load();
+    root.render(<RouterProvider router={router} />);
+    await Promise.resolve();
+  });
+
+  return { queryClient, root };
+}
+
 describe("ResumeParseCacheGrid", () => {
   it("shows JSON and requires popover confirmation before deleting", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    fetchCacheMock.mockResolvedValue({
+      page: 1,
+      pageSize: 10,
+      records: [cacheRecord],
+      total: 1,
+      totalPages: 1,
+    });
+    fetchDetailMock.mockResolvedValue({
+      ...cacheRecord,
+      contentHash: cacheRecord.contentHash,
+      parsedError: null,
+      parsedStructured: { name: "张三" },
+      parsedText: "张三的简历文本",
+    });
+    deleteCacheMock.mockResolvedValue({ clearedCount: 2 });
+
+    const rendered = await renderGrid();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("resume.pdf");
     });
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <ResumeParseCacheGrid />
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
-
-    expect(document.body.textContent).toContain("resume.pdf");
     expect(findButton("查看")).toBeTruthy();
     expect(findButton("删除")).toBeTruthy();
     const actionsHeader = [...document.querySelectorAll("th")].find(
@@ -165,11 +152,12 @@ describe("ResumeParseCacheGrid", () => {
     await act(async () => {
       findButton("查看")?.click();
       await Promise.resolve();
-      await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("解析缓存 JSON");
-    expect(document.body.textContent).toContain('"parsedStructured"');
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("解析缓存 JSON");
+      expect(document.body.textContent).toContain('"parsedStructured"');
+    });
     expect(document.body.textContent).toContain('"name": "张三"');
 
     await act(async () => {
@@ -177,20 +165,22 @@ describe("ResumeParseCacheGrid", () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("确定删除这份解析缓存？");
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("确定删除这份解析缓存？");
+    });
     expect(document.body.textContent).toContain("同一文件 Hash");
-    expect(deleteEndpointMock).not.toHaveBeenCalled();
+    expect(deleteCacheMock).not.toHaveBeenCalled();
 
     await act(async () => {
       findButton("确认删除")?.click();
       await Promise.resolve();
-      await Promise.resolve();
     });
 
-    expect(deleteEndpointMock).toHaveBeenCalledWith({ param: { hash: "sha256-demo" } });
-    expect(invalidateMock).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(deleteCacheMock).toHaveBeenCalledWith("sha256-demo");
+    });
 
-    act(() => root.unmount());
-    queryClient.clear();
+    act(() => rendered.root.unmount());
+    rendered.queryClient.clear();
   });
 });

@@ -9,11 +9,11 @@ import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
-import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
-import type {
-  ResumeEvaluationStatusFormValue,
-  ResumeLibraryFormValues,
+import {
+  describeResumeEvaluationStatus,
+  resumeEvaluationStatusFormValueSchema,
 } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   supportedResumeDocumentAccept,
   supportedResumeDocumentLabel,
@@ -40,23 +41,16 @@ interface FieldErrorLike {
   message?: string;
 }
 
+const fieldErrorSchema = z.union([
+  z.string().transform((message) => ({ message })),
+  z.object({ message: z.string().optional() }),
+]);
+
 function toFieldErrors(errors: unknown[] | undefined): FieldErrorLike[] | undefined {
   // oxlint-disable-next-line promise/prefer-await-to-callbacks
-  const mapped = (errors ?? []).flatMap((err) => {
-    if (!err) {
-      return [];
-    }
-    if (typeof err === "string") {
-      return [{ message: err }];
-    }
-    if (typeof err === "object" && "message" in err) {
-      const message =
-        typeof (err as { message?: unknown }).message === "string"
-          ? (err as { message: string }).message
-          : undefined;
-      return [{ message }];
-    }
-    return [];
+  const mapped = (errors ?? []).flatMap((error) => {
+    const parsed = fieldErrorSchema.safeParse(error);
+    return parsed.success ? [parsed.data] : [];
   });
   return mapped.length > 0 ? mapped : undefined;
 }
@@ -205,9 +199,12 @@ function ResumeEvaluationStatusField({
             <FieldContent className="gap-2">
               <Select
                 disabled={disabled}
-                onValueChange={(next) =>
-                  field.handleChange(next as ResumeEvaluationStatusFormValue)
-                }
+                onValueChange={(next) => {
+                  const parsed = resumeEvaluationStatusFormValueSchema.safeParse(next);
+                  if (parsed.success) {
+                    field.handleChange(parsed.data);
+                  }
+                }}
                 value={field.state.value}
               >
                 <SelectTrigger className="w-full" id={field.name}>

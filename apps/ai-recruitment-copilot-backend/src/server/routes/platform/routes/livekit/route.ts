@@ -28,6 +28,13 @@ function getRoomServiceClient(): RoomServiceClient {
   });
 }
 
+type RoomServiceClientLike = Pick<RoomServiceClient, "listParticipants" | "listRooms">;
+
+export interface PlatformLiveKitRouteDependencies {
+  fetchPrometheusText: (urlValue: string) => Promise<string>;
+  getRoomServiceClient: () => RoomServiceClientLike;
+}
+
 function paginate<T>(records: T[], page: number, pageSize: number) {
   const total = records.length;
   const offset = (page - 1) * pageSize;
@@ -62,125 +69,136 @@ async function fetchPrometheusText(urlValue: string): Promise<string> {
   return text;
 }
 
-export const platformLiveKitRouter = factory
-  .createApp()
-  .get("/overview", async (c) => {
-    const startedAt = performance.now();
-    try {
-      const rooms = await getRoomServiceClient().listRooms();
-      return c.json(
-        {
-          endpoint: safeEndpoint(process.env.LIVEKIT_URL),
-          latencyMs: Math.round(performance.now() - startedAt),
-          metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
-          status: "online" as const,
-          totals: {
-            activeRecordings: rooms.filter((room) => room.activeRecording).length,
-            participants: rooms.reduce((sum, room) => sum + room.numParticipants, 0),
-            publishers: rooms.reduce((sum, room) => sum + room.numPublishers, 0),
-            rooms: rooms.length,
-          },
-        },
-        200,
-      );
-    } catch (error) {
-      return c.json(
-        {
-          endpoint: safeEndpoint(process.env.LIVEKIT_URL),
-          error: error instanceof Error ? error.message : "LiveKit 连接失败",
-          latencyMs: Math.round(performance.now() - startedAt),
-          metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
-          status: "offline" as const,
-          totals: { activeRecordings: 0, participants: 0, publishers: 0, rooms: 0 },
-        },
-        200,
-      );
-    }
-  })
-  .get(
-    "/rooms",
-    zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
-    async (c) => {
-      const { page, pageSize, search } = c.req.valid("query");
+const defaultPlatformLiveKitRouteDependencies: PlatformLiveKitRouteDependencies = {
+  fetchPrometheusText,
+  getRoomServiceClient,
+};
+
+export function createPlatformLiveKitRouter(
+  dependencies: PlatformLiveKitRouteDependencies = defaultPlatformLiveKitRouteDependencies,
+) {
+  return factory
+    .createApp()
+    .get("/overview", async (c) => {
+      const startedAt = performance.now();
       try {
-        const rooms = await getRoomServiceClient().listRooms();
-        const keyword = search?.trim().toLocaleLowerCase();
-        const records = rooms
-          .map(toRoomRecord)
-          .filter(
-            (room) =>
-              !keyword ||
-              room.name.toLocaleLowerCase().includes(keyword) ||
-              room.sid.toLocaleLowerCase().includes(keyword),
-          )
-          .toSorted((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-        return c.json(paginate(records, page, pageSize), 200);
+        const rooms = await dependencies.getRoomServiceClient().listRooms();
+        return c.json(
+          {
+            endpoint: safeEndpoint(process.env.LIVEKIT_URL),
+            latencyMs: Math.round(performance.now() - startedAt),
+            metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
+            status: "online" as const,
+            totals: {
+              activeRecordings: rooms.filter((room) => room.activeRecording).length,
+              participants: rooms.reduce((sum, room) => sum + room.numParticipants, 0),
+              publishers: rooms.reduce((sum, room) => sum + room.numPublishers, 0),
+              rooms: rooms.length,
+            },
+          },
+          200,
+        );
       } catch (error) {
         return c.json(
-          { error: error instanceof Error ? error.message : "加载 LiveKit 房间失败" },
-          502,
+          {
+            endpoint: safeEndpoint(process.env.LIVEKIT_URL),
+            error: error instanceof Error ? error.message : "LiveKit 连接失败",
+            latencyMs: Math.round(performance.now() - startedAt),
+            metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
+            status: "offline" as const,
+            totals: { activeRecordings: 0, participants: 0, publishers: 0, rooms: 0 },
+          },
+          200,
         );
       }
-    },
-  )
-  .get("/rooms/:roomName", async (c) => {
-    const roomName = c.req.param("roomName");
-    try {
-      const client = getRoomServiceClient();
-      const rooms = await client.listRooms([roomName]);
-      const [room] = rooms;
-      if (!room) {
-        return c.json({ error: "房间不存在或已关闭" }, 404);
-      }
-      let participants: Awaited<ReturnType<RoomServiceClient["listParticipants"]>>;
+    })
+    .get(
+      "/rooms",
+      zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
+      async (c) => {
+        const { page, pageSize, search } = c.req.valid("query");
+        try {
+          const rooms = await dependencies.getRoomServiceClient().listRooms();
+          const keyword = search?.trim().toLocaleLowerCase();
+          const records = rooms
+            .map(toRoomRecord)
+            .filter(
+              (room) =>
+                !keyword ||
+                room.name.toLocaleLowerCase().includes(keyword) ||
+                room.sid.toLocaleLowerCase().includes(keyword),
+            )
+            .toSorted((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+          return c.json(paginate(records, page, pageSize), 200);
+        } catch (error) {
+          return c.json(
+            { error: error instanceof Error ? error.message : "加载 LiveKit 房间失败" },
+            502,
+          );
+        }
+      },
+    )
+    .get("/rooms/:roomName", async (c) => {
+      const roomName = c.req.param("roomName");
       try {
-        participants = await client.listParticipants(roomName);
-      } catch (error) {
-        const roomsAfterFailure = await client.listRooms([roomName]);
-        if (roomsAfterFailure.length === 0) {
+        const client = dependencies.getRoomServiceClient();
+        const rooms = await client.listRooms([roomName]);
+        const [room] = rooms;
+        if (!room) {
           return c.json({ error: "房间不存在或已关闭" }, 404);
         }
-        throw error;
-      }
-      return c.json(
-        {
-          metadata: room.metadata,
-          participants: participants.map(toParticipantRecord),
-          room: toRoomRecord(room),
-        },
-        200,
-      );
-    } catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : "加载 LiveKit 房间详情失败" },
-        502,
-      );
-    }
-  })
-  .get(
-    "/metrics",
-    zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
-    async (c) => {
-      const { page, pageSize, search } = c.req.valid("query");
-      const metricsUrl = process.env.LIVEKIT_PROMETHEUS_URL;
-      if (!metricsUrl) {
-        return c.json({ configured: false as const, ...paginate([], page, pageSize) }, 200);
-      }
-      try {
-        const text = await fetchPrometheusText(metricsUrl);
-        const keyword = search?.trim().toLocaleLowerCase();
-        const records = parsePrometheusMetrics(text).filter(
-          (metric) =>
-            !keyword ||
-            metric.name.toLocaleLowerCase().includes(keyword) ||
-            metric.help?.toLocaleLowerCase().includes(keyword) === true,
+        let participants: Awaited<ReturnType<RoomServiceClient["listParticipants"]>>;
+        try {
+          participants = await client.listParticipants(roomName);
+        } catch (error) {
+          const roomsAfterFailure = await client.listRooms([roomName]);
+          if (roomsAfterFailure.length === 0) {
+            return c.json({ error: "房间不存在或已关闭" }, 404);
+          }
+          throw error;
+        }
+        return c.json(
+          {
+            metadata: room.metadata,
+            participants: participants.map(toParticipantRecord),
+            room: toRoomRecord(room),
+          },
+          200,
         );
-        return c.json({ configured: true as const, ...paginate(records, page, pageSize) }, 200);
       } catch (error) {
         return c.json(
-          { error: error instanceof Error ? error.message : "加载 Prometheus 指标失败" },
+          { error: error instanceof Error ? error.message : "加载 LiveKit 房间详情失败" },
           502,
         );
       }
-    },
-  );
+    })
+    .get(
+      "/metrics",
+      zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
+      async (c) => {
+        const { page, pageSize, search } = c.req.valid("query");
+        const metricsUrl = process.env.LIVEKIT_PROMETHEUS_URL;
+        if (!metricsUrl) {
+          return c.json({ configured: false as const, ...paginate([], page, pageSize) }, 200);
+        }
+        try {
+          const text = await dependencies.fetchPrometheusText(metricsUrl);
+          const keyword = search?.trim().toLocaleLowerCase();
+          const records = parsePrometheusMetrics(text).filter(
+            (metric) =>
+              !keyword ||
+              metric.name.toLocaleLowerCase().includes(keyword) ||
+              metric.help?.toLocaleLowerCase().includes(keyword) === true,
+          );
+          return c.json({ configured: true as const, ...paginate(records, page, pageSize) }, 200);
+        } catch (error) {
+          return c.json(
+            { error: error instanceof Error ? error.message : "加载 Prometheus 指标失败" },
+            502,
+          );
+        }
+      },
+    );
+}
+
+export const platformLiveKitRouter = createPlatformLiveKitRouter();

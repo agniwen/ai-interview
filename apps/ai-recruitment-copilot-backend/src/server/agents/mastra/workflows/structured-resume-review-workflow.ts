@@ -1,7 +1,12 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import type { WorkflowStreamEvent } from "@mastra/core/stream";
 import { z } from "zod";
-import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import {
+  structuredResumeEvidenceSchema,
+  structuredResumeEvaluationV1Schema,
+  structuredResumeRuleStatusSchema,
+} from "@arc/db-schema/structured-resume-evaluation";
+import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,
@@ -39,8 +44,76 @@ const dimensionOutputSchema = gateOutputSchema.extend({
 const adjustmentOutputSchema = dimensionOutputSchema.extend({
   adjustmentOutput: structuredAdjustmentAgentOutputSchema,
 });
+const structuredRuleJudgmentSchema = z
+  .object({
+    evidence: z.array(structuredResumeEvidenceSchema),
+    reason: z.string().trim().min(1),
+    ruleId: structuredResumeRuleIdSchema,
+    status: structuredResumeRuleStatusSchema,
+    units: z.number().int().positive().optional(),
+  })
+  .strict();
+const appliedDeductionSchema = structuredRuleJudgmentSchema
+  .extend({ appliedPoints: z.number().int() })
+  .strict();
+const structuredDimensionCalculationSchema = z
+  .object({
+    appliedDeductions: z.array(appliedDeductionSchema),
+    deductionTotal: z.number().int().nonnegative(),
+    insufficientEvidenceRuleIds: z.array(structuredResumeRuleIdSchema),
+    rawScore: z.number().int().min(0).max(100),
+    weight: z.number().int().min(0).max(100),
+    weightedContributionHundredths: z.number().int().min(0).max(10_000),
+  })
+  .strict();
+const structuredCalculationDimensionsSchema = z
+  .object({
+    educationBackground: structuredDimensionCalculationSchema,
+    experienceRelevance: structuredDimensionCalculationSchema,
+    potential: structuredDimensionCalculationSchema,
+    projectMatch: structuredDimensionCalculationSchema,
+    skillMatch: structuredDimensionCalculationSchema,
+    stability: structuredDimensionCalculationSchema,
+  })
+  .strict();
+const structuredCalculationSchema = z
+  .object({
+    adjustedHundredths:
+      structuredResumeEvaluationV1Schema.shape.calculations.shape.adjustedHundredths,
+    adjustments: structuredResumeEvaluationV1Schema.shape.adjustments.shape.matches,
+    clampedHundredths:
+      structuredResumeEvaluationV1Schema.shape.calculations.shape.clampedHundredths,
+    compositeScore: structuredResumeEvaluationV1Schema.shape.calculations.shape.compositeScore,
+    dimensions: structuredCalculationDimensionsSchema,
+    exclusionPointTotal:
+      structuredResumeEvaluationV1Schema.shape.adjustments.shape.exclusionPointTotal,
+    gates: structuredResumeEvaluationV1Schema.shape.gates,
+    grade: structuredResumeEvaluationV1Schema.shape.grade,
+    priorityPointTotal:
+      structuredResumeEvaluationV1Schema.shape.adjustments.shape.priorityPointTotal,
+    weightedBaseHundredths:
+      structuredResumeEvaluationV1Schema.shape.calculations.shape.weightedBaseHundredths,
+  })
+  .strict();
+const dimensionRuleJudgmentsSchema = z
+  .object({
+    educationBackground: z.array(structuredRuleJudgmentSchema),
+    experienceRelevance: z.array(structuredRuleJudgmentSchema),
+    potential: z.array(structuredRuleJudgmentSchema),
+    projectMatch: z.array(structuredRuleJudgmentSchema),
+    skillMatch: z.array(structuredRuleJudgmentSchema),
+    stability: z.array(structuredRuleJudgmentSchema),
+  })
+  .strict();
+const structuredCalculationResultSchema = z
+  .object({
+    calculation: structuredCalculationSchema,
+    dimensionRuleJudgments: dimensionRuleJudgmentsSchema,
+    normalizedDimensionOutput: structuredDimensionAgentOutputSchema,
+  })
+  .strict();
 const calculationOutputSchema = adjustmentOutputSchema.extend({
-  calculationResult: z.unknown(),
+  calculationResult: structuredCalculationResultSchema,
 });
 const narrativeOutputSchema = calculationOutputSchema.extend({
   narrative: structuredNarrativeAgentOutputSchema,
@@ -115,16 +188,13 @@ export function createStructuredResumeReviewWorkflow(deps: {
     outputSchema: calculationOutputSchema,
   });
   const generateNarrative = createStep({
-    execute: async ({ inputData }) => {
-      const calculationResult = inputData.calculationResult as ReturnType<typeof deps.compute>;
-      return {
-        ...inputData,
-        narrative: await deps.generateNarrative({
-          calculationResult,
-          workflowInput: workflowInputFrom(inputData),
-        }),
-      };
-    },
+    execute: async ({ inputData }) => ({
+      ...inputData,
+      narrative: await deps.generateNarrative({
+        calculationResult: inputData.calculationResult,
+        workflowInput: workflowInputFrom(inputData),
+      }),
+    }),
     id: "generate-structured-narrative",
     inputSchema: calculationOutputSchema,
     outputSchema: narrativeOutputSchema,
@@ -133,7 +203,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
     execute: ({ inputData }) =>
       Promise.resolve(
         deps.assemble({
-          calculationResult: inputData.calculationResult as ReturnType<typeof deps.compute>,
+          calculationResult: inputData.calculationResult,
           narrative: inputData.narrative,
           workflowInput: workflowInputFrom(inputData),
         }),
@@ -178,33 +248,33 @@ export const structuredResumeReviewWorkflow = createStructuredResumeReviewWorkfl
   validate: validateStructuredResumeInput,
 });
 
-function toWorkflowError(value: unknown): Error {
+const workflowErrorSchema = z.union([
+  z.instanceof(Error),
+  z.object({ message: z.string(), name: z.string().optional() }),
+]);
+
+function toWorkflowError(value: z.output<typeof workflowErrorSchema>): Error {
   if (value instanceof Error) {
     return value;
   }
-  if (
-    value &&
-    typeof value === "object" &&
-    "message" in value &&
-    typeof value.message === "string"
-  ) {
-    const error = new Error(value.message);
-    if ("name" in value && typeof value.name === "string") {
-      error.name = value.name;
-    }
-    return error;
+  const error = new Error(value.message);
+  if (value.name) {
+    error.name = value.name;
   }
-  return new Error(String(value));
+  return error;
 }
 
-export async function runStructuredResumeReviewWorkflow(input: StructuredResumeWorkflowInput) {
-  const run = await structuredResumeReviewWorkflow.createRun();
+export async function runStructuredResumeReviewWorkflow(
+  input: StructuredResumeWorkflowInput,
+  workflow = structuredResumeReviewWorkflow,
+) {
+  const run = await workflow.createRun();
   const result = await run.start({ inputData: input });
   if (result.status === "success") {
     return structuredResumeEvaluationV1Schema.parse(result.result);
   }
   if (result.status === "failed") {
-    throw toWorkflowError(result.error);
+    throw toWorkflowError(workflowErrorSchema.parse(result.error));
   }
   throw new Error(`Structured resume workflow ended with status ${result.status}.`);
 }
@@ -216,6 +286,7 @@ export async function streamStructuredResumeReviewWorkflow(
   const run = await structuredResumeReviewWorkflow.createRun();
   const output = await run.stream({ inputData: input });
   await emitMastraWorkflowStreamEvents(
+    // SAFETY: Mastra's run.stream() contract exposes fullStream as an async iterable of workflow events.
     output.fullStream as AsyncIterable<WorkflowStreamEvent>,
     options.onWorkflowEvent,
     {
@@ -229,7 +300,7 @@ export async function streamStructuredResumeReviewWorkflow(
     return structuredResumeEvaluationV1Schema.parse(result.result);
   }
   if (result.status === "failed") {
-    throw toWorkflowError(result.error);
+    throw toWorkflowError(workflowErrorSchema.parse(result.error));
   }
   throw new Error(`Structured resume workflow ended with status ${result.status}.`);
 }

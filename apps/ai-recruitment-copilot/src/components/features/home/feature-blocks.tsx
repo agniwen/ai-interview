@@ -312,12 +312,13 @@ export function FeatureBlocks() {
 
   useGSAP(
     () => {
-      if (typeof window === "undefined") {
+      const browserWindow = globalThis.window;
+      if (!browserWindow) {
         return;
       }
       // reduced-motion 直接退出，让浏览器原生滚动接管，pinned 叙事降级为静态版式。
       // Bail for reduced-motion users — keep native scrolling, pinned story degrades to static.
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (browserWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         return;
       }
 

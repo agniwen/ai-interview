@@ -16,6 +16,7 @@ import type {
 } from "@arc/shared/studio-resumes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   fetchStudioResumeDuplicateMatches,
   fetchStudioResumeMetrics,
@@ -36,6 +37,27 @@ import type {
   SearchParamsRecord,
   WorkspaceMember,
 } from "./resume-library-page-model";
+
+const recruitingJobDescriptionsPayloadSchema = z.object({
+  records: z.array(
+    z.object({
+      departmentName: z.string().nullable(),
+      evaluationMode: z.enum(["legacy", "structured"]),
+      id: z.string(),
+      name: z.string(),
+    }),
+  ),
+});
+
+interface ResumeLibraryPageParam {
+  knownTotal: number | undefined;
+  page: number;
+}
+
+const initialResumeLibraryPage: ResumeLibraryPageParam = {
+  knownTotal: undefined,
+  page: 1,
+};
 
 export function useResumeLibraryPageQueries({
   duplicateMatchRecord,
@@ -103,15 +125,11 @@ export function useResumeLibraryPageQueries({
       if (!response.ok) {
         throw new Error("加载在招岗位列表失败");
       }
-      const payload = (await response.json()) as {
-        records: {
-          departmentName: string | null;
-          evaluationMode: "legacy" | "structured";
-          id: string;
-          name: string;
-        }[];
-      };
-      return payload.records;
+      const payload = recruitingJobDescriptionsPayloadSchema.safeParse(await response.json());
+      if (!payload.success) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      return payload.data.records;
     },
     queryKey: ["job-descriptions", "recruiting", slug],
     staleTime: 60_000,
@@ -163,7 +181,7 @@ export function useResumeLibraryPageQueries({
       lastPage.page < lastPage.totalPages
         ? { knownTotal: allPages[0]?.total, page: lastPage.page + 1 }
         : undefined,
-    initialPageParam: { knownTotal: undefined as number | undefined, page: 1 },
+    initialPageParam: initialResumeLibraryPage,
     queryFn: ({ pageParam }) =>
       fetcher({
         filters: grid.filters,

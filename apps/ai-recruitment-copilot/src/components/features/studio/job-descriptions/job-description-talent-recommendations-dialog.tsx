@@ -54,7 +54,7 @@ const EMPTY_RESULT: JobDescriptionTalentRecommendationResult = {
 };
 
 function formatPercent(value: number | undefined): string {
-  if (typeof value !== "number") {
+  if (value === undefined) {
     return "—";
   }
   return `${Math.round(value * 100)}%`;

@@ -1,5 +1,5 @@
 interface OwnedResource {
-  close: () => Promise<unknown> | unknown;
+  close: () => void;
   name: string;
 }
 

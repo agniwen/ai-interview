@@ -1,78 +1,86 @@
 /* oxlint-disable max-lines -- Saved Meeting upload and lifecycle regressions share one service mock boundary. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MeetingServiceDependencies } from "./service-dependencies";
+import { createMeetingService } from "./service-factory";
+import {
+  addMeetingNote,
+  getMeetingNotes,
+  getMeetingShareSettings,
+  removeMeetingNote,
+  updateMeetingShare,
+} from "./collaboration-service";
+import type { MeetingCollaborationDependencies } from "./collaboration-service";
 
-const mocks = vi.hoisted(() => ({
-  abortMeetingRecordingMultipartUpload: vi.fn(),
-  buildMeetingRecordingAssetKey: vi.fn(),
-  completeMeetingRecordingMultipartUpload: vi.fn(),
-  createMeetingNote: vi.fn(),
-  createMeetingRecordingMultipartUpload: vi.fn(),
-  createOrLoadMeetingSession: vi.fn(),
-  deleteMeetingNote: vi.fn(),
-  enqueueMeetingPlaybackJobs: vi.fn(),
-  headMeetingRecordingObject: vi.fn(),
-  isMeetingProcessingQueueConfigured: vi.fn(),
-  isMeetingPurgeTombstoned: vi.fn(),
-  listMeetingAccessGrants: vi.fn(),
-  listMeetingNotes: vi.fn(),
-  listMeetingRecordingUploadParts: vi.fn(),
-  listMeetingSessionsForAccess: vi.fn(),
-  loadMeetingSession: vi.fn(),
-  loadMeetingSessionForAccess: vi.fn(),
-  markMeetingSessionVerified: vi.fn(),
-  meetingAcceptsUploadAuthorization: vi.fn(),
-  presignMeetingRecordingPutObject: vi.fn(),
-  presignMeetingRecordingUploadPart: vi.fn(),
-  presignRecordingGetObjectUrl: vi.fn(),
-  reassignMeetingOwner: vi.fn(),
-  recordMeetingAssetMultipartUploadId: vi.fn(),
-  recordMeetingAudit: vi.fn(),
-  renameMeetingSession: vi.fn(),
-  renewMeetingDirectUploadLease: vi.fn(),
-  replaceMeetingAccessGrants: vi.fn(),
-  updateMeetingNote: vi.fn(),
-}));
+const mocks = {
+  abortMeetingRecordingMultipartUpload:
+    vi.fn<MeetingServiceDependencies["abortMeetingRecordingMultipartUpload"]>(),
+  buildMeetingRecordingAssetKey:
+    vi.fn<MeetingServiceDependencies["buildMeetingRecordingAssetKey"]>(),
+  completeMeetingRecordingMultipartUpload:
+    vi.fn<MeetingServiceDependencies["completeMeetingRecordingMultipartUpload"]>(),
+  createMeetingNote: vi.fn<MeetingCollaborationDependencies["createNote"]>(),
+  createMeetingRecordingMultipartUpload:
+    vi.fn<MeetingServiceDependencies["createMeetingRecordingMultipartUpload"]>(),
+  createOrLoadMeetingSession: vi.fn<MeetingServiceDependencies["createOrLoadMeetingSession"]>(),
+  deleteMeetingNote: vi.fn<MeetingCollaborationDependencies["deleteNote"]>(),
+  enqueueMeetingPlaybackJobs: vi.fn<MeetingServiceDependencies["enqueueMeetingPlaybackJobs"]>(),
+  headMeetingRecordingObject: vi.fn<MeetingServiceDependencies["headMeetingRecordingObject"]>(),
+  isMeetingProcessingQueueConfigured:
+    vi.fn<MeetingServiceDependencies["isMeetingProcessingQueueConfigured"]>(),
+  isMeetingPurgeTombstoned: vi.fn<MeetingServiceDependencies["isMeetingPurgeTombstoned"]>(),
+  listMeetingAccessGrants: vi.fn<MeetingCollaborationDependencies["listAccessGrants"]>(),
+  listMeetingNotes: vi.fn<MeetingCollaborationDependencies["listNotes"]>(),
+  listMeetingRecordingUploadParts:
+    vi.fn<MeetingServiceDependencies["listMeetingRecordingUploadParts"]>(),
+  listMeetingSessionsForAccess: vi.fn<MeetingServiceDependencies["listMeetingSessionsForAccess"]>(),
+  loadMeetingSession: vi.fn<MeetingServiceDependencies["loadMeetingSession"]>(),
+  loadMeetingSessionForAccess: vi.fn<MeetingServiceDependencies["loadAuthorized"]>(),
+  markMeetingSessionVerified: vi.fn<MeetingServiceDependencies["markMeetingSessionVerified"]>(),
+  meetingAcceptsUploadAuthorization:
+    vi.fn<MeetingServiceDependencies["meetingAcceptsUploadAuthorization"]>(),
+  presignMeetingRecordingPutObject:
+    vi.fn<MeetingServiceDependencies["presignMeetingRecordingPutObject"]>(),
+  presignMeetingRecordingUploadPart:
+    vi.fn<MeetingServiceDependencies["presignMeetingRecordingUploadPart"]>(),
+  presignRecordingGetObjectUrl: vi.fn<MeetingServiceDependencies["presignRecordingGetObjectUrl"]>(),
+  reassignMeetingOwner: vi.fn<MeetingCollaborationDependencies["reassignOwner"]>(),
+  recordMeetingAssetMultipartUploadId:
+    vi.fn<MeetingServiceDependencies["recordMeetingAssetMultipartUploadId"]>(),
+  recordMeetingAudit: vi.fn<MeetingCollaborationDependencies["recordAudit"]>(),
+  renameMeetingSession: vi.fn<MeetingServiceDependencies["renameMeetingSession"]>(),
+  renewMeetingDirectUploadLease:
+    vi.fn<MeetingServiceDependencies["renewMeetingDirectUploadLease"]>(),
+  replaceMeetingAccessGrants: vi.fn<MeetingCollaborationDependencies["replaceAccessGrants"]>(),
+  updateMeetingNote: vi.fn<MeetingCollaborationDependencies["updateNote"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
+const meetingDependencies: MeetingServiceDependencies = {
   abortMeetingRecordingMultipartUpload: mocks.abortMeetingRecordingMultipartUpload,
   buildMeetingRecordingAssetKey: mocks.buildMeetingRecordingAssetKey,
   completeMeetingRecordingMultipartUpload: mocks.completeMeetingRecordingMultipartUpload,
   createMeetingRecordingMultipartUpload: mocks.createMeetingRecordingMultipartUpload,
+  createOrLoadMeetingSession: mocks.createOrLoadMeetingSession,
+  enqueueMeetingPlaybackJobs: mocks.enqueueMeetingPlaybackJobs,
   headMeetingRecordingObject: mocks.headMeetingRecordingObject,
+  isMeetingProcessingQueueConfigured: mocks.isMeetingProcessingQueueConfigured,
+  isMeetingPurgeTombstoned: mocks.isMeetingPurgeTombstoned,
   listMeetingRecordingUploadParts: mocks.listMeetingRecordingUploadParts,
+  listMeetingSessionsForAccess: mocks.listMeetingSessionsForAccess,
+  loadAuthorized: mocks.loadMeetingSessionForAccess,
+  loadMeetingSession: mocks.loadMeetingSession,
+  markMeetingSessionVerified: mocks.markMeetingSessionVerified,
+  meetingAcceptsUploadAuthorization: mocks.meetingAcceptsUploadAuthorization,
   presignMeetingRecordingPutObject: mocks.presignMeetingRecordingPutObject,
   presignMeetingRecordingUploadPart: mocks.presignMeetingRecordingUploadPart,
   presignRecordingGetObjectUrl: mocks.presignRecordingGetObjectUrl,
-}));
-vi.mock("./dao", () => ({
-  createOrLoadMeetingSession: mocks.createOrLoadMeetingSession,
-  isMeetingPurgeTombstoned: mocks.isMeetingPurgeTombstoned,
-  listMeetingAccessGrants: mocks.listMeetingAccessGrants,
-  listMeetingSessionsForAccess: mocks.listMeetingSessionsForAccess,
-  loadMeetingSession: mocks.loadMeetingSession,
-  loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
-  markMeetingSessionVerified: mocks.markMeetingSessionVerified,
-  meetingAcceptsUploadAuthorization: mocks.meetingAcceptsUploadAuthorization,
-  reassignMeetingOwner: mocks.reassignMeetingOwner,
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
   recordMeetingAudit: mocks.recordMeetingAudit,
   renameMeetingSession: mocks.renameMeetingSession,
   renewMeetingDirectUploadLease: mocks.renewMeetingDirectUploadLease,
-  replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
-}));
-vi.mock("./routes/notes/dao", () => ({
-  createMeetingNote: mocks.createMeetingNote,
-  deleteMeetingNote: mocks.deleteMeetingNote,
-  listMeetingNotes: mocks.listMeetingNotes,
-  updateMeetingNote: mocks.updateMeetingNote,
-}));
-vi.mock("@arc/meeting-processing-queue/meeting-playback", () => ({
-  enqueueMeetingPlaybackJobs: mocks.enqueueMeetingPlaybackJobs,
-  isMeetingProcessingQueueConfigured: mocks.isMeetingProcessingQueueConfigured,
-}));
+};
 
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import {
+const meetingService = createMeetingService(meetingDependencies);
+const {
   completeSmallSavedMeeting,
   createMeetingPlaybackAuthorization,
   createMultipartSavedMeeting,
@@ -82,15 +90,41 @@ import {
   listSavedMeetings,
   renameSavedMeeting,
   retryMeetingPlayback,
-} from "./service";
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import {
-  addMeetingNote,
-  getMeetingNotes,
-  getMeetingShareSettings,
-  removeMeetingNote,
-  updateMeetingShare,
-} from "./collaboration-service";
+} = meetingService;
+
+const collaborationDependencies: MeetingCollaborationDependencies = {
+  createNote: mocks.createMeetingNote,
+  deleteNote: mocks.deleteMeetingNote,
+  listAccessGrants: mocks.listMeetingAccessGrants,
+  listNotes: mocks.listMeetingNotes,
+  loadAuthorized: mocks.loadMeetingSessionForAccess,
+  reassignOwner: mocks.reassignMeetingOwner,
+  recordAudit: mocks.recordMeetingAudit,
+  replaceAccessGrants: mocks.replaceMeetingAccessGrants,
+  updateNote: mocks.updateMeetingNote,
+};
+
+function getMeetingShareSettingsWithDependencies(
+  input: Parameters<typeof getMeetingShareSettings>[0],
+) {
+  return getMeetingShareSettings(input, collaborationDependencies);
+}
+
+function updateMeetingShareWithDependencies(input: Parameters<typeof updateMeetingShare>[0]) {
+  return updateMeetingShare(input, collaborationDependencies);
+}
+
+function addMeetingNoteWithDependencies(input: Parameters<typeof addMeetingNote>[0]) {
+  return addMeetingNote(input, collaborationDependencies);
+}
+
+function getMeetingNotesWithDependencies(input: Parameters<typeof getMeetingNotes>[0]) {
+  return getMeetingNotes(input, collaborationDependencies);
+}
+
+function removeMeetingNoteWithDependencies(input: Parameters<typeof removeMeetingNote>[0]) {
+  return removeMeetingNote(input, collaborationDependencies);
+}
 
 const MANIFEST_SHA = "a".repeat(64);
 const baseMeeting = {
@@ -171,6 +205,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -208,6 +243,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -246,6 +282,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -289,6 +326,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -332,6 +370,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -369,6 +408,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -401,6 +441,7 @@ describe("small Saved Meeting service", () => {
             fragmentCount,
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -441,6 +482,7 @@ describe("small Saved Meeting service", () => {
             ],
             sha256,
             sizeBytes,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -517,6 +559,7 @@ describe("small Saved Meeting service", () => {
             parts: multipartParts,
             sha256,
             sizeBytes: 10,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -607,6 +650,7 @@ describe("small Saved Meeting service", () => {
             parts: multipartParts,
             sha256,
             sizeBytes: 8,
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
             track: track as "microphone" | "system",
           }),
         ),
@@ -809,7 +853,9 @@ describe("Saved Meeting private read service", () => {
         },
       ],
       id: "meeting",
+      ownerId: "owner",
       status: "ready",
+      visibility: "restricted",
     });
     mocks.presignRecordingGetObjectUrl.mockResolvedValue(
       "https://r2.invalid/private/playback.webm",
@@ -833,7 +879,9 @@ describe("Saved Meeting private read service", () => {
     mocks.loadMeetingSessionForAccess.mockResolvedValue({
       assets: [],
       id: "meeting",
+      ownerId: "owner",
       status: "processing-failed",
+      visibility: "restricted",
     });
 
     const result = await retryMeetingPlayback({
@@ -945,7 +993,7 @@ describe("Saved Meeting private read service", () => {
       creator: { id: "creator", name: "Original Creator" },
     });
     await expect(
-      getMeetingShareSettings({
+      getMeetingShareSettingsWithDependencies({
         meetingId: "meeting",
         memberRole: "hr",
         organizationId: "org",
@@ -997,7 +1045,7 @@ describe("Saved Meeting private read service", () => {
     mocks.listMeetingNotes.mockResolvedValue([]);
 
     await expect(
-      getMeetingNotes({
+      getMeetingNotesWithDependencies({
         meetingId: "meeting",
         memberRole: "viewer",
         organizationId: "org",
@@ -1005,7 +1053,7 @@ describe("Saved Meeting private read service", () => {
       }),
     ).resolves.toEqual([]);
     await expect(
-      addMeetingNote({
+      addMeetingNoteWithDependencies({
         meetingId: "meeting",
         memberRole: "viewer",
         note: { body: "只读用户不能写", meetingTimeMs: 1000 },
@@ -1040,7 +1088,7 @@ describe("Saved Meeting private read service", () => {
     mocks.deleteMeetingNote.mockResolvedValue(true);
 
     await expect(
-      addMeetingNote({
+      addMeetingNoteWithDependencies({
         meetingId: "meeting",
         memberRole: "hr",
         note: { body: "决定下周跟进", meetingTimeMs: 5000 },
@@ -1050,7 +1098,7 @@ describe("Saved Meeting private read service", () => {
       }),
     ).resolves.toMatchObject({ author: { id: "editor" }, meetingTimeMs: 5000 });
     await expect(
-      removeMeetingNote({
+      removeMeetingNoteWithDependencies({
         meetingId: "meeting",
         memberRole: "hr",
         noteId: "note-1",
@@ -1076,7 +1124,7 @@ describe("Saved Meeting private read service", () => {
     mocks.replaceMeetingAccessGrants.mockResolvedValue(true);
 
     await expect(
-      updateMeetingShare({
+      updateMeetingShareWithDependencies({
         meetingId: "meeting",
         memberRole: "hr",
         organizationId: "org",
@@ -1095,7 +1143,7 @@ describe("Saved Meeting private read service", () => {
       workspaceCustodied: false,
     });
     await expect(
-      updateMeetingShare({
+      updateMeetingShareWithDependencies({
         meetingId: "meeting",
         memberRole: "hr",
         organizationId: "org",

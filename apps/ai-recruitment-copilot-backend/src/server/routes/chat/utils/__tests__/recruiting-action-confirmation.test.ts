@@ -1,14 +1,29 @@
 import { describe, expect, it } from "vitest";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
+import type { JsonValue } from "@arc/db-schema/json";
 import {
   deriveRecruitingActionConfirmationsFromMessages,
   hasPendingRecruitingBindProposal,
   patchArcMessageRecruitingActionConfirmation,
 } from "../recruiting-action-confirmation";
 
+type ArcMessageFixture = Readonly<Record<string, JsonValue | undefined>>;
+
+function asArcMessage(value: ArcMessageFixture): ArcMessage {
+  // SAFETY: The helper fills only the message fields exercised by this test.
+  const partial = { ...({} as Partial<ArcMessage>), ...value };
+  // SAFETY: The fixture is passed to the production parser only after this test boundary.
+  return partial as ArcMessage;
+}
+
+function asArcMessages(values: ArcMessageFixture[]): ArcMessage[] {
+  return values.map(asArcMessage);
+}
+
 describe("recruiting-action-confirmation", () => {
   it("patches AI SDK tool-* part output with confirmation", () => {
-    const message = {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    const messageFixture = {
       id: "msg-1",
       parts: [
         {
@@ -27,7 +42,8 @@ describe("recruiting-action-confirmation", () => {
         },
       ],
       role: "assistant",
-    } as unknown as ArcMessage;
+    };
+    const message = asArcMessage(messageFixture);
 
     const next = patchArcMessageRecruitingActionConfirmation(
       message,
@@ -58,7 +74,8 @@ describe("recruiting-action-confirmation", () => {
   });
 
   it("derives later confirmations for the same proposal id", () => {
-    const messages = [
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    const messageFixtures = [
       {
         id: "1",
         parts: [
@@ -97,7 +114,8 @@ describe("recruiting-action-confirmation", () => {
         ],
         role: "assistant",
       },
-    ] as unknown as ArcMessage[];
+    ];
+    const messages = asArcMessages(messageFixtures);
 
     expect(deriveRecruitingActionConfirmationsFromMessages(messages)).toEqual({
       p1: {

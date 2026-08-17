@@ -21,6 +21,37 @@ import { getMeetingAnswerGeneratorSnapshot } from "./generator";
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 
+interface MeetingAnswerAccess {
+  role: Parameters<typeof meetingAccessCapabilities>[0];
+}
+export interface MeetingAnswerDependencies {
+  createMeetingAnswerExchange: typeof createMeetingAnswerExchange;
+  createMeetingQuestionThread: typeof createMeetingQuestionThread;
+  enqueueMeetingAnswerJobs: typeof enqueueMeetingAnswerJobs;
+  getMeetingAnswerGeneratorSnapshot: typeof getMeetingAnswerGeneratorSnapshot;
+  isMeetingAnswerQueueConfigured: typeof isMeetingAnswerQueueConfigured;
+  listMeetingQuestionThreads: typeof listMeetingQuestionThreads;
+  loadMeetingAccess: (
+    input: Parameters<typeof loadAuthorizedMeeting>[0],
+  ) => Promise<MeetingAnswerAccess | null>;
+  loadMeetingQuestionThread: typeof loadMeetingQuestionThread;
+  recordMeetingAudit: typeof recordMeetingAudit;
+}
+const defaultDependencies: MeetingAnswerDependencies = {
+  createMeetingAnswerExchange,
+  createMeetingQuestionThread,
+  enqueueMeetingAnswerJobs,
+  getMeetingAnswerGeneratorSnapshot,
+  isMeetingAnswerQueueConfigured,
+  listMeetingQuestionThreads,
+  loadMeetingAccess: async (input) => {
+    const meeting = await loadAuthorizedMeeting(input);
+    return meeting ? { role: meetingRole(meeting, input) } : null;
+  },
+  loadMeetingQuestionThread,
+  recordMeetingAudit,
+};
+
 interface MeetingQuestionAccessInput {
   meetingId: string;
   memberRole: string;
@@ -28,17 +59,20 @@ interface MeetingQuestionAccessInput {
   userId: string;
 }
 
-async function authorize(input: MeetingQuestionAccessInput): Promise<boolean> {
-  const meeting = await loadAuthorizedMeeting(input);
+async function authorize(
+  input: MeetingQuestionAccessInput,
+  dependencies: MeetingAnswerDependencies,
+): Promise<boolean> {
+  const meeting = await dependencies.loadMeetingAccess(input);
   if (!meeting) {
     return false;
   }
-  const role = meetingRole(meeting, input);
+  const { role } = meeting;
   if (!meetingAccessCapabilities(role).canAskQuestions) {
     return false;
   }
   if (role === "administrator") {
-    await recordMeetingAudit({
+    await dependencies.recordMeetingAudit({
       action: "meeting.questions_accessed",
       actorId: input.userId,
       dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
@@ -51,11 +85,12 @@ async function authorize(input: MeetingQuestionAccessInput): Promise<boolean> {
 
 export async function listSavedMeetingQuestionThreads(
   input: MeetingQuestionAccessInput,
+  dependencies: MeetingAnswerDependencies = defaultDependencies,
 ): Promise<MeetingQuestionThreadSummary[] | null> {
-  if (!(await authorize(input))) {
+  if (!(await authorize(input, dependencies))) {
     return null;
   }
-  return await listMeetingQuestionThreads({
+  return await dependencies.listMeetingQuestionThreads({
     createdBy: input.userId,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
@@ -64,11 +99,12 @@ export async function listSavedMeetingQuestionThreads(
 
 export async function createSavedMeetingQuestionThread(
   input: MeetingQuestionAccessInput & { title?: string },
+  dependencies: MeetingAnswerDependencies = defaultDependencies,
 ): Promise<MeetingQuestionThreadSummary | "limit-reached" | null> {
-  if (!(await authorize(input))) {
+  if (!(await authorize(input, dependencies))) {
     return null;
   }
-  return await createMeetingQuestionThread({
+  return await dependencies.createMeetingQuestionThread({
     createdBy: input.userId,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
@@ -78,11 +114,12 @@ export async function createSavedMeetingQuestionThread(
 
 export async function getSavedMeetingQuestionThread(
   input: MeetingQuestionAccessInput & { threadId: string },
+  dependencies: MeetingAnswerDependencies = defaultDependencies,
 ): Promise<MeetingQuestionThread | null> {
-  if (!(await authorize(input))) {
+  if (!(await authorize(input, dependencies))) {
     return null;
   }
-  return await loadMeetingQuestionThread({
+  return await dependencies.loadMeetingQuestionThread({
     createdBy: input.userId,
     meetingId: input.meetingId,
     organizationId: input.organizationId,
@@ -96,6 +133,7 @@ export async function askMeetingQuestion(
     requestId: string;
     threadId: string;
   },
+  dependencies: MeetingAnswerDependencies = defaultDependencies,
 ): Promise<
   | MeetingQuestionExchange
   | "active-question"
@@ -106,14 +144,14 @@ export async function askMeetingQuestion(
   | "unavailable"
   | null
 > {
-  if (!(await authorize(input))) {
+  if (!(await authorize(input, dependencies))) {
     return null;
   }
-  if (!isMeetingAnswerQueueConfigured()) {
+  if (!dependencies.isMeetingAnswerQueueConfigured()) {
     return "unavailable";
   }
-  const generator = getMeetingAnswerGeneratorSnapshot();
-  const exchange = await createMeetingAnswerExchange({
+  const generator = dependencies.getMeetingAnswerGeneratorSnapshot();
+  const exchange = await dependencies.createMeetingAnswerExchange({
     createdBy: input.userId,
     meetingId: input.meetingId,
     model: generator.model,
@@ -127,11 +165,17 @@ export async function askMeetingQuestion(
   if (exchange === "not-authorized") {
     return null;
   }
-  if (typeof exchange === "string") {
+  if (
+    exchange === "active-question" ||
+    exchange === "conflict" ||
+    exchange === "not-ready" ||
+    exchange === "rate-limited" ||
+    exchange === "thread-limit"
+  ) {
     return exchange;
   }
   try {
-    await enqueueMeetingAnswerJobs([{ exchangeId: exchange.id }]);
+    await dependencies.enqueueMeetingAnswerJobs([{ exchangeId: exchange.id }]);
   } catch (error) {
     console.error("[meeting-answer] failed to enqueue exchange", {
       errorName: error instanceof Error ? error.name : "UnknownError",

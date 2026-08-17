@@ -36,11 +36,14 @@ export function ResumeLibraryPageShell({
   metricsFetching: boolean;
   metricsScope: ResumeMetricsScope;
   metricsSwitching: boolean;
-  onMetricsRetry: () => Promise<unknown>;
+  onMetricsRetry: () => Promise<void>;
   onMetricsScopeChange: (scope: ResumeMetricsScope) => void;
   slug: string;
 }) {
   const queryClient = useQueryClient();
+  const handleMetricsRetry = async () => {
+    await onMetricsRetry();
+  };
 
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
@@ -70,7 +73,7 @@ export function ResumeLibraryPageShell({
               aria-label="刷新招聘指标"
               className="opacity-80 hover:opacity-100"
               disabled={metricsFetching}
-              onClick={() => void onMetricsRetry()}
+              onClick={handleMetricsRetry}
               size="icon-xs"
               title="刷新招聘指标"
               type="button"

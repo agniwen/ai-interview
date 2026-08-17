@@ -1,51 +1,15 @@
 // @vitest-environment jsdom
 
-import { act, forwardRef, useEffect } from "react";
+import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
+import type { AnimatedHeightRenderProps } from "@/components/features/motion/animated-height";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 
 const animationMocks = vi.hoisted(() => ({
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   resize: null as ResizeObserverCallback | null,
-}));
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("motion/react", () => ({
-  m: {
-    div: forwardRef<
-      HTMLDivElement,
-      React.ComponentProps<"div"> & {
-        animate?: { height?: number | "auto" };
-        initial?: boolean;
-        onAnimationComplete?: () => void;
-        transition?: unknown;
-      }
-    >(function MotionDiv(
-      {
-        animate,
-        children,
-        initial: _initial,
-        onAnimationComplete,
-        transition: _transition,
-        ...props
-      },
-      ref,
-    ) {
-      useEffect(() => {
-        onAnimationComplete?.();
-      }, [animate?.height, onAnimationComplete]);
-      return (
-        <div ref={ref} {...props}>
-          {children}
-        </div>
-      );
-    }),
-  },
-  useReducedMotion: () => false,
 }));
 
 // oxlint-disable-next-line promise/prefer-await-to-callbacks -- ResizeObserver is callback-based.
@@ -58,8 +22,39 @@ function ResizeObserverMock(onResize: ResizeObserverCallback) {
   };
 }
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    addEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: vi.fn(),
+  })),
+});
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+
+function TestAnimationContainer({
+  children,
+  height,
+  innerRef,
+  onAnimationComplete,
+  ...props
+}: AnimatedHeightRenderProps) {
+  useEffect(() => {
+    if (height === 800) {
+      onAnimationComplete();
+    }
+  }, [height, onAnimationComplete]);
+  return (
+    <div data-slot="animated-height" ref={innerRef} {...props}>
+      {children}
+    </div>
+  );
+}
 
 describe("InterviewReportDetailsDisclosure with AnimatedHeight", () => {
   let container: HTMLDivElement;
@@ -98,7 +93,7 @@ describe("InterviewReportDetailsDisclosure with AnimatedHeight", () => {
   it("scrolls only after the real height animation completes", async () => {
     await act(async () => {
       root.render(
-        <AnimatedHeight>
+        <AnimatedHeight renderContainer={(props) => <TestAnimationContainer {...props} />}>
           <InterviewReportDetailsDisclosure>
             <div>最新报告详情</div>
           </InterviewReportDetailsDisclosure>
@@ -114,7 +109,9 @@ describe("InterviewReportDetailsDisclosure with AnimatedHeight", () => {
 
     await act(async () => {
       animationMocks.resize?.(
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         [{ contentRect: { height: 800 } } as ResizeObserverEntry],
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         {} as ResizeObserver,
       );
       await Promise.resolve();

@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
+import type { JsonValue } from "@arc/db-schema/json";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
 import { loadStandaloneEnv } from "../standalone/env";
@@ -12,7 +13,7 @@ type SemanticBackfillRecord = ResumeSemanticIndexJobData;
 type SemanticBackfillPoolScope = "private" | "public";
 
 interface SemanticBackfillLog {
-  [key: string]: unknown;
+  [key: string]: JsonValue | undefined;
   event: string;
 }
 

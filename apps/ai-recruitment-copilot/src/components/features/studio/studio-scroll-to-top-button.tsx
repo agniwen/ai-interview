@@ -42,15 +42,13 @@ export function StudioScrollToTopButton({ className }: { className?: string }) {
       return;
     }
 
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(selectViewport);
-      observer.observe(document.body, {
-        attributeFilter: ["data-scroll-restoration-id"],
-        attributes: true,
-        childList: true,
-        subtree: true,
-      });
-    }
+    observer = new MutationObserver(selectViewport);
+    observer.observe(document.body, {
+      attributeFilter: ["data-scroll-restoration-id"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
 
     return () => observer?.disconnect();
   }, []);

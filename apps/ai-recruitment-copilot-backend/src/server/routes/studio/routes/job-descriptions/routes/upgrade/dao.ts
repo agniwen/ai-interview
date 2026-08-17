@@ -137,17 +137,18 @@ export function updateUpgradeDraft(
         prompt: input.prompt,
         structuredConfig: input.structuredConfig,
       });
+    const resetPreviewFields = changed
+      ? {
+          blueprintPreview: null,
+          blueprintPreviewGeneratedAt: null,
+          blueprintPreviewHash: null,
+          blueprintPreviewInputHash: null,
+        }
+      : {};
     const [updated] = await tx
       .update(jobDescriptionEvaluationUpgradeDraft)
       .set({
-        ...(changed
-          ? {
-              blueprintPreview: null,
-              blueprintPreviewGeneratedAt: null,
-              blueprintPreviewHash: null,
-              blueprintPreviewInputHash: null,
-            }
-          : {}),
+        ...resetPreviewFields,
         prompt: input.prompt.trim(),
         structuredConfig: input.structuredConfig,
         updatedAt: new Date(),

@@ -77,7 +77,9 @@ export function JobDescriptionPromptFields({
                 {!isLegacyJob && !evaluationFrozen ? (
                   <Button
                     disabled={isGeneratingJobDescription || !field.state.value.trim()}
-                    onClick={() => void handleGenerateJobDescription()}
+                    onClick={() => {
+                      handleGenerateJobDescription();
+                    }}
                     size="sm"
                     type="button"
                     variant="outline"

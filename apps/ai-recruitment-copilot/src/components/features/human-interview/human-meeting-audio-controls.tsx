@@ -84,7 +84,7 @@ export function MicrophoneDeviceMenu() {
               <DropdownMenuItem
                 className="flex items-center justify-between gap-2"
                 key={device.deviceId}
-                onClick={() => void handleSelect(device.deviceId)}
+                onClick={() => handleSelect(device.deviceId)}
               >
                 <span className="truncate">{getDeviceLabel(device, index)}</span>
                 {device.deviceId === activeDeviceId ? (
@@ -182,7 +182,7 @@ export function VoiceEffectMenu() {
             <DropdownMenuItem
               className="flex items-center justify-between gap-2"
               key={option.id}
-              onClick={() => void handleSelect(option.id)}
+              onClick={() => handleSelect(option.id)}
             >
               <span>{option.label}</span>
               {option.id === selectedEffect ? <IconCheck className="size-4 shrink-0" /> : null}

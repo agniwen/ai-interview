@@ -15,6 +15,7 @@ import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-ro
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
+import { z } from "zod";
 import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 
@@ -44,6 +45,19 @@ export type StudioPersonDetailTab =
   | "experience"
   | "instructions"
   | "transcript";
+
+const cachedCandidateRecordSchema = z.object({
+  candidateName: z.string(),
+  id: z.string(),
+});
+const cachedCandidateRecordsSchema = z.object({
+  records: z.array(cachedCandidateRecordSchema),
+});
+const cachedCandidatePagesSchema = z.object({
+  pages: z.array(cachedCandidateRecordsSchema),
+});
+
+type CachedCandidateRecord = z.infer<typeof cachedCandidateRecordSchema>;
 
 export function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): boolean {
   if (!record?.pipelineStage) {
@@ -82,21 +96,20 @@ export function shouldShowOfferTab(
   return ["offer", "closed"].includes(record.pipelineStage);
 }
 
-export function readCandidateNameFromRecord(value: unknown, recordId: string): string | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const record = value as { candidateName?: unknown; id?: unknown };
-  if (record.id !== recordId || typeof record.candidateName !== "string") {
+function readCandidateNameFromRecord(
+  record: CachedCandidateRecord,
+  recordId: string,
+): string | null {
+  if (record.id !== recordId) {
     return null;
   }
   return record.candidateName.trim() || null;
 }
 
-export function readCandidateNameFromRecords(records: unknown, recordId: string): string | null {
-  if (!Array.isArray(records)) {
-    return null;
-  }
+function readCandidateNameFromRecords(
+  records: CachedCandidateRecord[],
+  recordId: string,
+): string | null {
   for (const record of records) {
     const candidateName = readCandidateNameFromRecord(record, recordId);
     if (candidateName) {
@@ -111,19 +124,20 @@ export function findCachedResumeCandidateName(queryClient: QueryClient, recordId
     return null;
   }
   for (const [, data] of queryClient.getQueriesData({ queryKey: ["studio-resumes"] })) {
-    const directRecords = (data as { records?: unknown } | null)?.records;
-    const directName = readCandidateNameFromRecords(directRecords, recordId);
-    if (directName) {
-      return directName;
+    const directRecords = cachedCandidateRecordsSchema.safeParse(data);
+    if (directRecords.success) {
+      const directName = readCandidateNameFromRecords(directRecords.data.records, recordId);
+      if (directName) {
+        return directName;
+      }
     }
 
-    const pages = (data as { pages?: unknown } | null)?.pages;
-    if (!Array.isArray(pages)) {
+    const pages = cachedCandidatePagesSchema.safeParse(data);
+    if (!pages.success) {
       continue;
     }
-    for (const page of pages) {
-      const pageRecords = (page as { records?: unknown } | null)?.records;
-      const pageName = readCandidateNameFromRecords(pageRecords, recordId);
+    for (const page of pages.data.pages) {
+      const pageName = readCandidateNameFromRecords(page.records, recordId);
       if (pageName) {
         return pageName;
       }

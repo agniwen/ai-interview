@@ -16,7 +16,7 @@ function StudioInterviewsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
-  validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
+  validateSearch: (search) => coerceStudioInterviewsSearch(search),
   head: () => ({
     meta: [{ title: formatDocumentTitle("AI 面试") }],
   }),

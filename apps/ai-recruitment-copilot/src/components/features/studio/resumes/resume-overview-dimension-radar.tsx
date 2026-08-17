@@ -45,7 +45,7 @@ export function OverviewDimensionRadar({
                 </div>
                 <div className="text-muted-foreground text-xs leading-5">
                   权重 {String(payload.weight ?? "—")}%
-                  {typeof payload.rationale === "string" ? ` · ${payload.rationale}` : ""}
+                  {payload.rationale ? ` · ${payload.rationale}` : ""}
                 </div>
               </div>
             )

@@ -1,79 +1,57 @@
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createAgentRouter } from "../route";
+import type { AgentRouterDependencies } from "../route";
 
-// oxlint-disable promise/prefer-await-to-callbacks -- the fake transaction executes Drizzle's callback API.
-
-const mocks = vi.hoisted(() => {
-  const undefinedColumnError = Object.assign(
-    new Error('column "key_information_status" does not exist'),
-    { code: "42703" },
-  );
-
-  return {
-    createInterviewEvidenceSnapshot: vi.fn(),
-    db: {
-      delete: vi.fn(),
-      insert: vi.fn(),
-      select: vi.fn(),
-      transaction: vi.fn(),
-      update: vi.fn(),
-    },
-    executeLegacySql: vi.fn(),
-    runKeyInformationJob: vi.fn(),
-    runSummaryJob: vi.fn(),
-    safeUpdateTag: vi.fn(),
-    undefinedColumnError,
-  };
-});
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: mocks.db,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
-  cacheTags: {
-    interviewConversations: "interview-conversations",
-    interviewConversationsByRecord: (id: string) => `interview-conversations:${id}`,
-    studioInterviews: (id: string) => `studio-interviews:${id}`,
-  },
-  safeUpdateTag: mocks.safeUpdateTag,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot", () => ({
-  createInterviewEvidenceSnapshot: mocks.createInterviewEvidenceSnapshot,
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-key-information-job",
-  () => ({
-    runKeyInformationJob: mocks.runKeyInformationJob,
-  }),
-);
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-summary-job",
-  () => ({
-    runSummaryJob: mocks.runSummaryJob,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- route must load after mocked boundaries
-import { agentRouter } from "../route";
+const keyInformationJobs: { conversationId: string; interviewRecordId: string }[] = [];
+const tags: string[] = [];
+const calls = {
+  evidenceSnapshots: 0,
+  keyInformationJobs,
+  legacySql: 0,
+  summaryJobs: 0,
+  tags,
+};
 
 let keyInformationColumnsAvailable = false;
 
-function selectResult(rows: unknown[]) {
-  const limit = vi.fn().mockResolvedValue(rows);
-  return {
-    from: vi.fn(() => ({
-      limit,
-      where: vi.fn(() => ({
-        limit,
-      })),
-    })),
-  };
-}
+const dependencies: AgentRouterDependencies = {
+  cacheTags: {
+    interviewConversations: "interview-conversations",
+    interviewConversationsByRecord: (id) => `interview-conversations:${id}`,
+    studioInterviews: (id) => `studio-interviews:${id}`,
+  },
+  createInterviewEvidenceSnapshot: () => {
+    calls.evidenceSnapshots += 1;
+    return Promise.resolve();
+  },
+  findExistingTranscript: () => Promise.resolve(null),
+  hasKeyInformationColumns: () => Promise.resolve(keyInformationColumnsAvailable),
+  listKeyInformationRetryCandidates: () => Promise.resolve([]),
+  listSummaryRetryCandidates: () => Promise.resolve([]),
+  notifyInterviewSummaryReady: () => Promise.resolve(),
+  persistCheckpoint: () => Promise.resolve(),
+  persistReport: ({ keyInformationColumnsAvailable: available }) => {
+    if (!available) {
+      calls.legacySql += 1;
+    }
+    return Promise.resolve();
+  },
+  resolveOrgFromInterview: () => Promise.resolve("org-1"),
+  retryFailedInterviewSummaryNotifications: () => Promise.resolve({ retried: 0 }),
+  runKeyInformationJob: (options) => {
+    calls.keyInformationJobs.push(options);
+    return Promise.resolve();
+  },
+  runSummaryJob: () => {
+    calls.summaryJobs += 1;
+    return Promise.resolve();
+  },
+  safeUpdateTag: (tag) => {
+    calls.tags.push(tag);
+  },
+};
+
+const agentRouter = createAgentRouter(dependencies);
 
 function postReport() {
   return agentRouter.request("/report", {
@@ -100,51 +78,13 @@ function postReport() {
 
 describe("POST /report migration compatibility", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    calls.evidenceSnapshots = 0;
+    calls.legacySql = 0;
+    calls.keyInformationJobs.length = 0;
+    calls.summaryJobs = 0;
+    calls.tags.length = 0;
     process.env.AGENT_CALLBACK_SECRET = "test-agent-secret";
     keyInformationColumnsAvailable = false;
-
-    mocks.createInterviewEvidenceSnapshot.mockResolvedValue({});
-    mocks.executeLegacySql.mockImplementation((query: SQL) => {
-      const generatedSql = new PgDialect().sqlToQuery(query).sql;
-      if (generatedSql.includes("key_information")) {
-        return Promise.reject(mocks.undefinedColumnError);
-      }
-      return Promise.resolve();
-    });
-    mocks.db.select
-      .mockReturnValueOnce(selectResult([{ organizationId: "org-1" }]))
-      .mockReturnValueOnce(selectResult([]))
-      .mockImplementation(() => {
-        if (keyInformationColumnsAvailable) {
-          return selectResult([]);
-        }
-        throw mocks.undefinedColumnError;
-      });
-
-    mocks.db.transaction.mockImplementation(async (callback) => {
-      const tx = {
-        delete: vi.fn(() => ({
-          where: vi.fn(() => Promise.resolve()),
-        })),
-        execute: mocks.executeLegacySql,
-        insert: vi.fn(() => ({
-          values: vi.fn(() => ({
-            onConflictDoUpdate: vi.fn(() =>
-              keyInformationColumnsAvailable
-                ? Promise.resolve()
-                : Promise.reject(mocks.undefinedColumnError),
-            ),
-          })),
-        })),
-        update: vi.fn(() => ({
-          set: vi.fn(() => ({
-            where: vi.fn(() => Promise.resolve()),
-          })),
-        })),
-      };
-      return await callback(tx);
-    });
   });
 
   it("still ingests the report before key-information columns are migrated", async () => {
@@ -155,8 +95,9 @@ describe("POST /report migration compatibility", () => {
       conversationId: "conversation-1",
       success: true,
     });
-    expect(mocks.runKeyInformationJob).not.toHaveBeenCalled();
-    expect(mocks.executeLegacySql).toHaveBeenCalledOnce();
+    expect(calls.keyInformationJobs).toHaveLength(0);
+    expect(calls.legacySql).toBe(1);
+    expect(calls.evidenceSnapshots).toBe(1);
   });
 
   it("starts key-information extraction after the columns are available", async () => {
@@ -165,10 +106,12 @@ describe("POST /report migration compatibility", () => {
     const response = await postReport();
 
     expect(response.status).toBe(201);
-    expect(mocks.executeLegacySql).not.toHaveBeenCalled();
-    expect(mocks.runKeyInformationJob).toHaveBeenCalledWith({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
-    });
+    expect(calls.legacySql).toBe(0);
+    expect(calls.keyInformationJobs).toEqual([
+      {
+        conversationId: "conversation-1",
+        interviewRecordId: "interview-1",
+      },
+    ]);
   });
 });

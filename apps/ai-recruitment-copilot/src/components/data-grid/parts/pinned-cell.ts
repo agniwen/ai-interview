@@ -33,8 +33,7 @@ export function getPinningStyles<TData extends RowData>(
 ): CSSProperties {
   const isPinned = column.getIsPinned();
   const { maxSize, minSize } = column.columnDef;
-  const isFixedWidth =
-    typeof minSize === "number" && typeof maxSize === "number" && minSize === maxSize;
+  const isFixedWidth = minSize !== undefined && maxSize !== undefined && minSize === maxSize;
 
   if (!(isPinned || isFixedWidth)) {
     return {};
@@ -97,11 +96,21 @@ export const PINNED_EDGE_RIGHT_BORDER_CLASS = PINNED_EDGE_END_BORDER_CLASS;
  * - start group: last leaf is the inner edge
  * - end group: first leaf is the inner edge
  */
+interface PinnedEdgeSides {
+  isEndEdge: boolean;
+  isStartEdge: boolean;
+}
+
+interface HorizontalScrollOverflow {
+  canScrollEnd: boolean;
+  canScrollStart: boolean;
+}
+
 export function getPinnedEdgeSides<TData extends RowData>(
   column:
     | Header<DataGridFeatures, TData, unknown>["column"]
     | Cell<DataGridFeatures, TData, unknown>["column"],
-): { isEndEdge: boolean; isStartEdge: boolean } {
+): PinnedEdgeSides {
   const pin = column.getIsPinned();
   if (pin === "start") {
     const startCols = column.table.getStartLeafColumns();
@@ -131,10 +140,7 @@ export function getPinnedEdgeClassName(options: {
   );
 }
 
-export function readHorizontalScrollOverflow(element: HTMLElement): {
-  canScrollEnd: boolean;
-  canScrollStart: boolean;
-} {
+export function readHorizontalScrollOverflow(element: HTMLElement): HorizontalScrollOverflow {
   const { clientWidth, scrollLeft, scrollWidth } = element;
   const maxScrollLeft = scrollWidth - clientWidth;
   // Sub-pixel tolerance so near-end scroll doesn't flicker the edge divider.

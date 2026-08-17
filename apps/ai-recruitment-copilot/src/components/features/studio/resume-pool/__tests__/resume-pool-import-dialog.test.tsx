@@ -5,39 +5,42 @@ import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ApiError } from "@/lib/client/api";
 
 import { ImportResumePoolDialog } from "../resume-pool-dialogs";
-import type * as ResumePoolPageModel from "../resume-pool-page-model";
+import type { ImportResumePoolDialogDependencies } from "../resume-pool-dialogs";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-const importResumePoolItemMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "test-workspace",
-}));
-
-vi.mock("@/lib/client/api", () => ({
-  importResumePoolItem: importResumePoolItemMock,
-  isApiError: () => false,
-}));
-
-vi.mock("@/components/features/studio/studio-person-detail-dialog", () => ({
-  StudioPersonDetailDialog: ({ open, recordId }: { open: boolean; recordId: string | null }) =>
-    open ? <div>招聘台详情 {recordId}</div> : null,
-}));
-
-vi.mock("../resume-pool-page-model", async (importOriginal) => ({
-  ...(await importOriginal<typeof ResumePoolPageModel>()),
-  useJobDescriptions: () => ({
-    data: [{ departmentName: "研发部", id: "jd-1", name: "前端工程师" }],
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: (media: string): MediaQueryList => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
   }),
-}));
+});
 
+const importResumePoolItemMock = vi.fn();
+
+const dependencies: ImportResumePoolDialogDependencies = {
+  importResumePoolItem: importResumePoolItemMock,
+  isApiError: (_error): _error is ApiError => false,
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  renderStudioPersonDetail: ({ recordId }) => <div>招聘台详情 {recordId}</div>,
+  useJobDescriptionOptions: () => ({
+    data: [{ description: "研发部", label: "研发部 / 前端工程师", value: "jd-1" }],
+  }),
+  useWorkspaceSlug: () => "test-workspace",
+};
+
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 const importedItem = {
   candidateName: "测试候选人",
   id: "pool-item-1",
@@ -81,7 +84,12 @@ describe("ImportResumePoolDialog", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ImportResumePoolDialog item={importedItem} onImported={vi.fn()} onOpenChange={vi.fn()} />
+          <ImportResumePoolDialog
+            dependencies={dependencies}
+            item={importedItem}
+            onImported={vi.fn()}
+            onOpenChange={vi.fn()}
+          />
         </QueryClientProvider>,
       );
       await Promise.resolve();

@@ -2,6 +2,7 @@
 
 import { IconFileText, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { z } from "zod";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,8 @@ interface Props {
   onConfirmed: (files: File[], config: BulkUploadConfirmConfig) => void;
   onRemoveFile: (index: number) => void;
 }
+
+const resumeUploadBatchJdModeSchema = z.enum(["bind", "auto", "none"]);
 
 // 格式化文件大小，返回人类可读的字符串。
 // Format file size into a human-readable string.
@@ -118,7 +121,15 @@ export function BulkUploadConfirmDialog({
         {/* JD 关联模式 / Job description binding mode */}
         <div>
           <Label className="mb-2 block text-sm">岗位关联</Label>
-          <RadioGroup onValueChange={(v) => setJdMode(v as ResumeUploadBatchJdMode)} value={jdMode}>
+          <RadioGroup
+            onValueChange={(value) => {
+              const result = resumeUploadBatchJdModeSchema.safeParse(value);
+              if (result.success) {
+                setJdMode(result.data);
+              }
+            }}
+            value={jdMode}
+          >
             <div className="flex items-center gap-2">
               <RadioGroupItem id="jdMode-bind" value="bind" />
               <Label className="font-normal" htmlFor="jdMode-bind">

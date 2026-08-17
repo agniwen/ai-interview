@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { z } from "zod";
 import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import type {
   MeetingIntelligencePayload,
@@ -26,6 +27,8 @@ import {
   fetchMeetingTranscriptRevision,
   regenerateMeetingIntelligence,
 } from "@/lib/client/meetings";
+
+const meetingIntelligenceTemplateSchema = z.enum(["general", "recruiting-interview"]);
 
 export function canRegenerateMeetingIntelligence(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
@@ -271,9 +274,12 @@ export function MeetingIntelligenceView({
             <select
               className="h-9 rounded-md border bg-background px-3 text-sm"
               id="meeting-intelligence-template"
-              onChange={(event) =>
-                onTemplateChange?.(event.target.value as MeetingIntelligenceTemplate)
-              }
+              onChange={(event) => {
+                const template = meetingIntelligenceTemplateSchema.safeParse(event.target.value);
+                if (template.success) {
+                  onTemplateChange?.(template.data);
+                }
+              }}
               value={selectedTemplate}
             >
               <option value="general">通用会议</option>

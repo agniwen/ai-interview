@@ -1,5 +1,4 @@
 import { Mastra } from "@mastra/core";
-import { MastraEditor } from "@mastra/editor";
 import { MastraStorageExporter, Observability, SensitiveDataFilter } from "@mastra/observability";
 import {
   formQuestionAgent,
@@ -51,7 +50,6 @@ export const recruitmentAgents = {
 
 export const mastra = new Mastra({
   agents: recruitmentAgents,
-  editor: new MastraEditor({ source: "db" }),
   observability: new Observability({
     configs: {
       default: {

@@ -1,16 +1,25 @@
+import { z } from "zod";
 import { ApiError } from "./api-error";
 
-function extractErrorMessage(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
+const errorPayloadSchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
+function extractErrorMessage<const T>(data: T): string | null {
+  const parsed = errorPayloadSchema.safeParse(data);
+  return parsed.success ? (parsed.data.error ?? parsed.data.message ?? null) : null;
+}
+
+function parsePayloadText(text: string) {
+  if (!text) {
     return null;
   }
-  if ("error" in data && typeof data.error === "string") {
-    return data.error;
+  try {
+    return z.json().parse(JSON.parse(text));
+  } catch {
+    return text;
   }
-  if ("message" in data && typeof data.message === "string") {
-    return data.message;
-  }
-  return null;
 }
 
 /**
@@ -31,18 +40,12 @@ export async function apiJson<T>(
     },
   });
 
-  let payload: unknown = null;
   const text = await response.text();
-  if (text) {
-    try {
-      payload = JSON.parse(text) as unknown;
-    } catch {
-      payload = text;
-    }
-  }
+  const payload = parsePayloadText(text);
 
   if (!response.ok) {
     if (allow404 && response.status === 404) {
+      // SAFETY: allow404 is selected only by callers whose T explicitly includes null.
       return null as T;
     }
     throw new ApiError(extractErrorMessage(payload) ?? errorFallback, {
@@ -51,5 +54,6 @@ export async function apiJson<T>(
     });
   }
 
+  // SAFETY: apiJson callers own the endpoint DTO contract after the payload passes JSON decoding.
   return payload as T;
 }

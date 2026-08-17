@@ -12,6 +12,14 @@ export type WorkspaceAuthorizer = <R extends WorkspaceResource>(input: {
   resource: R;
 }) => Promise<boolean>;
 
+export interface WorkspaceAccessPolicyDependencies {
+  computeWorkspacePermissionSnapshot: typeof computeWorkspacePermissionSnapshot;
+}
+
+const defaultDependencies: WorkspaceAccessPolicyDependencies = {
+  computeWorkspacePermissionSnapshot,
+};
+
 /**
  * Bind workspace identity once, then authorize every resource against the same
  * effective permission snapshot used by the UI.
@@ -20,16 +28,19 @@ export type WorkspaceAuthorizer = <R extends WorkspaceResource>(input: {
  * `headers` is accepted for call-site compatibility; authorization no longer
  * goes through Better Auth hasPermission.
  */
-export function createRequestWorkspaceAuthorizer({
-  memberRole,
-  organizationId,
-  userId,
-}: {
-  headers?: Headers;
-  memberRole: string | null | undefined;
-  organizationId: string;
-  userId: string | null | undefined;
-}): WorkspaceAuthorizer {
+export function createRequestWorkspaceAuthorizer(
+  {
+    memberRole,
+    organizationId,
+    userId,
+  }: {
+    headers?: Headers;
+    memberRole: string | null | undefined;
+    organizationId: string;
+    userId: string | null | undefined;
+  },
+  dependencies: WorkspaceAccessPolicyDependencies = defaultDependencies,
+): WorkspaceAuthorizer {
   let statementsPromise: Promise<WorkspacePermissionStatements> | null = null;
 
   const loadStatements = async (): Promise<WorkspacePermissionStatements> => {
@@ -37,7 +48,7 @@ export function createRequestWorkspaceAuthorizer({
       return {};
     }
     statementsPromise ??= (async () => {
-      const snapshot = await computeWorkspacePermissionSnapshot({
+      const snapshot = await dependencies.computeWorkspacePermissionSnapshot({
         memberRole,
         organizationId,
         userId,

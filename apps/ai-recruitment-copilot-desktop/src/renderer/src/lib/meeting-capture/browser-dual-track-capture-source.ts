@@ -19,7 +19,7 @@ function chooseMimeType(): string {
   return MIME_TYPE_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? "";
 }
 
-function captureErrorMessage(error: unknown): string {
+function captureErrorMessage(error: Error): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
     return "麦克风或系统音频权限被拒绝，请在 macOS 系统设置中允许 Meeting Buddy 后重试";
   }
@@ -155,8 +155,12 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         await Promise.all(stopped);
         await Promise.all(recorders.map(({ writeChain }) => writeChain));
         await Promise.allSettled(monitors.map((stop) => stop()));
-        stopStream(microphoneStream as MediaStream);
-        stopStream(displayStream as MediaStream);
+        if (microphoneStream) {
+          stopStream(microphoneStream);
+        }
+        if (displayStream) {
+          stopStream(displayStream);
+        }
       };
 
       return {
@@ -282,7 +286,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
                     track,
                   });
                 })
-                .catch((error: unknown) => {
+                .catch((error) => {
                   fail(error instanceof Error ? error : new Error("本地录音分片写入失败"));
                 })
                 .finally(() => {
@@ -326,7 +330,8 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           }
           await Promise.all(stopped);
           await Promise.all(recorders.map(({ writeChain }) => writeChain));
-          const failure = captureError as Error | null;
+          const readCaptureError = (): Error | null => captureError;
+          const failure = readCaptureError();
           if (failure) {
             throw new Error(failure.message, { cause: failure });
           }
@@ -345,7 +350,8 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
       if (displayStream) {
         stopStream(displayStream);
       }
-      throw new Error(captureErrorMessage(error), { cause: error });
+      const acquisitionError = error instanceof Error ? error : new Error("无法取得会议音频");
+      throw new Error(captureErrorMessage(acquisitionError), { cause: error });
     }
   }
 }

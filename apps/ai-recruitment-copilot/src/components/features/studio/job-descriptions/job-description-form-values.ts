@@ -134,7 +134,7 @@ const JOB_DESCRIPTION_BASIC_FIELDS = [
 ] as const;
 
 export function focusJobDescriptionBasicTabOnInvalidSubmit(
-  fieldMeta: Record<string, { errors?: unknown[] }>,
+  fieldMeta: Partial<Record<string, { errors?: unknown[] }>>,
   setActiveTab: (tab: JobDescriptionFormTab) => void,
 ) {
   const hasBasicError = JOB_DESCRIPTION_BASIC_FIELDS.some(
@@ -143,7 +143,7 @@ export function focusJobDescriptionBasicTabOnInvalidSubmit(
   const hasStructuredError = Object.entries(fieldMeta).some(
     ([key, meta]) =>
       (key === "structuredConfig" || key.startsWith("structuredConfig.")) &&
-      (meta.errors?.length ?? 0) > 0,
+      (meta?.errors?.length ?? 0) > 0,
   );
   if (hasBasicError || hasStructuredError) {
     setActiveTab("basic");

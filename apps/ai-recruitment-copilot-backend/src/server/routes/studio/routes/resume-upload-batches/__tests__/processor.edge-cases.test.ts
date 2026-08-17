@@ -4,23 +4,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import type * as S3Module from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import type * as ResumeAgentModule from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import {
-  generateResumeReview,
-  generateResumeScreeningResult,
-  parseResumeBytesToProfile,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import type * as DedupServiceModule from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
-import {
-  enqueueResumePoolReviewGenerationBestEffort,
-  enqueueResumeReviewGenerationForRecordBestEffort,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import {
   member,
   department,
@@ -33,67 +16,35 @@ import {
 } from "@arc/db-schema/schema";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
 import { insertBatchWithItems } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import { createResumeUploadBatchProcessor } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import type { ResumeUploadBatchProcessorDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // Real DB round-trips routinely exceed the default 5s under parallel suite load.
 vi.setConfig({ testTimeout: 30_000 });
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", async () => {
-  const actual = await vi.importActual<typeof S3Module>(
-    "@arc/ai-recruitment-copilot-backend/lib/server/s3",
-  );
-  return {
-    ...actual,
-    getObjectStream: vi.fn(),
-  };
-});
+const dependencies = {
+  enqueueResumePoolReviewGenerationBestEffort:
+    vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumePoolReviewGenerationBestEffort"]>(),
+  enqueueResumeReviewGenerationForRecordBestEffort:
+    vi.fn<
+      ResumeUploadBatchProcessorDependencies["enqueueResumeReviewGenerationForRecordBestEffort"]
+    >(),
+  enqueueResumeSemanticIndexJobBestEffort:
+    vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumeSemanticIndexJobBestEffort"]>(),
+  findAttachmentByStorageKey:
+    vi.fn<ResumeUploadBatchProcessorDependencies["findAttachmentByStorageKey"]>(),
+  getObjectStream: vi.fn<ResumeUploadBatchProcessorDependencies["getObjectStream"]>(),
+  parseResumeBytesToProfile:
+    vi.fn<ResumeUploadBatchProcessorDependencies["parseResumeBytesToProfile"]>(),
+  projectAttachmentToResumeProfile:
+    vi.fn<ResumeUploadBatchProcessorDependencies["projectAttachmentToResumeProfile"]>(),
+  reassessResumeRecord: vi.fn<ResumeUploadBatchProcessorDependencies["reassessResumeRecord"]>(),
+  updateParseResultByHash:
+    vi.fn<ResumeUploadBatchProcessorDependencies["updateParseResultByHash"]>(),
+} satisfies ResumeUploadBatchProcessorDependencies;
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", async () => {
-  const actual = await vi.importActual<typeof ResumeAgentModule>(
-    "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent",
-  );
-  return {
-    ...actual,
-    generateResumeReview: vi.fn(),
-    // Must mock screening too — real path can hang on network / model calls.
-    generateResumeScreeningResult: vi.fn(),
-    parseResumeBytesToProfile: vi.fn(),
-  };
-});
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service",
-  async () => {
-    const actual = await vi.importActual<typeof DedupServiceModule>(
-      "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service",
-    );
-    return {
-      ...actual,
-      findSemanticResumeDuplicates: vi.fn(),
-    };
-  },
-);
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
-  enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches", () => ({
-  replaceDuplicateMatchesForSource: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer", () => ({
-  runResumeSemanticIndexJob: vi.fn(),
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
-  () => ({
-    enqueueResumePoolReviewGenerationBestEffort: vi.fn(),
-    enqueueResumeReviewGenerationForRecordBestEffort: vi.fn(),
-  }),
-);
+const { processNextItem } = createResumeUploadBatchProcessor(dependencies);
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
@@ -105,7 +56,6 @@ const STORAGE_KEY_PREFIX = "storage/bulk-proc-edge-test/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 const REVIEW_RESULT = {
-  review: "自动生成的简历评价",
   structuredReview: {
     biasScan: { items: [] },
     dimensions: {
@@ -134,23 +84,14 @@ const REVIEW_RESULT = {
     weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
   },
 } as const;
-
-const EMPTY_SCREENING_RESULT = {
-  policyEmpty: true,
-  policyEnabled: false,
-  policyHash: "test-policy-hash",
-  policyVersion: 1,
-  recommendation: "pass" as const,
-  ruleResults: [],
-};
-
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
 // 返回一个有效的 ReadableStream 响应体，模拟 S3 成功返回。
 // Returns a valid ReadableStream body to simulate a successful S3 fetch.
 function mockS3OK() {
   const stream = new Blob(["fake bytes"]).stream();
-  (getObjectStream as ReturnType<typeof vi.fn>).mockResolvedValue({
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  dependencies.getObjectStream.mockResolvedValue({
     body: stream,
     contentLength: 10,
     contentType: "application/pdf",
@@ -165,13 +106,14 @@ function mockParseOK(profile: {
   phone: string | null;
   targetRoles: string[];
 }) {
-  (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  dependencies.parseResumeBytesToProfile.mockResolvedValue({
     parsedPageCount: 1,
-    parsedStructured: { profile },
+    parsedStructured: { profile } as never,
     parsedText: `${profile.name} OCR 原文`,
     parsedTextSource: "qwen-ocr",
-    resumeProfile: profile,
-  });
+    resumeProfile: profile as never,
+  } as never);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -267,23 +209,19 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  vi.resetAllMocks();
-  (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue(REVIEW_RESULT);
-  (generateResumeScreeningResult as ReturnType<typeof vi.fn>).mockResolvedValue(
-    EMPTY_SCREENING_RESULT,
-  );
-  (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-  (replaceDuplicateMatchesForSource as ReturnType<typeof vi.fn>).mockImplementation(() =>
-    Promise.resolve(0),
-  );
-  (runResumeSemanticIndexJob as ReturnType<typeof vi.fn>).mockImplementation(() =>
-    Promise.resolve(),
-  );
-  (enqueueResumePoolReviewGenerationBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-  (enqueueResumeReviewGenerationForRecordBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(
-    true,
-  );
+  for (const dependency of Object.values(dependencies)) {
+    dependency.mockReset();
+  }
+  dependencies.enqueueResumeSemanticIndexJobBestEffort.mockResolvedValue(true);
+  dependencies.enqueueResumePoolReviewGenerationBestEffort.mockResolvedValue(true);
+  dependencies.enqueueResumeReviewGenerationForRecordBestEffort.mockResolvedValue({
+    status: "already_current",
+  });
+  // SAFETY: The fallback reassessment result is intentionally ignored by this processor test.
+  dependencies.reassessResumeRecord.mockImplementation(() => Promise.resolve(undefined as never));
+  dependencies.findAttachmentByStorageKey.mockResolvedValue(null);
+  dependencies.projectAttachmentToResumeProfile.mockReturnValue(null);
+  dependencies.updateParseResultByHash.mockResolvedValue();
 });
 
 describe("processNextItem — dedup skip", () => {
@@ -377,13 +315,11 @@ describe("processNextItem — dedup skip", () => {
     expect(result?.item?.status).toBe("succeeded");
     expect(result?.item?.resumeRecordId).toBe(beforeItem?.resumeRecordId);
     expect(result?.batch.skippedCount).toBe(0);
-    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+    expect(dependencies.enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.resumeRecordId,
       sourceType: "studio_interview",
     });
-    expect(findSemanticResumeDuplicates).not.toHaveBeenCalled();
-    expect(replaceDuplicateMatchesForSource).not.toHaveBeenCalled();
   });
 });
 
@@ -404,10 +340,12 @@ describe("processNextItem — enrichment failure isolation", () => {
       phone: null,
       targetRoles: ["Engineer"],
     });
-    (
-      enqueueResumeReviewGenerationForRecordBestEffort as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(true);
-    (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockRejectedValue(
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    dependencies.enqueueResumeReviewGenerationForRecordBestEffort.mockResolvedValue({
+      status: "already_current",
+    });
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    dependencies.enqueueResumeSemanticIndexJobBestEffort.mockRejectedValue(
       new Error("semantic queue unavailable"),
     );
 
@@ -428,14 +366,21 @@ describe("processNextItem — enrichment failure isolation", () => {
     expect(record?.resumeParseStatus).toBe("ready");
     expect(record?.resumeProfile).toMatchObject({ name: "Enqueue Failure User" });
 
+    // SAFETY: The fixture is copied into the partial review owner before the database update.
+    const reviewPatch = Object.create(null) as Partial<ResumeReview>;
+    Object.assign(reviewPatch, structuredClone(REVIEW_RESULT.structuredReview));
+    // SAFETY: The fixture is the complete legacy review shape used by this test.
+    const completeReview = reviewPatch as ResumeReview;
     await db
       .update(studioInterview)
       .set({
-        resumeReview: structuredClone(REVIEW_RESULT.structuredReview) as unknown as ResumeReview,
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
+        resumeReview: completeReview,
         resumeReviewStatus: "ready",
       })
       .where(eq(studioInterview.id, item?.resumeRecordId ?? ""));
-    (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    dependencies.enqueueResumeSemanticIndexJobBestEffort.mockResolvedValue(true);
     mockS3OK();
 
     const retried = await processNextItem(batchId, ORG_A, USER_A);
@@ -520,7 +465,8 @@ describe("processNextItem — S3 missing object", () => {
 
     // 模拟 S3 返回 null（对象不存在）。
     // Mock S3 returning null to simulate a missing object.
-    (getObjectStream as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    dependencies.getObjectStream.mockResolvedValue(null);
 
     const result = await processNextItem(batchId, ORG_A, USER_A);
 

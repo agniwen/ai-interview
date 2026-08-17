@@ -1,9 +1,11 @@
-interface FeishuTenantTokenResponse {
-  code: number;
-  expire?: number;
-  msg: string;
-  tenant_access_token?: string;
-}
+import { z } from "zod";
+
+const feishuTenantTokenResponseSchema = z.object({
+  code: z.number(),
+  expire: z.number().optional(),
+  msg: z.string().optional(),
+  tenant_access_token: z.string().optional(),
+});
 
 const tenantTokenCache = new Map<string, { expiresAt: number; token: string }>();
 
@@ -25,16 +27,18 @@ export async function getFeishuTenantAccessToken(
       method: "POST",
     },
   );
-  const result = (await response.json()) as FeishuTenantTokenResponse;
-  if (!response.ok || result.code !== 0 || !result.tenant_access_token) {
-    throw new Error(
-      `Feishu tenant token request failed: ${result.code || response.status} ${result.msg || ""}`,
-    );
+  const parsed = feishuTenantTokenResponseSchema.safeParse(await response.json());
+  const result = parsed.success ? parsed.data : null;
+  if (!result || !response.ok || result.code !== 0 || !result.tenant_access_token) {
+    const code = result?.code ?? response.status;
+    const message = result?.msg ?? "Invalid response payload";
+    throw new Error(`Feishu tenant token request failed: ${code || response.status} ${message}`);
   }
+  const token = result.tenant_access_token;
 
   tenantTokenCache.set(appId, {
     expiresAt: now + (result.expire ?? 7200) * 1000,
-    token: result.tenant_access_token,
+    token,
   });
-  return result.tenant_access_token;
+  return token;
 }

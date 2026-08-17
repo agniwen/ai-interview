@@ -10,9 +10,17 @@ import { Modal } from "../modal";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
+// SAFETY: The jsdom fixture provides the media-query API consumed by use-mobile.
+window.matchMedia = ((query: string) => ({
+  addEventListener: () => {},
+  addListener: () => {},
+  dispatchEvent: () => false,
+  matches: false,
+  media: query,
+  onchange: null,
+  removeEventListener: () => {},
+  removeListener: () => {},
+})) as typeof window.matchMedia;
 
 async function renderAndFlush(element: React.ReactNode) {
   const container = document.createElement("div");

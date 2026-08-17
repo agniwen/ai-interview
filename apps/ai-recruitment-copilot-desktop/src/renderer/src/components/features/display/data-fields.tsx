@@ -5,18 +5,18 @@ import { cn } from "@arc/shared/utils";
 export type DataFieldsColumns = 1 | 2 | 3 | 4;
 export type DataFieldsDensity = "compact" | "default" | "relaxed";
 
-const COLUMNS_CLASS: Record<DataFieldsColumns, string> = {
+const COLUMNS_CLASS = {
   1: "grid-cols-1",
   2: "grid-cols-1 sm:grid-cols-2",
   3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4",
-};
+} satisfies Record<DataFieldsColumns, string>;
 
-const DENSITY_CLASS: Record<DataFieldsDensity, string> = {
+const DENSITY_CLASS = {
   compact: "gap-x-8 gap-y-3",
   default: "gap-x-8 gap-y-4",
   relaxed: "gap-x-8 gap-y-6",
-};
+} satisfies Record<DataFieldsDensity, string>;
 
 export interface DataFieldsProps extends ComponentProps<"dl"> {
   columns?: DataFieldsColumns;

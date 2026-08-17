@@ -1,7 +1,10 @@
 import type { ColumnDef, RowData } from "@tanstack/react-table";
+import { z } from "zod";
 
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import type { DataGridFeatures } from "../table-features";
+
+const timeDisplayValueSchema = z.union([z.date(), z.number(), z.string()]);
 
 export interface DateColumnOptions<TData> {
   key: keyof TData & string;
@@ -20,13 +23,16 @@ export function dateColumn<TData extends RowData>(
 
   return {
     accessorKey: opts.key,
-    cell: ({ row }) => (
-      <TimeDisplay
-        emptyText={opts.emptyText}
-        options={formatOptions}
-        value={row.original[opts.key] as string | number | Date}
-      />
-    ),
+    cell: ({ row }) => {
+      const result = timeDisplayValueSchema.safeParse(row.original[opts.key]);
+      return (
+        <TimeDisplay
+          emptyText={opts.emptyText}
+          options={formatOptions}
+          value={result.success ? result.data : undefined}
+        />
+      );
+    },
     enableSorting: opts.sortable ?? false,
     header: opts.title,
     id: opts.key,

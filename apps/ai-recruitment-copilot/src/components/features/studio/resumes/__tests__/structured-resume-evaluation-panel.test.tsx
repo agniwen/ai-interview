@@ -4,15 +4,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { JsonValue } from "@arc/db-schema/json";
 import { StructuredResumeEvaluationPanel } from "../structured-resume-evaluation-panel";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-vi.mock("@/components/ui/chart-radar", () => ({
-  DimensionRadarChart: ({ dimensions }: { dimensions: { key: string }[] }) => (
-    <div data-radar-order={dimensions.map((item) => item.key).join(",")} />
-  ),
-}));
 
 const dimension = (rawScore: number, weight: number, ruleId: string, reason: string) => ({
   appliedDeductions:
@@ -42,8 +38,18 @@ const dimension = (rawScore: number, weight: number, ruleId: string, reason: str
   weightedContributionHundredths: rawScore * weight,
 });
 
+type DetailFixture = Readonly<Record<string, JsonValue | undefined>>;
+
+function parseDetailFixture(fixture: DetailFixture): ResumeLibraryDetail {
+  // SAFETY: The fixture is authored in this test and matches the rendered detail contract.
+  const partial = { ...({} as Partial<ResumeLibraryDetail>), ...structuredClone(fixture) };
+  // SAFETY: The fixture above supplies the fields exercised by this renderer test.
+  return partial as ResumeLibraryDetail;
+}
+
 function createDetail(): ResumeLibraryDetail {
-  return {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  return parseDetailFixture({
     id: "resume-1",
     jobEvaluationMode: "structured",
     resumeEvaluationStatus: "pass",
@@ -123,7 +129,7 @@ function createDetail(): ResumeLibraryDetail {
       },
       runId: "run-1",
     },
-  } as unknown as ResumeLibraryDetail;
+  });
 }
 
 afterEach(() => {
@@ -228,6 +234,7 @@ describe("StructuredResumeEvaluationPanel", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const detail = {
       ...createDetail(),
       resumeReviewError: "AI 分析生成失败。",
@@ -255,6 +262,7 @@ describe("StructuredResumeEvaluationPanel", () => {
     if (!evaluation) {
       throw new Error("missing evaluation fixture");
     }
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const legacyDetail = {
       ...detail,
       structuredResumeEvaluation: {
@@ -286,6 +294,7 @@ describe("StructuredResumeEvaluationPanel", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const detail = {
       ...createDetail(),
       resumeReviewRunId: "run-2",

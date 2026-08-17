@@ -69,20 +69,14 @@ function emitForegroundWorkflowEvent(
   emitAiRun(event);
 }
 
-function getRecordValue(value: unknown, key: string): unknown {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)[key]
-    : null;
-}
-
 function emitResumeReviewWorkflowEvent(
   event: AiRunEvent,
   emitAiRun: (event: AiRunEventDraft) => void,
 ) {
   if (event.type === "step.completed" && event.stepId === "scoring") {
-    const scoring = getRecordValue(event.output, "scoring");
+    const output = z.object({ scoring: z.json() }).safeParse(event.output);
     // oxlint-disable-next-line no-use-before-define -- event bridge is defined before the local review schemas.
-    const parsed = resumeScoringSchema.safeParse(scoring);
+    const parsed = resumeScoringSchema.safeParse(output.success ? output.data.scoring : null);
     if (parsed.success) {
       emitAiRun({
         artifactType: "resume.review.scoring",
@@ -97,9 +91,11 @@ function emitResumeReviewWorkflowEvent(
   }
 
   if (event.type === "step.completed" && event.stepId === "compose-review") {
-    const review = getRecordValue(event.output, "review");
-    const structuredReview = getRecordValue(event.output, "structuredReview");
-    if (typeof review === "string" && review.trim()) {
+    const output = z
+      .object({ review: z.string(), structuredReview: z.json() })
+      .safeParse(event.output);
+    if (output.success && output.data.review.trim()) {
+      const { review, structuredReview } = output.data;
       emitAiRun({
         stepId: "compose-review",
         text: review,
@@ -118,15 +114,17 @@ function emitResumeReviewWorkflowEvent(
 }
 
 const nonEmpty = z.string().trim().min(1);
+const resumeScoringInputSchema = z.json();
+type ResumeScoringInput = z.infer<typeof resumeScoringInputSchema>;
 function formatResumeScreeningForPrompt(result?: ResumeScreeningResult | null) {
   if (!result || result.policyEmpty || !result.policyEnabled) {
     return "";
   }
-  const recommendationLabel: Record<ResumeScreeningResult["recommendation"], string> = {
+  const recommendationLabel = {
     flag: "需人工核实",
     hold: "建议暂缓推进",
     pass: "未发现筛选风险",
-  };
+  } satisfies Record<ResumeScreeningResult["recommendation"], string>;
   const ruleLines = result.ruleResults.map((rule, index) => {
     const evidence = rule.evidence
       .map((item) => item.quote || item.explanation)
@@ -252,7 +250,7 @@ const REVIEW_SCORING_DIMENSION_LIST = RESUME_REVIEW_DIMENSIONS.map(
     `${index + 1}. ${dimension.label}（权重 ${Math.round(dimension.weight * 100)}%）：${dimension.checklist.join("；")}。输出 key: ${dimension.key}`,
 ).join("\n");
 
-const REVIEW_SCORING_JSON_SHAPE = RESUME_REVIEW_DIMENSIONS.map(
+const REVIEW_SCORING_JSON_CONTRACT = RESUME_REVIEW_DIMENSIONS.map(
   (dimension) =>
     `    "${dimension.key}": { "score": 0-100, "rationale": "${dimension.label}评分依据" }`,
 ).join(",\n");
@@ -304,7 +302,7 @@ ${REVIEW_SCORING_DIMENSION_LIST}
 ## 输出 JSON 结构（必须严格遵守）
 {
   "dimensions": {
-${REVIEW_SCORING_JSON_SHAPE}
+${REVIEW_SCORING_JSON_CONTRACT}
   }
 }
 
@@ -314,7 +312,7 @@ ${REVIEW_SCORING_JSON_SHAPE}
 
 // Agent 1 定性输出的内部类型 —— 不持久化，只传给 Agent 2 和组装层。
 // Internal type for Agent 1 output; not persisted, only fed to Agent 2 + assembler.
-const resumeQualitativeSchema = z.strictObject({
+export const resumeQualitativeSchema = z.strictObject({
   biasScan: z.object({
     items: z.array(resumeReviewBiasItemSchema),
   }),
@@ -341,7 +339,7 @@ const resumeQualitativeSchema = z.strictObject({
 export type ResumeQualitativeReview = z.infer<typeof resumeQualitativeSchema>;
 
 // Agent 2 打分输出的内部类型。
-const resumeScoringSchema = z.strictObject({
+export const resumeScoringSchema = z.strictObject({
   dimensions: z.strictObject({
     educationBackground: resumeReviewDimensionSchema,
     experienceRelevance: resumeReviewDimensionSchema,
@@ -352,6 +350,47 @@ const resumeScoringSchema = z.strictObject({
   }),
 });
 export type ResumeReviewScoring = z.infer<typeof resumeScoringSchema>;
+
+export interface ResumeReviewGenerationDependencies {
+  generateQualitative: (prompt: string) => Promise<ResumeQualitativeReview>;
+  generateQualitativeFromMarkdown: (prompt: string) => Promise<ResumeQualitativeReview>;
+  generateScoring: (prompt: string) => Promise<ResumeReviewScoring>;
+  streamMarkdown: (prompt: string) => AsyncIterable<string>;
+}
+
+const defaultResumeReviewGenerationDependencies: ResumeReviewGenerationDependencies = {
+  generateQualitative: (prompt) =>
+    generateStructuredWithMastraAgent({
+      agent: resumeReviewQualitativeAgent,
+      prompt,
+      retryOnInvalid: true,
+      schema: resumeQualitativeSchema,
+      temperature: 0,
+    }),
+  generateQualitativeFromMarkdown: (prompt) =>
+    generateStructuredWithMastraAgent({
+      agent: resumeReviewQualitativeAgent,
+      prompt,
+      retryOnInvalid: true,
+      schema: resumeQualitativeSchema,
+      temperature: 0,
+    }),
+  generateScoring: (prompt) =>
+    generateStructuredWithMastraAgent({
+      agent: resumeReviewScoringAgent,
+      prompt,
+      retryOnInvalid: true,
+      schema: resumeScoringSchema,
+      temperature: 0,
+    }),
+  streamMarkdown: (prompt) =>
+    streamTextWithMastraAgent({
+      agent: resumeReviewMarkdownAgent,
+      maxOutputTokens: 1800,
+      prompt,
+      temperature: 0.4,
+    }),
+};
 
 function buildResumeReviewPrompt(input: {
   resumeProfile: ResumeProfile;
@@ -417,63 +456,60 @@ function buildResumeScoringPrompt(input: {
   return parts.join("\n\n");
 }
 
-export async function generateResumeQualitativeReview(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-  semanticRequirements?: string[] | null;
-}): Promise<ResumeQualitativeReview> {
-  return await generateStructuredWithMastraAgent({
-    agent: resumeReviewQualitativeAgent,
-    prompt: `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt(input)}`,
-    retryOnInvalid: true,
-    schema: resumeQualitativeSchema,
-    temperature: 0,
-  });
+export async function generateResumeQualitativeReview(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+    semanticRequirements?: string[] | null;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): Promise<ResumeQualitativeReview> {
+  return await dependencies.generateQualitative(
+    `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt(input)}`,
+  );
 }
 
-function generateResumeReviewMarkdown(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-}): AsyncIterable<string> {
-  return streamTextWithMastraAgent({
-    agent: resumeReviewMarkdownAgent,
-    maxOutputTokens: 1800,
-    prompt: `${REVIEW_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewMarkdownPrompt(input)}`,
-    temperature: 0.4,
-  });
+function generateResumeReviewMarkdown(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+  },
+  dependencies: ResumeReviewGenerationDependencies,
+): AsyncIterable<string> {
+  return dependencies.streamMarkdown(
+    `${REVIEW_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewMarkdownPrompt(input)}`,
+  );
 }
 
-export async function generateResumeQualitativeReviewFromMarkdown(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-  reviewMarkdown: string;
-}): Promise<ResumeQualitativeReview> {
-  return await generateStructuredWithMastraAgent({
-    agent: resumeReviewQualitativeAgent,
-    prompt: `${REVIEW_QUALITATIVE_FROM_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewFromMarkdownPrompt(input)}`,
-    retryOnInvalid: true,
-    schema: resumeQualitativeSchema,
-    temperature: 0,
-  });
+export async function generateResumeQualitativeReviewFromMarkdown(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+    reviewMarkdown: string;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): Promise<ResumeQualitativeReview> {
+  return await dependencies.generateQualitativeFromMarkdown(
+    `${REVIEW_QUALITATIVE_FROM_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewFromMarkdownPrompt(input)}`,
+  );
 }
 
-export async function generateResumeReviewScoring(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-  qualitative: ResumeQualitativeReview;
-  reviewMarkdown?: string | null;
-}): Promise<ResumeReviewScoring> {
-  return await generateStructuredWithMastraAgent({
-    agent: resumeReviewScoringAgent,
-    prompt: `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt(input)}`,
-    retryOnInvalid: true,
-    schema: resumeScoringSchema,
-    temperature: 0,
-  });
+export async function generateResumeReviewScoring(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+    qualitative: ResumeQualitativeReview;
+    reviewMarkdown?: string | null;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): Promise<ResumeReviewScoring> {
+  return await dependencies.generateScoring(
+    `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt(input)}`,
+  );
 }
 
 // 把 Agent 1 定性 + Agent 2 维度分 + 代码算的 baseScore 组装成 ResumeReview。
@@ -514,7 +550,7 @@ export interface ResumeReviewGenerationResult {
 
 export function composeResumeReviewResult(
   qualitative: ResumeQualitativeReview,
-  scoringInput: unknown,
+  scoringInput: ResumeScoringInput,
   options: { screeningResult?: ResumeScreeningResult | null } = {},
 ): ResumeReviewGenerationResult {
   const scoring = resumeScoringSchema.parse(scoringInput);
@@ -526,7 +562,7 @@ export function composeResumeReviewResult(
 function composeResumeReviewFromMarkdown(
   reviewMarkdown: string,
   qualitative: ResumeQualitativeReview,
-  scoringInput: unknown,
+  scoringInput: ResumeScoringInput,
   options: { screeningResult?: ResumeScreeningResult | null } = {},
 ): ResumeReviewGenerationResult {
   const scoring = resumeScoringSchema.parse(scoringInput);
@@ -543,22 +579,36 @@ function composeResumeReviewFromMarkdown(
  * (qualitative), Agent 2 (scoring), and composition steps are streamed through
  * the Mastra workflow event bridge.
  */
-export function streamGenerateResumeReview(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-}): ReadableStream<Uint8Array> {
+export function streamGenerateResumeReview(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): ReadableStream<Uint8Array> {
   const runId = crypto.randomUUID();
   return createAiRunEventStream({
     run: async (emit) => {
-      const { streamResumeReviewWorkflow } =
+      const { createResumeReviewWorkflow, streamResumeReviewWorkflow } =
         await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-review-workflow");
-      return streamResumeReviewWorkflow(input, {
-        onWorkflowEvent: (event) =>
-          emitResumeReviewWorkflowEvent(event, (draft) => {
-            emit({ ...draft, runId: draft.runId ?? runId } as AiRunEvent);
-          }),
-      });
+      return streamResumeReviewWorkflow(
+        input,
+        {
+          onWorkflowEvent: (event) =>
+            emitResumeReviewWorkflowEvent(event, (draft) => {
+              // SAFETY: AiRunEventDraft only omits runId; this statement restores it without
+              // changing the discriminant or any variant-specific fields.
+              emit({ ...draft, runId: draft.runId ?? runId } as AiRunEvent);
+            }),
+        },
+        createResumeReviewWorkflow({
+          composeReview: composeResumeReviewResult,
+          generateQualitativeReview: (reviewInput) =>
+            generateResumeQualitativeReview(reviewInput, dependencies),
+          generateScoring: (reviewInput) => generateResumeReviewScoring(reviewInput, dependencies),
+        }),
+      );
     },
     runId,
     title: "生成简历评价",
@@ -566,11 +616,14 @@ export function streamGenerateResumeReview(input: {
   });
 }
 
-export function streamGenerateResumeReviewMarkdownFirst(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-}): ReadableStream<Uint8Array> {
+export function streamGenerateResumeReviewMarkdownFirst(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): ReadableStream<Uint8Array> {
   const runId = crypto.randomUUID();
   const workflowId = "resume-review-markdown-first-workflow";
   return createAiRunEventStream({
@@ -582,7 +635,7 @@ export function streamGenerateResumeReviewMarkdownFirst(input: {
         stepId: "markdown-review",
         type: "step.started",
       });
-      const textStream = await generateResumeReviewMarkdown(input);
+      const textStream = await generateResumeReviewMarkdown(input, dependencies);
       for await (const chunk of textStream) {
         if (!chunk) {
           continue;
@@ -612,12 +665,15 @@ export function streamGenerateResumeReviewMarkdownFirst(input: {
         stepId: "qualitative-review",
         type: "step.started",
       });
-      const qualitative = await generateResumeQualitativeReviewFromMarkdown({
-        jobDescription: input.jobDescription,
-        resumeProfile: input.resumeProfile,
-        reviewMarkdown: review,
-        screeningResult: input.screeningResult,
-      });
+      const qualitative = await generateResumeQualitativeReviewFromMarkdown(
+        {
+          jobDescription: input.jobDescription,
+          resumeProfile: input.resumeProfile,
+          reviewMarkdown: review,
+          screeningResult: input.screeningResult,
+        },
+        dependencies,
+      );
       emit({
         output: { qualitative },
         runId,
@@ -631,13 +687,16 @@ export function streamGenerateResumeReviewMarkdownFirst(input: {
         stepId: "scoring",
         type: "step.started",
       });
-      const scoring = await generateResumeReviewScoring({
-        jobDescription: input.jobDescription,
-        qualitative,
-        resumeProfile: input.resumeProfile,
-        reviewMarkdown: review,
-        screeningResult: input.screeningResult,
-      });
+      const scoring = await generateResumeReviewScoring(
+        {
+          jobDescription: input.jobDescription,
+          qualitative,
+          resumeProfile: input.resumeProfile,
+          reviewMarkdown: review,
+          screeningResult: input.screeningResult,
+        },
+        dependencies,
+      );
       emit({
         artifactType: "resume.review.scoring",
         data: {
@@ -673,14 +732,25 @@ export function streamGenerateResumeReviewMarkdownFirst(input: {
   });
 }
 
-export async function generateResumeReview(input: {
-  resumeProfile: ResumeProfile;
-  jobDescription?: string | null;
-  screeningResult?: ResumeScreeningResult | null;
-}): Promise<ResumeReviewGenerationResult> {
-  const { runResumeReviewWorkflow } =
+export async function generateResumeReview(
+  input: {
+    resumeProfile: ResumeProfile;
+    jobDescription?: string | null;
+    screeningResult?: ResumeScreeningResult | null;
+  },
+  dependencies = defaultResumeReviewGenerationDependencies,
+): Promise<ResumeReviewGenerationResult> {
+  const { createResumeReviewWorkflow, runResumeReviewWorkflow } =
     await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-review-workflow");
-  return runResumeReviewWorkflow(input);
+  return runResumeReviewWorkflow(
+    input,
+    createResumeReviewWorkflow({
+      composeReview: composeResumeReviewResult,
+      generateQualitativeReview: (reviewInput) =>
+        generateResumeQualitativeReview(reviewInput, dependencies),
+      generateScoring: (reviewInput) => generateResumeReviewScoring(reviewInput, dependencies),
+    }),
+  );
 }
 
 /**

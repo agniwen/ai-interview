@@ -1,14 +1,12 @@
-import { randomUUID } from "node:crypto";
-import {
+import type {
   claimMeetingIntelligenceRun,
   heartbeatMeetingIntelligenceRun,
-  loadMeetingIntelligenceTranscript,
   markMeetingIntelligenceFailed,
   publishMeetingIntelligence,
   saveMeetingIntelligenceCheckpoint,
   saveMeetingIntelligenceProgress,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/dao";
-import {
+import type {
   generateMeetingIntelligence,
   getMeetingIntelligenceGeneratorSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/generator";
@@ -51,23 +49,10 @@ export interface MeetingIntelligenceDependencies {
   saveProgress: typeof saveMeetingIntelligenceProgress;
 }
 
-const defaultDependencies: MeetingIntelligenceDependencies = {
-  claim: claimMeetingIntelligenceRun,
-  createExecutionToken: randomUUID,
-  generate: generateMeetingIntelligence,
-  generatorSnapshot: getMeetingIntelligenceGeneratorSnapshot,
-  heartbeat: heartbeatMeetingIntelligenceRun,
-  loadTranscript: loadMeetingIntelligenceTranscript,
-  markFailed: markMeetingIntelligenceFailed,
-  publish: publishMeetingIntelligence,
-  saveCheckpoint: saveMeetingIntelligenceCheckpoint,
-  saveProgress: saveMeetingIntelligenceProgress,
-};
-
 export async function runMeetingIntelligenceProcessing(
   input: MeetingIntelligenceJobData,
   context: { attempt: number; maxAttempts: number },
-  dependencies: MeetingIntelligenceDependencies = defaultDependencies,
+  dependencies: MeetingIntelligenceDependencies,
 ): Promise<void> {
   const executionToken = dependencies.createExecutionToken();
   const claim = await dependencies.claim({

@@ -1,6 +1,6 @@
 "use client";
 import { useForm } from "@tanstack/react-form";
-import type { z } from "zod";
+import { z } from "zod";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import { studioInterviewClientFormSchema } from "@arc/db-schema/studio-interviews";
 
@@ -10,6 +10,11 @@ export type InterviewFormApi = ReturnType<typeof useInterviewForm>;
 interface FieldErrorLike {
   message?: string;
 }
+
+type InterviewFieldMeta = Partial<Record<string, { errors?: unknown[] }>>;
+
+const fieldErrorMessageSchema = z.object({ message: z.string().optional() });
+const fieldErrorArraySchema = z.array(z.unknown());
 
 export function normalizeScheduleEntries(values: InterviewFormValues["scheduleEntries"]) {
   return values.map((entry, index) => ({
@@ -27,7 +32,7 @@ function useInterviewForm({
 }: {
   defaultValues: InterviewFormValues;
   onSubmit: (value: InterviewFormValues) => Promise<void> | void;
-  onSubmitInvalid?: (errorMap: Record<string, unknown>) => void;
+  onSubmitInvalid?: (errorMap: InterviewFieldMeta) => void;
 }) {
   return useForm({
     defaultValues,
@@ -35,7 +40,7 @@ function useInterviewForm({
       await onSubmit(value);
     },
     onSubmitInvalid: ({ formApi }) => {
-      onSubmitInvalid?.(formApi.store.state.fieldMeta as Record<string, unknown>);
+      onSubmitInvalid?.(formApi.store.state.fieldMeta);
     },
     validators: {
       onSubmit: studioInterviewClientFormSchema,
@@ -50,17 +55,19 @@ export function toFieldErrors(errors: unknown[] | undefined): FieldErrorLike[] |
       return [];
     }
 
-    if (typeof error === "string") {
-      return [{ message: error }];
+    const messageResult = z.string().safeParse(error);
+    if (messageResult.success) {
+      return [{ message: messageResult.data }];
     }
 
-    if (Array.isArray(error)) {
-      return error.flatMap((item) => toFieldErrors([item]) ?? []);
+    const arrayResult = fieldErrorArraySchema.safeParse(error);
+    if (arrayResult.success) {
+      return arrayResult.data.flatMap((item) => toFieldErrors([item]) ?? []);
     }
 
-    if (typeof error === "object" && "message" in error) {
-      const message = typeof error.message === "string" ? error.message : undefined;
-      return [{ message }];
+    const objectResult = fieldErrorMessageSchema.safeParse(error);
+    if (objectResult.success) {
+      return [{ message: objectResult.data.message }];
     }
 
     return [];

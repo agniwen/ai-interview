@@ -16,6 +16,11 @@ const execFileAsync = promisify(execFile);
 
 const STAGING_UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 
+export interface QwenAsrAudioUrlDependencies {
+  createAudioUrl: (chunk: FinalTranscriptionAudioChunk, signal: AbortSignal) => Promise<string>;
+  deleteAudioUrl: (url: string, signal: AbortSignal) => Promise<void>;
+}
+
 function positiveEnvInteger(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
   const value = Number.parseInt(env[name] ?? "", 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -41,10 +46,7 @@ export function createQwenAsrAudioUrlDependencies(input: {
   meetingId: string;
   organizationId: string;
   stagingToken: string;
-}): {
-  createAudioUrl: (chunk: FinalTranscriptionAudioChunk, signal: AbortSignal) => Promise<string>;
-  deleteAudioUrl: (url: string, signal: AbortSignal) => Promise<void>;
-} {
+}): QwenAsrAudioUrlDependencies {
   const env = input.env ?? process.env;
   const ffmpegBin = env.FFMPEG_BIN?.trim() || "ffmpeg";
   const urlExpiresSeconds = positiveEnvInteger(

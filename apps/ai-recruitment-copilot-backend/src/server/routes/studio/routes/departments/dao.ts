@@ -29,6 +29,13 @@ const ORDER_COLUMNS = {
 
 const departmentPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
+interface DepartmentPaginationInput {
+  page?: number | string;
+  pageSize?: number | string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
 export type DepartmentPaginationParams = PaginationParams<SortColumn>;
 
 export type PaginatedDepartmentResult = PaginatedResult<DepartmentListRecord>;
@@ -166,14 +173,14 @@ function parseFilters(filters?: { search?: string | null }) {
 }
 
 export function parseDepartmentPagination(
-  params?: Record<string, unknown>,
+  params?: DepartmentPaginationInput,
 ): DepartmentPaginationParams {
   return departmentPaginationSchema.parse(params ?? {});
 }
 
 export async function queryPaginatedDepartments(
   filters: { organizationId: string; search?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: DepartmentPaginationInput,
 ): Promise<PaginatedDepartmentResult> {
   const { search } = parseFilters(filters);
   const { organizationId } = filters;
@@ -203,7 +210,7 @@ export async function queryPaginatedDepartments(
 
 export function listDepartments(
   filters: { organizationId: string; search?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: DepartmentPaginationInput,
 ) {
   return queryPaginatedDepartments(filters, pagination);
 }

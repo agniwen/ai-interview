@@ -1,22 +1,21 @@
 import type { ClientResponse } from "hono/client";
 import { DetailedError, parseResponse } from "hono/client";
+import { z } from "zod";
 import { ApiError } from "./errors";
 
 // hc 的调用结果是 ClientResponse<...> 的子类型，封装一层别名让签名更简洁。
 // hc returns ClientResponse subtypes; this alias keeps the rpcFetch signature compact.
 type RpcCall = Promise<ClientResponse<unknown>>;
 
-function extractRpcErrorMessage(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-  if ("error" in data && typeof data.error === "string") {
-    return data.error;
-  }
-  if ("message" in data && typeof data.message === "string") {
-    return data.message;
-  }
-  return null;
+const rpcErrorSchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+const detailedErrorSchema = z.object({ data: z.json().optional() });
+
+function extractRpcErrorMessage<const T>(data: T): string | null {
+  const parsed = rpcErrorSchema.safeParse(data);
+  return parsed.success ? (parsed.data.error ?? parsed.data.message ?? null) : null;
 }
 
 /**
@@ -48,6 +47,7 @@ export async function rpcFetch<T>(
   options?: { allow404?: boolean },
 ): Promise<T | null> {
   try {
+    // SAFETY: hc owns the response schema and callers select the matching successful endpoint DTO.
     return (await parseResponse(promise)) as T;
   } catch (error) {
     if (!(error instanceof DetailedError)) {
@@ -56,7 +56,8 @@ export async function rpcFetch<T>(
     if (options?.allow404 && error.statusCode === 404) {
       return null;
     }
-    const data = (error.detail as { data?: unknown } | undefined)?.data ?? null;
+    const parsedDetail = detailedErrorSchema.safeParse(error.detail);
+    const data = parsedDetail.success ? (parsedDetail.data.data ?? null) : null;
     const serverMessage = extractRpcErrorMessage(data);
     throw new ApiError(serverMessage ?? errorFallback, {
       cause: error,

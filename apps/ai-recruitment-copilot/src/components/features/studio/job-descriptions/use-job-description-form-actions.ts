@@ -4,7 +4,11 @@ import type {
   JobEvaluationBlueprint,
   JobEvaluationRuleDraft,
 } from "@arc/db-schema/job-description-evaluation";
-import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
+import {
+  jobEvaluationBlueprintSchema,
+  jobEvaluationRuleDraftSchema,
+  toJobEvaluationRuleDraft,
+} from "@arc/db-schema/job-description-evaluation";
 import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
 import type {
   JobDescriptionFormValues,
@@ -16,6 +20,7 @@ import { rpc } from "@/lib/client/rpc";
 import { withCleanup } from "@/lib/client/async-control";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 import { hasUnsavedFormChanges, toDepartmentScopedFormValues } from "./job-description-form-values";
 import type {
@@ -29,11 +34,29 @@ interface EvaluationPreview {
   blueprintHash: string;
 }
 
+interface EvaluationPreviewStreamState {
+  error: string | null;
+  preview: EvaluationPreview | null;
+}
+
 interface PendingGeneratedJobDescription {
   jobDescription: string;
   suggestedName: string;
   supplementedItems: JobDescriptionSupplementedItem[];
 }
+
+const jobEvaluationPreviewStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({ ruleDraft: jobEvaluationRuleDraftSchema, type: z.literal("preview.partial") }),
+  z.object({
+    blueprint: jobEvaluationBlueprintSchema,
+    blueprintHash: z.string(),
+    type: z.literal("preview.completed"),
+  }),
+  z.object({
+    error: z.object({ code: z.string().optional(), message: z.string() }),
+    type: z.literal("preview.failed"),
+  }),
+]) satisfies z.ZodType<JobEvaluationPreviewStreamEvent>;
 
 export function useJobDescriptionFormActions({
   slug,
@@ -132,6 +155,7 @@ export function useJobDescriptionFormActions({
         param: { slug },
       });
     }
+    // SAFETY: The generated hc client carries the mutation response contract for these three branches.
     const payload = (await response
       .json()
       .catch(() => null)) as JobDescriptionMutationPayload | null;
@@ -143,6 +167,7 @@ export function useJobDescriptionFormActions({
       toast.error(isEdit ? "更新失败" : "创建失败");
       return null;
     }
+    // SAFETY: Successful create/update responses return the complete record; the required id was checked above.
     const savedRecord = payload as JobDescriptionRecord;
     setWorkingRecord(savedRecord);
     return savedRecord;
@@ -155,15 +180,16 @@ export function useJobDescriptionFormActions({
       param: { id: jobDescriptionId, slug },
     });
     if (!response.ok) {
+      // SAFETY: The generated hc endpoint declares the structured error body for non-success responses.
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       toast.error(payload?.error ?? "生成评分规则失败");
       return null;
     }
-    const streamState: { error: string | null; preview: EvaluationPreview | null } = {
+    const streamState: EvaluationPreviewStreamState = {
       error: null,
       preview: null,
     };
-    await readAiRunEventStream<JobEvaluationPreviewStreamEvent>(response, (event) => {
+    await readAiRunEventStream(response, jobEvaluationPreviewStreamEventSchema, (event) => {
       if (event.type === "preview.partial") {
         setStreamingRuleDraft(event.ruleDraft);
       } else if (event.type === "preview.completed") {
@@ -198,6 +224,7 @@ export function useJobDescriptionFormActions({
       },
       param: { id: jobDescriptionId, slug },
     });
+    // SAFETY: The generated hc endpoint defines this blueprint-draft response envelope.
     const payload = (await response.json().catch(() => null)) as {
       blueprint?: JobEvaluationBlueprint;
       blueprintHash?: string;
@@ -306,6 +333,7 @@ export function useJobDescriptionFormActions({
             param: { slug },
           },
         );
+        // SAFETY: The generated hc endpoint defines the code-or-error response envelope.
         const payload = (await response.json().catch(() => null)) as {
           code?: string;
           error?: string;
@@ -341,6 +369,7 @@ export function useJobDescriptionFormActions({
           },
           param: { slug },
         });
+        // SAFETY: The generated hc endpoint defines this AI-generation response envelope.
         const payload = (await response.json().catch(() => null)) as {
           error?: string;
           jobDescription?: string;
@@ -397,6 +426,7 @@ export function useJobDescriptionFormActions({
           json: { confirmedBlueprintHash: preview.blueprintHash },
           param: { id: currentRecord.id, slug },
         });
+        // SAFETY: The generated hc endpoint carries the publish mutation response contract.
         const payload = (await response
           .json()
           .catch(() => null)) as JobDescriptionMutationPayload | null;
@@ -409,7 +439,9 @@ export function useJobDescriptionFormActions({
           return;
         }
         toast.success("岗位已发布，评估设置已冻结");
+        // SAFETY: Successful publish responses return the full record; the required id was checked above.
         setWorkingRecord(payload as JobDescriptionRecord);
+        // SAFETY: The same validated successful publish payload is passed to the save callback unchanged.
         onSaved(payload as JobDescriptionRecord);
         onOpenChange(false);
       },

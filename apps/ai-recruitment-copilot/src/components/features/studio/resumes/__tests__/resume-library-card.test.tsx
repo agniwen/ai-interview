@@ -2,13 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { ResumeLibraryCard } from "../resume-library-card";
 
-vi.mock("@/components/features/studio/resumes/resume-ai-score-hover-card", () => ({
-  ResumeAiScoreHoverCard: ({ children }: { children: React.ReactNode }) => (
-    <span data-ai-score-hover-card>{children}</span>
-  ),
-}));
+function renderWithQueryClient(element: ReactElement) {
+  return renderToStaticMarkup(
+    <QueryClientProvider client={new QueryClient()}>{element}</QueryClientProvider>,
+  );
+}
 
 const record: ResumeLibraryListRecord = {
   candidateEmail: null,
@@ -64,7 +66,7 @@ describe("ResumeLibraryCard", () => {
   it("shows the candidate evaluation form action only when a Feishu document exists", () => {
     const noop = vi.fn();
     const renderCard = (feishuDocumentUrl: string | null) =>
-      renderToStaticMarkup(
+      renderWithQueryClient(
         <ResumeLibraryCard
           canCreateInterview={false}
           canDeleteResumeLibrary={false}
@@ -98,7 +100,7 @@ describe("ResumeLibraryCard", () => {
 
   it("shows the composite score when the candidate did not pass a gate", () => {
     const noop = vi.fn();
-    const content = renderToStaticMarkup(
+    const content = renderWithQueryClient(
       <ResumeLibraryCard
         canCreateInterview={false}
         canDeleteResumeLibrary={false}
@@ -125,12 +127,11 @@ describe("ResumeLibraryCard", () => {
     );
 
     expect(content).toContain("未通过门槛 · 68 分");
-    expect(content).toContain("data-ai-score-hover-card");
   });
 
   it("keeps showing a labeled legacy score after the job upgrades", () => {
     const noop = vi.fn();
-    const content = renderToStaticMarkup(
+    const content = renderWithQueryClient(
       <ResumeLibraryCard
         canCreateInterview={false}
         canDeleteResumeLibrary={false}
@@ -177,7 +178,7 @@ describe("ResumeLibraryCard", () => {
     "keeps the legacy score visible while a structured replacement is %s",
     (resumeReviewStatus, replacementStatusLabel) => {
       const noop = vi.fn();
-      const content = renderToStaticMarkup(
+      const content = renderWithQueryClient(
         <ResumeLibraryCard
           canCreateInterview={false}
           canDeleteResumeLibrary={false}

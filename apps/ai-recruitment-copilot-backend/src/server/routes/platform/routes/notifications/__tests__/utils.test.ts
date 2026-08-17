@@ -1,66 +1,53 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  createDocument: vi.fn(),
-  generateHrEvaluationWithPromptForInterview: vi.fn(),
-  grantDocumentAccess: vi.fn(),
-  select: vi.fn(),
-  sendCard: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: { select: mocks.select },
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-hr-evaluation",
-  () => ({
-    generateFeishuHrEvaluationWithPromptForInterview:
-      mocks.generateHrEvaluationWithPromptForInterview,
-  }),
-);
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx", () => ({
-  createFeishuInterviewEvaluationDocx: mocks.createDocument,
-  grantFeishuInterviewEvaluationDocxAccess: mocks.grantDocumentAccess,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot", () => ({
-  postFeishuDirectCard: mocks.sendCard,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
+import type { PlatformNotificationDependencies } from "../utils";
 import {
   grantPlatformNotificationDocumentAccess,
   previewPlatformFeishuNotification,
 } from "../utils";
 
-function mockQueryRows(notificationRows: unknown[], accountRows: unknown[] = []) {
-  mocks.select.mockReset();
-  mocks.select
-    .mockReturnValueOnce({
-      from: () => ({
-        where: () => ({ limit: () => Promise.resolve(notificationRows) }),
-      }),
-    })
-    .mockReturnValueOnce({
-      from: () => ({
-        where: () => ({
-          orderBy: () => ({ limit: () => Promise.resolve(accountRows) }),
-        }),
-      }),
-    });
+const mocks = {
+  generateHrEvaluationWithPromptForInterview: vi.fn(),
+  grantDocumentAccess: vi.fn(),
+  loadCurrentUserAccount: vi.fn(),
+  loadDocument: vi.fn(),
+  loadPreview: vi.fn(),
+};
+
+const dependencies = {
+  generateHrEvaluation: mocks.generateHrEvaluationWithPromptForInterview,
+  grantDocumentAccess: mocks.grantDocumentAccess,
+  loadCurrentUserAccount: mocks.loadCurrentUserAccount,
+  loadDocument: mocks.loadDocument,
+  loadPreview: mocks.loadPreview,
+} satisfies PlatformNotificationDependencies;
+
+interface TestNotificationDocumentRow {
+  documentId: string | null;
+  documentUrl: string | null;
+  providerId: string;
+  recipientOpenId: string;
 }
 
-function mockPreviewRows(rows: unknown[]) {
-  mocks.select.mockReset();
-  mocks.select.mockReturnValueOnce({
-    from: () => ({
-      innerJoin: () => ({
-        where: () => ({ limit: () => Promise.resolve(rows) }),
-      }),
-    }),
-  });
+interface TestNotificationPreviewRow {
+  candidateName: string;
+  conversationId: string | null;
+  interviewRecordId: string;
+  type: string;
+}
+
+function mockQueryRows(
+  notificationRows: TestNotificationDocumentRow[],
+  accountRows: { accountId: string }[] = [],
+) {
+  const [notification] = notificationRows;
+  const [account] = accountRows;
+  mocks.loadDocument.mockResolvedValue(notification ?? null);
+  mocks.loadCurrentUserAccount.mockResolvedValue(account?.accountId ?? null);
+}
+
+function mockPreviewRows(rows: TestNotificationPreviewRow[]) {
+  const [preview] = rows;
+  mocks.loadPreview.mockResolvedValue(preview ?? null);
 }
 
 describe("grantPlatformNotificationDocumentAccess", () => {
@@ -82,7 +69,10 @@ describe("grantPlatformNotificationDocumentAccess", () => {
     );
 
     await expect(
-      grantPlatformNotificationDocumentAccess({ notificationId: "log-1", userId: "admin-1" }),
+      grantPlatformNotificationDocumentAccess(
+        { notificationId: "log-1", userId: "admin-1" },
+        dependencies,
+      ),
     ).resolves.toEqual({ documentUrl: "https://feishu.cn/docx/docx-1" });
     expect(mocks.grantDocumentAccess).toHaveBeenCalledWith("feishu-jiguang-hr", {
       documentId: "docx-1",
@@ -103,10 +93,10 @@ describe("grantPlatformNotificationDocumentAccess", () => {
       [{ accountId: "ou_admin" }],
     );
 
-    await grantPlatformNotificationDocumentAccess({
-      notificationId: "log-1",
-      userId: "admin-1",
-    });
+    await grantPlatformNotificationDocumentAccess(
+      { notificationId: "log-1", userId: "admin-1" },
+      dependencies,
+    );
 
     expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
   });
@@ -121,7 +111,10 @@ describe("grantPlatformNotificationDocumentAccess", () => {
       },
     ]);
     await expect(
-      grantPlatformNotificationDocumentAccess({ notificationId: "log-1", userId: "admin-1" }),
+      grantPlatformNotificationDocumentAccess(
+        { notificationId: "log-1", userId: "admin-1" },
+        dependencies,
+      ),
     ).rejects.toThrow("飞书文档尚未生成，请先重新发送通知");
 
     mockQueryRows([
@@ -133,7 +126,10 @@ describe("grantPlatformNotificationDocumentAccess", () => {
       },
     ]);
     await expect(
-      grantPlatformNotificationDocumentAccess({ notificationId: "log-2", userId: "admin-1" }),
+      grantPlatformNotificationDocumentAccess(
+        { notificationId: "log-2", userId: "admin-1" },
+        dependencies,
+      ),
     ).rejects.toThrow("当前管理员未绑定此通知对应的飞书账号");
   });
 });
@@ -157,7 +153,7 @@ describe("previewPlatformFeishuNotification", () => {
       prompt: "最终发送给模型的 Prompt",
     });
 
-    const preview = await previewPlatformFeishuNotification("log-1");
+    const preview = await previewPlatformFeishuNotification("log-1", dependencies);
 
     expect(mocks.generateHrEvaluationWithPromptForInterview).toHaveBeenCalledWith({
       conversationId: "conversation-1",
@@ -168,8 +164,6 @@ describe("previewPlatformFeishuNotification", () => {
     expect(preview.block.block_type).toBe(19);
     expect(JSON.stringify(preview.block.children)).toContain("1. 求职动机：");
     expect(JSON.stringify(preview.block.children)).toContain("希望承担更完整的系统架构职责。");
-    expect(mocks.createDocument).not.toHaveBeenCalled();
     expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
-    expect(mocks.sendCard).not.toHaveBeenCalled();
   });
 });

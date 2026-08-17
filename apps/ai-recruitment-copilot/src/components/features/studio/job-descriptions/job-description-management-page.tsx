@@ -47,6 +47,17 @@ import { getJobDescriptionUpgradeActionLabel } from "@/components/features/studi
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { toast } from "sonner";
+import { z } from "zod";
+
+interface JobDescriptionListQuery {
+  departmentId?: string;
+  interviewerId?: string;
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
+}
 
 export function JobDescriptionManagementPage({
   departments,
@@ -82,26 +93,30 @@ export function JobDescriptionManagementPage({
       filters: { departmentId: string; interviewerId: string };
       sortBy: string | undefined;
       sortOrder: "asc" | "desc" | undefined;
-    }): Promise<PaginatedJobDescriptionResult> =>
-      rpcFetch<PaginatedJobDescriptionResult>(
+    }): Promise<PaginatedJobDescriptionResult> => {
+      const query: JobDescriptionListQuery = {
+        page: String(params.page),
+        pageSize: String(params.pageSize),
+        sortBy: params.sortBy ?? "createdAt",
+        sortOrder: params.sortOrder ?? "desc",
+      };
+      if (params.search) {
+        query.search = params.search;
+      }
+      if (params.filters.departmentId) {
+        query.departmentId = params.filters.departmentId;
+      }
+      if (params.filters.interviewerId) {
+        query.interviewerId = params.filters.interviewerId;
+      }
+      return rpcFetch<PaginatedJobDescriptionResult>(
         rpc.api.w[":slug"].studio["job-descriptions"].$get({
           param: { slug },
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-            // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
-            // / Multi-select filters serialize to CSV; empty string means "no filter".
-            ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
-            ...(params.filters.interviewerId
-              ? { interviewerId: params.filters.interviewerId }
-              : {}),
-            sortBy: params.sortBy ?? "createdAt",
-            sortOrder: params.sortOrder ?? "desc",
-          },
+          query,
         }),
         "加载在招岗位列表失败",
-      ),
+      );
+    },
     [slug],
   );
 
@@ -113,7 +128,7 @@ export function JobDescriptionManagementPage({
       if (!response.ok) {
         return null;
       }
-      return (await response.json()) as JobDescriptionRecord;
+      return await response.json();
     },
     [slug],
   );
@@ -164,8 +179,9 @@ export function JobDescriptionManagementPage({
   const navigate = useNavigate({ from: "/w/$slug/studio/job-descriptions" });
   const openedDeepLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    const targetId = deepLinkSearch.jobDescriptionId;
-    if (typeof targetId !== "string" || targetId.length === 0) {
+    const parsedTargetId = z.string().safeParse(deepLinkSearch.jobDescriptionId);
+    const targetId = parsedTargetId.success ? parsedTargetId.data : null;
+    if (!targetId) {
       // 参数已清空：重置去重标记，允许之后再次深链到同一个岗位。
       openedDeepLinkRef.current = null;
       return;
@@ -174,6 +190,7 @@ export function JobDescriptionManagementPage({
       return;
     }
     openedDeepLinkRef.current = targetId;
+    // SAFETY: The configured detail loader reads only id before replacing this lookup with a full record.
     void crud.openEdit({ id: targetId } as JobDescriptionListRecord);
     // 打开后清掉 URL 参数，避免刷新/返回时重复弹窗。
     void navigate({

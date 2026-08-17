@@ -2,8 +2,10 @@ import type {
   InterviewReportSnapshotMetadata,
   StudioInterviewConversationReport,
 } from "@arc/db-schema/interview-session";
+import type { JsonValue } from "@arc/db-schema/json";
 import { interviewKeyInformationSchema } from "@arc/db-schema/interview-key-information";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -132,7 +134,7 @@ function buildFrozenInputSummary(
   };
 }
 
-function stringifyJsonInput(value: unknown) {
+function stringifyJsonInput(value: JsonValue | null | undefined) {
   return value === null || value === undefined ? null : JSON.stringify(value, null, 2);
 }
 
@@ -145,7 +147,7 @@ function buildFullTextInput(
     return null;
   }
 
-  return {
+  const report = {
     candidate: {
       candidateEmail: context.candidate.candidateEmail,
       candidateName: context.candidate.candidateName,
@@ -216,6 +218,7 @@ function buildFullTextInput(
         timeInCallSecs: turn.timeInCallSecs ?? undefined,
       })),
   };
+  return report;
 }
 
 function buildSnapshotMetadata(
@@ -271,7 +274,7 @@ function serializeConversationReport(
     ? interviewKeyInformationSchema.safeParse(conversation.keyInformation)
     : null;
 
-  return {
+  const report = {
     agentId: conversation.agentId,
     agentTurnCount: turns.filter((turn) => turn.role === "agent").length,
     callSuccessful: conversation.callSuccessful,
@@ -290,9 +293,6 @@ function serializeConversationReport(
     mode: conversation.mode,
     recordingDurationSecs: conversation.recordingDurationSecs,
     recordingStatus: conversation.recordingStatus,
-    ...(snapshotRows
-      ? { snapshotMetadata: buildSnapshotMetadata(conversation, turns, snapshotRows) }
-      : {}),
     startedAt: conversation.startedAt,
     status: conversation.status,
     transcriptSummary: conversation.transcriptSummary,
@@ -302,15 +302,26 @@ function serializeConversationReport(
     userTurnCount: turns.filter((turn) => turn.role === "user").length,
     webhookReceivedAt: conversation.webhookReceivedAt,
   };
+  return snapshotRows
+    ? { ...report, snapshotMetadata: buildSnapshotMetadata(conversation, turns, snapshotRows) }
+    : report;
 }
 
-function isUndefinedColumnError(error: unknown) {
-  let current = error;
-  while (current && typeof current === "object") {
-    if ("code" in current && current.code === "42703") {
+const databaseErrorSchema = z.object({
+  cause: z.unknown().optional(),
+  code: z.string().optional(),
+});
+
+function isUndefinedColumnError(parsedError: ReturnType<typeof databaseErrorSchema.safeParse>) {
+  let current = parsedError;
+  while (current.success) {
+    if (current.data.code === "42703") {
       return true;
     }
-    current = "cause" in current ? current.cause : null;
+    if (current.data.cause === undefined) {
+      return false;
+    }
+    current = databaseErrorSchema.safeParse(current.data.cause);
   }
   return false;
 }
@@ -336,7 +347,7 @@ async function loadKeyInformationByConversationIds(
   } catch (error) {
     // Keep existing reports available during a rolling deploy before the
     // key-information migration has reached the database.
-    if (isUndefinedColumnError(error)) {
+    if (isUndefinedColumnError(databaseErrorSchema.safeParse(error))) {
       return new Map<string, InterviewConversationRow["keyInformation"]>();
     }
     throw error;
@@ -392,7 +403,7 @@ export async function queryInterviewConversationReports(
     .orderBy(desc(interviewConversation.updatedAt));
 
   if (conversations.length === 0) {
-    return [] as StudioInterviewConversationReport[];
+    return [];
   }
 
   const conversationIds = conversations.map((conversation) => conversation.conversationId);
@@ -441,7 +452,7 @@ export async function queryInterviewConversationReportsByRound(
     .orderBy(desc(interviewConversation.updatedAt));
 
   if (conversations.length === 0) {
-    return [] as StudioInterviewConversationReport[];
+    return [];
   }
 
   const conversationIds = conversations.map((conversation) => conversation.conversationId);

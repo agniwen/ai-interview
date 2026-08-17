@@ -68,10 +68,12 @@ export async function runInterviewQuestionsWorkflow(
 export async function streamInterviewQuestionsWorkflow(
   input: z.input<typeof resumeProfileSchema>,
   options: { onWorkflowEvent: (event: AiRunEvent) => void },
+  workflow = interviewQuestionsWorkflow,
 ): Promise<InterviewQuestionsWorkflowOutput> {
-  const run = await interviewQuestionsWorkflow.createRun();
+  const run = await workflow.createRun();
   const output = await run.stream({ inputData: input });
   await emitMastraWorkflowStreamEvents(
+    // SAFETY: Mastra's run.stream() contract exposes fullStream as an async iterable of workflow events.
     output.fullStream as AsyncIterable<WorkflowStreamEvent>,
     options.onWorkflowEvent,
     {

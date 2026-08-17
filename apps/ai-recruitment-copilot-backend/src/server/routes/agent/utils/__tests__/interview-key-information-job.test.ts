@@ -1,45 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runKeyInformationJob } from "../interview-key-information-job-core";
+import type { KeyInformationJobDependencies } from "../interview-key-information-job-core";
 
-const mocks = vi.hoisted(() => ({
-  buildInterviewReportQuestionsFromContext: vi.fn(),
-  createInterviewEvidenceSnapshot: vi.fn(),
-  generateInterviewKeyInformation: vi.fn(),
-  safeUpdateTag: vi.fn(),
-  update: vi.fn(),
-}));
+const mocks = {
+  buildQuestions: vi.fn(),
+  claim: vi.fn(),
+  createEvidence: vi.fn(),
+  generate: vi.fn(),
+  markFailed: vi.fn(),
+  persist: vi.fn(),
+  publish: vi.fn(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: { update: mocks.update },
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
-  cacheTags: {
-    interviewConversations: "interview-conversations",
-    interviewConversationsByRecord: (id: string) => `interview-conversations:${id}`,
-  },
-  safeUpdateTag: mocks.safeUpdateTag,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot", () => ({
-  createInterviewEvidenceSnapshot: mocks.createInterviewEvidenceSnapshot,
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-key-information",
-  () => ({
-    generateInterviewKeyInformation: mocks.generateInterviewKeyInformation,
-  }),
-);
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report-questions",
-  () => ({
-    buildInterviewReportQuestionsFromContext: mocks.buildInterviewReportQuestionsFromContext,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
-import { runKeyInformationJob } from "../interview-key-information-job";
+const jobDependencies = {
+  ...mocks,
+} satisfies KeyInformationJobDependencies;
 
 const TRANSCRIPT = [
   { message: "请介绍项目。", role: "agent" as const, timeInCallSecs: 1 },
@@ -57,37 +32,13 @@ const KEY_INFORMATION = {
   ],
 };
 
-function claimUpdate(rows: { keyInformationStartedAt?: Date; transcript: typeof TRANSCRIPT }[]) {
-  return {
-    set: vi.fn(() => ({
-      where: vi.fn(() => ({
-        returning: vi.fn().mockResolvedValue(rows),
-      })),
-    })),
-  };
-}
-
-function persistedUpdate(
-  onSet: (value: Record<string, unknown>) => void,
-  rows: { conversationId: string }[] = [{ conversationId: "conversation-1" }],
-) {
-  return {
-    set: vi.fn((value: Record<string, unknown>) => {
-      onSet(value);
-      return {
-        where: vi.fn(() => ({
-          returning: vi.fn().mockResolvedValue(rows),
-        })),
-      };
-    }),
-  };
-}
+type PersistInput = Parameters<KeyInformationJobDependencies["persist"]>[0];
 
 describe("runKeyInformationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.buildInterviewReportQuestionsFromContext.mockReturnValue([]);
-    mocks.createInterviewEvidenceSnapshot.mockResolvedValue({
+    mocks.buildQuestions.mockReturnValue([]);
+    mocks.createEvidence.mockResolvedValue({
       payload: {
         context: {
           candidate: { targetRole: "前端工程师" },
@@ -95,111 +46,92 @@ describe("runKeyInformationJob", () => {
         },
       },
     });
-    mocks.generateInterviewKeyInformation.mockResolvedValue(KEY_INFORMATION);
+    mocks.generate.mockResolvedValue(KEY_INFORMATION);
+    mocks.markFailed.mockImplementation(() => Promise.resolve());
+    mocks.persist.mockResolvedValue([{ conversationId: "conversation-1" }]);
   });
 
   it("persists an independently generated result and marks it ready", async () => {
-    let persisted: Record<string, unknown> | null = null;
-    mocks.update
-      .mockReturnValueOnce(
-        claimUpdate([
-          {
-            keyInformationStartedAt: new Date("2026-07-24T10:00:00.000Z"),
-            transcript: TRANSCRIPT,
-          },
-        ]),
-      )
-      .mockReturnValueOnce(
-        persistedUpdate((value) => {
-          persisted = value;
-        }),
-      );
-
-    await runKeyInformationJob({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
+    let persisted: PersistInput | null = null;
+    const startedAt = new Date("2026-07-24T10:00:00.000Z");
+    mocks.claim.mockResolvedValueOnce([
+      { keyInformationStartedAt: startedAt, transcript: TRANSCRIPT },
+    ]);
+    mocks.persist.mockImplementationOnce((value: PersistInput) => {
+      persisted = value;
+      return Promise.resolve([{ conversationId: "conversation-1" }]);
     });
 
-    expect(mocks.generateInterviewKeyInformation).toHaveBeenCalledWith(
+    await runKeyInformationJob(
+      { conversationId: "conversation-1", interviewRecordId: "interview-1" },
+      jobDependencies,
+    );
+
+    expect(mocks.generate).toHaveBeenCalledWith(
       expect.objectContaining({
         targetRole: "前端工程师",
         transcript: TRANSCRIPT,
       }),
     );
     expect(persisted).toMatchObject({
+      conversationId: "conversation-1",
       keyInformation: KEY_INFORMATION,
-      keyInformationAttempts: 0,
-      keyInformationError: null,
-      keyInformationStatus: "ready",
+      startedAt,
     });
-    expect(mocks.safeUpdateTag).toHaveBeenCalledTimes(2);
+    expect(mocks.publish).toHaveBeenCalledWith("interview-1");
   });
 
   it("does nothing when another worker already claimed the job", async () => {
-    mocks.update.mockReturnValueOnce(claimUpdate([]));
+    mocks.claim.mockResolvedValueOnce([]);
 
-    await runKeyInformationJob({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
-    });
+    await runKeyInformationJob(
+      { conversationId: "conversation-1", interviewRecordId: "interview-1" },
+      jobDependencies,
+    );
 
-    expect(mocks.generateInterviewKeyInformation).not.toHaveBeenCalled();
-    expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.persist).not.toHaveBeenCalled();
+    expect(mocks.claim).toHaveBeenCalledTimes(1);
   });
 
   it("marks only the key-information task failed when generation throws", async () => {
-    let failureState: Record<string, unknown> | null = null;
-    mocks.generateInterviewKeyInformation.mockRejectedValue(new Error("model unavailable"));
-    mocks.update
-      .mockReturnValueOnce(
-        claimUpdate([
-          {
-            keyInformationStartedAt: new Date("2026-07-24T10:00:00.000Z"),
-            transcript: TRANSCRIPT,
-          },
-        ]),
-      )
-      .mockReturnValueOnce(
-        persistedUpdate((value) => {
-          failureState = value;
-        }),
-      );
-
-    await runKeyInformationJob({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
+    let failureState: { message: string } | null = null;
+    const startedAt = new Date("2026-07-24T10:00:00.000Z");
+    mocks.claim.mockResolvedValueOnce([
+      { keyInformationStartedAt: startedAt, transcript: TRANSCRIPT },
+    ]);
+    mocks.generate.mockRejectedValue(new Error("model unavailable"));
+    mocks.markFailed.mockImplementationOnce((value: { message: string }) => {
+      failureState = value;
+      return Promise.resolve();
     });
 
-    expect(failureState).toMatchObject({
-      keyInformationError: "model unavailable",
-      keyInformationStatus: "failed",
-    });
-    expect(mocks.safeUpdateTag).not.toHaveBeenCalled();
+    await runKeyInformationJob(
+      { conversationId: "conversation-1", interviewRecordId: "interview-1" },
+      jobDependencies,
+    );
+
+    expect(failureState).toEqual(expect.objectContaining({ message: "model unavailable" }));
+    expect(mocks.publish).not.toHaveBeenCalled();
   });
 
   it("does not publish a stale result after a newer transcript resets the run", async () => {
-    let staleWrite: Record<string, unknown> | null = null;
-    mocks.update
-      .mockReturnValueOnce(
-        claimUpdate([
-          {
-            keyInformationStartedAt: new Date("2026-07-24T10:00:00.000Z"),
-            transcript: TRANSCRIPT,
-          },
-        ]),
-      )
-      .mockReturnValueOnce(
-        persistedUpdate((value) => {
-          staleWrite = value;
-        }, []),
-      );
-
-    await runKeyInformationJob({
-      conversationId: "conversation-1",
-      interviewRecordId: "interview-1",
+    let staleWrite: PersistInput | null = null;
+    const startedAt = new Date("2026-07-24T10:00:00.000Z");
+    mocks.claim.mockResolvedValueOnce([
+      { keyInformationStartedAt: startedAt, transcript: TRANSCRIPT },
+    ]);
+    mocks.persist.mockImplementationOnce((value: PersistInput) => {
+      staleWrite = value;
+      return Promise.resolve([]);
     });
 
+    await runKeyInformationJob(
+      { conversationId: "conversation-1", interviewRecordId: "interview-1" },
+      jobDependencies,
+    );
+
     expect(staleWrite).toMatchObject({ keyInformation: KEY_INFORMATION });
-    expect(mocks.safeUpdateTag).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
   });
 });

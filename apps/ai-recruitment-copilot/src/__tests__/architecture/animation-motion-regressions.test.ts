@@ -9,18 +9,6 @@ function readSource(relativePath: string) {
 }
 
 describe("animation motion regressions", () => {
-  it("keeps the keyboard command palette instant", () => {
-    const commandStyles = readSource(
-      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/lib/command/navigation-command.css",
-    );
-
-    expect(commandStyles).toContain(
-      ".navigation-command-popup[data-open],\n.navigation-command-popup[data-closed]",
-    );
-    expect(commandStyles).not.toContain("@keyframes navigation-command-surface-in");
-    expect(commandStyles).not.toContain("@keyframes navigation-command-surface-out");
-  });
-
   it("keeps camera tiles physical and reduced-motion aware", () => {
     const tileView = readSource(
       "apps/ai-recruitment-copilot/src/components/agents-ui/blocks/agent-session-view-01/components/tile-view.tsx",

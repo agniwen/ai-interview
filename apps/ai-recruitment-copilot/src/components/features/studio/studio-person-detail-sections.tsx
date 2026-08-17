@@ -24,20 +24,36 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/fram
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import { z } from "zod";
 
 import type {
   CollectedCandidateInfoItem,
   EvaluationSummary,
   FormQuestion,
 } from "./studio-person-detail-model";
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
-export function getEvaluationSummary(
-  data: Record<string, unknown> | null | undefined,
-): EvaluationSummary {
-  if (!data) {
+const evaluationSummarySchema = z.object({
+  overallAssessment: z.string().nullable().optional(),
+  overallScore: z.number().nullable().optional(),
+  recommendation: z.string().nullable().optional(),
+});
+
+const evaluationQuestionsSchema = z.object({
+  questions: z
+    .array(
+      z.object({
+        assessment: z.string().optional(),
+        evidence: z.array(z.object({ quote: z.string().optional() })).optional(),
+        order: z.number().optional(),
+        question: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export function getEvaluationSummary<const T>(data: T): EvaluationSummary {
+  const parsed = evaluationSummarySchema.safeParse(data);
+  if (!parsed.success) {
     return {
       overallAssessment: null,
       overallScore: null,
@@ -46,9 +62,9 @@ export function getEvaluationSummary(
   }
 
   return {
-    overallAssessment: typeof data.overallAssessment === "string" ? data.overallAssessment : null,
-    overallScore: typeof data.overallScore === "number" ? data.overallScore : null,
-    recommendation: typeof data.recommendation === "string" ? data.recommendation : null,
+    overallAssessment: parsed.data.overallAssessment ?? null,
+    overallScore: parsed.data.overallScore ?? null,
+    recommendation: parsed.data.recommendation ?? null,
   };
 }
 
@@ -70,11 +86,11 @@ export function formatFormAnswer(question: FormQuestion, rawValue: string | stri
   return Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
 }
 
-export function getCollectedCandidateInfoItems({
+export function getCollectedCandidateInfoItems<const T>({
   evaluation,
   formSubmissions,
 }: {
-  evaluation: Record<string, unknown> | null | undefined;
+  evaluation: T;
   formSubmissions: CandidateFormSubmissionWithSnapshot[];
 }) {
   const formItems: CollectedCandidateInfoItem[] = [];
@@ -94,25 +110,16 @@ export function getCollectedCandidateInfoItems({
   }
 
   const interviewItems: CollectedCandidateInfoItem[] = [];
-  const questions = Array.isArray(evaluation?.questions) ? evaluation.questions : [];
+  const parsedEvaluation = evaluationQuestionsSchema.safeParse(evaluation);
+  const questions = parsedEvaluation.success ? (parsedEvaluation.data.questions ?? []) : [];
 
   for (const [index, rawQuestion] of questions.entries()) {
-    if (!isRecord(rawQuestion)) {
-      continue;
-    }
-
-    const question =
-      typeof rawQuestion.question === "string" && rawQuestion.question.trim()
-        ? rawQuestion.question.trim()
-        : "未知题目";
-    const analysis =
-      typeof rawQuestion.assessment === "string" && rawQuestion.assessment.trim()
-        ? rawQuestion.assessment.trim()
-        : null;
-    const order = typeof rawQuestion.order === "number" ? rawQuestion.order : index + 1;
-    const rawEvidence = Array.isArray(rawQuestion.evidence) ? rawQuestion.evidence : [];
+    const question = rawQuestion.question?.trim() ? rawQuestion.question.trim() : "未知题目";
+    const analysis = rawQuestion.assessment?.trim() ? rawQuestion.assessment.trim() : null;
+    const order = rawQuestion.order ?? index + 1;
+    const rawEvidence = rawQuestion.evidence ?? [];
     const answers = rawEvidence.flatMap((item) => {
-      if (!isRecord(item) || typeof item.quote !== "string") {
+      if (!item.quote) {
         return [];
       }
       const quote = item.quote.trim();

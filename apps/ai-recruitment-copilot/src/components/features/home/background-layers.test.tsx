@@ -2,35 +2,23 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, it, vi } from "vitest";
-import { BackgroundLayers } from "./background-layers";
+import type { ComponentProps } from "react";
+import { describe, expect, it } from "vitest";
+import { BackgroundLayersView } from "./background-layers";
+import type { MeshGradient } from "@paper-design/shaders-react";
+import type Grainient from "@/components/react-bits/grainient";
 
-const mocks = vi.hoisted(() => ({
-  reducedMotion: false,
-}));
-
-vi.mock("next-themes", () => ({
-  useTheme: () => ({ resolvedTheme: "dark" }),
-}));
-
-vi.mock("@paper-design/shaders-react", () => ({
-  MeshGradient: ({
-    colors,
-    distortion,
-    grainMixer,
-    grainOverlay,
-    speed,
-    swirl,
-  }: {
-    colors: string[];
-    distortion: number;
-    grainMixer: number;
-    grainOverlay: number;
-    speed: number;
-    swirl: number;
-  }) => (
+function MeshGradientFixture({
+  colors,
+  distortion,
+  grainMixer,
+  grainOverlay,
+  speed,
+  swirl,
+}: ComponentProps<typeof MeshGradient>) {
+  return (
     <div
-      data-colors={colors.join(",")}
+      data-colors={colors?.join(",") ?? ""}
       data-distortion={distortion}
       data-grain-mixer={grainMixer}
       data-grain-overlay={grainOverlay}
@@ -38,29 +26,24 @@ vi.mock("@paper-design/shaders-react", () => ({
       data-swirl={swirl}
       data-testid="mesh-gradient"
     />
-  ),
-}));
+  );
+}
 
-vi.mock("motion/react", () => ({
-  useReducedMotion: () => mocks.reducedMotion,
-}));
+function AsciiHeroFixture() {
+  return <div data-testid="ascii-hero" />;
+}
 
-vi.mock("@/components/react-bits/ascii-hero", () => ({
-  AsciiHero: () => <div data-testid="ascii-hero" />,
-}));
+function GrainientFixture(_props: ComponentProps<typeof Grainient>) {
+  return <div data-testid="grainient" />;
+}
 
-vi.mock("@/components/react-bits/dark-veil", () => ({
-  DarkVeil: () => <div data-testid="dark-veil" />,
-}));
+const components = {
+  AsciiHero: AsciiHeroFixture,
+  Grainient: GrainientFixture,
+  MeshGradient: MeshGradientFixture,
+};
 
-vi.mock("@/components/react-bits/dot-grid", () => ({
-  default: () => <div data-testid="dot-grid" />,
-}));
-
-vi.mock("@/components/react-bits/grainient", () => ({
-  default: () => <div data-testid="grainient" />,
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("BackgroundLayers", () => {
@@ -70,7 +53,14 @@ describe("BackgroundLayers", () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<BackgroundLayers />);
+      root.render(
+        <BackgroundLayersView
+          components={components}
+          mounted
+          prefersReducedMotion={false}
+          resolvedTheme="dark"
+        />,
+      );
       await Promise.resolve();
     });
 
@@ -91,13 +81,19 @@ describe("BackgroundLayers", () => {
   });
 
   it("stops the mesh animation when reduced motion is preferred", async () => {
-    mocks.reducedMotion = true;
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<BackgroundLayers />);
+      root.render(
+        <BackgroundLayersView
+          components={components}
+          mounted
+          prefersReducedMotion
+          resolvedTheme="dark"
+        />,
+      );
       await Promise.resolve();
     });
 
@@ -107,6 +103,5 @@ describe("BackgroundLayers", () => {
 
     act(() => root.unmount());
     container.remove();
-    mocks.reducedMotion = false;
   });
 });

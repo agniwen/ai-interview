@@ -15,6 +15,7 @@ import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-c
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
+import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
@@ -64,12 +66,17 @@ function archivedFilterLabelOf(value: "active" | "archived" | "all"): string {
   return "未归档";
 }
 
-function firstSearchValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    const [first] = value;
-    return first === undefined ? "" : String(first);
-  }
-  return value === undefined ? "" : String(value);
+const archivedFilterSchema = z.enum(["active", "archived", "all"]);
+
+interface TemplateListQuery {
+  archived?: string;
+  jobDescriptionId?: string;
+  page: string;
+  pageSize: string;
+  scope?: string;
+  search?: string;
+  sortBy: string;
+  sortOrder: "asc" | "desc";
 }
 
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
@@ -93,45 +100,43 @@ export function CandidateFormTemplateManagementPage({
         filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedCandidateFormTemplateResult> =>
-        rpcFetch<PaginatedCandidateFormTemplateResult>(
+      }): Promise<PaginatedCandidateFormTemplateResult> => {
+        const query: TemplateListQuery = {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          sortBy: params.sortBy ?? "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
+        };
+        if (params.search) {
+          query.search = params.search;
+        }
+        if (params.filters.scope) {
+          query.scope = params.filters.scope;
+        }
+        if (params.filters.jobDescriptionId) {
+          query.jobDescriptionId = params.filters.jobDescriptionId;
+        }
+        if (params.filters.archivedFilter !== "active") {
+          query.archived = params.filters.archivedFilter;
+        }
+        return rpcFetch<PaginatedCandidateFormTemplateResult>(
           rpc.api.w[":slug"].studio.forms.$get({
             param: { slug },
-            query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
-              // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-              ...(params.filters.scope ? { scope: params.filters.scope } : {}),
-              ...(params.filters.jobDescriptionId
-                ? { jobDescriptionId: params.filters.jobDescriptionId }
-                : {}),
-              // archivedFilter 走 DataGrid 的 filter 通道，自动进入 queryKey，
-              // 切换时 react-query 才会重新拉取（避免列表不刷新的 bug）。
-              // Archived filter goes through the DataGrid filter channel so it's
-              // part of the queryKey and changes trigger a fresh fetch.
-              ...(params.filters.archivedFilter === "active"
-                ? {}
-                : { archived: params.filters.archivedFilter }),
-              sortBy: params.sortBy ?? "createdAt",
-              sortOrder: params.sortOrder ?? "desc",
-            },
+            query,
           }),
           "加载表单题列表失败",
-        ),
+        );
+      },
     [slug],
   );
 
   const loadTemplateDetailById = useCallback(
-    async (id: string): Promise<CandidateFormTemplateRecord | null> => {
-      const response = await rpc.api.w[":slug"].studio.forms[":id"].$get({
-        param: { id, slug },
-      });
-      if (!response.ok) {
-        return null;
-      }
-      return (await response.json()) as CandidateFormTemplateRecord;
-    },
+    async (id: string): Promise<CandidateFormTemplateRecord | null> =>
+      await rpcFetch<CandidateFormTemplateRecord>(
+        rpc.api.w[":slug"].studio.forms[":id"].$get({ param: { id, slug } }),
+        "加载模版失败",
+        { allow404: true },
+      ),
     [slug],
   );
 
@@ -145,12 +150,13 @@ export function CandidateFormTemplateManagementPage({
     queryFn: fetchTemplates,
     queryKeyBase: ["candidate-form-templates", slug],
   });
-  const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
+  const parsedArchivedFilter = archivedFilterSchema.safeParse(grid.filters.archivedFilter);
+  const archivedFilter = parsedArchivedFilter.success ? parsedArchivedFilter.data : "active";
   const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
 
-  const routeSearch = useSearch({ from: "/w/$slug/studio/forms" }) as SearchParamsRecord;
+  const routeSearch = coerceSearchParams(useSearch({ from: "/w/$slug/studio/forms" }));
   const navigate = useNavigate({ from: "/w/$slug/studio/forms" });
-  const activeTemplateId = firstSearchValue(routeSearch.templateId);
+  const activeTemplateId = firstSearchValue(routeSearch.templateId) ?? "";
   const setActiveTemplateId = useCallback(
     (value: string | null) => {
       void navigate({
@@ -188,12 +194,15 @@ export function CandidateFormTemplateManagementPage({
 
   const unarchiveTemplate = useCallback(
     async (record: CandidateFormTemplateListRecord) => {
-      const res = await rpc.api.w[":slug"].studio.forms[":id"].unarchive.$post({
-        param: { id: record.id, slug },
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(body.error ?? "取消归档失败");
+      try {
+        await rpcFetch(
+          rpc.api.w[":slug"].studio.forms[":id"].unarchive.$post({
+            param: { id: record.id, slug },
+          }),
+          "取消归档失败",
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "取消归档失败");
         return;
       }
       toast.success("表单已取消归档");
@@ -221,20 +230,12 @@ export function CandidateFormTemplateManagementPage({
     }
     const toastId = toast.loading("正在刷新未填写候选人表单题…");
     try {
-      const res = await rpc.api.w[":slug"].studio.forms[":id"]["refresh-eligible-candidates"].$post(
-        {
+      const body = await rpcFetch<{ refreshedCount: number; scannedCount: number }>(
+        rpc.api.w[":slug"].studio.forms[":id"]["refresh-eligible-candidates"].$post({
           param: { id: record.id, slug },
-        },
+        }),
+        "刷新失败",
       );
-      const body = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        refreshedCount?: number;
-        scannedCount?: number;
-      };
-      if (!res.ok) {
-        toast.error(body.error ?? "刷新失败", { id: toastId });
-        return;
-      }
       const refreshedCount = body.refreshedCount ?? 0;
       const scannedCount = body.scannedCount ?? 0;
       toast.success(
@@ -421,7 +422,7 @@ export function CandidateFormTemplateManagementPage({
           },
           {
             label: "取消归档",
-            onClick: (r) => void unarchiveTemplate(r),
+            onClick: unarchiveTemplate,
             show: (r) => canUpdateCandidateForm && Boolean(r.archivedAt),
           },
         ],

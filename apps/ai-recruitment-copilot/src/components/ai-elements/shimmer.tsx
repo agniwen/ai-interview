@@ -4,6 +4,11 @@ import type { CSSProperties, ElementType } from "react";
 import { memo, useMemo } from "react";
 import { cn } from "@arc/shared/utils";
 
+interface TextShimmerStyle extends CSSProperties {
+  "--spread": string;
+  "--text-shimmer-duration": string;
+}
+
 export interface TextShimmerProps {
   children: string;
   as?: ElementType;
@@ -34,7 +39,7 @@ function ShimmerComponent({
           "--text-shimmer-duration": `${duration}s`,
           backgroundImage:
             "var(--bg), linear-gradient(var(--color-muted-foreground), var(--color-muted-foreground))",
-        } as CSSProperties
+        } satisfies TextShimmerStyle
       }
     >
       {children}

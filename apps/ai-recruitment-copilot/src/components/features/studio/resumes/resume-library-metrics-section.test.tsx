@@ -8,23 +8,18 @@ import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { enableReactActEnvironment, renderInAct, unmountInAct } from "@/test-utils/react-act";
 import { ResumeLibraryMetricsSection } from "./resume-library-metrics-section";
 
-const chartMockState = vi.hoisted(() => ({ shouldThrow: false }));
-
-vi.mock("./resume-library-charts", async () => {
-  const React = await import("react");
-  return {
-    ResumeLibraryCharts: ({ metrics }: { metrics: ResumeLibraryMetrics }) => {
-      if (chartMockState.shouldThrow) {
-        throw new Error("chart render failed");
-      }
-      return React.createElement(
-        "div",
-        { "data-testid": "metrics-charts" },
-        `${metrics.conversion.withInterview}/${metrics.conversion.withoutInterview}`,
-      );
-    },
-  };
-});
+const chartMockState = { shouldThrow: false };
+// Test-only renderer seam keeps chart failures local to this section.
+const renderCharts = (input: ResumeLibraryMetrics) => {
+  if (chartMockState.shouldThrow) {
+    throw new Error("chart render failed");
+  }
+  return (
+    <div data-testid="metrics-charts">
+      {input.conversion.withInterview}/{input.conversion.withoutInterview}
+    </div>
+  );
+};
 
 enableReactActEnvironment();
 
@@ -78,6 +73,7 @@ describe("ResumeLibraryMetricsSection", () => {
         error={null}
         metrics={metrics}
         onRetry={vi.fn(async () => {})}
+        renderCharts={renderCharts}
       />,
     );
     roots.push(root);
@@ -126,6 +122,7 @@ describe("ResumeLibraryMetricsSection", () => {
         error={new Error("refresh failed")}
         metrics={metrics}
         onRetry={vi.fn(async () => {})}
+        renderCharts={renderCharts}
       />,
     );
     roots.push(root);
@@ -137,10 +134,16 @@ describe("ResumeLibraryMetricsSection", () => {
   it("keeps chart render failures inside the metrics region", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     chartMockState.shouldThrow = true;
-    const retry = Promise.withResolvers<boolean>();
+    const retry = Promise.withResolvers<undefined>();
+    const resolveRetry = retry.resolve.bind(null, undefined);
     const onRetry = vi.fn(() => retry.promise);
     const { root } = await renderInAct(
-      <ResumeLibraryMetricsSection error={null} metrics={metrics} onRetry={onRetry} />,
+      <ResumeLibraryMetricsSection
+        error={null}
+        metrics={metrics}
+        onRetry={onRetry}
+        renderCharts={renderCharts}
+      />,
     );
     roots.push(root);
 
@@ -155,7 +158,7 @@ describe("ResumeLibraryMetricsSection", () => {
 
     chartMockState.shouldThrow = false;
     await act(async () => {
-      retry.resolve(true);
+      resolveRetry();
       await retry.promise;
     });
     expect(document.querySelector("[data-testid='metrics-charts']")).not.toBeNull();

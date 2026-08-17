@@ -12,6 +12,7 @@ import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livek
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
@@ -62,6 +63,19 @@ interface InterviewRoomProps {
 interface StartOptions {
   muted?: boolean;
 }
+
+const livekitTokenErrorSchema = z.object({
+  code: z.string().optional(),
+  error: z.string().optional(),
+});
+
+const livekitTokenSchema = z.object({
+  isReconnect: z.boolean().optional(),
+  participantName: z.string(),
+  participantToken: z.string(),
+  roomName: z.string(),
+  serverUrl: z.string(),
+});
 
 function resolveStartButtonLabel({
   isConnecting,
@@ -382,16 +396,15 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       onError: (error) =>
         setEntryLoadError(error instanceof Error ? error.message : "加载面试信息失败"),
       operation: async () => {
-        const [response, nextFormsPayload] = await Promise.all([
-          rpc.api.interview[":id"][":roundId"].$get({
-            param: { id: interviewId, roundId },
-          }),
+        const [data, nextFormsPayload] = await Promise.all([
+          rpcFetch<CandidateInterviewView>(
+            rpc.api.interview[":id"][":roundId"].$get({
+              param: { id: interviewId, roundId },
+            }),
+            "面试信息不存在或已失效，请联系招聘负责人。",
+          ),
           fetchPreInterviewForms(interviewId, roundId),
         ]);
-        if (!response.ok) {
-          throw new Error("面试信息不存在或已失效，请联系招聘负责人。");
-        }
-        const data = (await response.json()) as CandidateInterviewView;
         setInterviewView(data);
         setFormsPayload(nextFormsPayload);
         setRoundStatus(data.currentRoundStatus);
@@ -440,28 +453,24 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         });
 
         if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as {
-            code?: string;
-            error?: string;
-          } | null;
+          const body = livekitTokenErrorSchema.safeParse(await response.json().catch(() => null));
+          const errorMessage = body.success ? body.data.error : undefined;
           // 403: 轮次已结束；410: 重连超过 3 分钟宽限。两者最终都置 completed。
           // 409: 另一窗口/设备占用，留在 WaitingView 由 toast 引导用户。
           // 403/410 → completed; 409 → toast and stay in WaitingView.
           if (response.status === 403 || response.status === 410) {
             setRoundStatus("completed");
           } else if (response.status === 409) {
-            toast.error(body?.error ?? "面试已在另一个窗口进行中。");
+            toast.error(errorMessage ?? "面试已在另一个窗口进行中。");
           }
-          throw new Error(body?.error ?? `livekit-token 请求失败（${response.status}）`);
+          throw new Error(errorMessage ?? `livekit-token 请求失败（${response.status}）`);
         }
 
-        return (await response.json()) as {
-          isReconnect?: boolean;
-          participantName: string;
-          participantToken: string;
-          roomName: string;
-          serverUrl: string;
-        };
+        const payload = livekitTokenSchema.safeParse(await response.json());
+        if (!payload.success) {
+          throw new Error("livekit-token 响应格式无效");
+        }
+        return payload.data;
       }),
     [interviewId, isLoadingStatus, roundId],
   );
@@ -728,7 +737,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         isRoundCompleted={isRoundCompleted}
         onPreparationBack={() => setPreparationConfirmed(false)}
         onPreparationConfirmed={() => setPreparationConfirmed(true)}
-        onRetry={() => void loadEntryData()}
+        onRetry={loadEntryData}
         preparationConfirmed={preparationConfirmed}
         roundId={roundId}
         waitingView={waitingView}

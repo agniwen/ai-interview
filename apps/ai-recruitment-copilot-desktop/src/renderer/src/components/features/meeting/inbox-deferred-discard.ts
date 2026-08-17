@@ -2,7 +2,7 @@ const TOAST_EXIT_DURATION_MS = 400;
 
 export function createDeferredInboxDiscard(input: {
   commit: () => Promise<void>;
-  onError?: (error: unknown) => void;
+  onError?: (error: Error) => void;
 }) {
   let cancelled = false;
   let commitTimer: ReturnType<typeof setTimeout> | null = null;
@@ -19,7 +19,7 @@ export function createDeferredInboxDiscard(input: {
         try {
           await input.commit();
         } catch (error) {
-          if (input.onError) {
+          if (error instanceof Error && input.onError) {
             input.onError(error);
           }
         }

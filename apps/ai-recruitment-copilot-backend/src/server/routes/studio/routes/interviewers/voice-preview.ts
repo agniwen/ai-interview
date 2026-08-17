@@ -1,6 +1,7 @@
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { putObjectBytes } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
@@ -10,6 +11,12 @@ export const MINIMAX_VOICE_PREVIEW_TEXT = "我是一名宇航员，我的故乡�
 export const MINIMAX_VOICE_PREVIEW_MODEL = "speech-02-turbo";
 export const MINIMAX_VOICE_PREVIEW_FORMAT = "mp3";
 const MINIMAX_VOICE_PREVIEW_CONTENT_TYPE = "audio/mpeg";
+const minimaxVoicePreviewResponseSchema = z.object({
+  base_resp: z
+    .object({ status_code: z.number().optional(), status_msg: z.string().optional() })
+    .optional(),
+  data: z.object({ audio: z.string().nullable().optional() }).optional(),
+});
 
 interface VoicePreviewIdentity {
   format: string;
@@ -188,10 +195,7 @@ async function synthesizeAudio(input: {
     throw new Error(`MiniMax TTS request failed with status ${response.status}.`);
   }
 
-  const payload = (await response.json()) as {
-    base_resp?: { status_code?: number; status_msg?: string };
-    data?: { audio?: string | null };
-  };
+  const payload = minimaxVoicePreviewResponseSchema.parse(await response.json());
   if (payload.base_resp?.status_code !== 0) {
     throw new Error(payload.base_resp?.status_msg || "MiniMax TTS request failed.");
   }

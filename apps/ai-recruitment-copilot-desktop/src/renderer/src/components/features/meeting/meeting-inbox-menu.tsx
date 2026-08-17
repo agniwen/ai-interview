@@ -25,10 +25,15 @@ import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
 import { createDeferredInboxDiscard } from "./inbox-deferred-discard";
 import { useMeetingCaptureSnapshot, useMeetingRecordingActions } from "./meeting-recording-context";
 
-const noDragStyle = {
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /** Hover reveal: fade + slide in from the right. */
 const ACTION_REVEAL_CLASS =
@@ -78,13 +83,13 @@ function recoveryMeta(capture: RecoverableMeetingCapture): string {
   return `麦 ${micSec}s · 系统 ${sysSec}s`;
 }
 
-const WORKSPACE_SAVE_TITLE: Record<WorkspaceSaveState["state"], string> = {
+const WORKSPACE_SAVE_TITLE = {
   "action-required": "需处理",
   uploading: "上传中",
   verifying: "验证中",
   "waiting-for-network": "等待网络",
   "workspace-verified": "已保存",
-};
+} satisfies Record<WorkspaceSaveState["state"], string>;
 
 type InboxEntry =
   | { kind: "saved"; captureId: string }
@@ -300,7 +305,9 @@ export function MeetingInboxMenu() {
                   key={`saved-${entry.captureId}`}
                   onDiscard={discardFromInbox}
                   onOpen={() => setOpen(false)}
-                  onSave={(captureId) => void saveRecording(captureId)}
+                  onSave={(captureId) => {
+                    saveRecording(captureId);
+                  }}
                   snapshot={captureSnapshot}
                 />
               ) : (
@@ -309,7 +316,9 @@ export function MeetingInboxMenu() {
                   key={`recoverable-${entry.capture.captureId}`}
                   onDiscard={discardFromInbox}
                   onOpen={() => setOpen(false)}
-                  onSave={(captureId) => void saveRecording(captureId)}
+                  onSave={(captureId) => {
+                    saveRecording(captureId);
+                  }}
                 />
               ),
             )}

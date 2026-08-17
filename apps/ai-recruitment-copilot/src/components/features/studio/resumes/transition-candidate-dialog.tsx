@@ -15,10 +15,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
+  closeCategorySchema,
   candidateOutcomeMeta,
   closeCategoryMeta,
   closeCategoryValues,
+  pipelineStageSchema,
   pipelineStageMeta,
 } from "@arc/db-schema/studio-interviews";
 import type {
@@ -27,7 +30,6 @@ import type {
   CloseCategory,
   PipelineStage,
 } from "@arc/db-schema/studio-interviews";
-import type { ApiError } from "@/lib/client/api/errors";
 import { fetchStudioResume, transitionInterviewRecord } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -76,6 +78,12 @@ const REACTIVATE_TARGET_STAGES: ReactivateTargetStage[] = [
   "offer",
 ];
 
+const closeOutcomeSchema = z.enum(["hired", "rejected", "withdrawn", "archived"]);
+
+function isReactivateTargetStage(stage: PipelineStage): stage is ReactivateTargetStage {
+  return REACTIVATE_TARGET_STAGES.some((candidate) => candidate === stage);
+}
+
 const REACTIVATE_TARGET_STAGE_INDEX = new Map(
   REACTIVATE_TARGET_STAGES.map((stage, index) => [stage, index]),
 );
@@ -85,11 +93,8 @@ function getReachedReactivateStageIndex(
 ): number {
   let reached = 0;
   const previousStage = resume?.closedMeta?.previousStage;
-  if (previousStage && REACTIVATE_TARGET_STAGE_INDEX.has(previousStage as ReactivateTargetStage)) {
-    reached = Math.max(
-      reached,
-      REACTIVATE_TARGET_STAGE_INDEX.get(previousStage as ReactivateTargetStage) ?? 0,
-    );
+  if (previousStage && isReactivateTargetStage(previousStage)) {
+    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get(previousStage) ?? 0);
   }
   if (resume?.hasInterviewRounds || resume?.stageProgress.aiInterview) {
     reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("ai_interview") ?? 0);
@@ -208,9 +213,7 @@ function CloseDialog({
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
       onError: (error) => {
-        const message =
-          (error as ApiError | undefined)?.message ??
-          (error instanceof Error ? error.message : "操作失败");
+        const message = error instanceof Error ? error.message : "操作失败";
         toast.error(message);
       },
       operation: async () => {
@@ -271,7 +274,12 @@ function CloseDialog({
         <div className="space-y-4 py-2">
           <RadioGroup
             className="grid grid-cols-2 gap-2"
-            onValueChange={(v) => setOutcome(v as Exclude<CandidateOutcome, "in_pipeline">)}
+            onValueChange={(value) => {
+              const parsed = closeOutcomeSchema.safeParse(value);
+              if (parsed.success) {
+                setOutcome(parsed.data);
+              }
+            }}
             value={outcome}
           >
             {CLOSE_OUTCOMES.map((value) => (
@@ -347,7 +355,16 @@ function CloseDialog({
                   </Label>
                   <NativeSelect
                     id="reject-category"
-                    onChange={(e) => setCategory(e.target.value as CloseCategory)}
+                    onChange={(event) => {
+                      if (!event.target.value) {
+                        setCategory("");
+                        return;
+                      }
+                      const parsed = closeCategorySchema.safeParse(event.target.value);
+                      if (parsed.success) {
+                        setCategory(parsed.data);
+                      }
+                    }}
                     value={category}
                   >
                     <NativeSelectOption value="">请选择</NativeSelectOption>
@@ -474,9 +491,7 @@ function ReactivateDialog({
     await runAsyncAction({
       cleanup: () => setSubmitting(false),
       onError: (error) => {
-        const message =
-          (error as ApiError | undefined)?.message ??
-          (error instanceof Error ? error.message : "操作失败");
+        const message = error instanceof Error ? error.message : "操作失败";
         toast.error(message);
       },
       operation: async () => {
@@ -514,7 +529,12 @@ function ReactivateDialog({
               回退阶段
             </Label>
             <Select
-              onValueChange={(value) => setTargetStage(value as ReactivateTargetStage)}
+              onValueChange={(value) => {
+                const parsed = pipelineStageSchema.safeParse(value);
+                if (parsed.success && isReactivateTargetStage(parsed.data)) {
+                  setTargetStage(parsed.data);
+                }
+              }}
               value={targetStage}
             >
               <SelectTrigger className="w-full" id="reactivation-target-stage">

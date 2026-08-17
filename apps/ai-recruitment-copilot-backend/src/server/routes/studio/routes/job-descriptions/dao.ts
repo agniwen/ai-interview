@@ -13,7 +13,8 @@ import {
   createDefaultJobDescriptionStructuredConfig,
   parseStoredJobDescriptionStructuredConfig,
 } from "@arc/db-schema/job-description-structured-config";
-import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
+import type { JsonObject } from "@arc/db-schema/json";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
@@ -56,15 +57,27 @@ const ORDER_COLUMNS = {
 const jobDescriptionPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
 export type JobDescriptionPaginationParams = PaginationParams<SortColumn>;
+interface JobDescriptionPaginationInput {
+  page?: string;
+  pageSize?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
 
 export type PaginatedJobDescriptionResult = PaginatedResult<JobDescriptionListRecord>;
 
-function parseResumeScreeningPolicy(value: unknown) {
+function parseResumeScreeningPolicy(value: JsonObject | null) {
+  if (!value) {
+    return createDefaultResumeScreeningPolicy();
+  }
   const parsedPolicy = resumeScreeningPolicySchema.safeParse(value);
   return parsedPolicy.success ? parsedPolicy.data : createDefaultResumeScreeningPolicy();
 }
 
-function parseStructuredConfig(value: unknown) {
+function parseStructuredConfig(value: JsonObject | null) {
+  if (!value) {
+    return createDefaultJobDescriptionStructuredConfig();
+  }
   try {
     return parseStoredJobDescriptionStructuredConfig(value);
   } catch {
@@ -278,7 +291,7 @@ async function loadInterviewersForJobDescriptions(
       list.push({
         id: row.interviewerId,
         name: row.interviewerName,
-        voice: row.interviewerVoice as MinimaxVoiceId,
+        voice: minimaxVoiceSchema.parse(row.interviewerVoice),
       });
     }
   }
@@ -406,7 +419,7 @@ function parseFilters(filters?: {
 }
 
 export function parseJobDescriptionPagination(
-  params?: Record<string, unknown>,
+  params?: JobDescriptionPaginationInput,
 ): JobDescriptionPaginationParams {
   return jobDescriptionPaginationSchema.parse(params ?? {});
 }
@@ -418,7 +431,7 @@ export async function queryPaginatedJobDescriptions(
     departmentId?: string | null;
     interviewerId?: string | null;
   },
-  pagination?: Record<string, unknown>,
+  pagination?: JobDescriptionPaginationInput,
 ): Promise<PaginatedJobDescriptionResult> {
   const { search, departmentIds, interviewerIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseJobDescriptionPagination(pagination);
@@ -476,7 +489,7 @@ export function listJobDescriptions(
     departmentId?: string | null;
     interviewerId?: string | null;
   },
-  pagination?: Record<string, unknown>,
+  pagination?: JobDescriptionPaginationInput,
 ) {
   return queryPaginatedJobDescriptions(organizationId, filters, pagination);
 }

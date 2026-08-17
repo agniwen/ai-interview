@@ -5,8 +5,11 @@ import {
   WorkspaceContextInvariantError,
 } from "@arc/ai-recruitment-copilot-backend/server/context/workspace-request-context";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const organization = { id: "org_1" } as never;
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const member = { id: "member_1", role: "owner" } as never;
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const user = { id: "user_1" } as never;
 
 describe("getWorkspaceRequestContext", () => {

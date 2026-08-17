@@ -42,6 +42,18 @@ interface EntityDeleteDialogProps<TRecord> {
   confirmDisabled?: boolean | ((record: TRecord) => boolean);
 }
 
+function isDescriptionRenderer<TRecord>(
+  value: ReactNode | ((record: TRecord) => ReactNode),
+): value is (record: TRecord) => ReactNode {
+  return typeof value === "function";
+}
+
+function isDisabledResolver<TRecord>(
+  value: boolean | ((record: TRecord) => boolean),
+): value is (record: TRecord) => boolean {
+  return typeof value === "function";
+}
+
 /**
  * 统一的"删除前确认"弹窗。description 支持函数式以便引用记录字段。
  * Shared confirm-before-delete dialog. `description` accepts a function
@@ -60,14 +72,10 @@ export function EntityDeleteDialog<TRecord>({
   let resolvedDescription: ReactNode = null;
   let resolvedDisabled = false;
   if (record !== null) {
-    resolvedDescription =
-      typeof description === "function"
-        ? (description as (r: TRecord) => ReactNode)(record)
-        : description;
-    resolvedDisabled =
-      typeof confirmDisabled === "function"
-        ? (confirmDisabled as (r: TRecord) => boolean)(record)
-        : confirmDisabled;
+    resolvedDescription = isDescriptionRenderer(description) ? description(record) : description;
+    resolvedDisabled = isDisabledResolver(confirmDisabled)
+      ? confirmDisabled(record)
+      : confirmDisabled;
   }
 
   return (
@@ -88,7 +96,9 @@ export function EntityDeleteDialog<TRecord>({
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             disabled={resolvedDisabled}
-            onClick={() => void onConfirm()}
+            onClick={async () => {
+              await onConfirm();
+            }}
             variant="destructive"
           >
             {confirmLabel}

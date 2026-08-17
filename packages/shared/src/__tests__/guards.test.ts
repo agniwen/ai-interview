@@ -129,6 +129,7 @@ describe("hasOwn", () => {
 
   it("returns false for inherited properties", () => {
     const parent = { inherited: 1 };
+    // SAFETY: The test uses the standard object returned by Object.create only for inherited-key behavior.
     const child = Object.create(parent) as object;
     expect(hasOwn(child, "inherited")).toBe(false);
   });

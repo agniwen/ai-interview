@@ -23,9 +23,7 @@ export const emptyFiltersSchema = z.object({});
 const dataGridSortOrderSchema = z.custom<"asc" | "desc" | undefined>(
   (value) => value === undefined || value === "asc" || value === "desc",
 );
-const dataGridSortBySchema = z.custom<string | undefined>(
-  (value) => value === undefined || typeof value === "string",
-);
+const dataGridSortBySchema = z.union([z.string(), z.undefined()]);
 
 export function dataGridQuerySchema<TFilters extends z.ZodType<Record<string, string>>>(
   filtersSchema: TFilters,

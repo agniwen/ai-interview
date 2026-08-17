@@ -72,7 +72,7 @@ export function MarkdownEditor({
     placeholder,
     value,
   });
-  const over = typeof maxLength === "number" && value.length > maxLength;
+  const over = maxLength !== undefined && value.length > maxLength;
 
   return (
     <div
@@ -93,13 +93,13 @@ export function MarkdownEditor({
 
       <div
         className={cn("relative z-10 min-h-0 flex-1 bg-transparent overflow-y-auto")}
-        style={{ minHeight: typeof height === "number" ? height : minHeight }}
+        style={{ minHeight: height ?? minHeight }}
       >
         <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
         <MarkdownEditorBubbleMenu editor={editor} />
       </div>
 
-      {typeof maxLength === "number" && (
+      {maxLength !== undefined && (
         <div
           className={cn(
             "relative z-10 flex justify-end border-t bg-transparent px-3 py-1.5 text-xs",

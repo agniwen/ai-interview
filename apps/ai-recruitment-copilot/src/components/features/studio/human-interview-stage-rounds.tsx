@@ -14,7 +14,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { humanInterviewFormatMeta } from "@arc/db-schema/studio-interviews";
@@ -23,7 +23,11 @@ import type {
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
-import { patchHumanInterviewRound, updateHumanInterviewMeeting } from "@/lib/client/api";
+import {
+  isApiError,
+  patchHumanInterviewRound,
+  updateHumanInterviewMeeting,
+} from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
@@ -45,6 +49,46 @@ import {
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 
+interface RoundDateTimePickerProps {
+  className: string;
+  disabled: boolean;
+  id: string;
+  onValueChange: (value: string) => void;
+  required?: boolean;
+  value: string;
+}
+
+export interface RoundCardDependencies {
+  isApiError: typeof isApiError;
+  notifyError: (message: string) => void;
+  notifySuccess: (message: string) => void;
+  notifyWarning: (message: string) => void;
+  patchHumanInterviewRound: typeof patchHumanInterviewRound;
+  renderDateTimePicker: (props: RoundDateTimePickerProps) => ReactNode;
+  updateHumanInterviewMeeting: typeof updateHumanInterviewMeeting;
+  useWorkspaceSlug: () => string;
+}
+
+const defaultRoundCardDependencies: RoundCardDependencies = {
+  isApiError,
+  notifyError: (message) => toast.error(message),
+  notifySuccess: (message) => toast.success(message),
+  notifyWarning: (message) => toast.warning(message),
+  patchHumanInterviewRound,
+  renderDateTimePicker: (props) => (
+    <DateTimePicker
+      className={props.className}
+      disabled={props.disabled}
+      id={props.id}
+      onValueChange={props.onValueChange}
+      required={props.required}
+      value={props.value}
+    />
+  ),
+  updateHumanInterviewMeeting,
+  useWorkspaceSlug,
+};
+
 export function RoundCard({
   round,
   canCreate,
@@ -58,6 +102,7 @@ export function RoundCard({
   onEndMeeting,
   onOpenLinks,
   onRescheduled,
+  dependencies = defaultRoundCardDependencies,
 }: {
   round: HumanInterviewRoundRecord;
   canCreate: boolean;
@@ -71,6 +116,7 @@ export function RoundCard({
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
   onRescheduled: () => void;
+  dependencies?: RoundCardDependencies;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
   const canWrite = disabled !== true;
@@ -97,6 +143,7 @@ export function RoundCard({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
               <RoundScheduledAtControl
                 canUpdate={canUpdate}
+                dependencies={dependencies}
                 disabled={disabled}
                 meeting={meeting}
                 onRescheduled={onRescheduled}
@@ -155,14 +202,16 @@ function RoundScheduledAtControl({
   canUpdate,
   disabled,
   onRescheduled,
+  dependencies,
 }: {
   round: HumanInterviewRoundRecord;
   meeting: HumanInterviewMeetingRecord | null;
   canUpdate: boolean;
   disabled?: boolean;
+  dependencies: RoundCardDependencies;
   onRescheduled: () => void;
 }) {
-  const slug = useWorkspaceSlug();
+  const slug = dependencies.useWorkspaceSlug();
   const [editing, setEditing] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(() =>
     toDateTimeLocalInputValue(round.scheduledAt),
@@ -182,26 +231,27 @@ function RoundScheduledAtControl({
       }
       try {
         await (meeting
-          ? updateHumanInterviewMeeting(slug, meeting.id, {
+          ? dependencies.updateHumanInterviewMeeting(slug, meeting.id, {
               scheduledAt: nextScheduledAt,
               validUntil: nextValidUntil,
             })
-          : patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
+          : dependencies.patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
               scheduledAt: nextScheduledAt,
               validUntil: nextValidUntil,
             }));
         return { feishuFailure: null };
       } catch (error) {
-        const feishuFailure = meeting ? getCreatedMeetingFeishuFailure(error) : null;
+        const feishuFailure =
+          meeting && dependencies.isApiError(error) ? getCreatedMeetingFeishuFailure(error) : null;
         if (!feishuFailure) {
           throw error;
         }
         return { feishuFailure };
       }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "调整时间失败"),
+    onError: (e) => dependencies.notifyError(e instanceof Error ? e.message : "调整时间失败"),
     onSuccess: ({ feishuFailure }) => {
-      const notify = feishuFailure ? toast.warning : toast.success;
+      const notify = feishuFailure ? dependencies.notifyWarning : dependencies.notifySuccess;
       const message = feishuFailure
         ? "面试时间已调整，但飞书同步失败，可在会议链接中重试"
         : "面试时间已调整";
@@ -248,24 +298,24 @@ function RoundScheduledAtControl({
         <Label className="sr-only" htmlFor={inputId}>
           面试时间
         </Label>
-        <DateTimePicker
-          className="h-7 w-[13.5rem] text-xs"
-          disabled={mutation.isPending}
-          id={inputId}
-          onValueChange={handleScheduledAtChange}
-          required
-          value={scheduledAt}
-        />
+        {dependencies.renderDateTimePicker({
+          className: "h-7 w-[13.5rem] text-xs",
+          disabled: mutation.isPending,
+          id: inputId,
+          onValueChange: handleScheduledAtChange,
+          required: true,
+          value: scheduledAt,
+        })}
         <Label className="sr-only" htmlFor={validUntilInputId}>
           有效时间至
         </Label>
-        <DateTimePicker
-          className="h-7 w-[13.5rem] text-xs"
-          disabled={mutation.isPending}
-          id={validUntilInputId}
-          onValueChange={setValidUntil}
-          value={validUntil}
-        />
+        {dependencies.renderDateTimePicker({
+          className: "h-7 w-[13.5rem] text-xs",
+          disabled: mutation.isPending,
+          id: validUntilInputId,
+          onValueChange: setValidUntil,
+          value: validUntil,
+        })}
         <Button
           aria-label="保存面试时间"
           className="h-7 w-7 p-0"

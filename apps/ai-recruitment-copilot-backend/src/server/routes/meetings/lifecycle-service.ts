@@ -14,15 +14,36 @@ import {
   trashMeetingSession,
 } from "./lifecycle-dao";
 
-async function enqueueMeetingPurgeBestEffort(input: {
-  meetingId: string;
-  organizationId: string;
-}): Promise<void> {
-  if (!isMeetingPurgeQueueConfigured()) {
+export interface MeetingLifecycleDependencies {
+  enqueueMeetingPurgeJobs: typeof enqueueMeetingPurgeJobs;
+  isMeetingPurgeQueueConfigured: typeof isMeetingPurgeQueueConfigured;
+  listTrashedMeetingSessions: typeof listTrashedMeetingSessions;
+  requestMeetingPurge: typeof requestMeetingPurge;
+  restoreMeetingSession: typeof restoreMeetingSession;
+  trashMeetingSession: typeof trashMeetingSession;
+}
+
+const defaultDependencies: MeetingLifecycleDependencies = {
+  enqueueMeetingPurgeJobs,
+  isMeetingPurgeQueueConfigured,
+  listTrashedMeetingSessions,
+  requestMeetingPurge,
+  restoreMeetingSession,
+  trashMeetingSession,
+};
+
+async function enqueueMeetingPurgeBestEffort(
+  input: {
+    meetingId: string;
+    organizationId: string;
+  },
+  dependencies: MeetingLifecycleDependencies,
+): Promise<void> {
+  if (!dependencies.isMeetingPurgeQueueConfigured()) {
     return;
   }
   try {
-    await enqueueMeetingPurgeJobs([input]);
+    await dependencies.enqueueMeetingPurgeJobs([input]);
   } catch (error) {
     console.error("[meeting-purge] enqueue failed; reconciliation will retry", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -31,12 +52,15 @@ async function enqueueMeetingPurgeBestEffort(input: {
   }
 }
 
-export async function trashSavedMeeting(input: {
-  actorId: string;
-  meetingId: string;
-  organizationId: string;
-}) {
-  const result = await trashMeetingSession(input);
+export async function trashSavedMeeting(
+  input: {
+    actorId: string;
+    meetingId: string;
+    organizationId: string;
+  },
+  dependencies: MeetingLifecycleDependencies = defaultDependencies,
+) {
+  const result = await dependencies.trashMeetingSession(input);
   if (result.state === "trashed" || result.state === "already-trashed") {
     return { purgeAfter: result.purgeAfter.toISOString(), state: result.state };
   }
@@ -48,8 +72,9 @@ export async function listTrashedSavedMeetings(
     actorId: string;
     organizationId: string;
   } & TrashedMeetingListQuery,
+  dependencies: MeetingLifecycleDependencies = defaultDependencies,
 ): Promise<PaginatedTrashedMeetings> {
-  const result = await listTrashedMeetingSessions(input);
+  const result = await dependencies.listTrashedMeetingSessions(input);
   const records = result.records.flatMap((record) =>
     record.purgeAfter && record.trashedAt
       ? [
@@ -71,26 +96,35 @@ export async function listTrashedSavedMeetings(
   return toPaginatedResult(records, result.total, input.page, input.pageSize);
 }
 
-export function restoreSavedMeeting(input: {
-  actorId: string;
-  meetingId: string;
-  organizationId: string;
-}) {
-  return restoreMeetingSession(input);
+export function restoreSavedMeeting(
+  input: {
+    actorId: string;
+    meetingId: string;
+    organizationId: string;
+  },
+  dependencies: MeetingLifecycleDependencies = defaultDependencies,
+) {
+  return dependencies.restoreMeetingSession(input);
 }
 
-export async function permanentlyPurgeSavedMeeting(input: {
-  actorId: string;
-  localRecoveryCleanup?: "deleted" | "failed" | "not-reported";
-  meetingId: string;
-  organizationId: string;
-}) {
-  const result = await requestMeetingPurge(input);
+export async function permanentlyPurgeSavedMeeting(
+  input: {
+    actorId: string;
+    localRecoveryCleanup?: "deleted" | "failed" | "not-reported";
+    meetingId: string;
+    organizationId: string;
+  },
+  dependencies: MeetingLifecycleDependencies = defaultDependencies,
+) {
+  const result = await dependencies.requestMeetingPurge(input);
   if (result.state === "purging") {
-    await enqueueMeetingPurgeBestEffort({
-      meetingId: input.meetingId,
-      organizationId: input.organizationId,
-    });
+    await enqueueMeetingPurgeBestEffort(
+      {
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      },
+      dependencies,
+    );
   }
   return result;
 }

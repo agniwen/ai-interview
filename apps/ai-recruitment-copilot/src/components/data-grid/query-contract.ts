@@ -118,8 +118,11 @@ export function parseDataGridSearchParams<F extends Record<string, string>>(
   options: ParseDataGridSearchParamsOptions<F>,
 ): DataGridQueryState<F> {
   const firstSort = options.defaultSorting?.[0];
+  // SAFETY: The accumulator is populated only from keys and string values owned by initialFilters.
   const filters = {} as F;
+  // SAFETY: Object.keys returns exactly the own string keys declared by the generic filter owner.
   for (const key of Object.keys(options.initialFilters) as (keyof F & string)[]) {
+    // SAFETY: Both the parsed query value and its owner-provided fallback satisfy F's string value.
     filters[key] = (firstParam(searchParams[key]) ?? options.initialFilters[key]) as F[typeof key];
   }
 

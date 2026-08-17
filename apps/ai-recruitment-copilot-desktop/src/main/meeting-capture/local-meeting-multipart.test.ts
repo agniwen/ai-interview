@@ -17,6 +17,7 @@ describe("Meeting object upload", () => {
       url: "https://recordings.example.test/microphone.webm",
     });
 
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
     expect(request?.signal).toBeInstanceOf(AbortSignal);
     expect(request?.signal?.aborted).toBe(false);

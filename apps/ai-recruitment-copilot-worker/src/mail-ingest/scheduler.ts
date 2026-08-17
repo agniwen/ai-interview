@@ -24,7 +24,7 @@ export function startMailIngestScheduler(): MailIngestScheduler | null {
     }
     running = true;
     try {
-      const { runMailIngestOnce } = await import("./processor");
+      const { runMailIngestOnce } = await import("./processor-runtime");
       const result = await runMailIngestOnce(config);
       console.info("[mail-ingest] poll finished", result);
     } catch (error) {
@@ -34,9 +34,12 @@ export function startMailIngestScheduler(): MailIngestScheduler | null {
     }
   };
 
-  const timer = setInterval(() => void run(), config.intervalMs);
+  const scheduleRun = async () => {
+    await run();
+  };
+  const timer = setInterval(scheduleRun, config.intervalMs);
   timer.unref();
-  queueMicrotask(() => void run());
+  queueMicrotask(scheduleRun);
   console.info("[mail-ingest] scheduler started", {
     intervalMs: config.intervalMs,
     maxAccountsPerRun: config.maxAccountsPerRun,

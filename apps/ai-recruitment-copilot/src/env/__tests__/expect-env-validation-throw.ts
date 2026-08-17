@@ -5,7 +5,7 @@ import { expect, vi } from "vitest";
  * Negative tests intentionally pass incomplete env objects; silence that noise so
  * suite output is not mistaken for a missing local `.env`.
  */
-export function expectEnvValidationToThrow(run: () => unknown): void {
+export function expectEnvValidationToThrow(run: () => void): void {
   const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   try {
     expect(run).toThrow();

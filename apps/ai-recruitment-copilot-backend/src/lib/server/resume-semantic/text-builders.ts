@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
 export type ResumeSemanticChunkType = "resume_overview" | "skill_role" | "work_project";
@@ -8,6 +9,8 @@ export interface ResumeSemanticTextChunk {
 }
 
 const PLACEHOLDER = "未发现信息";
+const semanticLineNumberSchema = z.number();
+const semanticLineTextSchema = z.string();
 
 function cleanText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -28,10 +31,12 @@ function cleanList(values: readonly string[] | null | undefined): string[] {
 }
 
 function line(label: string, value: string | number | null | undefined): string | null {
-  if (typeof value === "number") {
-    return `${label}：${value}`;
+  const numericValue = semanticLineNumberSchema.safeParse(value);
+  if (numericValue.success) {
+    return `${label}：${numericValue.data}`;
   }
-  const cleaned = cleanText(value);
+  const textValue = semanticLineTextSchema.safeParse(value);
+  const cleaned = textValue.success ? cleanText(textValue.data) : null;
   return cleaned ? `${label}：${cleaned}` : null;
 }
 

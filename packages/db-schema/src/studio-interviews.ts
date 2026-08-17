@@ -18,10 +18,7 @@ export type CandidateInterviewFeedbackCategory = z.infer<
   typeof candidateInterviewFeedbackCategorySchema
 >;
 
-export const candidateInterviewFeedbackCategoryMeta: Record<
-  CandidateInterviewFeedbackCategory,
-  { label: string }
-> = {
+export const candidateInterviewFeedbackCategoryMeta = {
   ai_conversation: { label: "AI 对话" },
   audio: { label: "音频" },
   network: { label: "网络连接" },
@@ -29,7 +26,7 @@ export const candidateInterviewFeedbackCategoryMeta: Record<
   page_operation: { label: "页面操作" },
   question_content: { label: "题目内容" },
   video: { label: "视频" },
-};
+} as const satisfies Record<CandidateInterviewFeedbackCategory, { label: string }>;
 
 export const candidateInterviewFeedbackInputSchema = z.object({
   categories: z
@@ -89,17 +86,17 @@ export const pipelineStageValues = [
 export const pipelineStageSchema = z.enum(pipelineStageValues);
 export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 
-export const pipelineStageMeta: Record<
-  PipelineStage,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const pipelineStageMeta = {
   ai_interview: { label: "AI 面试", tone: "warning" },
   closed: { label: "已结案", tone: "outline" },
   human_interview: { label: "真人复面", tone: "warning" },
   offer: { label: "Offer", tone: "info" },
   screening: { label: "简历筛选", tone: "outline" },
   written_test: { label: "笔试", tone: "info" },
-};
+} as const satisfies Record<
+  PipelineStage,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 // 候选人最终结论：in_pipeline 表示还在流程中（默认），其余四种都对应 pipelineStage='closed'。
 // withdrawn = 候选人主动撤回；archived = 冷藏（不删但不在主视图）。
@@ -116,16 +113,16 @@ export const candidateOutcomeValues = [
 export const candidateOutcomeSchema = z.enum(candidateOutcomeValues);
 export type CandidateOutcome = z.infer<typeof candidateOutcomeSchema>;
 
-export const candidateOutcomeMeta: Record<
-  CandidateOutcome,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const candidateOutcomeMeta = {
   archived: { label: "已归档", tone: "outline" },
   hired: { label: "已录用", tone: "success" },
   in_pipeline: { label: "进行中", tone: "info" },
   rejected: { label: "已淘汰", tone: "outline" },
   withdrawn: { label: "已撤回", tone: "outline" },
-};
+} as const satisfies Record<
+  CandidateOutcome,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 // 不变量：outcome !== 'in_pipeline' ⇔ pipelineStage === 'closed'。
 // DB 端用 CHECK 约束兜底，应用层在写入时也应当一致。
@@ -144,28 +141,25 @@ export const resumeParseStatusValues = [
 export const resumeParseStatusSchema = z.enum(resumeParseStatusValues);
 export type ResumeParseStatus = z.infer<typeof resumeParseStatusSchema>;
 
-export const resumeParseStatusMeta: Record<
-  ResumeParseStatus,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const resumeParseStatusMeta = {
   failed: { label: "解析失败", tone: "warning" },
   processing: { label: "解析中", tone: "warning" },
   queued: { label: "未解析", tone: "outline" },
   ready: { label: "已解析", tone: "success" },
   unparsed: { label: "未解析", tone: "outline" },
-};
+} as const satisfies Record<
+  ResumeParseStatus,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 export const resumeEvaluationStatusValues = ["pass", "fail"] as const;
 export const resumeEvaluationStatusSchema = z.enum(resumeEvaluationStatusValues);
 export type ResumeEvaluationStatus = z.infer<typeof resumeEvaluationStatusSchema>;
 
-export const resumeEvaluationStatusMeta: Record<
-  ResumeEvaluationStatus,
-  { label: string; tone: "success" | "danger" }
-> = {
+export const resumeEvaluationStatusMeta = {
   fail: { label: "不通过", tone: "danger" },
   pass: { label: "通过", tone: "success" },
-};
+} as const satisfies Record<ResumeEvaluationStatus, { label: string; tone: "success" | "danger" }>;
 
 export const resumeReviewStatusValues = [
   "idle",
@@ -177,16 +171,16 @@ export const resumeReviewStatusValues = [
 export const resumeReviewStatusSchema = z.enum(resumeReviewStatusValues);
 export type ResumeReviewStatus = z.infer<typeof resumeReviewStatusSchema>;
 
-export const resumeReviewStatusMeta: Record<
-  ResumeReviewStatus,
-  { label: string; tone: "success" | "warning" | "danger" | "outline" }
-> = {
+export const resumeReviewStatusMeta = {
   failed: { label: "分析失败", tone: "danger" },
   idle: { label: "未分析", tone: "outline" },
   processing: { label: "分析中", tone: "warning" },
   queued: { label: "等待分析", tone: "warning" },
   ready: { label: "已分析", tone: "success" },
-};
+} as const satisfies Record<
+  ResumeReviewStatus,
+  { label: string; tone: "success" | "warning" | "danger" | "outline" }
+>;
 
 export const resumeScreeningStatusValues = ["idle", "processing", "ready", "failed"] as const;
 export const resumeScreeningStatusSchema = z.enum(resumeScreeningStatusValues);
@@ -206,24 +200,24 @@ export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"]
 export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
 export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
 
-export const humanInterviewRoundOutcomeMeta: Record<
-  HumanInterviewRoundOutcome,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const humanInterviewRoundOutcomeMeta = {
   fail: { label: "未通过", tone: "outline" },
   inconclusive: { label: "待定", tone: "info" },
   pass: { label: "通过", tone: "success" },
-};
+} as const satisfies Record<
+  HumanInterviewRoundOutcome,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 export const humanInterviewFormatValues = ["online", "onsite", "phone"] as const;
 export const humanInterviewFormatSchema = z.enum(humanInterviewFormatValues);
 export type HumanInterviewFormat = z.infer<typeof humanInterviewFormatSchema>;
 
-export const humanInterviewFormatMeta: Record<HumanInterviewFormat, { label: string }> = {
+export const humanInterviewFormatMeta = {
   online: { label: "线上" },
   onsite: { label: "线下" },
   phone: { label: "电话" },
-};
+} as const satisfies Record<HumanInterviewFormat, { label: string }>;
 
 const EXPLICIT_TIMEZONE_PATTERN = /(?:Z|[+-]\d{2}:?\d{2})$/i;
 
@@ -367,17 +361,17 @@ export const offerDraftStatusValues = [
 export const offerDraftStatusSchema = z.enum(offerDraftStatusValues);
 export type OfferDraftStatus = z.infer<typeof offerDraftStatusSchema>;
 
-export const offerDraftStatusMeta: Record<
-  OfferDraftStatus,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const offerDraftStatusMeta = {
   accepted: { label: "已接受", tone: "success" },
   declined: { label: "已拒绝", tone: "outline" },
   draft: { label: "草稿", tone: "outline" },
   expired: { label: "已过期", tone: "outline" },
   sent: { label: "已发送", tone: "info" },
   superseded: { label: "已被新版替代", tone: "outline" },
-};
+} as const satisfies Record<
+  OfferDraftStatus,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 // Offer 输入 schema：薪资以「元」为单位（integer），currency 默认 CNY。
 // Salary stored as integer "元" (CNY cents not used early-stage; CNY is dominant).
@@ -427,14 +421,14 @@ export const closeCategoryValues = [
 export const closeCategorySchema = z.enum(closeCategoryValues);
 export type CloseCategory = z.infer<typeof closeCategorySchema>;
 
-export const closeCategoryMeta: Record<CloseCategory, { label: string }> = {
+export const closeCategoryMeta = {
   candidate_withdrew: { label: "候选人放弃" },
   comp_disagreement: { label: "薪资分歧" },
   culture_fit: { label: "文化不符" },
   other: { label: "其他" },
   position_filled: { label: "岗位已招满" },
   skills_mismatch: { label: "技能不匹配" },
-};
+} as const satisfies Record<CloseCategory, { label: string }>;
 
 // 录用专属细节（outcome=hired 时填）。
 // Hired-only details; recorded when outcome=hired.
@@ -483,15 +477,15 @@ export const scheduleEntryStatusSchema = z.enum(scheduleEntryStatusValues);
 
 export type ScheduleEntryStatus = z.infer<typeof scheduleEntryStatusSchema>;
 
-export const scheduleEntryStatusMeta: Record<
-  ScheduleEntryStatus,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
+export const scheduleEntryStatusMeta = {
   completed: { label: "已结束", tone: "success" },
   in_progress: { label: "进行中", tone: "warning" },
   interrupted: { label: "进行中", tone: "warning" },
   pending: { label: "待开始", tone: "info" },
-};
+} as const satisfies Record<
+  ScheduleEntryStatus,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+>;
 
 // 热重连宽限期：候选人断连后允许在该窗口内拿同一房间名续连。
 // Hot-reconnect grace window during which a disconnected candidate can rejoin
@@ -645,30 +639,31 @@ export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewSchedu
 }
 
 export function toNullableString(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") {
+  const result = z.string().safeParse(value);
+  if (!result.success) {
     return null;
   }
 
-  const normalized = value.trim();
+  const normalized = result.data.trim();
   return normalized || null;
 }
 
 export function parseScheduleEntriesInput(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") {
+  const result = z.string().safeParse(value);
+  if (!result.success) {
     return [];
   }
 
-  const parsed = JSON.parse(value) as unknown;
-  return studioInterviewScheduleEntrySchema.array().parse(parsed);
+  return studioInterviewScheduleEntrySchema.array().parse(JSON.parse(result.data));
 }
 
 export function parseResumePayloadInput(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") {
+  const result = z.string().safeParse(value);
+  if (!result.success) {
     return null;
   }
 
-  const parsed = JSON.parse(value) as unknown;
-  return studioInterviewResumePayloadSchema.parse(parsed);
+  return studioInterviewResumePayloadSchema.parse(JSON.parse(result.data));
 }
 
 export function getScheduleEntryDateValue(value: string | Date | null | undefined) {

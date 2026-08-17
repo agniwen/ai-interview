@@ -1,25 +1,24 @@
-import { ImapFlow } from "imapflow";
-import { simpleParser } from "mailparser";
+import type { ImapFlow, ImapFlowOptions } from "imapflow";
 import type { ParsedMail } from "mailparser";
-import { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
-import {
-  buildAttachmentKeyByHash,
-  putObjectBytes,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
+import { z } from "zod";
+import type {
   claimMailIngestMessageForProcessing,
   finishMailIngestAccountRun,
   listEnabledMailIngestAccounts,
-  claimMailIngestAccount,
   markMailIngestMessageSkipped,
   updateMailIngestMessageResult,
+  WorkerMailIngestAccount,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
-import type { WorkerMailIngestAccount } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
-import { fetchPublishedJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import {
+import type { fetchPublishedJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import type {
   insertBatchWithItems,
   loadBatchDetail,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import type {
+  buildAttachmentKeyByHash,
+  putObjectBytes,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import type { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import type { MailIngestJdBindStatus } from "@arc/db-schema/schema";
@@ -43,6 +42,31 @@ interface RunResult {
 
 type MailJobBinding = Pick<WorkerMailIngestAccount, "jdMode" | "jobDescriptionId">;
 
+export type ImapClient = Pick<
+  ImapFlow,
+  "connect" | "fetchOne" | "getMailboxLock" | "logout" | "search"
+> & {
+  mailbox: ImapFlow["mailbox"];
+  on(event: "error", listener: (error: Error) => void): ImapClient;
+};
+
+export interface MailIngestDependencies {
+  buildAttachmentKeyByHash: typeof buildAttachmentKeyByHash;
+  claimMailIngestAccount: (accountId: string) => Promise<boolean>;
+  claimMailIngestMessageForProcessing: typeof claimMailIngestMessageForProcessing;
+  createImapClient: (options: ImapFlowOptions) => ImapClient;
+  enqueueResumeParseJobs: typeof enqueueResumeParseJobs;
+  fetchPublishedJobDescriptionsByCodes: typeof fetchPublishedJobDescriptionsByCodes;
+  finishMailIngestAccountRun: typeof finishMailIngestAccountRun;
+  insertBatchWithItems: typeof insertBatchWithItems;
+  listEnabledMailIngestAccounts: typeof listEnabledMailIngestAccounts;
+  loadBatchDetail: typeof loadBatchDetail;
+  markMailIngestMessageSkipped: typeof markMailIngestMessageSkipped;
+  parseMail: (source: Buffer) => Promise<ParsedMail>;
+  putObjectBytes: typeof putObjectBytes;
+  updateMailIngestMessageResult: typeof updateMailIngestMessageResult;
+}
+
 function firstAddress(mail: ParsedMail): string | null {
   return (
     mail.from?.value
@@ -60,24 +84,27 @@ function toDate(value: Date | string | undefined): Date | null {
 }
 
 function normalizeSubject(value: string | false | null | undefined): string | null {
-  return typeof value === "string" ? value : null;
+  return z.string().safeParse(value).data ?? null;
 }
 
-async function storeResumeAttachment(attachment: {
-  content: Buffer;
-  contentType: string;
-  filename: string;
-}) {
+async function storeResumeAttachment(
+  attachment: {
+    content: Buffer;
+    contentType: string;
+    filename: string;
+  },
+  dependencies: MailIngestDependencies,
+) {
   const bytes = new Uint8Array(attachment.content);
   const contentHash = await sha256HexOfBytes(bytes);
-  const storageKey = await buildAttachmentKeyByHash(
+  const storageKey = await dependencies.buildAttachmentKeyByHash(
     contentHash,
     getResumeDocumentExtension({
       fileName: attachment.filename,
       mediaType: attachment.contentType,
     }),
   );
-  await putObjectBytes({
+  await dependencies.putObjectBytes({
     body: bytes,
     contentType: attachment.contentType,
     storageKey,
@@ -94,6 +121,7 @@ async function createBatchForMail(
   account: WorkerMailIngestAccount,
   mail: ParsedMail,
   binding: MailJobBinding,
+  dependencies: MailIngestDependencies,
 ): Promise<{
   batchId: string;
   jobs: { batchId: string; itemId: string; organizationId: string; userId: string }[];
@@ -103,8 +131,10 @@ async function createBatchForMail(
   if (attachments.length === 0) {
     return null;
   }
-  const files = await Promise.all(attachments.map(storeResumeAttachment));
-  const batchId = await insertBatchWithItems({
+  const files = await Promise.all(
+    attachments.map((attachment) => storeResumeAttachment(attachment, dependencies)),
+  );
+  const batchId = await dependencies.insertBatchWithItems({
     dedupPolicy: account.dedupPolicy,
     files,
     jdMode: binding.jdMode,
@@ -115,7 +145,11 @@ async function createBatchForMail(
     target: account.target,
     userId: account.userId,
   });
-  const detail = await loadBatchDetail(batchId, account.organizationId, account.userId);
+  const detail = await dependencies.loadBatchDetail(
+    batchId,
+    account.organizationId,
+    account.userId,
+  );
   if (!detail) {
     throw new Error("邮件简历批次创建失败。");
   }
@@ -143,6 +177,7 @@ interface MailJobBindingResult {
 async function resolveMailJobBinding(
   account: WorkerMailIngestAccount,
   subject: string | null,
+  dependencies: MailIngestDependencies,
 ): Promise<MailJobBindingResult> {
   const hasDefaultJd = Boolean(account.jobDescriptionId);
   const defaultBinding = {
@@ -151,7 +186,7 @@ async function resolveMailJobBinding(
   };
   const codes = extractJobCodesFromSubject(subject);
   const jobs = codes.length
-    ? await fetchPublishedJobDescriptionsByCodes(account.organizationId, codes)
+    ? await dependencies.fetchPublishedJobDescriptionsByCodes(account.organizationId, codes)
     : [];
   const matchedJobIds = new Set(jobs.map((job) => job.id));
   const jdBindStatus = deriveJdBindStatus({
@@ -201,6 +236,7 @@ async function processMailForAccount(
   message: { envelope?: { subject?: string | false | null }; internalDate?: Date | string },
   uid: number,
   uidValidity: string,
+  dependencies: MailIngestDependencies,
 ): Promise<MailAccountTally> {
   const tally = zeroMailAccountTally();
   tally.received = 1;
@@ -214,7 +250,7 @@ async function processMailForAccount(
   if (!shouldProcessMailByListenStart(receivedAt, account.listenStartAt)) {
     return tally;
   }
-  const messageClaim = await claimMailIngestMessageForProcessing({
+  const messageClaim = await dependencies.claimMailIngestMessageForProcessing({
     accountId: account.id,
     fromAddress: firstAddress(mail),
     mailbox: account.mailbox,
@@ -229,17 +265,17 @@ async function processMailForAccount(
   }
   const attachmentCount = mail.attachments?.length ?? 0;
   try {
-    const { binding, observability } = await resolveMailJobBinding(account, subject);
-    const batch = await createBatchForMail(account, mail, binding);
+    const { binding, observability } = await resolveMailJobBinding(account, subject, dependencies);
+    const batch = await createBatchForMail(account, mail, binding, dependencies);
     if (!batch) {
-      await markMailIngestMessageSkipped(messageClaim.id, "no_supported_attachment", {
+      await dependencies.markMailIngestMessageSkipped(messageClaim.id, "no_supported_attachment", {
         attachmentCount,
         resumeAttachmentCount: 0,
       });
       tally.noAttachment = 1;
       return tally;
     }
-    await updateMailIngestMessageResult(messageClaim.id, {
+    await dependencies.updateMailIngestMessageResult(messageClaim.id, {
       attachmentCount,
       batchId: batch.batchId,
       boundJobDescriptionId: observability.boundJobDescriptionId,
@@ -248,12 +284,12 @@ async function processMailForAccount(
       resumeAttachmentCount: batch.resumeAttachmentCount,
       status: "queued",
     });
-    await enqueueResumeParseJobs(batch.jobs);
+    await dependencies.enqueueResumeParseJobs(batch.jobs);
     tally.queued = 1;
   } catch (error) {
-    await updateMailIngestMessageResult(messageClaim.id, {
+    await dependencies.updateMailIngestMessageResult(messageClaim.id, {
       attachmentCount,
-      error,
+      error: error instanceof Error ? error : String(error),
       status: "failed",
     });
     tally.failed = 1;
@@ -265,6 +301,7 @@ async function processMailForAccount(
 async function processAccountGroup(
   accounts: WorkerMailIngestAccount[],
   config: MailIngestConfig,
+  dependencies: MailIngestDependencies,
 ): Promise<{ result: Omit<RunResult, "accounts">; tallies: Map<string, MailAccountTally> }> {
   const result = { messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
   const tallies = new Map<string, MailAccountTally>(
@@ -274,7 +311,7 @@ async function processAccountGroup(
   if (!connectionAccount) {
     return { result, tallies };
   }
-  const client = new ImapFlow({
+  const client = dependencies.createImapClient({
     auth: {
       pass: connectionAccount.password,
       user: connectionAccount.username,
@@ -315,9 +352,16 @@ async function processAccountGroup(
       if (!message || !message.source) {
         continue;
       }
-      const mail = await simpleParser(message.source);
+      const mail = await dependencies.parseMail(message.source);
       for (const account of accounts) {
-        const tally = await processMailForAccount(account, mail, message, uid, uidValidity);
+        const tally = await processMailForAccount(
+          account,
+          mail,
+          message,
+          uid,
+          uidValidity,
+          dependencies,
+        );
         const accountTally = tallies.get(account.id) ?? zeroMailAccountTally();
         tallies.set(account.id, {
           failed: accountTally.failed + tally.failed,
@@ -341,12 +385,13 @@ async function processAccountGroup(
 async function finishAccounts(
   accounts: WorkerMailIngestAccount[],
   tallies: Map<string, MailAccountTally>,
-  error?: unknown,
+  dependencies: MailIngestDependencies,
+  error?: Error,
 ): Promise<void> {
   await Promise.all(
     accounts.map(({ id }) => {
       const t = tallies.get(id) ?? zeroMailAccountTally();
-      return finishMailIngestAccountRun(
+      return dependencies.finishMailIngestAccountRun(
         id,
         error
           ? { error }
@@ -364,12 +409,15 @@ async function finishAccounts(
   );
 }
 
-export async function runMailIngestOnce(config: MailIngestConfig): Promise<RunResult> {
+async function runMailIngestOnceWithDependencies(
+  config: MailIngestConfig,
+  dependencies: MailIngestDependencies,
+): Promise<RunResult> {
   const result = { accounts: 0, messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
-  const accounts = await listEnabledMailIngestAccounts(config.maxAccountsPerRun);
+  const accounts = await dependencies.listEnabledMailIngestAccounts(config.maxAccountsPerRun);
   const claimedAccounts: WorkerMailIngestAccount[] = [];
   for (const account of accounts) {
-    const claimed = await claimMailIngestAccount(account.id);
+    const claimed = await dependencies.claimMailIngestAccount(account.id);
     if (!claimed) {
       continue;
     }
@@ -378,14 +426,19 @@ export async function runMailIngestOnce(config: MailIngestConfig): Promise<RunRe
   }
   for (const group of groupMailIngestAccounts(claimedAccounts)) {
     try {
-      const { result: groupResult, tallies } = await processAccountGroup(group.accounts, config);
+      const { result: groupResult, tallies } = await processAccountGroup(
+        group.accounts,
+        config,
+        dependencies,
+      );
       result.messagesFailed += groupResult.messagesFailed;
       result.messagesQueued += groupResult.messagesQueued;
       result.messagesSkipped += groupResult.messagesSkipped;
-      await finishAccounts(group.accounts, tallies);
+      await finishAccounts(group.accounts, tallies, dependencies);
     } catch (error) {
       result.messagesFailed += 1;
-      await finishAccounts(group.accounts, new Map(), error);
+      const accountError = error instanceof Error ? error : new Error("Mail ingest failed");
+      await finishAccounts(group.accounts, new Map(), dependencies, accountError);
       console.error("[mail-ingest] account poll failed", {
         accountIds: group.accounts.map((account) => account.id),
         error,
@@ -393,4 +446,11 @@ export async function runMailIngestOnce(config: MailIngestConfig): Promise<RunRe
     }
   }
   return result;
+}
+
+export function createMailIngestProcessor(dependencies: MailIngestDependencies) {
+  return {
+    runMailIngestOnce: (config: MailIngestConfig) =>
+      runMailIngestOnceWithDependencies(config, dependencies),
+  };
 }

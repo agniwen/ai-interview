@@ -1,21 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { interviewKeyInformationSchema } from "@arc/db-schema/interview-key-information";
-
-const mocks = vi.hoisted(() => ({
-  generateStructuredWithMastraAgent: vi.fn(),
-  interviewKeyInformationAgent: { id: "interview-key-information-agent" },
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  () => ({
-    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
-    interviewKeyInformationAgent: mocks.interviewKeyInformationAgent,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
+import { interviewKeyInformationAgent } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { generateInterviewKeyInformation } from "../interview-key-information";
+import type { InterviewKeyInformationDependencies } from "../interview-key-information";
 
 const KEY_INFORMATION = {
   quantitativeInformation: [
@@ -40,44 +27,54 @@ const KEY_INFORMATION = {
 };
 
 describe("generateInterviewKeyInformation", () => {
+  const generate = vi.fn();
+  const dependencies: InterviewKeyInformationDependencies = {
+    agent: interviewKeyInformationAgent,
+    // SAFETY: the test controls this fake and resolves each invocation with InterviewKeyInformation.
+    generate: generate as InterviewKeyInformationDependencies["generate"],
+  };
+
   beforeEach(() => {
-    mocks.generateStructuredWithMastraAgent.mockReset();
+    generate.mockReset();
   });
 
   it("uses frozen job context only to prioritize candidate transcript evidence", async () => {
-    mocks.generateStructuredWithMastraAgent.mockResolvedValue(KEY_INFORMATION);
+    generate.mockResolvedValue(KEY_INFORMATION);
 
     await expect(
-      generateInterviewKeyInformation({
-        jobDescription: {
-          description: "负责高并发招聘平台开发",
-          id: "jd-1",
-          name: "高级前端工程师",
-          prompt: "重点考察 React 架构和性能优化",
+      generateInterviewKeyInformation(
+        {
+          jobDescription: {
+            description: "负责高并发招聘平台开发",
+            id: "jd-1",
+            name: "高级前端工程师",
+            prompt: "重点考察 React 架构和性能优化",
+          },
+          questions: [
+            {
+              difficulty: "hard",
+              evaluationFocus: "容量设计",
+              order: 1,
+              question: "你如何设计高并发接口？",
+            },
+          ],
+          targetRole: "高级前端工程师",
+          transcript: [
+            { message: "请介绍你的项目。", role: "agent", timeInCallSecs: 1 },
+            {
+              message: "我用 React 重构了招聘系统前端。",
+              role: "user",
+              timeInCallSecs: 12,
+            },
+          ],
         },
-        questions: [
-          {
-            difficulty: "hard",
-            evaluationFocus: "容量设计",
-            order: 1,
-            question: "你如何设计高并发接口？",
-          },
-        ],
-        targetRole: "高级前端工程师",
-        transcript: [
-          { message: "请介绍你的项目。", role: "agent", timeInCallSecs: 1 },
-          {
-            message: "我用 React 重构了招聘系统前端。",
-            role: "user",
-            timeInCallSecs: 12,
-          },
-        ],
-      }),
+        dependencies,
+      ),
     ).resolves.toEqual(KEY_INFORMATION);
 
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
+    expect(generate).toHaveBeenCalledWith(
       expect.objectContaining({
-        agent: mocks.interviewKeyInformationAgent,
+        agent: dependencies.agent,
         prompt: expect.stringMatching(
           /高级前端工程师[\s\S]*重点考察 React 架构和性能优化[\s\S]*容量设计[\s\S]*我用 React 重构了招聘系统前端/,
         ),
@@ -85,28 +82,29 @@ describe("generateInterviewKeyInformation", () => {
         temperature: 0,
       }),
     );
-    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0].prompt).toMatch(
+    expect(generate.mock.calls[0]?.[0].prompt).toMatch(
       /只能把候选人在本轮对话中明确表达的内容作为重点信息/,
     );
-    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0].prompt).toMatch(
-      /不得输出推进建议/,
-    );
+    expect(generate.mock.calls[0]?.[0].prompt).toMatch(/不得输出推进建议/);
   });
 
   it("does not call the model for an empty transcript", async () => {
     await expect(
-      generateInterviewKeyInformation({
-        jobDescription: null,
-        questions: [],
-        targetRole: null,
-        transcript: [],
-      }),
+      generateInterviewKeyInformation(
+        {
+          jobDescription: null,
+          questions: [],
+          targetRole: null,
+          transcript: [],
+        },
+        dependencies,
+      ),
     ).resolves.toEqual({
       quantitativeInformation: [],
       risks: [],
       skillEvidence: [],
     });
-    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
   });
 });
 

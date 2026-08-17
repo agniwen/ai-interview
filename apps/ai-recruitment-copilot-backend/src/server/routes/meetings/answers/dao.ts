@@ -15,10 +15,12 @@ import type {
   MeetingQuestionThread,
   MeetingQuestionThreadSummary,
 } from "@arc/shared/meeting-answer";
+import { meetingIntelligencePayloadSchema } from "@arc/shared/meeting-intelligence";
 import {
   MEETING_ANSWER_MAX_EXCHANGES_PER_THREAD,
   MEETING_ANSWER_MAX_THREADS_PER_MEETING,
   meetingAnswerPayloadSchema,
+  meetingQuestionStatusSchema,
 } from "@arc/shared/meeting-answer";
 
 const ANSWER_LEASE_MS = 5 * 60 * 1000;
@@ -98,7 +100,7 @@ function serializeExchange(
     question: row.question,
     requestId: row.requestId,
     sequence: row.sequence,
-    status: row.status as MeetingQuestionExchange["status"],
+    status: meetingQuestionStatusSchema.parse(row.status),
   };
 }
 
@@ -525,7 +527,9 @@ export async function loadMeetingAnswerContext(input: {
         .limit(10),
     ]);
     return {
-      intelligence: intelligence?.content ?? null,
+      intelligence: intelligence
+        ? meetingIntelligencePayloadSchema.parse(intelligence.content)
+        : null,
       notes: notes
         .toSorted((left, right) => left.meetingTimeMs - right.meetingTimeMs)
         .map((note) => ({ body: note.body, meetingTimeMs: note.meetingTimeMs })),

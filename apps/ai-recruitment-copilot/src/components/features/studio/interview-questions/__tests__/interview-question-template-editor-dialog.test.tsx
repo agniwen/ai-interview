@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   enableReactActEnvironment,
   installNoopResizeObserver,
@@ -14,9 +14,17 @@ import { InterviewQuestionTemplateEditorDialog } from "../interview-question-tem
 enableReactActEnvironment();
 installNoopResizeObserver();
 
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
+// SAFETY: The jsdom fixture provides the media-query API consumed by use-mobile.
+window.matchMedia = ((query: string) => ({
+  addEventListener: () => {},
+  addListener: () => {},
+  dispatchEvent: () => false,
+  matches: false,
+  media: query,
+  onchange: null,
+  removeEventListener: () => {},
+  removeListener: () => {},
+})) as typeof window.matchMedia;
 
 const roots: Awaited<ReturnType<typeof renderInAct>>["root"][] = [];
 

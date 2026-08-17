@@ -1,5 +1,9 @@
 import type { CSSProperties } from "react";
 
-export const emptyThreadStyle = {
+interface ThreadLayoutStyle extends CSSProperties {
+  "--thread-max-width": string;
+}
+
+export const emptyThreadStyle: ThreadLayoutStyle = {
   "--thread-max-width": "48rem",
-} as CSSProperties;
+};

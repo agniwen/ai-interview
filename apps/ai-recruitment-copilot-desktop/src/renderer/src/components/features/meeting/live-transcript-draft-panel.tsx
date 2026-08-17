@@ -8,13 +8,13 @@ import type {
 } from "@/lib/meeting-capture/live-transcript-draft";
 import { cn } from "@arc/shared/utils";
 
-const STATUS_LABEL: Record<Exclude<LiveTranscriptDraftStatus, "idle" | "live">, string> = {
+const STATUS_LABEL = {
   buffering: "延迟",
   degraded: "已降级",
   interrupted: "已中断",
   reconnecting: "重连中",
   starting: "启动中",
-};
+} satisfies Record<Exclude<LiveTranscriptDraftStatus, "idle" | "live">, string>;
 
 const AUTO_FOLLOW_BOTTOM_THRESHOLD_PX = 80;
 

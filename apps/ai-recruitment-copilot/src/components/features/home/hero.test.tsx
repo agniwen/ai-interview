@@ -1,25 +1,26 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import { Hero } from "./hero";
 
-vi.mock("motion/react", () => ({
-  useReducedMotion: () => true,
-}));
+class TestIntersectionObserver {
+  private readonly active = true;
+  disconnect(): void {
+    void this.active;
+  }
+  observe(_target: Element): void {
+    void this.active;
+  }
+  unobserve(_target: Element): void {
+    void this.active;
+  }
+}
 
-vi.mock("@/components/react-bits/fade-content", () => ({
-  FadeContent: ({ children, className }: { children: ReactNode; className?: string }) => (
-    <div className={className}>{children}</div>
-  ),
-}));
+vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
 
-vi.mock("@/components/react-bits/split-text", () => ({
-  SplitText: ({ text }: { text: string }) => <span>{text}</span>,
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("Hero", () => {

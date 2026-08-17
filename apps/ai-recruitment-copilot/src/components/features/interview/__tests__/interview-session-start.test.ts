@@ -29,6 +29,7 @@ describe("startInterviewSession", () => {
 
     await startInterviewSession({
       recordingEnabled: false,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       session: session as never,
       startMuted,
     });

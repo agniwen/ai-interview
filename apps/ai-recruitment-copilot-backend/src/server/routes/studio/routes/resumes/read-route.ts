@@ -533,6 +533,7 @@ export const resumeLibraryReadRouter = factory
       } catch (error) {
         if (error instanceof LaunchAiInterviewMutationError) {
           const failure = toBadRequest(error.cause);
+          // SAFETY: toBadRequest only returns the literal status values 400 or 500, both valid Hono status codes.
           return c.json(
             { error: failure.error },
             { status: failure.status as ContentfulStatusCode },

@@ -7,6 +7,7 @@ import {
   normalizePermissionStatements,
 } from "@arc/shared/permission-statements";
 import { roles } from "@arc/shared/permissions";
+import { z } from "zod";
 import {
   jobDescription,
   meetingAuditLog,
@@ -31,6 +32,7 @@ const LINKABLE_MEETING_STATUSES = [
 
 type MeetingTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type BuiltInRole = keyof typeof roles;
+const permissionJsonSchema = z.json();
 
 function isBuiltInRole(role: string): role is BuiltInRole {
   return Object.hasOwn(roles, role);
@@ -49,7 +51,7 @@ async function canReadRecruitingRecords(
   }
   if (isBuiltInRole(input.memberRole)) {
     return hasPermissionInStatements(
-      normalizePermissionStatements(roles[input.memberRole].statements),
+      normalizePermissionStatements(permissionJsonSchema.parse(roles[input.memberRole].statements)),
       "resumeLibrary",
       "read",
     );
@@ -70,7 +72,7 @@ async function canReadRecruitingRecords(
   }
   try {
     return hasPermissionInStatements(
-      normalizePermissionStatements(JSON.parse(roleRow.permission) as unknown),
+      normalizePermissionStatements(permissionJsonSchema.parse(JSON.parse(roleRow.permission))),
       "resumeLibrary",
       "read",
     );

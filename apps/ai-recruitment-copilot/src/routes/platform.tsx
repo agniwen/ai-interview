@@ -12,8 +12,7 @@ function PlatformRoute() {
 }
 
 export const Route = createFileRoute("/platform")({
-  loader: async (loaderContext) => {
-    const { location } = loaderContext as { location: { pathname: string } };
+  loader: async ({ location }) => {
     const state = await getPlatformAdminState();
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });

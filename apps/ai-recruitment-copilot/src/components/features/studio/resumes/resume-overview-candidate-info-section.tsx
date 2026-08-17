@@ -1,7 +1,11 @@
 /* oxlint-disable complexity -- candidate info section hosts identity edit form with validation branches. */
 "use client";
 
-import { canEditResumeRecord, describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
+import {
+  canEditResumeRecord,
+  describeResumeEvaluationStatus,
+  resumeEvaluationStatusFormValueSchema,
+} from "@arc/shared/studio-resumes";
 import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -188,7 +192,7 @@ export function ResumeOverviewCandidateInfoSection({
             aria-label="保存"
             className="size-7"
             disabled={saving}
-            onClick={() => void handleSave()}
+            onClick={handleSave}
             size="icon-sm"
             type="button"
             variant="ghost"
@@ -254,12 +258,12 @@ export function ResumeOverviewCandidateInfoSection({
             <FieldLabel htmlFor="overview-resume-evaluation">简历评估</FieldLabel>
             <Select
               disabled={saving}
-              onValueChange={(next) =>
-                setDraft((current) => ({
-                  ...current,
-                  resumeEvaluationStatus: next as OverviewIdentityDraft["resumeEvaluationStatus"],
-                }))
-              }
+              onValueChange={(next) => {
+                const status = resumeEvaluationStatusFormValueSchema.safeParse(next);
+                if (status.success) {
+                  setDraft((current) => ({ ...current, resumeEvaluationStatus: status.data }));
+                }
+              }}
               value={draft.resumeEvaluationStatus}
             >
               <SelectTrigger className="w-full" id="overview-resume-evaluation" size="sm">

@@ -1,17 +1,21 @@
 import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
+import { z } from "zod";
 import { queryUploadTaskInbox } from "./dao";
-import { normalizeQueueProgress, resolveInboxPreviewTarget, resolveInboxQueueState } from "./state";
+import {
+  normalizeQueueProgress,
+  queueProgressSchema,
+  resolveInboxPreviewTarget,
+  resolveInboxQueueState,
+} from "./state";
 
 function toIsoString(value: Date | null): string | null {
   return value?.toISOString() ?? null;
 }
 
-function getQueueJobItemId(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-  const { itemId } = data as { itemId?: unknown };
-  return typeof itemId === "string" ? itemId : null;
+const queueJobDataSchema = z.object({ itemId: z.string().optional() });
+
+function getQueueJobItemId(data: z.output<typeof queueJobDataSchema>): string | null {
+  return data.itemId ?? null;
 }
 
 export async function listUploadTaskInbox(input: {
@@ -33,7 +37,8 @@ export async function listUploadTaskInbox(input: {
   }
   const queueJobsById = new Map(
     queueJobs.flatMap((job) => {
-      const itemId = getQueueJobItemId(job.data);
+      const parsedData = queueJobDataSchema.safeParse(job.data);
+      const itemId = parsedData.success ? getQueueJobItemId(parsedData.data) : null;
       return itemId ? [[itemId, job] as const] : [];
     }),
   );
@@ -42,6 +47,7 @@ export async function listUploadTaskInbox(input: {
     nextCursor: page.nextCursor,
     records: page.records.map((record) => {
       const queueJob = queueJobsById.get(record.id);
+      const queueProgress = queueJob ? queueProgressSchema.safeParse(queueJob.progress) : null;
       const previewTarget = resolveInboxPreviewTarget(record);
 
       return {
@@ -54,7 +60,7 @@ export async function listUploadTaskInbox(input: {
         id: record.id,
         originalFileName: record.originalFileName,
         previewTarget,
-        progressPercent: normalizeQueueProgress(queueJob?.progress),
+        progressPercent: queueProgress?.success ? normalizeQueueProgress(queueProgress.data) : null,
         queueState: resolveInboxQueueState(record.status, queueJob?.state ?? null),
         queuedAt: toIsoString(record.queuedAt),
         startedAt: toIsoString(record.startedAt),

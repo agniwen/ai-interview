@@ -9,17 +9,24 @@ import {
   buildRecruitingResumeReviewCardModel,
   RecruitingResumeReviewCard,
 } from "../recruiting-resume-review-card";
+import type { RecruitingCopilotContextValue } from "../recruiting-copilot-context";
+import { RecruitingCopilotContext } from "../recruiting-copilot-context";
 
-const mocks = vi.hoisted(() => ({
-  openResumeDetail: vi.fn(),
-}));
+const openResumeDetail = vi.fn();
+const contextValue = {
+  citations: [],
+  conversationId: null,
+  markProposal: vi.fn(),
+  openCandidateDetail: vi.fn(),
+  openResumeDetail,
+  openResumePreview: vi.fn(),
+  proposalStatuses: {},
+  proposals: [],
+  upsertCitations: vi.fn(),
+  upsertProposal: vi.fn(),
+} satisfies RecruitingCopilotContextValue;
 
-vi.mock("../recruiting-copilot-context", () => ({
-  useRecruitingCopilotContext: () => ({
-    openResumeDetail: mocks.openResumeDetail,
-  }),
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 installNoopResizeObserver();
 
@@ -83,21 +90,23 @@ describe("buildRecruitingResumeReviewCardModel", () => {
 
     await act(async () => {
       root.render(
-        <RecruitingResumeReviewCard
-          record={{
-            candidateName: "张三",
-            citation: {
+        <RecruitingCopilotContext.Provider value={contextValue}>
+          <RecruitingResumeReviewCard
+            record={{
+              candidateName: "张三",
+              citation: {
+                id: "resume-1",
+                label: "张三",
+                recordType: "resume_record",
+                secondaryLabel: "前端工程师",
+              },
               id: "resume-1",
-              label: "张三",
-              recordType: "resume_record",
-              secondaryLabel: "前端工程师",
-            },
-            id: "resume-1",
-            jobDescriptionId: "jd-1",
-            jobDescriptionName: "前端工程师",
-            resumeReview: review,
-          }}
-        />,
+              jobDescriptionId: "jd-1",
+              jobDescriptionName: "前端工程师",
+              resumeReview: review,
+            }}
+          />
+        </RecruitingCopilotContext.Provider>,
       );
       await Promise.resolve();
     });
@@ -113,7 +122,7 @@ describe("buildRecruitingResumeReviewCardModel", () => {
       detailButton?.click();
       await Promise.resolve();
     });
-    expect(mocks.openResumeDetail).toHaveBeenCalledWith("resume-1", "ai-analysis");
+    expect(openResumeDetail).toHaveBeenCalledWith("resume-1", "ai-analysis");
 
     act(() => root.unmount());
     container.remove();

@@ -5,6 +5,7 @@ import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@table
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -53,6 +54,26 @@ type NotificationSortColumn =
   | "sentAt"
   | "status"
   | "updatedAt";
+
+const notificationSortColumnSchema = z.enum([
+  "candidateName",
+  "createdAt",
+  "organizationName",
+  "providerId",
+  "sentAt",
+  "status",
+  "updatedAt",
+]);
+
+interface NotificationQuery {
+  page: string;
+  pageSize: string;
+  providerId: NotificationProviderFilter;
+  search?: string;
+  sortBy: NotificationSortColumn;
+  sortOrder: "asc" | "desc";
+  status: NotificationStatusFilter;
+}
 
 interface PlatformNotificationRecord {
   candidateName: string;
@@ -135,16 +156,21 @@ const PROVIDER_OPTIONS = [
   { label: "极光 HR 机器人", value: "feishu-jiguang-hr" },
 ];
 
-const PROVIDER_LABEL: Record<NotificationProvider, string> = {
+const PROVIDER_LABEL = {
   feishu: "默认飞书",
   "feishu-jiguang-hr": "极光 HR",
-};
+} satisfies Record<NotificationProvider, string>;
 
-const STATUS_LABEL: Record<NotificationStatus, string> = {
+const STATUS_LABEL = {
   failed: "发送失败",
   pending: "待发送",
   sent: "已发送",
-};
+} satisfies Record<NotificationStatus, string>;
+
+function parseNotificationSortColumn(value: string | undefined): NotificationSortColumn {
+  const parsed = notificationSortColumnSchema.safeParse(value);
+  return parsed.success ? parsed.data : "createdAt";
+}
 
 function statusVariant(status: NotificationStatus): ComponentProps<typeof Badge>["variant"] {
   if (status === "sent") {
@@ -292,17 +318,20 @@ export function NotificationsGrid() {
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   }): Promise<NotificationsResult> {
+    const query: NotificationQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      providerId: params.filters.providerId,
+      sortBy: parseNotificationSortColumn(params.sortBy),
+      sortOrder: params.sortOrder ?? "desc",
+      status: params.filters.status,
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
     return rpcFetch<NotificationsResult>(
       rpc.api.platform.notifications.$get({
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          providerId: params.filters.providerId,
-          ...(params.search ? { search: params.search } : {}),
-          sortBy: (params.sortBy as NotificationSortColumn | undefined) ?? "createdAt",
-          sortOrder: params.sortOrder ?? "desc",
-          status: params.filters.status,
-        },
+        query,
       }),
       "加载飞书通知失败",
     );

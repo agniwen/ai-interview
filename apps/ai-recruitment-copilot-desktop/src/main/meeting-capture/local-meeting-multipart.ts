@@ -28,6 +28,8 @@ export interface MeetingObjectUploadInput {
 export type MeetingObjectUploader = (input: MeetingObjectUploadInput) => Promise<void>;
 
 export async function uploadMeetingObject(input: MeetingObjectUploadInput): Promise<void> {
+  // SAFETY: Node's undici fetch requires the runtime-supported duplex option for a
+  // ReadableStream request body; TypeScript's RequestInit declaration omits it.
   const response = await fetch(input.url, {
     body: input.body,
     duplex: "half",

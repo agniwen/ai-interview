@@ -54,6 +54,22 @@ export interface ResumeListParams {
   structuredMinScore?: number;
 }
 
+interface ResumeListQuery {
+  creatorIds?: string;
+  jdIds?: string;
+  knownTotal?: string;
+  outcomes?: string;
+  page?: string;
+  pageSize?: string;
+  pipelineStages?: string;
+  search?: string;
+  skills?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  structuredMaxScore?: string;
+  structuredMinScore?: string;
+}
+
 /**
  * 拉取简历列表（支持分页 / 关键词 / 排序 / 技能 / 关联岗位筛选）。
  * Fetch the resume list (pagination / keyword / sort / skills / JD filters).
@@ -62,36 +78,50 @@ export function fetchStudioResumes(
   slug: string,
   params: ResumeListParams = {},
 ): Promise<PaginatedResumeLibraryResult> {
+  const query: ResumeListQuery = {};
+  if (params.page !== undefined) {
+    query.page = String(params.page);
+  }
+  if (params.pageSize !== undefined) {
+    query.pageSize = String(params.pageSize);
+  }
+  if (params.knownTotal !== undefined) {
+    query.knownTotal = String(params.knownTotal);
+  }
+  if (params.search) {
+    query.search = params.search;
+  }
+  if (params.creatorIds?.length) {
+    query.creatorIds = params.creatorIds.join(",");
+  }
+  if (params.skills?.length) {
+    query.skills = params.skills.join(",");
+  }
+  if (params.jobDescriptionIds?.length) {
+    query.jdIds = params.jobDescriptionIds.join(",");
+  }
+  if (params.pipelineStages?.length) {
+    query.pipelineStages = params.pipelineStages.join(",");
+  }
+  if (params.outcomes?.length) {
+    query.outcomes = params.outcomes.join(",");
+  }
+  if (params.sortBy) {
+    query.sortBy = params.sortBy;
+  }
+  if (params.sortOrder) {
+    query.sortOrder = params.sortOrder;
+  }
+  if (params.structuredMaxScore !== undefined) {
+    query.structuredMaxScore = String(params.structuredMaxScore);
+  }
+  if (params.structuredMinScore !== undefined) {
+    query.structuredMinScore = String(params.structuredMinScore);
+  }
   return rpcFetch<PaginatedResumeLibraryResult>(
     rpc.api.w[":slug"].studio.resumes.$get({
       param: { slug },
-      query: {
-        ...(params.page === undefined ? {} : { page: String(params.page) }),
-        ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
-        ...(params.knownTotal === undefined ? {} : { knownTotal: String(params.knownTotal) }),
-        ...(params.search ? { search: params.search } : {}),
-        ...(params.creatorIds && params.creatorIds.length > 0
-          ? { creatorIds: params.creatorIds.join(",") }
-          : {}),
-        ...(params.skills && params.skills.length > 0 ? { skills: params.skills.join(",") } : {}),
-        ...(params.jobDescriptionIds && params.jobDescriptionIds.length > 0
-          ? { jdIds: params.jobDescriptionIds.join(",") }
-          : {}),
-        ...(params.pipelineStages && params.pipelineStages.length > 0
-          ? { pipelineStages: params.pipelineStages.join(",") }
-          : {}),
-        ...(params.outcomes && params.outcomes.length > 0
-          ? { outcomes: params.outcomes.join(",") }
-          : {}),
-        ...(params.sortBy ? { sortBy: params.sortBy } : {}),
-        ...(params.sortOrder ? { sortOrder: params.sortOrder } : {}),
-        ...(params.structuredMaxScore === undefined
-          ? {}
-          : { structuredMaxScore: String(params.structuredMaxScore) }),
-        ...(params.structuredMinScore === undefined
-          ? {}
-          : { structuredMinScore: String(params.structuredMinScore) }),
-      },
+      query,
     }),
     "加载简历列表失败",
   );
@@ -115,6 +145,11 @@ export interface SkillSuggestion {
   count: number;
 }
 
+interface SkillSuggestionQuery {
+  limit?: string;
+  prefix?: string;
+}
+
 /**
  * 拉取组织内的技能建议（按候选人计数倒序）。
  * Fetch skill suggestions for the org, sorted by candidate count desc.
@@ -123,13 +158,17 @@ export function fetchStudioResumeSkillSuggestions(
   slug: string,
   params: { prefix?: string; limit?: number } = {},
 ): Promise<{ records: SkillSuggestion[] }> {
+  const query: SkillSuggestionQuery = {};
+  if (params.prefix) {
+    query.prefix = params.prefix;
+  }
+  if (params.limit !== undefined) {
+    query.limit = String(params.limit);
+  }
   return rpcFetch<{ records: SkillSuggestion[] }>(
     rpc.api.w[":slug"].studio.resumes["skill-suggestions"].$get({
       param: { slug },
-      query: {
-        ...(params.prefix ? { prefix: params.prefix } : {}),
-        ...(params.limit === undefined ? {} : { limit: String(params.limit) }),
-      },
+      query,
     }),
     "加载技能建议失败",
   );
@@ -393,9 +432,13 @@ export async function bulkDeleteStudioResumes(
   slug: string,
   ids: string[],
 ): Promise<{ deleted: number }> {
+  const [firstId, ...remainingIds] = ids;
+  if (!firstId) {
+    throw new Error("请至少选择一条简历记录");
+  }
   const data = await rpcFetch<{ deletedCount: number; success: boolean }>(
     rpc.api.w[":slug"].studio.resumes["bulk-delete"].$post({
-      json: { ids: ids as [string, ...string[]] },
+      json: { ids: [firstId, ...remainingIds] },
       param: { slug },
     }),
     "批量删除失败",

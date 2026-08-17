@@ -27,6 +27,11 @@ export interface ParsedResumePdf {
   totalTextChars: number;
 }
 
+export interface ClippedResumeText {
+  text: string;
+  truncated: boolean;
+}
+
 const LEADING_INDEX_PREFIX_REGEX = /^\s*(\d+)\s*[.．、)]\s*/;
 
 const toDefaultFilename = (index: number): string => `resume-${index + 1}`;
@@ -50,10 +55,7 @@ export async function readPdfBytes(url: string): Promise<Uint8Array> {
   throw new Error("Unsupported resume document url format.");
 }
 
-export function clipResumeText(
-  text: string,
-  maxChars = 12_000,
-): { text: string; truncated: boolean } {
+export function clipResumeText(text: string, maxChars = 12_000): ClippedResumeText {
   if (text.length <= maxChars) {
     return { text, truncated: false };
   }

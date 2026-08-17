@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { serializeDate } from "@arc/ai-recruitment-copilot-backend/lib/server/db/serialize";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { JsonObject } from "@arc/db-schema/json";
 import type {
   CandidateTimelineEvent,
   CandidateTimelineEventMeta,
@@ -29,6 +30,7 @@ import {
 } from "@arc/db-schema/studio-interviews";
 import { loadResumeDetail } from "./resumes";
 import { auditDescription, auditTitle, auditTone, stageLabel } from "./timeline-audit";
+import { z } from "zod";
 
 type TimeValue = Date | string | null | undefined;
 
@@ -53,13 +55,13 @@ function compactMeta(values: (CandidateTimelineEventMeta | null)[]): CandidateTi
   return values.filter((value): value is CandidateTimelineEventMeta => value !== null);
 }
 
-const CONVERSATION_RESULT_LABEL: Record<string, string> = {
+const CONVERSATION_RESULT_LABEL = {
   failed: "失败",
   partial: "部分完成",
   success: "成功",
-};
+} satisfies Record<string, string>;
 
-const CONVERSATION_STATUS_LABEL: Record<string, string> = {
+const CONVERSATION_STATUS_LABEL = {
   completed: "已完成",
   connected: "进行中",
   connecting: "连接中",
@@ -67,23 +69,23 @@ const CONVERSATION_STATUS_LABEL: Record<string, string> = {
   done: "已完成",
   failed: "失败",
   initiated: "已发起",
-};
+} satisfies Record<string, string>;
 
-const HUMAN_INTERVIEW_ROUND_STATUS_LABEL: Record<string, string> = {
+const HUMAN_INTERVIEW_ROUND_STATUS_LABEL = {
   cancelled: "已取消",
   completed: "已完成",
   pending: "待完成",
-};
+} satisfies Record<string, string>;
 
-const NOTIFICATION_STATUS_LABEL: Record<string, string> = {
+const NOTIFICATION_STATUS_LABEL = {
   failed: "发送失败",
   pending: "待发送",
   sent: "已发送",
-};
+} satisfies Record<string, string>;
 
-const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
+const NOTIFICATION_TYPE_LABEL = {
   summary_ready: "报告完成通知",
-};
+} satisfies Record<string, string>;
 
 function translatedLabel(value: string | null | undefined, labels: Record<string, string>) {
   if (!value) {
@@ -294,13 +296,14 @@ function notificationTone(status: string): CandidateTimelineEventTone {
   return "muted";
 }
 
-function auditDetailString(detail: Record<string, unknown>, key: string): string | null {
-  const value = detail[key];
-  return typeof value === "string" && value ? value : null;
+const nonEmptyStringSchema = z.string().min(1);
+
+function auditDetailString(detail: JsonObject, key: string): string | null {
+  return nonEmptyStringSchema.safeParse(detail[key]).data ?? null;
 }
 
 function buildOperatorAuditedActionKeys(
-  auditLogs: { action: string; actorName: string | null; detail: Record<string, unknown> | null }[],
+  auditLogs: { action: string; actorName: string | null; detail: JsonObject | null }[],
 ) {
   const keys = new Set<string>();
   for (const log of auditLogs) {
@@ -716,9 +719,8 @@ export async function loadCandidateTimeline(
         textMeta("轮次 ID", log.scheduleEntryId),
         textMeta(
           "重新激活原因",
-          log.action === "candidate_transition" &&
-            typeof log.detail?.reactivationReason === "string"
-            ? log.detail.reactivationReason
+          log.action === "candidate_transition" && log.detail
+            ? (nonEmptyStringSchema.safeParse(log.detail.reactivationReason).data ?? null)
             : null,
         ),
       ]),

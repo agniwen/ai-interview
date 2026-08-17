@@ -1,31 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type {
-  generateStructuredWithMastraAgent,
-  jobEvaluationBlueprintAgent,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
+import type { MastraGeneratorLike } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import {
   generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
 } from "./evaluation-blueprint-compiler";
 
-interface SimpleGeneratorsModule {
-  generateStructuredWithMastraAgent: typeof generateStructuredWithMastraAgent;
-  jobEvaluationBlueprintAgent: typeof jobEvaluationBlueprintAgent;
-}
-
-const mocks = vi.hoisted(() => ({ generate: vi.fn() }));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
-  async (importOriginal) => {
-    const actual = await importOriginal<SimpleGeneratorsModule>();
-    return {
-      ...actual,
-      jobEvaluationBlueprintAgent: { generate: mocks.generate },
-    };
-  },
-);
+const mocks = { generate: vi.fn() };
+const agent: MastraGeneratorLike = { generate: mocks.generate };
 
 const skillEducation = {
   auxiliarySkills: [],
@@ -78,11 +60,15 @@ describe("generateEvaluationBlueprintCandidate", () => {
   });
 
   it("retries when AI omits one explicit JD experience threshold", async () => {
-    const result = await generateEvaluationBlueprintCandidate({
-      description: null,
-      prompt: "8年以上前端研发经验，3年以上团队管理经验。",
-      structuredConfig: createDefaultJobDescriptionStructuredConfig(),
-    });
+    const result = await generateEvaluationBlueprintCandidate(
+      {
+        description: null,
+        prompt: "8年以上前端研发经验，3年以上团队管理经验。",
+        structuredConfig: createDefaultJobDescriptionStructuredConfig(),
+      },
+      undefined,
+      agent,
+    );
 
     expect(result.requiredRelevantExperiences).toEqual(
       completeExperience.requiredRelevantExperiences,
@@ -92,12 +78,16 @@ describe("generateEvaluationBlueprintCandidate", () => {
   });
 
   it("keeps skills, experience, projects, and priority conditions in separate prompt scopes", async () => {
-    await generateEvaluationBlueprintCandidate({
-      description: null,
-      prompt:
-        "任职要求：精通 React。8年以上前端研发经验，3年以上团队管理经验。优先条件：有头部平台从业经验。",
-      structuredConfig: createDefaultJobDescriptionStructuredConfig(),
-    });
+    await generateEvaluationBlueprintCandidate(
+      {
+        description: null,
+        prompt:
+          "任职要求：精通 React。8年以上前端研发经验，3年以上团队管理经验。优先条件：有头部平台从业经验。",
+        structuredConfig: createDefaultJobDescriptionStructuredConfig(),
+      },
+      undefined,
+      agent,
+    );
 
     const prompts = mocks.generate.mock.calls.map(([prompt]) => String(prompt));
     const skillPrompt = prompts.find((prompt) => prompt.includes("提取技能与学历评分依据"));
@@ -137,6 +127,7 @@ describe("generateEvaluationBlueprintCandidate", () => {
       (ruleDraft) => {
         progress.push(ruleDraft);
       },
+      agent,
     );
 
     expect(progress).toHaveLength(2);

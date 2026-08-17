@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, Job, JobsOptions } from "bullmq";
 import { z } from "zod";
 
 export const MEETING_PURGE_QUEUE_NAME = "meeting-purge";
@@ -15,7 +15,7 @@ export type MeetingPurgeJobData = z.infer<typeof meetingPurgeJobSchema>;
 export type MeetingPurgeJobProcessor = (payload: MeetingPurgeJobData) => Promise<void>;
 
 interface MeetingPurgeQueuePort {
-  add: (name: string, data: MeetingPurgeJobData, options: JobsOptions) => Promise<unknown>;
+  add: (name: string, data: MeetingPurgeJobData, options: JobsOptions) => Promise<Job | undefined>;
   getJob: (jobId: string) => Promise<
     | {
         getState: () => Promise<string>;

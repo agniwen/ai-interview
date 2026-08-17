@@ -1,6 +1,7 @@
-import type { S3Client } from "@aws-sdk/client-s3";
+import type { GetObjectCommandInput, S3Client } from "@aws-sdk/client-s3";
 import { createReadStream, createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
+import { z } from "zod";
 import { getRequiredBooleanEnv, getRequiredEnv } from "./env";
 
 interface S3Config {
@@ -202,13 +203,8 @@ export async function deleteMeetingRecordingObject(storageKey: string): Promise<
   });
 }
 
-function isNoSuchKey(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    (error as { name: string }).name === "NoSuchKey"
-  );
+function isNoSuchKey(error: Error): boolean {
+  return error.name === "NoSuchKey";
 }
 
 export async function presignMeetingRecordingPutObject(input: {
@@ -293,12 +289,8 @@ export async function abortMeetingRecordingMultipartUpload(input: {
       { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
     );
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "name" in error &&
-      (error as { name: string }).name === "NoSuchUpload"
-    ) {
+    const uploadError = error instanceof Error ? error : new Error(String(error));
+    if (uploadError.name === "NoSuchUpload") {
       return;
     }
     throw error;
@@ -326,11 +318,7 @@ export async function listMeetingRecordingUploadParts(input: {
       { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
     );
     for (const part of result.Parts ?? []) {
-      if (
-        typeof part.ETag === "string" &&
-        typeof part.PartNumber === "number" &&
-        typeof part.Size === "number"
-      ) {
+      if (part.ETag !== undefined && part.PartNumber !== undefined && part.Size !== undefined) {
         parts.push({ etag: part.ETag, partNumber: part.PartNumber, sizeBytes: part.Size });
       }
     }
@@ -414,7 +402,7 @@ export async function headMeetingRecordingObject(storageKey: string): Promise<{
       new HeadObjectCommand({ Bucket: config.bucket, ChecksumMode: "ENABLED", Key: storageKey }),
       { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
     );
-    if (!(typeof result.ContentLength === "number" && result.ContentType)) {
+    if (result.ContentLength === undefined || !result.ContentType) {
       return null;
     }
     return {
@@ -425,9 +413,13 @@ export async function headMeetingRecordingObject(storageKey: string): Promise<{
       sha256: result.Metadata?.sha256 ?? null,
     };
   } catch (error) {
+    const headError = error instanceof Error ? error : new Error(String(error));
+    const parsedMetadata = z
+      .object({ $metadata: z.object({ httpStatusCode: z.number().optional() }).optional() })
+      .safeParse(error);
     if (
-      isNoSuchKey(error) ||
-      (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404
+      isNoSuchKey(headError) ||
+      (parsedMetadata.success && parsedMetadata.data.$metadata?.httpStatusCode === 404)
     ) {
       return null;
     }
@@ -574,7 +566,8 @@ export async function getObjectStream(storageKey: string): Promise<ObjectResult 
       contentType: response.ContentType,
     };
   } catch (error) {
-    if (isNoSuchKey(error)) {
+    const downloadError = error instanceof Error ? error : new Error(String(error));
+    if (isNoSuchKey(downloadError)) {
       return null;
     }
     throw error;
@@ -610,19 +603,14 @@ export async function presignRecordingGetObjectUrl(
     import("@aws-sdk/s3-request-presigner"),
     getRecordingClient(),
   ]);
-  return getSignedUrl(
-    client,
-    new GetObjectCommand({
-      Bucket: config.bucket,
-      Key: storageKey,
-      ...(downloadFilename
-        ? {
-            ResponseContentDisposition: `attachment; filename="meeting-recording.webm"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
-          }
-        : {}),
-    }),
-    { expiresIn: expiresInSeconds },
-  );
+  const commandInput: GetObjectCommandInput = {
+    Bucket: config.bucket,
+    Key: storageKey,
+  };
+  if (downloadFilename) {
+    commandInput.ResponseContentDisposition = `attachment; filename="meeting-recording.webm"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`;
+  }
+  return getSignedUrl(client, new GetObjectCommand(commandInput), { expiresIn: expiresInSeconds });
 }
 
 export async function getObjectBytes(storageKey: string): Promise<{
@@ -646,7 +634,8 @@ export async function getObjectBytes(storageKey: string): Promise<{
       contentType: response.ContentType ?? "application/octet-stream",
     };
   } catch (error) {
-    if (isNoSuchKey(error)) {
+    const downloadError = error instanceof Error ? error : new Error(String(error));
+    if (isNoSuchKey(downloadError)) {
       return null;
     }
     throw error;

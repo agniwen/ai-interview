@@ -121,8 +121,9 @@ export function DesktopScrollToTopButton({ className }: { className?: string }) 
       return true;
     };
 
-    if (!selectViewport() && typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(selectViewport);
+    const Observer = globalThis.MutationObserver;
+    if (!selectViewport() && Observer) {
+      observer = new Observer(selectViewport);
       observer.observe(document.body, {
         attributeFilter: ["data-scroll-restoration-id"],
         attributes: true,

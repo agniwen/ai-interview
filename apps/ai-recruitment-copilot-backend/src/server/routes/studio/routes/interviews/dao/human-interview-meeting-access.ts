@@ -20,6 +20,11 @@ const interviewerInvitePayloadSchema = z.object({
   userId: z.string().trim().min(1),
 });
 
+const signedInvitePayloadSchema = z.union([
+  candidateInvitePayloadSchema,
+  interviewerInvitePayloadSchema,
+]);
+
 export type CandidateInvitePayload = z.infer<typeof candidateInvitePayloadSchema>;
 export type InterviewerInvitePayload = z.infer<typeof interviewerInvitePayloadSchema>;
 
@@ -101,7 +106,7 @@ export function hashInviteToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function decodeSignedInviteToken(token: string): unknown | null {
+function decodeSignedInviteToken(token: string): z.infer<typeof signedInvitePayloadSchema> | null {
   const [encodedPayload, signature, extra] = token.split(".");
   if (!encodedPayload || !signature || extra) {
     return null;
@@ -115,7 +120,10 @@ function decodeSignedInviteToken(token: string): unknown | null {
     return null;
   }
   try {
-    return JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8"));
+    const parsed = signedInvitePayloadSchema.safeParse(
+      JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8")),
+    );
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

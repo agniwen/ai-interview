@@ -1,18 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MeetingAnswerTerminalError } from "@arc/shared/meeting-answer";
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/dao", () => ({
-  claimMeetingAnswerExchange: vi.fn(),
-  loadMeetingAnswerContext: vi.fn(),
-  markMeetingAnswerFailed: vi.fn(),
-  publishMeetingAnswerExchange: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/generator", () => ({
-  generateMeetingAnswer: vi.fn(),
-  getMeetingAnswerGeneratorSnapshot: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { runMeetingAnswerProcessing } from "./processor";
 
 const context = {

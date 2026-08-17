@@ -262,7 +262,7 @@ function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
   };
 }
 
-function isWorkspaceUnavailable(error: unknown): boolean {
+function isWorkspaceUnavailable(error: unknown): error is Error {
   return error instanceof Error && error.message === "请先加入或选择一个工作区";
 }
 
@@ -393,7 +393,7 @@ export function createMeetingCapture({
             workspaceSaves: snapshot.workspaceSaves.filter((item) => item.captureId !== captureId),
           });
         })
-        .catch((error: unknown) => {
+        .catch((error) => {
           patch({
             error:
               error instanceof Error ? error.message : "Local Recording Recovery Copy 自动清理失败",
@@ -437,7 +437,7 @@ export function createMeetingCapture({
           state: "workspace-verified",
         });
       })
-      .catch(async (error: unknown) => {
+      .catch(async (error) => {
         if (isWorkspaceUnavailable(error)) {
           patchWorkspaceSave(saved.captureId, { error: null, state: "waiting-for-network" });
           return;
@@ -509,7 +509,7 @@ export function createMeetingCapture({
       });
       await workspace
         .reportRecoveryCopyCleanup?.(capture.captureId, capture.manifestSha256, "failed")
-        .catch((reportError: unknown) => {
+        .catch((reportError) => {
           console.warn("[meeting-capture] local recovery cleanup report failed", {
             errorName: reportError instanceof Error ? reportError.name : "UnknownError",
           });
@@ -521,7 +521,7 @@ export function createMeetingCapture({
     }
     await workspace
       .reportRecoveryCopyCleanup?.(capture.captureId, capture.manifestSha256, "deleted")
-      .catch((reportError: unknown) => {
+      .catch((reportError) => {
         console.warn("[meeting-capture] local recovery cleanup report failed", {
           errorName: reportError instanceof Error ? reportError.name : "UnknownError",
         });
@@ -559,7 +559,7 @@ export function createMeetingCapture({
         }
       }
     })
-    .catch((error: unknown) => {
+    .catch((error) => {
       diagnostics({
         name: "meeting.capture.recovery",
         outcome: "scan-failed",
@@ -633,7 +633,11 @@ export function createMeetingCapture({
     },
     level: ({ level, track }) => {
       const health = level > AUDIBLE_LEVEL_THRESHOLD ? "healthy" : undefined;
-      updateTrack(track, { ...(health ? { health } : {}), level });
+      if (health) {
+        updateTrack(track, { health, level });
+      } else {
+        updateTrack(track, { level });
+      }
     },
     status: ({ health, track }) => updateTrack(track, { health }),
   };
@@ -896,7 +900,7 @@ export function createMeetingCapture({
           persistToWorkspace(saved);
           return saved;
         })
-        .catch((error: unknown) => {
+        .catch((error) => {
           patch({
             error: error instanceof Error ? error.message : "保存恢复录音失败",
             phase: "error",

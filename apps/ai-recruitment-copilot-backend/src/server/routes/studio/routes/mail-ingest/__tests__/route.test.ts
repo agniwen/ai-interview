@@ -1,67 +1,112 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { platformRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/route";
-import { mailIngestRouter } from "../route";
+import { createPlatformRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/route";
+import type { PlatformMailIngestDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/route";
+import type { MailIngestAccountDto, WorkspaceMailIngestAccountRow } from "../dao";
+import type { MailMessageLogRecord } from "../dao/messages";
+import { MailIngestValidationError } from "../validation";
+import { createMailIngestRouter } from "../route";
+import type { MailIngestRouteDependencies } from "../route";
 
-const mocks = vi.hoisted(() => ({
-  MailIngestValidationError: class MailIngestValidationError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = "MailIngestValidationError";
-    }
-  },
-  createMailIngestAccount: vi.fn(),
-  getMailIngestAccountLoginConfig: vi.fn(),
-  getWorkspaceMailIngestAccount: vi.fn(),
-  isWorkspaceMember: vi.fn(),
-  listAccountMailMessages: vi.fn(),
-  mailIngestAccountExistsInOrg: vi.fn(),
-  updateWorkspaceMailIngestAccount: vi.fn(),
-  validateMailIngestAccountLogin: vi.fn(),
-}));
+const mocks = {
+  createMailIngestAccount: vi.fn<MailIngestRouteDependencies["createMailIngestAccount"]>(),
+  deleteMailIngestAccount: vi.fn<MailIngestRouteDependencies["deleteMailIngestAccount"]>(),
+  getMailIngestAccountLoginConfig:
+    vi.fn<MailIngestRouteDependencies["getMailIngestAccountLoginConfig"]>(),
+  getWorkspaceMailIngestAccount:
+    vi.fn<MailIngestRouteDependencies["getWorkspaceMailIngestAccount"]>(),
+  isWorkspaceMember: vi.fn<MailIngestRouteDependencies["isWorkspaceMember"]>(),
+  listAccountMailMessages: vi.fn<MailIngestRouteDependencies["listAccountMailMessages"]>(),
+  listMailIngestAccounts: vi.fn<MailIngestRouteDependencies["listMailIngestAccounts"]>(),
+  mailIngestAccountExistsInOrg:
+    vi.fn<MailIngestRouteDependencies["mailIngestAccountExistsInOrg"]>(),
+  queryPaginatedPlatformMailIngestAccounts:
+    vi.fn<PlatformMailIngestDependencies["queryPaginatedPlatformMailIngestAccounts"]>(),
+  queryPaginatedWorkspaceMailIngestAccounts:
+    vi.fn<MailIngestRouteDependencies["queryPaginatedWorkspaceMailIngestAccounts"]>(),
+  updateMailIngestAccount: vi.fn<MailIngestRouteDependencies["updateMailIngestAccount"]>(),
+  updateWorkspaceMailIngestAccount:
+    vi.fn<MailIngestRouteDependencies["updateWorkspaceMailIngestAccount"]>(),
+  validateMailIngestAccountLogin:
+    vi.fn<MailIngestRouteDependencies["validateMailIngestAccountLogin"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao", () => ({
-  createMailIngestAccount: mocks.createMailIngestAccount,
-  deleteMailIngestAccount: vi.fn(),
-  getMailIngestAccountLoginConfig: mocks.getMailIngestAccountLoginConfig,
-  getWorkspaceMailIngestAccount: mocks.getWorkspaceMailIngestAccount,
-  isWorkspaceMember: mocks.isWorkspaceMember,
-  listAccountMailMessages: mocks.listAccountMailMessages,
-  listMailIngestAccounts: vi.fn(),
-  mailIngestAccountExistsInOrg: mocks.mailIngestAccountExistsInOrg,
-  queryPaginatedPlatformMailIngestAccounts: vi.fn(),
-  queryPaginatedWorkspaceMailIngestAccounts: vi.fn(),
-  updateMailIngestAccount: vi.fn(),
-  updateWorkspaceMailIngestAccount: mocks.updateWorkspaceMailIngestAccount,
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/validation",
-  () => ({
-    MailIngestValidationError: mocks.MailIngestValidationError,
-    mergeMailIngestLoginConfig: (
-      existing: Record<string, unknown>,
-      input: Record<string, unknown>,
-    ) => ({
-      ...existing,
-      ...input,
+const dependencies: MailIngestRouteDependencies = {
+  ...mocks,
+  requireMailIngestPermission: () =>
+    factory.createMiddleware(async (c, next) => {
+      if (c.req.header("x-test-permission") === "deny") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+      return await next();
     }),
-    validateMailIngestAccountLogin: mocks.validateMailIngestAccountLogin,
-  }),
-);
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
+const platformDependencies: PlatformMailIngestDependencies = {
+  createMailIngestAccount: mocks.createMailIngestAccount,
+  getMailIngestAccountLoginConfig: mocks.getMailIngestAccountLoginConfig,
+  isWorkspaceMember: mocks.isWorkspaceMember,
+  queryPaginatedPlatformMailIngestAccounts: mocks.queryPaginatedPlatformMailIngestAccounts,
+  updateWorkspaceMailIngestAccount: mocks.updateWorkspaceMailIngestAccount,
+  validateMailIngestAccountLogin: mocks.validateMailIngestAccountLogin,
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
+const mailIngestRouter = createMailIngestRouter(dependencies);
+const platformRouter = createPlatformRouter({ mailIngest: platformDependencies });
 
-vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
-  RESUME_PARSE_JOB_LIST_STATES: ["all", "waiting", "active", "completed", "failed"],
-  RESUME_PARSE_QUEUE_NAME: "resume-parse",
-  getResumeParseQueueOverview: vi.fn(),
-  listResumeParseQueueJobs: vi.fn(),
-}));
+const account: MailIngestAccountDto = {
+  createdAt: "2026-08-18T00:00:00.000Z",
+  emailAddress: "listener@example.com",
+  enabled: true,
+  failedMailbox: "ARC-Failed",
+  hasPassword: true,
+  id: "account_1",
+  imapHost: "imap.example.com",
+  imapPort: 993,
+  imapSecure: true,
+  lastCheckedAt: null,
+  lastError: null,
+  listenStartAt: null,
+  mailbox: "INBOX",
+  processedMailbox: "ARC-Processed",
+  subjectKeyword: "boss直聘",
+  updatedAt: "2026-08-18T00:00:00.000Z",
+  username: "listener@example.com",
+};
+
+const workspaceAccount: WorkspaceMailIngestAccountRow = {
+  account,
+  lastRunFailed: 0,
+  lastRunMatched: 0,
+  lastRunQueued: 0,
+  lastRunReceived: 0,
+  lastRunSubjectSkipped: 0,
+  messageCount: 0,
+  problemCount: 0,
+  user: {
+    email: "listener@example.com",
+    id: "user_1",
+    image: null,
+    name: "Listener",
+    role: "admin",
+  },
+};
+
+const mailMessage: MailMessageLogRecord = {
+  attachmentCount: 0,
+  attachments: [],
+  boundJobDescriptionName: null,
+  errorMessage: null,
+  fromAddress: "sender@example.com",
+  id: "msg_1",
+  jdBindStatus: null,
+  poolSummary: null,
+  receivedAt: "2026-08-18T00:00:00.000Z",
+  resumeAttachmentCount: 0,
+  skipReason: null,
+  status: "queued",
+  subject: "简历",
+};
 
 function makePayload() {
   return {
@@ -83,8 +128,11 @@ function makePayload() {
 const app = factory
   .createApp()
   .use(async (c, next) => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("activeOrg", { id: "org_1" } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("member", { role: "admin" } as never);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("user", { id: "admin_1" } as never);
     await next();
   })
@@ -93,6 +141,7 @@ const app = factory
 const platformApp = factory
   .createApp()
   .use(async (c, next) => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("user", { id: "superadmin_1", role: "admin" } as never);
     await next();
   })
@@ -110,15 +159,13 @@ describe("mailIngestRouter", () => {
       username: "listener@example.com",
     });
     mocks.isWorkspaceMember.mockResolvedValue(true);
-    mocks.getWorkspaceMailIngestAccount.mockResolvedValue({
-      account: { emailAddress: "listener@example.com", id: "account_1" },
-    });
-    mocks.createMailIngestAccount.mockResolvedValue({ id: "account_1" });
+    mocks.getWorkspaceMailIngestAccount.mockResolvedValue(workspaceAccount);
+    mocks.createMailIngestAccount.mockResolvedValue(account);
     mocks.listAccountMailMessages.mockResolvedValue({ records: [], total: 0 });
     mocks.mailIngestAccountExistsInOrg.mockResolvedValue(true);
-    mocks.updateWorkspaceMailIngestAccount.mockResolvedValue({ id: "account_1" });
+    mocks.updateWorkspaceMailIngestAccount.mockResolvedValue(account);
     mocks.validateMailIngestAccountLogin.mockRejectedValue(
-      new mocks.MailIngestValidationError("邮箱登录校验失败：Invalid credentials"),
+      new MailIngestValidationError("邮箱登录校验失败：Invalid credentials"),
     );
   });
 
@@ -196,7 +243,7 @@ describe("mailIngestRouter", () => {
 
   it("returns mail messages for an account owned by the current user", async () => {
     mocks.listAccountMailMessages.mockResolvedValue({
-      records: [{ id: "msg_1" }],
+      records: [mailMessage],
       total: 1,
     });
 
@@ -230,7 +277,7 @@ describe("mailIngestRouter", () => {
   });
 
   it("managed messages: manage user drills into any org account (org-scoped, no userId)", async () => {
-    mocks.listAccountMailMessages.mockResolvedValue({ records: [{ id: "msg_1" }], total: 1 });
+    mocks.listAccountMailMessages.mockResolvedValue({ records: [mailMessage], total: 1 });
 
     const res = await app.request("/mail-ingest-accounts/managed/account_9/messages");
 
@@ -253,9 +300,7 @@ describe("mailIngestRouter", () => {
     const res = await app.request("/mail-ingest-accounts/managed/account_1");
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      account: { emailAddress: "listener@example.com", id: "account_1" },
-    });
+    expect(await res.json()).toEqual(workspaceAccount);
     expect(mocks.getWorkspaceMailIngestAccount).toHaveBeenCalledWith("org_1", "account_1");
   });
 

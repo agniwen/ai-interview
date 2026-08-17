@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { coalesceSessionMessages } from "@/lib/client/livekit-transcript";
 
 function participant(identity: string, isLocal = false): NonNullable<ReceivedMessage["from"]> {
+  // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
   return { identity, isLocal } as NonNullable<ReceivedMessage["from"]>;
 }
 

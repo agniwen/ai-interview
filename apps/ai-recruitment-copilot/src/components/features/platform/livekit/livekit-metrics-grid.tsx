@@ -28,6 +28,7 @@ import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { DetailFields, JsonBlock } from "./detail-fields";
 import type { LiveKitMetricRecord, PaginatedResult } from "./types";
+import { z } from "zod";
 
 const EMPTY_FILTERS = {};
 
@@ -35,22 +36,31 @@ interface MetricsResult extends PaginatedResult<LiveKitMetricRecord> {
   configured: boolean;
 }
 
+interface MetricsQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+}
+
+const metricsResultMetadataSchema = z.object({ configured: z.boolean() });
+
 export function LiveKitMetricsGrid() {
   const [selected, setSelected] = useState<LiveKitMetricRecord | null>(null);
-  const fetchMetrics = useCallback(
-    (params: { page: number; pageSize: number; search: string }) =>
-      rpcFetch<MetricsResult>(
-        rpc.api.platform.livekit.metrics.$get({
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-          },
-        }),
-        "加载 LiveKit Prometheus 指标失败",
-      ),
-    [],
-  );
+  const fetchMetrics = useCallback((params: { page: number; pageSize: number; search: string }) => {
+    const query: MetricsQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
+    return rpcFetch<MetricsResult>(
+      rpc.api.platform.livekit.metrics.$get({
+        query,
+      }),
+      "加载 LiveKit Prometheus 指标失败",
+    );
+  }, []);
   const grid = useDataGridState<LiveKitMetricRecord, Record<string, never>>({
     defaultPageSize: 20,
     initialFilters: EMPTY_FILTERS,
@@ -60,7 +70,8 @@ export function LiveKitMetricsGrid() {
     staleTime: 10_000,
   });
   const openDetail = useCallback((metric: LiveKitMetricRecord) => setSelected(metric), []);
-  const metricsConfigured = (grid.data as MetricsResult).configured === true;
+  const metadataResult = metricsResultMetadataSchema.safeParse(grid.data);
+  const metricsConfigured = metadataResult.success && metadataResult.data.configured;
   const columns = useMemo(
     () => [
       textColumn<LiveKitMetricRecord>({

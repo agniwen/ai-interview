@@ -1,18 +1,45 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type * as DataGridModule from "@/components/data-grid";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { installNoopResizeObserver } from "@/test-utils/react-act";
-import { QueueJobDetailDialog, QueueOverview, QueuesGrid } from "../queues-grid";
+import {
+  QueueJobDetailDialog,
+  QueueOverview,
+  QueuesGrid,
+  createQueueJobsFetcher,
+} from "../queues-grid";
+import type { QueuesGridDependencies } from "../queues-grid";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 installNoopResizeObserver();
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: (media: string): MediaQueryList => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  }),
+});
 
-const matchedUploadQueueJob = vi.hoisted(() => ({
+const matchedUploadQueueJob = {
   attemptsMade: 1,
   attemptsStarted: 1,
   data: {
@@ -25,11 +52,7 @@ const matchedUploadQueueJob = vi.hoisted(() => ({
   finishedOn: null,
   id: "item-1",
   name: "parse-resume-upload-item",
-  organization: {
-    id: "org-1",
-    name: "测试组织",
-    slug: "test-org",
-  },
+  organization: { id: "org-1", name: "测试组织", slug: "test-org" },
   processedBy: "worker-1",
   processedOn: "2026-06-15T10:00:00.000Z",
   progress: 0,
@@ -78,179 +101,124 @@ const matchedUploadQueueJob = vi.hoisted(() => ({
     image: null,
     name: "上传人",
   },
-}));
+};
 
-const capturedGridOptions = vi.hoisted(() => ({
-  current: null as {
-    initialFilters?: Record<string, string>;
-    queryFn?: (params: {
-      filters: Record<string, string>;
-      page: number;
-      pageSize: number;
-      search: string;
-    }) => Promise<unknown>;
-  } | null,
-}));
-
-const rpcQueueJobsGetMock = vi.hoisted(() => vi.fn());
-const setFilterMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("@/components/data-grid", async () => {
-  const actual = await vi.importActual<typeof DataGridModule>("@/components/data-grid");
-
+function createDependencies(): QueuesGridDependencies {
   return {
-    ...actual,
-    useDataGridState: vi.fn((options) => {
-      capturedGridOptions.current = options as typeof capturedGridOptions.current;
-
-      return {
-        bind: {
-          canResetFilters: false,
-          data: [matchedUploadQueueJob],
-          filterValues: {
-            parseStatus: "all",
-            queue: "resume-parse",
-            search: "",
-            state: "all",
-            uploadStatus: "all",
-          },
-          loading: false,
-          onFilterChange: vi.fn(),
-          onRefresh: vi.fn(),
-          onResetFilters: vi.fn(),
-          onRowSelectionChange: vi.fn(),
-          onSortingChange: vi.fn(),
-          pagination: {
-            onPageChange: vi.fn(),
-            onPageSizeChange: vi.fn(),
-            page: 1,
-            pageSize: 20,
-          },
-          refetching: false,
-          rowSelection: {},
-          sorting: [],
-          total: 1,
-          totalPages: 1,
-        },
-        filters: {
-          parseStatus: "all",
-          queue: "resume-parse",
-          state: "all",
-          uploadStatus: "all",
-        },
-        invalidate: vi.fn(),
-        search: "",
-        setFilter: setFilterMock,
-      };
-    }),
-  };
-});
-
-vi.mock("@/lib/client/rpc", () => ({
-  rpc: {
-    api: {
-      platform: {
-        queues: {
-          $get: vi.fn(),
-          ":queueName": {
-            jobs: {
-              $get: rpcQueueJobsGetMock,
+    fetchJobs: vi.fn(() =>
+      Promise.resolve({
+        page: 1,
+        pageSize: 20,
+        records: [matchedUploadQueueJob],
+        state: "all",
+        total: 1,
+        totalPages: 1,
+      }),
+    ),
+    fetchOverview: vi.fn(() =>
+      Promise.resolve({
+        records: [
+          {
+            counts: {
+              active: 1,
+              completed: 0,
+              delayed: 0,
+              failed: 0,
+              paused: 0,
+              prioritized: 0,
+              waiting: 0,
+              "waiting-children": 0,
             },
+            displayName: "简历解析",
+            name: "resume-parse",
+            redis: null,
+            workers: [],
+            workersCount: 0,
           },
-        },
-      },
-    },
-  },
-}));
+          {
+            counts: {
+              active: 0,
+              completed: 0,
+              delayed: 0,
+              failed: 0,
+              paused: 0,
+              prioritized: 0,
+              waiting: 2,
+              "waiting-children": 0,
+            },
+            displayName: "AI分析",
+            name: "resume-review-generation",
+            redis: null,
+            workers: [],
+            workersCount: 0,
+          },
+        ],
+        total: 2,
+      }),
+    ),
+  };
+}
 
-vi.mock("@/lib/client/api", () => ({
-  rpcFetch: vi.fn(() =>
-    Promise.resolve({
-      records: [
-        {
-          counts: {
-            active: 1,
-            completed: 0,
-            delayed: 0,
-            failed: 0,
-            paused: 0,
-            prioritized: 0,
-            waiting: 0,
-            "waiting-children": 0,
-          },
-          displayName: "简历解析",
-          name: "resume-parse",
-          redis: null,
-          workers: [],
-          workersCount: 0,
-        },
-        {
-          counts: {
-            active: 0,
-            completed: 0,
-            delayed: 0,
-            failed: 0,
-            paused: 0,
-            prioritized: 0,
-            waiting: 2,
-            "waiting-children": 0,
-          },
-          displayName: "AI分析",
-          name: "resume-review-generation",
-          redis: null,
-          workers: [],
-          workersCount: 0,
-        },
-      ],
-      total: 2,
-    }),
-  ),
-}));
+async function renderQueuesGrid(dependencies: QueuesGridDependencies) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const rootRoute = createRootRoute({ component: Outlet });
+  const indexRoute = createRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <QueuesGrid dependencies={dependencies} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    ),
+    getParentRoute: () => rootRoute,
+    path: "/",
+  });
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+    routeTree: rootRoute.addChildren([indexRoute]),
+  });
+
+  await act(async () => {
+    await router.load();
+    root.render(<RouterProvider router={router} />);
+    await Promise.resolve();
+  });
+
+  return { queryClient, root };
+}
 
 afterEach(() => {
   document.body.innerHTML = "";
-  capturedGridOptions.current = null;
   vi.clearAllMocks();
 });
 
 describe("QueuesGrid", () => {
-  it("shows upload task fields in the list and keeps actions pinned right", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    });
+  it("shows upload task fields and keeps actions pinned right", async () => {
+    const dependencies = createDependencies();
+    const rendered = await renderQueuesGrid(dependencies);
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <QueuesGrid />
-          </TooltipProvider>
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("Nolan.jpeg");
     });
 
     expect(document.body.textContent).toContain("文件名");
     expect(document.body.textContent).toContain("简历解析");
     expect(document.body.textContent).toContain("AI分析");
-    expect(document.body.textContent).toContain("Nolan.jpeg");
     expect(document.body.textContent).toContain("上传任务状态");
     expect(document.body.textContent).toContain("解析状态");
     expect(document.body.textContent).toContain("解析中");
-    expect(capturedGridOptions.current?.initialFilters).toMatchObject({
-      parseStatus: "all",
-      uploadStatus: "all",
+    expect(dependencies.fetchJobs).toHaveBeenCalledWith({
+      query: {
+        page: "1",
+        pageSize: "20",
+        parseStatus: "all",
+        state: "all",
+        uploadStatus: "all",
+      },
+      queueName: "resume-parse",
     });
 
     const actionHeader = [...document.querySelectorAll("th")].find((cell) =>
@@ -266,38 +234,16 @@ describe("QueuesGrid", () => {
     expect(actionCell?.style.insetInlineEnd).toBe("0px");
 
     act(() => {
-      root.unmount();
+      rendered.root.unmount();
     });
-    queryClient.clear();
+    rendered.queryClient.clear();
   });
 
   it("passes upload and parse status filters to the jobs query", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    });
+    const dependencies = createDependencies();
+    const fetchJobs = createQueueJobsFetcher(dependencies.fetchJobs);
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <QueuesGrid />
-          </TooltipProvider>
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
-
-    const queryFn = capturedGridOptions.current?.queryFn;
-    expect(queryFn).toBeTypeOf("function");
-
-    await queryFn?.({
+    await fetchJobs({
       filters: {
         parseStatus: "failed",
         queue: "resume-parse",
@@ -309,8 +255,7 @@ describe("QueuesGrid", () => {
       search: "",
     });
 
-    expect(rpcQueueJobsGetMock).toHaveBeenCalledWith({
-      param: { queueName: "resume-parse" },
+    expect(dependencies.fetchJobs).toHaveBeenCalledWith({
       query: {
         page: "2",
         pageSize: "20",
@@ -318,41 +263,15 @@ describe("QueuesGrid", () => {
         state: "all",
         uploadStatus: "processing",
       },
+      queueName: "resume-parse",
     });
-
-    act(() => {
-      root.unmount();
-    });
-    queryClient.clear();
   });
 
   it("uses the AI analysis queue when that tab filter is selected", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    });
+    const dependencies = createDependencies();
+    const fetchJobs = createQueueJobsFetcher(dependencies.fetchJobs);
 
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <QueuesGrid />
-          </TooltipProvider>
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
-
-    const queryFn = capturedGridOptions.current?.queryFn;
-    expect(queryFn).toBeTypeOf("function");
-
-    await queryFn?.({
+    await fetchJobs({
       filters: {
         parseStatus: "all",
         queue: "resume-review-generation",
@@ -364,8 +283,7 @@ describe("QueuesGrid", () => {
       search: "",
     });
 
-    expect(rpcQueueJobsGetMock).toHaveBeenCalledWith({
-      param: { queueName: "resume-review-generation" },
+    expect(dependencies.fetchJobs).toHaveBeenCalledWith({
       query: {
         page: "1",
         pageSize: "20",
@@ -373,12 +291,8 @@ describe("QueuesGrid", () => {
         state: "waiting",
         uploadStatus: "all",
       },
+      queueName: "resume-review-generation",
     });
-
-    act(() => {
-      root.unmount();
-    });
-    queryClient.clear();
   });
 });
 

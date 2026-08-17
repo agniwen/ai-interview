@@ -1,11 +1,14 @@
 import { Outlet, createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { idInputSchema } from "@/lib/start/server-fn-validators";
 
 interface InterviewResolveState {
   roundId: string | null;
 }
+
+const interviewResolveSchema = z.object({ roundId: z.string().optional() });
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
@@ -26,8 +29,8 @@ const resolveInterviewRoundState = createServerFn({ method: "GET" })
       if (!response.ok) {
         return { roundId: null };
       }
-      const payload = (await response.json()) as { roundId?: string };
-      return { roundId: payload.roundId ?? null };
+      const parsed = interviewResolveSchema.safeParse(await response.json());
+      return { roundId: parsed.success ? (parsed.data.roundId ?? null) : null };
     } catch {
       return { roundId: null };
     }

@@ -9,47 +9,78 @@
 
 import { eq } from "drizzle-orm";
 import { testClient } from "hono/testing";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { department, interviewer, jobDescription, organization, user } from "@arc/db-schema/schema";
+import {
+  department,
+  interviewer,
+  jobDescription,
+  member,
+  organization,
+  user,
+} from "@arc/db-schema/schema";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { requirePermission as defaultRequirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
+import { generateStructuredJobBlueprintPreview } from "../application/job-evaluation-lifecycle";
+import { createJobEvaluationPreviewStreamRouter } from "../routes/evaluation-blueprint-preview/route";
 
-const mocks = vi.hoisted(() => ({
-  deleteJobDescriptionSemanticIndexBestEffort: vi.fn(),
-  enqueueJobDescriptionIndexJobBestEffort: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/jd-semantic/enqueue", () => ({
-  deleteJobDescriptionSemanticIndexBestEffort: mocks.deleteJobDescriptionSemanticIndexBestEffort,
-  enqueueJobDescriptionIndexJobBestEffort: mocks.enqueueJobDescriptionIndexJobBestEffort,
-}));
-
-// requirePermission 依赖真实 workspace request context（headers/session/DB）
-// 才能解析，测试里绕开鉴权，改由外层 middleware 直接注入 activeOrg/user。
-// requirePermission needs a real workspace request context (headers/session/
-// DB) to resolve; bypass it in tests and inject activeOrg/user directly via
-// an outer middleware instead.
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { jobDescriptionsRouter } from "../route";
+import { createJobDescriptionsRouter } from "../route";
+import type { JobDescriptionsRouterDependencies } from "../route";
 
 const ORG_ID = "index_hooks_org";
 const USER_ID = "index_hooks_user";
+const MEMBER_ID = "index_hooks_member";
 const DEPARTMENT_ID = "index_hooks_department";
 const INTERVIEWER_ID = "index_hooks_interviewer";
 const EXISTING_JD_ID = "index_hooks_existing_jd";
 const NOW = new Date("2026-06-01T00:00:00.000Z");
 
+const deleteHookCalls: { jobDescriptionId: string; organizationId: string }[] = [];
+const enqueueHookCalls: { jobDescriptionId: string | null | undefined; organizationId: string }[] =
+  [];
+const hookCalls = { delete: deleteHookCalls, enqueue: enqueueHookCalls };
+
+const routerDependencies: JobDescriptionsRouterDependencies = {
+  deleteJobDescriptionSemanticIndexBestEffort: (options) => {
+    hookCalls.delete.push(options);
+    return Promise.resolve();
+  },
+  enqueueJobDescriptionIndexJobBestEffort: (options) => {
+    hookCalls.enqueue.push(options);
+    return Promise.resolve();
+  },
+  generateStructuredJobBlueprintPreview,
+  jobEvaluationPreviewStreamRouter: createJobEvaluationPreviewStreamRouter(),
+  requirePermission: (resource, action) =>
+    defaultRequirePermission(resource, action, {
+      createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
+    }),
+};
+
+const jobDescriptionsRouter = createJobDescriptionsRouter(routerDependencies);
+
 function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
-      c.set("activeOrg", { id: ORG_ID } as never);
-      c.set("user", { id: USER_ID } as never);
+      const [activeOrg] = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, ORG_ID))
+        .limit(1);
+      const [userRecord] = await db.select().from(user).where(eq(user.id, USER_ID)).limit(1);
+      const [memberRecord] = await db
+        .select()
+        .from(member)
+        .where(eq(member.id, MEMBER_ID))
+        .limit(1);
+      if (!activeOrg || !userRecord || !memberRecord) {
+        throw new Error("test workspace fixtures are missing");
+      }
+      c.set("activeOrg", activeOrg);
+      c.set("member", memberRecord);
+      c.set("user", userRecord);
       await next();
     })
     .route("/job-descriptions", jobDescriptionsRouter);
@@ -61,6 +92,7 @@ async function cleanup() {
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_ID));
   await db.delete(interviewer).where(eq(interviewer.organizationId, ORG_ID));
   await db.delete(department).where(eq(department.organizationId, ORG_ID));
+  await db.delete(member).where(eq(member.id, MEMBER_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
   await db.delete(user).where(eq(user.id, USER_ID));
 }
@@ -79,6 +111,13 @@ async function seedFixtures() {
     id: ORG_ID,
     name: "钩子测试公司",
     slug: "index-hooks-org",
+  });
+  await db.insert(member).values({
+    createdAt: NOW,
+    id: MEMBER_ID,
+    organizationId: ORG_ID,
+    role: "owner",
+    userId: USER_ID,
   });
   await db.insert(department).values({
     createdAt: NOW,
@@ -101,7 +140,17 @@ async function seedFixtures() {
   });
 }
 
-function jobDescriptionPayload(overrides?: Partial<Record<string, unknown>>) {
+interface JobDescriptionTestOverrides {
+  allowCrossDepartmentInterviewers?: boolean;
+  departmentId?: string;
+  description?: string;
+  interviewerIds?: string[];
+  name?: string;
+  prompt?: string;
+  structuredConfig?: ReturnType<typeof createDefaultJobDescriptionStructuredConfig>;
+}
+
+function jobDescriptionPayload(overrides?: JobDescriptionTestOverrides) {
   return {
     allowCrossDepartmentInterviewers: true,
     departmentId: DEPARTMENT_ID,
@@ -117,7 +166,8 @@ function jobDescriptionPayload(overrides?: Partial<Record<string, unknown>>) {
 beforeEach(async () => {
   await cleanup();
   await seedFixtures();
-  vi.clearAllMocks();
+  hookCalls.delete.length = 0;
+  hookCalls.enqueue.length = 0;
 });
 
 afterEach(cleanup);
@@ -135,7 +185,7 @@ describe("job-descriptions route index hooks", () => {
       evaluationMode: "structured",
       lifecycleStatus: "draft",
     });
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).not.toHaveBeenCalled();
+    expect(hookCalls.enqueue).toHaveLength(0);
   });
 
   it("POST / persists and returns the structured JD configuration", async () => {
@@ -182,7 +232,7 @@ describe("job-descriptions route index hooks", () => {
     });
     expect(res.status).toBe(200);
 
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).not.toHaveBeenCalled();
+    expect(hookCalls.enqueue).toHaveLength(0);
   });
 
   it("DELETE /:id purges the JD semantic index", async () => {
@@ -201,8 +251,8 @@ describe("job-descriptions route index hooks", () => {
     const res = await client["job-descriptions"][":id"].$delete({ param: { id: EXISTING_JD_ID } });
     expect(res.status).toBe(200);
 
-    expect(mocks.deleteJobDescriptionSemanticIndexBestEffort).toHaveBeenCalledTimes(1);
-    expect(mocks.deleteJobDescriptionSemanticIndexBestEffort).toHaveBeenCalledWith({
+    expect(hookCalls.delete).toHaveLength(1);
+    expect(hookCalls.delete[0]).toEqual({
       jobDescriptionId: EXISTING_JD_ID,
       organizationId: ORG_ID,
     });

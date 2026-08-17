@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Progress } from "@/components/ui/progress";
 import type { BulkResumeBatchItemDto } from "@arc/shared/bulk-resume-upload";
+import { z } from "zod";
 import type { BulkUploadState } from "./use-bulk-upload";
 
 interface Props {
@@ -25,15 +26,26 @@ interface Props {
   onAfterClose?: () => void;
 }
 
+interface ItemStatusMeta {
+  label: string;
+  variant: "destructive" | "outline" | "secondary" | "success";
+}
+
+const duplicateMatchSnapshotSchema = z.array(
+  z.object({
+    candidateEmail: z.string().optional(),
+    candidateName: z.string().optional(),
+    candidatePhone: z.string().optional(),
+  }),
+);
+type DuplicateMatchSnapshot = z.infer<typeof duplicateMatchSnapshotSchema>;
+
 // 状态 → 标签文本 + Badge variant 映射。
 // Maps item status to display label and Badge variant.
 function itemStatusLabel(
   status: BulkResumeBatchItemDto["status"],
   target: "resume_library" | "resume_pool",
-): {
-  label: string;
-  variant: "success" | "secondary" | "destructive" | "outline";
-} {
+): ItemStatusMeta {
   switch (status) {
     case "pending": {
       return { label: "排队中", variant: "outline" };
@@ -77,31 +89,15 @@ function ItemIcon({ status }: { status: BulkResumeBatchItemDto["status"] }) {
   return <IconCircle className="size-4 text-muted-foreground" />;
 }
 
-function duplicateMatchesText(snapshot: unknown): string | null {
-  if (!Array.isArray(snapshot) || snapshot.length === 0) {
+function duplicateMatchesText(snapshot: DuplicateMatchSnapshot): string | null {
+  if (snapshot.length === 0) {
     return null;
   }
-  const labels = snapshot
-    .slice(0, 3)
-    .map((item) => {
-      if (!(item && typeof item === "object")) {
-        return null;
-      }
-      const record = item as {
-        candidateEmail?: unknown;
-        candidateName?: unknown;
-        candidatePhone?: unknown;
-      };
-      const name = typeof record.candidateName === "string" ? record.candidateName : "未知候选人";
-      let contact: string | null = null;
-      if (typeof record.candidateEmail === "string") {
-        contact = record.candidateEmail;
-      } else if (typeof record.candidatePhone === "string") {
-        contact = record.candidatePhone;
-      }
-      return contact ? `${name}（${contact}）` : name;
-    })
-    .filter((item): item is string => item !== null);
+  const labels = snapshot.slice(0, 3).map((item) => {
+    const name = item.candidateName ?? "未知候选人";
+    const contact = item.candidateEmail ?? item.candidatePhone ?? null;
+    return contact ? `${name}（${contact}）` : name;
+  });
   if (labels.length === 0) {
     return null;
   }
@@ -251,9 +247,12 @@ export function BulkUploadProgressDialog({
                   ))
                 : items.map((item) => {
                     const meta = itemStatusLabel(item.status, target);
+                    const parsedDuplicateSnapshot = duplicateMatchSnapshotSchema.safeParse(
+                      item.dedupMatchSnapshot,
+                    );
                     const duplicateText =
-                      item.status === "duplicate_skipped"
-                        ? duplicateMatchesText(item.dedupMatchSnapshot)
+                      item.status === "duplicate_skipped" && parsedDuplicateSnapshot.success
+                        ? duplicateMatchesText(parsedDuplicateSnapshot.data)
                         : null;
                     return (
                       <li

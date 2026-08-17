@@ -4,6 +4,7 @@ import { IconDeviceFloppy, IconInbox, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { DateTimePicker } from "@/components/date-time-picker";
 import {
   SettingsGroup,
@@ -40,17 +41,6 @@ import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
 import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
-const DEFAULT_MAIL_INGEST_FORM = {
-  emailAddress: "",
-  enabled: true,
-  imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
-  imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
-  listenStartAt: "",
-  password: "",
-  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID as MailIngestProviderId,
-  subjectKeyword: "boss直聘",
-  username: "",
-};
 
 interface MailIngestAccountRecord {
   emailAddress: string;
@@ -77,6 +67,20 @@ interface MailIngestFormState {
   subjectKeyword: string;
   username: string;
 }
+
+const DEFAULT_MAIL_INGEST_FORM = {
+  emailAddress: "",
+  enabled: true,
+  imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
+  imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
+  listenStartAt: "",
+  password: "",
+  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID,
+  subjectKeyword: "boss直聘",
+  username: "",
+} satisfies MailIngestFormState;
+
+const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
 
 function createDefaultMailIngestForm(): MailIngestFormState {
   return {
@@ -116,7 +120,7 @@ export function MailIngestAccountCard() {
       if (!response.ok) {
         throw new Error("加载邮箱采集配置失败");
       }
-      return (await response.json()) as { accounts: MailIngestAccountRecord[] };
+      return await response.json();
     },
     queryKey: ["mail-ingest-accounts", slug],
   });
@@ -152,10 +156,7 @@ export function MailIngestAccountCard() {
       };
       const response = account
         ? await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$patch({
-            json: {
-              ...payload,
-              ...(form.password.trim() ? { password: form.password.trim() } : {}),
-            },
+            json: form.password.trim() ? { ...payload, password: form.password.trim() } : payload,
             param: { id: account.id, slug },
           })
         : await rpc.api.w[":slug"].studio["mail-ingest-accounts"].$post({
@@ -166,7 +167,9 @@ export function MailIngestAccountCard() {
             param: { slug },
           });
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const rawBody = await response.json().catch(() => null);
+        const parsedBody = errorPayloadSchema.safeParse(rawBody);
+        const body = parsedBody.success ? parsedBody.data : null;
         throw new Error(body?.error ?? "邮箱采集配置保存失败");
       }
     },
@@ -359,14 +362,15 @@ export function MailIngestAccountCard() {
               <Select
                 disabled={disabled}
                 value={form.providerId}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
+                  const provider = MAIL_INGEST_PROVIDERS.find((item) => item.id === value);
+                  if (!provider) {
+                    return;
+                  }
                   setForm((current) =>
-                    applyMailIngestProvider(
-                      { ...current, providerId: value as MailIngestProviderId },
-                      value as MailIngestProviderId,
-                    ),
-                  )
-                }
+                    applyMailIngestProvider({ ...current, providerId: provider.id }, provider.id),
+                  );
+                }}
               >
                 <SelectTrigger className="w-full" id="mail-ingest-provider">
                   <SelectValue />

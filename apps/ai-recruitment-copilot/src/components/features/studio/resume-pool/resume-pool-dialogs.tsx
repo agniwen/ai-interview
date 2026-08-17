@@ -8,6 +8,7 @@ import type {
 } from "@arc/shared/resume-pool";
 
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { getMemberInitials } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -44,17 +45,58 @@ const StudioPersonDetailDialog = lazy(async () => {
   return { default: detailDialog.StudioPersonDetailDialog };
 });
 
+interface StudioPersonDetailProps {
+  onOpenChange: (open: boolean) => void;
+  recordId: string;
+}
+
+export interface ImportResumePoolDialogDependencies {
+  importResumePoolItem: typeof importResumePoolItem;
+  isApiError: typeof isApiError;
+  notifyError: (message: string) => void;
+  notifySuccess: (message: string) => void;
+  renderStudioPersonDetail: (props: StudioPersonDetailProps) => ReactNode;
+  useJobDescriptionOptions: (slug: string) => {
+    data?: { description?: string; label: string; value: string }[];
+  };
+  useWorkspaceSlug: () => string;
+}
+
+const defaultImportResumePoolDialogDependencies: ImportResumePoolDialogDependencies = {
+  importResumePoolItem,
+  isApiError,
+  notifyError: (message) => toast.error(message),
+  notifySuccess: (message) => toast.success(message),
+  renderStudioPersonDetail: ({ onOpenChange, recordId }) => (
+    <Suspense fallback={null}>
+      <StudioPersonDetailDialog
+        mode="resume"
+        onOpenChange={onOpenChange}
+        open={true}
+        recordId={recordId}
+      />
+    </Suspense>
+  ),
+  useJobDescriptionOptions: (slug) => {
+    const { data } = useJobDescriptions(slug);
+    return { data: data ? buildJdOptions(data) : undefined };
+  },
+  useWorkspaceSlug,
+};
+
 export function ImportResumePoolDialog({
+  dependencies = defaultImportResumePoolDialogDependencies,
   item,
   onImported,
   onOpenChange,
 }: {
+  dependencies?: ImportResumePoolDialogDependencies;
   item: ResumePoolListRecord | null;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
 }) {
-  const slug = useWorkspaceSlug();
-  const { data: jobDescriptions = [] } = useJobDescriptions(slug);
+  const slug = dependencies.useWorkspaceSlug();
+  const { data: jobDescriptionOptions = [] } = dependencies.useJobDescriptionOptions(slug);
   const [mode, setMode] = useState<"none" | "bind">("bind");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
   const [duplicates, setDuplicates] = useState<ResumePoolImportDuplicateResult | null>(null);
@@ -72,18 +114,19 @@ export function ImportResumePoolDialog({
       return;
     }
     const canUseSourceJd =
-      item.jobDescriptionId && jobDescriptions.some((jd) => jd.id === item.jobDescriptionId);
+      item.jobDescriptionId &&
+      jobDescriptionOptions.some((jd) => jd.value === item.jobDescriptionId);
     setMode("bind");
     setJobDescriptionId(canUseSourceJd ? (item.jobDescriptionId ?? "") : "");
     setDuplicates(null);
-  }, [item, jobDescriptions]);
+  }, [item, jobDescriptionOptions]);
 
   const mutation = useMutation({
     mutationFn: async (dedupPolicy: "check" | "force") => {
       if (!item) {
         throw new Error("请选择要入库的简历");
       }
-      return await importResumePoolItem(slug, item.id, {
+      return await dependencies.importResumePoolItem(slug, item.id, {
         dedupPolicy,
         jobDescriptionId: mode === "bind" ? jobDescriptionId : null,
         jobDescriptionMode: mode,
@@ -91,21 +134,23 @@ export function ImportResumePoolDialog({
       });
     },
     onError: (error) => {
-      if (isApiError(error) && error.status === 409) {
+      if (dependencies.isApiError(error) && error.status === 409) {
+        // SAFETY: this mutation's 409 response is the backend's duplicate-result DTO;
+        // its status discriminator is checked before any duplicate details are consumed.
         const payload = error.payload as ResumePoolImportDuplicateResult | null;
         if (payload?.status === "duplicate_found") {
           setDuplicates(payload);
           return;
         }
       }
-      toast.error(error instanceof Error ? error.message : "新建招聘记录失败");
+      dependencies.notifyError(error instanceof Error ? error.message : "新建招聘记录失败");
     },
     onSuccess: (result) => {
       if (result.status === "duplicate_found") {
         setDuplicates(result);
         return;
       }
-      toast.success(isReimport ? "已再次新建招聘记录" : "已新建招聘记录");
+      dependencies.notifySuccess(isReimport ? "已再次新建招聘记录" : "已新建招聘记录");
       onImported();
       onOpenChange(false);
     },
@@ -224,7 +269,7 @@ export function ImportResumePoolDialog({
                   id="resume-pool-import-jd"
                   invalid={bindInvalid}
                   onChange={(next) => setJobDescriptionId(next ?? "")}
-                  options={buildJdOptions(jobDescriptions)}
+                  options={jobDescriptionOptions}
                   placeholder="请选择在招岗位"
                   searchPlaceholder="搜索岗位..."
                   value={jobDescriptionId || null}
@@ -259,20 +304,16 @@ export function ImportResumePoolDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {detailRecordId ? (
-        <Suspense fallback={null}>
-          <StudioPersonDetailDialog
-            mode="resume"
-            onOpenChange={(open) => {
+      {detailRecordId
+        ? dependencies.renderStudioPersonDetail({
+            onOpenChange: (open) => {
               if (!open) {
                 setDetailRecordId(null);
               }
-            }}
-            open={true}
-            recordId={detailRecordId}
-          />
-        </Suspense>
-      ) : null}
+            },
+            recordId: detailRecordId,
+          })
+        : null}
     </>
   );
 }

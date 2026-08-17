@@ -1,30 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createMeetingExportsRouter } from "./route";
+import type { MeetingExportsDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({ prepare: vi.fn() }));
+const mocks = {
+  prepareMeetingExport: vi.fn<MeetingExportsDependencies["prepareMeetingExport"]>(),
+};
 
-vi.mock("./service", () => ({ prepareMeetingExport: mocks.prepare }));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingExportsRouter } from "./route";
+const dependencies: MeetingExportsDependencies = mocks;
 
 function app() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-83" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "member" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-83" } as never);
       await next();
     })
-    .route("/meetings/:id/exports", meetingExportsRouter);
+    .route("/meetings/:id/exports", createMeetingExportsRouter(dependencies));
 }
 
 describe("Meeting export route", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("redirects audio to a short-lived object URL instead of proxying media", async () => {
-    mocks.prepare.mockResolvedValue({
+    mocks.prepareMeetingExport.mockResolvedValue({
       kind: "audio",
       url: "https://recordings.example/signed-playback.webm",
     });
@@ -39,7 +43,7 @@ describe("Meeting export route", () => {
   });
 
   it("returns a streaming attachment response for text formats", async () => {
-    mocks.prepare.mockResolvedValue({
+    mocks.prepareMeetingExport.mockResolvedValue({
       body: new Blob(["# 会议导出\n"]).stream(),
       contentType: "text/markdown; charset=utf-8",
       filename: "meeting-83.md",
@@ -55,7 +59,7 @@ describe("Meeting export route", () => {
   it("rejects unsupported formats before calling the service", async () => {
     const response = await app().request("/meetings/meeting-83/exports/provider-json");
     expect(response.status).toBe(400);
-    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.prepareMeetingExport).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown source track before calling the service", async () => {
@@ -63,7 +67,7 @@ describe("Meeting export route", () => {
       "/meetings/meeting-83/exports/audio?track=provider-internal",
     );
     expect(response.status).toBe(400);
-    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.prepareMeetingExport).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -71,7 +75,7 @@ describe("Meeting export route", () => {
     ["forbidden", 403],
     ["not-ready", 409],
   ] as const)("maps %s without exposing internal details", async (kind, status) => {
-    mocks.prepare.mockResolvedValue({ kind });
+    mocks.prepareMeetingExport.mockResolvedValue({ kind });
     const response = await app().request("/meetings/meeting-83/exports/json");
     expect(response.status).toBe(status);
     expect(await response.text()).not.toMatch(/storage|provider|model/i);

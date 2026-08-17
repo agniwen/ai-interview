@@ -47,7 +47,13 @@ export function JoinClient({ code, initialRole, workspace }: JoinClientProps) {
         <Button disabled={accepting} onClick={onAccept}>
           {accepting ? "处理中..." : "加入工作区"}
         </Button>
-        <Button disabled={accepting} onClick={() => void navigate({ to: "/" })} variant="outline">
+        <Button
+          disabled={accepting}
+          onClick={() => {
+            navigate({ to: "/" });
+          }}
+          variant="outline"
+        >
           取消
         </Button>
       </div>

@@ -1,33 +1,16 @@
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { coerceSearchParams } from "./data-grid-search";
+import type { SearchParamsRecord } from "./data-grid-search";
 
 export interface InterviewFilters extends Record<string, string> {
   creatorIds: string;
   status: string;
 }
 
-type SearchParamsPrimitive = boolean | number | string;
-export type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
+export const coerceStudioInterviewsSearch = coerceSearchParams;
 
-export function coerceStudioInterviewsSearch(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is SearchParamsPrimitive =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
-}
+export type { SearchParamsRecord } from "./data-grid-search";
 
 export function parseStudioInterviewsQuery(
   searchParams: SearchParamsRecord,

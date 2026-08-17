@@ -18,10 +18,15 @@ import type { WorkspaceOrg } from "@/lib/client/workspace";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
 import { cn } from "@arc/shared/utils";
 
-const noDragStyle = {
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /**
  * Compact workspace picker for the desktop chrome bar (left of settings).

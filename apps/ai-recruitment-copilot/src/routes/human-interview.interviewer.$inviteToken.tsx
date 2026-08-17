@@ -1,6 +1,11 @@
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import {
+  humanInterviewMeetingInterviewerRoleSchema,
+  humanInterviewMeetingStatusSchema,
+} from "@arc/db-schema/studio-interviews";
 import type { PublicHumanInterviewInterviewerPreview } from "@arc/shared/studio-pipeline-stages";
+import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
@@ -9,6 +14,16 @@ interface HumanInterviewInterviewerState {
   inviteToken: string;
   preview: PublicHumanInterviewInterviewerPreview | null;
 }
+
+const interviewerPreviewSchema = z.object({
+  interviewerName: z.string(),
+  meetingId: z.string(),
+  role: humanInterviewMeetingInterviewerRoleSchema,
+  scheduledAt: z.string().nullable(),
+  status: humanInterviewMeetingStatusSchema,
+  title: z.string(),
+  validUntil: z.string().nullable(),
+});
 
 function getBaseUrl() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
@@ -31,10 +46,8 @@ const loadHumanInterviewInterviewerState = createServerFn({ method: "GET" })
       if (!response.ok) {
         return { inviteToken: data.inviteToken, preview: null };
       }
-      return {
-        inviteToken: data.inviteToken,
-        preview: (await response.json()) as PublicHumanInterviewInterviewerPreview,
-      };
+      const parsed = interviewerPreviewSchema.safeParse(await response.json());
+      return { inviteToken: data.inviteToken, preview: parsed.success ? parsed.data : null };
     } catch {
       return { inviteToken: data.inviteToken, preview: null };
     }

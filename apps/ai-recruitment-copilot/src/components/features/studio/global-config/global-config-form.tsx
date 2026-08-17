@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { GlobalConfigRecord } from "@arc/shared/global-config";
@@ -90,31 +91,29 @@ export function GlobalConfigForm({ initial }: Props) {
     }
 
     const seq = (requestSeqRef.current += 1);
-    const res = await rpc.api.w[":slug"].studio["global-config"].$put({
-      json: values,
-      param: { slug },
-    });
-
-    if (seq !== requestSeqRef.current) {
-      return;
-    }
-
-    if (!res.ok) {
-      const { error } = (await res.json().catch(() => ({ error: "保存失败" }))) as {
-        error?: string;
+    try {
+      const saved = await rpcFetch<GlobalConfigRecord>(
+        rpc.api.w[":slug"].studio["global-config"].$put({
+          json: values,
+          param: { slug },
+        }),
+        "保存失败",
+      );
+      if (seq !== requestSeqRef.current) {
+        return;
+      }
+      lastSavedRef.current = {
+        ...values,
+        jobCodePrefix: saved.jobCodePrefix,
       };
-      toast.error(error ?? "保存失败");
-      return;
-    }
-
-    const saved = (await res.json()) as GlobalConfigRecord;
-    lastSavedRef.current = {
-      ...values,
-      jobCodePrefix: saved.jobCodePrefix,
-    };
-    toast.success("自动保存成功");
-    if (mountedRef.current) {
-      setJobCodePrefix(saved.jobCodePrefix);
+      toast.success("自动保存成功");
+      if (mountedRef.current) {
+        setJobCodePrefix(saved.jobCodePrefix);
+      }
+    } catch (error) {
+      if (seq === requestSeqRef.current) {
+        toast.error(error instanceof Error ? error.message : "保存失败");
+      }
     }
   }, [slug]);
 

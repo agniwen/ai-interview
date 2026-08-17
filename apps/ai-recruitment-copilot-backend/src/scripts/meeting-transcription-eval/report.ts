@@ -130,9 +130,7 @@ export function buildMeetingTranscriptionBenchmarkReport(input: {
       ranking: ranked,
       rankingMethod: "quality-v1+failure+retry+normalized-latency+normalized-actual-cost+deletion",
       ready,
-      recommendedProvider: ready
-        ? ((ranked[0]?.provider ?? null) as MeetingTranscriptionProviderId | null)
-        : null,
+      recommendedProvider: ready ? (ranked[0]?.provider ?? null) : null,
     },
     generatedAt: input.generatedAt,
     providers,

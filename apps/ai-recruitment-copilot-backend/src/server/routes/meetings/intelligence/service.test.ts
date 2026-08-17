@@ -1,45 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getSavedMeetingIntelligence, regenerateSavedMeetingIntelligence } from "./service";
+import type { MeetingIntelligenceDependencies } from "./service";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   enqueueMeetingIntelligenceJobs: vi.fn(),
   getMeetingIntelligenceGeneratorSnapshot: vi.fn(() => ({
     model: "provider/model",
     provider: "provider",
   })),
   isMeetingIntelligenceQueueConfigured: vi.fn(() => true),
-  loadAuthorizedMeeting: vi.fn(),
+  loadMeetingAccess: vi.fn(),
   loadMeetingIntelligenceResult: vi.fn(),
   recordMeetingAudit: vi.fn(),
   requestMeetingIntelligenceRun: vi.fn(),
-}));
+};
 
-vi.mock("@arc/meeting-processing-queue/meeting-intelligence", () => ({
-  MEETING_INTELLIGENCE_PIPELINE_VERSION: "intelligence-v1",
-  MEETING_INTELLIGENCE_PROMPT_VERSION: "meeting-intelligence-v1",
-  enqueueMeetingIntelligenceJobs: mocks.enqueueMeetingIntelligenceJobs,
-  isMeetingIntelligenceQueueConfigured: mocks.isMeetingIntelligenceQueueConfigured,
-}));
-vi.mock("./generator", () => ({
-  getMeetingIntelligenceGeneratorSnapshot: mocks.getMeetingIntelligenceGeneratorSnapshot,
-}));
-vi.mock("./dao", () => ({
-  loadMeetingIntelligenceResult: mocks.loadMeetingIntelligenceResult,
-  requestMeetingIntelligenceRun: mocks.requestMeetingIntelligenceRun,
-}));
-vi.mock("../authorized-meeting", () => ({
-  loadAuthorizedMeeting: mocks.loadAuthorizedMeeting,
-  meetingRole: vi.fn((meeting: { role: string }) => meeting.role),
-}));
-vi.mock("../dao", () => ({ recordMeetingAudit: mocks.recordMeetingAudit }));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { getSavedMeetingIntelligence, regenerateSavedMeetingIntelligence } from "./service";
+const dependencies: MeetingIntelligenceDependencies = mocks;
 
 describe("Meeting Intelligence service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isMeetingIntelligenceQueueConfigured.mockReturnValue(true);
-    mocks.loadAuthorizedMeeting.mockResolvedValue({ role: "owner" });
+    mocks.loadMeetingAccess.mockResolvedValue({ role: "owner" });
     mocks.loadMeetingIntelligenceResult.mockResolvedValue({
       canRegenerate: false,
       current: null,
@@ -53,13 +35,16 @@ describe("Meeting Intelligence service", () => {
 
   it("lets the Meeting Owner manually regenerate a selected template", async () => {
     await expect(
-      regenerateSavedMeetingIntelligence({
-        meetingId: "meeting-80",
-        memberRole: "member",
-        organizationId: "org-80",
-        template: "recruiting-interview",
-        userId: "owner-80",
-      }),
+      regenerateSavedMeetingIntelligence(
+        {
+          meetingId: "meeting-80",
+          memberRole: "member",
+          organizationId: "org-80",
+          template: "recruiting-interview",
+          userId: "owner-80",
+        },
+        dependencies,
+      ),
     ).resolves.toEqual({ state: "processing" });
     expect(mocks.requestMeetingIntelligenceRun).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -74,27 +59,33 @@ describe("Meeting Intelligence service", () => {
   });
 
   it("keeps Editor and Viewer read-only", async () => {
-    mocks.loadAuthorizedMeeting.mockResolvedValue({ role: "editor" });
+    mocks.loadMeetingAccess.mockResolvedValue({ role: "editor" });
     await expect(
-      regenerateSavedMeetingIntelligence({
-        meetingId: "meeting-80",
-        memberRole: "member",
-        organizationId: "org-80",
-        template: "general",
-        userId: "editor-80",
-      }),
+      regenerateSavedMeetingIntelligence(
+        {
+          meetingId: "meeting-80",
+          memberRole: "member",
+          organizationId: "org-80",
+          template: "general",
+          userId: "editor-80",
+        },
+        dependencies,
+      ),
     ).resolves.toBe("forbidden");
     expect(mocks.requestMeetingIntelligenceRun).not.toHaveBeenCalled();
   });
 
   it("returns current and full history to every authorized meeting reader", async () => {
     await expect(
-      getSavedMeetingIntelligence({
-        meetingId: "meeting-80",
-        memberRole: "member",
-        organizationId: "org-80",
-        userId: "owner-80",
-      }),
+      getSavedMeetingIntelligence(
+        {
+          meetingId: "meeting-80",
+          memberRole: "member",
+          organizationId: "org-80",
+          userId: "owner-80",
+        },
+        dependencies,
+      ),
     ).resolves.toMatchObject({ canRegenerate: true, state: "pending" });
   });
 });

@@ -7,6 +7,7 @@
 
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   buildOrderBy,
@@ -51,9 +52,16 @@ const ORDER_COLUMNS = {
 const roundsPaginationSchema = makePaginationSchema(SORT_COLUMNS, {
   defaultSortBy: "createdAt",
 });
+const roundsPaginationInputSchema = z.object({
+  page: z.union([z.string(), z.number()]).optional(),
+  pageSize: z.union([z.string(), z.number()]).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+type RoundsPaginationInput = z.input<typeof roundsPaginationInputSchema>;
 
-function parsePagination(params?: Record<string, unknown>) {
-  return roundsPaginationSchema.parse(params ?? {});
+function parsePagination(params?: RoundsPaginationInput) {
+  return roundsPaginationSchema.parse(roundsPaginationInputSchema.parse(params ?? {}));
 }
 
 function csvToList(value?: string | null): string[] | undefined {
@@ -72,9 +80,10 @@ function parseStatusFilter(value?: string | null): ScheduleEntryStatus[] | undef
   if (!items) {
     return;
   }
-  const valid = items.filter((v): v is ScheduleEntryStatus =>
-    scheduleEntryStatusSchema.options.includes(v as ScheduleEntryStatus),
-  );
+  const valid = items.flatMap((item) => {
+    const parsed = scheduleEntryStatusSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
   return valid.length > 0 ? valid : undefined;
 }
 
@@ -195,7 +204,7 @@ function resolveRoundFeishuDocumentUrl(
 export async function queryPaginatedInterviewRounds(
   organizationId: string,
   filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: RoundsPaginationInput,
   visibilityScope?: RecruitingVisibilityScope,
 ): Promise<PaginatedStudioInterviewRoundsResult> {
   const requestedCreatorIds =
@@ -330,7 +339,7 @@ export async function queryPaginatedInterviewRounds(
 export function listInterviewRounds(
   organizationId: string,
   filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
-  pagination?: Record<string, unknown>,
+  pagination?: RoundsPaginationInput,
   visibilityScope?: RecruitingVisibilityScope,
 ) {
   return queryPaginatedInterviewRounds(organizationId, filters, pagination, visibilityScope);

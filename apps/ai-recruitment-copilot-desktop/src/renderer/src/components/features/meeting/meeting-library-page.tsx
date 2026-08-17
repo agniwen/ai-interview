@@ -29,13 +29,15 @@ function LoadingLibrary() {
   );
 }
 
+type LibraryRefetch = () => Promise<void>;
+
 function visibleLibraryError(input: {
   isSearching: boolean;
-  meetingsError: unknown;
-  searchError: unknown;
+  meetingsError: Error | null;
+  searchError: Error | null;
   showTrash: boolean;
-  workspaceError: unknown;
-}): unknown {
+  workspaceError: Error | null;
+}): Error | null {
   const baseError = input.workspaceError ?? input.meetingsError;
   if (baseError || input.showTrash) {
     return baseError;
@@ -45,9 +47,9 @@ function visibleLibraryError(input: {
 
 function refetchVisibleLibrary(input: {
   isSearching: boolean;
-  refetchMeetings: () => Promise<unknown>;
-  refetchSearch: () => Promise<unknown>;
-}): Promise<unknown> {
+  refetchMeetings: LibraryRefetch;
+  refetchSearch: LibraryRefetch;
+}): Promise<void> {
   return input.isSearching ? input.refetchSearch() : input.refetchMeetings();
 }
 
@@ -145,13 +147,11 @@ function ActiveMeetingLibrary({
           const match = isSearching
             ? searchResults?.find((result) => result.id === meeting.id)?.match
             : undefined;
-          const search =
-            match?.startMs === null || match?.startMs === undefined
-              ? {}
-              : { at: match.startMs / 1000 };
+          const startMs = match?.startMs;
+          const search = startMs === null || startMs === undefined ? {} : { at: startMs / 1000 };
+          const hasTimedHit = startMs !== null && startMs !== undefined;
           // 带时间的搜索命中进入「更多信息」页，由播放器消费 at search param。
           // Timed search hits open the More page so the player can consume the at search param.
-          const hasTimedHit = typeof match?.startMs === "number";
           return (
             <Link
               className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -206,17 +206,19 @@ export function MeetingLibraryPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="text-muted-foreground text-sm">
-          {error instanceof Error ? error.message : "加载录制记录失败"}
-        </p>
+        <p className="text-muted-foreground text-sm">{error.message}</p>
         <Button
-          onClick={() =>
-            void refetchVisibleLibrary({
+          onClick={async () => {
+            await refetchVisibleLibrary({
               isSearching,
-              refetchMeetings: meetingsQuery.refetch,
-              refetchSearch: searchQuery.refetch,
-            })
-          }
+              refetchMeetings: async () => {
+                await meetingsQuery.refetch();
+              },
+              refetchSearch: async () => {
+                await searchQuery.refetch();
+              },
+            });
+          }}
           type="button"
           variant="outline"
         >

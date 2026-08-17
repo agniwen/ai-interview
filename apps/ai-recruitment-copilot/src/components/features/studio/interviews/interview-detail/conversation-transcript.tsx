@@ -72,7 +72,7 @@ export function ConversationTranscript({
               >
                 <span className="font-medium text-foreground">{isUser ? "候选人" : "面试官"}</span>
                 <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={turn.createdAt} />
-                {typeof turn.timeInCallSecs === "number" ? (
+                {turn.timeInCallSecs !== null && turn.timeInCallSecs !== undefined ? (
                   <span>· 通话 {turn.timeInCallSecs}s</span>
                 ) : null}
               </div>

@@ -14,17 +14,36 @@ import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/
 import { TextareaControl } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
-import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@arc/db-schema/interview-question-templates";
+import {
+  INTERVIEW_QUESTION_DIFFICULTY_OPTIONS,
+  interviewQuestionTemplateDifficultySchema,
+} from "@arc/db-schema/interview-question-templates";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
 import { DIFFICULTY_PILL_CLASS } from "@arc/shared/interview-question-difficulty";
 import { cn } from "@arc/shared/utils";
+import { z } from "zod";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
-const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {
+const DIFFICULTY_PILL = {
   easy: `${DIFFICULTY_PILL_CLASS.easy} hover:bg-emerald-500/15`,
   hard: `${DIFFICULTY_PILL_CLASS.hard} hover:bg-rose-500/15`,
   medium: `${DIFFICULTY_PILL_CLASS.medium} hover:bg-amber-500/15`,
-};
+} satisfies Record<InterviewQuestionTemplateDifficulty, string>;
+
+interface SortableQuestionListItem {
+  difficulty: InterviewQuestionTemplateDifficulty;
+  evaluationFocus: string | null;
+  followUpDirections: string | null;
+  content?: string;
+  id?: string;
+  order?: number;
+  question?: string;
+  sortOrder?: number;
+}
+
+const sortableQuestionListItemStateSchema = z.object({
+  difficulty: interviewQuestionTemplateDifficultySchema.optional(),
+});
 
 interface SortableQuestionListEditorProps {
   /** tanstack-form's `useForm` return value. Loose typing on purpose — its
@@ -41,7 +60,7 @@ interface SortableQuestionListEditorProps {
    * sortable id list regenerates. Pass `record?.id ?? "new"` or similar. */
   resetKey: string;
   /** Factory invoked when the user clicks "添加题目" to mint a new item. */
-  createItem: (sortIndex: number) => Record<string, unknown>;
+  createItem: (sortIndex: number) => SortableQuestionListItem;
   contentMaxLength?: number;
   contentPlaceholder?: string;
   evaluationFocusMaxLength?: number;
@@ -81,7 +100,8 @@ function QuestionListBody({
   // oxlint-disable-next-line no-explicit-any
   field: any;
 }) {
-  const items = (field.state.value ?? []) as { difficulty?: InterviewQuestionTemplateDifficulty }[];
+  const parsedItems = z.array(sortableQuestionListItemStateSchema).safeParse(field.state.value);
+  const items = parsedItems.success ? parsedItems.data : [];
   const {
     ids,
     move: moveId,
@@ -158,14 +178,21 @@ function QuestionListBody({
                       <form.Field name={`${arrayFieldName}[${index}].difficulty`}>
                         {/* oxlint-disable-next-line no-explicit-any */}
                         {(subField: any) => {
-                          const value =
-                            (subField.state.value as InterviewQuestionTemplateDifficulty) ?? "easy";
+                          const parsedDifficulty =
+                            interviewQuestionTemplateDifficultySchema.safeParse(
+                              subField.state.value,
+                            );
+                          const value = parsedDifficulty.success ? parsedDifficulty.data : "easy";
                           return (
                             <Select
                               disabled={disabled}
-                              onValueChange={(next) =>
-                                subField.handleChange(next as InterviewQuestionTemplateDifficulty)
-                              }
+                              onValueChange={(next) => {
+                                const nextDifficulty =
+                                  interviewQuestionTemplateDifficultySchema.safeParse(next);
+                                if (nextDifficulty.success) {
+                                  subField.handleChange(nextDifficulty.data);
+                                }
+                              }}
                               value={value}
                             >
                               <SelectTrigger

@@ -13,6 +13,7 @@ import type {
   JobDescriptionStructuredConfig,
   StructuredResumeRuleId,
 } from "@arc/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
 import type { StructuredResumeDimension } from "@arc/shared/structured-resume-scoring";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
 import { z } from "zod";
@@ -25,10 +26,21 @@ import type { MastraGeneratorLike } from "@arc/ai-recruitment-copilot-backend/se
 
 const jobEvaluationBlueprintJsonAgent: MastraGeneratorLike = {
   generate(messages, options) {
-    return jobEvaluationBlueprintAgent.generate(messages, {
-      ...(options?.abortSignal ? { abortSignal: options.abortSignal } : {}),
-      ...(options?.modelSettings ? { modelSettings: options.modelSettings } : {}),
-    });
+    if (options?.abortSignal && options.modelSettings) {
+      return jobEvaluationBlueprintAgent.generate(messages, {
+        abortSignal: options.abortSignal,
+        modelSettings: options.modelSettings,
+      });
+    }
+    if (options?.abortSignal) {
+      return jobEvaluationBlueprintAgent.generate(messages, { abortSignal: options.abortSignal });
+    }
+    if (options?.modelSettings) {
+      return jobEvaluationBlueprintAgent.generate(messages, {
+        modelSettings: options.modelSettings,
+      });
+    }
+    return jobEvaluationBlueprintAgent.generate(messages, {});
   },
 };
 
@@ -171,6 +183,15 @@ const HARD_GATE_SOURCE_KEYS = {
   work_experience: "workExperience",
   work_location: "workLocation",
 } as const;
+const HARD_GATE_CATEGORIES = [
+  "education",
+  "language_ability",
+  "other",
+  "required_certificates",
+  "required_skills",
+  "work_experience",
+  "work_location",
+] as const satisfies readonly (keyof typeof HARD_GATE_SOURCE_KEYS)[];
 
 export class BlueprintCompilationError extends Error {
   readonly code: string;
@@ -200,7 +221,12 @@ const MAX_SCORING_SKILLS_PER_TIER = 8;
 const NON_SKILL_CONCEPT_RE =
   /经验|经历|从业|需求拆解|拆解需求|项目把控|把控项目|技术难点攻坚|攻坚技术难点|平台增长|项目落地|团队管理|研发管理|跨部门协同|结果导向|业务落地|技术体系建设|人才梯队/u;
 
-function partitionJobSource(value: string): { base: string; priority: string } {
+interface PartitionedJobSource {
+  base: string;
+  priority: string;
+}
+
+function partitionJobSource(value: string): PartitionedJobSource {
   const base: string[] = [];
   const priority: string[] = [];
   let inPrioritySection = false;
@@ -357,9 +383,7 @@ function assertCompleteHardGateCoverage(
   input: CompileEvaluationBlueprintInput,
   atoms: HardGateCompilerCandidate["hardGateAtoms"],
 ): void {
-  for (const category of Object.keys(
-    HARD_GATE_SOURCE_KEYS,
-  ) as (keyof typeof HARD_GATE_SOURCE_KEYS)[]) {
+  for (const category of HARD_GATE_CATEGORIES) {
     const clauses = configuredHardGateClauses(hardGateSource(input.structuredConfig, category));
     const categoryAtoms = atoms.filter((atom) => atom.category === category);
     const usedAtomIndexes = new Set<number>();
@@ -543,10 +567,10 @@ function normalizeDimensionExpectation(
 function compileDimensionExpectations(input: CompileEvaluationBlueprintInput) {
   const relevantExperiences = compileRelevantExperienceCandidates(input);
   const primaryExperience = resolveRequiredRelevantExperience(input);
-  return Object.fromEntries(
-    Object.entries(input.modelOutput.dimensionExpectations).map(([dimension, expectations]) => {
-      const limit =
-        DIMENSION_EXPECTATION_LIMITS[dimension as keyof typeof DIMENSION_EXPECTATION_LIMITS];
+  const compiledExpectations = Object.fromEntries(
+    STRUCTURED_RESUME_DIMENSIONS.map((dimension) => {
+      const expectations = input.modelOutput.dimensionExpectations[dimension];
+      const limit = DIMENSION_EXPECTATION_LIMITS[dimension];
       if (limit === 0) {
         return [dimension, []];
       }
@@ -577,10 +601,7 @@ function compileDimensionExpectations(input: CompileEvaluationBlueprintInput) {
         if (sourceAppearsOnlyInPrioritySection(input, sourceExpectation.sourceText)) {
           continue;
         }
-        const expectation = normalizeDimensionExpectation(
-          dimension as keyof typeof DIMENSION_EXPECTATION_LIMITS,
-          sourceExpectation,
-        );
+        const expectation = normalizeDimensionExpectation(dimension, sourceExpectation);
         if (!expectation) {
           continue;
         }
@@ -605,7 +626,8 @@ function compileDimensionExpectations(input: CompileEvaluationBlueprintInput) {
       }
       return [dimension, [...unique.values()].slice(0, limit)];
     }),
-  ) as JobEvaluationBlueprint["dimensionExpectations"];
+  );
+  return jobEvaluationBlueprintSchema.shape.dimensionExpectations.parse(compiledExpectations);
 }
 
 function compileEducationExpectation(input: CompileEvaluationBlueprintInput) {
@@ -729,20 +751,18 @@ export function buildScoringBlueprintGenerationInput(
     prompt: input.prompt,
     scoringItems: {
       dimensions: [...STRUCTURED_RESUME_DIMENSIONS],
-      enabledRuleIds: (
-        Object.entries(input.structuredConfig.deductionRules) as [
-          StructuredResumeRuleId,
-          { enabled: boolean },
-        ][]
-      )
-        .filter(([, config]) => config.enabled)
-        .map(([ruleId]) => ruleId),
+      enabledRuleIds: structuredResumeRuleIdSchema.options.filter(
+        (ruleId) => input.structuredConfig.deductionRules[ruleId].enabled,
+      ),
     },
   };
 }
 
+const scoringCandidateJsonSchema = z.json();
+type ScoringCandidateJson = z.infer<typeof scoringCandidateJsonSchema>;
+
 function validateScoringCandidateSources(
-  value: unknown,
+  value: ScoringCandidateJson,
   input: ScoringBlueprintGenerationInput,
 ): void {
   if (Array.isArray(value)) {
@@ -751,17 +771,21 @@ function validateScoringCandidateSources(
     }
     return;
   }
-  if (!value || typeof value !== "object") {
+  const parsedRecord = z.record(z.string(), z.json()).safeParse(value);
+  if (!parsedRecord.success) {
     return;
   }
-  for (const [key, item] of Object.entries(value)) {
+  for (const [key, item] of Object.entries(parsedRecord.data)) {
+    const parsedSourceText = z.string().safeParse(item);
     if (
       key === "sourceText" &&
-      typeof item === "string" &&
-      !sourceContains(input.description, item) &&
-      !sourceContains(input.prompt, item)
+      parsedSourceText.success &&
+      !sourceContains(input.description, parsedSourceText.data) &&
+      !sourceContains(input.prompt, parsedSourceText.data)
     ) {
-      throw new Error(`sourceText 必须逐字引用 JD 的连续原文，当前无来源：${item}`);
+      throw new Error(
+        `sourceText 必须逐字引用 JD 的连续原文，当前无来源：${parsedSourceText.data}`,
+      );
     }
     validateScoringCandidateSources(item, input);
   }
@@ -847,6 +871,7 @@ function toProgressRuleDraft(
 
 async function generateScoringBlueprintCandidate(
   input: ScoringBlueprintGenerationInput,
+  agent: MastraGeneratorLike,
   onProgress?: JobEvaluationRuleDraftProgress,
 ): Promise<ScoringBlueprintCandidate> {
   const skillEducationInput = {
@@ -875,7 +900,7 @@ async function generateScoringBlueprintCandidate(
   let remainingDimensions: RemainingDimensionsCandidate | null = null;
   function generateSkillEducation() {
     return generateStructuredWithMastraAgent({
-      agent: jobEvaluationBlueprintJsonAgent,
+      agent,
       maxOutputTokens: 4000,
       prompt: [
         "请只根据岗位 JD 和基础评分项目提取技能与学历评分依据。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
@@ -897,7 +922,7 @@ async function generateScoringBlueprintCandidate(
   }
   function generateRemainingDimensions() {
     return generateStructuredWithMastraAgent({
-      agent: jobEvaluationBlueprintJsonAgent,
+      agent,
       maxOutputTokens: 5000,
       prompt: [
         "请只根据岗位 JD 和基础评分项目提取经验、项目、潜力与稳定性评分依据。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
@@ -958,12 +983,13 @@ async function generateScoringBlueprintCandidate(
 
 function generateHardGateCompilerCandidate(
   hardGates: JobDescriptionStructuredConfig["hardGates"],
+  agent: MastraGeneratorLike,
 ): Promise<HardGateCompilerCandidate> {
   if (Object.values(hardGates).every((value) => !value.trim())) {
     return Promise.resolve({ hardGateAtoms: [] });
   }
   return generateStructuredWithMastraAgent({
-    agent: jobEvaluationBlueprintJsonAgent,
+    agent,
     maxOutputTokens: 3000,
     prompt: [
       "请只把 HR 已配置的硬性门槛拆成原子要求。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
@@ -985,10 +1011,15 @@ function generateHardGateCompilerCandidate(
 export async function generateEvaluationBlueprintCandidate(
   input: EvaluationBlueprintGenerationJob,
   onProgress?: JobEvaluationRuleDraftProgress,
+  agent: MastraGeneratorLike = jobEvaluationBlueprintJsonAgent,
 ): Promise<BlueprintCompilerCandidate> {
   const [scoringCandidate, hardGateCandidate] = await Promise.all([
-    generateScoringBlueprintCandidate(buildScoringBlueprintGenerationInput(input), onProgress),
-    generateHardGateCompilerCandidate(input.structuredConfig.hardGates),
+    generateScoringBlueprintCandidate(
+      buildScoringBlueprintGenerationInput(input),
+      agent,
+      onProgress,
+    ),
+    generateHardGateCompilerCandidate(input.structuredConfig.hardGates, agent),
   ]);
   return { ...scoringCandidate, ...hardGateCandidate };
 }

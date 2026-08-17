@@ -50,6 +50,22 @@ import { useJobDescriptionFormState } from "./use-job-description-form-state";
 
 export { emptyJobDescriptionFormValues } from "./job-description-form-values";
 
+interface JobMarkdownStyle extends CSSProperties {
+  "--job-markdown-max-height": string;
+}
+
+const defaultSubmitMeta = {
+  action: "save",
+} satisfies { action: JobDescriptionSubmitAction };
+
+const jobMarkdownStyle: JobMarkdownStyle = {
+  "--job-markdown-max-height": `${JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT}px`,
+};
+
+export function isJobDescriptionFormTab(value: string): value is JobDescriptionFormTab {
+  return value === "basic" || value === "interview-questions" || value === "forms";
+}
+
 export function JobDescriptionFormDialog({
   initialDraft,
   open,
@@ -86,13 +102,10 @@ export function JobDescriptionFormDialog({
     defaultValues: resolvedInitialValues,
     onSubmit: ({ meta, value }) => submitRef.current?.(value, meta.action),
     onSubmitInvalid: ({ formApi }) =>
-      focusJobDescriptionBasicTabOnInvalidSubmit(
-        formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>,
-        (tab) => {
-          setActiveTabRef.current?.(tab);
-        },
-      ),
-    onSubmitMeta: { action: "save" } as { action: JobDescriptionSubmitAction },
+      focusJobDescriptionBasicTabOnInvalidSubmit(formApi.store.state.fieldMeta, (tab) => {
+        setActiveTabRef.current?.(tab);
+      }),
+    onSubmitMeta: defaultSubmitMeta,
     validators: { onSubmit: jobDescriptionFormSchema },
   });
 
@@ -184,6 +197,7 @@ export function JobDescriptionFormDialog({
           sortOrder: "desc",
         },
       });
+      // SAFETY: The generated hc endpoint defines this paginated forms response envelope.
       const payload = (await response.json()) as {
         records?: CandidateFormTemplateListRecord[];
         error?: string;
@@ -209,6 +223,7 @@ export function JobDescriptionFormDialog({
           sortOrder: "desc",
         },
       });
+      // SAFETY: The generated hc endpoint defines this paginated question-template envelope.
       const payload = (await response.json()) as {
         records?: InterviewQuestionTemplateListRecord[];
         error?: string;
@@ -246,7 +261,14 @@ export function JobDescriptionFormDialog({
   }
 
   return (
-    <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
+    <Tabs
+      onValueChange={(value) => {
+        if (isJobDescriptionFormTab(value)) {
+          setActiveTab(value);
+        }
+      }}
+      value={activeTab}
+    >
       <Modal
         open={open}
         onOpenChange={onOpenChange}
@@ -333,7 +355,7 @@ export function JobDescriptionFormDialog({
                   departments={departments}
                   evaluationFrozen={evaluationFrozen}
                   form={form}
-                  handleGenerateCode={() => void handleGenerateCode()}
+                  handleGenerateCode={handleGenerateCode}
                   interviewers={interviewers}
                   interviewerOptions={interviewerOptions}
                   isGeneratingCode={isGeneratingCode}
@@ -347,13 +369,7 @@ export function JobDescriptionFormDialog({
                       ? "flex flex-col gap-5"
                       : "flex flex-col gap-3 xl:grid xl:grid-flow-col xl:grid-cols-2 xl:grid-rows-[auto_minmax(0,var(--job-markdown-max-height))]"
                   }
-                  style={
-                    isLegacyJob
-                      ? undefined
-                      : ({
-                          "--job-markdown-max-height": `${JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT}px`,
-                        } as CSSProperties)
-                  }
+                  style={isLegacyJob ? undefined : jobMarkdownStyle}
                 >
                   <JobDescriptionPromptFields
                     evaluationFrozen={evaluationFrozen}

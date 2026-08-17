@@ -8,6 +8,7 @@ import type {
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { useMemo } from "react";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
@@ -111,24 +112,17 @@ export function CandidateFormTemplateSubmissionsDrawer({
         return loaded < lastPage.total ? loaded : undefined;
       },
       initialPageParam: 0,
-      queryFn: async ({ pageParam }) => {
+      queryFn: ({ pageParam }) => {
         if (!template) {
-          return { submissions: [], total: 0 };
+          return Promise.resolve({ submissions: [], total: 0 });
         }
-        const response = await rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
-          param: { id: template.id, slug },
-          query: { limit: String(PAGE_SIZE), offset: String(pageParam ?? 0) },
-        });
-        const payload = (await response.json()) as Partial<SubmissionsPage> & {
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(payload?.error ?? "加载填写记录失败");
-        }
-        return {
-          submissions: (payload.submissions ?? []) as SubmissionRow[],
-          total: payload.total ?? 0,
-        };
+        return rpcFetch<SubmissionsPage>(
+          rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
+            param: { id: template.id, slug },
+            query: { limit: String(PAGE_SIZE), offset: String(pageParam ?? 0) },
+          }),
+          "加载填写记录失败",
+        );
       },
       queryKey: ["candidate-form-templates", slug, template?.id, "submissions"],
     });
@@ -155,7 +149,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
           ) : null}
           {isError ? (
             <p className="py-10 text-center text-destructive text-sm">
-              {(error as Error)?.message ?? "加载失败"}
+              {error instanceof Error ? error.message : "加载失败"}
             </p>
           ) : null}
           {!isLoading && submissions.length === 0 ? (
@@ -217,7 +211,9 @@ export function CandidateFormTemplateSubmissionsDrawer({
                 <Button
                   className="min-w-32"
                   disabled={isFetchingNextPage}
-                  onClick={() => void fetchNextPage()}
+                  onClick={() => {
+                    fetchNextPage();
+                  }}
                   size="sm"
                   type="button"
                   variant="outline"

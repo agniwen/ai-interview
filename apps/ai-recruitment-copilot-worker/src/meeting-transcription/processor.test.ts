@@ -5,30 +5,6 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionDependencies } from "./processor";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  downloadMeetingRecordingObjectToFile: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao", () => ({
-  claimMeetingTranscriptionChunk: vi.fn(),
-  claimMeetingTranscriptionRun: vi.fn(),
-  loadMeetingTranscriptionChunkCheckpoint: vi.fn(),
-  loadMeetingTranscriptionSource: vi.fn(),
-  markMeetingTranscriptionChunkFailed: vi.fn(),
-  markMeetingTranscriptionFailed: vi.fn(),
-  publishMeetingTranscript: vi.fn(),
-  saveMeetingTranscriptionChunkCheckpoint: vi.fn(),
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/qwen-asr",
-  () => ({
-    createQwenAsrMeetingTranscriptionProvider: vi.fn(() => ({ transcribeFinal: vi.fn() })),
-  }),
-);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service", () => ({
-  requestAutomaticMeetingIntelligence: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
   assertMeetingTranscriptionFfmpegVersion,
   createMeetingTranscriptionProviderForJob,
@@ -133,11 +109,13 @@ function createDependencies() {
 describe("Meeting final transcription processor", () => {
   it("rejects a production job when the worker endpoint cannot prove the recorded region", () => {
     expect(() =>
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       createMeetingTranscriptionProviderForJob(job, {
         ALIBABA_BASE_URL: "https://proxy.example.com",
       } as NodeJS.ProcessEnv),
     ).toThrow("not in the verified region map");
     expect(() =>
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       createMeetingTranscriptionProviderForJob({ ...job, region: "qwen-singapore" }, {
         ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com",
       } as NodeJS.ProcessEnv),

@@ -1,30 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createUploadsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/uploads/route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
   parseResumeDocument: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
-}));
+};
 
-vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  putObjectBytes: mocks.putObjectBytes,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  parseResumeDocument: mocks.parseResumeDocument,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
+const uploadsRouter = createUploadsRouter({
+  buildAttachmentKey: mocks.buildAttachmentKeyByHash,
   createAttachment: mocks.createAttachment,
-  findAttachmentByContentHash: mocks.findAttachmentByContentHash,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { uploadsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/routes/uploads/route";
+  findAttachment: mocks.findAttachmentByContentHash,
+  parseDocument: mocks.parseResumeDocument,
+  putObject: mocks.putObjectBytes,
+  sha256: mocks.sha256HexOfBytes,
+});
 
 const HASH = "b".repeat(64);
 const ORG_ID = "org_uploads_route";
@@ -36,7 +30,9 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORG_ID, slug: SLUG } as never);
       await next();
     })
@@ -63,7 +59,7 @@ describe("uploadsRouter cache policy", () => {
     }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
-    mocks.putObjectBytes.mockImplementation(async () => {});
+    mocks.putObjectBytes.mockImplementation(() => Promise.resolve());
     mocks.parseResumeDocument.mockResolvedValue({
       pageCount: 1,
       text: "fresh ocr text",

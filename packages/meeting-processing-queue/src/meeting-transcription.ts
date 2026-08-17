@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions, JobType } from "bullmq";
+import type { ConnectionOptions, Job, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
 import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
 
@@ -28,7 +28,11 @@ export type MeetingTranscriptionJobProcessor = (
 let queue: Queue<MeetingTranscriptionJobData> | null = null;
 
 interface MeetingTranscriptionQueuePort {
-  add: (name: string, data: MeetingTranscriptionJobData, options: JobsOptions) => Promise<unknown>;
+  add: (
+    name: string,
+    data: MeetingTranscriptionJobData,
+    options: JobsOptions,
+  ) => Promise<Job | undefined>;
   getJob: (jobId: string) => Promise<
     | {
         getState: () => Promise<string>;
@@ -192,9 +196,10 @@ export function createMeetingTranscriptionWorker(
   const worker = new Worker<MeetingTranscriptionJobData>(
     MEETING_TRANSCRIPTION_QUEUE_NAME,
     async (job) => {
+      const parsedAttempts = z.number().safeParse(job.opts.attempts);
       await processJob(meetingTranscriptionJobSchema.parse(job.data), {
         attempt: job.attemptsMade + 1,
-        maxAttempts: typeof job.opts.attempts === "number" ? job.opts.attempts : 1,
+        maxAttempts: parsedAttempts.success ? parsedAttempts.data : 1,
       });
     },
     {

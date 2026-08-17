@@ -11,7 +11,7 @@ function bufferToHex(buffer: ArrayBuffer): string {
 }
 
 export async function sha256HexOfBytes(bytes: Uint8Array): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", Uint8Array.from(bytes));
   return bufferToHex(digest);
 }
 

@@ -1,5 +1,6 @@
 // oxlint-disable promise/avoid-new -- The IPC handshake is confirmed by the first provider event.
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import { z } from "zod";
 import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 
 const WORKLET_SAMPLE_RATE = 24_000;
@@ -7,20 +8,20 @@ const DASHSCOPE_SAMPLE_RATE = 16_000;
 const MAX_INFLIGHT_BYTES = 64 * 1024;
 const CONNECTION_TIMEOUT_MS = 10_000;
 
-interface DashScopeServerEvent {
-  item_id?: unknown;
-  text?: unknown;
-  transcript?: unknown;
-  stash?: unknown;
-  type?: unknown;
-}
-
-interface PortMessage {
-  byteLength?: number;
-  event?: DashScopeServerEvent;
-  reason?: string;
-  type?: string;
-}
+const dashScopeServerEventSchema = z.object({
+  item_id: z.string().optional(),
+  stash: z.string().optional(),
+  text: z.string().optional(),
+  transcript: z.string().optional(),
+  type: z.string().optional(),
+});
+type DashScopeServerEvent = z.infer<typeof dashScopeServerEventSchema>;
+const portMessageSchema = z.object({
+  byteLength: z.number().optional(),
+  event: dashScopeServerEventSchema.optional(),
+  reason: z.string().optional(),
+  type: z.string().optional(),
+});
 
 /**
  * 主进程 AudioWorklet 以 24k 输出（OpenAI WebRTC 的既有格式），qwen 需要 16k；
@@ -51,14 +52,14 @@ function handleDashScopeEvent(
   },
 ): void {
   if (event.type === "conversation.item.input_audio_transcription.text") {
-    if (typeof event.item_id === "string") {
-      const text = [event.text, event.stash].filter((part) => typeof part === "string").join("");
+    if (event.item_id) {
+      const text = [event.text, event.stash].filter((part) => part !== undefined).join("");
       input.onTranscript({ itemId: event.item_id, text, type: "snapshot" });
     }
     return;
   }
   if (event.type === "conversation.item.input_audio_transcription.completed") {
-    if (typeof event.item_id === "string" && typeof event.transcript === "string") {
+    if (event.item_id && event.transcript) {
       input.onTranscript({ itemId: event.item_id, text: event.transcript, type: "completed" });
     }
     return;
@@ -115,7 +116,7 @@ export async function connectQwenRealtimeTranscription(input: {
   };
 
   const opened = new Promise<void>((resolve, reject) => {
-    let handler: ((event: MessageEvent<PortMessage>) => void) | null = null;
+    let handler: ((event: MessageEvent) => void) | null = null;
     const cleanup = () => {
       if (handler) {
         clientPort.removeEventListener("message", handler);
@@ -126,8 +127,12 @@ export async function connectQwenRealtimeTranscription(input: {
       cleanup();
       reject(new Error("DashScope 实时字幕连接超时"));
     }, CONNECTION_TIMEOUT_MS);
-    handler = (event: MessageEvent<PortMessage>) => {
-      const message = event.data;
+    handler = (event: MessageEvent) => {
+      const parsedMessage = portMessageSchema.safeParse(event.data);
+      if (!parsedMessage.success) {
+        return;
+      }
+      const message = parsedMessage.data;
       if (
         message?.type === "event" &&
         (message.event?.type === "session.created" || message.event?.type === "session.updated")
@@ -146,11 +151,12 @@ export async function connectQwenRealtimeTranscription(input: {
     clientPort.addEventListener("message", handler);
   });
 
-  clientPort.addEventListener("message", (event: MessageEvent<PortMessage>) => {
-    const message = event.data;
-    if (!message || closing) {
+  clientPort.addEventListener("message", (event: MessageEvent) => {
+    const parsedMessage = portMessageSchema.safeParse(event.data);
+    if (!parsedMessage.success || closing) {
       return;
     }
+    const message = parsedMessage.data;
     if (message.type === "event" && message.event) {
       handleDashScopeEvent(message.event, {
         onDisconnect: disconnect,
@@ -160,7 +166,7 @@ export async function connectQwenRealtimeTranscription(input: {
     }
     if (
       message.type === "pcm-ack" &&
-      typeof message.byteLength === "number" &&
+      message.byteLength !== undefined &&
       Number.isSafeInteger(message.byteLength) &&
       message.byteLength > 0
     ) {

@@ -1,21 +1,26 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createMeetingRestoreRouter } from "./routes/restore/route";
+import { createMeetingTrashActionRouter } from "./routes/trash-action/route";
+import { createMeetingTrashRouter } from "./routes/trash/route";
+import { createMeetingsRouter } from "./route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   listTrashedSavedMeetings: vi.fn(),
   permanentlyPurgeSavedMeeting: vi.fn(),
   restoreSavedMeeting: vi.fn(),
   trashSavedMeeting: vi.fn(),
-}));
+};
 
-vi.mock("./lifecycle-service", () => mocks);
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
-  createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingsRouter } from "./route";
+const meetingsRouter = createMeetingsRouter({
+  meetingRestoreRouter: createMeetingRestoreRouter(mocks.restoreSavedMeeting),
+  meetingTrashActionRouter: createMeetingTrashActionRouter({
+    trashSavedMeeting: mocks.trashSavedMeeting,
+  }),
+  meetingTrashRouter: createMeetingTrashRouter(mocks.listTrashedSavedMeetings),
+  permanentlyPurgeSavedMeeting: mocks.permanentlyPurgeSavedMeeting,
+});
 
 const MEETING_ID = "00000000-0000-4000-8000-000000000084";
 
@@ -23,8 +28,11 @@ function makeClient() {
   const app = factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-84" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "member" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-84" } as never);
       await next();
     })

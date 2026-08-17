@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { barX, barY, defineChart, dot, link, ruleX, ruleY } from "@tanstack/charts";
 import { scaleBand, scaleLinear } from "d3-scale";
+import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -27,6 +28,21 @@ const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
 const COMPLETION_TRACK = "color-mix(in oklab, var(--muted-foreground) 16%, transparent)";
 const LOAD_ORANGE = "oklch(0.72 0.16 55)";
 const STEM_MUTED = "color-mix(in oklab, var(--muted-foreground) 45%, transparent)";
+
+const candidateTooltipDatumSchema = z.object({
+  count: z.number(),
+  name: z.string(),
+});
+const completionTooltipDatumSchema = z.object({
+  done: z.number(),
+  name: z.string(),
+  percent: z.number(),
+  total: z.number(),
+});
+const interviewerTooltipDatumSchema = z.object({
+  activeCandidates: z.number(),
+  name: z.string(),
+});
 
 function EmptyHint({ message }: { message: string }) {
   return (
@@ -136,8 +152,8 @@ function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"
       tooltip: {
         ...chartTooltip,
         format: (point) => {
-          const row = point.datum as (typeof data)[number];
-          return `${row.name}: ${row.count} 人`;
+          const result = candidateTooltipDatumSchema.safeParse(point.datum);
+          return result.success ? `${result.data.name}: ${result.data.count} 人` : "数据不可用";
         },
       },
       x: {
@@ -247,8 +263,10 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
       tooltip: {
         ...chartTooltip,
         format: (point) => {
-          const row = point.datum as (typeof data)[number];
-          return `${row.name}: ${row.done} / ${row.total} 轮（${row.percent}%）`;
+          const result = completionTooltipDatumSchema.safeParse(point.datum);
+          return result.success
+            ? `${result.data.name}: ${result.data.done} / ${result.data.total} 轮（${result.data.percent}%）`
+            : "数据不可用";
         },
       },
       x: {
@@ -354,8 +372,10 @@ function LoadCard({ rows }: { rows: JobDescriptionMetrics["loadByInterviewer"] }
       tooltip: {
         ...chartTooltip,
         format: (point) => {
-          const row = point.datum as (typeof data)[number];
-          return `${row.name}: ${row.activeCandidates} 人进行中`;
+          const result = interviewerTooltipDatumSchema.safeParse(point.datum);
+          return result.success
+            ? `${result.data.name}: ${result.data.activeCandidates} 人进行中`
+            : "数据不可用";
         },
       },
       x: {

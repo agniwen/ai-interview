@@ -2,12 +2,15 @@ import { and, eq } from "drizzle-orm";
 import type { InterviewEvidenceSnapshotPayload } from "@arc/db-schema/interview-snapshots";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { serializeDate } from "@arc/ai-recruitment-copilot-backend/lib/server/db/serialize";
+import { jsonValueSchema } from "@arc/ai-recruitment-copilot-backend/lib/server/stable-stringify";
 import { interviewConversation, interviewEvidenceSnapshot } from "@arc/db-schema/schema";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import {
   hashSnapshotPayload,
   loadActiveInterviewContextSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import { createInterviewEvidenceSnapshotWithDependencies } from "./evidence-snapshot-core";
+import type { EvidenceSnapshotDependencies } from "./evidence-snapshot-core";
 
 export interface CreateInterviewEvidenceSnapshotOptions {
   conversationId: string;
@@ -42,101 +45,61 @@ function serializeEvidenceRow(
   };
 }
 
-export async function createInterviewEvidenceSnapshot(
+const productionDependencies: EvidenceSnapshotDependencies = {
+  findExistingSnapshot: async (conversationId, contentHash) => {
+    const [existing] = await db
+      .select()
+      .from(interviewEvidenceSnapshot)
+      .where(
+        and(
+          eq(interviewEvidenceSnapshot.conversationId, conversationId),
+          eq(interviewEvidenceSnapshot.contentHash, contentHash),
+        ),
+      )
+      .limit(1);
+    return existing ? serializeEvidenceRow(existing) : null;
+  },
+  hashSnapshotPayload: (payload) => hashSnapshotPayload(jsonValueSchema.parse(payload)),
+  insertSnapshot: async (input) => {
+    const [inserted] = await db.insert(interviewEvidenceSnapshot).values(input).returning();
+    return inserted ? serializeEvidenceRow(inserted) : null;
+  },
+  loadContextSnapshot: loadActiveInterviewContextSnapshot,
+  loadConversation: async (conversationId, interviewRecordId) => {
+    const [conversation] = await db
+      .select({
+        lastSyncedAt: interviewConversation.lastSyncedAt,
+        organizationId: interviewConversation.organizationId,
+        recordingDurationSecs: interviewConversation.recordingDurationSecs,
+        recordingEgressId: interviewConversation.recordingEgressId,
+        recordingFileKey: interviewConversation.recordingFileKey,
+        recordingStatus: interviewConversation.recordingStatus,
+        scheduleEntryId: interviewConversation.scheduleEntryId,
+        transcript: interviewConversation.transcript,
+        updatedAt: interviewConversation.updatedAt,
+        webhookReceivedAt: interviewConversation.webhookReceivedAt,
+      })
+      .from(interviewConversation)
+      .where(
+        and(
+          eq(interviewConversation.conversationId, conversationId),
+          eq(interviewConversation.interviewRecordId, interviewRecordId),
+        ),
+      )
+      .limit(1);
+    return conversation ?? null;
+  },
+  loadSubmissions: async (interviewRecordId) => {
+    const submissions = await loadSubmissionsByInterview(interviewRecordId);
+    return submissions.map((submission) => ({
+      ...submission,
+      submittedAt: new Date(submission.submittedAt),
+    }));
+  },
+};
+
+export function createInterviewEvidenceSnapshot(
   options: CreateInterviewEvidenceSnapshotOptions,
 ): Promise<InterviewEvidenceSnapshotRecord> {
-  const [conversation] = await db
-    .select({
-      lastSyncedAt: interviewConversation.lastSyncedAt,
-      organizationId: interviewConversation.organizationId,
-      recordingDurationSecs: interviewConversation.recordingDurationSecs,
-      recordingEgressId: interviewConversation.recordingEgressId,
-      recordingFileKey: interviewConversation.recordingFileKey,
-      recordingStatus: interviewConversation.recordingStatus,
-      scheduleEntryId: interviewConversation.scheduleEntryId,
-      transcript: interviewConversation.transcript,
-      updatedAt: interviewConversation.updatedAt,
-      webhookReceivedAt: interviewConversation.webhookReceivedAt,
-    })
-    .from(interviewConversation)
-    .where(
-      and(
-        eq(interviewConversation.conversationId, options.conversationId),
-        eq(interviewConversation.interviewRecordId, options.interviewRecordId),
-      ),
-    )
-    .limit(1);
-  if (!conversation) {
-    throw new Error(`interview conversation ${options.conversationId} not found`);
-  }
-
-  const contextSnapshot = await loadActiveInterviewContextSnapshot(options.interviewRecordId);
-  if (!contextSnapshot) {
-    throw new Error(`interview context snapshot ${options.interviewRecordId} not found`);
-  }
-  const submissions = await loadSubmissionsByInterview(options.interviewRecordId);
-  const generatedAt =
-    conversation.webhookReceivedAt ?? conversation.lastSyncedAt ?? conversation.updatedAt;
-
-  const payload: InterviewEvidenceSnapshotPayload = {
-    context: contextSnapshot.payload,
-    contextSnapshotId: contextSnapshot.id,
-    conversationId: options.conversationId,
-    formSubmissions: submissions.map((submission) => ({
-      answers: submission.answers,
-      snapshot: submission.snapshot,
-      submittedAt:
-        typeof submission.submittedAt === "string"
-          ? submission.submittedAt
-          : submission.submittedAt.toISOString(),
-      templateId: submission.templateId,
-      version: submission.version,
-      versionId: submission.versionId,
-    })),
-    generatedAt: generatedAt.toISOString(),
-    interviewRecordId: options.interviewRecordId,
-    recording: {
-      durationSecs: conversation.recordingDurationSecs,
-      egressId: conversation.recordingEgressId,
-      fileKey: conversation.recordingFileKey,
-      status: conversation.recordingStatus,
-    },
-    scheduleEntryId: conversation.scheduleEntryId,
-    schemaVersion: 1,
-    transcript: conversation.transcript,
-  };
-  const contentHash = hashSnapshotPayload(payload);
-
-  const [existing] = await db
-    .select()
-    .from(interviewEvidenceSnapshot)
-    .where(
-      and(
-        eq(interviewEvidenceSnapshot.conversationId, options.conversationId),
-        eq(interviewEvidenceSnapshot.contentHash, contentHash),
-      ),
-    )
-    .limit(1);
-  if (existing) {
-    return serializeEvidenceRow(existing);
-  }
-
-  const [inserted] = await db
-    .insert(interviewEvidenceSnapshot)
-    .values({
-      contentHash,
-      contextSnapshotId: contextSnapshot.id,
-      conversationId: options.conversationId,
-      createdAt: generatedAt,
-      id: crypto.randomUUID(),
-      interviewRecordId: options.interviewRecordId,
-      organizationId: conversation.organizationId,
-      payload,
-      scheduleEntryId: conversation.scheduleEntryId,
-    })
-    .returning();
-  if (!inserted) {
-    throw new Error("interview evidence snapshot insert failed");
-  }
-  return serializeEvidenceRow(inserted);
+  return createInterviewEvidenceSnapshotWithDependencies(options, productionDependencies);
 }

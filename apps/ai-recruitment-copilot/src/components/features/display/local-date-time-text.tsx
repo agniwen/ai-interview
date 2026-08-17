@@ -5,7 +5,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 type DateTimeValue = Date | string | null | undefined;
 type LocalDateTimeFormat = "compact-zh" | "default" | "long-zh";
 
-const FORMATTERS: Record<LocalDateTimeFormat, Intl.DateTimeFormat> = {
+const FORMATTERS = {
   "compact-zh": new Intl.DateTimeFormat("zh-CN", {
     day: "2-digit",
     hour: "2-digit",
@@ -24,7 +24,7 @@ const FORMATTERS: Record<LocalDateTimeFormat, Intl.DateTimeFormat> = {
     dateStyle: "long",
     timeStyle: "short",
   }),
-};
+} satisfies Record<LocalDateTimeFormat, Intl.DateTimeFormat>;
 
 function normalizeDate(value: DateTimeValue) {
   if (!value) {

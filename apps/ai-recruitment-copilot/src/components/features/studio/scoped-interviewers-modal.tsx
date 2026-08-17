@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { customColumn, DataGrid, textColumn } from "@/components/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -61,24 +62,23 @@ export function ScopedInterviewersModal({
   const listQuery = useQuery({
     enabled: open && departmentId !== null,
     placeholderData: (prev) => prev,
-    queryFn: async (): Promise<PaginatedInterviewerResult> => {
+    queryFn: (): Promise<PaginatedInterviewerResult> => {
       if (!departmentId) {
-        return { page, pageSize, records: [], total: 0, totalPages: 1 };
+        return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }
-      const res = await rpc.api.w[":slug"].studio.interviewers.$get({
-        param: { slug },
-        query: {
-          departmentId,
-          page: String(page),
-          pageSize: String(pageSize),
-          sortBy: "createdAt",
-          sortOrder: "desc",
-        },
-      });
-      if (!res.ok) {
-        throw new Error("加载面试官失败");
-      }
-      return (await res.json()) as PaginatedInterviewerResult;
+      return rpcFetch<PaginatedInterviewerResult>(
+        rpc.api.w[":slug"].studio.interviewers.$get({
+          param: { slug },
+          query: {
+            departmentId,
+            page: String(page),
+            pageSize: String(pageSize),
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        }),
+        "加载面试官失败",
+      );
     },
     queryKey: [QUERY_KEY_PREFIX, slug, departmentId, page, pageSize] as const,
     staleTime: 30 * 1000,

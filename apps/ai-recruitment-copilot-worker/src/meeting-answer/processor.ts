@@ -1,11 +1,10 @@
-import { randomUUID } from "node:crypto";
-import {
+import type {
   claimMeetingAnswerExchange,
   loadMeetingAnswerContext,
   markMeetingAnswerFailed,
   publishMeetingAnswerExchange,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/dao";
-import {
+import type {
   generateMeetingAnswer,
   getMeetingAnswerGeneratorSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/generator";
@@ -26,20 +25,10 @@ export interface MeetingAnswerDependencies {
   publish: typeof publishMeetingAnswerExchange;
 }
 
-const defaultDependencies: MeetingAnswerDependencies = {
-  claim: claimMeetingAnswerExchange,
-  createExecutionToken: randomUUID,
-  generate: generateMeetingAnswer,
-  generatorSnapshot: getMeetingAnswerGeneratorSnapshot,
-  loadContext: loadMeetingAnswerContext,
-  markFailed: markMeetingAnswerFailed,
-  publish: publishMeetingAnswerExchange,
-};
-
 export async function runMeetingAnswerProcessing(
   input: MeetingAnswerJobData,
   context: { attempt: number; maxAttempts: number },
-  dependencies: MeetingAnswerDependencies = defaultDependencies,
+  dependencies: MeetingAnswerDependencies,
 ): Promise<void> {
   const executionToken = dependencies.createExecutionToken();
   const claim = await dependencies.claim({

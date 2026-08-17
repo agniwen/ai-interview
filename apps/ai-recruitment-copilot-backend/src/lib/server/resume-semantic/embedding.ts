@@ -1,5 +1,6 @@
 import type { ResumeEmbeddingChunk } from "./vector-store";
 import type { ResumeSemanticTextChunk } from "./text-builders";
+import { z } from "zod";
 
 type FetchLike = typeof fetch;
 
@@ -12,20 +13,12 @@ interface EmbedResumeSemanticTextsInput {
   model: string;
 }
 
-interface EmbeddingResponse {
-  data?: { embedding?: unknown }[];
-}
+const embeddingResponseSchema = z.object({
+  data: z.array(z.object({ embedding: z.array(z.number()) })),
+});
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/u, "");
-}
-
-function parseEmbedding(value: unknown): number[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  const parsed = value.filter((item): item is number => typeof item === "number");
-  return parsed.length === value.length ? parsed : null;
 }
 
 export function getResumeEmbeddingConfig() {
@@ -75,22 +68,21 @@ export async function embedResumeSemanticTexts({
     const body = await response.text().catch(() => "");
     throw new Error(`Embedding request failed (${response.status}): ${body.slice(0, 500)}`);
   }
-  const body = (await response.json()) as EmbeddingResponse;
-  if (!body.data || body.data.length !== chunks.length) {
+  const bodyResult = embeddingResponseSchema.safeParse(await response.json());
+  if (!bodyResult.success) {
+    throw new Error("Embedding response payload is invalid.");
+  }
+  if (bodyResult.data.data.length !== chunks.length) {
     throw new Error("Embedding response length does not match input chunks.");
   }
-  return body.data.map((item, index) => {
-    const embedding = parseEmbedding(item.embedding);
-    if (!embedding) {
-      throw new Error(`Embedding response item ${index} is invalid.`);
-    }
+  return bodyResult.data.data.map((item, index) => {
     const chunk = chunks[index];
     if (!chunk) {
       throw new Error(`Missing semantic chunk at index ${index}.`);
     }
     return {
       chunkType: chunk.chunkType,
-      embedding,
+      embedding: item.embedding,
       text: chunk.text,
     };
   });

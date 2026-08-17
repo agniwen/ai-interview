@@ -18,6 +18,16 @@ interface FakeWebSocketInstance {
   send: (data: string, callback?: (error?: Error) => void) => void;
 }
 
+interface ParsedSessionUpdate {
+  input_audio_transcription?: { language?: string };
+}
+
+interface ParsedWebSocketMessage {
+  audio?: string;
+  session?: ParsedSessionUpdate;
+  type?: string;
+}
+
 const mocks = vi.hoisted(() => {
   const instances: FakeWebSocketInstance[] = [];
   class FakeWebSocket {
@@ -42,7 +52,8 @@ const mocks = vi.hoisted(() => {
     ) {
       this.url = url;
       this.options = options;
-      instances.push(this as unknown as FakeWebSocketInstance);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
+      instances.push(this as FakeWebSocketInstance);
     }
 
     close() {
@@ -50,20 +61,35 @@ const mocks = vi.hoisted(() => {
       this.onclose?.(1000, Buffer.from(""));
     }
 
-    on(event: "open" | "message" | "error" | "close", callback: (payload?: unknown) => void) {
+    on(event: "open", callback: () => void): this;
+    on(event: "message", callback: (data: Buffer | string, isBinary: boolean) => void): this;
+    on(event: "error", callback: (error: { message?: string }) => void): this;
+    on(event: "close", callback: (code: number, reason: Buffer) => void): this;
+    on(
+      event: "open" | "message" | "error" | "close",
+      callback: (...payload: never[]) => void,
+    ): this {
       if (event === "open") {
         this.readyState = FakeWebSocket.OPEN;
-        this.onopen = callback as () => void;
+        // SAFETY: The overload selected for the open event accepts a zero-argument callback.
+        this.onopen = () => (callback as () => void)();
       }
       if (event === "message") {
-        this.onmessage = callback as (data: Buffer | string, isBinary: boolean) => void;
+        // SAFETY: The overload selected for the message event accepts the data and binary flag.
+        const onMessage = callback as (data: Buffer | string, isBinary: boolean) => void;
+        this.onmessage = (data, isBinary) => onMessage(data, isBinary);
       }
       if (event === "error") {
-        this.onerror = callback as (event: { message?: string }) => void;
+        // SAFETY: The overload selected for the error event accepts the error payload.
+        const onError = callback as (error: { message?: string }) => void;
+        this.onerror = (error) => onError(error);
       }
       if (event === "close") {
-        this.onclose = callback as (code: number, reason: Buffer) => void;
+        // SAFETY: The overload selected for the close event accepts the close code and reason.
+        const onClose = callback as (code: number, reason: Buffer) => void;
+        this.onclose = (code, reason) => onClose(code, reason);
       }
+      return this;
     }
 
     send(data: string, callback?: (error?: Error) => void) {
@@ -74,14 +100,13 @@ const mocks = vi.hoisted(() => {
   return { FakeWebSocket, instances };
 });
 
-vi.mock("ws", () => ({ WebSocket: mocks.FakeWebSocket }));
-
-function parseSent(raw: string | undefined): Record<string, unknown> {
+function parseSent(raw: string | undefined): ParsedWebSocketMessage {
   if (!raw) {
     return {};
   }
   try {
-    return JSON.parse(raw) as Record<string, unknown>;
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    return JSON.parse(raw) as ParsedWebSocketMessage;
   } catch {
     return {};
   }
@@ -95,6 +120,7 @@ function createConnection(overrides: Partial<DashScopeRealtimeWsDependencies> = 
     onDrain: vi.fn(),
     onEvent: vi.fn(),
     token: "st-temp-token",
+    webSocket: mocks.FakeWebSocket,
     ...overrides,
   };
   const connection = connectDashScopeRealtimeWs(dependencies);
@@ -125,18 +151,14 @@ describe("connectDashScopeRealtimeWs", () => {
       sample_rate: 16_000,
       turn_detection: { silence_duration_ms: 400, threshold: 0, type: "server_vad" },
     });
-    expect(
-      (sessionUpdate.session as { input_audio_transcription?: unknown }).input_audio_transcription,
-    ).toEqual({ language: "zh" });
+    expect(sessionUpdate.session?.input_audio_transcription).toEqual({ language: "zh" });
   });
 
   it("omits the language hint when none is configured", () => {
     const { instance } = createConnection();
     instance.onopen?.();
     const sessionUpdate = parseSent(instance.sent[0]);
-    expect(
-      (sessionUpdate.session as { input_audio_transcription?: unknown }).input_audio_transcription,
-    ).toBeUndefined();
+    expect(sessionUpdate.session?.input_audio_transcription).toBeUndefined();
   });
 
   it("encodes PCM frames as base64 input_audio_buffer.append events", () => {
@@ -145,7 +167,7 @@ describe("connectDashScopeRealtimeWs", () => {
     instance.sent = [];
     const accepted = connection.sendPcm(new Uint8Array([0, 1, 2, 250, 255]));
     expect(accepted).toBe(true);
-    const append = parseSent(instance.sent[0]) as { audio?: string; type?: string };
+    const append = parseSent(instance.sent[0]);
     expect(append.type).toBe("input_audio_buffer.append");
     expect([...Buffer.from(append.audio ?? "", "base64")]).toEqual([0, 1, 2, 250, 255]);
   });

@@ -9,15 +9,25 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { WindowControls } from "@/components/window-controls";
 
-const dragStyle = {
+interface ElectronDragStyle extends CSSProperties {
+  WebkitAppRegion: "drag";
+  appRegion: "drag";
+}
+
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const dragStyle: ElectronDragStyle = {
   WebkitAppRegion: "drag",
   appRegion: "drag",
-} as CSSProperties;
+};
 
-const noDragStyle = {
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /**
  * Bare top chrome for the login screen: drag + theme toggle + window controls

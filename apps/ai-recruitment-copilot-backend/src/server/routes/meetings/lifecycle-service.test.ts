@@ -1,31 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  enqueueMeetingPurgeJobs: vi.fn(),
-  isMeetingPurgeQueueConfigured: vi.fn(() => true),
-  listTrashedMeetingSessions: vi.fn(),
-  requestMeetingPurge: vi.fn(),
-  restoreMeetingSession: vi.fn(),
-  trashMeetingSession: vi.fn(),
-}));
-
-vi.mock("@arc/meeting-processing-queue/meeting-purge", () => ({
-  enqueueMeetingPurgeJobs: mocks.enqueueMeetingPurgeJobs,
-  isMeetingPurgeQueueConfigured: mocks.isMeetingPurgeQueueConfigured,
-}));
-vi.mock("./lifecycle-dao", () => ({
-  listTrashedMeetingSessions: mocks.listTrashedMeetingSessions,
-  requestMeetingPurge: mocks.requestMeetingPurge,
-  restoreMeetingSession: mocks.restoreMeetingSession,
-  trashMeetingSession: mocks.trashMeetingSession,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
   listTrashedSavedMeetings,
   permanentlyPurgeSavedMeeting,
   trashSavedMeeting,
 } from "./lifecycle-service";
+import type { MeetingLifecycleDependencies } from "./lifecycle-service";
+
+const mocks = {
+  enqueueMeetingPurgeJobs: vi.fn<MeetingLifecycleDependencies["enqueueMeetingPurgeJobs"]>(),
+  isMeetingPurgeQueueConfigured: vi.fn<
+    MeetingLifecycleDependencies["isMeetingPurgeQueueConfigured"]
+  >(() => true),
+  listTrashedMeetingSessions: vi.fn<MeetingLifecycleDependencies["listTrashedMeetingSessions"]>(),
+  requestMeetingPurge: vi.fn<MeetingLifecycleDependencies["requestMeetingPurge"]>(),
+  restoreMeetingSession: vi.fn<MeetingLifecycleDependencies["restoreMeetingSession"]>(),
+  trashMeetingSession: vi.fn<MeetingLifecycleDependencies["trashMeetingSession"]>(),
+};
+
+const dependencies: MeetingLifecycleDependencies = mocks;
 
 const INPUT = { actorId: "user-84", meetingId: "meeting-84", organizationId: "org-84" };
 
@@ -38,7 +30,7 @@ describe("Meeting lifecycle service", () => {
       state: "already-trashed",
     });
 
-    await expect(trashSavedMeeting(INPUT)).resolves.toEqual({
+    await expect(trashSavedMeeting(INPUT, dependencies)).resolves.toEqual({
       purgeAfter: "2026-08-16T08:00:00.000Z",
       state: "already-trashed",
     });
@@ -48,7 +40,9 @@ describe("Meeting lifecycle service", () => {
     mocks.requestMeetingPurge.mockResolvedValue({ state: "purging" });
     mocks.enqueueMeetingPurgeJobs.mockRejectedValueOnce(new Error("redis unavailable"));
 
-    await expect(permanentlyPurgeSavedMeeting(INPUT)).resolves.toEqual({ state: "purging" });
+    await expect(permanentlyPurgeSavedMeeting(INPUT, dependencies)).resolves.toEqual({
+      state: "purging",
+    });
     expect(mocks.enqueueMeetingPurgeJobs).toHaveBeenCalledWith([
       { meetingId: "meeting-84", organizationId: "org-84" },
     ]);
@@ -82,15 +76,18 @@ describe("Meeting lifecycle service", () => {
     });
 
     await expect(
-      listTrashedSavedMeetings({
-        actorId: INPUT.actorId,
-        organizationId: INPUT.organizationId,
-        page: 1,
-        pageSize: 10,
-        search: "",
-        sortBy: "trashedAt",
-        sortOrder: "desc",
-      }),
+      listTrashedSavedMeetings(
+        {
+          actorId: INPUT.actorId,
+          organizationId: INPUT.organizationId,
+          page: 1,
+          pageSize: 10,
+          search: "",
+          sortBy: "trashedAt",
+          sortOrder: "desc",
+        },
+        dependencies,
+      ),
     ).resolves.toEqual({
       page: 1,
       pageSize: 10,

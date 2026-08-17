@@ -6,15 +6,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
 import pRetry from "p-retry";
-import {
-  generateStructuredWithMastraAgent,
-  resumeStructuredAgent,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
+import { z } from "zod";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
-import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import {
   collectOfficeXmlText as collectXmlTextByLocalName,
   extractOfficeXmlText as extractXmlText,
@@ -22,15 +18,16 @@ import {
   getFirstOfficeXmlChild as getFirstChild,
   getOfficeXmlChildren as getChildren,
   loadOfficeZip as loadZip,
-  officeXmlLocalName as localName,
   parseOfficeXml as parseXml,
   readOfficeXmlAttribute as readAttribute,
   readOfficeZipText as readZipText,
 } from "./office-xml";
-import { processPdfPagesWithMeta } from "./pdf-rasterize";
-import { parseResumeWithAliyun } from "./resume-parse-aliyun";
-import { getResumeParseProvider } from "./resume-parse-provider";
-import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
+import type { OfficeXmlNode } from "./office-xml";
+import { defaultResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
+import type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
+import { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
+
+export type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
@@ -42,69 +39,7 @@ const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
 const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 
-export const RESUME_STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
-
-## 输出 JSON 结构（字段名与类型必须严格匹配）
-
-{
-  "name": string | null,
-  "age": number | null,
-  "gender": string | null,
-  "email": string | null,
-  "phone": string | null,
-  "schools": string[],
-  "degree": string | null,
-  "major": string | null,
-  "graduationYear": string | null,
-  "education": string | null,
-  "educationExperiences": [
-    { "school": string | null, "degree": string | null, "major": string | null, "period": string | null, "graduationYear": string | null, "educationLevel": string | null, "summary": string | null }
-  ],
-  "targetRoles": string[],
-  "workYears": number | null,
-  "skills": string[],
-  "personalStrengths": string[],
-  "workExperiences": [
-    { "company": string | null, "role": string | null, "period": string | null, "summary": string | null }
-  ],
-  "projectExperiences": [
-    { "name": string | null, "role": string | null, "period": string | null, "summary": string | null, "techStack": string[] }
-  ],
-  "links": string[],
-  "timelineSummary": {
-    "currentStatus": string | null,
-    "dateRanges": string[],
-    "estimatedExperienceYears": number | null,
-    "riskSignals": string[]
-  }
-}
-
-## 输出约束
-- 只输出 JSON 本身，不要任何额外解释文字，不要使用 Markdown 代码块。
-- 无法从简历中确认的字段返回 null 或空数组，禁止编造。
-- personalStrengths 必须有简历依据。
-- skills 是候选人掌握技能的全集，必须汇总简历中所有有依据的技能来源：技能/专业技能栏、项目经历、工作经历、项目 techStack、职责描述、工具平台、框架语言、数据库、中间件、云服务、设计/办公/协作工具等；不要因为数量多而截断 skills。
-- links / schools / targetRoles / personalStrengths 去重且最多 6 项。
-- educationExperiences 按简历原文顺序输出所有教育经历；每段尽量提取 school / degree / major / period / graduationYear / educationLevel / summary。
-- 如果教育经历只有学校名，也要输出一条记录，其余无法确认字段为 null。
-- schools 仍输出去重学校名列表，用于摘要兼容；顶层 degree / major / graduationYear / education 表示最高学历或最主要学历。
-- skills 字段必须使用业内通用规范名（保留通行大小写），不要写候选人简历里的别名 / 缩写 / 版本号 / .js 后缀：
-    · "Vue 3" / "Vue.js" / "VueJS" / "vue" → "Vue"
-    · "React.js" / "ReactJS" / "react" → "React"
-    · "TS" → "TypeScript"
-    · "JS" → "JavaScript"
-    · "Node" / "NodeJS" / "node.js" → "Node.js"
-    · "K8s" / "kubernetes" → "Kubernetes"
-    · "Tailwind" / "TailwindCSS" → "Tailwind CSS"
-    · "PG" / "Postgres" / "postgresql" → "PostgreSQL"
-    · 当原文里出现品牌组合名时不要省略空格："ClaudeCode" → "Claude Code"。
-    · 当某项无法判断业内规范名时，保留原文并 trim，不要瞎改。
-- workExperiences / projectExperiences 按简历原文顺序排列；summary 保留关键职责、成果或内容，不扩写。
-- projectExperiences 的每一项必须包含 techStack 字段（string[]），即使为空也要写 []。
-- timelineSummary.dateRanges 保留原文时间表达。
-- timelineSummary.riskSignals 仅在出现明确异常（时间重叠、6 个月以上空档、连续两段 8 个月内的短经历、未来时间段等）时填入，否则为空数组。
-- timelineSummary.estimatedExperienceYears 为数字，不足一年用小数；无法推断时为 null。
-- age 仅在简历明确给出时填数字，不要根据毕业年份推测。`;
+export { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 
 export type ResumeTextSource = Exclude<AttachmentTextSource, "pdf-parse">;
 export {
@@ -224,7 +159,10 @@ function formatDuration(startedAt: number): string {
   return `${Math.round(nowMs() - startedAt)}ms`;
 }
 
-function devOcrLog(message: string, data?: Record<string, unknown>): void {
+type OcrLogValue = boolean | null | number | string | undefined;
+type OcrLogData = Record<string, OcrLogValue | OcrLogValue[]>;
+
+function devOcrLog(message: string, data?: OcrLogData): void {
   if (!isDevOcrLogEnabled()) {
     return;
   }
@@ -248,11 +186,9 @@ function parseNonNegativeInteger(value: string | undefined, fallback: number): n
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-function isTransientOcrError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const maybeCode = "code" in error ? String(error.code) : "";
+function isTransientOcrError(error: Error): boolean {
+  const parsedCode = z.object({ code: z.string() }).safeParse(error);
+  const maybeCode = parsedCode.success ? parsedCode.data.code : "";
   const message = error.message.toLowerCase();
   return (
     maybeCode === "ECONNRESET" ||
@@ -277,22 +213,18 @@ class RetriableOcrTypeError extends Error {
   }
 }
 
-function normalizeOcrRetryError(error: unknown): unknown {
+function normalizeOcrRetryError(error: Error): Error {
   if (error instanceof TypeError && isTransientOcrError(error)) {
     return new RetriableOcrTypeError(error);
   }
   return error;
 }
 
-function restoreOcrRetryError(error: unknown): never {
+function restoreOcrRetryError(error: Error): never {
   if (error instanceof RetriableOcrTypeError) {
     throw error.originalError;
   }
   throw error;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function extractDocxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
@@ -344,16 +276,8 @@ async function extractPptxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
   return { pageCount: slidePaths.length, text, textSource: "pptx-text" };
 }
 
-function getXmlRoot(parsed: unknown, rootLocalName: string): unknown {
-  if (!isRecord(parsed)) {
-    return undefined;
-  }
-  for (const [key, value] of Object.entries(parsed)) {
-    if (localName(key) === rootLocalName) {
-      return value;
-    }
-  }
-  return undefined;
+function getXmlRoot(parsed: OfficeXmlNode, rootLocalName: string): OfficeXmlNode | undefined {
+  return findFirstDescendant(parsed, rootLocalName);
 }
 
 function resolveXlsxTarget(target: string): string {
@@ -361,13 +285,13 @@ function resolveXlsxTarget(target: string): string {
   return normalized.startsWith("xl/") ? normalized : `xl/${normalized}`;
 }
 
-function extractTextFromParsedNode(node: unknown): string {
+function extractTextFromParsedNode(node: OfficeXmlNode | undefined): string {
   const texts: string[] = [];
   collectXmlTextByLocalName(node, "t", texts);
   return normalizeExtractedText(texts.join("\n"));
 }
 
-function readCellText(cell: unknown, sharedStrings: string[]): string | null {
+function readCellText(cell: OfficeXmlNode, sharedStrings: string[]): string | null {
   const cellType = readAttribute(cell, "t");
   if (cellType === "inlineStr") {
     const inlineString = getFirstChild(cell, "is");
@@ -375,8 +299,8 @@ function readCellText(cell: unknown, sharedStrings: string[]): string | null {
     return text || null;
   }
   const valueNode = getFirstChild(cell, "v");
-  const rawValue =
-    typeof valueNode === "string" || typeof valueNode === "number" ? String(valueNode).trim() : "";
+  const parsedValue = z.union([z.string(), z.number()]).safeParse(valueNode);
+  const rawValue = parsedValue.success ? String(parsedValue.data).trim() : "";
   if (!rawValue) {
     return null;
   }
@@ -480,10 +404,11 @@ function extractHtmlText(bytes: Uint8Array): ParsedResumeOcr {
   return { pageCount: 1, text, textSource: "html-text" };
 }
 
-function qwenVlOcrWithRetry(
+async function qwenVlOcrWithRetry(
   imageBytes: Buffer,
   page: number,
   mediaType = "image/png",
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<string> {
   const attempts = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_ATTEMPTS,
@@ -493,40 +418,49 @@ function qwenVlOcrWithRetry(
     process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS,
     DEFAULT_OCR_RETRY_DELAY_MS,
   );
-  return pRetry(
-    async () => {
-      try {
-        return await qwenVlOcr(imageBytes, mediaType);
-      } catch (error) {
-        throw normalizeOcrRetryError(error);
-      }
-    },
-    {
-      factor: 1,
-      maxTimeout: 0,
-      minTimeout: 0,
-      onFailedAttempt: async ({ attemptNumber, error, retriesLeft }) => {
-        if (retriesLeft <= 0 || !isTransientOcrError(error)) {
-          return;
-        }
-        devOcrLog("page retry", {
-          attempt: attemptNumber,
-          errorMessage: error.message,
-          page,
-        });
-        const delayMs = retryDelayMs * attemptNumber;
-        if (delayMs > 0) {
-          await delay(delayMs);
+  try {
+    return await pRetry(
+      async () => {
+        try {
+          return await dependencies.qwenVlOcr(imageBytes, mediaType);
+        } catch (error) {
+          const normalizedError = error instanceof Error ? error : new Error(String(error));
+          throw normalizeOcrRetryError(normalizedError);
         }
       },
-      retries: Math.max(0, attempts - 1),
-      shouldRetry: ({ error }) => isTransientOcrError(error),
-    },
-  ).catch(restoreOcrRetryError);
+      {
+        factor: 1,
+        maxTimeout: 0,
+        minTimeout: 0,
+        onFailedAttempt: async ({ attemptNumber, error, retriesLeft }) => {
+          if (retriesLeft <= 0 || !isTransientOcrError(error)) {
+            return;
+          }
+          devOcrLog("page retry", {
+            attempt: attemptNumber,
+            errorMessage: error.message,
+            page,
+          });
+          const delayMs = retryDelayMs * attemptNumber;
+          if (delayMs > 0) {
+            await delay(delayMs);
+          }
+        },
+        retries: Math.max(0, attempts - 1),
+        shouldRetry: ({ error }) => isTransientOcrError(error),
+      },
+    );
+  } catch (error) {
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    return restoreOcrRetryError(normalizedError);
+  }
 }
 
-async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
-  if (!isQwenOcrConfigured()) {
+async function extractImageText(
+  input: ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
+): Promise<ParsedResumeOcr> {
+  if (!dependencies.isQwenOcrConfigured()) {
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
@@ -542,7 +476,7 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
     totalPages: 1,
     type: "ocr.page.started",
   });
-  const text = await qwenVlOcrWithRetry(Buffer.from(input.bytes), 1, mediaType);
+  const text = await qwenVlOcrWithRetry(Buffer.from(input.bytes), 1, mediaType, dependencies);
   emitResumeParseProgress(input.onProgress, {
     charCount: text.length,
     page: 1,
@@ -570,13 +504,16 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
   return { pageCount: 1, text, textSource: "qwen-ocr" };
 }
 
-export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
+export async function generateResumeStructured(
+  text: string,
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
+): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
   devOcrLog("structured start", {
     inputChars: text.length,
   });
-  const output = await generateStructuredWithMastraAgent({
-    agent: resumeStructuredAgent,
+  const output = await dependencies.generateStructuredWithMastraAgent({
+    agent: dependencies.resumeStructuredAgent,
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
     // Chinese resumes use ~1 token per character; with verbose project / work
@@ -605,9 +542,10 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
 export async function parseResumeOcrOnly(
   bytes: Uint8Array,
   options: { onProgress?: ResumeDocumentInput["onProgress"] } = {},
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<ParsedResumeOcr> {
   const totalStartedAt = nowMs();
-  if (!isQwenOcrConfigured()) {
+  if (!dependencies.isQwenOcrConfigured()) {
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
@@ -623,7 +561,7 @@ export async function parseResumeOcrOnly(
     pageCount,
     renderedSizes,
     results: ocrTexts,
-  } = await processPdfPagesWithMeta(
+  } = await dependencies.processPdfPagesWithMeta(
     bytes,
     {
       concurrency: pageConcurrency,
@@ -646,7 +584,7 @@ export async function parseResumeOcrOnly(
         totalPages: sourcePageCount,
         type: "ocr.page.started",
       });
-      const text = await qwenVlOcrWithRetry(png, index + 1);
+      const text = await qwenVlOcrWithRetry(png, index + 1, "image/png", dependencies);
       devOcrLog("page completed", {
         chars: text.length,
         duration: formatDuration(pageStartedAt),
@@ -696,7 +634,10 @@ export async function parseResumeOcrOnly(
   return { pageCount, text, textSource: "qwen-ocr" };
 }
 
-export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
+export function extractResumeDocumentText(
+  input: ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
+): Promise<ParsedResumeOcr> {
   const kind = getResumeDocumentKind(input);
   if (!kind) {
     throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
@@ -704,14 +645,16 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
 
   switch (kind) {
     case "pdf": {
-      return parseResumeOcrOnly(input.bytes, { onProgress: input.onProgress });
+      return parseResumeOcrOnly(input.bytes, { onProgress: input.onProgress }, dependencies);
     }
     case "doc": {
-      return convertLegacyOfficeToOoxml({
-        bytes: input.bytes,
-        inputExtension: "doc",
-        outputExtension: "docx",
-      }).then(extractDocxText);
+      return dependencies
+        .convertLegacyOfficeToOoxml({
+          bytes: input.bytes,
+          inputExtension: "doc",
+          outputExtension: "docx",
+        })
+        .then(extractDocxText);
     }
     case "docx": {
       return extractDocxText(input.bytes);
@@ -720,27 +663,31 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
       return Promise.resolve(extractHtmlText(input.bytes));
     }
     case "ppt": {
-      return convertLegacyOfficeToOoxml({
-        bytes: input.bytes,
-        inputExtension: "ppt",
-        outputExtension: "pptx",
-      }).then(extractPptxText);
+      return dependencies
+        .convertLegacyOfficeToOoxml({
+          bytes: input.bytes,
+          inputExtension: "ppt",
+          outputExtension: "pptx",
+        })
+        .then(extractPptxText);
     }
     case "pptx": {
       return extractPptxText(input.bytes);
     }
     case "xls": {
-      return convertLegacyOfficeToOoxml({
-        bytes: input.bytes,
-        inputExtension: "xls",
-        outputExtension: "xlsx",
-      }).then(extractXlsxText);
+      return dependencies
+        .convertLegacyOfficeToOoxml({
+          bytes: input.bytes,
+          inputExtension: "xls",
+          outputExtension: "xlsx",
+        })
+        .then(extractXlsxText);
     }
     case "xlsx": {
       return extractXlsxText(input.bytes);
     }
     case "image": {
-      return extractImageText(input);
+      return extractImageText(input, dependencies);
     }
     default: {
       throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
@@ -748,14 +695,17 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
   }
 }
 
-export function parseResumeDocument(input: ResumeDocumentInput): Promise<ParsedResumeDocument> {
+export function parseResumeDocument(
+  input: ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
+): Promise<ParsedResumeDocument> {
   if (!getResumeDocumentKind(input)) {
     throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
   }
-  if (getResumeParseProvider() === "aliyun-docmining") {
-    return parseResumeWithAliyun(input);
+  if (dependencies.getResumeParseProvider() === "aliyun-docmining") {
+    return dependencies.parseResumeWithAliyun(input);
   }
-  return extractResumeDocumentText(input);
+  return extractResumeDocumentText(input, dependencies);
 }
 
 /**
@@ -769,6 +719,7 @@ export function parseResumeDocument(input: ResumeDocumentInput): Promise<ParsedR
  */
 export async function parseResumeFast(
   input: Uint8Array | ResumeDocumentInput,
+  dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<ParsedResumeFast> {
   const startedAt = nowMs();
   const documentInput =
@@ -776,7 +727,7 @@ export async function parseResumeFast(
       ? { bytes: input, fileName: "resume.pdf", mediaType: "application/pdf" }
       : input;
   devOcrLog("full parse start", { bytes: documentInput.bytes.byteLength });
-  const parsed = await parseResumeDocument(documentInput);
+  const parsed = await parseResumeDocument(documentInput, dependencies);
   if ("structured" in parsed) {
     devOcrLog("full parse completed", {
       duration: formatDuration(startedAt),
@@ -790,11 +741,25 @@ export async function parseResumeFast(
     inputChars: parsed.text.length,
     pageCount: parsed.pageCount,
   });
-  const structured = await generateResumeStructured(parsed.text);
+  const structured = await generateResumeStructured(parsed.text, dependencies);
   devOcrLog("full parse completed", {
     duration: formatDuration(startedAt),
     outputChars: parsed.text.length,
     pageCount: parsed.pageCount,
   });
   return { ...parsed, structured };
+}
+
+export function createResumeParsePipeline(dependencies: ResumeParsePipelineDependencies) {
+  return {
+    extractResumeDocumentText: (input: ResumeDocumentInput) =>
+      extractResumeDocumentText(input, dependencies),
+    generateResumeStructured: (text: string) => generateResumeStructured(text, dependencies),
+    parseResumeFast: (input: Uint8Array | ResumeDocumentInput) =>
+      parseResumeFast(input, dependencies),
+    parseResumeOcrOnly: (
+      bytes: Uint8Array,
+      options: { onProgress?: ResumeDocumentInput["onProgress"] } = {},
+    ) => parseResumeOcrOnly(bytes, options, dependencies),
+  };
 }

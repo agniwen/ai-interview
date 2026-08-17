@@ -1,11 +1,16 @@
 import { createHash } from "node:crypto";
 import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
+import { z } from "zod";
 
-function canonicalize(value: unknown): unknown {
+const jsonValueSchema = z.json();
+
+type JsonValue = z.infer<typeof jsonValueSchema>;
+
+function canonicalize(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }
-  if (value && typeof value === "object") {
+  if (value !== null && value instanceof Object) {
     return Object.fromEntries(
       Object.entries(value)
         .toSorted(([left], [right]) => left.localeCompare(right))
@@ -29,7 +34,7 @@ function canonicalizeConfig(
   };
 }
 
-export function computeJobEvaluationPayloadHash(value: unknown): string {
+export function computeJobEvaluationPayloadHash(value: JsonValue): string {
   return createHash("sha256")
     .update(JSON.stringify(canonicalize(value)))
     .digest("hex");

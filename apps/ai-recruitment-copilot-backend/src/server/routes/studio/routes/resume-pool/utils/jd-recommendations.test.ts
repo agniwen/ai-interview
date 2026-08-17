@@ -25,13 +25,37 @@ const jdRow = (id: string) => ({
   name: `JD-${id}`,
 });
 
+interface RecommendationChunk {
+  chunkType: string;
+  embedding: number[];
+}
+
+interface ChunkScores {
+  resume_overview?: number;
+  skill_role?: number;
+  work_project?: number;
+}
+
+function scoreFor(scores: ChunkScores, chunkType: string): number {
+  if (chunkType === "resume_overview") {
+    return scores.resume_overview ?? 0;
+  }
+  if (chunkType === "skill_role") {
+    return scores.skill_role ?? 0;
+  }
+  if (chunkType === "work_project") {
+    return scores.work_project ?? 0;
+  }
+  return 0;
+}
+
 const depsWith = (opts: {
-  chunks?: unknown[];
+  chunks?: RecommendationChunk[];
   search?: (a: { chunkType: string }) => number;
   displayIds?: string[];
   hitIds?: string[];
   enabled?: boolean;
-  embed?: () => Promise<unknown>;
+  embed?: () => Promise<RecommendationChunk[]>;
   indexedJdCount?: number;
   queueConfigured?: boolean;
 }) => ({
@@ -73,7 +97,7 @@ const depsWith = (opts: {
 });
 
 const call = (
-  deps: unknown,
+  deps: ReturnType<typeof depsWith>,
   over: Partial<{ jobDescriptionId: string | null; topN: number }> = {},
 ) =>
   recommendJobDescriptionsForResume(
@@ -82,17 +106,18 @@ const call = (
       resume: { id: "r-1", jobDescriptionId: over.jobDescriptionId ?? null, profile },
       topN: over.topN ?? 10,
     },
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     deps as never,
   );
 
 describe("recommendJobDescriptionsForResume", () => {
   it("加权打分 + ready：skillRole0.9/workProject0.8/resumeOverview0.7 → score 82", async () => {
-    const scores: Record<string, number> = {
+    const scores = {
       resume_overview: 0.7,
       skill_role: 0.9,
       work_project: 0.8,
     };
-    const res = await call(depsWith({ search: ({ chunkType }) => scores[chunkType] }));
+    const res = await call(depsWith({ search: ({ chunkType }) => scoreFor(scores, chunkType) }));
     expect(res.status).toBe("ready");
     expect(res.recommendations[0]).toMatchObject({ id: "jd-1", score: 82 });
     expect(res.diagnostics.vectorHitCount).toBe(1);
@@ -171,13 +196,13 @@ describe("recommendJobDescriptionsForResume", () => {
   });
 
   it("部分 chunk 缺失优雅降级：只有 2 个 chunk（缺 work_project）仍 ready，缺失 facet 记 0", async () => {
-    const scores: Record<string, number> = { resume_overview: 0.9, skill_role: 0.95 };
+    const scores = { resume_overview: 0.9, skill_role: 0.95 };
     const deps = depsWith({
       chunks: [
         { chunkType: "resume_overview", embedding: [1, 2] },
         { chunkType: "skill_role", embedding: [1, 2] },
       ],
-      search: ({ chunkType }) => scores[chunkType],
+      search: ({ chunkType }) => scoreFor(scores, chunkType),
     });
     const res = await call(deps);
     expect(res.status).toBe("ready");

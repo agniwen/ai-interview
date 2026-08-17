@@ -29,6 +29,7 @@ describe("CollectedCandidateInfoList", () => {
 
 describe("getReportFormItems", () => {
   it("uses the form answers frozen with the selected interview report", () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const report = {
       snapshotMetadata: {
         fullTextInput: {
@@ -61,6 +62,7 @@ describe("getReportFormItems", () => {
   });
 
   it("returns null when an older report has no evidence snapshot", () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     expect(getReportFormItems({} as StudioInterviewConversationReport)).toBeNull();
   });
 });

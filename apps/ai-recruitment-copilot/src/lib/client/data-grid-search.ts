@@ -1,22 +1,16 @@
-export type SearchParamsPrimitive = boolean | number | string;
-export type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
+import { z } from "zod";
 
-export function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is SearchParamsPrimitive =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
+const searchParamPrimitiveSchema = z.union([z.string(), z.number(), z.boolean()]);
+const searchParamsSchema = z.record(
+  z.string(),
+  z.union([searchParamPrimitiveSchema, z.array(searchParamPrimitiveSchema), z.undefined()]),
+);
+
+export type SearchParamsRecord = z.infer<typeof searchParamsSchema>;
+
+export const coerceSearchParams = searchParamsSchema.parse;
+
+export function firstSearchValue(value: SearchParamsRecord[string]): string | undefined {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  return firstValue === undefined ? undefined : String(firstValue);
 }

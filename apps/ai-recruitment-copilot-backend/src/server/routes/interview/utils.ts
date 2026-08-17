@@ -1,6 +1,6 @@
 import type { parseScheduleEntriesInput } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
-import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
+import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -39,6 +39,14 @@ import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/l
 import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
+import {
+  createResumeUploadStorage,
+  resolveResumeUploadStorage as resolveResumeUploadStorageWithStorage,
+} from "./resume-upload-storage";
+import type {
+  ResolveResumeUploadStorageInput,
+  ResumeUploadStorageResult,
+} from "./resume-upload-storage";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -154,333 +162,35 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-async function copyCachedAttachmentForRequester({
-  contentHash,
-  existing,
-  file,
-  organizationId,
-  userId,
-}: {
-  contentHash: string;
-  existing: NonNullable<Awaited<ReturnType<typeof findAttachmentByContentHash>>>;
-  file: File;
-  organizationId: string;
-  userId: string;
-}) {
-  await createAttachment({
-    contentHash,
-    filename: file.name.slice(0, 255) || existing.filename || "resume.pdf",
-    id: crypto.randomUUID(),
-    mediaType: file.type || existing.mediaType || "application/pdf",
-    organizationId,
-    parsedAt: existing.parsedAt,
-    parsedError: existing.parsedError,
-    parsedPageCount: existing.parsedPageCount,
-    parsedStatus: existing.parsedStatus,
-    parsedStructured: existing.parsedStructured,
-    parsedText: existing.parsedText,
-    parsedTextSource: existing.parsedTextSource,
-    size: file.size,
-    storageKey: existing.storageKey,
-    userId,
+const resumeUploadStorage = createResumeUploadStorage({
+  buildAttachmentKeyByHash,
+  createAttachment,
+  findAttachmentByContentHash,
+  generateResumeStructured,
+  getResumeDocumentExtension,
+  isResumeAnalysisError: (error) => error instanceof ResumeAnalysisError,
+  isResumeParseCacheEnabled,
+  isResumeParseCacheSourceCompatible,
+  parseResumeFastToProfile,
+  projectAttachmentToResumeProfile,
+  putObjectBytes,
+  sha256HexOfBytes,
+  updateStructuredByHash,
+});
+
+export const { storeInterviewResume } = resumeUploadStorage;
+export const { storeResumeObjectOnly } = resumeUploadStorage;
+
+export type { ResumeUploadStorageResult } from "./resume-upload-storage";
+
+export function resolveResumeUploadStorage(
+  input: ResolveResumeUploadStorageInput,
+): Promise<ResumeUploadStorageResult | null> {
+  return resolveResumeUploadStorageWithStorage({
+    ...input,
+    storeObjectOnly: input.storeObjectOnly ?? resumeUploadStorage.storeResumeObjectOnly,
+    storeParsedResume: input.storeParsedResume ?? resumeUploadStorage.storeInterviewResume,
   });
-}
-
-/**
- * 把简历 PDF 写入"统一注册表"（chat_attachment 表）并返回 storageKey
- * + contentHash + 命中时的 cachedResumeProfile。
- *
- * 1. 算 hash → 查 chat_attachment 是否已存在（任意用户、任意路径写入）。
- * 2. 命中：复用 storageKey；从 superset parsedStructured 投影到 ResumeProfile
- *    供调用方判断是否能跳过 parseResumeFast，并补写当前操作者的 attachment 行。
- * 3. 未命中：并行跑 parseResumeFastToProfile + S3 PUT。两者都成功才写一行
- *    chat_attachment（userId = 当前操作者）；S3 失败致命，parse 失败时不
- *    写注册行（避免污染），返回 cachedResumeProfile=null 让调用方兜底。
- *
- * Upload the candidate resume PDF into the unified registry (chat_attachment)
- * and return its storageKey, contentHash, and a cached ResumeProfile when the
- * registry already had this hash.
- *
- * Silently returns null when S3 isn't configured — the interview record still
- * persists, preview just won't be available for this row.
- */
-export async function storeInterviewResume(
-  _interviewRecordId: string,
-  file: File,
-  userId: string,
-  organizationId: string,
-): Promise<{
-  storageKey: string;
-  contentHash: string;
-  cachedResumeProfile: ResumeProfile | null;
-  resumeText: string | null;
-} | null> {
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const contentHash = await sha256HexOfBytes(bytes);
-
-    // 命中既有 chat_attachment 行（已过滤 failed）。三种子情况：
-    //   3A. 已有完整结构化 → 投影返回 cached profile（投影失败 = 历史脏数据，落到 3B）。
-    //   3B. 仅 OCR 文本可用 → 只跑 generateResumeStructured 一步，
-    //       结果通过 updateStructuredByHash 回填同 hash 所有行。
-    //   3C. 既没 structured 也没 text（理论上不应发生）→ 落到 miss 分支重跑完整 parse。
-    // Registry hit (failed rows already excluded). Three sub-cases:
-    //   3A. parsedStructured present → project to cached ResumeProfile;
-    //       if projection fails (legacy malformed row), fall through to 3B
-    //       so we still benefit from the cached OCR text.
-    //   3B. only OCR text available → run structured extraction only and
-    //       backfill all rows sharing the hash via updateStructuredByHash.
-    //   3C. neither structured nor text (shouldn't happen in practice) → fall
-    //       through to the miss branch and re-run the full parse.
-    const cachedAttachment = isResumeParseCacheEnabled()
-      ? await findAttachmentByContentHash(contentHash)
-      : null;
-    const existing =
-      cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
-        ? cachedAttachment
-        : null;
-    if (existing?.parsedStructured) {
-      const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
-      if (cached) {
-        await copyCachedAttachmentForRequester({
-          contentHash,
-          existing,
-          file,
-          organizationId,
-          userId,
-        });
-        return {
-          cachedResumeProfile: cached,
-          contentHash,
-          resumeText: existing.parsedText ?? null,
-          storageKey: existing.storageKey,
-        };
-      }
-      // 投影失败：parsedStructured 是历史脏数据。继续往下走 3B/3C 分支兜底。
-      // Projection failed (legacy malformed structured). Fall through to 3B/3C.
-    }
-    if (existing?.parsedText && existing.parsedText.trim().length > 0) {
-      try {
-        const structured = await generateResumeStructured(existing.parsedText);
-        await updateStructuredByHash(contentHash, structured);
-        await copyCachedAttachmentForRequester({
-          contentHash,
-          existing: { ...existing, parsedStructured: structured },
-          file,
-          organizationId,
-          userId,
-        });
-        return {
-          cachedResumeProfile: projectAttachmentToResumeProfile(structured),
-          contentHash,
-          resumeText: existing.parsedText,
-          storageKey: existing.storageKey,
-        };
-      } catch (error) {
-        // 结构化失败但 OCR 文本还在。不把行标 failed —— OCR 部分依然有效，
-        // 下次还能再尝试结构化。返回 cachedResumeProfile=null 让上层走 fallback。
-        // Structured failed but OCR text is still good. Don't mark the row
-        // failed — the OCR data remains valid for a retry. Return null so the
-        // caller falls back to the standard analysis path.
-        console.error("[studio-interview] structured-from-text failed:", error);
-        await copyCachedAttachmentForRequester({
-          contentHash,
-          existing,
-          file,
-          organizationId,
-          userId,
-        });
-        return {
-          cachedResumeProfile: null,
-          contentHash,
-          resumeText: existing.parsedText,
-          storageKey: existing.storageKey,
-        };
-      }
-    }
-
-    // 未命中：parse + PUT 并行。
-    // Miss: parse + PUT in parallel.
-    const storageKey = await buildAttachmentKeyByHash(
-      contentHash,
-      getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
-    );
-    const [putOutcome, parseOutcome] = await Promise.allSettled([
-      putObjectBytes({
-        body: bytes,
-        contentType: file.type || "application/octet-stream",
-        storageKey,
-      }),
-      parseResumeFastToProfile(file),
-    ]);
-
-    if (putOutcome.status === "rejected") {
-      console.error("[studio-interview] failed to upload resume to S3:", putOutcome.reason);
-      return null;
-    }
-
-    if (parseOutcome.status === "rejected") {
-      // S3 已写字节但 parse 失败：不写 chat_attachment 行（避免污染注册表）。
-      // 调用方拿到 cachedResumeProfile=null，会兜底跑 analyzeResumeFile，
-      // 那次失败再让上层 ResumeAnalysisError 处理。
-      // S3 wrote bytes but parse failed: skip chat_attachment write to keep
-      // the registry clean. Caller falls back to analyzeResumeFile, whose
-      // failure will surface as ResumeAnalysisError upstream.
-      console.error(
-        "[studio-interview] resume parse failed (S3 PUT succeeded):",
-        parseOutcome.reason,
-      );
-      return { cachedResumeProfile: null, contentHash, resumeText: null, storageKey };
-    }
-
-    const parsed = parseOutcome.value;
-    await createAttachment({
-      contentHash,
-      filename: file.name.slice(0, 255) || "resume.pdf",
-      id: crypto.randomUUID(),
-      mediaType: file.type || "application/octet-stream",
-      organizationId,
-      parsedAt: new Date(),
-      parsedPageCount: parsed.parsedPageCount,
-      parsedStatus: "ready",
-      parsedStructured: parsed.parsedStructured,
-      parsedText: parsed.parsedText,
-      parsedTextSource: parsed.parsedTextSource,
-      size: file.size,
-      storageKey,
-      userId,
-    });
-
-    return {
-      cachedResumeProfile: parsed.resumeProfile,
-      contentHash,
-      resumeText: parsed.parsedText,
-      storageKey,
-    };
-  } catch (error) {
-    if (error instanceof ResumeAnalysisError) {
-      throw error;
-    }
-    console.error("[studio-interview] failed to upload resume to S3:", error);
-    return null;
-  }
-}
-
-/**
- * 批量上传专用：只写 S3 + chat_attachment 注册表 pending 行，不做 OCR/LLM 解析。
- * Dedicated to bulk upload: upload the S3 object and register a pending
- * chat_attachment row without running OCR/LLM parsing.
- */
-export async function storeResumeObjectOnly(
-  file: File,
-  userId: string,
-  organizationId: string,
-): Promise<{
-  storageKey: string;
-  contentHash: string;
-} | null> {
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const contentHash = await sha256HexOfBytes(bytes);
-    const storageKey = await buildAttachmentKeyByHash(
-      contentHash,
-      getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
-    );
-    const cachedAttachment = isResumeParseCacheEnabled()
-      ? await findAttachmentByContentHash(contentHash)
-      : null;
-    const existing =
-      cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
-        ? cachedAttachment
-        : null;
-    await putObjectBytes({
-      body: bytes,
-      contentType: file.type || existing?.mediaType || "application/octet-stream",
-      storageKey,
-    });
-
-    if (existing) {
-      await createAttachment({
-        contentHash,
-        filename: file.name.slice(0, 255) || existing.filename || "resume.pdf",
-        id: crypto.randomUUID(),
-        mediaType: file.type || existing.mediaType || "application/octet-stream",
-        organizationId,
-        parsedAt: existing.parsedAt,
-        parsedError: existing.parsedError,
-        parsedPageCount: existing.parsedPageCount,
-        parsedStatus: existing.parsedStatus,
-        parsedStructured: existing.parsedStructured,
-        parsedText: existing.parsedText,
-        parsedTextSource: existing.parsedTextSource,
-        size: file.size,
-        storageKey,
-        userId,
-      });
-      return { contentHash, storageKey };
-    }
-
-    await createAttachment({
-      contentHash,
-      filename: file.name.slice(0, 255) || "resume.pdf",
-      id: crypto.randomUUID(),
-      mediaType: file.type || "application/octet-stream",
-      organizationId,
-      parsedStatus: "pending",
-      size: file.size,
-      storageKey,
-      userId,
-    });
-    return { contentHash, storageKey };
-  } catch (error) {
-    console.error("[studio-interview] failed to upload resume object to S3:", error);
-    return null;
-  }
-}
-
-export interface ResumeUploadStorageResult {
-  cachedResumeProfile: ResumeProfile | null;
-  contentHash: string;
-  resumeText: string | null;
-  storageKey: string;
-}
-
-interface ResolveResumeUploadStorageInput {
-  interviewRecordId?: string;
-  organizationId: string;
-  parsedResumePayload: ResumeAnalysisResult | null;
-  resume: File | null;
-  storeObjectOnly?: typeof storeResumeObjectOnly;
-  storeParsedResume?: typeof storeInterviewResume;
-  userId: string | null | undefined;
-}
-
-export async function resolveResumeUploadStorage({
-  interviewRecordId,
-  organizationId,
-  parsedResumePayload,
-  resume,
-  storeObjectOnly = storeResumeObjectOnly,
-  storeParsedResume = storeInterviewResume,
-  userId,
-}: ResolveResumeUploadStorageInput): Promise<ResumeUploadStorageResult | null> {
-  if (!(resume && userId)) {
-    return null;
-  }
-
-  if (parsedResumePayload) {
-    const stored = await storeObjectOnly(resume, userId, organizationId);
-    return stored
-      ? { ...stored, cachedResumeProfile: null, resumeText: parsedResumePayload.resumeText ?? null }
-      : null;
-  }
-
-  return storeParsedResume(
-    interviewRecordId ?? crypto.randomUUID(),
-    resume,
-    userId,
-    organizationId,
-  );
 }
 
 // 单行构造拆分：避免上层 map 函数的圈复杂度过高，并方便在 PATCH 编辑时
@@ -515,7 +225,7 @@ function buildSingleScheduleRow(
     scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
     scheduledEndAt: entry.scheduledEndAt ? new Date(entry.scheduledEndAt) : null,
     sessionStartedAt: existing?.sessionStartedAt ?? null,
-    sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
+    sortOrder: entry.sortOrder ?? index,
     status: existing?.status ?? ("pending" as const),
     updatedAt: now,
   };
@@ -572,7 +282,7 @@ export function serializeRecord(
     pipelineStage: record.pipelineStage,
     resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
-    resumeProfile: record.resumeProfile as StudioCandidateRecord["resumeProfile"],
+    resumeProfile: resumeProfileSchema.nullable().parse(record.resumeProfile),
     resumeStorageKey: record.resumeStorageKey,
     targetRole: record.targetRole,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
@@ -607,7 +317,17 @@ export async function loadRecordById(id: string, organizationId?: string) {
   return serializeRecord(row.record, [], row.jobDescriptionName);
 }
 
-export function toBadRequest(error: unknown) {
+interface BadRequestErrorBoundary {
+  error: unknown;
+}
+
+interface BadRequestResult {
+  error: string;
+  stage?: string;
+  status: 400 | 500;
+}
+
+export function toBadRequest(error: BadRequestErrorBoundary["error"]): BadRequestResult {
   if (error instanceof ResumeAnalysisError) {
     return {
       ...createInternalErrorResponse({
@@ -622,8 +342,7 @@ export function toBadRequest(error: unknown) {
   }
 
   if (error instanceof Error) {
-    const status = error.message.includes("PDF") || error.message.includes("MB") ? 400 : 400;
-    return { error: error.message, status };
+    return { error: error.message, status: 400 };
   }
 
   return { error: "表单校验失败。", status: 400 };

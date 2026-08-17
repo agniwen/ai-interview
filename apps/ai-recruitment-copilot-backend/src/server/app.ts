@@ -7,7 +7,7 @@ import { runWithAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/l
 import { handleServerError } from "./error-handler";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
-import { agentRouter } from "./routes/agent/route";
+import { agentRouter } from "./routes/agent/route-runtime";
 import { interviewRouter } from "./routes/interview/route";
 import { joinRouter } from "./routes/join/route";
 import { livekitRouter } from "./routes/livekit/route";

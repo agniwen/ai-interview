@@ -5,22 +5,19 @@ import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
 type BuiltInWorkspaceRole = "owner" | "admin" | "member" | typeof NO_ACCESS_WORKSPACE_ROLE;
 
-const WORKSPACE_ROLE_RANK: Record<BuiltInWorkspaceRole, number> = {
+const WORKSPACE_ROLE_RANK = {
   admin: 2,
   member: 1,
   noAccess: 0,
   owner: 3,
-};
-
-const WORKSPACE_ROLES = new Set<BuiltInWorkspaceRole>([
-  "admin",
-  "member",
-  NO_ACCESS_WORKSPACE_ROLE,
-  "owner",
-]);
+} satisfies Record<BuiltInWorkspaceRole, number>;
 
 export function isNoAccessWorkspaceRole(role: string | null | undefined): boolean {
   return role === NO_ACCESS_WORKSPACE_ROLE;
+}
+
+function isBuiltInWorkspaceRole(role: string): role is BuiltInWorkspaceRole {
+  return Object.hasOwn(WORKSPACE_ROLE_RANK, role);
 }
 
 export async function dynamicWorkspaceRoleExists(
@@ -46,14 +43,11 @@ export async function canAssignWorkspaceRole({
   organizationId: string;
   targetRole: string;
 }): Promise<boolean> {
-  if (WORKSPACE_ROLES.has(targetRole as BuiltInWorkspaceRole)) {
-    if (!WORKSPACE_ROLES.has(invokerRole as BuiltInWorkspaceRole)) {
+  if (isBuiltInWorkspaceRole(targetRole)) {
+    if (!isBuiltInWorkspaceRole(invokerRole)) {
       return false;
     }
-    return (
-      WORKSPACE_ROLE_RANK[invokerRole as BuiltInWorkspaceRole] >
-      WORKSPACE_ROLE_RANK[targetRole as BuiltInWorkspaceRole]
-    );
+    return WORKSPACE_ROLE_RANK[invokerRole] > WORKSPACE_ROLE_RANK[targetRole];
   }
   const targetRoleExists = await dynamicWorkspaceRoleExists(organizationId, targetRole);
   if (!targetRoleExists) {
@@ -62,7 +56,7 @@ export async function canAssignWorkspaceRole({
   if (invokerRole === "owner" || invokerRole === "admin") {
     return true;
   }
-  if (WORKSPACE_ROLES.has(invokerRole as BuiltInWorkspaceRole)) {
+  if (isBuiltInWorkspaceRole(invokerRole)) {
     return false;
   }
   return await dynamicWorkspaceRoleExists(organizationId, invokerRole);

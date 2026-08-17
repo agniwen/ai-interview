@@ -8,13 +8,13 @@ export type DataFieldKind = "boolean" | "date" | "datetime" | "email" | "number"
 
 export type DataFieldSpan = 1 | 2 | 3 | 4 | "full";
 
-const SPAN_CLASS: Record<DataFieldSpan, string> = {
+const SPAN_CLASS = {
   1: "col-span-1",
   2: "sm:col-span-2",
   3: "sm:col-span-2 lg:col-span-3",
   4: "sm:col-span-2 lg:col-span-3 2xl:col-span-4",
   full: "col-span-full",
-};
+} satisfies Record<DataFieldSpan, string>;
 
 const numberFormatters = new Map<string, Intl.NumberFormat>();
 
@@ -28,76 +28,81 @@ function formatNumber(value: number, options?: Intl.NumberFormatOptions) {
   return formatter.format(value);
 }
 
-function isEmptyValue(value: ReactNode) {
+type EmptyDataFieldValue = "" | null | undefined;
+
+type DataFieldValue =
+  | { kind?: "text"; value: ReactNode }
+  | { kind: "boolean"; value: boolean | EmptyDataFieldValue }
+  | { kind: "date" | "datetime"; value: string | number | Date | EmptyDataFieldValue }
+  | { kind: "email" | "phone"; value: string | EmptyDataFieldValue }
+  | { kind: "number"; value: number | EmptyDataFieldValue };
+
+function isEmptyValue(value: DataFieldValue["value"]): value is EmptyDataFieldValue {
   return value === null || value === undefined || value === "";
 }
 
 function renderValue({
   emptyValue,
-  kind,
   numberFormat,
-  value,
-}: {
+  ...field
+}: DataFieldValue & {
   emptyValue: ReactNode;
-  kind: DataFieldKind;
   numberFormat?: Intl.NumberFormatOptions;
-  value: ReactNode;
 }) {
-  if (isEmptyValue(value)) {
+  if (isEmptyValue(field.value)) {
     return <EmptyValue>{emptyValue}</EmptyValue>;
   }
 
-  if (kind === "email" && typeof value === "string") {
+  if (field.kind === "email") {
     return (
       <a
         className="break-all underline-offset-4 hover:underline focus-visible:underline"
-        href={`mailto:${value}`}
+        href={`mailto:${field.value}`}
       >
-        {value}
+        {field.value}
       </a>
     );
   }
 
-  if (kind === "phone" && typeof value === "string") {
+  if (field.kind === "phone") {
     return (
       <a
         className="underline-offset-4 hover:underline focus-visible:underline"
-        href={`tel:${value}`}
+        href={`tel:${field.value}`}
       >
-        {value}
+        {field.value}
       </a>
     );
   }
 
-  if (kind === "number" && typeof value === "number") {
-    return formatNumber(value, numberFormat);
+  if (field.kind === "number") {
+    return formatNumber(field.value, numberFormat);
   }
 
-  if (kind === "boolean" && typeof value === "boolean") {
-    return value ? "是" : "否";
+  if (field.kind === "boolean") {
+    return field.value ? "是" : "否";
   }
 
-  if (
-    (kind === "date" || kind === "datetime") &&
-    (typeof value === "string" || typeof value === "number" || value instanceof Date)
-  ) {
+  if (field.kind === "date" || field.kind === "datetime") {
     return (
       <TimeDisplay
         as="span"
         emptyText={String(emptyValue)}
-        options={kind === "date" ? "YY/MM/DD" : undefined}
-        value={value}
+        options={field.kind === "date" ? "YY/MM/DD" : undefined}
+        value={field.value}
       />
     );
   }
 
-  return value;
+  if (field.kind === "text" || field.kind === undefined) {
+    return field.value;
+  }
+
+  return null;
 }
 
-export interface DataFieldProps {
+interface DataFieldSharedProps {
   label: ReactNode;
-  value: ReactNode;
-  kind?: DataFieldKind;
   span?: DataFieldSpan;
   emptyValue?: ReactNode;
   numberFormat?: Intl.NumberFormatOptions;
@@ -105,27 +110,21 @@ export interface DataFieldProps {
   valueClassName?: string;
 }
 
-export function DataField({
-  label,
-  value,
-  kind = "text",
-  span = 1,
-  emptyValue = "—",
-  numberFormat,
-  className,
-  valueClassName,
-}: DataFieldProps) {
+export type DataFieldProps = DataFieldSharedProps & DataFieldValue;
+
+export function DataField(props: DataFieldProps) {
+  const { className, emptyValue = "—", label, numberFormat, span = 1, valueClassName } = props;
   return (
     <div className={cn("min-w-0", SPAN_CLASS[span], className)} data-slot="data-field">
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
       <dd
         className={cn(
           "mt-0.5 min-w-0 wrap-break-word text-sm leading-6",
-          kind === "number" && "font-medium tabular-nums",
+          props.kind === "number" && "font-medium tabular-nums",
           valueClassName,
         )}
       >
-        {renderValue({ emptyValue, kind, numberFormat, value })}
+        {renderValue({ ...props, emptyValue, numberFormat })}
       </dd>
     </div>
   );

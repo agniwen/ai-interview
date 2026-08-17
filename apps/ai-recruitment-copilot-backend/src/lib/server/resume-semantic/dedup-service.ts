@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription, resumePoolItem, studioInterview, user } from "@arc/db-schema/schema";
@@ -33,6 +34,11 @@ interface SemanticCandidateRecord {
   uploaderName?: string | null;
 }
 
+interface SemanticSourceRef {
+  sourceId: string;
+  sourceType: ResumeSemanticSourceType;
+}
+
 interface FindSemanticResumeDuplicatesInput {
   excludeSources?: { sourceId: string; sourceType: ResumeSemanticSourceType }[];
   email?: string | null;
@@ -52,14 +58,29 @@ interface SemanticDedupDeps {
   enabled: boolean;
   loadCandidates: (
     organizationId: string,
-    sources: { sourceId: string; sourceType: ResumeSemanticSourceType }[],
+    sources: SemanticSourceRef[],
     options?: { poolOwnerUserId?: string | null; poolScope?: ResumePoolScope | null },
   ) => Promise<SemanticCandidateRecord[]>;
   vectorStore: ResumeVectorStore;
 }
 
+const resumeSemanticSourceTypeSchema = z.enum([
+  "job_description",
+  "resume_pool_item",
+  "studio_interview",
+]);
+
 function sourceKey(sourceType: ResumeSemanticSourceType, sourceId: string): string {
   return `${sourceType}:${sourceId}`;
+}
+
+function parseSourceKey(key: string): SemanticSourceRef {
+  const separatorIndex = key.indexOf(":");
+  if (separatorIndex < 1 || separatorIndex === key.length - 1) {
+    throw new Error(`Invalid semantic duplicate source key: ${key}`);
+  }
+  const sourceType = resumeSemanticSourceTypeSchema.parse(key.slice(0, separatorIndex));
+  return { sourceId: key.slice(separatorIndex + 1), sourceType };
 }
 
 function toSimilarity(scores: VectorSimilarityScores): DedupMatchRecord["similarity"] {
@@ -134,10 +155,7 @@ export async function findSemanticResumeDuplicates(
     );
     const searchResults = searchResultGroups.flat();
     const bySource = mergeVectorScores(searchResults, sourceTypes, input.excludeSources);
-    const sources = [...bySource.keys()].map((key) => {
-      const [sourceType, sourceId] = key.split(":");
-      return { sourceId, sourceType: sourceType as ResumeSemanticSourceType };
-    });
+    const sources = [...bySource.keys()].map(parseSourceKey);
     const candidates = await deps.loadCandidates(input.organizationId, sources, {
       poolOwnerUserId: input.poolOwnerUserId,
       poolScope: input.poolScope,

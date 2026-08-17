@@ -28,6 +28,17 @@ import type {
 
 const SUFFIX = String(process.pid);
 const ORG_ID = `meeting_answer_org_${SUFFIX}`;
+
+type ExchangeResult = Awaited<ReturnType<typeof createMeetingAnswerExchange>>;
+type ThreadResult = Awaited<ReturnType<typeof createMeetingQuestionThread>>;
+
+function isExchange(value: ExchangeResult): value is MeetingQuestionExchange {
+  return typeof value !== "string";
+}
+
+function isThread(value: ThreadResult): value is MeetingQuestionThreadSummary {
+  return typeof value !== "string";
+}
 const OWNER_ID = `meeting_answer_owner_${SUFFIX}`;
 const VIEWER_ID = `meeting_answer_viewer_${SUFFIX}`;
 const MEETING_ID = `meeting_answer_meeting_${SUFFIX}`;
@@ -43,7 +54,7 @@ async function clean() {
 function expectExchange(
   value: Awaited<ReturnType<typeof createMeetingAnswerExchange>>,
 ): MeetingQuestionExchange {
-  if (typeof value === "string") {
+  if (!isExchange(value)) {
     throw new TypeError(`expected exchange, received ${value}`);
   }
   return value;
@@ -52,7 +63,7 @@ function expectExchange(
 function expectThread(
   value: Awaited<ReturnType<typeof createMeetingQuestionThread>>,
 ): MeetingQuestionThreadSummary {
-  if (!value || typeof value === "string") {
+  if (!isThread(value)) {
     throw new TypeError(`expected thread, received ${String(value)}`);
   }
   return value;

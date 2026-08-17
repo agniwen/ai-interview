@@ -9,12 +9,12 @@ export type RecruitingVisibilityScope =
 
 const ALL_DATA_ROLES = new Set(["owner", "admin"]);
 
-const GROUP_ROLE_RANK: Record<string, number> = {
-  hr: 1,
-  recruitingLead: 2,
-  recruitingSupervisor: 3,
-  viewer: 0,
-};
+const GROUP_ROLE_RANK = new Map<string, number>([
+  ["hr", 1],
+  ["recruitingLead", 2],
+  ["recruitingSupervisor", 3],
+  ["viewer", 0],
+]);
 
 export function resolveRecruitingVisibilityScopeFromRows(input: {
   currentMemberships: { groupId: string; role: string }[];
@@ -30,13 +30,13 @@ export function resolveRecruitingVisibilityScopeFromRows(input: {
   }
 
   const ownRankByGroup = new Map(
-    input.currentMemberships.map((row) => [row.groupId, GROUP_ROLE_RANK[row.role] ?? 0]),
+    input.currentMemberships.map((row) => [row.groupId, GROUP_ROLE_RANK.get(row.role) ?? 0]),
   );
   const visible = new Set<string>([input.userId]);
   for (const row of input.groupRows) {
     const ownRank = ownRankByGroup.get(row.groupId) ?? 0;
-    const targetRank = GROUP_ROLE_RANK[row.role] ?? 0;
-    if (ownRank >= GROUP_ROLE_RANK.recruitingLead && targetRank < ownRank) {
+    const targetRank = GROUP_ROLE_RANK.get(row.role) ?? 0;
+    if (ownRank >= (GROUP_ROLE_RANK.get("recruitingLead") ?? 0) && targetRank < ownRank) {
       visible.add(row.userId);
     }
   }

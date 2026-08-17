@@ -149,7 +149,7 @@ export type ResumePoolImportResult =
   | ResumePoolImportDuplicateResult
   | ResumePoolImportSuccessResult;
 
-export const resumePoolScopeMeta: Record<ResumePoolScope, { label: string }> = {
+export const resumePoolScopeMeta = {
   private: { label: "私有简历池" },
   public: { label: "公共简历池" },
-};
+} satisfies Record<ResumePoolScope, { label: string }>;

@@ -87,6 +87,11 @@ interface TokenizedJobDescription {
   prompt: string;
 }
 
+interface RestoredJobDescription {
+  jobDescription: string;
+  usedGeneratedContent: boolean;
+}
+
 export function tokenizeJobDescription(value: string): TokenizedJobDescription {
   const lines = value
     .replaceAll("\r\n", "\n")
@@ -113,7 +118,7 @@ export function tokenizeJobDescription(value: string): TokenizedJobDescription {
 export function restoreTokenizedJobDescription(
   original: TokenizedJobDescription,
   generated: string,
-): { jobDescription: string; usedGeneratedContent: boolean } {
+): RestoredJobDescription {
   const matches = [...generated.matchAll(LINE_TOKEN_PATTERN)];
   if (
     matches.length !== original.lines.length ||

@@ -8,61 +8,27 @@ import {
   renderRunSummary,
   serializeDateRange,
 } from "./mail-ingest-log-drawer";
-import type { MailIngestLogAccount } from "./mail-ingest-log-drawer";
+import type { MailIngestLogAccount, MailIngestLogDependencies } from "./mail-ingest-log-drawer";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const rpcMessagesGetMock = vi.hoisted(() => vi.fn());
-const rpcFetchMock = vi.hoisted(() => vi.fn());
-const toastMocks = vi.hoisted(() => ({ error: vi.fn() }));
+const fetchMessagesMock = vi.fn<MailIngestLogDependencies["fetchMessages"]>();
 
-vi.mock("@/lib/client/rpc", () => ({
-  rpc: {
-    api: {
-      w: {
-        ":slug": {
-          studio: {
-            "mail-ingest-accounts": {
-              managed: {
-                ":id": {
-                  messages: {
-                    $get: rpcMessagesGetMock,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-}));
-
-vi.mock("@/lib/client/api", () => ({
-  rpcFetch: rpcFetchMock,
-}));
-
-vi.mock("sonner", () => ({
-  toast: toastMocks,
-}));
-
-vi.mock("@/components/date-time-picker", () => ({
-  DatePicker: ({
-    onValueChange,
-    value,
-    ...props
-  }: {
-    onValueChange: (value: string) => void;
-    value: string;
-  }) => (
+const dependencies: MailIngestLogDependencies = {
+  fetchMessages: fetchMessagesMock,
+  notifyError: vi.fn(),
+  renderDatePicker: ({ ariaLabel, className, onValueChange, placeholder, value }) => (
     <input
-      {...props}
+      aria-label={ariaLabel}
+      className={className}
       onChange={(event) => onValueChange(event.currentTarget.value)}
+      placeholder={placeholder}
       type="text"
       value={value}
     />
   ),
-}));
+};
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -145,7 +111,7 @@ describe("serializeDateRange", () => {
 
 describe("MailIngestLogDrawer messages table", () => {
   it("renders records with status/date fallbacks, error/skip reasons, attachment counts, and expands attachments", async () => {
-    rpcFetchMock.mockResolvedValue({
+    fetchMessagesMock.mockResolvedValue({
       records: [
         {
           attachmentCount: 2,
@@ -158,10 +124,12 @@ describe("MailIngestLogDrawer messages table", () => {
           poolSummary: null,
           receivedAt: null,
           resumeAttachmentCount: 1,
+          skipReason: null,
           status: "failed",
           subject: null,
         },
         {
+          attachmentCount: 1,
           attachments: [
             {
               fileName: "x.pdf",
@@ -170,9 +138,17 @@ describe("MailIngestLogDrawer messages table", () => {
               resumeParseStatus: "failed",
             },
           ],
+          boundJobDescriptionName: null,
+          errorMessage: null,
+          fromAddress: null,
           id: "b",
+          jdBindStatus: null,
+          poolSummary: null,
+          receivedAt: null,
+          resumeAttachmentCount: 1,
           skipReason: "no_supported_attachment",
           status: "skipped",
+          subject: null,
         },
       ],
       total: 2,
@@ -183,7 +159,13 @@ describe("MailIngestLogDrawer messages table", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+          <MailIngestLogDrawer
+            account={account}
+            dependencies={dependencies}
+            onOpenChange={vi.fn()}
+            open
+            slug="test-slug"
+          />
         </QueryClientProvider>,
       );
       await Promise.resolve();
@@ -215,14 +197,20 @@ describe("MailIngestLogDrawer messages table", () => {
   });
 
   it("distinguishes no-record empty state from filtered empty state", async () => {
-    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+    fetchMessagesMock.mockResolvedValue({ records: [], total: 0 });
 
     const { queryClient, root } = renderDrawer();
 
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+          <MailIngestLogDrawer
+            account={account}
+            dependencies={dependencies}
+            onOpenChange={vi.fn()}
+            open
+            slug="test-slug"
+          />
         </QueryClientProvider>,
       );
       await Promise.resolve();
@@ -254,14 +242,20 @@ describe("MailIngestLogDrawer messages table", () => {
   });
 
   it("suppresses the empty-state text when the date range is invalid", async () => {
-    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+    fetchMessagesMock.mockResolvedValue({ records: [], total: 0 });
 
     const { queryClient, root } = renderDrawer();
 
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+          <MailIngestLogDrawer
+            account={account}
+            dependencies={dependencies}
+            onOpenChange={vi.fn()}
+            open
+            slug="test-slug"
+          />
         </QueryClientProvider>,
       );
       await Promise.resolve();
@@ -312,7 +306,7 @@ describe("MailIngestLogDrawer summary + refresh", () => {
   };
 
   it("shows the derived run summary text at the top when opened with an account", async () => {
-    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+    fetchMessagesMock.mockResolvedValue({ records: [], total: 0 });
 
     const { queryClient, root } = renderDrawer();
 
@@ -321,6 +315,7 @@ describe("MailIngestLogDrawer summary + refresh", () => {
         <QueryClientProvider client={queryClient}>
           <MailIngestLogDrawer
             account={accountWithSnapshot}
+            dependencies={dependencies}
             onOpenChange={vi.fn()}
             open
             slug="test-slug"
@@ -340,7 +335,7 @@ describe("MailIngestLogDrawer summary + refresh", () => {
   });
 
   it("refresh() invalidates both the messages query and the account list query", async () => {
-    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+    fetchMessagesMock.mockResolvedValue({ records: [], total: 0 });
 
     const { queryClient, root } = renderDrawer();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -350,6 +345,7 @@ describe("MailIngestLogDrawer summary + refresh", () => {
         <QueryClientProvider client={queryClient}>
           <MailIngestLogDrawer
             account={accountWithSnapshot}
+            dependencies={dependencies}
             onOpenChange={vi.fn()}
             open
             slug="test-slug"

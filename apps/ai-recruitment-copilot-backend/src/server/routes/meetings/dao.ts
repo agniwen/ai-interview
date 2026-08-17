@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import type { JsonObject } from "@arc/db-schema/json";
 import {
   meetingAccessGrant,
   meetingAuditLog,
@@ -25,7 +26,16 @@ const LIBRARY_MEETING_STATUSES = [
   "processing-failed",
   "ready",
 ] as const;
-const DETAIL_MEETING_STATUSES = [...LIBRARY_MEETING_STATUSES, "trashed"] as const;
+const MEETING_GRANT_ROLES = new Set<string>(["editor", "viewer"]);
+
+function isMeetingGrantRole(role: string): role is MeetingGrantRole {
+  return MEETING_GRANT_ROLES.has(role);
+}
+
+function parseMeetingGrantRole(role: string | null): MeetingGrantRole | null {
+  return role !== null && isMeetingGrantRole(role) ? role : null;
+}
+
 export function loadMeetingSession(id: string) {
   return db.query.meetingSession.findFirst({
     where: { id },
@@ -230,7 +240,7 @@ export async function loadMeetingSessionForAccess(input: {
       and(
         eq(meetingSession.id, input.meetingId),
         eq(meetingSession.organizationId, input.organizationId),
-        inArray(meetingSession.status, [...DETAIL_MEETING_STATUSES]),
+        inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
         input.includeAllPrivateMeetings
           ? undefined
           : or(
@@ -248,14 +258,14 @@ export async function loadMeetingSessionForAccess(input: {
     where: {
       id: input.meetingId,
       organizationId: input.organizationId,
-      status: { in: [...DETAIL_MEETING_STATUSES] },
+      status: { in: [...LIBRARY_MEETING_STATUSES] },
     },
     with: { assets: true, custodian: true, owner: true },
   });
   return meeting
     ? {
         ...meeting,
-        accessGrantRole: authorized.grantRole as MeetingGrantRole | null,
+        accessGrantRole: parseMeetingGrantRole(authorized.grantRole),
         workspaceCustodied: authorized.workspaceCustodied,
       }
     : null;
@@ -447,7 +457,7 @@ export async function reassignMeetingOwner(input: {
 export async function recordMeetingAudit(input: {
   action: string;
   actorId: string;
-  detail?: Record<string, unknown>;
+  detail?: JsonObject;
   dedupeWithinMs?: number;
   meetingId?: string;
   organizationId: string;

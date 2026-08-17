@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { canDeleteResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
@@ -8,6 +8,9 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { copyResumeDetailLink, firstSearchValue } from "./resume-library-page-model";
 import type { ResumeLibraryGridState, SearchParamsRecord } from "./resume-library-page-model";
+
+const resumeLibraryRouteApi = getRouteApi("/w/$slug/studio/resumes");
+const resumeDetailRouteApi = getRouteApi("/w/$slug/studio/resumes/$recordId");
 
 export function useResumeLibraryPageActions({
   grid,
@@ -44,7 +47,8 @@ export function useResumeLibraryPageActions({
   ) => void;
   slug: string;
 }) {
-  const router = useRouter();
+  const navigate = resumeLibraryRouteApi.useNavigate();
+  const navigateDetail = resumeDetailRouteApi.useNavigate();
   const consumedRecordIdRef = useRef(false);
 
   useEffect(() => {
@@ -59,13 +63,13 @@ export function useResumeLibraryPageActions({
     setEditRecordId(recordIdFromUrl);
     const nextSearch: SearchParamsRecord = { ...routeSearch };
     delete nextSearch.recordId;
-    void router.navigate({
+    navigate({
       params: { slug },
       replace: true,
       search: nextSearch,
       to: "/w/$slug/studio/resumes",
     });
-  }, [routeSearch, router, setEditRecordId, slug]);
+  }, [navigate, routeSearch, setEditRecordId, slug]);
 
   function handleSingleUploadFilePicked(file: File) {
     setPendingFiles([file]);
@@ -133,7 +137,7 @@ export function useResumeLibraryPageActions({
 
   function onToggleStructuredScoreSort(activeSortId: string | undefined) {
     const isActive = activeSortId === "structuredScore";
-    void router.navigate({
+    navigate({
       params: { slug },
       replace: true,
       resetScroll: false,
@@ -143,23 +147,24 @@ export function useResumeLibraryPageActions({
         sortOrder: isActive ? undefined : "desc",
       },
       to: "/w/$slug/studio/resumes",
-    } as never);
+    });
   }
 
   function onOpenDetail(record: ResumeLibraryListRecord, tab: ResumeDetailDefaultTab = "overview") {
-    void router.navigate({
+    navigateDetail({
       params: { recordId: record.id, slug },
       resetScroll: true,
-      search: {
-        ...routeSearch,
-        tab: tab === "overview" ? undefined : tab,
+      search: (previous) => {
+        const nextSearch = { ...previous };
+        if (tab === "overview") {
+          delete nextSearch.tab;
+        } else {
+          nextSearch.tab = tab;
+        }
+        return nextSearch;
       },
-      state: (prev: Record<string, unknown>) => ({
-        ...prev,
-        fromRecruiterResumeList: true,
-      }),
       to: "/w/$slug/studio/resumes/$recordId",
-    } as never);
+    });
   }
 
   function onCopyDetailLink(record: ResumeLibraryListRecord) {

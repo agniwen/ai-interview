@@ -109,6 +109,14 @@ export interface StudioInterviewRoundListParams {
   status?: string;
 }
 
+interface StudioInterviewRoundsQuery {
+  creatorIds?: string;
+  page?: string;
+  pageSize?: string;
+  search?: string;
+  status?: string;
+}
+
 /**
  * 拉取面试轮次列表（支持分页 / 关键词 / 状态筛选）。
  * Fetch the interview round list (supports pagination / keyword / status filtering).
@@ -117,18 +125,26 @@ export function fetchStudioInterviewRounds(
   slug: string,
   params: StudioInterviewRoundListParams = {},
 ): Promise<PaginatedStudioInterviewRoundsResult> {
+  const query: StudioInterviewRoundsQuery = {};
+  if (params.page !== undefined) {
+    query.page = String(params.page);
+  }
+  if (params.pageSize !== undefined) {
+    query.pageSize = String(params.pageSize);
+  }
+  if (params.search) {
+    query.search = params.search;
+  }
+  if (params.creatorIds && params.creatorIds.length > 0) {
+    query.creatorIds = params.creatorIds.join(",");
+  }
+  if (params.status) {
+    query.status = params.status;
+  }
   return rpcFetch<PaginatedStudioInterviewRoundsResult>(
     rpc.api.w[":slug"].studio.interviews.$get({
       param: { slug },
-      query: {
-        ...(params.page === undefined ? {} : { page: String(params.page) }),
-        ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
-        ...(params.search ? { search: params.search } : {}),
-        ...(params.creatorIds && params.creatorIds.length > 0
-          ? { creatorIds: params.creatorIds.join(",") }
-          : {}),
-        ...(params.status ? { status: params.status } : {}),
-      },
+      query,
     }),
     "加载面试列表失败",
   );
@@ -722,9 +738,14 @@ export async function bulkDeleteStudioInterviewRounds(
   slug: string,
   roundIds: string[],
 ): Promise<{ deleted: number; deletedCount?: number; success?: boolean }> {
+  const [firstRoundId, ...remainingRoundIds] = roundIds;
+  if (!firstRoundId) {
+    return { deleted: 0 };
+  }
+  const ids: [string, ...string[]] = [firstRoundId, ...remainingRoundIds];
   const data = await rpcFetch<{ deletedCount: number; success: boolean }>(
     rpc.api.w[":slug"].studio.interviews["bulk-delete"].$post({
-      json: { ids: roundIds as [string, ...string[]] },
+      json: { ids },
       param: { slug },
     }),
     "批量删除失败",

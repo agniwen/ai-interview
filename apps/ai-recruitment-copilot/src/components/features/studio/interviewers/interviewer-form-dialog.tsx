@@ -4,10 +4,16 @@ import { IconLoader2, IconSquare, IconVolume2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerFormValues, InterviewerRecord } from "@arc/shared/interviewers";
 import { interviewerFormSchema } from "@arc/shared/interviewers";
+import {
+  minimaxVoiceSchema,
+  DEFAULT_MINIMAX_VOICE_ID,
+  MINIMAX_INTERVIEWER_VOICES,
+} from "@arc/db-schema/minimax-voices";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,15 +29,17 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
+
 import { MarkdownEditor } from "@/components/features/markdown-editor";
-import {
-  DEFAULT_MINIMAX_VOICE_ID,
-  MINIMAX_INTERVIEWER_VOICES,
-} from "@arc/db-schema/minimax-voices";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/components/features/studio/entity-form-dialog";
 import { useEntityForm } from "@/components/features/studio/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
+
+const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
+const voicePreviewPayloadSchema = z
+  .object({ error: z.string().optional(), url: z.string().optional() })
+  .nullable();
 
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -110,10 +118,9 @@ export function InterviewerFormDialog({
           json: { voice },
           param: { slug },
         });
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-          url?: string;
-        } | null;
+        const rawPayload = await response.json().catch(() => null);
+        const parsedPayload = voicePreviewPayloadSchema.safeParse(rawPayload);
+        const payload = parsedPayload.success ? parsedPayload.data : null;
         if (!response.ok || !payload?.url) {
           throw new Error(payload?.error ?? "生成试听音频失败");
         }
@@ -153,7 +160,9 @@ export function InterviewerFormDialog({
             param: { id: record.id, slug },
           })
         : await rpc.api.w[":slug"].studio.interviewers.$post({ json: body, param: { slug } });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const rawPayload = await response.json().catch(() => null);
+      const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
+      const payload = parsedPayload.success ? parsedPayload.data : null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
@@ -173,7 +182,9 @@ export function InterviewerFormDialog({
       isEdit={isEdit}
       isSubmitting={isSubmitting}
       onOpenChange={onOpenChange}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={async () => {
+        await form.handleSubmit();
+      }}
       open={open}
       size="xl"
       submitDisabled={noDepartments}
@@ -258,7 +269,10 @@ export function InterviewerFormDialog({
                     <Select
                       onValueChange={(value) => {
                         stopVoicePreview();
-                        field.handleChange(value as typeof field.state.value);
+                        const parsed = minimaxVoiceSchema.safeParse(value);
+                        if (parsed.success) {
+                          field.handleChange(parsed.data);
+                        }
                       }}
                       value={field.state.value}
                     >
@@ -285,7 +299,9 @@ export function InterviewerFormDialog({
                     <Button
                       className="h-13 shrink-0"
                       disabled={loadingPreviewVoice !== null}
-                      onClick={() => void handlePreviewVoice(field.state.value)}
+                      onClick={async () => {
+                        await handlePreviewVoice(field.state.value);
+                      }}
                       type="button"
                       variant="outline"
                     >

@@ -22,6 +22,7 @@ const input = {
 function createProvider(response: () => Promise<Response>) {
   return createDeepgramMeetingTranscriptionProvider({
     apiKey: "test-key",
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     fetch: response as typeof globalThis.fetch,
     readAudioFile: () => Promise.resolve(new Uint8Array([1])),
   });

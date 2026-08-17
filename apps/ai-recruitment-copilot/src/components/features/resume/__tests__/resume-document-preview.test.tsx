@@ -10,7 +10,12 @@ import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-docu
 import * as fileIconModule from "@/components/features/resume/resume-document-file-icon";
 import * as previewDialogModule from "@/components/features/resume/resume-document-preview-dialog";
 import * as previewButtonModule from "@/components/features/resume/resume-document-preview-button";
+import type { ResumeDocumentPreviewDialogDependencies } from "@/components/features/resume/resume-document-preview-dialog";
 
+type DocxPreviewProps = Parameters<ResumeDocumentPreviewDialogDependencies["renderDocxPreview"]>[0];
+type XlsxPreviewProps = Parameters<ResumeDocumentPreviewDialogDependencies["renderXlsxPreview"]>[0];
+
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function stubDesktopViewport() {
@@ -29,23 +34,22 @@ function stubDesktopViewport() {
   );
 }
 
-const viewerMocks = vi.hoisted(() => ({
-  docx: vi.fn(() => null),
+const viewerMocks = {
+  docx: vi.fn((_props: DocxPreviewProps) => null),
   pdf: vi.fn(() => null),
-  xlsx: vi.fn(() => null),
-}));
+  xlsx: vi.fn((_props: XlsxPreviewProps) => null),
+};
 
-vi.mock("@/components/features/pdf/pdf-preview-dialog", () => ({
-  PdfPreviewDialog: viewerMocks.pdf,
-}));
-
-vi.mock("@/components/ui/docx-viewer", () => ({
-  DocxViewerPreview: viewerMocks.docx,
-}));
-
-vi.mock("@/components/ui/xlsx-viewer", () => ({
-  XlsxViewerPreview: viewerMocks.xlsx,
-}));
+const viewerDependencies: ResumeDocumentPreviewDialogDependencies = {
+  renderDocxPreview: (props) => {
+    viewerMocks.docx(props);
+    return null;
+  },
+  renderXlsxPreview: (props) => {
+    viewerMocks.xlsx(props);
+    return null;
+  },
+};
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -106,6 +110,7 @@ describe("resume document preview", () => {
   });
 
   it("renders image resume previews with a loading state before the image blob is ready", () => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const { ImageResumePreviewContent } = previewDialogModule as typeof previewDialogModule & {
       ImageResumePreviewContent?: (props: { filename?: string; url: string }) => React.ReactNode;
     };
@@ -125,6 +130,7 @@ describe("resume document preview", () => {
   });
 
   it("fetches image resume previews as blob URLs", async () => {
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const { ImageResumePreviewContent } = previewDialogModule as typeof previewDialogModule & {
       ImageResumePreviewContent?: (props: { filename?: string; url: string }) => React.ReactNode;
     };
@@ -201,6 +207,7 @@ describe("resume document preview", () => {
     act(() => {
       root.render(
         <previewDialogModule.ResumeDocumentPreviewDialog
+          dependencies={viewerDependencies}
           filename="resume.jpeg"
           kind="image"
           onOpenChange={() => {}}
@@ -229,6 +236,7 @@ describe("resume document preview", () => {
     act(() => {
       root.render(
         <previewDialogModule.ResumeDocumentPreviewDialog
+          dependencies={viewerDependencies}
           filename="resume.docx"
           kind="docx"
           onOpenChange={() => {}}
@@ -240,6 +248,7 @@ describe("resume document preview", () => {
     act(() => {
       root.render(
         <previewDialogModule.ResumeDocumentPreviewDialog
+          dependencies={viewerDependencies}
           filename="resume.xlsx"
           kind="xlsx"
           onOpenChange={() => {}}
@@ -249,14 +258,8 @@ describe("resume document preview", () => {
       );
     });
 
-    expect(viewerMocks.docx).toHaveBeenCalledWith(
-      expect.objectContaining({ showDownload: false }),
-      undefined,
-    );
-    expect(viewerMocks.xlsx).toHaveBeenCalledWith(
-      expect.objectContaining({ showDownload: false }),
-      undefined,
-    );
+    expect(viewerMocks.docx).toHaveBeenCalledWith(expect.objectContaining({ showDownload: false }));
+    expect(viewerMocks.xlsx).toHaveBeenCalledWith(expect.objectContaining({ showDownload: false }));
 
     act(() => {
       root.unmount();

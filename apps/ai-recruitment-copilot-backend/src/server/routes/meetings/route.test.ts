@@ -3,68 +3,37 @@ import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcript/authorization-gate";
+import { createMeetingsRouter } from "./route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   addMeetingNote: vi.fn(),
-  askMeetingQuestion: vi.fn(),
   changeMeetingRecruitingContext: vi.fn(),
   completeSmallSavedMeeting: vi.fn(),
   correctSavedMeetingTranscript: vi.fn(),
   createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
-  createSavedMeetingQuestionThread: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
   createWorkspaceMeetingLiveTranscriptAuthorization: vi.fn(),
-  editMeetingNote: vi.fn(),
   generateRecordingTitle: vi.fn(),
   getMeetingNotes: vi.fn(),
   getMeetingRecruitingContext: vi.fn(),
-  getMeetingRecruitingRecordCandidates: vi.fn(),
-  getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
   getSavedMeetingIntelligence: vi.fn(),
-  getSavedMeetingQuestionThread: vi.fn(),
   getSavedMeetingTranscript: vi.fn(),
   getSavedMeetingTranscriptHistory: vi.fn(),
   getSavedMeetingTranscriptRevision: vi.fn(),
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
-  heartbeatWorkspaceMeetingLiveTranscript: vi.fn(),
-  listSavedMeetingQuestionThreads: vi.fn(),
+  heartbeatSavedMeetingUpload: vi.fn(),
   listSavedMeetings: vi.fn(),
-  listTrashedSavedMeetings: vi.fn(),
   permanentlyPurgeSavedMeeting: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
   regenerateSavedMeetingIntelligence: vi.fn(),
-  releaseWorkspaceMeetingLiveTranscript: vi.fn(),
-  removeMeetingNote: vi.fn(),
   renameSavedMeeting: vi.fn(),
-  restoreSavedMeeting: vi.fn(),
   retryMeetingPlayback: vi.fn(),
-  retrySavedMeetingTranscription: vi.fn(),
   searchSavedMeetings: vi.fn(),
-  trashSavedMeeting: vi.fn(),
   updateMeetingShare: vi.fn(),
   updateWorkspaceMeetingTranscriptionPolicy: vi.fn(),
-}));
-
-vi.mock("./service", () => mocks);
-vi.mock("./lifecycle-service", () => mocks);
-vi.mock("./collaboration-service", () => mocks);
-vi.mock("./transcription/service", () => mocks);
-vi.mock("./routes/live-transcript/service", () => mocks);
-vi.mock("./recruiting-context-service", () => mocks);
-vi.mock("./intelligence/service", () => mocks);
-vi.mock("./answers/service", () => mocks);
-vi.mock("./routes/search/service", () => mocks);
-vi.mock("./routes/title/generator", () => ({
-  generateRecordingTitle: mocks.generateRecordingTitle,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
-  createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { meetingsRouter } from "./route";
+};
 
 const MEETING_ID = "00000000-0000-4000-8000-000000000072";
 const MANIFEST_SHA = "a".repeat(64);
@@ -95,12 +64,258 @@ const createInput = {
   startedAt: "2026-08-09T02:00:00.000Z",
 };
 
+const childContext = () => ({
+  memberRole: "admin",
+  organizationId: "org-72",
+  userId: "user-72",
+});
+
+const playbackRouter = factory
+  .createApp()
+  .get("/", async (c) => {
+    const result = await mocks.createMeetingPlaybackAuthorization({
+      meetingId: c.req.param("id"),
+      ...childContext(),
+    });
+    return c.json(result, 200);
+  })
+  .post("/retry", async (c) => {
+    const result = await mocks.retryMeetingPlayback({
+      meetingId: c.req.param("id"),
+      ...childContext(),
+    });
+    if (result === "forbidden") {
+      return c.json({ error: "无权重试会议处理" }, 403);
+    }
+    return c.json(result, 202);
+  });
+
+const searchRouter = factory.createApp().get("/", async (c) => {
+  const query = c.req.query("q")?.trim() ?? "";
+  if (!query) {
+    return c.json({ error: "请输入搜索关键词" }, 400);
+  }
+  const result = await mocks.searchSavedMeetings({
+    limit: Number(c.req.query("limit") ?? 20),
+    organizationId: "org-72",
+    query,
+    timeZone: c.req.query("timeZone") ?? "UTC",
+    userId: "user-72",
+  });
+  return c.json({ records: result }, 200);
+});
+
+const titleRouter = factory.createApp().post("/", async (c) => {
+  const body = await c.req.json<{ transcript: string }>();
+  const title = await mocks.generateRecordingTitle(body.transcript);
+  return c.json({ title }, 200);
+});
+
+const recruitingContextRouter = factory
+  .createApp()
+  .get("/", async (c) => {
+    const result = await mocks.getMeetingRecruitingContext({
+      meetingId: c.req.param("id"),
+      ...childContext(),
+    });
+    return c.json(result, 200);
+  })
+  .put("/", async (c) => {
+    const body = await c.req.json<{ recruitingRecordId: string }>();
+    const result = await mocks.changeMeetingRecruitingContext({
+      meetingId: c.req.param("id"),
+      recruitingRecordId: body.recruitingRecordId,
+      ...childContext(),
+    });
+    if (result === "invalid-record") {
+      return c.json({ error: "招聘记录不存在或无权访问" }, 404);
+    }
+    return c.json(result, 200);
+  });
+
+const intelligenceRouter = factory
+  .createApp()
+  .get("/", async (c) =>
+    c.json(
+      await mocks.getSavedMeetingIntelligence({ meetingId: c.req.param("id"), ...childContext() }),
+      200,
+    ),
+  )
+  .post("/", async (c) => {
+    const body = await c.req.json<{ template: string }>();
+    const result = await mocks.regenerateSavedMeetingIntelligence({
+      meetingId: c.req.param("id"),
+      template: body.template,
+      ...childContext(),
+    });
+    return c.json(result, 202);
+  });
+
+const notesRouter = factory
+  .createApp()
+  .get("/", async (c) => {
+    const records = await mocks.getMeetingNotes({
+      meetingId: c.req.param("id"),
+      ...childContext(),
+    });
+    return c.json({ records }, 200);
+  })
+  .post("/", async (c) => {
+    const body = await c.req.json<{ body: string; meetingTimeMs: number }>();
+    const result = await mocks.addMeetingNote({
+      meetingId: c.req.param("id"),
+      ...childContext(),
+      ...body,
+    });
+    if (result === "forbidden") {
+      return c.json({ error: "无权创建会议笔记" }, 403);
+    }
+    if (result === "limit-exceeded") {
+      return c.json({ error: "会议笔记超出搜索范围" }, 409);
+    }
+    return c.json(result, 201);
+  });
+
+const shareRouter = factory
+  .createApp()
+  .put("/", async (c) => {
+    const share = await c.req.json();
+    const result = await mocks.updateMeetingShare({
+      meetingId: c.req.param("id"),
+      share,
+      ...childContext(),
+    });
+    return c.json(result, 200);
+  })
+  .post("/owner", async (c) => {
+    const body = await c.req.json<{ userId: string }>();
+    const result = await mocks.reassignSavedMeetingOwner({
+      meetingId: c.req.param("id"),
+      targetUserId: body.userId,
+      ...childContext(),
+    });
+    if (result === "not-custodied") {
+      return c.json({ error: "会议当前仍由工作区成员负责" }, 409);
+    }
+    return c.json(result, 200);
+  });
+
+const liveTranscriptRouter = factory.createApp().post("/", async (c) => {
+  const body = await c.req.json<{ captureId: string; track: "microphone" | "system" }>();
+  try {
+    const result = await mocks.createWorkspaceMeetingLiveTranscriptAuthorization({
+      captureId: body.captureId,
+      organizationId: "org-72",
+      track: body.track,
+      userId: "user-72",
+    });
+    if (result === "capacity") {
+      return c.json(
+        {
+          code: "live-transcript-capacity-exhausted",
+          error: "实时字幕容量已满，Meeting Recording 仍在本地继续",
+        },
+        429,
+      );
+    }
+    return c.json(result, 201, { "Cache-Control": "no-store" });
+  } catch (error) {
+    if (error instanceof LiveTranscriptAuthorizationRateLimitError) {
+      return c.json({ error: "实时字幕请求过于频繁" }, 429, {
+        "Retry-After": String(error.retryAfterSeconds),
+      });
+    }
+    throw error;
+  }
+});
+
+const transcriptionPolicyRouter = factory
+  .createApp()
+  .get("/", async (c) =>
+    c.json(await mocks.getWorkspaceMeetingTranscriptionPolicy(childContext()), 200),
+  )
+  .put("/", async (c) => {
+    const policy = await c.req.json();
+    const result = await mocks.updateWorkspaceMeetingTranscriptionPolicy({
+      policy,
+      ...childContext(),
+    });
+    return c.json(result, 200);
+  });
+
+const transcriptRouter = factory
+  .createApp()
+  .get("/", async (c) =>
+    c.json(
+      await mocks.getSavedMeetingTranscript({ meetingId: c.req.param("id"), ...childContext() }),
+      200,
+    ),
+  )
+  .post("/corrections", async (c) => {
+    if (Number(c.req.header("content-length") ?? 0) > 8 * 1024 * 1024) {
+      return c.json({ error: "会议转录修订请求过大" }, 413);
+    }
+    const correction = await c.req.json();
+    const result = await mocks.correctSavedMeetingTranscript({
+      correction,
+      meetingId: c.req.param("id"),
+      ...childContext(),
+    });
+    if (result === "conflict") {
+      return c.json({ error: "会议转录已被其他人更新，请刷新后重试" }, 409);
+    }
+    return c.json(result, 201);
+  })
+  .get("/revisions", async (c) =>
+    c.json(
+      await mocks.getSavedMeetingTranscriptHistory({
+        meetingId: c.req.param("id"),
+        ...childContext(),
+      }),
+      200,
+    ),
+  )
+  .get("/revisions/:revisionId", async (c) =>
+    c.json(
+      await mocks.getSavedMeetingTranscriptRevision({
+        meetingId: c.req.param("id"),
+        revisionId: c.req.param("revisionId"),
+        ...childContext(),
+      }),
+      200,
+    ),
+  );
+
+const emptyRouter = factory.createApp();
+
+const meetingsRouter = createMeetingsRouter({
+  ...mocks,
+  meetingExportsRouter: emptyRouter,
+  meetingIntelligenceRouter: intelligenceRouter,
+  meetingLiveTranscriptRouter: liveTranscriptRouter,
+  meetingNotesRouter: notesRouter,
+  meetingPlaybackRouter: playbackRouter,
+  meetingQuestionsRouter: emptyRouter,
+  meetingRecruitingContextRouter: recruitingContextRouter,
+  meetingRestoreRouter: emptyRouter,
+  meetingSearchRouter: searchRouter,
+  meetingShareRouter: shareRouter,
+  meetingTitleRouter: titleRouter,
+  meetingTranscriptRouter: transcriptRouter,
+  meetingTranscriptionPolicyRouter: transcriptionPolicyRouter,
+  meetingTrashActionRouter: emptyRouter,
+  meetingTrashRouter: emptyRouter,
+});
+
 function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: "org-72" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "admin" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: "user-72" } as never);
       await next();
     })

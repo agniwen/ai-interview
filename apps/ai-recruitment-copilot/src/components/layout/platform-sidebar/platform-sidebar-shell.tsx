@@ -9,10 +9,15 @@ import {
   SidebarHeaderPortalProvider,
 } from "@/components/layout/app-sidebar/portals";
 
-const sidebarStyle = {
+interface SidebarStyle extends CSSProperties {
+  "--header-height": string;
+  "--sidebar-width": string;
+}
+
+const sidebarStyle: SidebarStyle = {
   "--header-height": "calc(var(--spacing) * 12)",
   "--sidebar-width": "calc(var(--spacing) * 72)",
-} as CSSProperties;
+};
 
 export function PlatformSidebarShell({ children }: { children: ReactNode }) {
   return (

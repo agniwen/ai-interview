@@ -1,30 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FeatureBlocks } from "./feature-blocks";
-
-vi.mock("@gsap/react", () => ({
-  useGSAP: () => {},
-}));
-
-vi.mock("gsap", () => ({
-  gsap: {
-    registerPlugin: () => {},
-  },
-}));
-
-vi.mock("gsap/ScrollSmoother", () => ({
-  ScrollSmoother: {},
-}));
-
-vi.mock("gsap/ScrollTrigger", () => ({
-  ScrollTrigger: {},
-}));
-
-vi.mock("@/components/features/home/screens", () => ({
-  ChatScreen: () => <div>Chat screen</div>,
-  InterviewScreen: () => <div>Interview screen</div>,
-  JobsScreen: () => <div>Jobs screen</div>,
-}));
 
 describe("FeatureBlocks", () => {
   it("hides later desktop scenes in the static HTML before GSAP initializes", () => {

@@ -5,7 +5,7 @@ import {
 } from "@arc/shared/permission-statements";
 import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
 import { roles, statement } from "@arc/shared/permissions";
-import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { z } from "zod";
 import { organizationRole } from "@arc/db-schema/schema";
 import {
   listRecruitingGroupRoles,
@@ -20,22 +20,25 @@ export interface WorkspacePermissionSnapshot {
 }
 
 type BuiltInRole = keyof typeof roles;
+type WorkspaceResource = keyof typeof statement;
+const permissionJsonSchema = z.json();
 
-function isBuiltInRole(role: string): role is BuiltInRole {
-  return Object.hasOwn(roles, role);
+interface WorkspacePermissionSnapshotDependencies {
+  listGroupRoles: typeof listRecruitingGroupRoles;
+  loadDynamicRolePermission: (input: {
+    organizationId: string;
+    role: string;
+  }) => Promise<string | null>;
 }
 
-async function loadRoleStatements({
+async function loadDynamicRolePermission({
   organizationId,
   role,
 }: {
   organizationId: string;
   role: string;
-}): Promise<WorkspacePermissionStatements> {
-  if (isBuiltInRole(role)) {
-    return normalizePermissionStatements(roles[role].statements);
-  }
-
+}): Promise<string | null> {
+  const { db } = await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
   const [row] = await db
     .select({ permission: organizationRole.permission })
     .from(organizationRole)
@@ -43,13 +46,42 @@ async function loadRoleStatements({
       and(eq(organizationRole.organizationId, organizationId), eq(organizationRole.role, role)),
     )
     .limit(1);
+  return row?.permission ?? null;
+}
 
-  if (!row) {
+const defaultDependencies: WorkspacePermissionSnapshotDependencies = {
+  listGroupRoles: listRecruitingGroupRoles,
+  loadDynamicRolePermission,
+};
+
+function isBuiltInRole(role: string): role is BuiltInRole {
+  return Object.hasOwn(roles, role);
+}
+
+function isWorkspaceResource(resource: string): resource is WorkspaceResource {
+  return Object.hasOwn(statement, resource);
+}
+
+async function loadRoleStatements({
+  dependencies,
+  organizationId,
+  role,
+}: {
+  dependencies: WorkspacePermissionSnapshotDependencies;
+  organizationId: string;
+  role: string;
+}): Promise<WorkspacePermissionStatements> {
+  if (isBuiltInRole(role)) {
+    return normalizePermissionStatements(permissionJsonSchema.parse(roles[role].statements));
+  }
+
+  const permission = await dependencies.loadDynamicRolePermission({ organizationId, role });
+  if (!permission) {
     return {};
   }
 
   try {
-    return normalizePermissionStatements(JSON.parse(row.permission) as unknown);
+    return normalizePermissionStatements(permissionJsonSchema.parse(JSON.parse(permission)));
   } catch {
     return {};
   }
@@ -63,20 +95,24 @@ async function loadRoleStatements({
  * - member + recruiting-group resources → group membership only
  * - otherwise → role statements (built-in matrix or dynamic organizationRole JSON)
  */
-export async function computeWorkspacePermissionSnapshot({
-  memberRole,
-  organizationId,
-  userId,
-}: {
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}): Promise<WorkspacePermissionSnapshot> {
+export async function computeWorkspacePermissionSnapshot(
+  {
+    memberRole,
+    organizationId,
+    userId,
+  }: {
+    memberRole: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: WorkspacePermissionSnapshotDependencies = defaultDependencies,
+): Promise<WorkspacePermissionSnapshot> {
   if (isNoAccessWorkspaceRole(memberRole)) {
     return { role: memberRole, statements: {} };
   }
 
   const roleStatements = await loadRoleStatements({
+    dependencies,
     organizationId,
     role: memberRole,
   });
@@ -88,17 +124,19 @@ export async function computeWorkspacePermissionSnapshot({
     };
   }
 
-  const groupRoles = await listRecruitingGroupRoles({ organizationId, userId });
+  const groupRoles = await dependencies.listGroupRoles({ organizationId, userId });
   const groupStatements = statementsFromRecruitingGroupRoles(groupRoles);
   const roleClone = clonePermissionStatements(roleStatements);
   const statements: WorkspacePermissionStatements = {};
 
   // Keep non-recruiting role grants. Recruiting resources come from group membership only.
-  for (const resource of Object.keys(roleClone) as (keyof typeof statement)[]) {
+  for (const [resource, actions] of Object.entries(roleClone)) {
+    if (!isWorkspaceResource(resource)) {
+      continue;
+    }
     if (RECRUITING_GROUP_RESOURCES.has(resource)) {
       continue;
     }
-    const actions = roleClone[resource];
     if (actions) {
       Object.assign(statements, { [resource]: [...actions] });
     }
@@ -111,14 +149,12 @@ export async function computeWorkspacePermissionSnapshot({
   }
 
   // Ensure we never invent actions outside the catalog when merging.
-  for (const resource of Object.keys(statements) as (keyof typeof statement)[]) {
-    const allowedCatalog = statement[resource] as readonly string[] | undefined;
-    const actions = statements[resource];
-    if (!allowedCatalog || !actions) {
+  for (const [resource, actions] of Object.entries(statements)) {
+    if (!isWorkspaceResource(resource) || !actions) {
       continue;
     }
     Object.assign(statements, {
-      [resource]: actions.filter((action) => allowedCatalog.includes(action)),
+      [resource]: actions.filter((action) => [...statement[resource]].includes(action)),
     });
   }
 

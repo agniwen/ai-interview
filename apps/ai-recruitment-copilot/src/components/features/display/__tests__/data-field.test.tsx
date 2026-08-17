@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { DataField } from "../data-field";
 import { DataFields } from "../data-fields";
 
+// SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderFields() {

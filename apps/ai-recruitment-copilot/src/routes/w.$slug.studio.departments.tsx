@@ -5,7 +5,7 @@ import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 
 export const Route = createFileRoute("/w/$slug/studio/departments")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  validateSearch: coerceSearchParams,
   head: () => ({
     meta: [{ title: formatDocumentTitle("部门管理") }],
   }),

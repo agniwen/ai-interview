@@ -1,4 +1,6 @@
 import type { AudioProcessorOptions, Track, TrackProcessor } from "livekit-client";
+import type { PitchShift, setContext as setToneContext } from "tone";
+import { z } from "zod";
 
 export type VoiceEffectId =
   | "none"
@@ -14,26 +16,26 @@ const distortionCurvePointCount = 256;
 interface EffectGraph {
   nodes: AudioNode[];
   sources: AudioScheduledSourceNode[];
-  toneNodes?: ToneDisposableNode[];
+  toneNodes?: PitchShift[];
 }
 
-interface ToneDisposableNode {
-  dispose: () => unknown;
-  input?: unknown;
-  output?: unknown;
+interface ToneModule {
+  PitchShift: typeof PitchShift;
+  setContext: typeof setToneContext;
+}
+let toneModulePromise: Promise<ToneModule> | null = null;
+
+interface NestedAudioNode {
+  input?: AudioNode | NestedAudioNode;
+  output?: AudioNode | NestedAudioNode;
 }
 
-interface TonePitchShiftModule {
-  PitchShift: new (options: {
-    feedback: number;
-    pitch: number;
-    wet: number;
-    windowSize: number;
-  }) => ToneDisposableNode;
-  setContext: (context: AudioContext) => void;
-}
-
-let toneModulePromise: Promise<TonePitchShiftModule> | null = null;
+const nestedAudioNodeSchema: z.ZodType<NestedAudioNode> = z.lazy(() =>
+  z.object({
+    input: z.union([z.instanceof(AudioNode), nestedAudioNodeSchema]).optional(),
+    output: z.union([z.instanceof(AudioNode), nestedAudioNodeSchema]).optional(),
+  }),
+);
 
 interface FilterConfig {
   frequency: number;
@@ -151,8 +153,9 @@ const voiceEffectPresets = {
     toneWindowSize: 0.06,
   },
 } satisfies Record<ProcessedVoiceEffectId, VoiceEffectPreset>;
-const typedVoiceEffectPresets: Record<ProcessedVoiceEffectId, VoiceEffectPreset> =
-  voiceEffectPresets;
+function getVoiceEffectPreset(effect: ProcessedVoiceEffectId): VoiceEffectPreset {
+  return voiceEffectPresets[effect];
+}
 
 function createDistortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const curve = new Float32Array(
@@ -190,7 +193,7 @@ function stopSources(sources: AudioScheduledSourceNode[]): void {
   }
 }
 
-function disposeToneNodes(nodes: ToneDisposableNode[]): void {
+function disposeToneNodes(nodes: PitchShift[]): void {
   for (const node of nodes) {
     try {
       node.dispose();
@@ -204,25 +207,25 @@ function isAudioNode(value: unknown): value is AudioNode {
   return value instanceof AudioNode;
 }
 
-function getNestedAudioNode(value: unknown, propertyName: "input" | "output"): AudioNode {
+function getNestedAudioNode(
+  value: AudioNode | NestedAudioNode,
+  propertyName: "input" | "output",
+): AudioNode {
   if (isAudioNode(value)) {
     return value;
   }
-  if (typeof value !== "object" || value === null || !(propertyName in value)) {
+  const parsed = nestedAudioNodeSchema.safeParse(value);
+  if (!parsed.success || !parsed.data[propertyName]) {
     throw new Error("声音变调初始化失败");
   }
-  return getNestedAudioNode(
-    (value as Record<"input" | "output", unknown>)[propertyName],
-    propertyName,
-  );
+  return getNestedAudioNode(parsed.data[propertyName], propertyName);
 }
 
-async function loadToneModule(): Promise<TonePitchShiftModule> {
-  const toneModule = await import("tone");
-  return toneModule as unknown as TonePitchShiftModule;
+async function loadToneModule(): Promise<ToneModule> {
+  return await import("tone");
 }
 
-function getToneModule(): Promise<TonePitchShiftModule> {
+function getToneModule(): Promise<ToneModule> {
   toneModulePromise ??= loadToneModule();
   return toneModulePromise;
 }
@@ -231,7 +234,7 @@ async function createPitchShiftNode(
   context: AudioContext,
   pitch: number,
   windowSize: number,
-): Promise<ToneDisposableNode> {
+): Promise<PitchShift> {
   const tone = await getToneModule();
   tone.setContext(context);
   return new tone.PitchShift({
@@ -246,10 +249,10 @@ function createFilterNode(context: AudioContext, config: FilterConfig): BiquadFi
   const filter = context.createBiquadFilter();
   filter.type = config.type;
   filter.frequency.value = config.frequency;
-  if (typeof config.gain === "number") {
+  if (config.gain !== undefined) {
     filter.gain.value = config.gain;
   }
-  if (typeof config.q === "number") {
+  if (config.q !== undefined) {
     filter.Q.value = config.q;
   }
   return filter;
@@ -280,13 +283,13 @@ async function connectPresetEffect(
   source: AudioNode,
   output: AudioNode,
 ): Promise<EffectGraph> {
-  const preset = typedVoiceEffectPresets[effect];
+  const preset = getVoiceEffectPreset(effect);
   const nodes: AudioNode[] = [source];
   const sources: AudioScheduledSourceNode[] = [];
-  const toneNodes: ToneDisposableNode[] = [];
+  const toneNodes: PitchShift[] = [];
   let currentNode = source;
 
-  if (typeof preset.pitch === "number") {
+  if (preset.pitch !== undefined) {
     const pitchShift = await createPitchShiftNode(
       context,
       preset.pitch,
@@ -299,13 +302,13 @@ async function connectPresetEffect(
 
   const effectNodes: AudioNode[] =
     preset.filters?.map((filter) => createFilterNode(context, filter)) ?? [];
-  if (typeof preset.distortionAmount === "number") {
+  if (preset.distortionAmount !== undefined) {
     const distortion = context.createWaveShaper();
     distortion.curve = createDistortionCurve(preset.distortionAmount);
     distortion.oversample = "2x";
     effectNodes.push(distortion);
   }
-  if (typeof preset.gain === "number") {
+  if (preset.gain !== undefined) {
     const gain = context.createGain();
     gain.gain.value = preset.gain;
     effectNodes.push(gain);
@@ -325,7 +328,7 @@ async function connectPresetEffect(
     effectNodes.push(modulatedGain);
     sources.push(oscillator);
 
-    if (typeof preset.modulation.offsetGain === "number") {
+    if (preset.modulation.offsetGain !== undefined) {
       const offset = context.createConstantSource();
       offset.offset.value = preset.modulation.offsetGain;
       offset.connect(modulatedGain.gain);
@@ -360,7 +363,7 @@ class BrowserVoiceEffectProcessor implements TrackProcessor<
   private audioContext?: AudioContext;
   private nodes: AudioNode[] = [];
   private sources: AudioScheduledSourceNode[] = [];
-  private toneNodes: ToneDisposableNode[] = [];
+  private toneNodes: PitchShift[] = [];
 
   constructor(effect: ProcessedVoiceEffectId) {
     this.effect = effect;

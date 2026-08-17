@@ -24,11 +24,14 @@ import {
   meetingIntelligenceGenerationProgressSchema,
   meetingIntelligencePayloadSchema,
   meetingIntelligenceRunResultSchema,
+  meetingIntelligenceTemplateSchema,
   validateMeetingIntelligenceEvidence,
 } from "@arc/shared/meeting-intelligence";
+import { z } from "zod";
 
 const PUBLIC_INTELLIGENCE_FAILURE_MESSAGE = "Meeting Intelligence 生成失败，请稍后重试。";
 const PROCESSING_LEASE_MS = 15 * 60 * 1000;
+const meetingIntelligenceStateSchema = z.enum(["failed", "pending", "processing", "ready"]);
 
 interface RequestMeetingIntelligenceRunInput {
   actorId: string | null;
@@ -364,7 +367,7 @@ export async function claimMeetingIntelligenceRun(input: {
         promptVersion: run.promptVersion,
         provider: run.provider,
         status: "claimed",
-        template: run.templateKey as MeetingIntelligenceTemplate,
+        template: meetingIntelligenceTemplateSchema.parse(run.templateKey),
         transcriptRevisionId: run.inputTranscriptRevisionId,
       };
     },
@@ -662,7 +665,7 @@ function serializeRevision(row: {
     promptVersion: row.promptVersion,
     provider: row.provider,
     revision: row.revision,
-    template: row.templateKey as MeetingIntelligenceTemplate,
+    template: meetingIntelligenceTemplateSchema.parse(row.templateKey),
     transcriptRevisionId: row.transcriptRevisionId,
   };
 }
@@ -716,7 +719,7 @@ export async function loadMeetingIntelligenceResult(input: {
       history.find((revision) => revision.id === meeting.activeIntelligenceRevisionId) ?? null,
     error: meeting.intelligenceError,
     history,
-    state: meeting.intelligenceStatus as MeetingIntelligenceResult["state"],
+    state: meetingIntelligenceStateSchema.parse(meeting.intelligenceStatus),
     suggestedTemplate: linked ? "recruiting-interview" : "general",
   };
 }

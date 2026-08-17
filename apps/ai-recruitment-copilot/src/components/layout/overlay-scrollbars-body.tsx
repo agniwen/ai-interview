@@ -3,8 +3,17 @@
 import { useOverlayScrollbars } from "overlayscrollbars-react";
 import { useEffect } from "react";
 
-export function OverlayScrollbarsBody() {
-  const [initialize, getInstance] = useOverlayScrollbars({
+interface OverlayScrollbarsBodyDependencies {
+  getInstance: () => { destroy: () => void } | undefined;
+  initialize: (target: { cancel: { body: boolean }; target: HTMLElement }) => void;
+}
+
+export function OverlayScrollbarsBody({
+  dependencies,
+}: {
+  dependencies?: OverlayScrollbarsBodyDependencies;
+}) {
+  const scrollbars = useOverlayScrollbars({
     defer: true,
     options: {
       scrollbars: {
@@ -14,6 +23,9 @@ export function OverlayScrollbarsBody() {
       },
     },
   });
+  const [initialize, getInstance] = dependencies
+    ? [dependencies.initialize, dependencies.getInstance]
+    : scrollbars;
 
   useEffect(() => {
     initialize({

@@ -1,24 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { applySettingsAtStartup } from "./settings";
 
-const electronMocks = vi.hoisted(() => ({
-  getPath: vi.fn(() => "/tmp/meeting-buddy-settings-test"),
-  setLoginItemSettings: vi.fn(),
-}));
-
-vi.mock("electron", () => ({
-  app: electronMocks,
-  nativeTheme: { themeSource: "system" },
-}));
-
 describe("applySettingsAtStartup", () => {
-  beforeEach(() => {
-    electronMocks.setLoginItemSettings.mockClear();
-  });
+  it("applies the persisted snapshot without mutating operating-system login items", () => {
+    const applySettings = vi.fn();
+    const settings = { notifyOnFinish: false, theme: "system" as const };
 
-  it("does not mutate operating-system login items", () => {
-    applySettingsAtStartup();
+    applySettingsAtStartup({ applySettings, readSettings: () => settings });
 
-    expect(electronMocks.setLoginItemSettings).not.toHaveBeenCalled();
+    expect(applySettings).toHaveBeenCalledWith(settings);
   });
 });

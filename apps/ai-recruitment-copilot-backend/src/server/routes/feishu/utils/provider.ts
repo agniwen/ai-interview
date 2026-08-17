@@ -10,14 +10,18 @@ export function isFeishuHumanInterviewEnabled(): boolean {
   return process.env.FEISHU_HUMAN_INTERVIEW_ENABLED === "true";
 }
 
-const FEISHU_APP_CONFIG: Record<
-  FeishuProviderId,
-  {
-    appIdEnv: string;
-    appSecretEnv: string;
-    evaluationFolderTokenEnv: string;
-  }
-> = {
+interface FeishuAppConfig {
+  appIdEnv: string;
+  appSecretEnv: string;
+  evaluationFolderTokenEnv: string;
+}
+
+interface FeishuAppCredentials {
+  appId: string;
+  appSecret: string;
+}
+
+const FEISHU_APP_CONFIG = {
   feishu: {
     appIdEnv: "FEISHU_APP_ID",
     appSecretEnv: "FEISHU_APP_SECRET",
@@ -28,12 +32,9 @@ const FEISHU_APP_CONFIG: Record<
     appSecretEnv: "FEISHU_APP_SECRET2",
     evaluationFolderTokenEnv: "FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN",
   },
-};
+} satisfies Record<FeishuProviderId, FeishuAppConfig>;
 
-export function getFeishuAppCredentials(providerId: FeishuProviderId): {
-  appId: string;
-  appSecret: string;
-} {
+export function getFeishuAppCredentials(providerId: FeishuProviderId): FeishuAppCredentials {
   const config = FEISHU_APP_CONFIG[providerId];
   const appId = process.env[config.appIdEnv];
   const appSecret = process.env[config.appSecretEnv];

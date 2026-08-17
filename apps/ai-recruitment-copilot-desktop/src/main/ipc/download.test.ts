@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({ handle: vi.fn() }));
-
-vi.mock("electron", () => ({ ipcMain: { handle: mocks.handle } }));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { isAllowedMeetingExportDownloadUrl, registerDownloadIpc } from "./download";
+
+const handle = vi.fn();
 
 describe("Meeting export download IPC", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -38,8 +34,8 @@ describe("Meeting export download IPC", () => {
   });
 
   it("uses the invoking webContents session downloader instead of renderer navigation", () => {
-    registerDownloadIpc("https://interview.example");
-    const handler = mocks.handle.mock.calls.find(([channel]) => channel === "download:start")?.[1];
+    registerDownloadIpc("https://interview.example", { handle });
+    const handler = handle.mock.calls.find(([channel]) => channel === "download:start")?.[1];
     const downloadURL = vi.fn();
     const url = "https://interview.example/api/w/demo/meetings/meeting-83/exports/markdown";
     expect(handler?.({ sender: { downloadURL } }, url)).toBe(true);

@@ -1,4 +1,5 @@
 import type { MastraModelConfig as CoreMastraModelConfig } from "@mastra/core/llm";
+import { z } from "zod";
 
 const ALIBABA_CODING_PLAN_PREFIX = "alibaba-coding-plan/";
 const ALIBABA_PROVIDER_ID = "alibaba";
@@ -23,6 +24,13 @@ interface ModelNames {
   structuredModel: string;
   scorerModel: string;
 }
+
+const mastraModelIdentifierSchemas = {
+  id: z.object({ id: z.string() }).passthrough(),
+  provider: z.object({ modelId: z.string(), provider: z.string() }).passthrough(),
+  providerId: z.object({ modelId: z.string(), providerId: z.string() }).passthrough(),
+  string: z.string(),
+};
 
 function readEnv(env: EnvLike, name: string): string | undefined {
   const value = env[name]?.trim();
@@ -85,12 +93,15 @@ function createAlibabaCompatibleModelConfig({
   baseURL: string;
   modelId: string;
 }): CoreMastraModelConfig {
-  return {
-    ...(apiKey ? { apiKey } : {}),
+  const config = {
     modelId: toAlibabaCompatibleModelId(modelId),
     providerId: ALIBABA_PROVIDER_ID,
     url: baseURL,
   };
+  if (apiKey) {
+    return { ...config, apiKey };
+  }
+  return config;
 }
 
 export function getAlibabaCompatibleApiKey(env: EnvLike = process.env): string | undefined {
@@ -109,17 +120,21 @@ export function getMastraModelApiKey(env: EnvLike = process.env): string | undef
 }
 
 export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
-  if (typeof model === "string") {
-    return model;
+  const stringResult = mastraModelIdentifierSchemas.string.safeParse(model);
+  if (stringResult.success) {
+    return stringResult.data;
   }
-  if ("providerId" in model && "modelId" in model) {
-    return `${model.providerId}/${model.modelId}`;
+  const providerIdResult = mastraModelIdentifierSchemas.providerId.safeParse(model);
+  if (providerIdResult.success) {
+    return `${providerIdResult.data.providerId}/${providerIdResult.data.modelId}`;
   }
-  if ("id" in model && typeof model.id === "string") {
-    return model.id;
+  const idResult = mastraModelIdentifierSchemas.id.safeParse(model);
+  if (idResult.success) {
+    return idResult.data.id;
   }
-  if ("provider" in model && "modelId" in model) {
-    return `${model.provider}/${model.modelId}`;
+  const providerResult = mastraModelIdentifierSchemas.provider.safeParse(model);
+  if (providerResult.success) {
+    return `${providerResult.data.provider}/${providerResult.data.modelId}`;
   }
   throw new Error("Unable to derive Mastra model identifier.");
 }

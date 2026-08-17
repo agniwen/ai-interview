@@ -4,8 +4,9 @@ export const CHAT_EVENTS = {
 } as const;
 
 export function notifyConversationsChanged(): void {
-  if (typeof window === "undefined") {
+  const browserWindow = globalThis.window;
+  if (!browserWindow) {
     return;
   }
-  window.dispatchEvent(new CustomEvent(CHAT_EVENTS.conversationsChanged));
+  browserWindow.dispatchEvent(new CustomEvent(CHAT_EVENTS.conversationsChanged));
 }

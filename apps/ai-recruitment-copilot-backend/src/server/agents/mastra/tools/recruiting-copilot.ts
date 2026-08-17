@@ -122,7 +122,7 @@ export const jobDescriptionSummarySchema = z.object({
 export const recruitingActionProposalSchema = z.object({
   explanation: z.string(),
   id: z.string(),
-  payload: z.record(z.string(), z.unknown()),
+  payload: z.record(z.string(), z.json()),
   title: z.string(),
   type: z.enum([
     "bind_candidate_to_job",
@@ -206,7 +206,7 @@ export const getJobDescriptionDetailInputSchema = z.object({
 
 export const proposeRecruitingActionInputSchema = z.object({
   explanation: z.string().trim().min(1).max(600),
-  payload: z.record(z.string(), z.unknown()),
+  payload: z.record(z.string(), z.json()),
   title: z.string().trim().min(1).max(120),
   type: recruitingActionProposalSchema.shape.type,
 });
@@ -233,15 +233,10 @@ function cleanString(value: string | null | undefined): string | null {
   return text || null;
 }
 
-function readResumeReviewConclusion(value: unknown): string | null {
-  if (!(typeof value === "object" && value !== null && "overall" in value)) {
-    return null;
-  }
-  const { overall } = value;
-  if (!(typeof overall === "object" && overall !== null && "conclusion" in overall)) {
-    return null;
-  }
-  return typeof overall.conclusion === "string" ? cleanString(overall.conclusion) : null;
+function readResumeReviewConclusion(
+  value: z.infer<typeof resumeReviewLooseSchema> | null,
+): string | null {
+  return cleanString(value?.overall.conclusion);
 }
 
 function serializeDate(value: string | Date): string {
@@ -512,10 +507,7 @@ async function loadSemanticCandidateCards({
         resumeSummary: readResumeReviewConclusion(row.resumeReview) ?? cleanString(row.notes),
         targetRole: cleanString(row.targetRole),
         updatedAt: serializeDate(row.updatedAt),
-        workYears:
-          row.resumeProfile && typeof row.resumeProfile.workYears === "number"
-            ? row.resumeProfile.workYears
-            : null,
+        workYears: row.resumeProfile?.workYears ?? null,
       },
     ];
   });
@@ -583,15 +575,15 @@ function resolveRecruitingActionProposalId(
   input: z.infer<typeof proposeRecruitingActionInputSchema>,
 ): string {
   if (input.type === "bind_candidate_to_job") {
-    const resumeRecordId =
-      typeof input.payload.resumeRecordId === "string" ? input.payload.resumeRecordId : null;
+    const parsedResumeRecordId = z.string().safeParse(input.payload.resumeRecordId);
+    const resumeRecordId = parsedResumeRecordId.success ? parsedResumeRecordId.data : null;
     if (resumeRecordId) {
       return buildConversationBindProposalId("resume_record", resumeRecordId);
     }
   }
   if (input.type === "bind_pool_item_to_job") {
-    const rawPoolItemId =
-      typeof input.payload.poolItemId === "string" ? input.payload.poolItemId : null;
+    const parsedPoolItemId = z.string().safeParse(input.payload.poolItemId);
+    const rawPoolItemId = parsedPoolItemId.success ? parsedPoolItemId.data : null;
     const poolItemId = rawPoolItemId ? normalizeResumePoolItemId(rawPoolItemId) : null;
     if (poolItemId) {
       return buildConversationBindProposalId("resume_pool_item", poolItemId);
@@ -613,7 +605,7 @@ export function createRecruitingActionProposal(
 }
 
 function confirmedConversationBindResult(input: {
-  extraPayload?: Record<string, unknown>;
+  extraPayload?: Record<string, z.infer<ReturnType<typeof z.json>>>;
   jobDescriptionId: string;
   jobDescriptionName: string;
   proposal: z.infer<typeof recruitingActionProposalSchema>;
@@ -681,8 +673,8 @@ async function executeCandidateBindProposal(input: {
 }): Promise<z.infer<typeof proposeRecruitingActionOutputSchema>> {
   const { created } = input;
   const { proposal } = created;
-  const resumeRecordId =
-    typeof proposal.payload.resumeRecordId === "string" ? proposal.payload.resumeRecordId : null;
+  const parsedResumeRecordId = z.string().safeParse(proposal.payload.resumeRecordId);
+  const resumeRecordId = parsedResumeRecordId.success ? parsedResumeRecordId.data : null;
   if (!resumeRecordId) {
     return created;
   }
@@ -756,11 +748,10 @@ async function executeProposeRecruitingAction(input: {
     return created;
   }
 
-  const payloadJobDescriptionId =
-    typeof proposal.payload.jobDescriptionId === "string" &&
-    proposal.payload.jobDescriptionId.length > 0
-      ? proposal.payload.jobDescriptionId
-      : null;
+  const parsedJobDescriptionId = z.string().min(1).safeParse(proposal.payload.jobDescriptionId);
+  const payloadJobDescriptionId = parsedJobDescriptionId.success
+    ? parsedJobDescriptionId.data
+    : null;
 
   if (proposal.type === "bind_candidate_to_job") {
     return executeCandidateBindProposal({
@@ -772,8 +763,8 @@ async function executeProposeRecruitingAction(input: {
     });
   }
 
-  const rawPoolItemId =
-    typeof proposal.payload.poolItemId === "string" ? proposal.payload.poolItemId : null;
+  const parsedPoolItemId = z.string().safeParse(proposal.payload.poolItemId);
+  const rawPoolItemId = parsedPoolItemId.success ? parsedPoolItemId.data : null;
   const poolItemId = rawPoolItemId ? normalizeResumePoolItemId(rawPoolItemId) : null;
   if (!poolItemId) {
     return created;
@@ -976,13 +967,13 @@ export async function getResumePoolDetailForCopilot(input: {
   };
 }
 
-function readDepartmentName(record: JobDescriptionRecord): string | null {
-  return "departmentName" in record && typeof record.departmentName === "string"
-    ? record.departmentName
-    : null;
+type JobDescriptionWithDepartment = JobDescriptionRecord & { departmentName?: string | null };
+
+function readDepartmentName(record: JobDescriptionWithDepartment): string | null {
+  return record.departmentName ?? null;
 }
 
-function toJobDescriptionSummary(record: JobDescriptionRecord) {
+function toJobDescriptionSummary(record: JobDescriptionWithDepartment) {
   return {
     code: record.code,
     departmentName: readDepartmentName(record),

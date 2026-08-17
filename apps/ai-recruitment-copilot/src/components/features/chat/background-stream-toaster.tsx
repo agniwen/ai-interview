@@ -27,7 +27,7 @@ export function shouldShowBackgroundStreamToast(
 export function BackgroundStreamToaster() {
   const navigate = useNavigate();
   const currentChatId = useParams({
-    select: (params) => (typeof params.sessionId === "string" ? params.sessionId : null),
+    select: (params) => params.sessionId ?? null,
     strict: false,
   });
 

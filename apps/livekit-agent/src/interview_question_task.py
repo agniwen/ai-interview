@@ -208,7 +208,11 @@ def _requested_follow_up_topics(
     seen: set[str] = set()
     for part in raw_parts:
         topic_key = _compact_comparison_text(part).casefold()
-        if not topic_key or topic_key in seen or _topic_is_covered(part, covered_topics):
+        if (
+            not topic_key
+            or topic_key in seen
+            or _topic_is_covered(part, covered_topics)
+        ):
             continue
         topics.append(part)
         seen.add(topic_key)

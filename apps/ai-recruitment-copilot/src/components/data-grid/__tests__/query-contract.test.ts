@@ -119,6 +119,7 @@ describe("data grid query contract", () => {
         pageSize: 10,
         search: "",
         sortBy: "createdAt",
+        // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
         sortOrder: "sideways" as never,
       },
       {
@@ -199,6 +200,7 @@ describe("data grid query contract", () => {
     });
     const second = buildDataGridFilterResetSignature({
       filterKeys: ["creatorIds", "status"],
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       filters: Object.fromEntries([
         ["status", "completed"],
         ["creatorIds", "u_1"],

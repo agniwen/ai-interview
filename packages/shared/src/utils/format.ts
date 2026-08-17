@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * 数字与文本格式化工具。
  * Number / text formatting helpers.
@@ -20,8 +22,9 @@ export function formatDisplayValue(
   if (value === null || value === undefined) {
     return fallback;
   }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
+  const parsedString = z.string().safeParse(value);
+  if (parsedString.success) {
+    const trimmed = parsedString.data.trim();
     return trimmed.length > 0 ? trimmed : fallback;
   }
   return String(value);

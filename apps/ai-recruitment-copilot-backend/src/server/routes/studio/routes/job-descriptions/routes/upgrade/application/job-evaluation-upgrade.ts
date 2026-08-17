@@ -123,15 +123,16 @@ export class JobEvaluationUpgradeError extends Error {
 }
 
 function repositoryError(status: RepositoryFailure): JobEvaluationUpgradeError {
-  const errors: Record<RepositoryFailure, [JobEvaluationUpgradeErrorCode, string]> = {
+  const errors = {
     already_upgraded: ["JOB_ALREADY_UPGRADED", "岗位已经升级为新版。"],
     not_found: ["JOB_NOT_FOUND", "岗位不存在。"],
     not_legacy: ["JOB_NOT_LEGACY", "只有老版本岗位可以创建升级草稿。"],
     not_published: ["JOB_NOT_PUBLISHED", "只有已发布岗位可以升级。"],
     stale: ["UPGRADE_PREVIEW_STALE", "升级预览已失效，请重新生成。"],
     version_conflict: ["UPGRADE_DRAFT_VERSION_CONFLICT", "升级草稿已被修改，请刷新后重试。"],
-  };
-  return new JobEvaluationUpgradeError(...errors[status]);
+  } satisfies Record<RepositoryFailure, [JobEvaluationUpgradeErrorCode, string]>;
+  const [code, message] = errors[status];
+  return new JobEvaluationUpgradeError(code, message);
 }
 
 function assertVersion(draft: JobEvaluationUpgradeDraft, expectedVersion: number) {

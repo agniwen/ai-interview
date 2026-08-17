@@ -1,18 +1,23 @@
-import type { FailureClass, PositiveVerdict } from "./types";
+import type { PositiveVerdict } from "./types";
 
-const FAILS: FailureClass[] = [
-  "not_indexed",
-  "recall_capped",
-  "status_filtered",
-  "below_threshold",
-  "retrieved_low_rank",
-];
+interface FailureCounts {
+  below_threshold: number;
+  not_indexed: number;
+  recall_capped: number;
+  retrieved_low_rank: number;
+  status_filtered: number;
+}
 
-const emptyFails = () =>
-  Object.fromEntries(FAILS.map((c) => [c, 0])) as Record<FailureClass, number>;
+const emptyFails = (): FailureCounts => ({
+  below_threshold: 0,
+  not_indexed: 0,
+  recall_capped: 0,
+  retrieved_low_rank: 0,
+  status_filtered: 0,
+});
 
 export interface PerJdRow {
-  failureCounts: Record<FailureClass, number>;
+  failureCounts: FailureCounts;
   hits: number;
   jobDescriptionId: string;
   positives: number;
@@ -20,7 +25,7 @@ export interface PerJdRow {
 
 export interface Metrics {
   evaluated: number;
-  failureCounts: Record<FailureClass, number>;
+  failureCounts: FailureCounts;
   jds: number;
   macroMrr: number;
   macroRecallAt20Raw: number;

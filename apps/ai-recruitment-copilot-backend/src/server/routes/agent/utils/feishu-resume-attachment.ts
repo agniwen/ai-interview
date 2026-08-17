@@ -1,5 +1,5 @@
-import { getObjectBytes } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { convertPptxToPdf } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import type { getObjectBytes } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import type { convertPptxToPdf } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 
 function isPdf(bytes: Uint8Array): boolean {
@@ -13,14 +13,35 @@ function isPdf(bytes: Uint8Array): boolean {
   );
 }
 
-export async function loadResumePdfAttachment({
-  fileName,
-  storageKey,
-}: {
-  fileName: string | null;
-  storageKey: string | null;
-}): Promise<Uint8Array | null> {
-  const resume = storageKey ? await getObjectBytes(storageKey) : null;
+export interface ResumePdfAttachmentDependencies {
+  convertPptxToPdf: typeof convertPptxToPdf;
+  getObjectBytes: typeof getObjectBytes;
+}
+
+const defaultDependencies: ResumePdfAttachmentDependencies = {
+  convertPptxToPdf: async (bytes) => {
+    const { convertPptxToPdf: convert } =
+      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview");
+    return convert(bytes);
+  },
+  getObjectBytes: async (storageKey) => {
+    const { getObjectBytes: loadObject } =
+      await import("@arc/ai-recruitment-copilot-backend/lib/server/s3");
+    return loadObject(storageKey);
+  },
+};
+
+export async function loadResumePdfAttachment(
+  {
+    fileName,
+    storageKey,
+  }: {
+    fileName: string | null;
+    storageKey: string | null;
+  },
+  dependencies: ResumePdfAttachmentDependencies = defaultDependencies,
+): Promise<Uint8Array | null> {
+  const resume = storageKey ? await dependencies.getObjectBytes(storageKey) : null;
   if (!resume) {
     return null;
   }
@@ -37,7 +58,7 @@ export async function loadResumePdfAttachment({
   }
 
   try {
-    const pdf = await convertPptxToPdf(resume.bytes);
+    const pdf = await dependencies.convertPptxToPdf(resume.bytes);
     return isPdf(pdf) ? pdf : null;
   } catch (error) {
     console.warn("[feishu-interview-notification] failed to convert resume PDF:", error);

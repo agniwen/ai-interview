@@ -38,6 +38,20 @@ interface OrganizationsResult {
   pageSize: number;
 }
 
+type OrganizationSortColumn = "createdAt" | "memberCount" | "name" | "slug";
+
+interface OrganizationsQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy: OrganizationSortColumn;
+  sortOrder: "asc" | "desc";
+}
+
+function isOrganizationSortColumn(sortBy: string): sortBy is OrganizationSortColumn {
+  return ["createdAt", "memberCount", "name", "slug"].some((column) => column === sortBy);
+}
+
 export function OrganizationsGrid() {
   const [detailOrgId, setDetailOrgId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -51,19 +65,22 @@ export function OrganizationsGrid() {
         filters: Record<string, never>;
         sortBy?: string;
         sortOrder?: "asc" | "desc";
-      }): Promise<OrganizationsResult> =>
-        rpcFetch<OrganizationsResult>(
-          rpc.api.platform.organizations.$get({
-            query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
-              sortBy: (params.sortBy as "createdAt") ?? "createdAt",
-              sortOrder: params.sortOrder ?? "desc",
-            },
-          }),
+      }): Promise<OrganizationsResult> => {
+        const query: OrganizationsQuery = {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          sortBy:
+            params.sortBy && isOrganizationSortColumn(params.sortBy) ? params.sortBy : "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
+        };
+        if (params.search) {
+          query.search = params.search;
+        }
+        return rpcFetch<OrganizationsResult>(
+          rpc.api.platform.organizations.$get({ query }),
           "加载工作区列表失败",
-        ),
+        );
+      },
     [],
   );
 

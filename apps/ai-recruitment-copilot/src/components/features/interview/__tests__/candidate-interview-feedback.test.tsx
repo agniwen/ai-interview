@@ -6,16 +6,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CandidateInterviewFeedbackPanel } from "../candidate-interview-feedback";
 
-const { mobileViewport } = vi.hoisted(() => ({
-  mobileViewport: { value: false },
-}));
+// SAFETY: The jsdom fixture provides the media-query API consumed by use-mobile.
+window.matchMedia = ((query: string) => ({
+  addEventListener: () => {},
+  addListener: () => {},
+  dispatchEvent: () => false,
+  matches: false,
+  media: query,
+  onchange: null,
+  removeEventListener: () => {},
+  removeListener: () => {},
+})) as typeof window.matchMedia;
 
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => mobileViewport.value,
-}));
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+}
 
 afterEach(() => {
-  mobileViewport.value = false;
+  setViewportWidth(1024);
   document.body.replaceChildren();
 });
 
@@ -50,7 +58,7 @@ describe("CandidateInterviewFeedbackPanel", () => {
   });
 
   it("puts the mobile feedback action above its description without title or media", async () => {
-    mobileViewport.value = true;
+    setViewportWidth(375);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -78,7 +86,7 @@ describe("CandidateInterviewFeedbackPanel", () => {
   });
 
   it("lets candidates expand the mobile drawer to full screen", async () => {
-    mobileViewport.value = true;
+    setViewportWidth(375);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);

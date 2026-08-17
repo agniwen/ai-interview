@@ -1,8 +1,9 @@
 import type { UIMessage } from "ai";
 import { safeValidateUIMessages } from "ai";
+import type { ResumeChatMessagesInput } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
 
 export async function validateClientChatMessages(
-  rawMessages: unknown,
+  rawMessages: ResumeChatMessagesInput,
 ): Promise<{ messages: UIMessage[] } | { error: string }> {
   const result = await safeValidateUIMessages<UIMessage>({ messages: rawMessages });
   if (!result.success) {

@@ -44,7 +44,7 @@ import type { ResumeParseCacheFilters } from "@arc/ai-recruitment-copilot-backen
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { formatBytes } from "@arc/shared/utils/format";
 
-interface ResumeParseCacheRecord {
+export interface ResumeParseCacheRecord {
   contentHash: string;
   createdAt: string;
   filename: string;
@@ -63,7 +63,7 @@ interface ResumeParseCacheRecord {
   userName: string;
 }
 
-interface ResumeParseCacheResult {
+export interface ResumeParseCacheResult {
   page: number;
   pageSize: number;
   records: ResumeParseCacheRecord[];
@@ -71,7 +71,7 @@ interface ResumeParseCacheResult {
   totalPages: number;
 }
 
-interface ResumeParseCacheDetail {
+export interface ResumeParseCacheDetail {
   contentHash: string | null;
   createdAt: string;
   filename: string;
@@ -86,6 +86,19 @@ interface ResumeParseCacheDetail {
   parsedTextSource: ResumeParseCacheRecord["parsedTextSource"];
   size: number;
   storageKey: string;
+}
+
+type ResumeParseCacheSortColumn = "createdAt" | "filename" | "parsedAt" | "parsedStatus" | "size";
+
+export interface ResumeParseCacheQuery {
+  cacheType: ResumeParseCacheFilters["cacheType"];
+  page: string;
+  pageSize: string;
+  parsedStatus: ResumeParseCacheFilters["parsedStatus"];
+  search?: string;
+  sortBy: ResumeParseCacheSortColumn;
+  sortOrder: "asc" | "desc";
+  textSource: ResumeParseCacheFilters["textSource"];
 }
 
 const INITIAL_FILTERS: ResumeParseCacheFilters = {
@@ -104,7 +117,7 @@ const STATUS_META = {
   ready: { label: "可复用", variant: "secondary" },
 } as const;
 
-const TEXT_SOURCE_LABEL: Record<NonNullable<ResumeParseCacheRecord["parsedTextSource"]>, string> = {
+const TEXT_SOURCE_LABEL = {
   "aliyun-docmining": "阿里云文档挖掘",
   "docx-text": "DOCX 文本",
   "html-text": "HTML 文本",
@@ -113,7 +126,45 @@ const TEXT_SOURCE_LABEL: Record<NonNullable<ResumeParseCacheRecord["parsedTextSo
   "qwen-ocr": "Qwen OCR",
   "qwen3.5-ocr": "Qwen3.5 OCR（历史）",
   "xlsx-text": "XLSX 文本",
+} as const satisfies Record<NonNullable<ResumeParseCacheRecord["parsedTextSource"]>, string>;
+
+export interface ResumeParseCacheDependencies {
+  deleteCache: (contentHash: string) => Promise<{ clearedCount: number }>;
+  fetchCache: (query: ResumeParseCacheQuery) => Promise<ResumeParseCacheResult>;
+  fetchDetail: (contentHash: string) => Promise<ResumeParseCacheDetail>;
+  notifyError: (message: string) => void;
+  notifySuccess: (message: string) => void;
+}
+
+const defaultResumeParseCacheDependencies: ResumeParseCacheDependencies = {
+  deleteCache: (contentHash) =>
+    rpcFetch<{ clearedCount: number }>(
+      rpc.api.platform["resume-parse-cache"][":hash"].$delete({
+        param: { hash: contentHash },
+      }),
+      "删除解析缓存失败",
+    ),
+  fetchCache: (query) =>
+    rpcFetch<ResumeParseCacheResult>(
+      rpc.api.platform["resume-parse-cache"].$get({ query }),
+      "加载解析缓存失败",
+    ),
+  fetchDetail: (contentHash) =>
+    rpcFetch<ResumeParseCacheDetail>(
+      rpc.api.platform["resume-parse-cache"][":hash"].$get({
+        param: { hash: contentHash },
+      }),
+      "加载缓存 JSON 失败",
+    ),
+  notifyError: (message) => toast.error(message),
+  notifySuccess: (message) => toast.success(message),
 };
+
+function isResumeParseCacheSortColumn(sortBy: string): sortBy is ResumeParseCacheSortColumn {
+  return ["createdAt", "filename", "parsedAt", "parsedStatus", "size"].some(
+    (column) => column === sortBy,
+  );
+}
 
 const FILTERS = [
   {
@@ -155,21 +206,17 @@ const FILTERS = [
 ];
 
 function CacheJsonDialog({
+  dependencies,
   onOpenChange,
   record,
 }: {
+  dependencies: ResumeParseCacheDependencies;
   onOpenChange: (open: boolean) => void;
   record: ResumeParseCacheRecord | null;
 }) {
   const detailQuery = useQuery({
     enabled: Boolean(record),
-    queryFn: () =>
-      rpcFetch<ResumeParseCacheDetail>(
-        rpc.api.platform["resume-parse-cache"][":hash"].$get({
-          param: { hash: record?.contentHash ?? "" },
-        }),
-        "加载缓存 JSON 失败",
-      ),
+    queryFn: () => dependencies.fetchDetail(record?.contentHash ?? ""),
     queryKey: ["platform-resume-parse-cache-detail", record?.id],
   });
 
@@ -234,7 +281,7 @@ function DeleteCachePopover({
           </Button>
           <Button
             disabled={deleting}
-            onClick={() => void handleDelete()}
+            onClick={handleDelete}
             size="sm"
             type="button"
             variant="destructive"
@@ -247,7 +294,11 @@ function DeleteCachePopover({
   );
 }
 
-export function ResumeParseCacheGrid() {
+export function ResumeParseCacheGrid({
+  dependencies = defaultResumeParseCacheDependencies,
+}: {
+  dependencies?: ResumeParseCacheDependencies;
+}) {
   const [viewTarget, setViewTarget] = useState<ResumeParseCacheRecord | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -259,30 +310,23 @@ export function ResumeParseCacheGrid() {
       search: string;
       sortBy?: string;
       sortOrder?: "asc" | "desc";
-    }): Promise<ResumeParseCacheResult> =>
-      rpcFetch<ResumeParseCacheResult>(
-        rpc.api.platform["resume-parse-cache"].$get({
-          query: {
-            cacheType: params.filters.cacheType,
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            parsedStatus: params.filters.parsedStatus,
-            ...(params.search ? { search: params.search } : {}),
-            sortBy:
-              (params.sortBy as
-                | "createdAt"
-                | "filename"
-                | "parsedAt"
-                | "parsedStatus"
-                | "size"
-                | undefined) ?? "parsedAt",
-            sortOrder: params.sortOrder ?? "desc",
-            textSource: params.filters.textSource,
-          },
-        }),
-        "加载解析缓存失败",
-      ),
-    [],
+    }): Promise<ResumeParseCacheResult> => {
+      const query: ResumeParseCacheQuery = {
+        cacheType: params.filters.cacheType,
+        page: String(params.page),
+        pageSize: String(params.pageSize),
+        parsedStatus: params.filters.parsedStatus,
+        sortBy:
+          params.sortBy && isResumeParseCacheSortColumn(params.sortBy) ? params.sortBy : "parsedAt",
+        sortOrder: params.sortOrder ?? "desc",
+        textSource: params.filters.textSource,
+      };
+      if (params.search) {
+        query.search = params.search;
+      }
+      return dependencies.fetchCache(query);
+    },
+    [dependencies],
   );
 
   const grid = useDataGridState<ResumeParseCacheRecord, ResumeParseCacheFilters>({
@@ -300,21 +344,16 @@ export function ResumeParseCacheGrid() {
       const result = await runAsyncAction({
         cleanup: () => setDeletingId(null),
         onError: (error) =>
-          toast.error(error instanceof Error ? error.message : "删除解析缓存失败"),
+          dependencies.notifyError(error instanceof Error ? error.message : "删除解析缓存失败"),
         operation: async () => {
-          const response = await rpcFetch<{ clearedCount: number }>(
-            rpc.api.platform["resume-parse-cache"][":hash"].$delete({
-              param: { hash: record.contentHash },
-            }),
-            "删除解析缓存失败",
-          );
-          toast.success(`缓存已删除，${response.clearedCount} 条同 Hash 记录已失效`);
+          const response = await dependencies.deleteCache(record.contentHash);
+          dependencies.notifySuccess(`缓存已删除，${response.clearedCount} 条同 Hash 记录已失效`);
           grid.invalidate();
         },
       });
       return result.ok;
     },
-    [grid],
+    [dependencies, grid],
   );
 
   const columns = useMemo(
@@ -438,7 +477,11 @@ export function ResumeParseCacheGrid() {
         filters={FILTERS}
         getRowId={(record) => record.id}
       />
-      <CacheJsonDialog onOpenChange={(open) => !open && setViewTarget(null)} record={viewTarget} />
+      <CacheJsonDialog
+        dependencies={dependencies}
+        onOpenChange={(open) => !open && setViewTarget(null)}
+        record={viewTarget}
+      />
     </>
   );
 }

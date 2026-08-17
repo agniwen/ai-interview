@@ -33,7 +33,9 @@ describe("hashJobDescriptionForSemanticIndex", () => {
   it("hash 字段集 ⊇ 构造器消费字段集（改语义文本必改 hash）", () => {
     const baseText = builderText(base);
     const baseHash = hashJobDescriptionForSemanticIndex(base);
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     for (const key of Object.keys(base) as (keyof JobDescriptionSemanticInput)[]) {
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       const mutated = {
         ...base,
         [key]: `${base[key] ?? ""}__changed`,

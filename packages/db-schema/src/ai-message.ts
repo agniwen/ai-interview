@@ -1,3 +1,5 @@
+import type { JsonObject } from "./json";
+
 export type ArcMessageRole = "system" | "user" | "assistant" | "tool";
 
 export interface ArcTextPart {
@@ -47,7 +49,7 @@ export type ArcMessagePart =
 export interface ArcMessage {
   createdAt?: string;
   id: string;
-  metadata?: Record<string, unknown>;
+  metadata?: JsonObject;
   parts: ArcMessagePart[];
   role: ArcMessageRole;
 }

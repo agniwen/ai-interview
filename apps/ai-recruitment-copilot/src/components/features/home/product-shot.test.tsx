@@ -1,25 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ProductShot } from "./product-shot";
-
-vi.mock("@gsap/react", () => ({
-  useGSAP: () => {},
-}));
-
-vi.mock("gsap", () => ({
-  gsap: {
-    registerPlugin: () => {},
-  },
-}));
-
-vi.mock("gsap/ScrollTrigger", () => ({
-  ScrollTrigger: {},
-}));
-
-vi.mock("@/components/features/home/screens", () => ({
-  ResumesScreen: () => <div data-testid="home-product-mock-frame" />,
-}));
 
 describe("ProductShot", () => {
   it("reveals the homepage mock frame upward as soon as the page mounts", () => {
@@ -29,7 +11,7 @@ describe("ProductShot", () => {
       "utf-8",
     );
 
-    expect(markup).toContain('data-testid="home-product-mock-frame"');
+    expect(markup).toContain("招聘");
     expect(markup).toContain('class="home-product-shot-enter"');
     expect(globalStyles).toContain("@keyframes home-product-shot-enter");
     expect(globalStyles).toContain("transform: translateY(16px)");

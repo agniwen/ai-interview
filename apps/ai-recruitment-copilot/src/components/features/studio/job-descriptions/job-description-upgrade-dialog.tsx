@@ -13,6 +13,7 @@ import type {
   JobDescriptionStructuredConfig,
 } from "@arc/db-schema/job-description-structured-config";
 import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { JobDescriptionStructuredFields } from "./job-description-structured-fields";
@@ -81,6 +82,26 @@ function LegacyEvaluationReference({ record }: { record: JobDescriptionRecord })
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export function JobDescriptionUpgradeDialogLayout({
+  jobDescription,
+  scoringRules,
+  structuredFields,
+}: {
+  jobDescription: ReactNode;
+  scoringRules: ReactNode;
+  structuredFields: ReactNode;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="grid items-start gap-3 xl:grid-cols-2">
+        <div className="space-y-2">{jobDescription}</div>
+        <div className="space-y-2">{scoringRules}</div>
+      </div>
+      {structuredFields}
+    </div>
   );
 }
 
@@ -401,83 +422,88 @@ export function JobDescriptionUpgradeDialog({
             <div className="space-y-5">
               <LegacyEvaluationReference record={record} />
 
-              <div className="grid items-start gap-3 xl:grid-cols-2">
-                <div className="space-y-2">
-                  <div>
-                    <h2 className="font-semibold text-base">新版岗位 JD</h2>
-                    <p className="text-muted-foreground text-sm">
-                      只使用这段 Prompt 初始化新版结构化配置；旧描述和旧筛选规则不会自动转换。
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <Textarea
-                      aria-label="新版岗位 JD"
-                      className="min-h-48 resize-y whitespace-pre-wrap pb-6 leading-relaxed"
-                      disabled={isBusy}
-                      maxLength={PROMPT_MAX_LENGTH}
-                      onChange={(event) => setPrompt(event.target.value)}
-                      placeholder="明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
-                      value={prompt}
-                    />
-                    <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={prompt} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex min-h-8 items-start justify-between gap-3">
+              <JobDescriptionUpgradeDialogLayout
+                jobDescription={
+                  <>
                     <div>
-                      <h2 className="font-semibold text-base">新版评分规则</h2>
+                      <h2 className="font-semibold text-base">新版岗位 JD</h2>
                       <p className="text-muted-foreground text-sm">
-                        生成后可核对；评分规则和岗位 JD 都保存后才允许发布。
+                        只使用这段 Prompt 初始化新版结构化配置；旧描述和旧筛选规则不会自动转换。
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {ruleDraftDirty ? (
+                    <div className="relative">
+                      <Textarea
+                        aria-label="新版岗位 JD"
+                        className="min-h-48 resize-y whitespace-pre-wrap pb-6 leading-relaxed"
+                        disabled={isBusy}
+                        maxLength={PROMPT_MAX_LENGTH}
+                        onChange={(event) => setPrompt(event.target.value)}
+                        placeholder="明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
+                        value={prompt}
+                      />
+                      <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={prompt} />
+                    </div>
+                  </>
+                }
+                scoringRules={
+                  <>
+                    <div className="flex min-h-8 items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-semibold text-base">新版评分规则</h2>
+                        <p className="text-muted-foreground text-sm">
+                          生成后可核对；评分规则和岗位 JD 都保存后才允许发布。
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {ruleDraftDirty ? (
+                          <Button
+                            disabled={isBusy || hasUnsavedChanges}
+                            onClick={() => saveRulesMutation.mutate()}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {saveRulesMutation.isPending ? (
+                              <IconLoader2 className="size-4 animate-spin" />
+                            ) : null}
+                            保存评分规则
+                          </Button>
+                        ) : null}
                         <Button
-                          disabled={isBusy || hasUnsavedChanges}
-                          onClick={() => saveRulesMutation.mutate()}
+                          disabled={isBusy || ruleDraftDirty || !prompt.trim()}
+                          onClick={() => previewMutation.mutate()}
                           size="sm"
                           type="button"
                           variant="outline"
                         >
-                          {saveRulesMutation.isPending ? (
+                          {previewMutation.isPending ? (
                             <IconLoader2 className="size-4 animate-spin" />
                           ) : null}
-                          保存评分规则
+                          {draft.blueprintPreview ? "重新生成评分规则" : "生成评分规则"}
                         </Button>
-                      ) : null}
-                      <Button
-                        disabled={isBusy || ruleDraftDirty || !prompt.trim()}
-                        onClick={() => previewMutation.mutate()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        {previewMutation.isPending ? (
-                          <IconLoader2 className="size-4 animate-spin" />
-                        ) : null}
-                        {draft.blueprintPreview ? "重新生成评分规则" : "生成评分规则"}
-                      </Button>
+                      </div>
                     </div>
-                  </div>
-                  {draft.blueprintPreview && ruleDraft ? (
-                    <JobEvaluationBlueprintPreview
-                      deductionRules={deductionRules}
-                      ruleDraft={ruleDraft}
-                    />
-                  ) : (
-                    <Card className="border-dashed">
-                      <CardContent className="flex min-h-28 items-center justify-center p-4 text-center text-muted-foreground text-sm">
-                        保存岗位 JD 与结构化设置后，生成新版评分规则并核对。
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-
-              <JobDescriptionStructuredFields
-                config={structuredConfig}
-                disabled={isBusy}
-                onChange={setStructuredConfig}
+                    {draft.blueprintPreview && ruleDraft ? (
+                      <JobEvaluationBlueprintPreview
+                        deductionRules={deductionRules}
+                        ruleDraft={ruleDraft}
+                      />
+                    ) : (
+                      <Card className="border-dashed">
+                        <CardContent className="flex min-h-28 items-center justify-center p-4 text-center text-muted-foreground text-sm">
+                          保存岗位 JD 与结构化设置后，生成新版评分规则并核对。
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                }
+                structuredFields={
+                  <JobDescriptionStructuredFields
+                    config={structuredConfig}
+                    disabled={isBusy}
+                    onChange={setStructuredConfig}
+                  />
+                }
               />
             </div>
           )}

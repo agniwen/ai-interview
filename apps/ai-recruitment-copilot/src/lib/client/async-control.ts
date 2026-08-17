@@ -4,7 +4,7 @@ export type AsyncResult<T> =
       value: T;
     }
   | {
-      error: unknown;
+      error: Error;
       ok: false;
     };
 
@@ -12,7 +12,10 @@ export async function captureAsync<T>(operation: () => T | Promise<T>): Promise<
   try {
     return { ok: true, value: await operation() };
   } catch (error) {
-    return { error, ok: false };
+    return {
+      error: error instanceof Error ? error : new Error("异步操作失败"),
+      ok: false,
+    };
   }
 }
 
@@ -33,7 +36,7 @@ export async function runAsyncAction<T>({
   operation,
 }: {
   cleanup?: () => void;
-  onError?: (error: unknown) => void;
+  onError?: (error: Error) => void;
   operation: () => T | Promise<T>;
 }): Promise<AsyncResult<T>> {
   const result = await captureAsync(() =>

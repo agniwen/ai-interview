@@ -143,7 +143,7 @@ describe("Meeting Answer generator", () => {
         turns,
       },
       agent,
-    ).catch((error: unknown) => error);
+    ).catch((error: Error) => error);
     expect(isMeetingAnswerTerminalError(terminalFailure)).toBe(true);
   });
 });

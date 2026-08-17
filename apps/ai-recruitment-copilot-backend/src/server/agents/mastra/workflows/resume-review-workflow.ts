@@ -7,14 +7,15 @@ import {
   generateResumeQualitativeReview,
   generateResumeReviewScoring,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  resumeQualitativeSchema,
+  resumeScoringSchema,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-review";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
-import type {
-  ResumeQualitativeReview,
-  ResumeReviewGenerationResult,
-  ResumeReviewScoring,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import { resumeReviewSchema } from "@arc/shared/resume-review";
+import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 
 const resumeReviewInputSchema = z.object({
   jobDescription: z.string().nullable().optional(),
@@ -24,15 +25,15 @@ const resumeReviewInputSchema = z.object({
 
 const resumeReviewOutputSchema = z.object({
   review: z.string(),
-  structuredReview: z.unknown(),
+  structuredReview: resumeReviewSchema,
 });
 
 const qualitativeOutputSchema = resumeReviewInputSchema.extend({
-  qualitative: z.unknown().nullable(),
+  qualitative: resumeQualitativeSchema.nullable(),
 });
 
 const scoringOutputSchema = qualitativeOutputSchema.extend({
-  scoring: z.unknown().nullable(),
+  scoring: resumeScoringSchema.nullable(),
 });
 
 export interface ResumeReviewWorkflowDeps {
@@ -63,7 +64,7 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
       }
       const scoring = await deps.generateScoring({
         jobDescription: inputData.jobDescription,
-        qualitative: inputData.qualitative as ResumeQualitativeReview,
+        qualitative: inputData.qualitative,
         resumeProfile: inputData.resumeProfile,
         screeningResult: inputData.screeningResult,
       });
@@ -80,11 +81,9 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
       if (!(inputData.qualitative && inputData.scoring)) {
         throw new Error("Resume review workflow reached compose step without review outputs.");
       }
-      return deps.composeReview(
-        inputData.qualitative as ResumeQualitativeReview,
-        inputData.scoring as ResumeReviewScoring,
-        { screeningResult: inputData.screeningResult },
-      );
+      return deps.composeReview(inputData.qualitative, inputData.scoring, {
+        screeningResult: inputData.screeningResult,
+      });
     },
     id: "compose-review",
     inputSchema: scoringOutputSchema,
@@ -116,12 +115,13 @@ export const resumeReviewWorkflow = createResumeReviewWorkflow({
 
 export async function runResumeReviewWorkflow(
   input: z.input<typeof resumeReviewInputSchema>,
+  workflow = resumeReviewWorkflow,
 ): Promise<ResumeReviewGenerationResult> {
-  const run = await resumeReviewWorkflow.createRun();
+  const run = await workflow.createRun();
   const result = await run.start({ inputData: input });
 
   if (result.status === "success") {
-    return resumeReviewOutputSchema.parse(result.result) as ResumeReviewGenerationResult;
+    return resumeReviewOutputSchema.parse(result.result);
   }
   if (result.status === "failed") {
     throw result.error;
@@ -132,10 +132,12 @@ export async function runResumeReviewWorkflow(
 export async function streamResumeReviewWorkflow(
   input: z.input<typeof resumeReviewInputSchema>,
   options: { onWorkflowEvent: (event: AiRunEvent) => void },
+  workflow = resumeReviewWorkflow,
 ): Promise<ResumeReviewGenerationResult> {
-  const run = await resumeReviewWorkflow.createRun();
+  const run = await workflow.createRun();
   const output = await run.stream({ inputData: input });
   await emitMastraWorkflowStreamEvents(
+    // SAFETY: Mastra's run.stream() contract exposes fullStream as an async iterable of workflow events.
     output.fullStream as AsyncIterable<WorkflowStreamEvent>,
     options.onWorkflowEvent,
     {
@@ -151,7 +153,7 @@ export async function streamResumeReviewWorkflow(
 
   const result = await output.result;
   if (result.status === "success") {
-    return resumeReviewOutputSchema.parse(result.result) as ResumeReviewGenerationResult;
+    return resumeReviewOutputSchema.parse(result.result);
   }
   if (result.status === "failed") {
     throw result.error;

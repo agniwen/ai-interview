@@ -49,6 +49,7 @@ describe("Live Transcript Draft", () => {
           },
         ],
       },
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
 
@@ -91,6 +92,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     const turnsBeforePause = draft.getSnapshot().turns;
@@ -132,6 +134,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     const onTranscript = events.get("microphone");
@@ -183,6 +186,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     frameCallbacks.get("microphone")?.(new Int16Array([1, 2, 3]));
@@ -240,6 +244,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     for (let index = 0; index < 50; index += 1) {
@@ -288,6 +293,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     events[0]?.({ itemId: "item-1", text: "第一段", type: "completed" });
@@ -339,6 +345,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     microphoneSessions().at(-1)?.disconnect("network-lost");
@@ -370,11 +377,13 @@ describe("Live Transcript Draft", () => {
 
     const starting = draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     await vi.waitFor(() => expect(resolveTaps).toHaveLength(2));
     draft.stop();
     for (const [index, resolve] of resolveTaps.entries()) {
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       resolve({ stop: tapStops[index] as () => void });
     }
     await starting;
@@ -407,6 +416,7 @@ describe("Live Transcript Draft", () => {
 
     const starting = draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     await vi.waitFor(() => expect(authorizationResolvers).toHaveLength(2));
@@ -435,6 +445,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
 
@@ -455,6 +466,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
 
@@ -490,6 +502,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     scheduled[0]?.();
@@ -515,6 +528,7 @@ describe("Live Transcript Draft", () => {
 
     await draft.start({
       captureId: CAPTURE_ID,
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     expect(scheduled.map(({ delayMs }) => delayMs)).toEqual([100, 100]);

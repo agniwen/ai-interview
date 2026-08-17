@@ -68,6 +68,13 @@ function toUnifiedResumeRecord(resumeRecord: ResumeLibraryDetail): UnifiedRecord
   };
 }
 
+function requireIdentifier(value: string | null | undefined, label: string): string {
+  if (!value) {
+    throw new Error(`${label}不能为空`);
+  }
+  return value;
+}
+
 export function useStudioPersonDetailQueries({
   accessMode,
   activeTab,
@@ -85,8 +92,8 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && needsResolve,
     queryFn: () =>
       isPublic
-        ? resolvePublicInterviewRecordId(recordId as string)
-        : resolveStudioInterviewRecordId(slug, recordId as string),
+        ? resolvePublicInterviewRecordId(requireIdentifier(recordId, "面试记录 ID"))
+        : resolveStudioInterviewRecordId(slug, requireIdentifier(recordId, "面试记录 ID")),
     queryKey: ["studio-interview-resolve", slug, recordId, accessMode],
   });
   const effectiveRoundId = mode === "interview" ? (roundId ?? resolvedRoundId ?? null) : null;
@@ -96,8 +103,8 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
     queryFn: () =>
       isPublic
-        ? fetchPublicInterviewRound(effectiveRoundId as string)
-        : fetchStudioInterviewRound(slug, effectiveRoundId as string),
+        ? fetchPublicInterviewRound(requireIdentifier(effectiveRoundId, "面试轮次 ID"))
+        : fetchStudioInterviewRound(slug, requireIdentifier(effectiveRoundId, "面试轮次 ID")),
     queryKey: ["studio-interview-round", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
@@ -106,12 +113,12 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
     queryFn: () => {
       if (isPublic) {
-        return fetchPublicResume(effectiveRecordId as string);
+        return fetchPublicResume(requireIdentifier(effectiveRecordId, "简历记录 ID"));
       }
       if (isReview) {
-        return fetchStudioResumeReview(slug, effectiveRecordId as string);
+        return fetchStudioResumeReview(slug, requireIdentifier(effectiveRecordId, "简历记录 ID"));
       }
-      return fetchStudioResume(slug, effectiveRecordId as string);
+      return fetchStudioResume(slug, requireIdentifier(effectiveRecordId, "简历记录 ID"));
     },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
     refetchInterval: (query) => {
@@ -124,8 +131,11 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
     queryFn: () =>
       isPublic
-        ? fetchPublicInterviewRoundReports(effectiveRoundId as string)
-        : fetchStudioInterviewRoundReports(slug, effectiveRoundId as string),
+        ? fetchPublicInterviewRoundReports(requireIdentifier(effectiveRoundId, "面试轮次 ID"))
+        : fetchStudioInterviewRoundReports(
+            slug,
+            requireIdentifier(effectiveRoundId, "面试轮次 ID"),
+          ),
     queryKey: ["studio-interview-round-reports", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
@@ -134,8 +144,13 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
     queryFn: () =>
       isPublic
-        ? fetchPublicInterviewRoundFormSubmissions(effectiveRoundId as string)
-        : fetchStudioInterviewRoundFormSubmissions(slug, effectiveRoundId as string),
+        ? fetchPublicInterviewRoundFormSubmissions(
+            requireIdentifier(effectiveRoundId, "面试轮次 ID"),
+          )
+        : fetchStudioInterviewRoundFormSubmissions(
+            slug,
+            requireIdentifier(effectiveRoundId, "面试轮次 ID"),
+          ),
     queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
@@ -144,12 +159,15 @@ export function useStudioPersonDetailQueries({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
     queryFn: () => {
       if (isPublic) {
-        return fetchPublicResumeRounds(effectiveRecordId as string);
+        return fetchPublicResumeRounds(requireIdentifier(effectiveRecordId, "简历记录 ID"));
       }
       if (isReview) {
-        return fetchStudioResumeReviewRounds(slug, effectiveRecordId as string);
+        return fetchStudioResumeReviewRounds(
+          slug,
+          requireIdentifier(effectiveRecordId, "简历记录 ID"),
+        );
       }
-      return fetchStudioResumeRounds(slug, effectiveRecordId as string);
+      return fetchStudioResumeRounds(slug, requireIdentifier(effectiveRecordId, "简历记录 ID"));
     },
     queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
@@ -165,8 +183,13 @@ export function useStudioPersonDetailQueries({
       enabled: shouldLoadResumeInterviewResult,
       queryFn: () =>
         isPublic
-          ? fetchPublicInterviewRoundReports(latestCandidateRoundId as string)
-          : fetchStudioInterviewRoundReports(slug, latestCandidateRoundId as string),
+          ? fetchPublicInterviewRoundReports(
+              requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"),
+            )
+          : fetchStudioInterviewRoundReports(
+              slug,
+              requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"),
+            ),
       queryKey: [
         "studio-interview-round-reports",
         slug,
@@ -180,8 +203,11 @@ export function useStudioPersonDetailQueries({
     enabled: shouldLoadResumeInterviewResult,
     queryFn: () =>
       isPublic
-        ? fetchPublicInterviewRound(latestCandidateRoundId as string)
-        : fetchStudioInterviewRound(slug, latestCandidateRoundId as string),
+        ? fetchPublicInterviewRound(requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"))
+        : fetchStudioInterviewRound(
+            slug,
+            requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"),
+          ),
     queryKey: ["studio-interview-round", slug, latestCandidateRoundId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
@@ -193,8 +219,13 @@ export function useStudioPersonDetailQueries({
     enabled: shouldLoadResumeInterviewResult,
     queryFn: () =>
       isPublic
-        ? fetchPublicInterviewRoundFormSubmissions(latestCandidateRoundId as string)
-        : fetchStudioInterviewRoundFormSubmissions(slug, latestCandidateRoundId as string),
+        ? fetchPublicInterviewRoundFormSubmissions(
+            requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"),
+          )
+        : fetchStudioInterviewRoundFormSubmissions(
+            slug,
+            requireIdentifier(latestCandidateRoundId, "候选人面试轮次 ID"),
+          ),
     queryKey: [
       "studio-interview-round-form-submissions",
       slug,
@@ -231,13 +262,13 @@ export function useStudioPersonDetailQueries({
     queryFn: () =>
       isPublic
         ? fetchPublicInterviewRoundReport(
-            resultRoundId as string,
-            effectiveSelectedResultConversationId as string,
+            requireIdentifier(resultRoundId, "面试轮次 ID"),
+            requireIdentifier(effectiveSelectedResultConversationId, "面试会话 ID"),
           )
         : fetchStudioInterviewRoundReport(
             slug,
-            resultRoundId as string,
-            effectiveSelectedResultConversationId as string,
+            requireIdentifier(resultRoundId, "面试轮次 ID"),
+            requireIdentifier(effectiveSelectedResultConversationId, "面试会话 ID"),
           ),
     queryKey: [
       "studio-interview-round-reports",
@@ -269,8 +300,8 @@ export function useStudioPersonDetailQueries({
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
     queryFn: () =>
       isReview
-        ? fetchStudioResumeReviewTimeline(slug, effectiveRecordId as string)
-        : fetchStudioResumeTimeline(slug, effectiveRecordId as string),
+        ? fetchStudioResumeReviewTimeline(slug, requireIdentifier(effectiveRecordId, "简历记录 ID"))
+        : fetchStudioResumeTimeline(slug, requireIdentifier(effectiveRecordId, "简历记录 ID")),
     queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });

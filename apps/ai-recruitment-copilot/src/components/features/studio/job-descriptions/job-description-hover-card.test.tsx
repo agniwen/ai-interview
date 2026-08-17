@@ -6,33 +6,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { JobDescriptionHoverCard } from "./job-description-hover-card";
+import { JobDescriptionHoverCardView } from "./job-description-hover-card";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const rpcGetMock = vi.hoisted(() => vi.fn(() => Promise.resolve(new Response())));
-const rpcFetchMock = vi.hoisted(() => vi.fn());
+const fetchDetailMock = vi.fn();
 
-vi.mock("@/lib/client/api", () => ({ rpcFetch: rpcFetchMock }));
-vi.mock("@/lib/client/rpc", () => ({
-  rpc: {
-    api: {
-      w: {
-        ":slug": {
-          studio: {
-            "job-descriptions": {
-              ":id": { $get: rpcGetMock },
-            },
-          },
-        },
-      },
-    },
-  },
-}));
-vi.mock("@/lib/client/workspace-context", () => ({
-  useOptionalWorkspaceSlug: () => "demo",
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 const record = {
   code: "DEV0001",
   description: "负责产品前端研发",
@@ -50,7 +31,7 @@ afterEach(() => {
 
 describe("JobDescriptionHoverCard", () => {
   it("loads job details only after the preview opens", async () => {
-    rpcFetchMock.mockResolvedValue(record);
+    fetchDetailMock.mockResolvedValue(record);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -61,12 +42,16 @@ describe("JobDescriptionHoverCard", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <JobDescriptionHoverCard jobDescriptionId="job-1" name="前端工程师" />
+          <JobDescriptionHoverCardView
+            dependencies={{ fetchDetail: fetchDetailMock, slug: "demo" }}
+            jobDescriptionId="job-1"
+            name="前端工程师"
+          />
         </QueryClientProvider>,
       );
     });
 
-    expect(rpcFetchMock).not.toHaveBeenCalled();
+    expect(fetchDetailMock).not.toHaveBeenCalled();
     const trigger = host.querySelector("button");
     expect(trigger?.className).not.toMatch(/(^|\s)underline(\s|$)/);
     expect(trigger?.className).toContain("hover:underline");
@@ -76,7 +61,7 @@ describe("JobDescriptionHoverCard", () => {
     });
 
     await vi.waitFor(() => {
-      expect(rpcFetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchDetailMock).toHaveBeenCalledTimes(1);
       expect(document.body.textContent).toContain("岗位 JD");
       expect(document.body.textContent).not.toContain("负责产品前端研发");
       expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(

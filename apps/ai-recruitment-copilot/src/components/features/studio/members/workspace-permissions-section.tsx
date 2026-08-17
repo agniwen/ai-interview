@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -97,18 +98,29 @@ interface UpdateRoleInput {
   role?: string;
 }
 
-function getBuiltInPermission(role: keyof typeof roles): PermissionRecord {
-  return copyPermissionRecord(roles[role].statements as unknown as PermissionRecord);
+interface UpdateRoleData {
+  name?: string;
+  permission: PermissionRecord;
+  roleName?: string;
 }
 
-function readError(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "message" in error) {
-    const { message } = error as { message?: string };
-    if (message) {
-      return message;
-    }
-  }
-  return fallback;
+const permissionRecordSchema = z.record(z.string(), z.array(z.string()));
+const dynamicWorkspaceRoleSchema = z.object({
+  createdAt: z.union([z.date(), z.string()]),
+  id: z.string(),
+  name: z.string(),
+  permission: permissionRecordSchema,
+  role: z.string(),
+});
+const errorMessageSchema = z.object({ message: z.string().optional() });
+
+function getBuiltInPermission(role: keyof typeof roles): PermissionRecord {
+  return copyPermissionRecord(permissionRecordSchema.parse(roles[role].statements));
+}
+
+function readError<const T>(error: T, fallback: string): string {
+  const parsed = errorMessageSchema.safeParse(error);
+  return parsed.success ? (parsed.data.message ?? fallback) : fallback;
 }
 
 function copyPermission(permission: PermissionRecord | null | undefined): PermissionRecord {
@@ -323,7 +335,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
       if (error) {
         throw new Error(error.message ?? "加载角色失败");
       }
-      return (data ?? []) as DynamicWorkspaceRole[];
+      return dynamicWorkspaceRoleSchema.array().parse(data ?? []);
     },
     queryKey,
     refetchOnWindowFocus: false,
@@ -370,11 +382,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
 
   const updateRole = useMutation({
     mutationFn: async (input: UpdateRoleInput) => {
-      const data: {
-        name?: string;
-        permission: PermissionRecord;
-        roleName?: string;
-      } = { permission: input.permission };
+      const data: UpdateRoleData = { permission: input.permission };
       if (input.role) {
         data.roleName = input.role;
       }

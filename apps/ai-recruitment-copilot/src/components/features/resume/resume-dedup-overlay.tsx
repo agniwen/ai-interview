@@ -30,14 +30,39 @@ const ResumeDedupCompareDialog = lazy(async () => {
   return { default: mod.ResumeDedupCompareDialog };
 });
 
-const LEVEL_META: Record<
-  NonNullable<DedupMatchRecord["level"]>,
-  { label: string; variant: "danger" | "secondary" | "warning" }
-> = {
+interface ResumeDedupComparisonProps {
+  match: DedupMatchRecord;
+  mode: ResumeDedupCompareMode;
+  onOpenChange: (open: boolean) => void;
+  source: DedupSourceCandidate;
+}
+
+export interface ResumeDedupMatchListDependencies {
+  renderComparison: (props: ResumeDedupComparisonProps) => ReactNode;
+}
+
+const defaultResumeDedupMatchListDependencies: ResumeDedupMatchListDependencies = {
+  renderComparison: ({ match, mode, onOpenChange, source }) => (
+    <Suspense fallback={null}>
+      <ResumeDedupCompareDialog
+        match={match}
+        mode={mode}
+        onOpenChange={onOpenChange}
+        open
+        source={source}
+      />
+    </Suspense>
+  ),
+};
+
+const LEVEL_META = {
   high: { label: "高度疑似", variant: "danger" },
   low: { label: "低风险", variant: "secondary" },
   medium: { label: "可能重复", variant: "warning" },
-};
+} satisfies Record<
+  NonNullable<DedupMatchRecord["level"]>,
+  { label: string; variant: "danger" | "secondary" | "warning" }
+>;
 
 const SKILLS_PREVIEW_LIMIT = 8;
 
@@ -46,7 +71,7 @@ function formatCreatedAt(value: string) {
 }
 
 function formatSimilarity(value: number | undefined): string | null {
-  if (typeof value !== "number") {
+  if (value === undefined) {
     return null;
   }
   return `${Math.round(value * 100)}%`;
@@ -316,7 +341,7 @@ function MatchCandidateRow({
             {match.level ? (
               <Badge variant={LEVEL_META[match.level].variant}>
                 {LEVEL_META[match.level].label}
-                {typeof match.score === "number" ? ` ${match.score}%` : ""}
+                {match.score === null || match.score === undefined ? "" : ` ${match.score}%`}
               </Badge>
             ) : null}
             {match.pipelineStatus ? (
@@ -366,10 +391,12 @@ function MatchCandidateRow({
 export function ResumeDedupMatchList({
   matches,
   className,
+  dependencies = defaultResumeDedupMatchListDependencies,
   source = null,
 }: {
   matches: DedupMatchRecord[];
   className?: string;
+  dependencies?: ResumeDedupMatchListDependencies;
   source?: DedupSourceCandidate | null;
 }) {
   // 查重对照忽略 resumeLibrary/resumePool 读权限配置（产品决策）：
@@ -410,26 +437,24 @@ export function ResumeDedupMatchList({
         ))}
       </div>
 
-      {comparison && source ? (
-        <Suspense fallback={null}>
-          <ResumeDedupCompareDialog
-            match={comparison.match}
-            mode={comparison.mode}
-            onOpenChange={(open) => {
+      {comparison && source
+        ? dependencies.renderComparison({
+            match: comparison.match,
+            mode: comparison.mode,
+            onOpenChange: (open) => {
               if (!open) {
                 setComparison(null);
               }
-            }}
-            open
-            source={source}
-          />
-        </Suspense>
-      ) : null}
+            },
+            source,
+          })
+        : null}
     </>
   );
 }
 
 export function ResumeDuplicateMatchesDialog({
+  dependencies = defaultResumeDedupMatchListDependencies,
   isError = false,
   isLoading = false,
   matches,
@@ -438,6 +463,7 @@ export function ResumeDuplicateMatchesDialog({
   source = null,
   title = "疑似重复简历",
 }: {
+  dependencies?: ResumeDedupMatchListDependencies;
   open: boolean;
   matches: DedupMatchRecord[];
   isLoading?: boolean;
@@ -479,7 +505,12 @@ export function ResumeDuplicateMatchesDialog({
           </div>
 
           {matches.length > 0 ? (
-            <ResumeDedupMatchList className="min-h-0 flex-1" matches={matches} source={source} />
+            <ResumeDedupMatchList
+              className="min-h-0 flex-1"
+              dependencies={dependencies}
+              matches={matches}
+              source={source}
+            />
           ) : (
             <p className="py-10 text-center text-muted-foreground text-sm">暂无疑似重复简历</p>
           )}

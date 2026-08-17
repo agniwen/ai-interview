@@ -312,7 +312,10 @@ export function formatQuestionsFullTextInput(input: ReportFullTextInput) {
 export function formatTranscriptFullTextInput(input: ReportFullTextInput) {
   return input.transcript
     .map((turn, index) => {
-      const timeLabel = typeof turn.timeInCallSecs === "number" ? ` @ ${turn.timeInCallSecs}s` : "";
+      const timeLabel =
+        turn.timeInCallSecs !== null && turn.timeInCallSecs !== undefined
+          ? ` @ ${turn.timeInCallSecs}s`
+          : "";
       return `${index + 1}. ${turn.role}${timeLabel}\n${turn.message}`;
     })
     .join("\n\n");

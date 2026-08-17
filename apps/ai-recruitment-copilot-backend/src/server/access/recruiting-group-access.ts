@@ -1,7 +1,6 @@
 import { statement } from "@arc/shared/permissions";
 import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
 import { and, eq } from "drizzle-orm";
-import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { recruitingGroupMember } from "@arc/db-schema/schema";
 
 type WorkspaceResource = keyof typeof statement;
@@ -37,6 +36,7 @@ export async function listRecruitingGroupRoles({
   organizationId: string;
   userId: string;
 }): Promise<string[]> {
+  const { db } = await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
   const rows = await db
     .select({ role: recruitingGroupMember.role })
     .from(recruitingGroupMember)
@@ -75,7 +75,7 @@ export function statementsFromRecruitingGroupRoles(
       recruitingGroupAllows({ action, groupRoles }),
     );
     if (actions.length > 0) {
-      (result as Record<string, string[]>)[resource] = [...actions];
+      Object.assign(result, { [resource]: [...actions] });
     }
   }
   return result;

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 
 import { authClient } from "@/lib/client/auth-client";
 import { isBuiltInWorkspaceRole } from "@/components/features/studio/members/role-display";
@@ -8,21 +9,36 @@ import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/stud
 export const DEFAULT_PAGE_SIZE = 10;
 export const DEFAULT_TAB = "members";
 const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
+const workspaceManagementTabSchema = z.enum(WORKSPACE_MANAGEMENT_TABS);
+const dynamicWorkspaceRoleSchema = z.object({
+  createdAt: z.union([z.date(), z.string()]),
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+});
 
 export type WorkspaceManagementTab = (typeof WORKSPACE_MANAGEMENT_TABS)[number];
+type WorkspaceManagementTabInput = string | null | undefined;
 
 export interface WorkspaceManagementSearch {
   tab?: WorkspaceManagementTab;
 }
 
-export function parseWorkspaceManagementTab(value: unknown): WorkspaceManagementTab {
+interface WorkspaceManagementSearchInput {
+  tab?: unknown;
+}
+
+export function parseWorkspaceManagementTab(
+  value: WorkspaceManagementTabInput,
+): WorkspaceManagementTab {
   return value === "groups" ? "groups" : DEFAULT_TAB;
 }
 
 export function coerceWorkspaceManagementSearch(
-  search: Record<string, unknown>,
+  search: WorkspaceManagementSearchInput,
 ): WorkspaceManagementSearch {
-  const tab = parseWorkspaceManagementTab(search.tab);
+  const result = workspaceManagementTabSchema.safeParse(search.tab);
+  const tab = result.success ? result.data : DEFAULT_TAB;
   return tab === DEFAULT_TAB ? {} : { tab };
 }
 
@@ -77,12 +93,12 @@ export interface RecruitingGroupRow {
 }
 
 export const EMPTY_RECRUITING_GROUPS: RecruitingGroupRow[] = [];
-const WORKSPACE_ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
+const WORKSPACE_ROLE_BADGE_VARIANT = {
   admin: "secondary",
   member: "outline",
   noAccess: "outline",
   owner: "default",
-};
+} as const satisfies Record<WorkspaceRole, "default" | "secondary" | "outline">;
 
 export function getWorkspaceRoleBadgeVariant(role: string): "default" | "secondary" | "outline" {
   if (!isBuiltInWorkspaceRole(role)) {
@@ -143,7 +159,8 @@ export function useDynamicWorkspaceRoles(workspaceId: string, enabled: boolean) 
       if (error) {
         throw new Error(error.message ?? "加载自定义角色失败");
       }
-      return (data ?? []) as DynamicWorkspaceRole[];
+      const result = z.array(dynamicWorkspaceRoleSchema).safeParse(data);
+      return result.success ? result.data : [];
     },
     queryKey: ["workspace-dynamic-roles", workspaceId],
     refetchOnWindowFocus: false,
@@ -151,19 +168,16 @@ export function useDynamicWorkspaceRoles(workspaceId: string, enabled: boolean) 
   });
 }
 
-export const GROUP_ROLE_LABELS: Record<RecruitingGroupRole, string> = {
+export const GROUP_ROLE_LABELS = {
   hr: "招聘成员",
   recruitingLead: "招聘组长",
   recruitingSupervisor: "招聘主管",
   viewer: "只读成员",
-};
+} as const satisfies Record<RecruitingGroupRole, string>;
 
-export const GROUP_ROLE_BADGE_VARIANT: Record<
-  RecruitingGroupRole,
-  "default" | "secondary" | "outline"
-> = {
+export const GROUP_ROLE_BADGE_VARIANT = {
   hr: "secondary",
   recruitingLead: "secondary",
   recruitingSupervisor: "default",
   viewer: "outline",
-};
+} as const satisfies Record<RecruitingGroupRole, "default" | "secondary" | "outline">;

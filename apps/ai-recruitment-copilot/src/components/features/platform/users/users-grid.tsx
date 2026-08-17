@@ -83,6 +83,14 @@ interface UsersResult {
   pageSize: number;
 }
 
+interface PlatformUsersQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy: UserSortColumn;
+  sortOrder: "asc" | "desc";
+}
+
 type UserSortColumn = "name" | "email" | "role" | "createdAt" | "lastActiveAt";
 
 interface UserWorkspacesResult {
@@ -104,19 +112,44 @@ interface UserWorkspacesResult {
   };
 }
 
-const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  admin: "default",
-  hr: "secondary",
-  owner: "default",
-  viewer: "outline",
-};
+function getRoleBadgeVariant(role: string): "default" | "secondary" | "outline" {
+  switch (role) {
+    case "admin":
+    case "owner": {
+      return "default";
+    }
+    case "hr": {
+      return "secondary";
+    }
+    default: {
+      return "outline";
+    }
+  }
+}
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: "管理员",
-  hr: "HR",
-  owner: "所有者",
-  viewer: "只读",
-};
+function getRoleLabel(role: string): string {
+  switch (role) {
+    case "admin": {
+      return "管理员";
+    }
+    case "hr": {
+      return "HR";
+    }
+    case "owner": {
+      return "所有者";
+    }
+    case "viewer": {
+      return "只读";
+    }
+    default: {
+      return role;
+    }
+  }
+}
+
+function isUserSortColumn(sortBy: string): sortBy is UserSortColumn {
+  return ["name", "email", "role", "createdAt", "lastActiveAt"].includes(sortBy);
+}
 
 async function loadUserWorkspaces(
   userId: string,
@@ -169,8 +202,8 @@ function UserWorkspacesList({ data }: { data: UserWorkspacesResult }) {
                   /w/{workspace.organizationSlug}
                 </p>
               </div>
-              <Badge variant={ROLE_BADGE_VARIANT[workspace.role] ?? "outline"}>
-                {ROLE_LABEL[workspace.role] ?? workspace.role}
+              <Badge variant={getRoleBadgeVariant(workspace.role)}>
+                {getRoleLabel(workspace.role)}
               </Badge>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
@@ -259,15 +292,18 @@ export function UsersGrid() {
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   }): Promise<UsersResult> {
+    const query: PlatformUsersQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      sortBy: params.sortBy && isUserSortColumn(params.sortBy) ? params.sortBy : "lastActiveAt",
+      sortOrder: params.sortOrder ?? "desc",
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
     return rpcFetch<UsersResult>(
       rpc.api.platform.users.$get({
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { search: params.search } : {}),
-          sortBy: (params.sortBy as UserSortColumn | undefined) ?? "lastActiveAt",
-          sortOrder: params.sortOrder ?? "desc",
-        },
+        query,
       }),
       "加载用户列表失败",
     );
@@ -574,7 +610,7 @@ export function UsersGrid() {
             >
               取消
             </Button>
-            <Button disabled={remarkPending} onClick={() => void saveRemark()} type="button">
+            <Button disabled={remarkPending} onClick={saveRemark} type="button">
               {remarkPending ? "保存中…" : "保存"}
             </Button>
           </DialogFooter>

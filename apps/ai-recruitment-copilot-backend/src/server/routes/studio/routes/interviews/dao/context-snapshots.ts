@@ -6,7 +6,11 @@ import type {
   InterviewSnapshotStatus,
 } from "@arc/db-schema/interview-snapshots";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
-import { stableStringify } from "@arc/ai-recruitment-copilot-backend/lib/server/stable-stringify";
+import {
+  jsonValueSchema,
+  stableStringify,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/stable-stringify";
+import type { JsonValue } from "@arc/ai-recruitment-copilot-backend/lib/server/stable-stringify";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormTemplate,
@@ -75,7 +79,7 @@ export function buildInterviewContextSnapshotPayload(
   };
 }
 
-export function hashSnapshotPayload(payload: unknown): string {
+export function hashSnapshotPayload(payload: JsonValue): string {
   return createHash("sha256").update(stableStringify(payload)).digest("hex");
 }
 
@@ -318,7 +322,7 @@ export async function createInterviewContextSnapshot(
   const [inserted] = await tx
     .insert(interviewContextSnapshot)
     .values({
-      contentHash: hashSnapshotPayload(payload),
+      contentHash: hashSnapshotPayload(jsonValueSchema.parse(payload)),
       createdAt: now,
       createdBy: options.createdBy,
       id: crypto.randomUUID(),

@@ -12,7 +12,10 @@ import { ConversationTranscript } from "../interviews/interview-detail/conversat
 import { HighlightedText } from "../interviews/interview-detail/keyword-highlight/highlighted-text";
 import { KeywordHighlightLegend } from "../interviews/interview-detail/keyword-highlight/legend";
 import { DetailRow } from "../interviews/interview-detail/detail-row";
-import { EvaluationResults } from "../interviews/interview-detail/evaluation-results";
+import {
+  EvaluationResults,
+  evaluationPayloadSchema,
+} from "../interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "../interviews/interview-detail/evaluation-results";
 import { InterviewMetricsPanel } from "../interviews/interview-detail/interview-metrics-panel";
 import { KeyInterviewInformation } from "../interviews/interview-detail/key-interview-information";
@@ -68,6 +71,8 @@ export function InterviewReportDetails({
   report: NonNullable<StudioPersonDetailViewModel["selectedResultReport"]>;
   surface: "card" | "frame";
 }) {
+  const parsedEvaluation = evaluationPayloadSchema.safeParse(report.evaluationCriteriaResults);
+
   return (
     <div className="flex flex-col gap-4">
       {report.turns.length > 0 ? <KeywordHighlightLegend /> : null}
@@ -93,7 +98,7 @@ export function InterviewReportDetails({
           <InterviewReportDetailSection surface={surface} title="评估指标">
             <ScrollArea className="max-h-[420px] pr-1" scrollFade>
               <EvaluationResults
-                data={(report.evaluationCriteriaResults as Record<string, unknown> | null) ?? {}}
+                data={parsedEvaluation.success ? parsedEvaluation.data : {}}
                 dataCollectionResults={report.dataCollectionResults}
                 onEvidenceSelect={onEvidenceSelect}
               />

@@ -8,7 +8,8 @@ import { routeTree } from "./routeTree.gen";
 const RECRUITER_RESUME_DETAIL_PATH = /^\/w\/[^/]+\/studio\/resumes\/[^/]+\/?$/;
 
 function getRecruiterResumeDetailScrollToTopElement() {
-  if (typeof location === "undefined" || !RECRUITER_RESUME_DETAIL_PATH.test(location.pathname)) {
+  const currentLocation = globalThis.location;
+  if (!currentLocation || !RECRUITER_RESUME_DETAIL_PATH.test(currentLocation.pathname)) {
     return;
   }
   return document.querySelector('[data-scroll-restoration-id="studio-main-scroll"]');

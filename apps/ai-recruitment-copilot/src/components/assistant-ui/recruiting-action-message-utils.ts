@@ -1,67 +1,99 @@
 import type { UIMessage } from "ai";
+import { z } from "zod";
 import type { RecruitingActionConfirmation } from "@/components/assistant-ui/recruiting-copilot-context";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+const recruitingProposalSchema = z
+  .object({
+    id: z.string(),
+    payload: z.record(z.string(), z.json()).optional(),
+    type: z.string().optional(),
+  })
+  .catchall(z.json());
+const recruitingToolOutputSchema = z
+  .object({
+    confirmation: z
+      .object({
+        confirmedAt: z.string(),
+        jobDescriptionId: z.string().optional(),
+        jobDescriptionName: z.string().nullable().optional(),
+        status: z.enum(["confirmed", "ignored"]),
+      })
+      .optional(),
+    conversationJobBindingProposal: recruitingProposalSchema.optional(),
+    proposal: recruitingProposalSchema.optional(),
+  })
+  .catchall(z.json());
+type RecruitingToolOutput = z.infer<typeof recruitingToolOutputSchema>;
+
+function readProposalId(output: RecruitingToolOutput): string | null {
+  return output.proposal?.id ?? output.conversationJobBindingProposal?.id ?? null;
 }
 
-function isToolLikePart(part: unknown): part is {
-  output?: unknown;
-  state?: string;
-  type: string;
-} {
-  if (!isRecord(part) || typeof part.type !== "string") {
-    return false;
-  }
-  return part.type === "tool" || part.type === "dynamic-tool" || part.type.startsWith("tool-");
-}
-
-function readProposalId(output: unknown): string | null {
-  if (!isRecord(output)) {
-    return null;
-  }
-  if (isRecord(output.proposal) && typeof output.proposal.id === "string") {
-    return output.proposal.id;
-  }
-  if (
-    isRecord(output.conversationJobBindingProposal) &&
-    typeof output.conversationJobBindingProposal.id === "string"
-  ) {
-    return output.conversationJobBindingProposal.id;
-  }
-  return null;
-}
-
-function hasConfirmation(output: unknown): boolean {
-  if (!isRecord(output) || !isRecord(output.confirmation)) {
-    return false;
-  }
-  return output.confirmation.status === "confirmed" || output.confirmation.status === "ignored";
+function hasConfirmation(output: RecruitingToolOutput): boolean {
+  return output.confirmation !== undefined;
 }
 
 function patchToolOutput(
-  output: unknown,
+  output: RecruitingToolOutput,
   confirmation: RecruitingActionConfirmation,
   proposalId: string,
-): unknown {
-  if (!isRecord(output)) {
-    return output;
+): RecruitingToolOutput {
+  let confirmationPayload:
+    | { confirmedAt: string; status: "confirmed" | "ignored" }
+    | {
+        confirmedAt: string;
+        jobDescriptionId: string;
+        status: "confirmed" | "ignored";
+      }
+    | {
+        confirmedAt: string;
+        jobDescriptionName: string | null;
+        status: "confirmed" | "ignored";
+      }
+    | {
+        confirmedAt: string;
+        jobDescriptionId: string;
+        jobDescriptionName: string | null;
+        status: "confirmed" | "ignored";
+      };
+  if (confirmation.jobDescriptionId && confirmation.jobDescriptionName !== undefined) {
+    confirmationPayload = {
+      confirmedAt: confirmation.confirmedAt,
+      jobDescriptionId: confirmation.jobDescriptionId,
+      jobDescriptionName: confirmation.jobDescriptionName,
+      status: confirmation.status,
+    };
+  } else if (confirmation.jobDescriptionId) {
+    confirmationPayload = {
+      confirmedAt: confirmation.confirmedAt,
+      jobDescriptionId: confirmation.jobDescriptionId,
+      status: confirmation.status,
+    };
+  } else if (confirmation.jobDescriptionName === undefined) {
+    confirmationPayload = {
+      confirmedAt: confirmation.confirmedAt,
+      status: confirmation.status,
+    };
+  } else {
+    confirmationPayload = {
+      confirmedAt: confirmation.confirmedAt,
+      jobDescriptionName: confirmation.jobDescriptionName,
+      status: confirmation.status,
+    };
   }
-  const next: Record<string, unknown> = { ...output, confirmation };
-  if (isRecord(output.proposal) && output.proposal.id === proposalId) {
-    const payload = isRecord(output.proposal.payload) ? { ...output.proposal.payload } : {};
+  const next = {
+    ...output,
+    confirmation: confirmationPayload,
+  };
+  if (output.proposal?.id === proposalId) {
+    const payload = { ...output.proposal.payload };
     if (confirmation.jobDescriptionId) {
       payload.jobDescriptionId = confirmation.jobDescriptionId;
     }
     next.proposal = { ...output.proposal, payload };
   }
-  if (
-    isRecord(output.conversationJobBindingProposal) &&
-    output.conversationJobBindingProposal.id === proposalId
-  ) {
-    const payload = isRecord(output.conversationJobBindingProposal.payload)
-      ? { ...output.conversationJobBindingProposal.payload }
-      : {};
+  if (output.conversationJobBindingProposal?.id === proposalId) {
+    const payload = { ...output.conversationJobBindingProposal.payload };
     if (confirmation.jobDescriptionId) {
       payload.jobDescriptionId = confirmation.jobDescriptionId;
     }
@@ -81,16 +113,22 @@ export function patchUiMessagesRecruitingActionConfirmation(
   return messages.map((message) => {
     let changed = false;
     const parts = message.parts.map((part) => {
-      if (!isToolLikePart(part) || part.state !== "output-available") {
+      if (
+        !("state" in part) ||
+        part.state !== "output-available" ||
+        !("output" in part) ||
+        !(part.type === "dynamic-tool" || part.type.startsWith("tool-"))
+      ) {
         return part;
       }
-      if (readProposalId(part.output) !== proposalId) {
+      const output = recruitingToolOutputSchema.safeParse(part.output);
+      if (!output.success || readProposalId(output.data) !== proposalId) {
         return part;
       }
       changed = true;
       return {
         ...part,
-        output: patchToolOutput(part.output, confirmation, proposalId),
+        output: patchToolOutput(output.data, confirmation, proposalId),
       };
     });
     return changed ? { ...message, parts } : message;
@@ -103,17 +141,20 @@ export function lastAssistantHasPendingRecruitingBindProposal(messages: UIMessag
     return false;
   }
   return message.parts.some((part) => {
-    if (!isToolLikePart(part) || part.state !== "output-available") {
+    if (
+      !("state" in part) ||
+      part.state !== "output-available" ||
+      !("output" in part) ||
+      !(part.type === "dynamic-tool" || part.type.startsWith("tool-"))
+    ) {
       return false;
     }
-    if (hasConfirmation(part.output)) {
+    const output = recruitingToolOutputSchema.safeParse(part.output);
+    if (!output.success || hasConfirmation(output.data)) {
       return false;
     }
-    if (!isRecord(part.output)) {
-      return false;
-    }
-    const proposal = part.output.proposal ?? part.output.conversationJobBindingProposal;
-    if (!isRecord(proposal)) {
+    const proposal = output.data.proposal ?? output.data.conversationJobBindingProposal;
+    if (!proposal) {
       return false;
     }
     return proposal.type === "bind_candidate_to_job" || proposal.type === "bind_pool_item_to_job";

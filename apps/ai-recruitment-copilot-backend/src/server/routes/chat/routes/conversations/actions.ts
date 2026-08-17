@@ -35,6 +35,38 @@ export type ConfirmRecruitingActionResult =
     }
   | { message: string; status: "failed" };
 
+export interface RecruitingActionDependencies {
+  loadJobDescription: typeof loadRecruitingJobDescriptionById;
+  loadPoolItem: typeof loadResumePoolItem;
+  patchConfirmation: typeof patchRecruitingActionConfirmationInConversation;
+  resumeRecordExists(input: { organizationId: string; resumeRecordId: string }): Promise<boolean>;
+  upsertBinding: typeof upsertConversationContextJobBinding;
+}
+
+const defaultDependencies: RecruitingActionDependencies = {
+  loadJobDescription: loadRecruitingJobDescriptionById,
+  loadPoolItem: loadResumePoolItem,
+  patchConfirmation: patchRecruitingActionConfirmationInConversation,
+  async resumeRecordExists(input) {
+    const [existing] = await db
+      .select({ id: studioInterview.id })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, input.resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1);
+    return Boolean(existing);
+  },
+  upsertBinding: upsertConversationContextJobBinding,
+};
+
+type RecruitingActionConfirmation = NonNullable<
+  Extract<ConfirmRecruitingActionResult, { status: "executed" | "noop" }>["confirmation"]
+>;
+
 function normalizeQuestions(
   questions: NonNullable<
     Extract<
@@ -50,23 +82,28 @@ function normalizeQuestions(
   }));
 }
 
-async function stampProposalConfirmation(input: {
-  conversationId: string;
-  jobDescriptionId?: string;
-  jobDescriptionName?: string | null;
-  organizationId: string;
-  proposalId: string;
-  status: "confirmed" | "ignored";
-}) {
-  const confirmation = {
+async function stampProposalConfirmation(
+  input: {
+    conversationId: string;
+    jobDescriptionId?: string;
+    jobDescriptionName?: string | null;
+    organizationId: string;
+    proposalId: string;
+    status: "confirmed" | "ignored";
+  },
+  dependencies: RecruitingActionDependencies,
+) {
+  const confirmation: RecruitingActionConfirmation = {
     confirmedAt: new Date().toISOString(),
-    ...(input.jobDescriptionId ? { jobDescriptionId: input.jobDescriptionId } : {}),
-    ...(input.jobDescriptionName === undefined
-      ? {}
-      : { jobDescriptionName: input.jobDescriptionName }),
     status: input.status,
   };
-  await patchRecruitingActionConfirmationInConversation({
+  if (input.jobDescriptionId) {
+    confirmation.jobDescriptionId = input.jobDescriptionId;
+  }
+  if (input.jobDescriptionName !== undefined) {
+    confirmation.jobDescriptionName = input.jobDescriptionName;
+  }
+  await dependencies.patchConfirmation({
     confirmation,
     conversationId: input.conversationId,
     organizationId: input.organizationId,
@@ -75,14 +112,17 @@ async function stampProposalConfirmation(input: {
   return confirmation;
 }
 
-async function confirmBindCandidateToJob(input: {
-  conversationId: string;
-  jobDescriptionId: string;
-  organizationId: string;
-  proposalId: string;
-  resumeRecordId: string;
-}): Promise<ConfirmRecruitingActionResult> {
-  const nextJobDescription = await loadRecruitingJobDescriptionById(
+async function confirmBindCandidateToJob(
+  input: {
+    conversationId: string;
+    jobDescriptionId: string;
+    organizationId: string;
+    proposalId: string;
+    resumeRecordId: string;
+  },
+  dependencies: RecruitingActionDependencies,
+): Promise<ConfirmRecruitingActionResult> {
+  const nextJobDescription = await dependencies.loadJobDescription(
     input.organizationId,
     input.jobDescriptionId,
   );
@@ -90,21 +130,12 @@ async function confirmBindCandidateToJob(input: {
     return { message: "岗位不存在或不属于当前 workspace。", status: "failed" };
   }
 
-  const [existing] = await db
-    .select({ id: studioInterview.id })
-    .from(studioInterview)
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
+  const existing = await dependencies.resumeRecordExists(input);
   if (!existing) {
     return { message: "候选人记录不存在。", status: "failed" };
   }
 
-  const result = await upsertConversationContextJobBinding({
+  const result = await dependencies.upsertBinding({
     conversationId: input.conversationId,
     jobDescriptionId: input.jobDescriptionId,
     jobDescriptionName: nextJobDescription.name,
@@ -113,14 +144,17 @@ async function confirmBindCandidateToJob(input: {
     recordId: input.resumeRecordId,
     summaryText: `已在本对话中将该候选人关联到「${nextJobDescription.name}」（仅影响本轮分析，未改招聘台数据）。`,
   });
-  const confirmation = await stampProposalConfirmation({
-    conversationId: input.conversationId,
-    jobDescriptionId: input.jobDescriptionId,
-    jobDescriptionName: nextJobDescription.name,
-    organizationId: input.organizationId,
-    proposalId: input.proposalId,
-    status: "confirmed",
-  });
+  const confirmation = await stampProposalConfirmation(
+    {
+      conversationId: input.conversationId,
+      jobDescriptionId: input.jobDescriptionId,
+      jobDescriptionName: nextJobDescription.name,
+      organizationId: input.organizationId,
+      proposalId: input.proposalId,
+      status: "confirmed",
+    },
+    dependencies,
+  );
   if (result.status === "noop") {
     return {
       actionType: "bind_candidate_to_job",
@@ -137,16 +171,19 @@ async function confirmBindCandidateToJob(input: {
   };
 }
 
-async function confirmBindPoolItemToJob(input: {
-  conversationId: string;
-  jobDescriptionId: string;
-  organizationId: string;
-  poolItemId: string;
-  proposalId: string;
-  visibilityScope: RecruitingVisibilityScope;
-}): Promise<ConfirmRecruitingActionResult> {
+async function confirmBindPoolItemToJob(
+  input: {
+    conversationId: string;
+    jobDescriptionId: string;
+    organizationId: string;
+    poolItemId: string;
+    proposalId: string;
+    visibilityScope: RecruitingVisibilityScope;
+  },
+  dependencies: RecruitingActionDependencies,
+): Promise<ConfirmRecruitingActionResult> {
   const poolItemId = normalizeResumePoolItemId(input.poolItemId);
-  const nextJobDescription = await loadRecruitingJobDescriptionById(
+  const nextJobDescription = await dependencies.loadJobDescription(
     input.organizationId,
     input.jobDescriptionId,
   );
@@ -154,7 +191,7 @@ async function confirmBindPoolItemToJob(input: {
     return { message: "岗位不存在或不属于当前 workspace。", status: "failed" };
   }
 
-  const existing = await loadResumePoolItem({
+  const existing = await dependencies.loadPoolItem({
     organizationId: input.organizationId,
     poolItemId,
     visibilityScope: input.visibilityScope,
@@ -163,7 +200,7 @@ async function confirmBindPoolItemToJob(input: {
     return { message: "人才库记录不存在或无权访问。", status: "failed" };
   }
 
-  const result = await upsertConversationContextJobBinding({
+  const result = await dependencies.upsertBinding({
     conversationId: input.conversationId,
     jobDescriptionId: input.jobDescriptionId,
     jobDescriptionName: nextJobDescription.name,
@@ -172,14 +209,17 @@ async function confirmBindPoolItemToJob(input: {
     recordId: poolItemId,
     summaryText: `已在本对话中将该人才库条目关联到「${nextJobDescription.name}」（仅影响本轮分析，未改人才库数据）。`,
   });
-  const confirmation = await stampProposalConfirmation({
-    conversationId: input.conversationId,
-    jobDescriptionId: input.jobDescriptionId,
-    jobDescriptionName: nextJobDescription.name,
-    organizationId: input.organizationId,
-    proposalId: input.proposalId,
-    status: "confirmed",
-  });
+  const confirmation = await stampProposalConfirmation(
+    {
+      conversationId: input.conversationId,
+      jobDescriptionId: input.jobDescriptionId,
+      jobDescriptionName: nextJobDescription.name,
+      organizationId: input.organizationId,
+      proposalId: input.proposalId,
+      status: "confirmed",
+    },
+    dependencies,
+  );
   if (result.status === "noop") {
     return {
       actionType: "bind_pool_item_to_job",
@@ -196,17 +236,23 @@ async function confirmBindPoolItemToJob(input: {
   };
 }
 
-async function ignoreRecruitingAction(input: {
-  conversationId: string;
-  organizationId: string;
-  proposal: ConfirmRecruitingActionInput["proposal"];
-}): Promise<ConfirmRecruitingActionResult> {
-  const confirmation = await stampProposalConfirmation({
-    conversationId: input.conversationId,
-    organizationId: input.organizationId,
-    proposalId: input.proposal.id,
-    status: "ignored",
-  });
+async function ignoreRecruitingAction(
+  input: {
+    conversationId: string;
+    organizationId: string;
+    proposal: ConfirmRecruitingActionInput["proposal"];
+  },
+  dependencies: RecruitingActionDependencies,
+): Promise<ConfirmRecruitingActionResult> {
+  const confirmation = await stampProposalConfirmation(
+    {
+      conversationId: input.conversationId,
+      organizationId: input.organizationId,
+      proposalId: input.proposal.id,
+      status: "ignored",
+    },
+    dependencies,
+  );
   return {
     actionType: input.proposal.type,
     confirmation,
@@ -335,48 +381,60 @@ async function confirmGenerateInterviewQuestions(input: {
   }
 }
 
-export function confirmRecruitingAction(input: {
-  authorize: WorkspaceAuthorizer;
-  conversationId: string;
-  decision?: ConfirmRecruitingActionInput["decision"];
-  operatorId: string | null;
-  organizationId: string;
-  proposal: ConfirmRecruitingActionInput["proposal"];
-  visibilityScope: RecruitingVisibilityScope;
-}) {
+export function confirmRecruitingAction(
+  input: {
+    authorize: WorkspaceAuthorizer;
+    conversationId: string;
+    decision?: ConfirmRecruitingActionInput["decision"];
+    operatorId: string | null;
+    organizationId: string;
+    proposal: ConfirmRecruitingActionInput["proposal"];
+    visibilityScope: RecruitingVisibilityScope;
+  },
+  dependencies: RecruitingActionDependencies = defaultDependencies,
+) {
   if (input.decision === "ignore") {
-    return ignoreRecruitingAction({
-      conversationId: input.conversationId,
-      organizationId: input.organizationId,
-      proposal: input.proposal,
-    });
+    return ignoreRecruitingAction(
+      {
+        conversationId: input.conversationId,
+        organizationId: input.organizationId,
+        proposal: input.proposal,
+      },
+      dependencies,
+    );
   }
   if (input.proposal.type === "bind_candidate_to_job") {
     const jobDescriptionId = input.proposal.payload.jobDescriptionId ?? null;
     if (!jobDescriptionId) {
       return { message: "请先选择要绑定的岗位。", status: "failed" };
     }
-    return confirmBindCandidateToJob({
-      conversationId: input.conversationId,
-      jobDescriptionId,
-      organizationId: input.organizationId,
-      proposalId: input.proposal.id,
-      resumeRecordId: input.proposal.payload.resumeRecordId,
-    });
+    return confirmBindCandidateToJob(
+      {
+        conversationId: input.conversationId,
+        jobDescriptionId,
+        organizationId: input.organizationId,
+        proposalId: input.proposal.id,
+        resumeRecordId: input.proposal.payload.resumeRecordId,
+      },
+      dependencies,
+    );
   }
   if (input.proposal.type === "bind_pool_item_to_job") {
     const jobDescriptionId = input.proposal.payload.jobDescriptionId ?? null;
     if (!jobDescriptionId) {
       return { message: "请先选择要绑定的岗位。", status: "failed" };
     }
-    return confirmBindPoolItemToJob({
-      conversationId: input.conversationId,
-      jobDescriptionId,
-      organizationId: input.organizationId,
-      poolItemId: input.proposal.payload.poolItemId,
-      proposalId: input.proposal.id,
-      visibilityScope: input.visibilityScope,
-    });
+    return confirmBindPoolItemToJob(
+      {
+        conversationId: input.conversationId,
+        jobDescriptionId,
+        organizationId: input.organizationId,
+        poolItemId: input.proposal.payload.poolItemId,
+        proposalId: input.proposal.id,
+        visibilityScope: input.visibilityScope,
+      },
+      dependencies,
+    );
   }
   if (input.proposal.type === "advance_candidate_stage") {
     return confirmAdvanceCandidateStage({

@@ -51,9 +51,10 @@ export async function createQwenRealtimeTranscriptionAuthorization(
   } catch {
     throw new Error("DashScope live transcription base URL is not a valid URL");
   }
-  const ttlSeconds = Number.isFinite(dependencies.tokenTtlSeconds)
+  const requestedTtlSeconds = dependencies.tokenTtlSeconds;
+  const ttlSeconds = Number.isFinite(requestedTtlSeconds)
     ? Math.min(
-        Math.max(1, Math.trunc(dependencies.tokenTtlSeconds as number)),
+        Math.max(1, Math.trunc(requestedTtlSeconds ?? 1800)),
         MAX_MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS,
       )
     : 1800;

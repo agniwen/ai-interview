@@ -3,6 +3,7 @@
 import type { Variants } from "motion/react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
+import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { env } from "@/env/client";
@@ -15,6 +16,7 @@ const PANEL_OFFSET = 20;
 
 type SignInTab = "feishu" | "oauth" | "password";
 type SlideDirection = -1 | 1;
+const signInTabSchema = z.enum(["feishu", "oauth", "password"]);
 
 interface PanelMotionContext {
   direction: SlideDirection;
@@ -54,7 +56,11 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
   const motionContext = { direction, reduceMotion } satisfies PanelMotionContext;
 
   function handleValueChange(value: string) {
-    const nextTab = value as SignInTab;
+    const result = signInTabSchema.safeParse(value);
+    if (!result.success) {
+      return;
+    }
+    const nextTab = result.data;
     setDirection(nextTab === "password" ? 1 : -1);
     setActiveTab(nextTab);
   }

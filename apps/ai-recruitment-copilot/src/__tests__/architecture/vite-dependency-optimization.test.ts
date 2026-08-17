@@ -15,6 +15,7 @@ describe("Vite dependency optimization", () => {
   });
 
   it("keeps the normal dev cache and reserves cache clearing for dev:fresh", () => {
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     const packageJson = JSON.parse(readFileSync(path.join(appRoot, "package.json"), "utf-8")) as {
       scripts: Record<string, string>;
     };

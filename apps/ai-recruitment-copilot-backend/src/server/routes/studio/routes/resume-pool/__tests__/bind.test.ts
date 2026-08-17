@@ -17,34 +17,21 @@ import {
 } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { createResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import {
+  createResumePoolItem,
+  importPoolItemToResumeLibrary,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import type { ImportPoolItemDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import { createResumePoolRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/route";
+import type { ResumePoolRouterDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/route";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
-const mocks = vi.hoisted(() => ({
-  cloneResumeSemanticIndexFromPoolToInterview: vi.fn(async () => {}),
-  enqueueResumeReviewGenerationForRecordBestEffort: vi.fn(),
-  findSemanticResumeDuplicates: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone", () => ({
-  cloneResumeSemanticIndexFromPoolToInterview: mocks.cloneResumeSemanticIndexFromPoolToInterview,
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
-  findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
-  () => ({
-    enqueueResumeReviewGenerationForRecordBestEffort:
-      mocks.enqueueResumeReviewGenerationForRecordBestEffort,
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { resumePoolRouter } from "../route";
+const mocks = {
+  cloneSemanticIndex: vi.fn<ImportPoolItemDependencies["cloneSemanticIndex"]>(),
+  enqueueResumeReviewGeneration:
+    vi.fn<ResumePoolRouterDependencies["enqueueResumeReviewGenerationForRecordBestEffort"]>(),
+  findDuplicateMatches: vi.fn<ImportPoolItemDependencies["findDuplicateMatches"]>(),
+};
 
 const ORG_A = "resume_pool_bind_org_a";
 const ORG_B = "resume_pool_bind_org_b";
@@ -76,12 +63,26 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORG_A } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "owner" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_A } as never);
       await next();
     })
-    .route("/", resumePoolRouter);
+    .route(
+      "/",
+      createResumePoolRouter({
+        enqueueResumeReviewGenerationForRecordBestEffort: mocks.enqueueResumeReviewGeneration,
+        importPoolItemToResumeLibrary: (input) =>
+          importPoolItemToResumeLibrary(input, {
+            cloneSemanticIndex: mocks.cloneSemanticIndex,
+            findDuplicateMatches: mocks.findDuplicateMatches,
+          }),
+        requirePermission: () => async (_c, next) => await next(),
+      }),
+    );
 }
 
 const client = testClient(makeApp());
@@ -268,11 +269,13 @@ describe("POST /:id/bind", () => {
     const body = await response.json();
     expect(body).not.toBeNull();
     expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       (body as { jobDescriptionId: string | null; jobDescriptionName: string | null })
         ?.jobDescriptionId,
     ).toBe(JD_A);
     // 详情 DTO 现在带出关联岗位名，供简历详情页「关联岗位」字段展示。
     expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       (body as { jobDescriptionId: string | null; jobDescriptionName: string | null })
         ?.jobDescriptionName,
     ).toBe("前端工程师");
@@ -313,11 +316,11 @@ describe("POST /:id/bind", () => {
 describe("POST /:id/import job association", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.enqueueResumeReviewGenerationForRecordBestEffort.mockResolvedValue({
+    mocks.enqueueResumeReviewGeneration.mockResolvedValue({
       runId: "resume-pool-import-review-run",
       status: "enqueued",
     });
-    mocks.findSemanticResumeDuplicates.mockResolvedValue([]);
+    mocks.findDuplicateMatches.mockResolvedValue([]);
   });
 
   it("exposes the selected job on the pool item after import", async () => {

@@ -1,37 +1,46 @@
 // 中文：globalConfigRouter 单元测试 — 使用 mock 查询，无需真实数据库
 // English: globalConfigRouter unit tests — uses mocked queries, no real DB
 
-import { globalConfigRouter } from "../route";
+import type { GlobalConfigRouterDependencies } from "../route";
+import { createGlobalConfigRouter } from "../route";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao",
-  () => ({
-    getGlobalConfig: vi.fn(() => ({
+interface GlobalConfigInput {
+  closingInstructions: string;
+  companyContext: string;
+  companyName: string;
+  jobCodePrefix: string;
+  openingInstructions: string;
+}
+
+const dependencies = {
+  getGlobalConfig: vi.fn(() =>
+    Promise.resolve({
       closingInstructions: "",
       companyContext: "",
+      companyName: "",
       jobCodePrefix: "AUR",
       openingInstructions: "",
       updatedAt: "1970-01-01T00:00:00.000Z",
       updatedBy: null,
-    })),
-    upsertGlobalConfig: vi.fn((input: Record<string, unknown>, userId: string | null) => ({
-      ...input,
-      updatedAt: "2026-04-29T00:00:00.000Z",
-      updatedBy: userId,
-    })),
-  }),
-);
-
-// Mock requirePermission to bypass auth check AND inject activeOrg so the
-// handler's guard does not return 401 in unit-test context.
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
+    }),
+  ),
   requirePermission:
-    () => async (c: { set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
+    () =>
+    async (c: { set: (key: string, value: { id: string }) => void }, next: () => Promise<void>) => {
       c.set("activeOrg", { id: "test-org" });
       await next();
     },
-}));
+  upsertGlobalConfig: vi.fn((input: GlobalConfigInput, userId: string | null, _orgId: string) =>
+    Promise.resolve({
+      ...input,
+      updatedAt: "2026-04-29T00:00:00.000Z",
+      updatedBy: userId,
+    }),
+  ),
+} satisfies GlobalConfigRouterDependencies;
+
+const globalConfigRouter = createGlobalConfigRouter(dependencies);
 
 function makeGetRequest() {
   return new Request("http://test/", {
@@ -40,7 +49,7 @@ function makeGetRequest() {
   });
 }
 
-function makePutRequest(body: unknown) {
+function makePutRequest(body: GlobalConfigInput) {
   return new Request("http://test/", {
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
@@ -63,6 +72,7 @@ describe("globalConfigRouter", () => {
     const payload = {
       closingInstructions: "感谢候选人参加",
       companyContext: "公司介绍",
+      companyName: "示例公司",
       jobCodePrefix: "hrd",
       openingInstructions: "用候选人姓名打招呼",
     };
@@ -83,6 +93,7 @@ describe("globalConfigRouter", () => {
       makePutRequest({
         closingInstructions: "",
         companyContext: "",
+        companyName: "",
         jobCodePrefix: "AUR",
         openingInstructions: huge,
       }),

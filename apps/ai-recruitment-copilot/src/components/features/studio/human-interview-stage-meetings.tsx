@@ -48,7 +48,7 @@ export function EndMeetingDialog({
 }: {
   isPending: boolean;
   meeting: HumanInterviewMeetingRecord | null;
-  onConfirm: (meeting: HumanInterviewMeetingRecord) => Promise<unknown>;
+  onConfirm: (meeting: HumanInterviewMeetingRecord) => Promise<{ ok: boolean }>;
   onOpenChange: (open: boolean) => void;
 }) {
   async function handleConfirm(event: MouseEvent<HTMLButtonElement>) {
@@ -83,28 +83,36 @@ export function EndMeetingDialog({
   );
 }
 
-const interviewerRoleLabel: Record<HumanInterviewMeetingInterviewerRole, string> = {
+const interviewerRoleLabel = {
   host: "主持人",
   interviewer: "面试官",
   observer: "旁听",
-};
+} satisfies Record<HumanInterviewMeetingInterviewerRole, string>;
 
-export function MeetingLinksDialog({
+export interface MeetingLinksDialogDependencies {
+  issueLinks: typeof issueHumanInterviewMeetingLinks;
+  retryFeishu: typeof retryHumanInterviewFeishuSync;
+  slug: string;
+}
+
+export function MeetingLinksDialogView({
+  dependencies,
   meeting,
   onOpenChange,
 }: {
+  dependencies: MeetingLinksDialogDependencies;
   meeting: HumanInterviewMeetingRecord | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const { issueLinks, retryFeishu: retryFeishuMutation, slug } = dependencies;
   const { data, error, isFetching } = useQuery({
     enabled: Boolean(meeting),
     queryFn: () => {
       if (!meeting) {
         throw new Error("missing meeting");
       }
-      return issueHumanInterviewMeetingLinks(slug, meeting.id);
+      return issueLinks(slug, meeting.id);
     },
     queryKey: ["human-interview-meeting-links", slug, meeting?.id],
   });
@@ -113,7 +121,7 @@ export function MeetingLinksDialog({
       if (!meeting) {
         throw new Error("missing meeting");
       }
-      return retryHumanInterviewFeishuSync(slug, meeting.id);
+      return retryFeishuMutation(slug, meeting.id);
     },
     onError: (retryError) => {
       toast.error(retryError instanceof Error ? retryError.message : "重试飞书同步失败");
@@ -309,5 +317,25 @@ function MeetingLinkRow({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+export function MeetingLinksDialog({
+  meeting,
+  onOpenChange,
+}: {
+  meeting: HumanInterviewMeetingRecord | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <MeetingLinksDialogView
+      dependencies={{
+        issueLinks: issueHumanInterviewMeetingLinks,
+        retryFeishu: retryHumanInterviewFeishuSync,
+        slug: useWorkspaceSlug(),
+      }}
+      meeting={meeting}
+      onOpenChange={onOpenChange}
+    />
   );
 }

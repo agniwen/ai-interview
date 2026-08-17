@@ -12,7 +12,7 @@ interface ZodValidationFailure {
   error: { issues: { message: string }[] };
 }
 interface JsonResponder {
-  json: (body: unknown, status: 400) => Response;
+  json: (body: { error: string }, status: 400) => Response;
 }
 export function jsonValidatorError(fallback: string) {
   return (result: { success: true } | ZodValidationFailure, c: JsonResponder) => {

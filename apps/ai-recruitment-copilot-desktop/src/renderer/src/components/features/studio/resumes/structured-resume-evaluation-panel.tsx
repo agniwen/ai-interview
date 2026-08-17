@@ -31,11 +31,11 @@ const RADAR_DIMENSION_ORDER = [
   "projectMatch",
 ] as const;
 
-const GATE_LABELS: Record<StructuredResumeGateStatus, string> = {
+const GATE_LABELS = {
   failed: "未通过门槛",
   needs_verification: "门槛待核实",
   passed: "门槛通过",
-};
+} satisfies Record<StructuredResumeGateStatus, string>;
 
 const GRADE_LABELS = {
   matched: "匹配",
@@ -378,9 +378,8 @@ export function StructuredResumeEvaluationPanel({
               ariaLabel="结构化维度评分雷达图"
               dimensions={radarDimensions}
               tooltipBody={(point) => {
-                const weight = typeof point.weight === "number" ? point.weight : "—";
-                const contribution =
-                  typeof point.contribution === "number" ? point.contribution : "—";
+                const weight = point.weight ?? "—";
+                const contribution = point.contribution ?? "—";
                 return (
                   <div className="font-medium text-foreground text-xs">
                     {point.label} {String(point.score ?? "—")} 分 · 权重 {weight}% · 贡献{" "}
@@ -437,7 +436,9 @@ export function StructuredResumeEvaluationPanel({
                       <Button
                         disabled={savingRequirementId === judgment.requirementId}
                         key={status}
-                        onClick={() => void updateGate(judgment.requirementId, status)}
+                        onClick={() => {
+                          updateGate(judgment.requirementId, status);
+                        }}
                         size="sm"
                         type="button"
                         variant={
@@ -450,7 +451,9 @@ export function StructuredResumeEvaluationPanel({
                     {judgment.correction ? (
                       <Button
                         disabled={savingRequirementId === judgment.requirementId}
-                        onClick={() => void updateGate(judgment.requirementId, null)}
+                        onClick={() => {
+                          updateGate(judgment.requirementId, null);
+                        }}
                         size="sm"
                         type="button"
                         variant="ghost"

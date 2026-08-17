@@ -92,30 +92,30 @@ const PIPELINE_ORDER = [
   "closed_hired",
   "closed_rejected",
 ] as const;
-const PIPELINE_LABEL: Record<(typeof PIPELINE_ORDER)[number], string> = {
+const PIPELINE_LABEL = {
   ai_interview: "AI 面试",
   closed_hired: "已录用",
   closed_rejected: "已淘汰 / 撤回",
   human_interview: "真人复面",
   offer: "Offer",
   screening: "简历筛选",
-};
-const PIPELINE_COUNT: Record<(typeof PIPELINE_ORDER)[number], number> = {
+} satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
+const PIPELINE_COUNT = {
   ai_interview: 18,
   closed_hired: 4,
   closed_rejected: 19,
   human_interview: 10,
   offer: 5,
   screening: 28,
-};
-const PIPELINE_COLOR: Record<(typeof PIPELINE_ORDER)[number], string> = {
+} satisfies Record<(typeof PIPELINE_ORDER)[number], number>;
+const PIPELINE_COLOR = {
   ai_interview: "color-mix(in oklch, var(--chart-2) 40%, var(--background))",
   closed_hired: "oklch(0.76 0.08 150)",
   closed_rejected: "oklch(0.74 0.11 345)",
   human_interview: "color-mix(in oklch, var(--chart-3) 42%, var(--background))",
   offer: "color-mix(in oklch, var(--chart-4) 52%, var(--background))",
   screening: "color-mix(in oklch, var(--chart-1) 42%, var(--background))",
-};
+} satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
 
 function StatusCard() {
   const total = PIPELINE_ORDER.reduce((acc, s) => acc + PIPELINE_COUNT[s], 0);
@@ -529,12 +529,12 @@ const RESUMES: ResumeRow[] = [
   },
 ];
 
-const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
+const LIFECYCLE_RING_CLASS = {
   info: "hover:ring-sky-500/10",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
   success: "hover:ring-emerald-500/10",
   warning: "hover:ring-amber-500/10",
-};
+} satisfies Record<ResumeRow["lifecycleTone"], string>;
 
 function LifecycleBadge({ row }: { row: ResumeRow }) {
   return (

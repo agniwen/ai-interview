@@ -153,6 +153,7 @@ beforeAll(async () => {
       structuredCompositeScore: 80,
       structuredGateSortRank: 2,
       structuredGateStatus: "failed",
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       structuredResumeEvaluation: {
         runId: "structured-run-current",
       } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
@@ -173,6 +174,7 @@ beforeAll(async () => {
       structuredCompositeScore: 80,
       structuredGateSortRank: 2,
       structuredGateStatus: "failed",
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       structuredResumeEvaluation: {
         runId: "structured-run-stale",
       } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],

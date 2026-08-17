@@ -5,14 +5,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
+import type { ResumePoolRecommendationsDependencies } from "./resume-pool-recommendations-panel";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const recommendationsPostMock = vi.hoisted(() => vi.fn());
 const rpcFetchMock = vi.hoisted(() => vi.fn());
 const bindResumePoolItemMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
-const toastSuccessMock = vi.hoisted(() => vi.fn());
 
 class MockApiError extends Error {
   status: number;
@@ -23,48 +23,23 @@ class MockApiError extends Error {
   }
 }
 
-vi.mock("@/lib/client/rpc", () => ({
-  rpc: {
-    api: {
-      w: {
-        ":slug": {
-          studio: {
-            "resume-pool": {
-              ":id": {
-                recommendations: {
-                  $post: recommendationsPostMock,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-}));
-
-vi.mock("@/lib/client/api", () => ({
+const dependencies: ResumePoolRecommendationsDependencies = {
   bindResumePoolItem: bindResumePoolItemMock,
-  isApiError: (error: unknown): error is MockApiError => error instanceof MockApiError,
-  rpcFetch: rpcFetchMock,
-}));
-
-vi.mock("sonner", () => ({
-  toast: {
-    error: toastErrorMock,
-    success: toastSuccessMock,
-  },
-}));
+  fetchRecommendations: rpcFetchMock,
+  isConflictError: (error) => error instanceof MockApiError && error.status === 409,
+  notifyError: toastErrorMock,
+};
 
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
 });
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 const baseDetail = {
   id: "resume-1",
   jobDescriptionId: null,
-} as unknown as ResumePoolDetail;
+} as ResumePoolDetail;
 
 const readyResult = {
   diagnostics: { aboveThresholdCount: 1, eligibleCount: 0, vectorHitCount: 1 },
@@ -99,7 +74,11 @@ async function renderAndFlush(detail: ResumePoolDetail, queryClient?: QueryClien
   await act(async () => {
     rendered.root.render(
       <QueryClientProvider client={client}>
-        <ResumePoolRecommendationsPanel detail={detail} slug="test-slug" />
+        <ResumePoolRecommendationsPanel
+          dependencies={dependencies}
+          detail={detail}
+          slug="test-slug"
+        />
       </QueryClientProvider>,
     );
     await Promise.resolve();

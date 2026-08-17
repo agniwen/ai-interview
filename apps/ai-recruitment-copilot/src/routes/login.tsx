@@ -1,23 +1,16 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import { LoginPage } from "@/components/features/login/login-page";
 import { formatDocumentTitle } from "@/lib/start/document-title";
-import {
-  readLoginGoto,
-  resolveLoginCallbackURL,
-} from "@/components/features/login/login-navigation";
-import type { LoginGotoTarget } from "@/components/features/login/login-navigation";
+import { resolveLoginCallbackURL } from "@/components/features/login/login-navigation";
 
-interface LoginSearch {
-  callbackURL?: string;
-  error?: string;
-  error_description?: string;
-  goto?: LoginGotoTarget;
-  returnTo?: string;
-}
-
-function readSearchValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
+const loginSearchSchema = z.object({
+  callbackURL: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+  goto: z.enum(["agent", "studio"]).optional(),
+  returnTo: z.string().optional(),
+});
 
 function LoginRoute() {
   const search = useSearch({ from: "/login" });
@@ -33,13 +26,7 @@ function LoginRoute() {
 }
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search): LoginSearch => ({
-    callbackURL: readSearchValue(search.callbackURL),
-    error: readSearchValue(search.error),
-    error_description: readSearchValue(search.error_description),
-    goto: readLoginGoto(search.goto),
-    returnTo: readSearchValue(search.returnTo),
-  }),
+  validateSearch: loginSearchSchema,
   head: () => ({
     meta: [{ title: formatDocumentTitle("登录") }],
   }),

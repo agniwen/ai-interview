@@ -57,6 +57,10 @@ const PROVIDER_PURGE_MAX_ATTEMPTS = 5;
 const UPLOAD_AUTHORIZATION_DRAIN_MS = 61 * 60 * 1000;
 const UPLOAD_QUIET_PERIOD_MS = 61 * 60 * 1000;
 
+function isTrashableStatus(status: string): status is (typeof TRASHABLE_STATUSES)[number] {
+  return TRASHABLE_STATUSES.some((candidate) => candidate === status);
+}
+
 type LifecycleAuthorization = "administrator" | "owner" | "forbidden";
 
 function lifecycleAuthorization(
@@ -126,7 +130,7 @@ export async function trashMeetingSession(input: {
     if (meeting.status === "trashed" && meeting.purgeAfter) {
       return { purgeAfter: meeting.purgeAfter, state: "already-trashed" } as const;
     }
-    if (!TRASHABLE_STATUSES.includes(meeting.status as (typeof TRASHABLE_STATUSES)[number])) {
+    if (!isTrashableStatus(meeting.status)) {
       return { state: "not-found" } as const;
     }
     const purgeAfter = new Date(now.getTime() + MEETING_TRASH_RETENTION_MS);
@@ -332,10 +336,7 @@ export async function requestMeetingPurge(input: {
     if (meeting.status === "purging") {
       return { state: "purging" } as const;
     }
-    if (
-      meeting.status !== "trashed" &&
-      !TRASHABLE_STATUSES.includes(meeting.status as (typeof TRASHABLE_STATUSES)[number])
-    ) {
+    if (meeting.status !== "trashed" && !isTrashableStatus(meeting.status)) {
       return { state: "not-found" } as const;
     }
     const previousStatus = meeting.trashedFromStatus ?? meeting.status;

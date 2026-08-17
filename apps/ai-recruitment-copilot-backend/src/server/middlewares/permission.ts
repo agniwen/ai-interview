@@ -14,9 +14,18 @@ import type {
   WorkspaceResource,
 } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 
+export interface PermissionMiddlewareDependencies {
+  createRequestWorkspaceAuthorizer: typeof createRequestWorkspaceAuthorizer;
+}
+
+const defaultDependencies: PermissionMiddlewareDependencies = {
+  createRequestWorkspaceAuthorizer,
+};
+
 export function requirePermission<R extends WorkspaceResource>(
   resource: R,
   action: WorkspaceAction<R>,
+  dependencies: PermissionMiddlewareDependencies = defaultDependencies,
 ) {
   return factory.createMiddleware(async (c, next) => {
     let workspaceContext;
@@ -29,7 +38,7 @@ export function requirePermission<R extends WorkspaceResource>(
       throw error;
     }
     const { member, organization, user } = workspaceContext;
-    const authorize = createRequestWorkspaceAuthorizer({
+    const authorize = dependencies.createRequestWorkspaceAuthorizer({
       headers: c.req.raw.headers,
       memberRole: member.role,
       organizationId: organization.id,

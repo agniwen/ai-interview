@@ -286,8 +286,12 @@ async function main() {
   let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
   if (isMeetingAnswerQueueConfigured()) {
     meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
-      const { runMeetingAnswerProcessing } = await import("./meeting-answer/processor");
-      await runMeetingAnswerProcessing(payload, context);
+      const [{ defaultMeetingAnswerDependencies }, { runMeetingAnswerProcessing }] =
+        await Promise.all([
+          import("./meeting-answer/default-dependencies"),
+          import("./meeting-answer/processor"),
+        ]);
+      await runMeetingAnswerProcessing(payload, context, defaultMeetingAnswerDependencies);
     });
     await reconcileMeetingAnswerJobs();
     meetingAnswerRecoveryTimer = setInterval(() => {
@@ -297,8 +301,10 @@ async function main() {
   }
   if (isMeetingProcessingQueueConfigured()) {
     meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
+      const { defaultMeetingPlaybackDependencies } =
+        await import("./meeting-playback/default-dependencies");
       const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
-      await runMeetingPlaybackProcessing(payload);
+      await runMeetingPlaybackProcessing(payload, defaultMeetingPlaybackDependencies);
     });
     await reconcileMeetingPlaybackJobs();
     meetingPlaybackRecoveryTimer = setInterval(() => {
@@ -308,8 +314,10 @@ async function main() {
   }
   if (isMeetingPurgeQueueConfigured()) {
     meetingPurgeWorker = createMeetingPurgeWorker(async (payload) => {
+      const { defaultMeetingPurgeDependencies } =
+        await import("./meeting-purge/default-dependencies");
       const { runMeetingPurgeProcessing } = await import("./meeting-purge/processor");
-      await runMeetingPurgeProcessing(payload);
+      await runMeetingPurgeProcessing(payload, defaultMeetingPurgeDependencies);
     });
     await reconcileMeetingPurgeJobs();
     meetingPurgeRecoveryTimer = setInterval(() => {
@@ -319,8 +327,14 @@ async function main() {
   }
   if (isMeetingIntelligenceQueueConfigured()) {
     meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
+      const { defaultMeetingIntelligenceDependencies } =
+        await import("./meeting-intelligence/default-dependencies");
       const { runMeetingIntelligenceProcessing } = await import("./meeting-intelligence/processor");
-      await runMeetingIntelligenceProcessing(payload, context);
+      await runMeetingIntelligenceProcessing(
+        payload,
+        context,
+        defaultMeetingIntelligenceDependencies,
+      );
     });
     await reconcileMeetingIntelligenceJobs();
     meetingIntelligenceRecoveryTimer = setInterval(() => {
@@ -337,9 +351,15 @@ async function main() {
     await reapStaleMeetingTranscriptionDirectories();
     await validateMeetingTranscriptionRuntime();
     meetingTranscriptionWorker = createMeetingTranscriptionWorker(async (payload, context) => {
+      const { defaultMeetingTranscriptionDependencies } =
+        await import("./meeting-transcription/default-dependencies");
       const { runMeetingTranscriptionProcessing } =
         await import("./meeting-transcription/processor");
-      await runMeetingTranscriptionProcessing(payload, context);
+      await runMeetingTranscriptionProcessing(
+        payload,
+        context,
+        defaultMeetingTranscriptionDependencies,
+      );
     });
     await reconcileMeetingTranscriptionJobs();
     meetingTranscriptionRecoveryTimer = setInterval(() => {
@@ -360,7 +380,11 @@ async function main() {
         if (payload.sourceType === "job_description") {
           const { runJdSemanticIndexJob } =
             await import("@arc/ai-recruitment-copilot-backend/lib/server/jd-semantic/indexer");
-          await runJdSemanticIndexJob(payload as Parameters<typeof runJdSemanticIndexJob>[0]);
+          await runJdSemanticIndexJob({
+            organizationId: payload.organizationId,
+            sourceId: payload.sourceId,
+            sourceType: "job_description",
+          });
           return;
         }
         const { runResumeSemanticEnrichmentJob } =

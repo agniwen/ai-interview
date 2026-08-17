@@ -14,6 +14,7 @@ import {
   MeetingAnswerTerminalError,
 } from "@arc/shared/meeting-answer";
 import type { MeetingAnswerModelOutput, MeetingAnswerPayload } from "@arc/shared/meeting-answer";
+import type { MeetingIntelligencePayload } from "@arc/shared/meeting-intelligence";
 
 interface AnswerTranscriptTurn {
   endMs: number;
@@ -25,7 +26,7 @@ interface AnswerTranscriptTurn {
 }
 
 export interface MeetingAnswerGenerationInput {
-  intelligence: unknown;
+  intelligence: MeetingIntelligencePayload | null;
   notes: { body: string; meetingTimeMs: number }[];
   previous: { answer: MeetingAnswerPayload; question: string }[];
   question: string;
@@ -57,26 +58,54 @@ function relevance(queryTokens: ReadonlySet<string>, value: string): number {
   return score;
 }
 
+interface IntelligenceEvidenceEntry {
+  evidenceTurnIds: string[];
+  text: string;
+}
+
 function intelligenceEvidenceEntries(
-  value: unknown,
-): { evidenceTurnIds: string[]; text: string }[] {
-  if (Array.isArray(value)) {
-    return value.flatMap(intelligenceEvidenceEntries);
-  }
-  if (!(value && typeof value === "object")) {
+  value: MeetingIntelligencePayload | null,
+): IntelligenceEvidenceEntry[] {
+  if (!value) {
     return [];
   }
-  const record = value as Record<string, unknown>;
-  const ownEvidence = Array.isArray(record.evidenceTurnIds)
-    ? record.evidenceTurnIds.filter((id): id is string => typeof id === "string")
-    : [];
-  const ownText = Object.entries(record)
-    .filter(([key, item]) => key !== "evidenceTurnIds" && typeof item === "string")
-    .map(([, item]) => item)
-    .join(" ");
+  if (value.template === "general") {
+    return [
+      ...value.actionItems.map((item) => ({
+        evidenceTurnIds: item.evidenceTurnIds,
+        text: item.task,
+      })),
+      ...value.decisions.map((item) => ({
+        evidenceTurnIds: item.evidenceTurnIds,
+        text: item.statement,
+      })),
+      ...value.openQuestions.map((item) => ({
+        evidenceTurnIds: item.evidenceTurnIds,
+        text: item.question,
+      })),
+      ...value.topics.map((item) => ({
+        evidenceTurnIds: item.evidenceTurnIds,
+        text: item.summary,
+      })),
+    ];
+  }
   return [
-    ...(ownEvidence.length > 0 && ownText ? [{ evidenceTurnIds: ownEvidence, text: ownText }] : []),
-    ...Object.values(record).flatMap(intelligenceEvidenceEntries),
+    ...value.candidateStatements.map((item) => ({
+      evidenceTurnIds: item.evidenceTurnIds,
+      text: item.statement,
+    })),
+    ...value.followUpActions.map((item) => ({
+      evidenceTurnIds: item.evidenceTurnIds,
+      text: item.task,
+    })),
+    ...value.keyExperience.map((item) => ({
+      evidenceTurnIds: item.evidenceTurnIds,
+      text: item.statement,
+    })),
+    ...value.verificationItems.map((item) => ({
+      evidenceTurnIds: item.evidenceTurnIds,
+      text: item.statement,
+    })),
   ];
 }
 
@@ -233,7 +262,12 @@ export async function generateMeetingAnswer(
   }
 }
 
-export function getMeetingAnswerGeneratorSnapshot(): { model: string; provider: string } {
+export interface MeetingAnswerGeneratorSnapshot {
+  model: string;
+  provider: string;
+}
+
+export function getMeetingAnswerGeneratorSnapshot(): MeetingAnswerGeneratorSnapshot {
   return {
     model: getMastraModelIdentifier(mastraModels.structuredModel),
     provider: "mastra",

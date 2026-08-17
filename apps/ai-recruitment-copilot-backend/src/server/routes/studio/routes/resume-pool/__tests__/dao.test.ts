@@ -17,34 +17,33 @@ import {
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
-  importPoolItemToResumeLibrary,
+  importPoolItemToResumeLibrary as importPoolItemWithDependencies,
   loadResumePoolItem,
   markResumePoolItemParsed,
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
-import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
+import type {
+  DeleteOwnPoolItemDependencies,
+  ImportPoolItemDependencies,
+  PublishPrivatePoolItemDependencies,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 import { PROFILE, PROFILE_WITH_HIGHLIGHTS } from "./fixtures";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
-  enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
-}));
+const mocks = {
+  cloneSemanticIndex: vi.fn<ImportPoolItemDependencies["cloneSemanticIndex"]>(),
+  deleteSemanticIndex: vi.fn<DeleteOwnPoolItemDependencies["deleteSemanticIndex"]>(),
+  enqueueSemanticIndex: vi.fn<PublishPrivatePoolItemDependencies["enqueueSemanticIndex"]>(),
+  findDuplicateMatches: vi.fn<ImportPoolItemDependencies["findDuplicateMatches"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
-  findSemanticResumeDuplicates: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle", () => ({
-  deleteResumeSemanticIndexBestEffort: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone", () => ({
-  cloneResumeSemanticIndexFromPoolToInterview: vi.fn(),
-}));
+function importPoolItem(input: Parameters<typeof importPoolItemWithDependencies>[0]) {
+  return importPoolItemWithDependencies(input, {
+    cloneSemanticIndex: mocks.cloneSemanticIndex,
+    findDuplicateMatches: mocks.findDuplicateMatches,
+  });
+}
 
 const ORG_A = "resume_pool_org_a";
 const ORG_B = "resume_pool_org_b";
@@ -124,10 +123,9 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 beforeEach(() => {
-  vi.mocked(enqueueResumeSemanticIndexJobBestEffort).mockClear();
-  vi.mocked(findSemanticResumeDuplicates).mockResolvedValue([]);
-  vi.mocked(deleteResumeSemanticIndexBestEffort).mockClear();
-  vi.mocked(cloneResumeSemanticIndexFromPoolToInterview).mockResolvedValue();
+  vi.clearAllMocks();
+  mocks.findDuplicateMatches.mockResolvedValue([]);
+  mocks.cloneSemanticIndex.mockResolvedValue();
 });
 
 function basePoolInput(overrides: Partial<Parameters<typeof createResumePoolItem>[0]> = {}) {
@@ -435,17 +433,16 @@ describe("publishPrivatePoolItem", () => {
   it("copies a private item to public and leaves the original private item unchanged", async () => {
     const privateId = await createResumePoolItem(basePoolInput());
 
-    const publicItem = await publishPrivatePoolItem({
-      organizationId: ORG_A,
-      poolItemId: privateId,
-      userId: USER_A,
-    });
+    const publicItem = await publishPrivatePoolItem(
+      { organizationId: ORG_A, poolItemId: privateId, userId: USER_A },
+      { enqueueSemanticIndex: mocks.enqueueSemanticIndex },
+    );
 
     expect(publicItem.scope).toBe("public");
     expect(publicItem.sourcePoolItemId).toBe(privateId);
     expect(publicItem.sourceOrganizationId).toBe(ORG_A);
     expect(publicItem.sourceUserId).toBe(USER_A);
-    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+    expect(mocks.enqueueSemanticIndex).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: publicItem.id,
       sourceType: "resume_pool_item",
@@ -463,7 +460,7 @@ describe("publishPrivatePoolItem", () => {
 describe("importPoolItemToResumeLibrary", () => {
   it("returns duplicate matches without admitting a Resume Record under check policy", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
-    const matches: Awaited<ReturnType<typeof findSemanticResumeDuplicates>> = [
+    const matches: Awaited<ReturnType<ImportPoolItemDependencies["findDuplicateMatches"]>> = [
       {
         candidateEmail: "dup@example.com",
         candidateName: "重复候选人",
@@ -484,9 +481,9 @@ describe("importPoolItemToResumeLibrary", () => {
         targetRole: "前端工程师",
       },
     ];
-    vi.mocked(findSemanticResumeDuplicates).mockResolvedValueOnce(matches);
+    mocks.findDuplicateMatches.mockResolvedValueOnce(matches);
 
-    const result = await importPoolItemToResumeLibrary({
+    const result = await importPoolItem({
       dedupPolicy: "check",
       importedBy: USER_B,
       jobDescriptionId: null,
@@ -508,7 +505,7 @@ describe("importPoolItemToResumeLibrary", () => {
   it("imports a public item into the current organization's resume library", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
 
-    const result = await importPoolItemToResumeLibrary({
+    const result = await importPoolItem({
       dedupPolicy: "force",
       importedBy: USER_B,
       jobDescriptionId: null,
@@ -536,13 +533,13 @@ describe("importPoolItemToResumeLibrary", () => {
       .where(eq(resumePoolImport.importedResumeRecordId, result.resumeRecordId));
     expect(imports).toHaveLength(1);
     expect(imports[0]?.organizationId).toBe(ORG_A);
-    expect(cloneResumeSemanticIndexFromPoolToInterview).toHaveBeenCalledWith({
+    expect(mocks.cloneSemanticIndex).toHaveBeenCalledWith({
       poolItemId: publicId,
       resumeRecordId: result.resumeRecordId,
       sourceOrganizationId: ORG_A,
       targetOrganizationId: ORG_A,
     });
-    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+    expect(mocks.enqueueSemanticIndex).not.toHaveBeenCalled();
   });
 
   it("creates another Resume Record for an explicit reimport", async () => {
@@ -555,8 +552,8 @@ describe("importPoolItemToResumeLibrary", () => {
       poolItemId: publicId,
     };
 
-    const first = await importPoolItemToResumeLibrary(input);
-    const second = await importPoolItemToResumeLibrary({ ...input, reimport: true });
+    const first = await importPoolItem(input);
+    const second = await importPoolItem({ ...input, reimport: true });
     if (first.status !== "imported" || second.status !== "imported") {
       throw new Error("expected both imports to succeed");
     }
@@ -599,12 +596,10 @@ describe("importPoolItemToResumeLibrary", () => {
         scope: "public",
       }),
     );
-    vi.mocked(cloneResumeSemanticIndexFromPoolToInterview).mockRejectedValueOnce(
-      new Error("clone failed"),
-    );
+    mocks.cloneSemanticIndex.mockRejectedValueOnce(new Error("clone failed"));
 
     await expect(
-      importPoolItemToResumeLibrary({
+      importPoolItem({
         dedupPolicy: "force",
         importedBy: USER_B,
         jobDescriptionId: null,
@@ -626,7 +621,7 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(records[0]?.resumeParseError).toBe("clone failed");
     expect(imports).toHaveLength(1);
 
-    const retried = await importPoolItemToResumeLibrary({
+    const retried = await importPoolItem({
       dedupPolicy: "force",
       importedBy: USER_B,
       jobDescriptionId: null,
@@ -651,7 +646,7 @@ describe("importPoolItemToResumeLibrary", () => {
     const privateId = await createResumePoolItem(basePoolInput());
 
     await expect(
-      importPoolItemToResumeLibrary({
+      importPoolItem({
         dedupPolicy: "force",
         importedBy: USER_B,
         jobDescriptionId: null,
@@ -667,7 +662,7 @@ describe("importPoolItemToResumeLibrary", () => {
     );
 
     await expect(
-      importPoolItemToResumeLibrary({
+      importPoolItem({
         dedupPolicy: "force",
         importedBy: USER_A,
         jobDescriptionId: null,
@@ -681,7 +676,7 @@ describe("importPoolItemToResumeLibrary", () => {
 describe("deleteOwnPoolItem", () => {
   it("hard-deletes the owner's private pool item and keeps imported resume records", async () => {
     const privateId = await createResumePoolItem(basePoolInput());
-    const imported = await importPoolItemToResumeLibrary({
+    const imported = await importPoolItem({
       dedupPolicy: "force",
       importedBy: USER_A,
       jobDescriptionId: null,
@@ -720,15 +715,14 @@ describe("deleteOwnPoolItem", () => {
       },
     ]);
 
-    await deleteOwnPoolItem({
-      organizationId: ORG_A,
-      poolItemId: privateId,
-      userId: USER_A,
-    });
+    await deleteOwnPoolItem(
+      { organizationId: ORG_A, poolItemId: privateId, userId: USER_A },
+      { deleteSemanticIndex: mocks.deleteSemanticIndex },
+    );
 
     const poolRows = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, privateId));
     expect(poolRows).toHaveLength(0);
-    expect(deleteResumeSemanticIndexBestEffort).toHaveBeenCalledWith({
+    expect(mocks.deleteSemanticIndex).toHaveBeenCalledWith({
       sourceId: privateId,
       sourceType: "resume_pool_item",
     });

@@ -1,45 +1,19 @@
 import { HydrationBoundary } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { PlatformMailIngestAccountsGrid } from "@/components/features/platform/mail-ingest-accounts/mail-ingest-accounts-grid";
+import { coerceSearchParams } from "@/lib/client/data-grid-search";
+import { parseDehydratedState } from "@/lib/client/query-hydration";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformMailIngestAccountsState } from "@/lib/start/platform/mail-ingest-accounts.functions";
-import type { PlatformMailIngestAccountsState } from "@/lib/start/platform/mail-ingest-accounts.functions";
 
 const INITIAL_PAGE_SIZE = 10;
 
 type EmptyFilters = Record<string, never>;
-type SearchParamsPrimitive = boolean | number | string;
-type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
-
-function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string") {
-      out[key] = value;
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is boolean | number | string =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
-}
 
 function parsePlatformMailIngestAccountsQuery(
-  searchParams: SearchParamsRecord,
+  searchParams: ReturnType<typeof coerceSearchParams>,
 ): DataGridQueryState<EmptyFilters> {
   return parseDataGridSearchParams(searchParams, {
     allowedSortIds: ["userName", "userEmail", "emailAddress", "lastCheckedAt"],
@@ -57,7 +31,7 @@ function PlatformMailIngestAccountsRoute() {
   }
 
   return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
+    <HydrationBoundary state={parseDehydratedState(state.dehydratedState)}>
       <div className="container mx-auto">
         <PlatformMailIngestAccountsGrid />
       </div>
@@ -66,15 +40,12 @@ function PlatformMailIngestAccountsRoute() {
 }
 
 export const Route = createFileRoute("/platform/mail-ingest-accounts")({
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
-  loader: async (loaderContext) => {
-    const { location } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-    };
+  validateSearch: coerceSearchParams,
+  loader: async ({ location }) => {
     const query = parsePlatformMailIngestAccountsQuery(location.search);
-    const state = (await loadPlatformMailIngestAccountsState({
+    const state = await loadPlatformMailIngestAccountsState({
       data: { query },
-    })) as PlatformMailIngestAccountsState;
+    });
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });
     }

@@ -6,6 +6,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Dispatch } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { runAsyncAction } from "@/lib/client/async-control";
 import type {
   StudioPersonDetailAccessMode,
@@ -20,6 +21,8 @@ import {
   updateAllowTextInput,
 } from "./studio-person-detail-sections";
 import type { DetailPanelUiAction } from "./studio-person-detail-sections";
+
+const reassessErrorPayloadSchema = z.object({ error: z.string().optional() });
 
 export interface UseStudioPersonDetailMutationsParams {
   accessMode: StudioPersonDetailAccessMode;
@@ -71,9 +74,13 @@ export function useStudioPersonDetailMutations({
           `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
           { method: "POST" },
         );
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = reassessErrorPayloadSchema.safeParse(
+          await response.json().catch(() => null),
+        );
         if (!response.ok) {
-          throw new Error(payload?.error ?? "重新评估失败");
+          throw new Error(
+            payload.success ? (payload.data.error ?? "重新评估失败") : "重新评估失败",
+          );
         }
         toast.success("已开始重新评估");
         await Promise.all([

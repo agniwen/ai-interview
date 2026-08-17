@@ -1,23 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/dao", () => ({
-  claimMeetingIntelligenceRun: vi.fn(),
-  heartbeatMeetingIntelligenceRun: vi.fn(),
-  loadMeetingIntelligenceTranscript: vi.fn(),
-  markMeetingIntelligenceFailed: vi.fn(),
-  publishMeetingIntelligence: vi.fn(),
-  saveMeetingIntelligenceCheckpoint: vi.fn(),
-  saveMeetingIntelligenceProgress: vi.fn(),
-}));
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/generator",
-  () => ({
-    generateMeetingIntelligence: vi.fn(),
-    getMeetingIntelligenceGeneratorSnapshot: vi.fn(),
-  }),
-);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { runMeetingIntelligenceProcessing } from "./processor";
 
 const content = {

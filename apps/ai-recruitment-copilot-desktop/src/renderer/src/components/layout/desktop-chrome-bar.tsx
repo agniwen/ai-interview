@@ -25,15 +25,25 @@ import { Icon } from "@/components/ui/icon";
 import { useSidebar } from "@/components/ui/sidebar";
 import { WindowControls } from "@/components/window-controls";
 
-const dragStyle = {
+interface ElectronDragStyle extends CSSProperties {
+  WebkitAppRegion: "drag";
+  appRegion: "drag";
+}
+
+interface ElectronNoDragStyle extends CSSProperties {
+  WebkitAppRegion: "no-drag";
+  appRegion: "no-drag";
+}
+
+const dragStyle: ElectronDragStyle = {
   WebkitAppRegion: "drag",
   appRegion: "drag",
-} as CSSProperties;
+};
 
-const noDragStyle = {
+const noDragStyle: ElectronNoDragStyle = {
   WebkitAppRegion: "no-drag",
   appRegion: "no-drag",
-} as CSSProperties;
+};
 
 /** Compact workspace select in the right chrome cluster (max-w ~10rem + caret). */
 const WORKSPACE_SELECT_APPROX_PX = 160;

@@ -55,14 +55,14 @@ import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
 import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
-const DEFAULT_FORM = {
+const DEFAULT_FORM: MailIngestFormState = {
   emailAddress: "",
   enabled: true,
   imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
   imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
   listenStartAt: "",
   password: "",
-  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID as MailIngestProviderId,
+  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID,
   subjectKeyword: "boss直聘",
   userId: "",
   username: "",
@@ -123,6 +123,23 @@ interface MailIngestFormState {
   subjectKeyword: string;
   userId: string;
   username: string;
+}
+
+type MailIngestAccountUpdate = ReturnType<typeof toPayload> & {
+  organizationId: string;
+  password?: string;
+};
+
+interface PlatformMailIngestAccountsQuery {
+  page: string;
+  pageSize: string;
+  search?: string;
+  sortBy?: PlatformMailIngestSortBy;
+  sortOrder?: "asc" | "desc";
+}
+
+function isMailIngestProviderId(value: string): value is MailIngestProviderId {
+  return MAIL_INGEST_PROVIDERS.some((provider) => provider.id === value);
 }
 
 function buildNewForm(user: PlatformMailIngestAccountRow["user"]): MailIngestFormState {
@@ -216,13 +233,16 @@ function PlatformMailIngestAccountDialog({
       const password = form.password.trim();
 
       if (row.account) {
+        const update: MailIngestAccountUpdate = {
+          ...payload,
+          organizationId: row.organization.id,
+        };
+        if (password) {
+          update.password = password;
+        }
         await rpcFetch<MailIngestAccountRecord>(
           rpc.api.platform["mail-ingest-accounts"][":id"].$patch({
-            json: {
-              ...payload,
-              organizationId: row.organization.id,
-              ...(password ? { password } : {}),
-            },
+            json: update,
             param: { id: row.account.id },
           }),
           "邮箱监听配置更新失败",
@@ -344,14 +364,14 @@ function PlatformMailIngestAccountDialog({
               <Select
                 disabled={pending}
                 value={form.providerId}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
+                  if (!value || !isMailIngestProviderId(value)) {
+                    return;
+                  }
                   setForm((current) =>
-                    applyMailIngestProvider(
-                      { ...current, providerId: value as MailIngestProviderId },
-                      value as MailIngestProviderId,
-                    ),
-                  )
-                }
+                    applyMailIngestProvider({ ...current, providerId: value }, value),
+                  );
+                }}
               >
                 <SelectTrigger className="w-full" id="platform-mail-ingest-provider">
                   <SelectValue />
@@ -438,16 +458,23 @@ export function PlatformMailIngestAccountsGrid() {
     params: DataGridFetchParams<Record<string, never>>,
   ): Promise<PlatformMailIngestAccountsResult> {
     const sortBy = normalizeSortBy(params.sortBy);
+    const query: PlatformMailIngestAccountsQuery = {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    };
+    if (params.search) {
+      query.search = params.search;
+    }
+    if (sortBy) {
+      query.sortBy = sortBy;
+    }
+    if (params.sortOrder) {
+      query.sortOrder = params.sortOrder;
+    }
 
     return rpcFetch<PlatformMailIngestAccountsResult>(
       rpc.api.platform["mail-ingest-accounts"].$get({
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { search: params.search } : {}),
-          ...(sortBy ? { sortBy } : {}),
-          ...(params.sortOrder ? { sortOrder: params.sortOrder } : {}),
-        },
+        query,
       }),
       "加载邮箱监听列表失败",
     );

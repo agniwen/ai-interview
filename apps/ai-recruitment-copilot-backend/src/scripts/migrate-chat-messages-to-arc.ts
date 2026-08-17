@@ -3,13 +3,14 @@ import { pathToFileURL } from "node:url";
 import { eq } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
+import type { JsonValue } from "@arc/db-schema/json";
 import { chatMessage } from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
 import { loadStandaloneEnv } from "../standalone/env";
 
 interface ChatMessageMigrationLog {
-  [key: string]: unknown;
+  [key: string]: JsonValue | undefined;
   event: string;
 }
 

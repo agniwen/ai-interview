@@ -5,6 +5,7 @@ import type { EventListeners } from "overlayscrollbars";
 import { cell, defineChart } from "@tanstack/charts";
 import { scaleBand, scaleOrdinal } from "d3-scale";
 import { utcDay, utcSunday } from "d3-time";
+import { z } from "zod";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
@@ -48,6 +49,14 @@ interface CalendarDayCell {
   week: number;
   weekday: string;
 }
+
+const calendarTooltipDatumSchema = z.object({
+  count: z.number(),
+  day: z.string(),
+  inRange: z.boolean(),
+});
+
+type CalendarTooltipDatum = z.infer<typeof calendarTooltipDatumSchema>;
 
 function formatUtcDay(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -127,7 +136,7 @@ function scrollViewportToEnd(viewport: HTMLElement) {
   viewport.scrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
 }
 
-function formatTooltip(row: CalendarDayCell, unitLabel: string): string {
+function formatTooltip(row: CalendarTooltipDatum, unitLabel: string): string {
   if (!row.inRange) {
     return `${row.day}\n不在统计范围内`;
   }
@@ -221,7 +230,10 @@ export function ContributionCalendar({
       ],
       tooltip: {
         ...chartTooltip,
-        format: (point) => formatTooltip(point.datum as CalendarDayCell, unitLabel),
+        format: (point) => {
+          const result = calendarTooltipDatumSchema.safeParse(point.datum);
+          return result.success ? formatTooltip(result.data, unitLabel) : "数据不可用";
+        },
       },
       x: {
         axis: {

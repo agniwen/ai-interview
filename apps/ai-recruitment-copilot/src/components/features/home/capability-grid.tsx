@@ -194,16 +194,16 @@ function LiveVoiceVisual() {
 
 // 结构化评估：评估维度 + 进度条
 function ScoreVisual() {
-  const rows: { label: string; tone: "amber" | "emerald" | "foreground"; value: number }[] = [
+  const rows = [
     { label: "亮点", tone: "emerald", value: 0.8 },
     { label: "风险", tone: "amber", value: 0.25 },
     { label: "推荐度", tone: "foreground", value: 0.84 },
-  ];
-  const toneClass: Record<(typeof rows)[number]["tone"], string> = {
+  ] as const;
+  const toneClass = {
     amber: "bg-amber-500/70 dark:bg-amber-400/70",
     emerald: "bg-emerald-500/70 dark:bg-emerald-400/70",
     foreground: "bg-foreground/60",
-  };
+  } as const satisfies Record<(typeof rows)[number]["tone"], string>;
   return (
     <div className="flex flex-col gap-2.5">
       {rows.map((r) => (

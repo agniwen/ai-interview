@@ -122,7 +122,9 @@ describe("OpenAI Meeting transcription adapter", () => {
     for (const call of fetch.mock.calls) {
       const body = call[1]?.body;
       expect(body).toBeInstanceOf(FormData);
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       expect((body as FormData).get("response_format")).toBe("diarized_json");
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       expect((body as FormData).get("chunking_strategy")).toBe("auto");
     }
   });

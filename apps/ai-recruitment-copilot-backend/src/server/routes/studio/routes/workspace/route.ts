@@ -23,16 +23,27 @@ import {
   recruitingGroupInputSchema,
   workspaceUpdateSchema,
 } from "./schema";
+import { z } from "zod";
 
-function isRecruitingGroupNameConflict(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
+interface DatabaseErrorBoundary {
+  error: unknown;
+}
+
+const databaseErrorSchema = z.object({
+  cause: z.unknown().optional(),
+  code: z.string().optional(),
+  constraint: z.string().optional(),
+});
+
+function isRecruitingGroupNameConflict(error: DatabaseErrorBoundary["error"]): boolean {
+  const result = databaseErrorSchema.safeParse(error);
+  if (!result.success) {
     return false;
   }
-  const candidate = error as { cause?: unknown; code?: unknown; constraint?: unknown };
   return (
-    candidate.code === "23505" ||
-    candidate.constraint === "recruiting_group_org_name_uq" ||
-    isRecruitingGroupNameConflict(candidate.cause)
+    result.data.code === "23505" ||
+    result.data.constraint === "recruiting_group_org_name_uq" ||
+    isRecruitingGroupNameConflict(result.data.cause)
   );
 }
 

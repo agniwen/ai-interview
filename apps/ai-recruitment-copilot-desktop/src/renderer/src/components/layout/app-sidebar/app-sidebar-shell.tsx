@@ -13,10 +13,15 @@ import {
   SidebarHeaderPortalProvider,
 } from "./portals";
 
-const sidebarStyle = {
+interface SidebarStyle extends CSSProperties {
+  "--sidebar-width": string;
+  "--sidebar-width-icon": string;
+}
+
+const sidebarStyle: SidebarStyle = {
   "--sidebar-width": "17rem",
   "--sidebar-width-icon": "3rem",
-} as CSSProperties;
+};
 
 /**
  * Always-on sidebar footer (user chip). Lives under SidebarProvider so

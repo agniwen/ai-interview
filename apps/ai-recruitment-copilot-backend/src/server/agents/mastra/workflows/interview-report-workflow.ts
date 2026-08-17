@@ -6,8 +6,8 @@ import {
   composeInterviewReport,
   generateInterviewEvaluation,
   generateInterviewSummary,
+  interviewEvaluationSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
-import type { InterviewEvaluation } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 
 const interviewTranscriptTurnSchema = z.object({
   message: z.string().min(1),
@@ -38,12 +38,12 @@ export type InterviewReportWorkflowOutput = z.output<typeof interviewReportOutpu
 
 const settledStringSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("fulfilled"), value: z.string() }),
-  z.object({ reason: z.unknown(), status: z.literal("rejected") }),
+  z.object({ reason: z.string(), status: z.literal("rejected") }),
 ]);
 
 const settledEvaluationSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("fulfilled"), value: z.unknown() }),
-  z.object({ reason: z.unknown(), status: z.literal("rejected") }),
+  z.object({ status: z.literal("fulfilled"), value: interviewEvaluationSchema }),
+  z.object({ reason: z.string(), status: z.literal("rejected") }),
 ]);
 
 const summaryOutputSchema = interviewReportInputSchema.extend({
@@ -58,8 +58,6 @@ const reportGenerationOutputSchema = z.object({
   evaluation: evaluationOutputSchema,
   summary: summaryOutputSchema,
 });
-
-type ComposeInterviewReportInput = Parameters<typeof composeInterviewReport>[0];
 
 export interface InterviewReportWorkflowDeps {
   composeReport: typeof composeInterviewReport;
@@ -135,10 +133,8 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
     // oxlint-disable-next-line require-await -- Mastra step execute functions are typed as async.
     execute: async ({ inputData }) =>
       deps.composeReport({
-        evaluationResult: inputData.evaluation
-          .evaluationResult as PromiseSettledResult<InterviewEvaluation>,
-        summaryResult: inputData.summary
-          .summaryResult as ComposeInterviewReportInput["summaryResult"],
+        evaluationResult: inputData.evaluation.evaluationResult,
+        summaryResult: inputData.summary.summaryResult,
       }),
     id: "compose-interview-report",
     inputSchema: reportGenerationOutputSchema,
@@ -168,13 +164,16 @@ export const interviewReportWorkflow = createInterviewReportWorkflow({
   generateSummary: generateInterviewSummary,
 });
 
-export async function runInterviewReportWorkflow(input: {
-  candidateFormResponses: z.input<typeof interviewReportInputSchema>["candidateFormResponses"];
-  dataCollectionResults: z.input<typeof interviewReportInputSchema>["dataCollectionResults"];
-  questions: z.input<typeof interviewReportInputSchema>["questions"];
-  transcript: z.input<typeof interviewReportInputSchema>["transcript"];
-}): Promise<InterviewReportWorkflowOutput> {
-  const run = await interviewReportWorkflow.createRun();
+export async function runInterviewReportWorkflow(
+  input: {
+    candidateFormResponses: z.input<typeof interviewReportInputSchema>["candidateFormResponses"];
+    dataCollectionResults: z.input<typeof interviewReportInputSchema>["dataCollectionResults"];
+    questions: z.input<typeof interviewReportInputSchema>["questions"];
+    transcript: z.input<typeof interviewReportInputSchema>["transcript"];
+  },
+  workflow = interviewReportWorkflow,
+): Promise<InterviewReportWorkflowOutput> {
+  const run = await workflow.createRun();
   const result = await run.start({ inputData: input });
 
   if (result.status === "success") {

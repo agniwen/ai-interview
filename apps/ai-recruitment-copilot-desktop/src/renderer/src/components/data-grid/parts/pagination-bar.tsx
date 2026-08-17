@@ -114,7 +114,11 @@ export function PaginationBar({
               />
             </PaginationItem>
             {visiblePages.map((visiblePage) =>
-              typeof visiblePage === "number" ? (
+              visiblePage === "ellipsis-start" || visiblePage === "ellipsis-end" ? (
+                <PaginationItem key={visiblePage}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              ) : (
                 <PaginationItem key={visiblePage}>
                   <PaginationLink
                     aria-label={`第 ${visiblePage} 页`}
@@ -130,10 +134,6 @@ export function PaginationBar({
                   >
                     {visiblePage}
                   </PaginationLink>
-                </PaginationItem>
-              ) : (
-                <PaginationItem key={visiblePage}>
-                  <PaginationEllipsis />
                 </PaginationItem>
               ),
             )}

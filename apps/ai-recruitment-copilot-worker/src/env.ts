@@ -37,9 +37,14 @@ function summarizeUrl(raw: string | undefined): Record<string, string | boolean>
   }
 }
 
+export interface WorkerConnectionSummary {
+  databaseUrl: Record<string, string | boolean> | null;
+  redisUrl: Record<string, string | boolean> | null;
+}
+
 export function getWorkerConnectionSummary(
   env: Record<string, string | undefined> = process.env,
-): Record<string, Record<string, string | boolean> | null> {
+): WorkerConnectionSummary {
   return {
     databaseUrl: summarizeUrl(env.DATABASE_URL),
     redisUrl: summarizeUrl(env.REDIS_URL),

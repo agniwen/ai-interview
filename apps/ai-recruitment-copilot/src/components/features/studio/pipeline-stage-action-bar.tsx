@@ -121,7 +121,9 @@ export function PipelineStageActionBar({
       <Button
         disabled={isBusy}
         key="copy-ai-interview-link"
-        onClick={() => void copyInterviewLink({ interviewLink: aiRoundInterviewLink })}
+        onClick={async () => {
+          await copyInterviewLink({ interviewLink: aiRoundInterviewLink });
+        }}
         size="sm"
         type="button"
       >
@@ -375,6 +377,11 @@ interface StageButton {
   side: "left" | "right";
 }
 
+interface StageActionGroups {
+  left: ReactNode[];
+  right: ReactNode[];
+}
+
 function getStageActions(props: {
   pipelineStage: PipelineStage;
   canCreateHumanInterview: boolean;
@@ -386,7 +393,7 @@ function getStageActions(props: {
   isBusy: boolean;
   onAdvance: (target: PipelineStage) => void | Promise<void>;
   onRequestReactivate: () => void;
-}): { left: ReactNode[]; right: ReactNode[] } {
+}): StageActionGroups {
   const {
     pipelineStage,
     canCreateHumanInterview,
@@ -523,7 +530,9 @@ function getStageActions(props: {
           <Button
             disabled={isBusy}
             key="to-ai"
-            onClick={() => void onAdvance("ai_interview")}
+            onClick={async () => {
+              await onAdvance("ai_interview");
+            }}
             size="sm"
           >
             <IconArrowRight className="size-4" />
@@ -540,7 +549,7 @@ function getStageActions(props: {
     }
   }
 
-  const groups: { left: ReactNode[]; right: ReactNode[] } = { left: [], right: [] };
+  const groups: StageActionGroups = { left: [], right: [] };
   for (const button of buttons) {
     groups[button.side].push(button.node);
   }

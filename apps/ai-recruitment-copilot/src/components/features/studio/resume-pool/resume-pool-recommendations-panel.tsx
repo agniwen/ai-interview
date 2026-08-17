@@ -103,12 +103,38 @@ function JobDescriptionRecommendationCard({
   );
 }
 
+export interface ResumePoolRecommendationsDependencies {
+  bindResumePoolItem: typeof bindResumePoolItem;
+  fetchRecommendations: (
+    slug: string,
+    resumePoolItemId: string,
+  ) => Promise<JobDescriptionRecommendationResult>;
+  isConflictError: (error: Error) => boolean;
+  notifyError: (message: string) => void;
+}
+
+const defaultDependencies: ResumePoolRecommendationsDependencies = {
+  bindResumePoolItem,
+  fetchRecommendations: (slug, resumePoolItemId) =>
+    rpcFetch<JobDescriptionRecommendationResult>(
+      rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
+        json: { topN: 10 },
+        param: { id: resumePoolItemId, slug },
+      }),
+      "加载岗位推荐失败",
+    ),
+  isConflictError: (error) => isApiError(error) && error.status === 409,
+  notifyError: (message) => toast.error(message),
+};
+
 export function ResumePoolRecommendationsPanel({
   detail,
+  dependencies = defaultDependencies,
   onBound,
   slug,
 }: {
   detail: ResumePoolDetail;
+  dependencies?: ResumePoolRecommendationsDependencies;
   onBound?: () => void;
   slug: string;
 }) {
@@ -116,29 +142,23 @@ export function ResumePoolRecommendationsPanel({
   const queryClient = useQueryClient();
   const query = useQuery({
     enabled: !bound,
-    queryFn: (): Promise<JobDescriptionRecommendationResult> =>
-      rpcFetch<JobDescriptionRecommendationResult>(
-        rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
-          json: { topN: 10 },
-          param: { id: detail.id, slug },
-        }),
-        "加载岗位推荐失败",
-      ),
+    queryFn: () => dependencies.fetchRecommendations(slug, detail.id),
     queryKey: ["resume-pool", "jd-recommendations", slug, detail.id] as const,
     staleTime: 60 * 1000,
   });
 
   const bindMutation = useMutation({
-    mutationFn: (jobDescriptionId: string) => bindResumePoolItem(slug, detail.id, jobDescriptionId),
+    mutationFn: (jobDescriptionId: string) =>
+      dependencies.bindResumePoolItem(slug, detail.id, jobDescriptionId),
     onError: (error) => {
-      if (isApiError(error) && error.status === 409) {
-        toast.error("该简历已绑定岗位");
+      if (dependencies.isConflictError(error)) {
+        dependencies.notifyError("该简历已绑定岗位");
         void queryClient.invalidateQueries({
           queryKey: ["resume-pool", "detail", slug, detail.id],
         });
         return;
       }
-      toast.error("绑定失败");
+      dependencies.notifyError("绑定失败");
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["resume-pool", "detail", slug, detail.id] });

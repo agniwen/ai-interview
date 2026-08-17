@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
@@ -20,6 +20,16 @@ interface AnimatedHeightProps {
   disabled?: boolean;
   /** 自定义 className（一般不需要传）。 */
   className?: string;
+  renderContainer?: (props: AnimatedHeightRenderProps) => ReactNode;
+}
+
+export interface AnimatedHeightRenderProps {
+  children: ReactNode;
+  className?: string;
+  height: number | "auto";
+  innerRef: RefObject<HTMLDivElement | null>;
+  onAnimationComplete: () => void;
+  style: CSSProperties;
 }
 
 /**
@@ -40,6 +50,7 @@ export function AnimatedHeight({
   disabled = false,
   duration = 0.24,
   className,
+  renderContainer,
 }: AnimatedHeightProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -74,17 +85,37 @@ export function AnimatedHeight({
     return <div className={className}>{children}</div>;
   }
 
+  const animationStyle = {
+    boxSizing: "content-box",
+    overflow: clip ? "hidden" : "visible",
+  } satisfies CSSProperties;
+  const animationComplete = () => {
+    containerRef.current?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
+  };
+  if (renderContainer) {
+    return renderContainer({
+      children: (
+        <div ref={innerRef} style={{ display: "flow-root" }}>
+          {children}
+        </div>
+      ),
+      className: cn("-m-1 p-1", className),
+      height,
+      innerRef: containerRef,
+      onAnimationComplete: animationComplete,
+      style: animationStyle,
+    });
+  }
+
   return (
     <m.div
       animate={{ height }}
       className={cn("-m-1 p-1", className)}
       data-slot="animated-height"
       initial={false}
-      onAnimationComplete={() => {
-        containerRef.current?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
-      }}
+      onAnimationComplete={animationComplete}
       ref={containerRef}
-      style={{ boxSizing: "content-box", overflow: clip ? "hidden" : "visible" }}
+      style={animationStyle}
       transition={{ duration, ease: [0.77, 0, 0.175, 1] as const }}
     >
       {/*

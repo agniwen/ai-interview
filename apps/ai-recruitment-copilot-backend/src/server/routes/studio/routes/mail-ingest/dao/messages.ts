@@ -34,7 +34,7 @@ const PROCESSING_STALE_MS = 30 * 60 * 1000;
 const ERROR_MAX = 500;
 const DISPLAY_ERROR_MAX = 300;
 
-function truncateError(error: unknown): string {
+function truncateError(error: Error | string): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.length > ERROR_MAX ? message.slice(0, ERROR_MAX) : message;
 }
@@ -134,7 +134,7 @@ export async function updateMailIngestMessageResult(
   id: string,
   result: {
     batchId?: string | null;
-    error?: unknown;
+    error?: Error | string;
     status: MailIngestMessageStatus;
     jdBindStatus?: MailIngestJdBindStatus | null;
     boundJobDescriptionId?: string | null;

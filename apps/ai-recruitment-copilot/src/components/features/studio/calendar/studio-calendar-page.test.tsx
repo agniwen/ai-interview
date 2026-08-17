@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StudioCalendarPage } from "./studio-calendar-page";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fetchStudioCalendarMock = vi.hoisted(() =>
@@ -89,7 +90,7 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
             },
           ],
           endAt: endAt.toISOString(),
-          format: "offline" as const,
+          format: "onsite" as const,
           id: "human:round-4",
           interviewers: [{ id: "user-2", name: "陈面试官" }],
           kind: "human" as const,
@@ -103,10 +104,6 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
     });
   }),
 );
-
-vi.mock("@/lib/client/api", () => ({
-  fetchStudioCalendar: fetchStudioCalendarMock,
-}));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -131,7 +128,7 @@ describe("StudioCalendarPage", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <StudioCalendarPage slug="demo" />
+          <StudioCalendarPage fetchCalendar={fetchStudioCalendarMock} slug="demo" />
         </QueryClientProvider>,
       );
     });

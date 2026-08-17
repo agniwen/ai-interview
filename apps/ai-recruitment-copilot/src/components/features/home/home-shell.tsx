@@ -22,8 +22,8 @@ export default function HomeShell() {
   // The homepage is only visible to signed-out users. Both CTAs enter the
   // dedicated login page with their intent in goto; after sign-in, the root
   // route resolves the active workspace and final destination.
-  const onResumeFiltering = () => void navigate({ search: { goto: "agent" }, to: "/login" });
-  const onWorkbench = () => void navigate({ search: { goto: "studio" }, to: "/login" });
+  const onResumeFiltering = () => navigate({ search: { goto: "agent" }, to: "/login" });
+  const onWorkbench = () => navigate({ search: { goto: "studio" }, to: "/login" });
 
   return (
     <>

@@ -139,7 +139,9 @@ export function actionsColumn<TData extends RowData>(
                 className="h-8 px-2.5 text-xs"
                 disabled={disabled}
                 key={action.label}
-                onClick={() => void action.onClick(record)}
+                onClick={async () => {
+                  await action.onClick(record);
+                }}
                 size="sm"
                 title={reason ?? action.label}
                 variant="text"
@@ -176,7 +178,9 @@ export function actionsColumn<TData extends RowData>(
                       {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
                       <DropdownMenuItem
                         disabled={itemDisabled}
-                        onClick={() => void item.onClick(record)}
+                        onClick={async () => {
+                          await item.onClick(record);
+                        }}
                         title={itemReason ?? undefined}
                         variant={item.variant}
                       >

@@ -3,11 +3,14 @@ import type {
   ResumeAnalysisResult,
   ResumeProfile,
 } from "@arc/db-schema/interview/types";
+import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
+import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
-import { readAiRunEventStream } from "./ai-run-event-stream";
+import { z } from "zod";
+import { analysisStreamEventSchema, readAiRunEventStream } from "./ai-run-event-stream";
 import { rpc } from "./rpc";
 
 export interface ParsedResumeResult {
@@ -43,6 +46,26 @@ export interface GenerateResumeReviewResult {
 
 export type ResumeCreateDedupPolicy = "check" | "force";
 
+const errorResponseSchema = z.object({ error: z.string().optional() }).nullable();
+const jobDescriptionMatchSchema = z
+  .object({ matchedId: z.string().nullable().optional(), reason: z.string().nullable().optional() })
+  .nullable();
+const parsedResumeResultSchema = z.object({
+  fileName: z.string(),
+  resumeProfile: resumeProfileSchema,
+  resumeText: z.string().nullable(),
+});
+const generateResumeReviewResultSchema = z.object({
+  review: z.string(),
+  structuredReview: resumeReviewSchema,
+});
+
+async function parseJsonResponse<const T>(response: Response, schema: z.ZodType<T>) {
+  const raw = await response.json().catch(() => null);
+  const parsed = schema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
 export async function parseResumeFile(
   workspaceSlug: string,
   file: File,
@@ -64,19 +87,23 @@ export async function parseResumeFile(
   );
 
   if (!response.ok) {
-    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    const errBody = await parseJsonResponse(response, errorResponseSchema);
     throw new Error(errBody?.error ?? "简历解析失败");
   }
 
   let result: ParsedResumeResult | null = null;
   let streamError: string | null = null;
 
-  await readAiRunEventStream<AnalysisStreamEvent>(
+  await readAiRunEventStream(
     response,
+    analysisStreamEventSchema,
     (event) => {
       options.onEvent?.(event);
       if (event.type === "run.completed") {
-        result = event.output as ParsedResumeResult;
+        const parsed = parsedResumeResultSchema.safeParse(event.output);
+        if (parsed.success) {
+          result = parsed.data;
+        }
       }
       if (event.type === "run.failed") {
         streamError = event.error.message;
@@ -110,10 +137,7 @@ export async function matchJobDescriptionForResume(
     return null;
   }
 
-  const payload = (await response.json().catch(() => null)) as {
-    matchedId?: string | null;
-    reason?: string | null;
-  } | null;
+  const payload = await parseJsonResponse(response, jobDescriptionMatchSchema);
 
   return {
     matchedId: payload?.matchedId ?? null,
@@ -138,10 +162,7 @@ export async function matchJobDescriptionForChatAttachment(
     return null;
   }
 
-  const payload = (await response.json().catch(() => null)) as {
-    matchedId?: string | null;
-    reason?: string | null;
-  } | null;
+  const payload = await parseJsonResponse(response, jobDescriptionMatchSchema);
 
   return {
     matchedId: payload?.matchedId ?? null,
@@ -166,7 +187,7 @@ export async function generateResumeReview({
   );
 
   if (!response.ok) {
-    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    const errBody = await parseJsonResponse(response, errorResponseSchema);
     throw new Error(errBody?.error ?? "简历评价生成失败");
   }
 
@@ -174,8 +195,9 @@ export async function generateResumeReview({
   let result: GenerateResumeReviewResult | null = null;
   let streamError: string | null = null;
 
-  await readAiRunEventStream<AnalysisStreamEvent>(
+  await readAiRunEventStream(
     response,
+    analysisStreamEventSchema,
     (event) => {
       if (signal?.aborted) {
         return;
@@ -186,8 +208,9 @@ export async function generateResumeReview({
         onDraftChange?.(draft);
       }
       if (event.type === "run.completed") {
-        const data = event.output as Partial<GenerateResumeReviewResult>;
-        if (data.review && data.structuredReview) {
+        const parsed = generateResumeReviewResultSchema.safeParse(event.output);
+        if (parsed.success) {
+          const { data } = parsed;
           result = { review: data.review, structuredReview: data.structuredReview };
           onDraftChange?.(result.review);
         }
@@ -226,7 +249,7 @@ export async function generateResumeReviewMarkdownFirst({
   );
 
   if (!response.ok) {
-    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    const errBody = await parseJsonResponse(response, errorResponseSchema);
     throw new Error(errBody?.error ?? "简历评价生成失败");
   }
 
@@ -234,8 +257,9 @@ export async function generateResumeReviewMarkdownFirst({
   let result: GenerateResumeReviewResult | null = null;
   let streamError: string | null = null;
 
-  await readAiRunEventStream<AnalysisStreamEvent>(
+  await readAiRunEventStream(
     response,
+    analysisStreamEventSchema,
     (event) => {
       if (signal?.aborted) {
         return;
@@ -246,8 +270,9 @@ export async function generateResumeReviewMarkdownFirst({
         onDraftChange?.(draft);
       }
       if (event.type === "run.completed") {
-        const data = event.output as Partial<GenerateResumeReviewResult>;
-        if (data.review && data.structuredReview) {
+        const parsed = generateResumeReviewResultSchema.safeParse(event.output);
+        if (parsed.success) {
+          const { data } = parsed;
           result = { review: data.review, structuredReview: data.structuredReview };
           onDraftChange?.(result.review);
         }

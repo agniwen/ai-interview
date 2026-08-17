@@ -7,6 +7,7 @@ import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { session, user } from "@arc/db-schema/schema";
+import { z } from "zod";
 
 type EmptyFilters = Record<string, never>;
 type UserSortColumn = "name" | "email" | "role" | "createdAt" | "lastActiveAt";
@@ -119,5 +120,6 @@ export async function loadPlatformUsersHydrationState(
     queryKey: buildDataGridQueryKey(["platform-users"], query),
   });
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

@@ -5,11 +5,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import type {
-  RoundEmailLogStatus,
-  RoundEmailSummary,
-  RoundEmailSummaryMap,
-} from "@arc/db-schema/round-email-log";
+import type { RoundEmailLogStatus, RoundEmailSummaryMap } from "@arc/db-schema/round-email-log";
 import { studioRoundEmailLog } from "@arc/db-schema/schema";
 
 interface InsertRoundEmailLogInput {
@@ -73,10 +69,7 @@ export async function summarizeRoundEmailLogs(
   // 为每个 roundId 初始化空摘要。
   // Initialize empty summary for each roundId.
   const result: RoundEmailSummaryMap = Object.fromEntries(
-    roundIds.map((id) => [
-      id,
-      { count: 0, lastSentAt: null, lastStatus: null } as RoundEmailSummary,
-    ]),
+    roundIds.map((id) => [id, { count: 0, lastSentAt: null, lastStatus: null }]),
   );
   if (roundIds.length === 0) {
     return result;

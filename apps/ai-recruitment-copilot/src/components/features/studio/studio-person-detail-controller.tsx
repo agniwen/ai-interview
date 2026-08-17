@@ -223,7 +223,7 @@ export function useStudioPersonDetailController({
   }, [activeTab, availableTabs, record]);
 
   const selectedResultEvaluationSummary = getEvaluationSummary(
-    selectedResultReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+    selectedResultReport?.evaluationCriteriaResults,
   );
   const currentResultFormSubmissions =
     mode === "interview" ? formSubmissions : resumeInterviewFormSubmissions;
@@ -237,9 +237,7 @@ export function useStudioPersonDetailController({
       ? currentResultFormItems
       : []);
   const selectedResultInterviewItems = getCollectedCandidateInfoItems({
-    evaluation: selectedResultReport?.evaluationCriteriaResults as
-      | Record<string, unknown>
-      | undefined,
+    evaluation: selectedResultReport?.evaluationCriteriaResults,
     formSubmissions: [],
   }).interviewItems;
   const isLatestResultReportSelected =

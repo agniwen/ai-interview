@@ -241,10 +241,10 @@ function buildModelSettings({
   temperature?: number;
 }): MastraGenerateOptions["modelSettings"] {
   const settings: NonNullable<MastraGenerateOptions["modelSettings"]> = {};
-  if (typeof maxOutputTokens === "number") {
+  if (maxOutputTokens !== undefined) {
     settings.maxOutputTokens = maxOutputTokens;
   }
-  if (typeof temperature === "number") {
+  if (temperature !== undefined) {
     settings.temperature = temperature;
   }
   return settings;
@@ -372,14 +372,14 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
     try {
-      result = await withTimeout(
-        agent.generate(attemptPrompt, {
-          ...(timeoutMs ? { abortSignal: AbortSignal.timeout(timeoutMs) } : {}),
-          modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
-          structuredOutput: { schema },
-        }),
-        timeoutMs,
-      );
+      const generateOptions: MastraGenerateOptions = {
+        modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+        structuredOutput: { schema },
+      };
+      if (timeoutMs !== undefined) {
+        generateOptions.abortSignal = AbortSignal.timeout(timeoutMs);
+      }
+      result = await withTimeout(agent.generate(attemptPrompt, generateOptions), timeoutMs);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (!isRetryableStructuredOutputError(lastError)) {
@@ -414,11 +414,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
         );
         if (result.text.trim()) {
           try {
-            const fallback = parseJsonOutput(
-              result.text,
-              schema as z.ZodType<z.infer<TSchema>>,
-              "structured-output-fallback",
-            );
+            const fallback = parseJsonOutput(result.text, schema, "structured-output-fallback");
             validate?.(fallback);
             return fallback;
           } catch (error) {

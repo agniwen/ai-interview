@@ -18,7 +18,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
+import { candidateOutcomeSchema, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
 
 // Dashboard activity still uses a 30-day window; the resume-library calendar
 // heatmap uses a full year for the GitHub-style contribution grid.
@@ -65,8 +65,8 @@ async function loadByPipeline(organizationId: string, createdByUserId?: string) 
 
   return rows.map((row) => ({
     count: row.count,
-    outcome: row.outcome as CandidateOutcome,
-    stage: row.pipelineStage as PipelineStage,
+    outcome: candidateOutcomeSchema.parse(row.outcome),
+    stage: pipelineStageSchema.parse(row.pipelineStage),
   }));
 }
 

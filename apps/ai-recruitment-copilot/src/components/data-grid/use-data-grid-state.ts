@@ -1,5 +1,6 @@
 "use client";
 
+import { functionalUpdate } from "@tanstack/react-table";
 import type { OnChangeFn, RowSelectionState, SortingState } from "@tanstack/react-table";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useRouterState } from "@tanstack/react-router";
@@ -38,9 +39,35 @@ export interface UseDataGridStateOptions<TData, F extends Record<string, string>
   staleTime?: number;
 }
 
-function getInitialSortOrder(first: SortingState[number] | undefined): string {
+type SearchParamValue = boolean | number | string | readonly (boolean | number | string)[];
+
+type RouteSearchParams = Record<string, SearchParamValue | undefined>;
+
+type RouteSearchUpdates = Record<string, number | string | undefined>;
+
+function isSearchParamValue(value: unknown): value is SearchParamValue {
+  if (Array.isArray(value)) {
+    return value.every(
+      (item): item is boolean | number | string =>
+        typeof item === "boolean" || typeof item === "number" || typeof item === "string",
+    );
+  }
+  return typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+
+function isRouteSearchParams(value: unknown): value is RouteSearchParams {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Object.values(value).every((item) => item === undefined || isSearchParamValue(item))
+  );
+}
+
+function getInitialSortOrder(
+  first: SortingState[number] | undefined,
+): DataGridSortOrder | undefined {
   if (!first) {
-    return "";
+    return undefined;
   }
   return first.desc === true ? "desc" : "asc";
 }
@@ -60,20 +87,9 @@ export function buildDataGridFilterResetSignature<F extends Record<string, strin
   });
 }
 
-function firstSearchValue(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (Array.isArray(value) && typeof value[0] === "string") {
-    return value[0];
-  }
-  if (Array.isArray(value) && (typeof value[0] === "number" || typeof value[0] === "boolean")) {
-    return String(value[0]);
-  }
-  return undefined;
+function firstSearchValue(value: SearchParamValue | undefined): string | undefined {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  return firstValue === undefined ? undefined : String(firstValue);
 }
 
 export function useDataGridState<TData, F extends Record<string, string>>(
@@ -81,9 +97,10 @@ export function useDataGridState<TData, F extends Record<string, string>>(
 ) {
   const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const routeSearch = useRouterState({
-    select: (state) => state.location.search as Record<string, unknown>,
+  const rawRouteSearch = useRouterState({
+    select: (state) => state.location.search,
   });
+  const routeSearch: RouteSearchParams = isRouteSearchParams(rawRouteSearch) ? rawRouteSearch : {};
   const queryClient = useQueryClient();
   const defaultPageSize = opts.defaultPageSize ?? 10;
 
@@ -96,11 +113,13 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   const deferredSearch = useDeferredValue(search);
 
   // Multi-key filter state via route search (each filter gets its own URL key).
+  // SAFETY: Object.keys returns own keys of the owner-supplied initial filter map.
   // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps -- intentional: filterKeys locked at mount
   const filterKeys = useMemo(() => Object.keys(opts.initialFilters) as (keyof F & string)[], []);
   const filters = useMemo(() => {
-    const out = {} as F;
+    const out = { ...opts.initialFilters };
     for (const key of filterKeys) {
+      // SAFETY: this hook accepts only string-valued filter maps; URL values are normalized to strings.
       out[key] = (firstSearchValue(routeSearch[key]) ?? opts.initialFilters[key]) as F[typeof key];
     }
     return out;
@@ -108,25 +127,24 @@ export function useDataGridState<TData, F extends Record<string, string>>(
 
   const initialSortFirst = opts.defaultSorting?.[0];
   const fallbackSortBy = initialSortFirst?.id;
-  const fallbackSortOrder = initialSortFirst
-    ? (getInitialSortOrder(initialSortFirst) as DataGridSortOrder)
-    : undefined;
+  const fallbackSortOrder = getInitialSortOrder(initialSortFirst);
   const sortBy = firstSearchValue(routeSearch.sortBy) ?? fallbackSortBy ?? "";
   const sortOrder =
     firstSearchValue(routeSearch.sortOrder) ?? getInitialSortOrder(initialSortFirst);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const updateRouteSearch = useCallback(
-    (updates: Record<string, number | string | undefined>) => {
+    (updates: RouteSearchUpdates) => {
       void router.navigate({
         replace: true,
         resetScroll: false,
-        search: (prev: Record<string, unknown>) => {
-          const nextSearch: Record<string, unknown> = Object.fromEntries(
-            Object.entries(prev).filter(
-              ([key]) => !(Object.hasOwn(updates, key) && updates[key] === undefined),
-            ),
-          );
+        search: (prev) => {
+          const nextSearch = { ...prev };
+          for (const [key, value] of Object.entries(updates)) {
+            if (value === undefined) {
+              Reflect.deleteProperty(nextSearch, key);
+            }
+          }
           for (const [key, value] of Object.entries(updates)) {
             if (value !== undefined) {
               nextSearch[key] = value;
@@ -135,7 +153,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
           return nextSearch;
         },
         to: pathname,
-      } as never);
+      });
     },
     [pathname, router],
   );
@@ -178,39 +196,38 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     }
   }, [filterResetSig, page, setPageRaw]);
 
-  const queryParams = useMemo(
-    () =>
-      normalizeDataGridQueryState(
-        {
-          filters,
-          page,
-          pageSize,
-          search: deferredSearch,
-          sortBy,
-          sortOrder: (sortOrder as DataGridSortOrder) || undefined,
-        },
-        {
-          allowedSortIds: opts.allowedSortIds,
-          defaultPageSize,
-          fallbackSortBy,
-          fallbackSortOrder,
-          maxPageSize: opts.maxPageSize,
-        },
-      ),
-    [
-      deferredSearch,
-      defaultPageSize,
-      fallbackSortBy,
-      fallbackSortOrder,
-      filters,
-      opts.allowedSortIds,
-      opts.maxPageSize,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-    ],
-  );
+  const queryParams = useMemo(() => {
+    const sortOrderValue = sortOrder === "asc" || sortOrder === "desc" ? sortOrder : undefined;
+    return normalizeDataGridQueryState(
+      {
+        filters,
+        page,
+        pageSize,
+        search: deferredSearch,
+        sortBy,
+        sortOrder: sortOrderValue,
+      },
+      {
+        allowedSortIds: opts.allowedSortIds,
+        defaultPageSize,
+        fallbackSortBy,
+        fallbackSortOrder,
+        maxPageSize: opts.maxPageSize,
+      },
+    );
+  }, [
+    deferredSearch,
+    defaultPageSize,
+    fallbackSortBy,
+    fallbackSortOrder,
+    filters,
+    opts.allowedSortIds,
+    opts.maxPageSize,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
+  ]);
 
   const sorting: SortingState = useMemo(() => {
     if (!queryParams.sortBy) {
@@ -220,7 +237,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   }, [queryParams.sortBy, queryParams.sortOrder]);
 
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
-    const next = typeof updater === "function" ? updater(sorting) : updater;
+    const next = functionalUpdate(updater, sorting);
     const [head] = next;
     let nextOrder = "";
     if (head) {
@@ -270,13 +287,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     pageSize: queryParams.pageSize,
   };
 
-  const filterValues = useMemo(() => {
-    const out: Record<string, string> = { search };
-    for (const key of filterKeys) {
-      out[key] = filters[key];
-    }
-    return out;
-  }, [search, filters, filterKeys]);
+  const filterValues = useMemo(() => ({ ...filters, search }), [search, filters, filterKeys]);
 
   const onFilterChange = (key: string, value: string) => {
     if (key === "search") {
@@ -292,10 +303,11 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     search.trim() !== "" || filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
 
   const onResetFilters = () => {
-    const updates: Record<string, number | string | undefined> = { page: 1, search: undefined };
-    for (const key of filterKeys) {
-      updates[key] = opts.initialFilters[key] || undefined;
-    }
+    const updates = Object.fromEntries([
+      ["page", 1],
+      ["search", undefined],
+      ...filterKeys.map((key) => [key, opts.initialFilters[key] || undefined]),
+    ]);
     updateRouteSearch(updates);
   };
 

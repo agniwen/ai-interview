@@ -67,7 +67,8 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import type { SearchParamsRecord } from "@/lib/client/studio-interviews-search";
+import { firstSearchValue } from "@/lib/client/data-grid-search";
+import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -88,13 +89,6 @@ interface WorkspaceMember {
   name: string;
   email: string;
   image: string | null;
-}
-
-function firstSearchValue(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
-  return Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
 }
 
 // AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
@@ -124,7 +118,7 @@ export function InterviewManagementPage() {
   const fetchRounds = useMemo(
     () =>
       (params: FetchParams): Promise<PaginatedStudioInterviewRoundsResult> => {
-        const query: Record<string, string> = {
+        const query: SearchParamsRecord = {
           page: String(params.page),
           pageSize: String(params.pageSize),
           sortBy: params.sortBy ?? "createdAt",
@@ -237,7 +231,7 @@ export function InterviewManagementPage() {
     const nextSearch: SearchParamsRecord = { ...routeSearch };
     delete nextSearch.roundId;
     delete nextSearch.recordId;
-    void navigate({
+    navigate({
       params: { slug },
       replace: true,
       search: nextSearch,
@@ -440,11 +434,11 @@ export function InterviewManagementPage() {
             disabled: isAiStageLocked,
             disabledReason: aiStageLockedReason,
             label: "复制面试链接",
-            onClick: (r) => void copyInterviewLink(r),
+            onClick: copyInterviewLink,
           },
           {
             label: "复制公共访问链接",
-            onClick: (r) => void copyPublicInterviewLink(r),
+            onClick: copyPublicInterviewLink,
           },
           {
             label: "删除",

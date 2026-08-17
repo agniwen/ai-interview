@@ -5,6 +5,18 @@ import {
   parseFeishuMeetingLifecycleEvent,
 } from "../utils/meeting-lifecycle";
 
+interface LarkMeetingEvent {
+  event: { meeting: { id: string } };
+  header: { event_type: string };
+  schema: string;
+}
+interface InternalLarkChannel {
+  dispatcher: {
+    invoke: (data: LarkMeetingEvent, options: { needCheck: boolean }) => Promise<void>;
+  };
+  registerDispatcherHandlers: () => void;
+}
+
 describe("parseFeishuMeetingLifecycleEvent", () => {
   it("maps a started event and accepts second-based timestamps", () => {
     const event = parseFeishuMeetingLifecycleEvent(
@@ -75,10 +87,9 @@ describe("LarkChannel event handlers", () => {
       appSecret: "secret_test",
       eventHandlers: { "vc.meeting.meeting_started_v1": handler },
     });
-    const internalChannel = channel as unknown as {
-      dispatcher: { invoke: (data: unknown, options: { needCheck: boolean }) => Promise<void> };
-      registerDispatcherHandlers: () => void;
-    };
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    // SAFETY: Object.create preserves the SDK instance prototype while exposing its private test seam.
+    const internalChannel = Object.create(channel) as InternalLarkChannel;
 
     internalChannel.registerDispatcherHandlers();
     await internalChannel.dispatcher.invoke(

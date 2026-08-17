@@ -18,6 +18,7 @@ import { hc } from "hono/client";
 export const rpc = hc<AppType>("", {
   // 中文：携带 Cookie，让同源挂载和独立 Hono 域名部署都能保留 better-auth session。
   // English: include cookies for both same-origin mounts and cross-origin Hono deployments.
+  // SAFETY: The wrapper preserves fetch's input and return contracts while only setting credentials.
   fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
     fetch(input, {
       ...init,

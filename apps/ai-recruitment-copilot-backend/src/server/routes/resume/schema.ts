@@ -23,6 +23,8 @@ export const resumeChatRequestSchema = z
   })
   .strict();
 
+export type ResumeChatMessagesInput = z.input<typeof resumeChatRequestSchema>["messages"];
+
 export const resumeTitleRequestSchema = z.object({
   hasFiles: z.boolean().optional(),
   text: z.string().trim().min(1).max(5000),

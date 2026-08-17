@@ -29,6 +29,7 @@ const checkpointSchema = z.object({
     .nullable(),
   runs: z.array(meetingTranscriptionBenchmarkRunSchema),
 });
+const nodeFileErrorSchema = z.object({ code: z.string().optional() }).passthrough();
 
 interface MeetingTranscriptionBenchmarkCheckpoint {
   attemptHistory: {
@@ -67,7 +68,8 @@ export async function loadMeetingTranscriptionBenchmarkCheckpoint(
   try {
     raw = await readFile(path, "utf-8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    const fileError = nodeFileErrorSchema.safeParse(error);
+    if (fileError.success && fileError.data.code === "ENOENT") {
       return {
         ...expected,
         attemptHistory: [],

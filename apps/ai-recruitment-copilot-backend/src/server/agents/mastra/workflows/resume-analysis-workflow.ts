@@ -85,12 +85,15 @@ export const resumeAnalysisWorkflow = createResumeAnalysisWorkflow({
   parseResume: parseResumeBytesToProfile,
 });
 
-export async function runResumeAnalysisWorkflow(input: {
-  bytes: Uint8Array;
-  fileName: string;
-  mediaType?: string;
-}): Promise<ResumeAnalysisWorkflowOutput> {
-  const run = await resumeAnalysisWorkflow.createRun();
+export async function runResumeAnalysisWorkflow(
+  input: {
+    bytes: Uint8Array;
+    fileName: string;
+    mediaType?: string;
+  },
+  workflow = resumeAnalysisWorkflow,
+): Promise<ResumeAnalysisWorkflowOutput> {
+  const run = await workflow.createRun();
   const result = await run.start({
     inputData: {
       bytesBase64: Buffer.from(input.bytes).toString("base64"),

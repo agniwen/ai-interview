@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { JsonValue } from "./json";
 
 export const JOB_DESCRIPTION_STRUCTURED_CONFIG_VERSION = 1;
 export const JOB_DESCRIPTION_HARD_GATE_MAX_LENGTH = 2000;
@@ -82,6 +83,7 @@ export const DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES: JobDescriptionDeductionRul
 };
 
 export function createDefaultJobDescriptionDeductionRules(): JobDescriptionDeductionRules {
+  // SAFETY: The source catalog contains every StructuredResumeRuleId and cloning preserves its keys.
   return Object.fromEntries(
     Object.entries(DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES).map(([ruleId, config]) => [
       ruleId,
@@ -221,11 +223,12 @@ export function createDefaultJobDescriptionStructuredConfig(): JobDescriptionStr
 }
 
 export function parseStoredJobDescriptionStructuredConfig(
-  value: unknown,
+  value: JsonValue,
 ): JobDescriptionStructuredConfig {
-  if (value && typeof value === "object" && !("deductionRules" in value)) {
+  const legacyConfig = z.record(z.string(), z.json()).safeParse(value);
+  if (legacyConfig.success && !("deductionRules" in legacyConfig.data)) {
     return jobDescriptionStructuredConfigSchema.parse({
-      ...value,
+      ...legacyConfig.data,
       deductionRules: createDefaultJobDescriptionDeductionRules(),
     });
   }

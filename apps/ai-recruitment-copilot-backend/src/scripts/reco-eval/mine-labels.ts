@@ -41,20 +41,26 @@ export async function mineLabels(organizationId: string): Promise<PositiveLabel[
         isNotNull(studioInterview.jobDescriptionId),
       ),
     );
-  return rows
-    .filter((r) =>
-      isMinedPositive({
-        outcome: r.outcome,
-        pipelineStage: r.pipelineStage,
-        previousStage: r.closedMeta?.previousStage ?? null,
-      }),
-    )
-    .map((r) => ({
-      candidateId: r.id,
-      jobDescriptionId: r.jobDescriptionId as string,
-      label: "positive" as const,
-      source: "mined" as const,
-    }));
+  return rows.flatMap((row) => {
+    if (
+      !row.jobDescriptionId ||
+      !isMinedPositive({
+        outcome: row.outcome,
+        pipelineStage: row.pipelineStage,
+        previousStage: row.closedMeta?.previousStage ?? null,
+      })
+    ) {
+      return [];
+    }
+    return [
+      {
+        candidateId: row.id,
+        jobDescriptionId: row.jobDescriptionId,
+        label: "positive" as const,
+        source: "mined" as const,
+      },
+    ];
+  });
 }
 
 export async function loadValidLabelKeys(organizationId: string): Promise<Set<string>> {
@@ -68,9 +74,11 @@ export async function loadValidLabelKeys(organizationId: string): Promise<Set<st
         eq(studioInterview.resumeParseStatus, "ready"),
       ),
     );
-  return new Set(
-    rows
-      .filter((r) => r.jobDescriptionId)
-      .map((r) => labelKey({ candidateId: r.id, jobDescriptionId: r.jobDescriptionId as string })),
-  );
+  const keys = new Set<string>();
+  for (const row of rows) {
+    if (row.jobDescriptionId) {
+      keys.add(labelKey({ candidateId: row.id, jobDescriptionId: row.jobDescriptionId }));
+    }
+  }
+  return keys;
 }

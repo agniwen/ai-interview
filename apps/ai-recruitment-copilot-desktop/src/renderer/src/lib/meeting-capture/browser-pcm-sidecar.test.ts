@@ -18,6 +18,7 @@ describe("browser PCM sidecar", () => {
 
     await expect(
       createBrowserPcmSidecar({
+        // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
         mediaTrack: {} as MediaStreamTrack,
         onFrame: vi.fn(),
       }),

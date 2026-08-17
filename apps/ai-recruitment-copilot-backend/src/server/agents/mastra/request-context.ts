@@ -1,10 +1,14 @@
+import { z } from "zod";
+
+type RequestContextValue = string | number | boolean | null | undefined;
+
 export interface MastraRequestContextInput {
   workspaceId?: string | null;
   workspaceSlug?: string | null;
   userId?: string | null;
   conversationId?: string | null;
   resumeRecordId?: string | null;
-  extra?: Record<string, unknown>;
+  extra?: Record<string, RequestContextValue>;
 }
 
 export interface MastraMemoryScopeInput {
@@ -14,7 +18,7 @@ export interface MastraMemoryScopeInput {
   resumeRecordId?: string | null;
 }
 
-type RequestContextValue = string | number | boolean | null | undefined;
+const requestContextStringSchema = z.string();
 
 function cleanString(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -22,12 +26,13 @@ function cleanString(value: string | null | undefined): string | undefined {
 }
 
 function addContextValue(
-  context: Map<string, unknown>,
+  context: Map<string, RequestContextValue>,
   key: string,
   value: RequestContextValue,
 ): void {
-  if (typeof value === "string") {
-    const cleaned = cleanString(value);
+  const stringResult = requestContextStringSchema.safeParse(value);
+  if (stringResult.success) {
+    const cleaned = cleanString(stringResult.data);
     if (cleaned) {
       context.set(key, cleaned);
     }
@@ -39,8 +44,10 @@ function addContextValue(
   }
 }
 
-export function toMastraRequestContext(input: MastraRequestContextInput): Map<string, unknown> {
-  const context = new Map<string, unknown>();
+export function toMastraRequestContext(
+  input: MastraRequestContextInput,
+): Map<string, RequestContextValue> {
+  const context = new Map<string, RequestContextValue>();
 
   addContextValue(context, "workspaceId", input.workspaceId);
   addContextValue(context, "workspaceSlug", input.workspaceSlug);
@@ -49,7 +56,7 @@ export function toMastraRequestContext(input: MastraRequestContextInput): Map<st
   addContextValue(context, "resumeRecordId", input.resumeRecordId);
 
   for (const [key, value] of Object.entries(input.extra ?? {})) {
-    addContextValue(context, key, value as RequestContextValue);
+    addContextValue(context, key, value);
   }
 
   return context;

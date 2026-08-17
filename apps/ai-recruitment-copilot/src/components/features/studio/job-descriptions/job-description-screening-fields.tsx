@@ -6,6 +6,8 @@ import type {
   ResumeScreeningRuleSeverity,
   ResumeScreeningSkillRule,
 } from "@arc/shared/resume-screening";
+import { resumeScreeningRuleSeveritySchema } from "@arc/shared/resume-screening";
+import { z } from "zod";
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,13 @@ const SCREENING_ACTION_TOOLTIP =
 
 type MinimumEducationRule = Extract<ResumeScreeningFieldRule, { field: "minimumEducation" }>;
 type MinimumWorkYearsRule = Extract<ResumeScreeningFieldRule, { field: "minimumWorkYears" }>;
+
+const minimumEducationLevelSchema = z.enum(["none", "专科", "本科", "硕士", "博士"]);
+
+function resolveRuleSeverity(value: string | null, fallback: ResumeScreeningRuleSeverity) {
+  const severity = resumeScreeningRuleSeveritySchema.safeParse(value);
+  return severity.success ? severity.data : fallback;
+}
 
 function splitRuleLines(value: string): string[] {
   return value
@@ -318,9 +327,10 @@ export function ResumeScreeningPolicyFields({
                 <FieldContent>
                   <SearchableSelect
                     id="minimum-education"
-                    onChange={(value) =>
-                      setMinimumEducation((value ?? "none") as MinimumEducationRule["level"])
-                    }
+                    onChange={(value) => {
+                      const level = minimumEducationLevelSchema.safeParse(value);
+                      setMinimumEducation(level.success ? level.data : "none");
+                    }}
                     options={["none", "专科", "本科", "硕士", "博士"].map((value) => ({
                       label: value === "none" ? "不限" : value,
                       value,
@@ -341,7 +351,7 @@ export function ResumeScreeningPolicyFields({
                         patchPolicy({
                           rules: upsertRule(policy.rules, {
                             ...minimumEducationRule,
-                            severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                            severity: resolveRuleSeverity(value, "blocking"),
                           }),
                         });
                       }
@@ -391,7 +401,7 @@ export function ResumeScreeningPolicyFields({
                         patchPolicy({
                           rules: upsertRule(policy.rules, {
                             ...minimumWorkYearsRule,
-                            severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                            severity: resolveRuleSeverity(value, "blocking"),
                           }),
                         });
                       }
@@ -476,7 +486,7 @@ export function ResumeScreeningPolicyFields({
                   patchPolicy({
                     rules: upsertRule(policy.rules, {
                       ...requiredSkillsRule,
-                      severity: (value ?? "warning") as ResumeScreeningRuleSeverity,
+                      severity: resolveRuleSeverity(value, "warning"),
                     }),
                   });
                 }
@@ -522,7 +532,7 @@ export function ResumeScreeningPolicyFields({
               patchPolicy({
                 rules: policy.rules.map((rule) =>
                   rule.type === "semantic"
-                    ? { ...rule, severity: (value ?? "warning") as ResumeScreeningRuleSeverity }
+                    ? { ...rule, severity: resolveRuleSeverity(value, "warning") }
                     : rule,
                 ),
               })

@@ -7,6 +7,7 @@ import {
   generateStructuredWithMastraAgent,
   interviewKeyInformationAgent,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
+import type { MastraGeneratorLike } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 const KEY_INFORMATION_PROMPT = `你是一位面试重点信息提取助手。请使用岗位上下文判断信息的重要性，但只能把候选人在本轮对话中明确表达的内容作为重点信息。
 
@@ -75,24 +76,37 @@ function formatTranscript(transcript: InterviewTranscriptTurn[]): string {
     .map((turn, index) => {
       const role = turn.role === "user" ? "候选人" : "面试官";
       const time =
-        typeof turn.timeInCallSecs === "number" ? ` time=${Math.round(turn.timeInCallSecs)}s` : "";
+        turn.timeInCallSecs === undefined ? "" : ` time=${Math.round(turn.timeInCallSecs)}s`;
       return `[turnIndex=${index + 1}${time}] ${role}: ${turn.message}`;
     })
     .join("\n");
 }
 
-export async function generateInterviewKeyInformation(options: {
-  jobDescription: InterviewContextSnapshotJobDescription | null;
-  questions: InterviewQuestion[];
-  targetRole: string | null;
-  transcript: InterviewTranscriptTurn[];
-}): Promise<InterviewKeyInformation> {
+export interface InterviewKeyInformationDependencies {
+  agent: MastraGeneratorLike;
+  generate: typeof generateStructuredWithMastraAgent;
+}
+
+const defaultInterviewKeyInformationDependencies: InterviewKeyInformationDependencies = {
+  agent: interviewKeyInformationAgent,
+  generate: generateStructuredWithMastraAgent,
+};
+
+export async function generateInterviewKeyInformation(
+  options: {
+    jobDescription: InterviewContextSnapshotJobDescription | null;
+    questions: InterviewQuestion[];
+    targetRole: string | null;
+    transcript: InterviewTranscriptTurn[];
+  },
+  dependencies: InterviewKeyInformationDependencies = defaultInterviewKeyInformationDependencies,
+): Promise<InterviewKeyInformation> {
   if (options.transcript.length === 0) {
     return EMPTY_KEY_INFORMATION;
   }
 
-  return await generateStructuredWithMastraAgent({
-    agent: interviewKeyInformationAgent,
+  return await dependencies.generate({
+    agent: dependencies.agent,
     prompt: KEY_INFORMATION_PROMPT.replace("{jobContext}", formatJobContext(options))
       .replace("{questions}", formatQuestions(options.questions))
       .replace("{transcript}", formatTranscript(options.transcript)),

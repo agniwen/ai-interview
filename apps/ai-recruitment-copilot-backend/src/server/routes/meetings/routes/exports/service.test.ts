@@ -1,23 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prepareMeetingExport as prepareMeetingExportWithDependencies } from "./service";
+import type { MeetingExportDependencies } from "./service";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   loadContext: vi.fn(),
   loadTurnsPage: vi.fn(),
   presign: vi.fn(),
   recordAudit: vi.fn(),
-}));
+};
 
-vi.mock("./dao", () => ({
-  loadMeetingExportContext: mocks.loadContext,
-  loadMeetingExportTurnsPage: mocks.loadTurnsPage,
-}));
-vi.mock("../../dao", () => ({ recordMeetingAudit: mocks.recordAudit }));
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  presignRecordingGetObjectUrl: mocks.presign,
-}));
+const dependencies: MeetingExportDependencies = mocks;
 
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { prepareMeetingExport } from "./service";
+function prepareMeetingExport(input: Parameters<typeof prepareMeetingExportWithDependencies>[0]) {
+  return prepareMeetingExportWithDependencies(input, dependencies);
+}
 
 const input = {
   format: "json" as const,

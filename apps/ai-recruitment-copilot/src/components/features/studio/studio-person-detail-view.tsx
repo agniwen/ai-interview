@@ -31,6 +31,21 @@ import { InterviewReportMetadataDialog } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
 import { StudioPersonDetailBody } from "./studio-person-detail-body";
 
+const DETAIL_TABS = {
+  "ai-analysis": true,
+  experience: true,
+  "human-interview": true,
+  instructions: true,
+  offer: true,
+  overview: true,
+  rounds: true,
+  transcript: true,
+} satisfies Record<StudioPersonDetailTab, boolean>;
+
+function isStudioPersonDetailTab(value: string): value is StudioPersonDetailTab {
+  return value in DETAIL_TABS;
+}
+
 export function StudioPersonDetailView({ model }: { model: StudioPersonDetailViewModel }) {
   const {
     activeTab,
@@ -66,7 +81,11 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     <>
       <Tabs
         key={`${roundId ?? recordId ?? "empty"}`}
-        onValueChange={(value) => setActiveTab(value as StudioPersonDetailTab)}
+        onValueChange={(value) => {
+          if (isStudioPersonDetailTab(value)) {
+            setActiveTab(value);
+          }
+        }}
         value={activeTab}
       >
         {shell({
@@ -131,7 +150,11 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void confirmResetSubmission()}>
+              <AlertDialogAction
+                onClick={() => {
+                  confirmResetSubmission();
+                }}
+              >
                 确认重置
               </AlertDialogAction>
             </AlertDialogFooter>

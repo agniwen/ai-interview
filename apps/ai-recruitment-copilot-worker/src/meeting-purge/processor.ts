@@ -1,9 +1,9 @@
-import {
+import type {
   abortMeetingRecordingMultipartUpload,
   deleteMeetingRecordingObject,
   headMeetingRecordingObject,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
+import type {
   claimMeetingPurge,
   completeMeetingPurgeStorageBatch,
   continueMeetingPurgeProviderBatch,
@@ -29,30 +29,11 @@ export interface MeetingPurgeDependencies {
   release: typeof releaseMeetingPurgeClaim;
 }
 
-function deleteProviderArtifact(
-  _input: MeetingProviderArtifactInput & { provider: string },
-): Promise<"deleted" | "unsupported"> {
-  return Promise.resolve("unsupported");
-}
-
-const defaultDependencies: MeetingPurgeDependencies = {
-  abortMultipartUpload: abortMeetingRecordingMultipartUpload,
-  claim: claimMeetingPurge,
-  completeStorageBatch: completeMeetingPurgeStorageBatch,
-  continueProviderBatch: continueMeetingPurgeProviderBatch,
-  deleteProviderArtifact,
-  deleteStorageObject: deleteMeetingRecordingObject,
-  finalize: finalizeMeetingPurge,
-  headStorageObject: headMeetingRecordingObject,
-  recordProviderOutcome: recordMeetingProviderPurgeOutcome,
-  release: releaseMeetingPurgeClaim,
-};
-
 const STORAGE_OPERATION_CONCURRENCY = 8;
 const PROVIDER_DELETE_TIMEOUT_MS = 30_000;
 
-function purgeFailureCode(error: unknown): string {
-  if (error instanceof Error && error.message.startsWith("meeting-")) {
+function purgeFailureCode(error: Error): string {
+  if (error.message.startsWith("meeting-")) {
     return error.message;
   }
   return "meeting-purge-failed";
@@ -71,7 +52,7 @@ async function runBounded<T>(items: T[], operation: (item: T) => Promise<void>):
 
 export async function runMeetingPurgeProcessing(
   input: MeetingPurgeJobData,
-  dependencies: MeetingPurgeDependencies = defaultDependencies,
+  dependencies: MeetingPurgeDependencies,
 ): Promise<void> {
   const claim = await dependencies.claim(input);
   if (!claim) {
@@ -159,7 +140,8 @@ export async function runMeetingPurgeProcessing(
       storageObjectCount: claim.storageKeys.length,
     });
   } catch (error) {
-    const errorCode = purgeFailureCode(error);
+    const processingError = error instanceof Error ? error : new Error("meeting-purge-failed");
+    const errorCode = purgeFailureCode(processingError);
     try {
       await dependencies.release({
         ...input,

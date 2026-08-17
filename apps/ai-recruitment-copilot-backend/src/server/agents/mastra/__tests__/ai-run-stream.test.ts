@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
 import {
   createAiRunEventStream,
   encodeAiRunStreamEvent,
   emitMastraWorkflowStreamEvents,
   mastraWorkflowEventToAiRunEvents,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
+import { describe, expect, it, vi } from "vitest";
+
+interface SseEvent {
+  type: string;
+}
 
 async function readEvents(stream: ReadableStream<Uint8Array>) {
   const text = await new Response(stream).text();
@@ -20,7 +24,8 @@ async function readEvents(stream: ReadableStream<Uint8Array>) {
       if (!data) {
         throw new Error(`Missing SSE data frame: ${frame}`);
       }
-      return JSON.parse(data) as { type: string; [key: string]: unknown };
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
+      return JSON.parse(data) as SseEvent;
     });
 }
 
@@ -96,6 +101,7 @@ describe("AiRun event stream", () => {
   it("maps Mastra workflow stream events into stable AiRunEvent objects", () => {
     expect(
       mastraWorkflowEventToAiRunEvents(
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         {
           from: "WORKFLOW",
           payload: { id: "summary", status: "running", stepCallId: "call-1" },
@@ -107,6 +113,7 @@ describe("AiRun event stream", () => {
     ).toEqual([{ label: "生成摘要", runId: "run-1", stepId: "summary", type: "step.started" }]);
 
     expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       mastraWorkflowEventToAiRunEvents({
         from: "WORKFLOW",
         payload: {
@@ -129,6 +136,7 @@ describe("AiRun event stream", () => {
     ]);
 
     expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       mastraWorkflowEventToAiRunEvents({
         from: "WORKFLOW",
         payload: { id: "summary", output: { summary: "ok" }, status: "success", stepCallId: "c" },
@@ -149,6 +157,7 @@ describe("AiRun event stream", () => {
     const emitted: unknown[] = [];
 
     await emitMastraWorkflowStreamEvents(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       [
         {
           from: "WORKFLOW",

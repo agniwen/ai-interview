@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useResumeReviewRegeneration } from "../use-resume-review-regeneration";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
@@ -18,17 +19,9 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }));
 
-vi.mock("@/lib/client/resume-analysis", () => ({
-  generateResumeReview: mocks.generateResumeReview,
-  generateResumeReviewMarkdownFirst: mocks.generateResumeReviewMarkdownFirst,
-}));
-
-vi.mock("sonner", () => ({
-  toast: {
-    error: mocks.toastError,
-    success: mocks.toastSuccess,
-  },
-}));
+interface CapturedAbortSignal {
+  signal: AbortSignal | null;
+}
 
 const resumeProfile: ResumeProfile = {
   age: null,
@@ -51,13 +44,17 @@ function renderHookHarness(callbacks: {
   onDraftChange: (review: string) => void;
   onGenerated: (result: GenerateResumeReviewResult) => void;
 }) {
+  const dependencies = {
+    generateResumeReviewMarkdownFirst: mocks.generateResumeReviewMarkdownFirst,
+    toast: { error: mocks.toastError, success: mocks.toastSuccess },
+  };
   let current: HookValue | null = null;
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
 
   function Harness() {
-    current = useResumeReviewRegeneration(callbacks);
+    current = useResumeReviewRegeneration(callbacks, dependencies);
     return null;
   }
 
@@ -253,7 +250,7 @@ describe("useResumeReviewRegeneration", () => {
   it("aborts in-flight generation when cancelled", async () => {
     const onDraftChange = vi.fn();
     const onGenerated = vi.fn();
-    const captured: { signal: AbortSignal | null } = { signal: null };
+    const captured: CapturedAbortSignal = { signal: null };
     const abortDeferred = Promise.withResolvers<null>();
     mocks.generateResumeReviewMarkdownFirst.mockImplementationOnce(({ signal }) => {
       captured.signal = signal ?? null;

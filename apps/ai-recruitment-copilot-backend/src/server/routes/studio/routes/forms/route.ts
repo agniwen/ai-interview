@@ -41,7 +41,7 @@ function normalizeQuestions(
   templateId: string,
   now: Date,
 ) {
-  return questions.map((question, index) => ({
+  return questions.map((question) => ({
     createdAt: now,
     displayMode: question.displayMode,
     helperText: question.helperText?.trim() || null,
@@ -49,7 +49,7 @@ function normalizeQuestions(
     label: question.label.trim(),
     options: question.type === "text" ? [] : question.options,
     required: question.required,
-    sortOrder: typeof question.sortOrder === "number" ? question.sortOrder : index,
+    sortOrder: question.sortOrder,
     templateId,
     type: question.type,
     updatedAt: now,

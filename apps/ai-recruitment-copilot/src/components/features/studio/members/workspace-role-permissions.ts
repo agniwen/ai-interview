@@ -1,13 +1,22 @@
 import {
   STUDIO_PAGE_PERMISSION_ACTIONS,
   STUDIO_PAGE_PERMISSION_LABELS,
+  statement,
 } from "@arc/shared/permissions";
-import type { statement } from "@arc/shared/permissions";
+import { z } from "zod";
 
 export type PermissionResource = keyof typeof statement;
 export type PermissionAction<R extends PermissionResource = PermissionResource> =
   (typeof statement)[R][number];
-export type PermissionRecord = Partial<Record<PermissionResource, string[]>>;
+export type PermissionRecord = Record<string, string[]>;
+
+type PermissionActionLabels = Record<string, string>;
+
+type PermissionDescriptions = Record<string, string | undefined>;
+
+type ResourceActionDescriptions = Record<string, PermissionDescriptions | undefined>;
+
+type LegacyPermissionReplacements = Record<string, string[] | undefined>;
 interface DynamicWorkspaceRoleOrderKey {
   createdAt?: Date | string | null;
   id?: string;
@@ -160,7 +169,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
   }[];
 }[];
 
-export const PERMISSION_ACTION_LABELS: Record<string, string> = {
+export const PERMISSION_ACTION_LABELS = {
   ...STUDIO_PAGE_PERMISSION_LABELS,
   cancel: "取消",
   create: "新增",
@@ -171,13 +180,13 @@ export const PERMISSION_ACTION_LABELS: Record<string, string> = {
   publish: "发布",
   read: "查看",
   update: "编辑",
-};
+} satisfies PermissionActionLabels;
 
-const PERMISSION_ITEM_ACTION_LABELS: Record<string, string> = {
+const PERMISSION_ITEM_ACTION_LABELS = {
   "resumePool:create": "上传",
-};
+} satisfies PermissionActionLabels;
 
-const PAGE_PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
+const PAGE_PERMISSION_DESCRIPTIONS = {
   dashboard: "控制是否能在侧边栏看到并访问「数据看板」页面；未勾选时直接访问会进入 404。",
   departments:
     "控制是否能在侧边栏看到并访问「部门管理」页面；页面内部门列表、详情和增删改仍受「部门」相关权限控制。",
@@ -204,9 +213,9 @@ const PAGE_PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
     "控制是否能在侧边栏看到并访问「人才库」页面；未勾选时直接访问会进入 404。页面内数据接口仍受「人才库」业务权限控制。",
   resumes:
     "控制是否能在侧边栏看到并访问「招聘台」页面；未勾选时直接访问会进入 404。招聘台数据接口仍受「招聘台」业务权限控制，上传批次有独立权限。",
-};
+} satisfies PermissionDescriptions;
 
-const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<string, string>>> = {
+const RESOURCE_ACTION_DESCRIPTIONS = {
   auditLog: {
     read: "允许查看工作区审计日志。当前主要作为系统能力预留，具体入口会按该权限控制。",
   },
@@ -309,7 +318,28 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     process: "允许继续处理、恢复或推进上传批次中的文件。",
     read: "允许查看上传批次列表、活跃批次和批次详情。",
   },
-};
+} satisfies ResourceActionDescriptions;
+
+const optionalStringSchema = z.string().optional();
+const stringArraySchema = z.array(z.string());
+
+function readStringProperty<const T extends object>(record: T, key: string) {
+  const entry = Object.entries(record).find(([candidate]) => candidate === key);
+  const parsed = optionalStringSchema.safeParse(entry?.[1]);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function readDescriptionProperty<const T extends object>(record: T, key: string) {
+  const entry = Object.entries(record).find(([candidate]) => candidate === key);
+  const parsed = z.record(z.string(), z.string()).safeParse(entry?.[1]);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function readStringArrayProperty<const T extends object>(record: T, key: string) {
+  const entry = Object.entries(record).find(([candidate]) => candidate === key);
+  const parsed = stringArraySchema.safeParse(entry?.[1]);
+  return parsed.success ? parsed.data : undefined;
+}
 
 function getPermissionItemDescription({
   action,
@@ -324,12 +354,14 @@ function getPermissionItemDescription({
 }) {
   if (resource === "page") {
     const description =
-      PAGE_PERMISSION_DESCRIPTIONS[action] ??
+      readStringProperty(PAGE_PERMISSION_DESCRIPTIONS, action) ??
       `控制该角色是否能在侧边栏看到并访问「${actionLabel}」页面；页面内数据和操作仍受对应业务权限控制。`;
     return description.includes("404") ? description : `${description}未勾选时直接访问会进入 404。`;
   }
 
-  const directDescription = RESOURCE_ACTION_DESCRIPTIONS[resource]?.[action];
+  const directDescription = readDescriptionProperty(RESOURCE_ACTION_DESCRIPTIONS, resource)?.[
+    action
+  ];
   if (directDescription) {
     return directDescription;
   }
@@ -358,7 +390,7 @@ export interface PermissionItem {
   actionLabel: string;
   description: string;
   groupTitle: string;
-  key: `${PermissionResource}:${string}`;
+  key: string;
   label: string;
   resource: PermissionResource;
   resourceLabel: string;
@@ -374,9 +406,11 @@ export function buildPermissionItems(): PermissionItem[] {
   return WORKSPACE_PERMISSION_GROUPS.flatMap((group) =>
     group.resources.flatMap((resource) =>
       resource.actions.map((action) => {
-        const key = `${resource.key}:${action}` as `${PermissionResource}:${string}`;
+        const key = `${resource.key}:${action}`;
         const actionLabel =
-          PERMISSION_ITEM_ACTION_LABELS[key] ?? PERMISSION_ACTION_LABELS[action] ?? action;
+          readStringProperty(PERMISSION_ITEM_ACTION_LABELS, key) ??
+          readStringProperty(PERMISSION_ACTION_LABELS, action) ??
+          action;
         return {
           action,
           actionLabel,
@@ -414,61 +448,61 @@ export function buildPermissionHeaderGroups(items: PermissionItem[]): Permission
   return groups;
 }
 
-const LEGACY_MANAGE_PERMISSION_REPLACEMENTS: Partial<Record<PermissionResource, string[]>> = {
+const LEGACY_MANAGE_PERMISSION_REPLACEMENTS = {
   humanInterview: ["create", "read", "update", "delete"],
   offer: ["create", "read", "update", "delete"],
-};
+} satisfies LegacyPermissionReplacements;
 
 function normalizeLegacyPermissionActions(
   resource: PermissionResource,
   actions: readonly string[] | undefined,
 ): string[] {
-  const replacement = LEGACY_MANAGE_PERMISSION_REPLACEMENTS[resource];
+  const replacement = readStringArrayProperty(LEGACY_MANAGE_PERMISSION_REPLACEMENTS, resource);
   if (!replacement || !actions?.includes("manage")) {
     return actions ? [...new Set(actions)] : [];
   }
   return [...new Set([...actions.filter((action) => action !== "manage"), ...replacement])];
 }
 
-export function copyPermissionRecord(
-  permission: PermissionRecord | null | undefined,
-): PermissionRecord {
-  return Object.fromEntries(
-    Object.entries(permission ?? {}).map(([resource, actions]) => [
-      resource,
-      normalizeLegacyPermissionActions(resource as PermissionResource, actions),
-    ]),
-  ) as PermissionRecord;
+function isPermissionResource(value: string): value is PermissionResource {
+  return Object.hasOwn(statement, value);
 }
+
+export function copyPermissionRecord(permission: PermissionRecord | null | undefined) {
+  const copy: PermissionRecord = {};
+  for (const [resource, actions] of Object.entries(permission ?? {})) {
+    if (isPermissionResource(resource)) {
+      copy[resource] = normalizeLegacyPermissionActions(resource, actions);
+    }
+  }
+  return copy;
+}
+
+const errorDetailsSchema = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+});
+
+type ErrorDetails = z.infer<typeof errorDetailsSchema>;
 
 export function canManageWorkspacePermissions(role: string | null | undefined): boolean {
   return role === "owner" || role === "admin";
 }
 
-function readUnknownErrorMessage(error: unknown): string | undefined {
-  if (error && typeof error === "object" && "message" in error) {
-    const { message } = error as { message?: string };
-    if (message) {
-      return message;
-    }
-  }
-  return undefined;
+function readUnknownErrorMessage(error: ErrorDetails | null): string | undefined {
+  return error?.message;
 }
 
-function readUnknownErrorCode(error: unknown): string | undefined {
-  if (error && typeof error === "object" && "code" in error) {
-    const { code } = error as { code?: string };
-    if (code) {
-      return code;
-    }
-  }
-  return undefined;
+function readUnknownErrorCode(error: ErrorDetails | null): string | undefined {
+  return error?.code;
 }
 
-export function readRoleDeleteError(error: unknown): string {
-  const message = readUnknownErrorMessage(error);
+export function readRoleDeleteError<const T>(error: T): string {
+  const parsed = errorDetailsSchema.safeParse(error);
+  const parsedError = parsed.success ? parsed.data : null;
+  const message = readUnknownErrorMessage(parsedError);
   if (
-    readUnknownErrorCode(error) === "ROLE_IS_ASSIGNED_TO_MEMBERS" ||
+    readUnknownErrorCode(parsedError) === "ROLE_IS_ASSIGNED_TO_MEMBERS" ||
     message?.includes("Cannot delete a role that is assigned to members")
   ) {
     return ROLE_ASSIGNED_TO_MEMBERS_MESSAGE;
@@ -523,7 +557,7 @@ export function togglePermissionAction(
   permission: PermissionRecord,
   resource: PermissionResource,
   action: string,
-): PermissionRecord {
+) {
   const current = new Set(getPermissionActions(permission, resource));
   if (current.has(action)) {
     current.delete(action);
@@ -532,9 +566,8 @@ export function togglePermissionAction(
   }
   const next = { ...permission };
   if (current.size === 0) {
-    return Object.fromEntries(
-      Object.entries(next).filter(([key]) => key !== resource),
-    ) as PermissionRecord;
+    Reflect.deleteProperty(next, resource);
+    return next;
   }
   next[resource] = [...current];
   return next;

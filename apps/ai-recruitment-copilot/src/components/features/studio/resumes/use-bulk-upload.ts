@@ -38,13 +38,34 @@ type StartConfig = Omit<CreateBulkResumeBatchInput, "files">;
 const LIST_INVALIDATE_THROTTLE_MS = 600;
 const POLL_INTERVAL_MS = 1500;
 
-interface UseBulkUploadOptions {
+export interface BulkUploadDependencies {
+  cancelBulkResumeBatch: typeof cancelBulkResumeBatch;
+  createBulkResumeBatch: typeof createBulkResumeBatch;
+  getBulkResumeBatchDetail: typeof getBulkResumeBatchDetail;
+  resumeBulkResumeBatch: typeof resumeBulkResumeBatch;
+  slug: string;
+  uploadResumeForBulk: typeof uploadResumeForBulk;
+}
+
+export interface UseBulkUploadOptions {
+  dependencies?: BulkUploadDependencies;
   onBatchQueued?: (detail: BulkResumeBatchDetailDto) => void;
   onRecordsChanged?: () => void;
 }
 
-export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUploadOptions = {}) {
-  const slug = useWorkspaceSlug();
+export function useBulkUploadWithDependencies({
+  dependencies,
+  onBatchQueued,
+  onRecordsChanged,
+}: UseBulkUploadOptions & { dependencies: BulkUploadDependencies }) {
+  const {
+    cancelBulkResumeBatch: cancelBatch,
+    createBulkResumeBatch: createBatch,
+    getBulkResumeBatchDetail: getDetail,
+    resumeBulkResumeBatch: resumeBatch,
+    slug,
+    uploadResumeForBulk: uploadFile,
+  } = dependencies;
   const qc = useQueryClient();
   const [state, setState] = useState<BulkUploadState>({
     detail: null,
@@ -89,7 +110,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
           if (abortRef.current || pollTokenRef.current !== token) {
             return;
           }
-          const detail = await getBulkResumeBatchDetail(slug, batchId);
+          const detail = await getDetail(slug, batchId);
           if (pollTokenRef.current !== token) {
             return;
           }
@@ -116,7 +137,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
         }
       }
     },
-    [slug, qc, invalidateThrottled, onRecordsChanged],
+    [getDetail, slug, qc, invalidateThrottled, onRecordsChanged],
   );
 
   const start = useCallback(
@@ -145,7 +166,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
       const uploadOneFile = async (idx: number) => {
         const file = files[idx];
         try {
-          const d = await uploadResumeForBulk(slug, file);
+          const d = await uploadFile(slug, file);
           descriptors[idx] = {
             contentHash: d.contentHash,
             fileSize: d.fileSize,
@@ -189,7 +210,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
       }
       const ready = descriptors.filter((d): d is NonNullable<typeof d> => d !== null);
       try {
-        const detail = await createBulkResumeBatch(slug, { ...config, files: ready });
+        const detail = await createBatch(slug, { ...config, files: ready });
         setState((s) => ({ ...s, detail, phase: "processing" }));
         void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
         void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
@@ -204,12 +225,12 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
         }));
       }
     },
-    [slug, qc, pollLoop, onBatchQueued],
+    [uploadFile, createBatch, slug, qc, pollLoop, onBatchQueued],
   );
 
   const resume = useCallback(
     async (batchId: string) => {
-      const detail = await resumeBulkResumeBatch(slug, batchId);
+      const detail = await resumeBatch(slug, batchId);
       setState({
         detail,
         phase: "processing",
@@ -221,14 +242,14 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
       void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       void pollLoop(batchId);
     },
-    [slug, pollLoop, qc],
+    [resumeBatch, slug, pollLoop, qc],
   );
 
   const view = useCallback(
     async (batchId: string) => {
       pollTokenRef.current += 1;
       abortRef.current = true;
-      const detail = await getBulkResumeBatchDetail(slug, batchId);
+      const detail = await getDetail(slug, batchId);
       let phase: BulkUploadPhase = "paused";
       if (detail.batch.status === "completed") {
         phase = "completed";
@@ -243,7 +264,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
         uploadStatus: [],
       });
     },
-    [slug],
+    [getDetail, slug],
   );
 
   const cancel = useCallback(async () => {
@@ -252,12 +273,12 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
     }
     abortRef.current = true;
     pollTokenRef.current += 1;
-    const detail = await cancelBulkResumeBatch(slug, state.detail.batch.id);
+    const detail = await cancelBatch(slug, state.detail.batch.id);
     setState((s) => ({ ...s, detail, phase: "cancelled" }));
     void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
     void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
     void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
-  }, [slug, state.detail, qc]);
+  }, [cancelBatch, slug, state.detail, qc]);
 
   const abort = useCallback(() => {
     abortRef.current = true;
@@ -280,4 +301,19 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
   }, []);
 
   return { abort, cancel, reset, resume, start, state, view };
+}
+
+export function useBulkUpload(options: UseBulkUploadOptions = {}) {
+  const slug = useWorkspaceSlug();
+  return useBulkUploadWithDependencies({
+    ...options,
+    dependencies: options.dependencies ?? {
+      cancelBulkResumeBatch,
+      createBulkResumeBatch,
+      getBulkResumeBatchDetail,
+      resumeBulkResumeBatch,
+      slug,
+      uploadResumeForBulk,
+    },
+  });
 }

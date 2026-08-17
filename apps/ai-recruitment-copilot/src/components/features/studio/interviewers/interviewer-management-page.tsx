@@ -60,7 +60,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
             query: {
               page: String(params.page),
               pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
+              search: params.search || undefined,
               sortBy: params.sortBy ?? "createdAt",
               sortOrder: params.sortOrder ?? "desc",
             },
@@ -70,16 +70,14 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
     [slug],
   );
 
-  async function loadInterviewerDetail(
-    record: InterviewerListRecord,
-  ): Promise<InterviewerRecord | null> {
-    const response = await rpc.api.w[":slug"].studio.interviewers[":id"].$get({
-      param: { id: record.id, slug },
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as InterviewerRecord;
+  function loadInterviewerDetail(record: InterviewerListRecord): Promise<InterviewerRecord | null> {
+    return rpcFetch<InterviewerRecord>(
+      rpc.api.w[":slug"].studio.interviewers[":id"].$get({
+        param: { id: record.id, slug },
+      }),
+      "加载 AI 面试官详情失败",
+      { allow404: true },
+    );
   }
 
   const grid = useDataGridState<InterviewerListRecord, Record<string, never>>({

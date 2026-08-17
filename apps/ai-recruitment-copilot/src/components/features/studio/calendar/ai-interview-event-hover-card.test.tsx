@@ -6,22 +6,14 @@ import type {
 } from "@arc/shared/studio-calendar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
-import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiInterviewEventHoverCard } from "./ai-interview-event-hover-card";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fetchPreviewMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/client/api/endpoints/studio-calendar", () => ({
-  fetchStudioAiCalendarEventPreview: fetchPreviewMock,
-}));
-
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-}));
 
 const event: StudioAiCalendarEvent = {
   candidates: [
@@ -90,6 +82,7 @@ describe("AiInterviewEventHoverCard", () => {
         <QueryClientProvider client={queryClient}>
           <AiInterviewEventHoverCard
             event={event}
+            dependencies={{ fetchPreview: fetchPreviewMock, renderNavigation: () => <span /> }}
             slug="demo"
             trigger={<button type="button">张三 · 技术初筛</button>}
           />
@@ -131,6 +124,7 @@ describe("AiInterviewEventHoverCard", () => {
         <QueryClientProvider client={queryClient}>
           <AiInterviewEventHoverCard
             event={event}
+            dependencies={{ fetchPreview: fetchPreviewMock, renderNavigation: () => <span /> }}
             slug="demo"
             trigger={<button type="button">张三 · 技术初筛</button>}
           />
@@ -180,6 +174,7 @@ describe("AiInterviewEventHoverCard", () => {
         <QueryClientProvider client={queryClient}>
           <AiInterviewEventHoverCard
             event={{ ...event, status: "in_progress" }}
+            dependencies={{ fetchPreview: fetchPreviewMock, renderNavigation: () => <span /> }}
             slug="demo"
             trigger={<button type="button">张三 · 技术初筛</button>}
           />

@@ -233,7 +233,12 @@ function ExpectationField({ label, value }: { label: string; value: string | nul
 // ── Offer 单版卡片 ──
 // Single offer-version card.
 
-export function OfferCard({
+export interface OfferCardDependencies {
+  slug: string;
+}
+
+export function OfferCardView({
+  dependencies,
   draft,
   canDelete,
   canUpdate,
@@ -243,6 +248,7 @@ export function OfferCard({
   onSaved,
   onCancelled,
 }: {
+  dependencies: OfferCardDependencies;
   draft: OfferDraftRecord;
   canDelete: boolean;
   canUpdate: boolean;
@@ -252,7 +258,7 @@ export function OfferCard({
   onSaved: () => void;
   onCancelled: () => void;
 }) {
-  const slug = useWorkspaceSlug();
+  const { slug } = dependencies;
   const meta = offerDraftStatusMeta[draft.status];
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
@@ -509,4 +515,8 @@ export function SendOfferConfirmDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+export function OfferCard(props: Omit<Parameters<typeof OfferCardView>[0], "dependencies">) {
+  return <OfferCardView {...props} dependencies={{ slug: useWorkspaceSlug() }} />;
 }

@@ -32,6 +32,7 @@ import { ConnectionState, RoomEvent, Track } from "livekit-client";
 import type { MouseEvent } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import type {
   HumanInterviewMeetingTokenResponse,
   PublicHumanInterviewInterviewerPreview,
@@ -64,37 +65,59 @@ type HumanMeetingRoomProps =
       preview: PublicHumanInterviewInterviewerPreview;
     };
 
-interface TokenErrorPayload {
-  error?: string;
-  message?: string;
+const tokenErrorPayloadSchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
+const humanInterviewMeetingTokenSchema = z.object({
+  participantName: z.string(),
+  participantRole: z.enum(["candidate", "host", "interviewer", "observer"]),
+  participantToken: z.string(),
+  roomName: z.string(),
+  serverUrl: z.string(),
+});
+
+const participantMetadataSchema = z.object({
+  participant_role: z.string().optional(),
+  participant_type: z.string().optional(),
+});
+
+interface ParticipantBadge {
+  label: string;
+  tone: "candidate" | "interviewer";
 }
 
-async function fetchCandidateToken(
-  inviteToken: string,
-): Promise<HumanInterviewMeetingTokenResponse> {
-  const response = await fetch(
+async function fetchMeetingToken(path: string): Promise<HumanInterviewMeetingTokenResponse> {
+  const response = await fetch(path, { method: "POST" });
+  const body = await response.json().catch(() => null);
+  const errorPayload = tokenErrorPayloadSchema.safeParse(body);
+  if (!response.ok) {
+    throw new Error(
+      errorPayload.success
+        ? (errorPayload.data.error ??
+            errorPayload.data.message ??
+            `进入会议失败（${response.status}）`)
+        : `进入会议失败（${response.status}）`,
+    );
+  }
+  const token = humanInterviewMeetingTokenSchema.safeParse(body);
+  if (!token.success) {
+    throw new Error("会议令牌响应无效");
+  }
+  return token.data;
+}
+
+function fetchCandidateToken(inviteToken: string): Promise<HumanInterviewMeetingTokenResponse> {
+  return fetchMeetingToken(
     `/api/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/livekit-token`,
-    { method: "POST" },
   );
-  const body = (await response.json().catch(() => null)) as TokenErrorPayload | null;
-  if (!response.ok) {
-    throw new Error(body?.error ?? body?.message ?? `进入会议失败（${response.status}）`);
-  }
-  return body as HumanInterviewMeetingTokenResponse;
 }
 
-async function fetchInterviewerToken(
-  inviteToken: string,
-): Promise<HumanInterviewMeetingTokenResponse> {
-  const response = await fetch(
+function fetchInterviewerToken(inviteToken: string): Promise<HumanInterviewMeetingTokenResponse> {
+  return fetchMeetingToken(
     `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/livekit-token`,
-    { method: "POST" },
   );
-  const body = (await response.json().catch(() => null)) as TokenErrorPayload | null;
-  if (!response.ok) {
-    throw new Error(body?.error ?? body?.message ?? `进入会议失败（${response.status}）`);
-  }
-  return body as HumanInterviewMeetingTokenResponse;
 }
 
 async function endInterviewerMeeting(inviteToken: string): Promise<void> {
@@ -102,9 +125,16 @@ async function endInterviewerMeeting(inviteToken: string): Promise<void> {
     `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/end`,
     { method: "POST" },
   );
-  const body = (await response.json().catch(() => null)) as TokenErrorPayload | null;
+  const body = await response.json().catch(() => null);
+  const errorPayload = tokenErrorPayloadSchema.safeParse(body);
   if (!response.ok) {
-    throw new Error(body?.error ?? body?.message ?? `结束会议失败（${response.status}）`);
+    throw new Error(
+      errorPayload.success
+        ? (errorPayload.data.error ??
+            errorPayload.data.message ??
+            `结束会议失败（${response.status}）`)
+        : `结束会议失败（${response.status}）`,
+    );
   }
 }
 
@@ -167,26 +197,21 @@ function getStartBlockMessage(
   return `面试时间为 ${formatDateTime(scheduledAt)}，可提前 5 分钟进入，当前暂不能进入会议。`;
 }
 
-interface ParticipantMetadata {
-  participant_role?: string;
-  participant_type?: string;
-}
-
-function parseParticipantMetadata(metadata: string | undefined): ParticipantMetadata {
+function parseParticipantMetadata(
+  metadata: string | undefined,
+): z.infer<typeof participantMetadataSchema> {
   if (!metadata) {
     return {};
   }
   try {
-    return JSON.parse(metadata) as ParticipantMetadata;
+    const parsed = participantMetadataSchema.safeParse(JSON.parse(metadata));
+    return parsed.success ? parsed.data : {};
   } catch {
     return {};
   }
 }
 
-function getParticipantBadge(trackRef: TrackReferenceOrPlaceholder): {
-  label: string;
-  tone: "candidate" | "interviewer";
-} {
+function getParticipantBadge(trackRef: TrackReferenceOrPlaceholder): ParticipantBadge {
   const metadata = parseParticipantMetadata(trackRef.participant.metadata);
   const { identity, name: participantName } = trackRef.participant;
   let role = metadata.participant_role;

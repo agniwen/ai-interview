@@ -43,7 +43,7 @@ export const structuredResumeEvaluationRouter = factory
         return c.json({ error: "记录不存在。" }, 404);
       }
       const input = c.req.valid("json");
-      const recordId = (c.req.param() as Record<string, string | undefined>).id;
+      const recordId = c.req.param("id");
       const requirementId = c.req.param("requirementId");
       if (!recordId) {
         return c.json({ error: "记录不存在。" }, 404);

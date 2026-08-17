@@ -38,22 +38,22 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
 const DEFAULT_META: RouteMeta = { title: "招聘台" };
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 
-function resolveRouteMeta(pathname: string): RouteMeta {
+export function resolveSiteHeaderTitle(pathname: string): string {
   // 实际 URL 形如 /w/[slug]/studio/...,匹配前先把 /w/[slug] 前缀去掉。
   // Strip the /w/[slug] prefix so we can match against bare /studio/<section>.
   const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "");
   for (const { prefix, meta } of ROUTE_META) {
     if (studioPath.startsWith(prefix)) {
-      return meta;
+      return meta.title;
     }
   }
 
-  return DEFAULT_META;
+  return DEFAULT_META.title;
 }
 
 export function SiteHeader() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { title } = resolveRouteMeta(pathname);
+  const title = resolveSiteHeaderTitle(pathname);
   const ActiveMenuIcon = resolveStudioSidebarNavItem(pathname)?.icon;
   const headerOverride = useStudioHeaderOverrideValue();
 

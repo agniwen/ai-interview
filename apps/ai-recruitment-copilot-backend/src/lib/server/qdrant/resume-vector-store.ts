@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import type { Schemas } from "@qdrant/js-client-rest";
+import { z } from "zod";
 import type {
   ResumeEmbeddingDeleteInput,
   ResumeEmbeddingLoadInput,
@@ -12,48 +12,17 @@ import type {
   ResumeVectorStore,
   ResumeVectorReadStore,
 } from "../resume-semantic/vector-store";
-import type { ResumeSemanticChunkType } from "../resume-semantic/text-builders";
-
-type QdrantPointId = string | number;
-
-interface QdrantClientLike {
-  collectionExists(collectionName: string): Promise<{ exists?: boolean }>;
-  createCollection(
-    collectionName: string,
-    input: { vectors: { distance: "Cosine"; size: number } },
-  ): Promise<unknown>;
-  createPayloadIndex(
-    collectionName: string,
-    input: { field_name: string; field_schema: "keyword"; wait: true },
-  ): Promise<unknown>;
-  delete(
-    collectionName: string,
-    input: { filter: { must: ReturnType<typeof mustMatch>[] }; wait: true },
-  ): Promise<unknown>;
-  getCollection(collectionName: string): Promise<{ payload_schema?: Record<string, unknown> }>;
-  query(
-    collectionName: string,
-    input: {
-      filter: { must: QdrantFilterCondition[] };
-      limit: number;
-      query: number[];
-      with_payload: true;
-    },
-  ): Promise<{ points?: QdrantSearchPoint[] }>;
-  scroll(
-    collectionName: string,
-    input: {
-      filter: { must: ReturnType<typeof mustMatch>[] };
-      limit: number;
-      with_payload: true;
-      with_vector: true;
-    },
-  ): Promise<{ points?: QdrantScrollPoint[] }>;
-  upsert(
-    collectionName: string,
-    input: { points: QdrantUpsertPoint[]; wait: true },
-  ): Promise<unknown>;
-}
+type QdrantClientLike = Pick<
+  QdrantClient,
+  | "collectionExists"
+  | "createCollection"
+  | "createPayloadIndex"
+  | "delete"
+  | "getCollection"
+  | "query"
+  | "scroll"
+  | "upsert"
+>;
 
 interface QdrantStoreOptions {
   apiKey?: string | null;
@@ -61,36 +30,6 @@ interface QdrantStoreOptions {
   collectionName?: string;
   dimensions: number;
   url: string;
-}
-
-interface QdrantUpsertPoint {
-  id: QdrantPointId;
-  payload: Schemas["Payload"];
-  vector: number[];
-}
-
-interface QdrantSearchPoint {
-  payload?: {
-    chunkType?: unknown;
-    sourceId?: unknown;
-    sourceType?: unknown;
-  } | null;
-  score?: unknown;
-}
-
-interface QdrantScrollPoint {
-  payload?: {
-    chunkType?: unknown;
-    contentHash?: unknown;
-    embeddingModel?: unknown;
-    embeddingVersion?: unknown;
-    organizationId?: unknown;
-    profileHash?: unknown;
-    sourceId?: unknown;
-    sourceType?: unknown;
-    status?: unknown;
-  } | null;
-  vector?: unknown;
 }
 
 const FILTER_PAYLOAD_FIELDS = [
@@ -103,6 +42,47 @@ const FILTER_PAYLOAD_FIELDS = [
 ] as const;
 
 type QdrantFilterCondition = ReturnType<typeof mustMatch> | ReturnType<typeof mustMatchAny>;
+
+const chunkTypeSchema = z.enum(["resume_overview", "work_project", "skill_role"]);
+const sourceTypeSchema = z.enum(["studio_interview", "resume_pool_item", "job_description"]);
+const searchResponseSchema = z.object({
+  points: z
+    .array(
+      z.object({
+        payload: z
+          .object({
+            chunkType: chunkTypeSchema,
+            sourceId: z.string(),
+            sourceType: sourceTypeSchema,
+          })
+          .nullable(),
+        score: z.number(),
+      }),
+    )
+    .optional(),
+});
+const scrollResponseSchema = z.object({
+  points: z
+    .array(
+      z.object({
+        payload: z
+          .object({
+            chunkType: chunkTypeSchema,
+            contentHash: z.string().nullable().optional(),
+            embeddingModel: z.string(),
+            embeddingVersion: z.string(),
+            organizationId: z.string(),
+            profileHash: z.string(),
+            sourceId: z.string(),
+            sourceType: sourceTypeSchema,
+            status: z.enum(["active", "archived"]),
+          })
+          .nullable(),
+        vector: z.array(z.number()),
+      }),
+    )
+    .optional(),
+});
 
 function pointUuid(seed: string): string {
   const hex = createHash("sha256").update(seed).digest("hex");
@@ -120,26 +100,14 @@ function mustMatchAny(key: string, values: string[]) {
   return { key, match: { any: values } };
 }
 
-function isChunkType(value: unknown): value is ResumeSemanticChunkType {
-  return value === "resume_overview" || value === "work_project" || value === "skill_role";
-}
-
 export function isSourceType(value: unknown): value is ResumeSemanticSourceType {
   return (
     value === "studio_interview" || value === "resume_pool_item" || value === "job_description"
   );
 }
 
-function isPayloadStatus(value: unknown): value is ResumeStoredEmbeddingChunk["status"] {
-  return value === "active" || value === "archived";
-}
-
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function parseVector(value: unknown): number[] | null {
-  return Array.isArray(value) && value.every((item) => typeof item === "number") ? value : null;
+function nullableString(value: string | null | undefined): string | null {
+  return value ?? null;
 }
 
 export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorReadStore {
@@ -228,7 +196,7 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
       must.push(mustMatchAny("sourceType", input.sourceTypes));
     }
 
-    const body = await this.client.query(this.collectionName, {
+    const response = await this.client.query(this.collectionName, {
       filter: {
         must,
       },
@@ -236,15 +204,10 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
       query: input.embedding,
       with_payload: true,
     });
+    const body = searchResponseSchema.parse(response);
     return (body.points ?? []).flatMap((point) => {
       const { payload } = point;
-      if (
-        !payload ||
-        !isChunkType(payload.chunkType) ||
-        !isSourceType(payload.sourceType) ||
-        typeof payload.sourceId !== "string" ||
-        typeof point.score !== "number"
-      ) {
+      if (!payload) {
         return [];
       }
       return [
@@ -261,7 +224,7 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
   async loadResumeEmbeddings(
     input: ResumeEmbeddingLoadInput,
   ): Promise<ResumeStoredEmbeddingChunk[]> {
-    const body = await this.client.scroll(this.collectionName, {
+    const response = await this.client.scroll(this.collectionName, {
       filter: {
         must: [
           mustMatch("organizationId", input.organizationId),
@@ -274,28 +237,17 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
       with_payload: true,
       with_vector: true,
     });
+    const body = scrollResponseSchema.parse(response);
     return (body.points ?? []).flatMap((point) => {
       const { payload } = point;
-      const vector = parseVector(point.vector);
-      if (
-        !payload ||
-        !vector ||
-        !isChunkType(payload.chunkType) ||
-        !isSourceType(payload.sourceType) ||
-        !isPayloadStatus(payload.status) ||
-        typeof payload.embeddingModel !== "string" ||
-        typeof payload.embeddingVersion !== "string" ||
-        typeof payload.organizationId !== "string" ||
-        typeof payload.profileHash !== "string" ||
-        typeof payload.sourceId !== "string"
-      ) {
+      if (!payload) {
         return [];
       }
       return [
         {
           chunkType: payload.chunkType,
           contentHash: nullableString(payload.contentHash),
-          embedding: vector,
+          embedding: point.vector,
           embeddingModel: payload.embeddingModel,
           embeddingVersion: payload.embeddingVersion,
           organizationId: payload.organizationId,

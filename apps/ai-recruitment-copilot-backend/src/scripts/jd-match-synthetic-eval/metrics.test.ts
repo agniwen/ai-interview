@@ -4,6 +4,7 @@ import type { SyntheticJdMatchCase, SyntheticJdMatchRunRecord } from "./types";
 import { computeJdMatchSyntheticMetrics, getJdMatchStrictFailures } from "./metrics";
 
 const CASE: SyntheticJdMatchCase = {
+  // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
   candidates: [
     { id: "jd-frontend", name: "前端工程师" },
     { id: "jd-data", name: "数据工程师" },

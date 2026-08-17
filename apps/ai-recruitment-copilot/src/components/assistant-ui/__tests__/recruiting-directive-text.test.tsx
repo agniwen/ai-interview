@@ -5,17 +5,24 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { RecruitingDirectiveText } from "../recruiting-directive-text";
+import type { RecruitingCopilotContextValue } from "../recruiting-copilot-context";
+import { RecruitingCopilotContext } from "../recruiting-copilot-context";
 
-const mocks = vi.hoisted(() => ({
-  openCandidateDetail: vi.fn(),
-}));
+const openCandidateDetail = vi.fn();
+const contextValue = {
+  citations: [],
+  conversationId: null,
+  markProposal: vi.fn(),
+  openCandidateDetail,
+  openResumeDetail: vi.fn(),
+  openResumePreview: vi.fn(),
+  proposalStatuses: {},
+  proposals: [],
+  upsertCitations: vi.fn(),
+  upsertProposal: vi.fn(),
+} satisfies RecruitingCopilotContextValue;
 
-vi.mock("../recruiting-copilot-context", () => ({
-  useRecruitingCopilotContextOptional: () => ({
-    openCandidateDetail: mocks.openCandidateDetail,
-  }),
-}));
-
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("RecruitingDirectiveText", () => {
@@ -42,11 +49,13 @@ describe("RecruitingDirectiveText", () => {
 
     await act(() => {
       root.render(
-        <RecruitingDirectiveText
-          status={{ type: "complete" }}
-          text={`:${type}[张妍]{name=${id}}`}
-          type="text"
-        />,
+        <RecruitingCopilotContext.Provider value={contextValue}>
+          <RecruitingDirectiveText
+            status={{ type: "complete" }}
+            text={`:${type}[张妍]{name=${id}}`}
+            type="text"
+          />
+        </RecruitingCopilotContext.Provider>,
       );
     });
 
@@ -57,7 +66,7 @@ describe("RecruitingDirectiveText", () => {
       mention?.click();
     });
 
-    expect(mocks.openCandidateDetail).toHaveBeenCalledWith({ id, kind });
+    expect(openCandidateDetail).toHaveBeenCalledWith({ id, kind });
 
     await act(() => root.unmount());
   });

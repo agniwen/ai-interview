@@ -12,19 +12,31 @@ function getSidebarTabTarget(tab: SidebarTabValue, slug: string) {
     : ({ params: { slug }, to: "/w/$slug/studio/resumes" } as const);
 }
 
-export function SidebarTabs() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const navigate = useNavigate();
-  const router = useRouter();
-  const activeTab = resolveSidebarTab(pathname);
-  const slug = useWorkspaceSlug();
+type SidebarTabTarget = ReturnType<typeof getSidebarTabTarget>;
 
-  const handleChange = (value: string) => {
-    const nextTab = value as SidebarTabValue;
-    const target = getSidebarTabTarget(nextTab, slug);
+export interface SidebarTabsDependencies {
+  navigate: (target: SidebarTabTarget) => Promise<void>;
+  pathname: string;
+  preloadRoute: (target: SidebarTabTarget) => Promise<readonly object[] | undefined>;
+  slug: string;
+}
+
+export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDependencies }) {
+  const activeTab = resolveSidebarTab(dependencies.pathname);
+
+  const handleChange = async (value: string) => {
+    if (value !== "agent" && value !== "studio") {
+      return;
+    }
+    const nextTab = value;
+    const target = getSidebarTabTarget(nextTab, dependencies.slug);
 
     if (nextTab !== activeTab) {
-      void navigate(target);
+      try {
+        await dependencies.navigate(target);
+      } catch {
+        // The current route remains usable when navigation is rejected.
+      }
     }
   };
 
@@ -33,7 +45,7 @@ export function SidebarTabs() {
       return;
     }
     try {
-      await router.preloadRoute(getSidebarTabTarget(tab, slug));
+      await dependencies.preloadRoute(getSidebarTabTarget(tab, dependencies.slug));
     } catch {
       // A failed speculative preload must not prevent the later navigation.
     }
@@ -52,22 +64,52 @@ export function SidebarTabs() {
     >
       <TabsList className="w-full dark:bg-sidebar/60  select-none">
         <TabsTrigger
-          onFocus={() => void preloadTab("agent")}
-          onPointerEnter={() => void preloadTab("agent")}
-          onTouchStart={() => void preloadTab("agent")}
+          onFocus={() => {
+            preloadTab("agent");
+          }}
+          onPointerEnter={() => {
+            preloadTab("agent");
+          }}
+          onTouchStart={() => {
+            preloadTab("agent");
+          }}
           value="agent"
         >
           Agent
         </TabsTrigger>
         <TabsTrigger
-          onFocus={() => void preloadTab("studio")}
-          onPointerEnter={() => void preloadTab("studio")}
-          onTouchStart={() => void preloadTab("studio")}
+          onFocus={() => {
+            preloadTab("studio");
+          }}
+          onPointerEnter={() => {
+            preloadTab("studio");
+          }}
+          onTouchStart={() => {
+            preloadTab("studio");
+          }}
           value="studio"
         >
           Studio
         </TabsTrigger>
       </TabsList>
     </Tabs>
+  );
+}
+
+export function SidebarTabs() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
+  const router = useRouter();
+  const slug = useWorkspaceSlug();
+
+  return (
+    <SidebarTabsView
+      dependencies={{
+        navigate,
+        pathname,
+        preloadRoute: router.preloadRoute,
+        slug,
+      }}
+    />
   );
 }

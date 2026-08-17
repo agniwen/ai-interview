@@ -1,6 +1,7 @@
 import path from "node:path";
 import { config as loadEnvFile } from "dotenv";
 import postgres from "postgres";
+import { z } from "zod";
 import { getPostgresConnectionOptions } from "../lib/server/db/connection-options";
 import { loadStandaloneEnv } from "../standalone/env";
 
@@ -24,7 +25,7 @@ interface RepairFinalStats {
 type RepairStats = RepairMutationStats & RepairFinalStats;
 
 function toNumber(value: string | number): number {
-  return typeof value === "number" ? value : Number.parseInt(value, 10);
+  return z.coerce.number().parse(value);
 }
 
 function printStats(stats: RepairStats): void {

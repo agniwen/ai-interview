@@ -190,6 +190,7 @@ describe("Meeting transcription benchmark runner provider fixtures", () => {
       actualCostUsd: 0.25,
       adapter: {
         transcribe: vi.fn(() =>
+          // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
           Promise.resolve({ transcript: { language: "zh", turns: [{}] } as never }),
         ),
       },

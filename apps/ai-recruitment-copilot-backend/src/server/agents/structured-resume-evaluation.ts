@@ -20,7 +20,6 @@ import {
 } from "@arc/shared/structured-resume-scoring";
 import type {
   StructuredResumeAdjustmentMatch,
-  StructuredResumeDimension,
   StructuredResumeGateJudgment,
   StructuredResumeRuleJudgment,
 } from "@arc/shared/structured-resume-scoring";
@@ -33,6 +32,8 @@ import {
 } from "./mastra/agents/simple-generators";
 import { getMastraModelIdentifier, mastraModels } from "./mastra/models";
 import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
+
+export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
 export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v1";
@@ -252,6 +253,15 @@ type GateAgentOutput = z.infer<typeof structuredGateAgentOutputSchema>;
 type AdjustmentAgentOutput = z.infer<typeof structuredAdjustmentAgentOutputSchema>;
 export type StructuredResumeCalculation = ReturnType<typeof computeStructuredResumeCalculation>;
 
+interface StructuredRuleJudgments {
+  educationBackground: StructuredResumeRuleJudgment[];
+  experienceRelevance: StructuredResumeRuleJudgment[];
+  potential: StructuredResumeRuleJudgment[];
+  projectMatch: StructuredResumeRuleJudgment[];
+  skillMatch: StructuredResumeRuleJudgment[];
+  stability: StructuredResumeRuleJudgment[];
+}
+
 const STRUCTURED_GRADE_LABELS = {
   matched: "匹配",
   recommended: "推荐",
@@ -388,8 +398,11 @@ function validateGateAgentOutput(
   }
 }
 
-export function judgeStructuredHardGates(input: StructuredResumeWorkflowInput) {
-  return generateStructuredWithMastraAgent({
+export function judgeStructuredHardGates(
+  input: StructuredResumeWorkflowInput,
+  generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+) {
+  return generate({
     agent: structuredResumeGateAgent,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
@@ -412,8 +425,11 @@ export function judgeStructuredHardGates(input: StructuredResumeWorkflowInput) {
   });
 }
 
-export function judgeStructuredDimensionEvidence(input: StructuredResumeWorkflowInput) {
-  return generateStructuredWithMastraAgent({
+export function judgeStructuredDimensionEvidence(
+  input: StructuredResumeWorkflowInput,
+  generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+) {
+  return generate({
     agent: structuredResumeDimensionAgent,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
@@ -438,11 +454,12 @@ export function judgeStructuredDimensionEvidence(input: StructuredResumeWorkflow
 export function judgeStructuredAdjustments(
   input: StructuredResumeWorkflowInput,
   gateOutput?: GateAgentOutput,
+  generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
 ) {
   const gateContext = gateOutput
     ? `已完成的硬性门槛判断如下；遇到同义或重叠条件时必须保持事实一致：${JSON.stringify(gateOutput)}`
     : "没有可用的硬性门槛判断上下文。";
-  return generateStructuredWithMastraAgent({
+  return generate({
     agent: structuredResumeAdjustmentAgent,
     prompt: buildPrompt(
       "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",
@@ -473,13 +490,16 @@ function judgment(
   reason: string,
   units?: number,
 ): StructuredResumeRuleJudgment {
-  return {
+  const result: StructuredResumeRuleJudgment = {
     evidence: [],
     reason,
     ruleId,
     status,
-    ...(units ? { units } : {}),
   };
+  if (units !== undefined) {
+    result.units = units;
+  }
+  return result;
 }
 
 function normalizedSkill(value: string): string {
@@ -668,11 +688,14 @@ function deriveSkillRuleJudgments(
           status: "missing" as const,
         };
       }
-      const status = {
-        failed: "missing",
-        needs_verification: "shallow",
-        passed: "applied",
-      }[gateJudgment.aiStatus] as "applied" | "missing" | "shallow";
+      let status: "applied" | "missing" | "shallow";
+      if (gateJudgment.aiStatus === "failed") {
+        status = "missing";
+      } else if (gateJudgment.aiStatus === "needs_verification") {
+        status = "shallow";
+      } else {
+        status = "applied";
+      }
       return {
         evidence: gateJudgment.evidence,
         normalizedSkill: key,
@@ -956,13 +979,16 @@ function deriveMissingExperienceYearsJudgment(
       status: "insufficient_evidence",
     };
   }
-  return {
+  const judgmentResult: StructuredResumeRuleJudgment = {
     evidence,
     reason: reasons.join("；"),
     ruleId: "experience.missing_year",
     status: missingYearUnits > 0 ? "matched" : "not_matched",
-    ...(missingYearUnits > 0 ? { units: missingYearUnits } : {}),
   };
+  if (missingYearUnits > 0) {
+    judgmentResult.units = missingYearUnits;
+  }
+  return judgmentResult;
 }
 
 // oxlint-disable-next-line complexity -- this deterministic reducer covers the complete fixed rule catalog in one auditable pass.
@@ -970,8 +996,8 @@ export function deriveStructuredRuleJudgments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
   gateOutput?: GateAgentOutput,
-): Record<StructuredResumeDimension, StructuredResumeRuleJudgment[]> {
-  const judgments: Record<StructuredResumeDimension, StructuredResumeRuleJudgment[]> = {
+): StructuredRuleJudgments {
+  const judgments: StructuredRuleJudgments = {
     educationBackground: [],
     experienceRelevance: [],
     potential: [],
@@ -1353,10 +1379,13 @@ function validateEvidenceSources(input: {
   validateEvidenceList(input.workflowInput, evidenceLists.flat());
 }
 
-export function generateStructuredNarrative(input: {
-  calculationResult: StructuredResumeCalculation;
-  workflowInput: StructuredResumeWorkflowInput;
-}) {
+export function generateStructuredNarrative(
+  input: {
+    calculationResult: StructuredResumeCalculation;
+    workflowInput: StructuredResumeWorkflowInput;
+  },
+  generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+) {
   const { calculation, dimensionRuleJudgments } = input.calculationResult;
   const narrativeDimensions = Object.fromEntries(
     STRUCTURED_RESUME_DIMENSIONS.map((dimension) => {
@@ -1374,7 +1403,7 @@ export function generateStructuredNarrative(input: {
       ];
     }),
   );
-  return generateStructuredWithMastraAgent({
+  return generate({
     agent: structuredResumeNarrativeAgent,
     prompt: [
       "只解释已完成的计算，不得重算或修改结果。",

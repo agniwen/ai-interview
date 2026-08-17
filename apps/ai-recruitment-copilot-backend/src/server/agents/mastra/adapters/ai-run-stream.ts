@@ -13,11 +13,15 @@ export interface MastraWorkflowEventBridgeOptions {
   workflowId?: string;
 }
 
+interface AiRunErrorBoundary {
+  error: unknown;
+}
+
 export function encodeAiRunStreamEvent(event: AiRunEvent): Uint8Array {
   return new TextEncoder().encode(`event: ai-run\ndata: ${JSON.stringify(event)}\n\n`);
 }
 
-function toRunError(error: unknown) {
+function toRunError(error: AiRunErrorBoundary["error"]) {
   return { message: error instanceof Error ? error.message : String(error) };
 }
 
@@ -121,7 +125,7 @@ export async function emitMastraWorkflowStreamEvents(
   }
 }
 
-export function createAiRunEventStream({
+export function createAiRunEventStream<Output>({
   heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS,
   run,
   runId,
@@ -130,7 +134,7 @@ export function createAiRunEventStream({
   workflowId,
 }: {
   heartbeatIntervalMs?: number;
-  run: (emit: AiRunEventEmitter) => Promise<unknown>;
+  run: (emit: AiRunEventEmitter) => Promise<Output>;
   runId: string;
   title: string;
   traceId?: string;

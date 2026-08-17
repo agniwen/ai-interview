@@ -15,6 +15,28 @@ import {
   renewMeetingLiveTranscriptLease,
 } from "./dao";
 
+export interface WorkspaceMeetingLiveTranscriptAuthorizationDependencies {
+  claimLease: typeof claimMeetingLiveTranscriptLease;
+  createQwenAuthorization: typeof createQwenRealtimeTranscriptionAuthorization;
+  defaultQwenModel: typeof DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL;
+  gateIssue: typeof liveTranscriptAuthorizationGate.issue;
+  releaseLease: typeof releaseMeetingLiveTranscriptLease;
+  releaseTrackLease: typeof releaseMeetingLiveTranscriptTrackLease;
+  renewLease: typeof renewMeetingLiveTranscriptLease;
+  resolveQwenBaseUrl: typeof resolveMeetingTranscriptionQwenBaseUrl;
+}
+
+const defaultDependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependencies = {
+  claimLease: claimMeetingLiveTranscriptLease,
+  createQwenAuthorization: createQwenRealtimeTranscriptionAuthorization,
+  defaultQwenModel: DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL,
+  gateIssue: (input, mint) => liveTranscriptAuthorizationGate.issue(input, mint),
+  releaseLease: releaseMeetingLiveTranscriptLease,
+  releaseTrackLease: releaseMeetingLiveTranscriptTrackLease,
+  renewLease: renewMeetingLiveTranscriptLease,
+  resolveQwenBaseUrl: resolveMeetingTranscriptionQwenBaseUrl,
+};
+
 function issueLiveTranscriptLeaseAuthorization(
   input: {
     captureId: string;
@@ -23,9 +45,10 @@ function issueLiveTranscriptLeaseAuthorization(
     userId: string;
   },
   mint: () => Promise<MeetingLiveTranscriptAuthorization>,
+  dependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependencies,
 ): Promise<MeetingLiveTranscriptAuthorization | "capacity"> {
-  return liveTranscriptAuthorizationGate.issue(input, async () => {
-    const claim = await claimMeetingLiveTranscriptLease(input);
+  return dependencies.gateIssue(input, async () => {
+    const claim = await dependencies.claimLease(input);
     if (claim === "capacity") {
       return "capacity";
     }
@@ -34,7 +57,7 @@ function issueLiveTranscriptLeaseAuthorization(
     } catch (error) {
       if (claim === "created") {
         try {
-          await releaseMeetingLiveTranscriptTrackLease(input);
+          await dependencies.releaseTrackLease(input);
         } catch {
           // The short track lease expires server-side if cleanup cannot be delivered.
         }
@@ -44,50 +67,62 @@ function issueLiveTranscriptLeaseAuthorization(
   });
 }
 
-export function createWorkspaceMeetingLiveTranscriptAuthorization(input: {
-  captureId: string;
-  organizationId: string;
-  track: MeetingLiveTranscriptTrack;
-  userId: string;
-}): Promise<MeetingLiveTranscriptAuthorization | "capacity" | "unavailable"> {
+export function createWorkspaceMeetingLiveTranscriptAuthorization(
+  input: {
+    captureId: string;
+    organizationId: string;
+    track: MeetingLiveTranscriptTrack;
+    userId: string;
+  },
+  dependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependencies = defaultDependencies,
+): Promise<MeetingLiveTranscriptAuthorization | "capacity" | "unavailable"> {
   const qwenApiKey = process.env.ALIBABA_API_KEY?.trim();
   if (!qwenApiKey) {
     return Promise.resolve("unavailable");
   }
-  return issueLiveTranscriptLeaseAuthorization(input, () =>
-    createQwenRealtimeTranscriptionAuthorization(
-      {
-        captureId: input.captureId,
-        language: process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_LANGUAGE?.trim() || undefined,
-        track: input.track,
-      },
-      {
-        apiKey: qwenApiKey,
-        baseUrl: resolveMeetingTranscriptionQwenBaseUrl(),
-        model:
-          process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL?.trim() ||
-          DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL,
-        tokenTtlSeconds: Number.parseInt(
-          process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS || "1800",
-          10,
-        ),
-      },
-    ),
+  return issueLiveTranscriptLeaseAuthorization(
+    input,
+    () =>
+      dependencies.createQwenAuthorization(
+        {
+          captureId: input.captureId,
+          language: process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_LANGUAGE?.trim() || undefined,
+          track: input.track,
+        },
+        {
+          apiKey: qwenApiKey,
+          baseUrl: dependencies.resolveQwenBaseUrl(),
+          model:
+            process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL?.trim() ||
+            dependencies.defaultQwenModel,
+          tokenTtlSeconds: Number.parseInt(
+            process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS || "1800",
+            10,
+          ),
+        },
+      ),
+    dependencies,
   );
 }
 
-export function heartbeatWorkspaceMeetingLiveTranscript(input: {
-  captureId: string;
-  organizationId: string;
-  userId: string;
-}): Promise<boolean> {
-  return renewMeetingLiveTranscriptLease(input);
+export function heartbeatWorkspaceMeetingLiveTranscript(
+  input: {
+    captureId: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependencies = defaultDependencies,
+): Promise<boolean> {
+  return dependencies.renewLease(input);
 }
 
-export function releaseWorkspaceMeetingLiveTranscript(input: {
-  captureId: string;
-  organizationId: string;
-  userId: string;
-}): Promise<void> {
-  return releaseMeetingLiveTranscriptLease(input);
+export function releaseWorkspaceMeetingLiveTranscript(
+  input: {
+    captureId: string;
+    organizationId: string;
+    userId: string;
+  },
+  dependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependencies = defaultDependencies,
+): Promise<void> {
+  return dependencies.releaseLease(input);
 }

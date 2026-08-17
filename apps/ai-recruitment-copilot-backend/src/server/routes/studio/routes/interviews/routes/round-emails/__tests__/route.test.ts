@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { roundEmailsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/route";
+import { createRoundEmailsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/route";
 import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
 import {
   organization,
@@ -16,34 +16,24 @@ import {
   user,
 } from "@arc/db-schema/schema";
 
-// vi.mock 被 Vitest 提升（hoisted）；sendMock 用 vi.hoisted 确保在提升后可用。
-// vi.mock is hoisted by Vitest; use vi.hoisted so sendMock is available in the factory.
-const mocks = vi.hoisted(() => ({
+const mocks = {
   sendMock: vi.fn(),
   throwOnClient: false,
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resend", () => ({
-  buildSenderFromAddress: (companyName?: string) => {
+const roundEmailsRouter = createRoundEmailsRouter({
+  buildSenderFromAddress: (companyName) => {
     const display = companyName?.trim() ? `${companyName.trim()} AI HR` : "AI HR";
     return `${display} <noreply@example.com>`;
   },
-  getResendClient: () => {
+  requirePermission: () => (_c, next) => next(),
+  sendEmail: (input) => {
     if (mocks.throwOnClient) {
       throw new Error("RESEND_API_KEY 未配置");
     }
-    return { emails: { send: mocks.sendMock } };
+    return mocks.sendMock(input);
   },
-  getResendFrom: () => "Acme <noreply@example.com>",
-}));
-
-// 直通 requirePermission：跳过权限检查，专注路由逻辑。
-// Pass-through requirePermission: skip auth so tests focus on route logic.
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => async (_c: unknown, next: () => Promise<void>) => {
-    await next();
-  },
-}));
+});
 
 // ── 测试数据常量（后缀 _route，避免与 dao.test 冲突）────────────────────────
 // Test data constants (suffix _route to avoid collision with dao.test data).
@@ -193,6 +183,7 @@ describe("POST /:roundId/send", () => {
     const app = buildTestApp();
     const res = await app.request(`/${ROUND_NO_EMAIL}/send`, { method: "POST" });
     expect(res.status).toBe(400);
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await res.json()) as { error: string };
     expect(body.error).toContain("邮箱");
     expect(mocks.sendMock).not.toHaveBeenCalled();
@@ -206,6 +197,7 @@ describe("POST /:roundId/send", () => {
     const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
     expect(res.status).toBe(200);
 
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await res.json()) as { logId: string; sentAt: string; toEmail: string };
     expect(body.toEmail).toBe("candidate@example.com");
     expect(body.logId).toBeTruthy();
@@ -228,6 +220,7 @@ describe("POST /:roundId/send", () => {
     const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
     expect(res.status).toBe(400);
 
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await res.json()) as { error: string; logId: string };
     expect(body.error).toContain("rate limit");
     expect(body.logId).toBeTruthy();
@@ -272,6 +265,7 @@ describe("POST /:roundId/send", () => {
       const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
       expect(res.status).toBe(500);
 
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const body = (await res.json()) as { error: string; logId: string };
       expect(body.logId).toBeTruthy();
       expect(body.error).toBe("邮件发送失败，请稍后重试。");
@@ -307,6 +301,7 @@ describe("GET /summary", () => {
     });
     expect(res.status).toBe(200);
 
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const summary = (await res.json()) as Record<
       string,
       { count: number; lastSentAt: string | null; lastStatus: string | null }

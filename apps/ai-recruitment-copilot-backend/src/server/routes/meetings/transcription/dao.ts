@@ -18,9 +18,12 @@ import type {
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
+import {
+  meetingTranscriptionProviderSchema,
+  canonicalMeetingTranscriptSchema,
+} from "@arc/shared/meeting-transcription";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { FinalTranscriptionAudioChunk } from "./provider";
 import { findMeetingTranscriptionProviderCandidate } from "./provider-registry";
 
@@ -34,6 +37,31 @@ function publicTranscriptionFailure(errorCode: "provider-error" | "provider-quot
     : PUBLIC_TRANSCRIPTION_FAILURE_MESSAGE;
 }
 
+type StoredMeetingTranscriptionPolicy = Pick<
+  typeof meetingTranscriptionPolicy.$inferSelect,
+  "allowedProviders" | "fallbackProvider" | "revision" | "selectedProvider" | "selectionReason"
+>;
+
+interface MeetingTranscriptionPolicySnapshot {
+  allowedProviders: MeetingTranscriptionProviderId[];
+  fallbackProvider: MeetingTranscriptionProviderId | null;
+  revision: number;
+  selectionReason: string | null;
+  selectedProvider: MeetingTranscriptionProviderId | null;
+}
+
+function toMeetingTranscriptionPolicySnapshot(
+  policy: StoredMeetingTranscriptionPolicy,
+): MeetingTranscriptionPolicySnapshot {
+  return {
+    allowedProviders: meetingTranscriptionProviderSchema.array().parse(policy.allowedProviders),
+    fallbackProvider: meetingTranscriptionProviderSchema.nullable().parse(policy.fallbackProvider),
+    revision: policy.revision,
+    selectedProvider: meetingTranscriptionProviderSchema.nullable().parse(policy.selectedProvider),
+    selectionReason: policy.selectionReason,
+  };
+}
+
 function policyAllows(
   policy: typeof meetingTranscriptionPolicy.$inferSelect | null | undefined,
   provider: MeetingTranscriptionProviderId,
@@ -41,22 +69,12 @@ function policyAllows(
   return Boolean(policy) && provider === "qwen";
 }
 
-export async function loadMeetingTranscriptionPolicy(organizationId: string): Promise<{
-  allowedProviders: MeetingTranscriptionProviderId[];
-  fallbackProvider: MeetingTranscriptionProviderId | null;
-  revision: number;
-  selectionReason: string | null;
-  selectedProvider: MeetingTranscriptionProviderId | null;
-}> {
+export async function loadMeetingTranscriptionPolicy(
+  organizationId: string,
+): Promise<MeetingTranscriptionPolicySnapshot> {
   const row = await db.query.meetingTranscriptionPolicy.findFirst({ where: { organizationId } });
   return row
-    ? {
-        allowedProviders: row.allowedProviders as MeetingTranscriptionProviderId[],
-        fallbackProvider: row.fallbackProvider as MeetingTranscriptionProviderId | null,
-        revision: row.revision,
-        selectedProvider: row.selectedProvider as MeetingTranscriptionProviderId | null,
-        selectionReason: row.selectionReason,
-      }
+    ? toMeetingTranscriptionPolicySnapshot(row)
     : {
         allowedProviders: [],
         fallbackProvider: null,
@@ -70,13 +88,7 @@ export async function updateMeetingTranscriptionPolicy(input: {
   actorId: string;
   organizationId: string;
   policy: UpdateMeetingTranscriptionPolicyInput;
-}): Promise<{
-  allowedProviders: MeetingTranscriptionProviderId[];
-  fallbackProvider: MeetingTranscriptionProviderId | null;
-  revision: number;
-  selectionReason: string | null;
-  selectedProvider: MeetingTranscriptionProviderId | null;
-} | null> {
+}): Promise<MeetingTranscriptionPolicySnapshot | null> {
   return await db.transaction(async (tx) => {
     const [activeMembership] = await tx
       .select({ role: member.role })
@@ -155,13 +167,7 @@ export async function updateMeetingTranscriptionPolicy(input: {
       id: crypto.randomUUID(),
       organizationId: input.organizationId,
     });
-    return {
-      allowedProviders: row.allowedProviders as MeetingTranscriptionProviderId[],
-      fallbackProvider: row.fallbackProvider as MeetingTranscriptionProviderId | null,
-      revision: row.revision,
-      selectedProvider: row.selectedProvider as MeetingTranscriptionProviderId | null,
-      selectionReason: row.selectionReason,
-    };
+    return toMeetingTranscriptionPolicySnapshot(row);
   });
 }
 

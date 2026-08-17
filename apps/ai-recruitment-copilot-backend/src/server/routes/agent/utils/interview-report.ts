@@ -76,7 +76,7 @@ const hrEvaluationSchema = z.object({
     .describe("最近两份工作的个人角色定位、团队架构及人员分工、离职原因"),
 });
 
-const evaluationSchema = z.object({
+export const interviewEvaluationSchema = z.object({
   hrEvaluation: hrEvaluationSchema,
   overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
   overallScore: z.number().int().min(0).max(100).nullable(),
@@ -94,7 +94,7 @@ const evaluationSchema = z.object({
   recommendation: z.enum(["建议进入下一轮", "不建议进入下一轮", "待定"]),
 });
 
-export type InterviewEvaluation = z.infer<typeof evaluationSchema>;
+export type InterviewEvaluation = z.infer<typeof interviewEvaluationSchema>;
 
 export interface InterviewEvaluationQuestion extends InterviewQuestion {
   questionId: string;
@@ -152,7 +152,7 @@ export function applyQuestionOutcomesToEvaluation(
   const scoreTotal = questions.reduce(
     (total, question) =>
       total +
-      (scorableQuestionIds.has(question.questionId) && typeof question.score === "number"
+      (scorableQuestionIds.has(question.questionId) && question.score !== null
         ? (question.score / question.maxScore) * 100
         : 0),
     0,
@@ -191,7 +191,7 @@ export function formatTranscript(turns: InterviewTranscriptTurn[]): string {
     .map((turn, index) => {
       const role = turn.role === "agent" ? "面试官" : "候选人";
       const time =
-        typeof turn.timeInCallSecs === "number" ? ` time=${Math.round(turn.timeInCallSecs)}s` : "";
+        turn.timeInCallSecs === undefined ? "" : ` time=${Math.round(turn.timeInCallSecs)}s`;
       return `[turnIndex=${index + 1}${time}] ${role}: ${turn.message}`;
     })
     .join("\n");
@@ -267,6 +267,20 @@ export async function generateInterviewSummary(options: {
   });
 }
 
+export function buildInterviewEvaluationPrompt(options: {
+  candidateFormResponses: string;
+  dataCollectionResults?: InterviewDataCollectionResults | null;
+  questions: InterviewEvaluationQuestion[];
+  transcript: InterviewTranscriptTurn[];
+}): string {
+  return EVALUATION_PROMPT.replace(
+    "{formResponses}",
+    options.candidateFormResponses || "（无表单答复）",
+  )
+    .replace("{questions}", formatQuestions(options.questions, options.dataCollectionResults))
+    .replace("{transcript}", formatTranscript(options.transcript));
+}
+
 export async function generateInterviewEvaluation(options: {
   candidateFormResponses: string;
   dataCollectionResults?: InterviewDataCollectionResults | null;
@@ -275,13 +289,8 @@ export async function generateInterviewEvaluation(options: {
 }): Promise<InterviewEvaluation> {
   const evaluation = await generateStructuredWithMastraAgent({
     agent: interviewReportEvaluationAgent,
-    prompt: EVALUATION_PROMPT.replace(
-      "{formResponses}",
-      options.candidateFormResponses || "（无表单答复）",
-    )
-      .replace("{questions}", formatQuestions(options.questions, options.dataCollectionResults))
-      .replace("{transcript}", formatTranscript(options.transcript)),
-    schema: evaluationSchema,
+    prompt: buildInterviewEvaluationPrompt(options),
+    schema: interviewEvaluationSchema,
     temperature: 0,
   });
   return options.dataCollectionResults
@@ -289,12 +298,25 @@ export async function generateInterviewEvaluation(options: {
     : evaluation;
 }
 
-export async function generateInterviewReport(options: {
-  candidateFormResponses: string;
-  dataCollectionResults?: InterviewDataCollectionResults | null;
-  transcript: InterviewTranscriptTurn[];
-  questions: InterviewEvaluationQuestion[];
-}): Promise<InterviewReportResult> {
+export interface InterviewReportDependencies {
+  generateEvaluation: typeof generateInterviewEvaluation;
+  generateSummary: typeof generateInterviewSummary;
+}
+
+const defaultInterviewReportDependencies: InterviewReportDependencies = {
+  generateEvaluation: generateInterviewEvaluation,
+  generateSummary: generateInterviewSummary,
+};
+
+export async function generateInterviewReport(
+  options: {
+    candidateFormResponses: string;
+    dataCollectionResults?: InterviewDataCollectionResults | null;
+    transcript: InterviewTranscriptTurn[];
+    questions: InterviewEvaluationQuestion[];
+  },
+  dependencies: InterviewReportDependencies = defaultInterviewReportDependencies,
+): Promise<InterviewReportResult> {
   const { transcript, questions } = options;
 
   if (transcript.length === 0) {
@@ -302,8 +324,8 @@ export async function generateInterviewReport(options: {
   }
 
   const [summaryResult, evaluationResult] = await Promise.allSettled([
-    generateInterviewSummary({ transcript }),
-    generateInterviewEvaluation({
+    dependencies.generateSummary({ transcript }),
+    dependencies.generateEvaluation({
       candidateFormResponses: options.candidateFormResponses,
       dataCollectionResults: options.dataCollectionResults,
       questions,

@@ -6,7 +6,7 @@ import {
 import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
-import { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import type { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   STRUCTURED_RESUME_ENGINE_VERSION,
   STRUCTURED_RESUME_MODEL_ID,
@@ -20,14 +20,33 @@ interface ResumeReviewContext {
   screeningPolicy: ResumeScreeningPolicy | null;
 }
 
+export interface ResumeReviewGenerationDependencies {
+  generateReview: typeof generateResumeReview;
+  generateScreeningResult: typeof generateResumeScreeningResult;
+  loadJobDescription: typeof loadRecruitingJobDescriptionById;
+  runStructuredReview: typeof runStructuredResumeReviewWorkflow;
+}
+
+const defaultDependencies: ResumeReviewGenerationDependencies = {
+  generateReview: generateResumeReview,
+  generateScreeningResult: generateResumeScreeningResult,
+  loadJobDescription: async (organizationId, jobDescriptionId) => {
+    const { loadRecruitingJobDescriptionById: loadJobDescription } =
+      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao");
+    return loadJobDescription(organizationId, jobDescriptionId);
+  },
+  runStructuredReview: runStructuredResumeReviewWorkflow,
+};
+
 export async function buildJobDescriptionReviewContext(
   organizationId: string,
   jobDescriptionId: string | null,
+  dependencies: ResumeReviewGenerationDependencies = defaultDependencies,
 ): Promise<ResumeReviewContext> {
   if (!jobDescriptionId) {
     return { jobDescription: null, screeningPolicy: null };
   }
-  const jd = await loadRecruitingJobDescriptionById(organizationId, jobDescriptionId);
+  const jd = await dependencies.loadJobDescription(organizationId, jobDescriptionId);
   if (!jd) {
     return { jobDescription: null, screeningPolicy: null };
   }
@@ -41,17 +60,20 @@ export async function buildJobDescriptionReviewContext(
   return { jobDescription, screeningPolicy: jd.resumeScreeningPolicy };
 }
 
-export async function generateResumeAssessment(input: {
-  evaluationAsOf: string;
-  jobDescriptionId: string;
-  organizationId: string;
-  resumeContentHash: string | null;
-  resumeInputHash: string;
-  resumeProfile: ResumeProfile;
-  resumeText?: string | null;
-  runId: string;
-}): Promise<GeneratedResumeAssessment> {
-  const job = await loadRecruitingJobDescriptionById(input.organizationId, input.jobDescriptionId);
+export async function generateResumeAssessment(
+  input: {
+    evaluationAsOf: string;
+    jobDescriptionId: string;
+    organizationId: string;
+    resumeContentHash: string | null;
+    resumeInputHash: string;
+    resumeProfile: ResumeProfile;
+    resumeText?: string | null;
+    runId: string;
+  },
+  dependencies: ResumeReviewGenerationDependencies = defaultDependencies,
+): Promise<GeneratedResumeAssessment> {
+  const job = await dependencies.loadJobDescription(input.organizationId, input.jobDescriptionId);
   if (!job) {
     throw new Error("绑定岗位不存在或尚未发布。");
   }
@@ -59,7 +81,7 @@ export async function generateResumeAssessment(input: {
     if (!job.evaluationBlueprint || !job.evaluationBlueprintHash || !job.deductionRuleSetVersion) {
       throw new Error("结构化岗位缺少已发布评估蓝图。");
     }
-    const evaluation = await runStructuredResumeReviewWorkflow({
+    const evaluation = await dependencies.runStructuredReview({
       engine: {
         modelId: STRUCTURED_RESUME_MODEL_ID,
         promptVersion: STRUCTURED_RESUME_PROMPT_VERSION,
@@ -90,13 +112,14 @@ export async function generateResumeAssessment(input: {
   const context = await buildJobDescriptionReviewContext(
     input.organizationId,
     input.jobDescriptionId,
+    dependencies,
   );
-  const screeningResult = await generateResumeScreeningResult({
+  const screeningResult = await dependencies.generateScreeningResult({
     policy: context.screeningPolicy,
     resumeProfile: input.resumeProfile,
     resumeText: input.resumeText,
   });
-  const review = await generateResumeReview({
+  const review = await dependencies.generateReview({
     jobDescription: context.jobDescription,
     resumeProfile: input.resumeProfile,
     screeningResult,
@@ -112,19 +135,22 @@ export async function generateResumeAssessment(input: {
   };
 }
 
-export async function generateResumeReviewBestEffort(input: {
-  evaluationAsOf: string;
-  jobDescriptionId: string;
-  logPrefix?: string;
-  organizationId: string;
-  resumeContentHash: string | null;
-  resumeInputHash: string;
-  resumeProfile: ResumeProfile;
-  resumeText?: string | null;
-  runId: string;
-}): Promise<GeneratedResumeAssessment | null> {
+export async function generateResumeReviewBestEffort(
+  input: {
+    evaluationAsOf: string;
+    jobDescriptionId: string;
+    logPrefix?: string;
+    organizationId: string;
+    resumeContentHash: string | null;
+    resumeInputHash: string;
+    resumeProfile: ResumeProfile;
+    resumeText?: string | null;
+    runId: string;
+  },
+  dependencies: ResumeReviewGenerationDependencies = defaultDependencies,
+): Promise<GeneratedResumeAssessment | null> {
   try {
-    return await generateResumeAssessment(input);
+    return await generateResumeAssessment(input, dependencies);
   } catch (error) {
     console.error(
       `${input.logPrefix ?? "[resume-library]"} resume review generation failed:`,

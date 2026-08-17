@@ -1,13 +1,19 @@
 import type { MeetingTranscriptionProviderId } from "@arc/shared/meeting-transcription";
 
-const KNOWN_ENDPOINTS: Record<string, string> = {
-  "deepgram:https://api.au.deepgram.com": "deepgram-au",
-  "deepgram:https://api.deepgram.com": "deepgram-us",
-  "deepgram:https://api.eu.deepgram.com": "deepgram-eu",
-  "openai:https://api.openai.com/v1": "openai-default",
-  "qwen:https://dashscope-intl.aliyuncs.com": "qwen-singapore",
-  "qwen:https://dashscope.aliyuncs.com": "qwen-cn-beijing",
-};
+const KNOWN_ENDPOINTS = new Map<string, string>([
+  ["deepgram:https://api.au.deepgram.com", "deepgram-au"],
+  ["deepgram:https://api.deepgram.com", "deepgram-us"],
+  ["deepgram:https://api.eu.deepgram.com", "deepgram-eu"],
+  ["openai:https://api.openai.com/v1", "openai-default"],
+  ["qwen:https://dashscope-intl.aliyuncs.com", "qwen-singapore"],
+  ["qwen:https://dashscope.aliyuncs.com", "qwen-cn-beijing"],
+]);
+
+interface MeetingTranscriptionProviderEndpoint {
+  baseUrl: string;
+  region: string;
+  verified: boolean;
+}
 
 /**
  * 百炼 ASR 的 REST API 挂在站点根路径下（/api/v1/services/audio/asr/transcription），
@@ -32,7 +38,7 @@ export function resolveMeetingTranscriptionProviderEndpoint(input: {
   allowUnverified?: boolean;
   baseUrl: string;
   provider: Extract<MeetingTranscriptionProviderId, "deepgram" | "openai" | "qwen">;
-}): { baseUrl: string; region: string; verified: boolean } {
+}): MeetingTranscriptionProviderEndpoint {
   let url: URL;
   try {
     url = new URL(input.baseUrl);
@@ -43,7 +49,7 @@ export function resolveMeetingTranscriptionProviderEndpoint(input: {
     throw new Error(`${input.provider} transcription endpoint must use HTTPS`);
   }
   const normalized = `${url.origin}${url.pathname.replace(/\/$/, "")}`;
-  const region = KNOWN_ENDPOINTS[`${input.provider}:${normalized}`];
+  const region = KNOWN_ENDPOINTS.get(`${input.provider}:${normalized}`);
   if (!region && !input.allowUnverified) {
     throw new Error(`${input.provider} production endpoint is not in the verified region map`);
   }

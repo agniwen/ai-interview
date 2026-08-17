@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
@@ -45,19 +46,12 @@ export function AgentInstructionsPanel({
   const { data: variants = [], isLoading } = useQuery({
     enabled: enabled && !!recordId,
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio.interviews[":id"]["agent-instructions"].$get(
-        {
+      const payload = await rpcFetch<{ variants: AgentInstructionVariant[] }>(
+        rpc.api.w[":slug"].studio.interviews[":id"]["agent-instructions"].$get({
           param: { id: recordId ?? "", slug },
-        },
+        }),
+        "加载提示词失败",
       );
-      const payload = (await response.json()) as
-        | { variants: AgentInstructionVariant[] }
-        | { error?: string };
-      if (!response.ok || !("variants" in payload)) {
-        throw new Error(
-          "error" in payload ? (payload.error ?? "加载提示词失败") : "加载提示词失败",
-        );
-      }
       return payload.variants;
     },
     queryKey: ["studio-interview-agent-instructions", slug, recordId],

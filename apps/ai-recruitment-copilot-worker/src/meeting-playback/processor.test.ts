@@ -1,22 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildMeetingPlaybackAssetKey: vi.fn(),
-  deleteMeetingRecordingObject: vi.fn(),
-  downloadMeetingRecordingObjectToFile: vi.fn(),
-  headMeetingRecordingObject: vi.fn(),
-  putMeetingRecordingFile: vi.fn(),
-}));
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/dao", () => ({
-  loadMeetingPlaybackSource: vi.fn(),
-  markMeetingPlaybackFailed: vi.fn(),
-  markMeetingPlaybackProcessing: vi.fn(),
-  publishMeetingPlaybackAsset: vi.fn(),
-  registerMeetingPlaybackCleanupKey: vi.fn(),
-  removeMeetingPlaybackCleanupKey: vi.fn(),
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { runMeetingPlaybackProcessing } from "./processor";
 
 function createDependencies() {

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -53,7 +54,6 @@ import {
   buildWorkspaceRoleOptions,
   getWorkspaceRoleLabel,
 } from "@/components/features/studio/members/role-display";
-import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { WorkspaceSettingsDialog } from "@/components/features/studio/members/workspace-settings-dialog";
 
 import {
@@ -83,7 +83,7 @@ import {
 export function MembersManagementPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
-  const workspaceMemberRole = useWorkspaceMemberRole() as WorkspaceRole;
+  const workspaceMemberRole = useWorkspaceMemberRole();
   const routeSearch = useSearch({ from: "/w/$slug/studio/members" });
   const navigate = useNavigate({ from: "/w/$slug/studio/members" });
   const activeTab = parseWorkspaceManagementTab(routeSearch.tab);
@@ -118,21 +118,15 @@ export function MembersManagementPage() {
   const { data: lastActiveMap = {} } = useQuery({
     enabled: Boolean(workspaceId),
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio.workspace["member-last-actives"].$get({
-        param: { slug },
-      });
-      const payload = (await response.json()) as
-        | { records: { userId: string; lastActiveAt: string | null }[] }
-        | { message?: string };
-      if (!response.ok || !("records" in payload)) {
-        const message =
-          "message" in payload ? (payload.message ?? "加载活跃时间失败") : "加载活跃时间失败";
-        console.error("[member-last-actives]", response.status, message, payload);
-        throw new Error(message);
-      }
-      return Object.fromEntries(
-        payload.records.map((row) => [row.userId, row.lastActiveAt]),
-      ) as Record<string, string | null>;
+      const payload = await rpcFetch<{
+        records: { lastActiveAt: string | null; userId: string }[];
+      }>(
+        rpc.api.w[":slug"].studio.workspace["member-last-actives"].$get({
+          param: { slug },
+        }),
+        "加载活跃时间失败",
+      );
+      return Object.fromEntries(payload.records.map((row) => [row.userId, row.lastActiveAt]));
     },
     queryKey: ["workspace-member-last-actives", slug, workspaceId],
     refetchOnWindowFocus: false,
@@ -140,15 +134,10 @@ export function MembersManagementPage() {
   const { data: groups = EMPTY_RECRUITING_GROUPS, refetch: refetchGroups } = useQuery({
     enabled: Boolean(workspaceId),
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio.workspace.groups.$get({
-        param: { slug },
-      });
-      const payload = (await response.json()) as
-        | { groups: RecruitingGroupRow[] }
-        | { message?: string };
-      if (!response.ok || !("groups" in payload)) {
-        throw new Error("加载组别失败");
-      }
+      const payload = await rpcFetch<{ groups: RecruitingGroupRow[] }>(
+        rpc.api.w[":slug"].studio.workspace.groups.$get({ param: { slug } }),
+        "加载组别失败",
+      );
       return payload.groups;
     },
     queryKey: groupsQueryKey,
@@ -194,11 +183,9 @@ export function MembersManagementPage() {
   const allRows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
     return list.map((m) => {
-      const { user } = m as {
-        user?: { email?: string; name?: string; image?: string | null };
-      };
+      const { user } = m;
       return {
-        createdAt: m.createdAt as string | Date,
+        createdAt: m.createdAt,
         email: user?.email ?? "—",
         id: m.id,
         image: user?.image ?? null,
@@ -425,6 +412,8 @@ export function MembersManagementPage() {
       return;
     }
     setPending(row.id);
+    // SAFETY: Better Auth's generated client narrows roles to built-ins, while this server
+    // validates and supports the workspace's configured dynamic role identifiers as strings.
     const { error } = await authClient.organization.updateMemberRole({
       memberId: row.id,
       organizationId: workspaceId,
@@ -680,20 +669,16 @@ export function MembersManagementPage() {
             groupNameDrafts={groupNameDrafts}
             groups={groups}
             newGroupName={newGroupName}
-            onAddMemberToGroup={(row, groupId) => void addMemberToGroup(row, groupId)}
-            onCreateGroup={() => void createGroup()}
+            onAddMemberToGroup={addMemberToGroup}
+            onCreateGroup={createGroup}
             onDeleteGroup={setDeleteGroupTarget}
             onGroupNameDraftChange={(groupId, value) =>
               setGroupNameDrafts((current) => ({ ...current, [groupId]: value }))
             }
-            onRemoveGroupMember={(groupId, member) => void removeGroupMember(groupId, member)}
-            onRenameGroup={(group, name) => void renameGroup(group, name)}
-            onMoveMemberToGroup={(row, sourceGroupId, targetGroupId) =>
-              void moveMemberToGroup(row, sourceGroupId, targetGroupId)
-            }
-            onRoleChange={(groupId, member, role) =>
-              void changeGroupMemberRole(groupId, member, role)
-            }
+            onRemoveGroupMember={removeGroupMember}
+            onRenameGroup={renameGroup}
+            onMoveMemberToGroup={moveMemberToGroup}
+            onRoleChange={changeGroupMemberRole}
             pending={pending}
             setNewGroupName={setNewGroupName}
           />

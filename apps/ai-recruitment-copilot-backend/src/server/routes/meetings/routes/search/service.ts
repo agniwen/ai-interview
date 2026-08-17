@@ -1,14 +1,13 @@
-import type {
-  MeetingAccessRole,
-  MeetingGrantRole,
-  MeetingProcessingState,
-} from "@arc/shared/meeting-recording";
+import type { MeetingProcessingState } from "@arc/shared/meeting-recording";
 import type { MeetingLibrarySearchResult } from "@arc/shared/meeting-search";
+import { z } from "zod";
 import { resolveMeetingAccessRole } from "../../access";
 import { recordMeetingAudit } from "../../dao";
 import { searchMeetingSessionsForAccess } from "./dao";
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
+const meetingGrantRoleSchema = z.enum(["editor", "viewer"]).nullable();
+const meetingVisibilitySchema = z.enum(["restricted", "workspace"]);
 
 function processingState(status: string): MeetingProcessingState {
   if (status === "ready") {
@@ -42,25 +41,38 @@ export async function searchSavedMeetings(input: {
       organizationId: input.organizationId,
     });
   }
-  return result.records.map((row) => ({
-    accessRole: resolveMeetingAccessRole({
-      grantRole: row.grantRole as MeetingGrantRole | null,
+  return result.records.flatMap((row) => {
+    const grantRole = meetingGrantRoleSchema.safeParse(row.grantRole);
+    const visibility = meetingVisibilitySchema.safeParse(row.visibility);
+    if (!grantRole.success || !visibility.success) {
+      return [];
+    }
+    const accessRole = resolveMeetingAccessRole({
+      grantRole: grantRole.data,
       isOwner: row.controllerId === input.userId,
       isWorkspaceAdministrator: result.isAdministrator,
-      visibility: row.visibility as "restricted" | "workspace",
-    }) as MeetingAccessRole,
-    creator: {
-      id: row.creatorId,
-      image: row.creatorImage,
-      name: row.creatorName,
-    },
-    durationMs: row.durationMs,
-    id: row.id,
-    match: row.match,
-    processingState: processingState(row.status),
-    recordingAvailable: row.recordingAvailable,
-    savedAt: row.savedAt.toISOString(),
-    title: row.title,
-    workspaceCustodied: row.workspaceCustodied,
-  }));
+      visibility: visibility.data,
+    });
+    if (!accessRole) {
+      return [];
+    }
+    return [
+      {
+        accessRole,
+        creator: {
+          id: row.creatorId,
+          image: row.creatorImage,
+          name: row.creatorName,
+        },
+        durationMs: row.durationMs,
+        id: row.id,
+        match: row.match,
+        processingState: processingState(row.status),
+        recordingAvailable: row.recordingAvailable,
+        savedAt: row.savedAt.toISOString(),
+        title: row.title,
+        workspaceCustodied: row.workspaceCustodied,
+      },
+    ];
+  });
 }

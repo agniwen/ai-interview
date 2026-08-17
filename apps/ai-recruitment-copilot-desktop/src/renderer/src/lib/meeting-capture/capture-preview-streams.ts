@@ -1,13 +1,14 @@
-import type { CaptureTrack } from "../../../../preload/meeting-capture";
+export interface CapturePreviewStreams {
+  microphone: MediaStream | null;
+  system: MediaStream | null;
+}
 
-export type CapturePreviewStreams = Record<CaptureTrack, MediaStream | null>;
-
-const EMPTY_STREAMS: CapturePreviewStreams = {
+const EMPTY_STREAMS = {
   microphone: null,
   system: null,
-};
+} satisfies CapturePreviewStreams;
 
-let streams: CapturePreviewStreams = EMPTY_STREAMS;
+let streams: CapturePreviewStreams = { ...EMPTY_STREAMS };
 const listeners = new Set<(next: CapturePreviewStreams) => void>();
 
 function emit(): void {

@@ -37,9 +37,11 @@ interface ParticipantLike {
   tracks: TrackLike[];
 }
 
+type PrometheusLabels = Record<string, string>;
+
 export interface PrometheusMetricRecord {
   help: string | null;
-  labels: Record<string, string>;
+  labels: PrometheusLabels;
   name: string;
   type: string | null;
   value: number | string;
@@ -58,16 +60,16 @@ function participantStateLabel(state: number): string {
 }
 
 function participantKindLabel(kind: number): string {
-  const labels: Record<number, string> = {
-    0: "标准用户",
-    1: "Ingress",
-    2: "Egress",
-    3: "SIP",
-    4: "Agent",
-    7: "Connector",
-    8: "Bridge",
-  };
-  return labels[kind] ?? `未知 (${kind})`;
+  const labels = new Map<number, string>([
+    [0, "标准用户"],
+    [1, "Ingress"],
+    [2, "Egress"],
+    [3, "SIP"],
+    [4, "Agent"],
+    [7, "Connector"],
+    [8, "Bridge"],
+  ]);
+  return labels.get(kind) ?? `未知 (${kind})`;
 }
 
 function trackTypeLabel(type: number): string {
@@ -75,14 +77,14 @@ function trackTypeLabel(type: number): string {
 }
 
 function trackSourceLabel(source: number): string {
-  const labels: Record<number, string> = {
-    0: "未知",
-    1: "摄像头",
-    2: "麦克风",
-    3: "屏幕共享",
-    4: "屏幕共享音频",
-  };
-  return labels[source] ?? `未知 (${source})`;
+  const labels = new Map<number, string>([
+    [0, "未知"],
+    [1, "摄像头"],
+    [2, "麦克风"],
+    [3, "屏幕共享"],
+    [4, "屏幕共享音频"],
+  ]);
+  return labels.get(source) ?? `未知 (${source})`;
 }
 
 export function toRoomRecord(room: RoomLike) {
@@ -123,16 +125,16 @@ export function toParticipantRecord(participant: ParticipantLike) {
   };
 }
 
-function parseLabels(input: string | undefined): Record<string, string> {
+function parseLabels(input: string | undefined) {
   if (!input) {
     return {};
   }
-  const labels: Record<string, string> = {};
+  const labels = new Map<string, string>();
   const labelPattern = /([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"\\])*)"/g;
   for (const match of input.matchAll(labelPattern)) {
-    labels[match[1]] = match[2].replaceAll('\\"', '"').replaceAll("\\\\", "\\");
+    labels.set(match[1], match[2].replaceAll('\\"', '"').replaceAll("\\\\", "\\"));
   }
-  return labels;
+  return Object.fromEntries(labels);
 }
 
 export function parsePrometheusMetrics(text: string): PrometheusMetricRecord[] {

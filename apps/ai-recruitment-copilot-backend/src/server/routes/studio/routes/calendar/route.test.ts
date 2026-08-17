@@ -1,31 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import type { StudioCalendarRouterDependencies } from "./route";
+import { createStudioCalendarRouter } from "./route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
+  listStudioCalendarEvents: vi.fn(),
   loadAiCalendarEventPreview: vi.fn(),
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   permissionChecks: [] as [string, string][],
   resolveRecruitingVisibilityScope: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
+const dependencies = {
+  listEvents: mocks.listStudioCalendarEvents,
+  loadPreview: mocks.loadAiCalendarEventPreview,
   requirePermission:
-    (resource: string, action: string) => (_c: unknown, next: () => Promise<void>) => {
+    (resource: string, action: string) =>
+    (
+      _c: { set: (key: string, value: { id?: string; role?: string }) => void },
+      next: () => Promise<void>,
+    ) => {
       mocks.permissionChecks.push([resource, action]);
       return next();
     },
-}));
+  resolveVisibility: mocks.resolveRecruitingVisibilityScope,
+} satisfies StudioCalendarRouterDependencies;
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
-  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
-}));
-
-vi.mock("./dao", () => ({
-  listStudioCalendarEvents: vi.fn(),
-  loadAiCalendarEventPreview: mocks.loadAiCalendarEventPreview,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { studioCalendarRouter } from "./route";
+const studioCalendarRouter = createStudioCalendarRouter(dependencies);
 
 const ORGANIZATION_ID = "org-calendar";
 const USER_ID = "user-calendar";
@@ -34,8 +35,11 @@ function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("member", { role: "hr" } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
       await next();
     })

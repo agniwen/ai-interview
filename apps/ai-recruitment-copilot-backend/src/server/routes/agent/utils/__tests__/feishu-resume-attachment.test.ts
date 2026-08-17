@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ResumePdfAttachmentDependencies } from "../feishu-resume-attachment";
 import { loadResumePdfAttachment } from "../feishu-resume-attachment";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
   convertPptxToPdf: vi.fn(),
   getObjectBytes: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  getObjectBytes: mocks.getObjectBytes,
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
-  convertPptxToPdf: mocks.convertPptxToPdf,
-}));
+const dependencies = mocks satisfies ResumePdfAttachmentDependencies;
 
 describe("loadResumePdfAttachment", () => {
   beforeEach(() => {
@@ -24,7 +19,10 @@ describe("loadResumePdfAttachment", () => {
     mocks.getObjectBytes.mockResolvedValue({ bytes, contentType: "application/pdf" });
 
     await expect(
-      loadResumePdfAttachment({ fileName: "resume.pdf", storageKey: "resumes/resume.pdf" }),
+      loadResumePdfAttachment(
+        { fileName: "resume.pdf", storageKey: "resumes/resume.pdf" },
+        dependencies,
+      ),
     ).resolves.toBe(bytes);
     expect(mocks.convertPptxToPdf).not.toHaveBeenCalled();
   });
@@ -39,7 +37,10 @@ describe("loadResumePdfAttachment", () => {
     mocks.convertPptxToPdf.mockResolvedValue(pdf);
 
     await expect(
-      loadResumePdfAttachment({ fileName: "resume.pptx", storageKey: "resumes/resume.pptx" }),
+      loadResumePdfAttachment(
+        { fileName: "resume.pptx", storageKey: "resumes/resume.pptx" },
+        dependencies,
+      ),
     ).resolves.toBe(pdf);
     expect(mocks.convertPptxToPdf).toHaveBeenCalledWith(source);
   });
@@ -51,7 +52,10 @@ describe("loadResumePdfAttachment", () => {
     });
 
     await expect(
-      loadResumePdfAttachment({ fileName: "resume.docx", storageKey: "resumes/resume.docx" }),
+      loadResumePdfAttachment(
+        { fileName: "resume.docx", storageKey: "resumes/resume.docx" },
+        dependencies,
+      ),
     ).resolves.toBeNull();
     expect(mocks.convertPptxToPdf).not.toHaveBeenCalled();
   });

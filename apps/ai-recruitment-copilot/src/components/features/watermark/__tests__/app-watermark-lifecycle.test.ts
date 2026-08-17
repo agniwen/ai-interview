@@ -16,7 +16,7 @@ afterEach(() => {
 function deferred() {
   let settle!: () => void;
   // oxlint-disable-next-line promise/avoid-new -- Test fixture needs a controllable pending promise.
-  const promise = new Promise<undefined>((resolve) => {
+  const promise = new Promise<void>((resolve) => {
     settle = () => {
       resolve();
     };

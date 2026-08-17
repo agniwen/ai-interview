@@ -36,9 +36,6 @@ ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
 packageExtensions:
-  "@mastra/deployer@1.50.1":
-    dependencies:
-      typescript: 6.0.3
   "streamdown@2.5.0":
     dependencies:
       shiki: ^3.19.0
@@ -104,4 +101,3 @@ minimumReleaseAgeExclude:
 allowUnusedPatches: true
 patchedDependencies:
   "@larksuiteoapi/node-sdk@1.63.1": patches/@larksuiteoapi__node-sdk@1.63.1.patch
-  "@mastra/playground-ui@40.0.1": patches/@mastra__playground-ui@40.0.1.patch

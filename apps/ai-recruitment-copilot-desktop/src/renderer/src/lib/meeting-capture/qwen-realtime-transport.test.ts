@@ -18,8 +18,13 @@ interface TranscriptEvent {
   type: "completed" | "delta" | "snapshot";
 }
 
+interface HandshakeMessage {
+  authorization: MeetingLiveTranscriptAuthorization;
+  type: "start-meeting-live-transcript-client";
+}
+
 let serverPort: MessagePort | null = null;
-let postedHandshake: unknown = null;
+let postedHandshake: HandshakeMessage | null = null;
 let receivedPcm: Uint8Array[] = [];
 let acknowledgePcm = false;
 
@@ -31,10 +36,11 @@ beforeEach(() => {
   receivedPcm = [];
   acknowledgePcm = false;
   vi.stubGlobal("window", {
-    postMessage: (message: unknown, _targetOrigin: string, transfer: MessagePort[]) => {
+    postMessage: (message: HandshakeMessage, _targetOrigin: string, transfer: MessagePort[]) => {
       postedHandshake = message;
       [serverPort] = transfer;
       serverPort?.addEventListener("message", (event: MessageEvent) => {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         const data = event.data as { type?: string };
         if (data?.type === "pcm" && event.data.bytes instanceof Uint8Array) {
           receivedPcm.push(event.data.bytes);
@@ -173,6 +179,7 @@ describe("connectQwenRealtimeTranscription", () => {
 
     expect(connection.sendPcm(new Int16Array(2400))).toBe(true);
     const pcmCall = postMessage.mock.calls.find(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       ([message]) => (message as { type?: unknown })?.type === "pcm",
     );
 

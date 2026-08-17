@@ -9,6 +9,7 @@ function finishEvent(overrides: Partial<ChatFinishEvent> = {}): ChatFinishEvent 
     isAbort: false,
     isDisconnect: false,
     isError: false,
+    // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     message: {
       id: "message_1",
       parts: [{ text: "done", type: "text" }],

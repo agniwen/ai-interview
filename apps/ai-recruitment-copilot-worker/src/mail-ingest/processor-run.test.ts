@@ -1,123 +1,112 @@
-import { simpleParser } from "mailparser";
-import { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
-import {
-  buildAttachmentKeyByHash,
-  putObjectBytes,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { fetchPublishedJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import {
-  claimMailIngestMessageForProcessing,
-  updateMailIngestMessageResult,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
-import {
-  insertBatchWithItems,
-  loadBatchDetail,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import type { ParsedMail } from "mailparser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { runMailIngestOnce } from "./processor";
+import type {
+  FetchMessageObject,
+  FetchOptions,
+  FetchQueryObject,
+  ImapFlowOptions,
+  MailboxLockObject,
+  MailboxLockOptions,
+  SearchObject,
+} from "imapflow";
+import { createMailIngestProcessor } from "./processor";
+import type { MailIngestDependencies } from "./processor";
 import type { MailIngestConfig } from "./config";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
+  buildAttachmentKeyByHash: vi.fn(),
   claimMailIngestAccount: vi.fn(),
+  claimMailIngestMessageForProcessing: vi.fn(),
   connect: vi.fn(),
-  constructorOptions: undefined as unknown,
+  // SAFETY: The fixture stores only the constructor options passed by the processor seam.
+  constructorOptions: undefined as ImapFlowOptions | undefined,
+  enqueueResumeParseJobs: vi.fn(),
   errorListenerCount: 0,
   fetchOne: vi.fn(),
+  fetchPublishedJobDescriptionsByCodes: vi.fn(),
   finishMailIngestAccountRun: vi.fn(),
   getMailboxLock: vi.fn(),
+  insertBatchWithItems: vi.fn(),
   listEnabledMailIngestAccounts: vi.fn(),
+  loadBatchDetail: vi.fn(),
   logout: vi.fn(),
   markMailIngestMessageSkipped: vi.fn(),
-  search: vi.fn(),
-}));
-
-vi.mock("imapflow", () => ({
-  ImapFlow: class MockImapFlow {
-    mailbox = { uidValidity: "uid-validity-1" };
-    private readonly listeners = new Map<string, unknown[]>();
-
-    constructor(options: unknown) {
-      mocks.constructorOptions = options;
-    }
-
-    on(event: string, listener: unknown) {
-      const listeners = this.listeners.get(event) ?? [];
-      listeners.push(listener);
-      this.listeners.set(event, listeners);
-      return this;
-    }
-
-    listenerCount(event: string) {
-      return this.listeners.get(event)?.length ?? 0;
-    }
-
-    readInstanceState() {
-      return this.listeners.size;
-    }
-
-    connect() {
-      mocks.errorListenerCount = this.listenerCount("error");
-      return mocks.connect();
-    }
-
-    fetchOne(...args: unknown[]) {
-      this.readInstanceState();
-      return mocks.fetchOne(...args);
-    }
-
-    getMailboxLock(...args: unknown[]) {
-      this.readInstanceState();
-      return mocks.getMailboxLock(...args);
-    }
-
-    logout(...args: unknown[]) {
-      this.readInstanceState();
-      return mocks.logout(...args);
-    }
-
-    search(...args: unknown[]) {
-      this.readInstanceState();
-      return mocks.search(...args);
-    }
-  },
-}));
-
-vi.mock("mailparser", () => ({
-  simpleParser: vi.fn(),
-}));
-
-vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
-  enqueueResumeParseJobs: vi.fn(),
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  buildAttachmentKeyByHash: vi.fn(),
+  parseMail: vi.fn(),
   putObjectBytes: vi.fn(),
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches",
-  () => ({
-    insertBatchWithItems: vi.fn(),
-    loadBatchDetail: vi.fn(),
-  }),
-);
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({
-    fetchPublishedJobDescriptionsByCodes: vi.fn(),
-  }),
-);
-
-vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao", () => ({
-  claimMailIngestAccount: mocks.claimMailIngestAccount,
-  claimMailIngestMessageForProcessing: vi.fn(),
-  finishMailIngestAccountRun: mocks.finishMailIngestAccountRun,
-  listEnabledMailIngestAccounts: mocks.listEnabledMailIngestAccounts,
-  markMailIngestMessageSkipped: mocks.markMailIngestMessageSkipped,
+  search: vi.fn(),
   updateMailIngestMessageResult: vi.fn(),
-}));
+};
+
+function parsedMail(input: Partial<ParsedMail>): ParsedMail {
+  return {
+    attachments: [],
+    headerLines: [],
+    headers: new Map(),
+    html: false,
+    ...input,
+  };
+}
+
+class TestImapClient {
+  mailbox = {
+    delimiter: "/",
+    exists: 0,
+    flags: new Set<string>(),
+    path: "INBOX",
+    uidNext: 1,
+    uidValidity: 1n,
+  };
+
+  constructor(options: ImapFlowOptions) {
+    mocks.constructorOptions = options;
+  }
+
+  on = (_event: "error", _listener: (error: Error) => void) => {
+    mocks.errorListenerCount += 1;
+    return this;
+  };
+
+  connect = () => {
+    void this;
+    mocks.errorListenerCount = Math.max(mocks.errorListenerCount, 1);
+    return mocks.connect();
+  };
+
+  fetchOne = (
+    range: string,
+    query: FetchQueryObject,
+    options?: FetchOptions,
+  ): Promise<FetchMessageObject | false> => {
+    void this;
+    return mocks.fetchOne(range, query, options);
+  };
+
+  getMailboxLock = (
+    path: string | string[],
+    options?: MailboxLockOptions,
+  ): Promise<MailboxLockObject> => {
+    void this;
+    return mocks.getMailboxLock(path, options);
+  };
+
+  logout = () => {
+    void this;
+    return mocks.logout();
+  };
+
+  search = (
+    query: SearchObject,
+    options?: { readonly uid?: boolean },
+  ): Promise<number[] | false> => {
+    void this;
+    return mocks.search(query, options);
+  };
+}
+
+const processor = createMailIngestProcessor({
+  ...mocks,
+  createImapClient: (options) => new TestImapClient(options),
+} satisfies MailIngestDependencies);
 
 const config: MailIngestConfig = {
   enabled: true,
@@ -164,30 +153,28 @@ describe("runMailIngestOnce", () => {
     mocks.logout.mockImplementation(() => Promise.resolve());
     mocks.markMailIngestMessageSkipped.mockImplementation(() => Promise.resolve());
     mocks.search.mockResolvedValue([]);
-    vi.mocked(buildAttachmentKeyByHash).mockResolvedValue("resumes/hash.pdf");
-    vi.mocked(claimMailIngestMessageForProcessing).mockResolvedValue({
+    mocks.buildAttachmentKeyByHash.mockResolvedValue("resumes/hash.pdf");
+    mocks.claimMailIngestMessageForProcessing.mockResolvedValue({
       id: "message_1",
       moveTo: null,
       shouldProcess: true,
       status: "processing",
     });
-    vi.mocked(enqueueResumeParseJobs).mockImplementation(() => Promise.resolve());
-    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([]);
-    vi.mocked(insertBatchWithItems).mockResolvedValue("batch_1");
-    vi.mocked(loadBatchDetail).mockResolvedValue({
+    mocks.enqueueResumeParseJobs.mockImplementation(() => Promise.resolve());
+    mocks.fetchPublishedJobDescriptionsByCodes.mockResolvedValue([]);
+    mocks.insertBatchWithItems.mockResolvedValue("batch_1");
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    mocks.loadBatchDetail.mockResolvedValue({
       batch: { id: "batch_1" },
       items: [{ id: "item_1" }],
-    } as unknown as Awaited<ReturnType<typeof loadBatchDetail>>);
-    vi.mocked(putObjectBytes).mockImplementation(() => Promise.resolve());
-    vi.mocked(simpleParser).mockResolvedValue({
-      attachments: [],
-      subject: "【BOSS直聘】王泽投递 前端工程师",
-    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
-    vi.mocked(updateMailIngestMessageResult).mockImplementation(() => Promise.resolve());
+    });
+    mocks.putObjectBytes.mockImplementation(() => Promise.resolve());
+    mocks.parseMail.mockResolvedValue(parsedMail({ subject: "【BOSS直聘】王泽投递 前端工程师" }));
+    mocks.updateMailIngestMessageResult.mockImplementation(() => Promise.resolve());
   });
 
   it("attaches an IMAP error listener so socket errors do not crash the worker process", async () => {
-    const result = await runMailIngestOnce(config);
+    const result = await processor.runMailIngestOnce(config);
 
     expect(mocks.errorListenerCount).toBeGreaterThan(0);
     expect(result).toMatchObject({ accounts: 1, messagesFailed: 1 });
@@ -198,14 +185,14 @@ describe("runMailIngestOnce", () => {
   });
 
   it("disables ImapFlow protocol logging while retaining business error handling", async () => {
-    await runMailIngestOnce(config);
+    await processor.runMailIngestOnce(config);
 
     expect(mocks.constructorOptions).toEqual(expect.objectContaining({ logger: false }));
     expect(mocks.errorListenerCount).toBeGreaterThan(0);
   });
 
   it("a failed poll preserves prior counters (no zeroed counts written)", async () => {
-    await runMailIngestOnce(config);
+    await processor.runMailIngestOnce(config);
 
     const call = mocks.finishMailIngestAccountRun.mock.calls.find((c) => c[0] === "account_1");
     expect(call?.[1]).toMatchObject({ error: expect.any(Error) });
@@ -220,7 +207,8 @@ describe("runMailIngestOnce", () => {
       internalDate: new Date("2026-06-18T10:01:00.000Z"),
       source: Buffer.from("raw message"),
     });
-    vi.mocked(simpleParser).mockResolvedValue({
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    mocks.parseMail.mockResolvedValue({
       attachments: [
         {
           content: Buffer.from("resume"),
@@ -233,16 +221,14 @@ describe("runMailIngestOnce", () => {
       from: { value: [{ address: "candidate@example.com" }] },
       messageId: "message-id-1",
       subject: "【BOSS直聘】王泽投递 AUR00AZ 前端工程师",
-    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
-    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([
-      { code: "AUR00AZ", id: "jd_1" },
-    ]);
+    });
+    mocks.fetchPublishedJobDescriptionsByCodes.mockResolvedValue([{ code: "AUR00AZ", id: "jd_1" }]);
 
-    const result = await runMailIngestOnce(config);
+    const result = await processor.runMailIngestOnce(config);
 
     expect(result).toMatchObject({ accounts: 1, messagesFailed: 0, messagesQueued: 1 });
-    expect(fetchPublishedJobDescriptionsByCodes).toHaveBeenCalledWith("org_1", ["AUR00AZ"]);
-    expect(insertBatchWithItems).toHaveBeenCalledWith(
+    expect(mocks.fetchPublishedJobDescriptionsByCodes).toHaveBeenCalledWith("org_1", ["AUR00AZ"]);
+    expect(mocks.insertBatchWithItems).toHaveBeenCalledWith(
       expect.objectContaining({
         jdMode: "bind",
         jobDescriptionId: "jd_1",
@@ -260,7 +246,8 @@ describe("runMailIngestOnce", () => {
       internalDate: new Date("2026-06-18T10:02:00.000Z"),
       source: Buffer.from("raw message"),
     });
-    vi.mocked(simpleParser).mockResolvedValue({
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    mocks.parseMail.mockResolvedValue({
       attachments: [
         {
           content: Buffer.from("resume"),
@@ -273,14 +260,12 @@ describe("runMailIngestOnce", () => {
       from: { value: [{ address: "candidate2@example.com" }] },
       messageId: "message-id-2",
       subject: "【BOSS直聘】李雷投递 AUR0001 后端工程师",
-    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
-    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([
-      { code: "AUR0001", id: "jd-1" },
-    ]);
+    });
+    mocks.fetchPublishedJobDescriptionsByCodes.mockResolvedValue([{ code: "AUR0001", id: "jd-1" }]);
 
-    await runMailIngestOnce(config);
+    await processor.runMailIngestOnce(config);
 
-    expect(vi.mocked(updateMailIngestMessageResult)).toHaveBeenCalledWith(
+    expect(mocks.updateMailIngestMessageResult).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
         boundJobDescriptionId: "jd-1",
@@ -299,7 +284,8 @@ describe("runMailIngestOnce", () => {
       internalDate: new Date("2026-06-18T10:03:00.000Z"),
       source: Buffer.from("raw message"),
     });
-    vi.mocked(simpleParser).mockResolvedValue({
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
+    mocks.parseMail.mockResolvedValue({
       attachments: [
         {
           content: Buffer.from("resume"),
@@ -312,16 +298,16 @@ describe("runMailIngestOnce", () => {
       from: { value: [{ address: "candidate3@example.com" }] },
       messageId: "message-id-3",
       subject: "【BOSS直聘】王芳投递 前端工程师",
-    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
+    });
 
-    await runMailIngestOnce(config);
+    await processor.runMailIngestOnce(config);
 
     expect(mocks.markMailIngestMessageSkipped).toHaveBeenCalledWith(
       expect.any(String),
       "no_supported_attachment",
       expect.objectContaining({ resumeAttachmentCount: 0 }),
     );
-    expect(vi.mocked(updateMailIngestMessageResult)).not.toHaveBeenCalledWith(
+    expect(mocks.updateMailIngestMessageResult).not.toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ status: "failed" }),
     );
@@ -341,27 +327,36 @@ describe("runMailIngestOnce", () => {
         internalDate: new Date("2026-06-18T10:05:00.000Z"),
         source: Buffer.from("raw message 2"),
       });
-    vi.mocked(simpleParser)
-      .mockResolvedValueOnce({
-        attachments: [],
-        subject: "普通通知邮件",
-      } as unknown as Awaited<ReturnType<typeof simpleParser>>)
-      .mockResolvedValueOnce({
-        attachments: [
-          {
-            content: Buffer.from("resume"),
-            contentDisposition: "attachment",
-            contentType: "application/pdf",
-            filename: "赵敏.pdf",
+    mocks.parseMail
+      .mockResolvedValueOnce(parsedMail({ subject: "普通通知邮件" }))
+      .mockResolvedValueOnce(
+        parsedMail({
+          attachments: [
+            {
+              checksum: "fixture-checksum",
+              content: Buffer.from("resume"),
+              contentDisposition: "attachment",
+              contentType: "application/pdf",
+              filename: "赵敏.pdf",
+              headerLines: [],
+              headers: new Map(),
+              related: false,
+              size: 6,
+              type: "attachment",
+            },
+          ],
+          date: new Date("2026-06-18T10:05:00.000Z"),
+          from: {
+            html: '<span class="mp_address_group"><a href="mailto:candidate4@example.com">候选人</a></span>',
+            text: "候选人 <candidate4@example.com>",
+            value: [{ address: "candidate4@example.com", name: "候选人" }],
           },
-        ],
-        date: new Date("2026-06-18T10:05:00.000Z"),
-        from: { value: [{ address: "candidate4@example.com" }] },
-        messageId: "message-id-4",
-        subject: "【BOSS直聘】赵敏投递 前端工程师",
-      } as unknown as Awaited<ReturnType<typeof simpleParser>>);
+          messageId: "message-id-4",
+          subject: "【BOSS直聘】赵敏投递 前端工程师",
+        }),
+      );
 
-    await runMailIngestOnce(config);
+    await processor.runMailIngestOnce(config);
 
     expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith(
       "account_1",

@@ -1,4 +1,5 @@
 import { ImapFlow } from "imapflow";
+import { z } from "zod";
 
 export interface MailIngestLoginConfig {
   imapHost: string;
@@ -10,6 +11,14 @@ export interface MailIngestLoginConfig {
 }
 
 const VALIDATION_TIMEOUT_MS = 15_000;
+const imapValidationErrorSchema = z.union([
+  z.instanceof(Error),
+  z.object({
+    message: z.string().optional(),
+    responseStatus: z.string().optional(),
+    responseText: z.string().optional(),
+  }),
+]);
 
 export class MailIngestValidationError extends Error {
   constructor(message: string) {
@@ -18,19 +27,14 @@ export class MailIngestValidationError extends Error {
   }
 }
 
-function formatValidationError(error: unknown) {
-  const parts = [error instanceof Error ? error.message : String(error)];
-  if (error && typeof error === "object") {
-    const responseStatus = "responseStatus" in error ? error.responseStatus : null;
-    const responseText = "responseText" in error ? error.responseText : null;
-    if (typeof responseStatus === "string" && responseStatus.trim()) {
-      parts.push(responseStatus.trim());
-    }
-    if (typeof responseText === "string" && responseText.trim()) {
-      parts.push(responseText.trim());
-    }
+function formatValidationError(error: z.output<typeof imapValidationErrorSchema>) {
+  if (error instanceof Error) {
+    return error.message;
   }
-  return parts.filter(Boolean).join(" · ");
+  return [error.message, error.responseStatus, error.responseText]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .map((part) => part.trim())
+    .join(" · ");
 }
 
 export function mergeMailIngestLoginConfig(
@@ -73,7 +77,7 @@ export async function validateMailIngestAccountLogin(input: MailIngestLoginConfi
     lock.release();
   } catch (error) {
     throw new MailIngestValidationError(
-      `邮箱登录校验失败：${formatValidationError(error) || "请检查 IMAP 配置、账号或授权码。"}`,
+      `邮箱登录校验失败：${formatValidationError(imapValidationErrorSchema.parse(error)) || "请检查 IMAP 配置、账号或授权码。"}`,
     );
   } finally {
     if (connected) {

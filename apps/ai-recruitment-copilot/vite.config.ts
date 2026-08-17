@@ -5,11 +5,6 @@ import babel from "@rolldown/plugin-babel";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
-import type { Plugin } from "vite";
-import {
-  isolateMastraPlaygroundCss,
-  isMastraPlaygroundStylesheet,
-} from "./src/components/features/mastra-studio/css/isolate-playground-css";
 
 const requireFromQueuePackage = createRequire(
   new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
@@ -19,18 +14,6 @@ const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
 const buildTime = new Date().toISOString();
-const mastraStudioCssIsolation = (): Plugin => ({
-  enforce: "pre",
-  name: "arc-mastra-studio-css-isolation",
-  transform(code, id) {
-    if (!isMastraPlaygroundStylesheet(id)) {
-      return null;
-    }
-
-    return { code: isolateMastraPlaygroundCss(code), map: null };
-  },
-});
-
 export default defineConfig({
   define: {
     __ARC_BUILD_TIME__: JSON.stringify(buildTime),
@@ -77,7 +60,6 @@ export default defineConfig({
     ],
   },
   plugins: [
-    mastraStudioCssIsolation(),
     {
       enforce: "pre",
       name: "arc-bullmq-tslib-esm",
@@ -151,11 +133,5 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-  },
-  ssr: {
-    // Playground UI subpath exports import package-owned CSS. Keep the package
-    // in Vite's SSR graph so dev SSR transforms those imports instead of
-    // handing them to Node's native ESM loader.
-    noExternal: [/^@mastra\/playground-ui(?:\/|$)/],
   },
 });

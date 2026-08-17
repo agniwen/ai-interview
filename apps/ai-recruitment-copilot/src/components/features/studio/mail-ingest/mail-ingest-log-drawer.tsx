@@ -22,7 +22,7 @@ interface MailMessageAttachment {
   resumeParseError: string | null;
   resumeParseStatus: string | null;
 }
-interface MailMessageRecord {
+export interface MailMessageRecord {
   attachmentCount: number | null;
   attachments: MailMessageAttachment[];
   boundJobDescriptionName: string | null;
@@ -41,30 +41,47 @@ interface MailMessageRecord {
 const PAGE_SIZE = 20;
 type StatusFilter = "" | "failed" | "processing" | "queued" | "skipped";
 const STATUS_OPTIONS: StatusFilter[] = ["", "queued", "skipped", "failed", "processing"];
-const STATUS_LABELS: Record<Exclude<StatusFilter, "">, string> = {
+const STATUS_LABELS = {
   failed: "失败",
   processing: "处理中",
   queued: "已入队",
   skipped: "已跳过",
-};
-const JD_BIND_LABELS: Record<string, string> = {
+} satisfies Record<Exclude<StatusFilter, "">, string>;
+const JD_BIND_LABELS = {
   ambiguous: "多个匹配",
   bound: "已绑定",
   fallback: "兜底绑定",
   unmatched: "未匹配",
-};
-const POOL_SUMMARY_LABELS: Record<string, string> = {
+} as const;
+const POOL_SUMMARY_LABELS = {
   all_failed: "全部失败",
   all_pooled: "全部入池",
   parsing: "解析中",
   partial_failed: "部分失败",
-};
+} as const;
 
-export function serializeDateRange(
-  from: string | null,
-  to: string | null,
-): { receivedFrom?: string; receivedTo?: string } {
-  const out: { receivedFrom?: string; receivedTo?: string } = {};
+function isJdBindStatus(value: string): value is keyof typeof JD_BIND_LABELS {
+  return value in JD_BIND_LABELS;
+}
+
+function isPoolSummary(value: string): value is keyof typeof POOL_SUMMARY_LABELS {
+  return value in POOL_SUMMARY_LABELS;
+}
+
+interface MailIngestDateRange {
+  receivedFrom?: string;
+  receivedTo?: string;
+}
+
+export interface MailIngestMessagesQuery extends MailIngestDateRange {
+  keyword?: string;
+  page: string;
+  pageSize: string;
+  status?: Exclude<StatusFilter, "">;
+}
+
+export function serializeDateRange(from: string | null, to: string | null): MailIngestDateRange {
+  const out: MailIngestDateRange = {};
   let fromDate: Date | null = null;
   let toDate: Date | null = null;
   if (from) {
@@ -95,7 +112,50 @@ export interface MailIngestLogAccount {
   lastRunSubjectSkipped: number | null;
 }
 
-export function renderRunSummary(account: {
+interface MailIngestDatePickerProps {
+  ariaLabel: string;
+  className: string;
+  onValueChange: (value: string) => void;
+  placeholder: string;
+  value: string;
+}
+
+interface MailIngestMessagesRequest {
+  accountId: string;
+  query: MailIngestMessagesQuery;
+  slug: string;
+}
+
+export interface MailIngestLogDependencies {
+  fetchMessages: (
+    request: MailIngestMessagesRequest,
+  ) => Promise<{ records: MailMessageRecord[]; total: number }>;
+  notifyError: (message: string) => void;
+  renderDatePicker: (props: MailIngestDatePickerProps) => ReactNode;
+}
+
+const defaultMailIngestLogDependencies: MailIngestLogDependencies = {
+  fetchMessages: ({ accountId, query, slug }) =>
+    rpcFetch<{ records: MailMessageRecord[]; total: number }>(
+      rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
+        param: { id: accountId, slug },
+        query,
+      }),
+      "加载入库记录失败",
+    ),
+  notifyError: (message) => toast.error(message),
+  renderDatePicker: (props) => (
+    <DatePicker
+      aria-label={props.ariaLabel}
+      className={props.className}
+      onValueChange={props.onValueChange}
+      placeholder={props.placeholder}
+      value={props.value}
+    />
+  ),
+};
+
+interface MailIngestRunSnapshot {
   lastCheckedAt: string | null;
   lastError: string | null;
   lastRunFailed: number | null;
@@ -103,7 +163,15 @@ export function renderRunSummary(account: {
   lastRunQueued: number | null;
   lastRunReceived: number | null;
   lastRunSubjectSkipped: number | null;
-}): { error: string | null; label: string; showCounts: boolean } {
+}
+
+interface MailIngestRunSummary {
+  error: string | null;
+  label: string;
+  showCounts: boolean;
+}
+
+export function renderRunSummary(account: MailIngestRunSnapshot): MailIngestRunSummary {
   if (account.lastCheckedAt === null) {
     return { error: null, label: "尚未轮询", showCounts: false };
   }
@@ -152,9 +220,12 @@ function statusVariant(status: MailMessageRecord["status"]) {
 }
 
 function renderJdBinding(rec: MailMessageRecord): ReactNode {
-  const statusTag = rec.jdBindStatus
-    ? (JD_BIND_LABELS[rec.jdBindStatus] ?? rec.jdBindStatus)
-    : null;
+  let statusTag: string | null = null;
+  if (rec.jdBindStatus) {
+    statusTag = isJdBindStatus(rec.jdBindStatus)
+      ? JD_BIND_LABELS[rec.jdBindStatus]
+      : rec.jdBindStatus;
+  }
   if (rec.boundJobDescriptionName) {
     return (
       <>
@@ -167,7 +238,15 @@ function renderJdBinding(rec: MailMessageRecord): ReactNode {
   return statusTag ?? "—";
 }
 
-function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccount; slug: string }) {
+export function MailIngestLogMessages({
+  account,
+  dependencies,
+  slug,
+}: {
+  account: MailIngestLogAccount;
+  dependencies: MailIngestLogDependencies;
+  slug: string;
+}) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusFilter>("");
   const [keyword, setKeyword] = useState("");
@@ -186,20 +265,23 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
     enabled: !dateError,
     queryFn: () => {
       const range = serializeDateRange(from, to);
-      return rpcFetch<{ records: MailMessageRecord[]; total: number }>(
-        rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
-          param: { id: account.id, slug },
-          query: {
-            page: String(page),
-            pageSize: String(PAGE_SIZE),
-            ...(status ? { status } : {}),
-            ...(keyword ? { keyword } : {}),
-            ...(range.receivedFrom ? { receivedFrom: range.receivedFrom } : {}),
-            ...(range.receivedTo ? { receivedTo: range.receivedTo } : {}),
-          },
-        }),
-        "加载入库记录失败",
-      );
+      const messageQuery: MailIngestMessagesQuery = {
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      };
+      if (status) {
+        messageQuery.status = status;
+      }
+      if (keyword) {
+        messageQuery.keyword = keyword;
+      }
+      if (range.receivedFrom) {
+        messageQuery.receivedFrom = range.receivedFrom;
+      }
+      if (range.receivedTo) {
+        messageQuery.receivedTo = range.receivedTo;
+      }
+      return dependencies.fetchMessages({ accountId: account.id, query: messageQuery, slug });
     },
     queryKey: ["mail-ingest-messages", slug, account.id, { from, keyword, status, to }, page],
   });
@@ -226,9 +308,11 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
   // 错误 toast 放 effect，避免在 render body 里每次渲染都触发（内联重试见下方三态分支）
   useEffect(() => {
     if (query.isError) {
-      toast.error(query.error instanceof Error ? query.error.message : "加载入库记录失败");
+      dependencies.notifyError(
+        query.error instanceof Error ? query.error.message : "加载入库记录失败",
+      );
     }
-  }, [query.isError, query.error]);
+  }, [dependencies, query.isError, query.error]);
 
   const records = query.data?.records ?? [];
   const total = query.data?.total ?? 0;
@@ -285,7 +369,9 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
                   {`${rec.resumeAttachmentCount ?? "—"}/${rec.attachmentCount ?? "—"}`}
                   {rec.poolSummary ? (
                     <span className="ml-1 text-muted-foreground text-xs">
-                      {POOL_SUMMARY_LABELS[rec.poolSummary] ?? rec.poolSummary}
+                      {isPoolSummary(rec.poolSummary)
+                        ? POOL_SUMMARY_LABELS[rec.poolSummary]
+                        : rec.poolSummary}
                     </span>
                   ) : null}
                   {rec.attachments.length > 0 ? (
@@ -370,20 +456,20 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
           placeholder="主题或发件人"
           value={keyword}
         />
-        <DatePicker
-          aria-label="起始日期"
-          className="h-8 text-sm"
-          onValueChange={(value) => applyDates(value || null, to)}
-          placeholder="起始日期"
-          value={from ?? ""}
-        />
-        <DatePicker
-          aria-label="结束日期"
-          className="h-8 text-sm"
-          onValueChange={(value) => applyDates(from, value || null)}
-          placeholder="结束日期"
-          value={to ?? ""}
-        />
+        {dependencies.renderDatePicker({
+          ariaLabel: "起始日期",
+          className: "h-8 text-sm",
+          onValueChange: (value) => applyDates(value || null, to),
+          placeholder: "起始日期",
+          value: from ?? "",
+        })}
+        {dependencies.renderDatePicker({
+          ariaLabel: "结束日期",
+          className: "h-8 text-sm",
+          onValueChange: (value) => applyDates(from, value || null),
+          placeholder: "结束日期",
+          value: to ?? "",
+        })}
         {hasFilters ? (
           <button
             onClick={() => {
@@ -428,11 +514,13 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
 
 export function MailIngestLogDrawer({
   account,
+  dependencies = defaultMailIngestLogDependencies,
   onOpenChange,
   open,
   slug,
 }: {
   account: MailIngestLogAccount | null;
+  dependencies?: MailIngestLogDependencies;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   slug: string;
@@ -467,7 +555,9 @@ export function MailIngestLogDrawer({
               ) : null}
             </section>
           ) : null}
-          {account ? <MailIngestLogMessages account={account} slug={slug} /> : null}
+          {account ? (
+            <MailIngestLogMessages account={account} dependencies={dependencies} slug={slug} />
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>

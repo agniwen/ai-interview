@@ -77,7 +77,7 @@ export function RecordingPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (typeof seekToSecs !== "number" || !videoRef.current) {
+    if (seekToSecs === null || seekToSecs === undefined || !videoRef.current) {
       return;
     }
     videoRef.current.currentTime = seekToSecs;

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { rpcFetch } from "../rpc-fetch";
 
-function failedRpcCall(payload: unknown) {
+interface RpcErrorPayload {
+  error?: string | { code: string };
+  message?: string;
+}
+
+function failedRpcCall(payload: RpcErrorPayload) {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return Promise.resolve(
     Response.json(payload, {
       status: 400,

@@ -1,4 +1,10 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import {
+  resumeEducationExperienceSchema,
+  resumeProjectExperienceSchema,
+  resumeWorkExperienceSchema,
+} from "@arc/db-schema/interview/types";
+import { z } from "zod";
 import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
 import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
@@ -58,33 +64,23 @@ function formatPeriod(value: string | null | undefined) {
   return dateTokens.slice(0, 2).join(" - ");
 }
 
-function toRecords(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
-      )
-    : [];
-}
-
-function recordText(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === "string" ? cleanText(value) : null;
-}
-
-type WorkExperience = ResumeProfile["workExperiences"][number];
-type EducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
-type ProjectExperience = ResumeProfile["projectExperiences"][number];
 type SnapshotLine = ResumeLibraryProfileSnapshot["work"][number];
+const workExperiencesSchema = z.array(resumeWorkExperienceSchema.partial());
+const educationExperiencesSchema = z.array(resumeEducationExperienceSchema.partial());
+const projectExperiencesSchema = z.array(resumeProjectExperienceSchema.partial());
+type WorkExperienceInput = z.infer<typeof workExperiencesSchema>[number];
+type EducationExperienceInput = z.infer<typeof educationExperiencesSchema>[number];
+type ProjectExperienceInput = z.infer<typeof projectExperiencesSchema>[number];
 
-function buildWorkLines(value: unknown): SnapshotLine[] {
-  return toRecords(value).flatMap((item: Partial<WorkExperience> & Record<string, unknown>) => {
-    const company = recordText(item, "company");
-    const role = recordText(item, "role");
+function buildWorkLines(items: WorkExperienceInput[]): SnapshotLine[] {
+  return items.flatMap((item) => {
+    const company = cleanText(item.company);
+    const role = cleanText(item.role);
     const primary = company ?? role;
     return primary
       ? [
           {
-            period: formatPeriod(recordText(item, "period")),
+            period: formatPeriod(item.period),
             primary,
             secondary: company ? role : null,
           },
@@ -93,38 +89,34 @@ function buildWorkLines(value: unknown): SnapshotLine[] {
   });
 }
 
-function buildEducationLines(value: unknown): SnapshotLine[] {
-  return toRecords(value).flatMap(
-    (item: Partial<EducationExperience> & Record<string, unknown>) => {
-      const school = recordText(item, "school");
-      if (!school) {
-        return [];
-      }
-      const educationLevel = recordText(item, "educationLevel");
-      return [
-        {
-          period:
-            formatPeriod(recordText(item, "period")) ??
-            formatPeriod(recordText(item, "graduationYear")),
-          primary: formatResumeEducationSchoolWithLevel({ educationLevel, school }) ?? school,
-          secondary: recordText(item, "major"),
-        },
-      ];
-    },
-  );
+function buildEducationLines(items: EducationExperienceInput[]): SnapshotLine[] {
+  return items.flatMap((item) => {
+    const school = cleanText(item.school);
+    if (!school) {
+      return [];
+    }
+    const educationLevel = cleanText(item.educationLevel);
+    return [
+      {
+        period: formatPeriod(item.period) ?? formatPeriod(item.graduationYear),
+        primary: formatResumeEducationSchoolWithLevel({ educationLevel, school }) ?? school,
+        secondary: cleanText(item.major),
+      },
+    ];
+  });
 }
 
-function buildProjectLines(value: unknown): SnapshotLine[] {
-  return toRecords(value).flatMap((item: Partial<ProjectExperience> & Record<string, unknown>) => {
-    const name = recordText(item, "name");
+function buildProjectLines(items: ProjectExperienceInput[]): SnapshotLine[] {
+  return items.flatMap((item) => {
+    const name = cleanText(item.name);
     if (!name) {
       return [];
     }
     return [
       {
-        period: formatPeriod(recordText(item, "period")),
+        period: formatPeriod(item.period),
         primary: name,
-        secondary: recordText(item, "role"),
+        secondary: cleanText(item.role),
       },
     ];
   });
@@ -190,14 +182,16 @@ function sortRecentFirst(lines: SnapshotLine[]) {
   return lines.toSorted((a, b) => sortValue(b) - sortValue(a));
 }
 
-function takeSnapshotLines(
-  lines: SnapshotLine[],
-  limit: number,
-): { items: SnapshotLine[]; hasMore: boolean } {
+function takeSnapshotLines(lines: SnapshotLine[], limit: number): SnapshotLinesResult {
   return {
     hasMore: lines.length > limit,
     items: lines.slice(0, limit),
   };
+}
+
+interface SnapshotLinesResult {
+  hasMore: boolean;
+  items: SnapshotLine[];
 }
 
 function assembleSnapshot(
@@ -250,9 +244,12 @@ export function buildResumeProfileSnapshotFromProfile(
 export function buildResumeProfileSnapshot(
   row: ResumeProfileSnapshotSource,
 ): ResumeLibraryProfileSnapshot {
-  const work = buildWorkLines(row.resumeWorkExperiences);
-  const education = buildEducationLines(row.resumeEducationExperiences);
-  const projects = buildProjectLines(row.resumeProjectExperiences);
+  const parsedWork = workExperiencesSchema.safeParse(row.resumeWorkExperiences);
+  const parsedEducation = educationExperiencesSchema.safeParse(row.resumeEducationExperiences);
+  const parsedProjects = projectExperiencesSchema.safeParse(row.resumeProjectExperiences);
+  const work = buildWorkLines(parsedWork.success ? parsedWork.data : []);
+  const education = buildEducationLines(parsedEducation.success ? parsedEducation.data : []);
+  const projects = buildProjectLines(parsedProjects.success ? parsedProjects.data : []);
   return assembleSnapshot(
     {
       education: education.length > 0 ? education : legacyEducation(row),

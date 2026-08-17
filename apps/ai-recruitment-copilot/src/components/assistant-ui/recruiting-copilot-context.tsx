@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { CSSProperties, PropsWithChildren } from "react";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
+import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
@@ -70,29 +71,11 @@ export interface CopilotCitation {
   secondaryLabel: string | null;
 }
 
-export interface RecruitingActionProposal {
-  explanation: string;
-  id: string;
-  payload: Record<string, unknown>;
-  title: string;
-  type:
-    | "bind_candidate_to_job"
-    | "bind_pool_item_to_job"
-    | "advance_candidate_stage"
-    | "generate_interview_questions";
-}
-
-export interface RecruitingActionConfirmation {
-  confirmedAt: string;
-  jobDescriptionId?: string;
-  jobDescriptionName?: string | null;
-  status: "confirmed" | "ignored";
-}
-
-export interface RecruitingActionProposalResult {
-  confirmation?: RecruitingActionConfirmation;
-  proposal?: RecruitingActionProposal;
-}
+export type {
+  RecruitingActionConfirmation,
+  RecruitingActionProposal,
+  RecruitingActionProposalResult,
+} from "@/lib/client/api";
 
 export type ProposalStatus = "confirmed" | "failed" | "ignored" | "pending";
 
@@ -101,7 +84,7 @@ export interface CandidateDetailTarget {
   kind: "resume_pool" | "resume_record";
 }
 
-interface RecruitingCopilotContextValue {
+export interface RecruitingCopilotContextValue {
   citations: CopilotCitation[];
   conversationId: string | null;
   proposalStatuses: Record<string, ProposalStatus>;
@@ -114,7 +97,7 @@ interface RecruitingCopilotContextValue {
   upsertProposal: (proposal: RecruitingActionProposal) => void;
 }
 
-const RecruitingCopilotContext = createContext<RecruitingCopilotContextValue | null>(null);
+export const RecruitingCopilotContext = createContext<RecruitingCopilotContextValue | null>(null);
 
 export function useRecruitingCopilotContext() {
   const context = useContext(RecruitingCopilotContext);
@@ -286,6 +269,8 @@ export function RecruitingCopilotContextProvider({
   );
 }
 
-export const activeThreadStyle = {
+type ThreadStyle = CSSProperties & { "--thread-max-width": string };
+
+export const activeThreadStyle: ThreadStyle = {
   "--thread-max-width": "48rem",
-} as CSSProperties;
+};

@@ -6,10 +6,6 @@ const mocks = vi.hoisted(() => ({
   resolveAccess: vi.fn(),
 }));
 
-vi.mock("@/lib/start/auth-session.server", () => ({
-  resolveWorkspaceAccessFromRequest: mocks.resolveAccess,
-}));
-
 function readyAccess(
   permissions: Extract<WorkspaceAccessState, { status: "ready" }>["permissions"],
 ): Extract<WorkspaceAccessState, { status: "ready" }> {
@@ -36,9 +32,12 @@ describe("loadStudioResumesStateFromRequest", () => {
     );
 
     await expect(
-      loadStudioResumesStateFromRequest({
-        slug: "acme",
-      }),
+      loadStudioResumesStateFromRequest(
+        {
+          slug: "acme",
+        },
+        { resolveWorkspaceAccess: mocks.resolveAccess },
+      ),
     ).resolves.toEqual({ status: "ready" });
   });
 
@@ -58,9 +57,12 @@ describe("loadStudioResumesStateFromRequest", () => {
     mocks.resolveAccess.mockResolvedValue(readyAccess(permissions));
 
     await expect(
-      loadStudioResumesStateFromRequest({
-        slug: "acme",
-      }),
+      loadStudioResumesStateFromRequest(
+        {
+          slug: "acme",
+        },
+        { resolveWorkspaceAccess: mocks.resolveAccess },
+      ),
     ).resolves.toEqual({ status: "not_found" });
   });
 
@@ -70,9 +72,12 @@ describe("loadStudioResumesStateFromRequest", () => {
       mocks.resolveAccess.mockResolvedValue(accessState);
 
       await expect(
-        loadStudioResumesStateFromRequest({
-          slug: "acme",
-        }),
+        loadStudioResumesStateFromRequest(
+          {
+            slug: "acme",
+          },
+          { resolveWorkspaceAccess: mocks.resolveAccess },
+        ),
       ).resolves.toEqual(accessState);
     },
   );

@@ -68,6 +68,7 @@ describe("pinned edge separators", () => {
 
   it("reads horizontal scroll overflow with a sub-pixel tolerance", () => {
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       readHorizontalScrollOverflow({
         clientWidth: 200,
         scrollLeft: 0,
@@ -76,6 +77,7 @@ describe("pinned edge separators", () => {
     ).toEqual({ canScrollEnd: false, canScrollStart: false });
 
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       readHorizontalScrollOverflow({
         clientWidth: 200,
         scrollLeft: 40,
@@ -84,6 +86,7 @@ describe("pinned edge separators", () => {
     ).toEqual({ canScrollEnd: true, canScrollStart: true });
 
     expect(
+      // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       readHorizontalScrollOverflow({
         clientWidth: 200,
         scrollLeft: 300,

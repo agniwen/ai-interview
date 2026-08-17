@@ -57,29 +57,42 @@ function detachHorizontalWheelScroll(instance: OverlayScrollbars) {
   cleanups.delete(viewport);
 }
 
+function notifyDestroyedListeners(
+  listeners: EventListeners["destroyed"],
+  instance: OverlayScrollbars,
+  canceled: boolean,
+) {
+  if (!listeners) {
+    return;
+  }
+  for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
+    listener(instance, canceled);
+  }
+}
+
+function notifyInitializedListeners(
+  listeners: EventListeners["initialized"],
+  instance: OverlayScrollbars,
+) {
+  if (!listeners) {
+    return;
+  }
+  for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
+    listener(instance);
+  }
+}
+
 /** Merge OverlayScrollbars event listeners with horizontal wheel panning. */
 export function withHorizontalWheelScroll(events?: EventListeners): EventListeners {
   return {
     ...events,
     destroyed: (instance, canceled) => {
       detachHorizontalWheelScroll(instance);
-      if (typeof events?.destroyed === "function") {
-        events.destroyed(instance, canceled);
-      } else if (Array.isArray(events?.destroyed)) {
-        for (const listener of events.destroyed) {
-          listener(instance, canceled);
-        }
-      }
+      notifyDestroyedListeners(events?.destroyed, instance, canceled);
     },
     initialized: (instance) => {
       attachHorizontalWheelScroll(instance.elements().viewport);
-      if (typeof events?.initialized === "function") {
-        events.initialized(instance);
-      } else if (Array.isArray(events?.initialized)) {
-        for (const listener of events.initialized) {
-          listener(instance);
-        }
-      }
+      notifyInitializedListeners(events?.initialized, instance);
     },
   };
 }

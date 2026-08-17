@@ -4,17 +4,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ScheduleRoundDialog } from "./human-interview-stage-dialogs";
+import { ScheduleRoundDialogView } from "./human-interview-stage-dialogs";
 
+// SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    addEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: vi.fn(),
+  })),
+});
 
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "test-workspace",
-}));
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
+const scheduleDependencies = { slug: "test-workspace" };
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -52,9 +58,10 @@ describe("ScheduleRoundDialog", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ScheduleRoundDialog
+          <ScheduleRoundDialogView
             candidateId="candidate-1"
             candidateName="候选人"
+            dependencies={scheduleDependencies}
             existingCount={0}
             onOpenChange={vi.fn()}
             onScheduled={vi.fn()}
@@ -134,9 +141,10 @@ describe("ScheduleRoundDialog", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ScheduleRoundDialog
+          <ScheduleRoundDialogView
             candidateId="candidate-1"
             candidateName="候选人"
+            dependencies={scheduleDependencies}
             existingCount={0}
             onOpenChange={vi.fn()}
             onScheduled={vi.fn()}

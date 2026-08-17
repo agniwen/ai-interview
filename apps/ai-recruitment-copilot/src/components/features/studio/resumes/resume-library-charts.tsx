@@ -6,6 +6,7 @@ import type { EventListeners } from "overlayscrollbars";
 import { barX, cell, defineChart, stack } from "@tanstack/charts";
 import { scaleBand, scaleLinear, scaleOrdinal } from "d3-scale";
 import { utcDay, utcSunday } from "d3-time";
+import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -34,23 +35,41 @@ const BUCKET_ORDER: PipelineBucket[] = [
   "closed_rejected",
 ];
 
-const BUCKET_LABEL: Record<PipelineBucket, string> = {
+const BUCKET_LABEL = {
   ai_interview: "AI 面试",
   closed_hired: "已录用",
   closed_rejected: "已淘汰 / 撤回",
   human_interview: "真人复面",
   offer: "Offer",
   screening: "简历筛选",
-};
+} as const satisfies Record<PipelineBucket, string>;
 
-const BUCKET_COLORS: Record<PipelineBucket, string> = {
+const BUCKET_COLORS = {
   ai_interview: "var(--chart-2)",
   closed_hired: "oklch(0.65 0.16 150)",
   closed_rejected: "oklch(0.64 0.2 345)",
   human_interview: "var(--chart-3)",
   offer: "var(--chart-4)",
   screening: "var(--chart-1)",
-};
+} as const satisfies Record<PipelineBucket, string>;
+
+const pipelineTooltipDatumSchema = z.object({
+  label: z.string(),
+  value: z.number(),
+});
+const calendarTooltipDatumSchema = z.object({
+  byUser: z.array(
+    z.object({
+      count: z.number(),
+      userName: z.string(),
+    }),
+  ),
+  count: z.number(),
+  day: z.string(),
+  inRange: z.boolean(),
+});
+
+type CalendarTooltipDatum = z.infer<typeof calendarTooltipDatumSchema>;
 
 /** Full-year window for the GitHub-style contribution calendar (~53 weeks). */
 const DAILY_LOOKBACK_DAYS = 365;
@@ -160,7 +179,16 @@ function countToLevel(count: number, max: number): 0 | 1 | 2 | 3 | 4 {
     return 0;
   }
   if (max <= 4) {
-    return Math.min(count, 4) as 0 | 1 | 2 | 3 | 4;
+    if (count === 1) {
+      return 1;
+    }
+    if (count === 2) {
+      return 2;
+    }
+    if (count === 3) {
+      return 3;
+    }
+    return 4;
   }
   const ratio = count / max;
   if (ratio <= 0.25) {
@@ -216,7 +244,7 @@ function buildCalendarDays(rows: ResumeLibraryMetrics["dailyAdded"]): CalendarDa
   return cells;
 }
 
-function formatDailyTooltip(row: CalendarDayCell): string {
+function formatDailyTooltip(row: CalendarTooltipDatum): string {
   if (!row.inRange) {
     return `${row.day}\n不在统计范围内`;
   }
@@ -274,14 +302,14 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
 }
 
 function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
-  const counts: Record<PipelineBucket, number> = {
+  const counts = {
     ai_interview: 0,
     closed_hired: 0,
     closed_rejected: 0,
     human_interview: 0,
     offer: 0,
     screening: 0,
-  };
+  } satisfies Record<PipelineBucket, number>;
   let total = 0;
 
   for (const row of rows) {
@@ -346,8 +374,8 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
       tooltip: {
         ...chartTooltip,
         format: (point) => {
-          const row = point.datum as (typeof stackRows)[number];
-          return `${row.label}: ${row.value}`;
+          const result = pipelineTooltipDatumSchema.safeParse(point.datum);
+          return result.success ? `${result.data.label}: ${result.data.value}` : "数据不可用";
         },
       },
       x: {
@@ -485,7 +513,10 @@ function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dail
       ],
       tooltip: {
         ...chartTooltip,
-        format: (point) => formatDailyTooltip(point.datum as CalendarDayCell),
+        format: (point) => {
+          const result = calendarTooltipDatumSchema.safeParse(point.datum);
+          return result.success ? formatDailyTooltip(result.data) : "数据不可用";
+        },
       },
       x: {
         axis: {

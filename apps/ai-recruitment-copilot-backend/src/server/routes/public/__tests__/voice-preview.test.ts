@@ -1,40 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { publicRouter } from "../route";
+import { createPublicRouter } from "../route";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
   dbRows: [] as { contentType: string; storageKey: string }[],
   getObjectStream: vi.fn(),
   resolveReferralLink: vi.fn(),
-}));
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(() => Promise.resolve(mocks.dbRows)),
-        })),
-      })),
-    })),
-  },
-}));
-
-vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
-  getObjectBytes: vi.fn(),
-  getObjectStream: mocks.getObjectStream,
-  presignRecordingGetObjectUrl: vi.fn(),
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao/referral-links",
-  () => ({
+const app = factory.createApp().route(
+  "/public",
+  createPublicRouter({
+    getObjectStream: mocks.getObjectStream,
+    loadVoicePreview: () => Promise.resolve(mocks.dbRows[0] ?? null),
     resolveReferralLink: mocks.resolveReferralLink,
-    toPublicReferralPreview: vi.fn(),
   }),
 );
-
-const app = factory.createApp().route("/public", publicRouter);
 
 function streamFromBytes(bytes: Uint8Array): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({

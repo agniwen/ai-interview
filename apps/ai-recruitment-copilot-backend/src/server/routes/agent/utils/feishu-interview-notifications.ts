@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
+import { z } from "zod";
 import {
   account,
   interviewConversation,
@@ -65,8 +66,24 @@ interface NotificationTarget {
   interviewRecordId: string;
 }
 
+const evaluationSummarySchema = z.object({
+  overallAssessment: z.string().optional(),
+  overallScore: z.number().optional(),
+  questions: z
+    .array(
+      z.object({
+        maxScore: z.number(),
+        question: z.string(),
+        score: z.number(),
+      }),
+    )
+    .optional(),
+  recommendation: z.string().optional(),
+});
+type EvaluationSummary = z.infer<typeof evaluationSummarySchema>;
+
 function isFeishuProviderId(value: string): value is FeishuProviderId {
-  return (FEISHU_PROVIDER_IDS as readonly string[]).includes(value);
+  return FEISHU_PROVIDER_IDS.some((providerId) => providerId === value);
 }
 
 function buildStudioUrl(roundId: string, organizationSlug: string | null): string {
@@ -100,30 +117,12 @@ function truncateForCard(value: string, maxLength: number): string {
   return `${trimmed.slice(0, maxLength - 1)}…`;
 }
 
-function extractQuestionScores(
-  evaluation: Record<string, unknown>,
-): InterviewSummaryQuestionScore[] {
-  const questions = Array.isArray(evaluation.questions) ? evaluation.questions : [];
-  const rows = questions.flatMap((item): InterviewSummaryQuestionScore[] => {
-    if (!item || typeof item !== "object") {
-      return [];
-    }
-    const record = item as Record<string, unknown>;
-    if (
-      typeof record.question !== "string" ||
-      typeof record.score !== "number" ||
-      typeof record.maxScore !== "number"
-    ) {
-      return [];
-    }
-    return [
-      {
-        maxScore: record.maxScore,
-        question: truncateForCard(record.question, 28),
-        score: record.score,
-      },
-    ];
-  });
+function extractQuestionScores(evaluation: EvaluationSummary): InterviewSummaryQuestionScore[] {
+  const rows = (evaluation.questions ?? []).map((item) => ({
+    maxScore: item.maxScore,
+    question: truncateForCard(item.question, 28),
+    score: item.score,
+  }));
 
   return rows.toSorted((a, b) => a.score / a.maxScore - b.score / b.maxScore).slice(0, 4);
 }
@@ -131,7 +130,7 @@ function extractQuestionScores(
 interface NotificationCardInput {
   candidateName: string;
   duration: string;
-  evaluation: Record<string, unknown>;
+  evaluation: EvaluationSummary;
   interviewStartedAt: string;
   organizationSlug: string | null;
   roundId: string;
@@ -141,17 +140,11 @@ interface NotificationCardInput {
 
 function buildSummaryPayload(input: NotificationCardInput) {
   const overallScore =
-    typeof input.evaluation.overallScore === "number"
-      ? `${input.evaluation.overallScore}/100`
-      : "暂无评分";
-  const recommendation =
-    typeof input.evaluation.recommendation === "string"
-      ? input.evaluation.recommendation
-      : "暂无建议";
-  const assessment =
-    typeof input.evaluation.overallAssessment === "string"
-      ? input.evaluation.overallAssessment
-      : null;
+    input.evaluation.overallScore === undefined
+      ? "暂无评分"
+      : `${input.evaluation.overallScore}/100`;
+  const recommendation = input.evaluation.recommendation ?? "暂无建议";
+  const assessment = input.evaluation.overallAssessment ?? null;
 
   return { assessment, overallScore, recommendation };
 }
@@ -356,8 +349,8 @@ async function markNotificationSent(notificationId: string, messageId: string | 
     .where(eq(interviewNotification.id, notificationId));
 }
 
-async function markNotificationFailed(notificationId: string, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+async function markNotificationFailed(notificationId: string, error: Error) {
+  const { message } = error;
   await db
     .update(interviewNotification)
     .set({
@@ -491,7 +484,8 @@ async function sendGoogleSummaryEmail({
     }
     await markNotificationSent(notificationId, sendResult.data.id);
   } catch (error) {
-    await markNotificationFailed(notificationId, error);
+    const notificationError = error instanceof Error ? error : new Error(String(error));
+    await markNotificationFailed(notificationId, notificationError);
     // eslint-disable-next-line no-console
     console.error(`${LOG_PREFIX} email failed for ${input.roundId}:`, error);
   }
@@ -540,7 +534,7 @@ export async function resendInterviewSummaryNotification(
   const notificationInput = {
     candidateName: context.candidateName,
     duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
-    evaluation: context.evaluationCriteriaResults ?? {},
+    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
     interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,
@@ -587,7 +581,8 @@ export async function resendInterviewSummaryNotification(
       .where(eq(interviewNotification.id, notification.id));
     return { notificationId: notification.id, sentAt: sentAt.toISOString() };
   } catch (error) {
-    await markNotificationFailed(notification.id, error);
+    const notificationError = error instanceof Error ? error : new Error(String(error));
+    await markNotificationFailed(notification.id, notificationError);
     throw error;
   }
 }
@@ -681,7 +676,7 @@ export async function notifyInterviewSummaryReady(
   const notificationInput = {
     candidateName: context.candidateName,
     duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
-    evaluation: context.evaluationCriteriaResults ?? {},
+    evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
     interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,
@@ -720,7 +715,8 @@ export async function notifyInterviewSummaryReady(
         const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
         await markNotificationSent(notificationId, sent.id ?? null);
       } catch (error) {
-        await markNotificationFailed(notificationId, error);
+        const notificationError = error instanceof Error ? error : new Error(String(error));
+        await markNotificationFailed(notificationId, notificationError);
         // eslint-disable-next-line no-console
         console.error(`${LOG_PREFIX} failed for ${options.conversationId}:`, error);
       }

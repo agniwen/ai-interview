@@ -1,16 +1,23 @@
 // 中文：router 测试 — 任何 inbound DM 都回复引导文案，bot 不再做对话
 // English: router test — any inbound DM gets a static greeter; the bot does not chat
 import { describe, expect, it, vi } from "vitest";
+import type { GreeterCard } from "../utils/greeter-card";
 import { routeDM, routeGroupMention } from "../utils/router";
 
 function makeThread(id = "th-1") {
-  const postSpy = vi.fn((_arg: unknown) => Promise.resolve());
-  const thread = {
+  const postSpy = vi.fn((_arg: ReturnType<typeof GreeterCard>) =>
+    // SAFETY: The router ignores the adapter's sent-message return value in this test.
+    Promise.resolve(undefined as never),
+  );
+  // SAFETY: This test constructs the value with the asserted contract before this boundary.
+  const threadFixture = {
     adapter: { fetchMessages: vi.fn(() => Promise.resolve({ messages: [] })) },
     id,
     post: postSpy,
     subscribe: vi.fn(() => Promise.resolve()),
-  } as unknown as Parameters<typeof routeDM>[0];
+  };
+  // SAFETY: The fixture implements only the methods exercised by these router tests.
+  const thread = Object.create(threadFixture) as Parameters<typeof routeDM>[0];
   return { postSpy, thread };
 }
 
@@ -23,6 +30,7 @@ describe("routeDM", () => {
       id: "m-1",
       text: "hi",
     };
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     await routeDM(thread, message as never);
     expect(postSpy).toHaveBeenCalledOnce();
     const arg = JSON.stringify(postSpy.mock.lastCall?.[0]);
@@ -45,6 +53,7 @@ describe("routeDM", () => {
       id: "m-2",
       text: "",
     };
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     await routeDM(thread, message as never);
     expect(postSpy).toHaveBeenCalledOnce();
     const arg = JSON.stringify(postSpy.mock.lastCall?.[0]);
@@ -61,6 +70,7 @@ describe("routeGroupMention", () => {
       id: "m-mention",
       text: "@bot 你好",
     };
+    // SAFETY: This test constructs the value with the asserted contract before this boundary.
     await routeGroupMention(thread as never, message as never);
     expect(postSpy).toHaveBeenCalledOnce();
     const arg = JSON.stringify(postSpy.mock.lastCall?.[0]);

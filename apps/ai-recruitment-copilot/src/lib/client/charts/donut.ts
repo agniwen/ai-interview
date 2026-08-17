@@ -1,6 +1,7 @@
 import { defineChart } from "@tanstack/charts";
 import { polar, radialArc } from "@tanstack/charts/polar";
 import { pie } from "d3-shape";
+import { z } from "zod";
 import { chartTooltip } from "@/components/ui/chart";
 
 export interface DonutSlice {
@@ -9,6 +10,15 @@ export interface DonutSlice {
   value: number;
   fill: string;
 }
+
+const donutSliceSchema = z.object({
+  fill: z.string(),
+  key: z.string(),
+  label: z.string(),
+  value: z.number(),
+});
+
+const donutArcDatumSchema = z.object({ data: donutSliceSchema });
 
 export function defineDonutChart(
   slices: readonly DonutSlice[],
@@ -51,9 +61,12 @@ export function defineDonutChart(
     tooltip: {
       ...chartTooltip,
       format: (point) => {
-        const slice = point.datum as { data?: DonutSlice } | DonutSlice;
-        const data = "data" in slice && slice.data ? slice.data : (slice as DonutSlice);
-        return `${data.label}: ${data.value}`;
+        const arcDatum = donutArcDatumSchema.safeParse(point.datum);
+        if (arcDatum.success) {
+          return `${arcDatum.data.data.label}: ${arcDatum.data.data.value}`;
+        }
+        const slice = donutSliceSchema.safeParse(point.datum);
+        return slice.success ? `${slice.data.label}: ${slice.data.value}` : "数据不可用";
       },
     },
   });

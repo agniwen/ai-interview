@@ -15,6 +15,7 @@ import {
 } from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type {
@@ -185,7 +186,7 @@ async function writeResumePoolEvent(
   input: {
     actorId: string | null;
     organizationId: string | null;
-    payload?: unknown;
+    payload?: JsonValue;
     poolItemId: string;
     type: ResumePoolEventType;
   },
@@ -194,7 +195,7 @@ async function writeResumePoolEvent(
     actorId: input.actorId,
     id: crypto.randomUUID(),
     organizationId: input.organizationId,
-    payload: input.payload as never,
+    payload: input.payload,
     poolItemId: input.poolItemId,
     type: input.type,
   });
@@ -241,7 +242,7 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
       sourceOrganizationId: input.scope === "public" ? input.organizationId : null,
       sourcePoolItemId: null,
       sourceUserId: input.scope === "public" ? input.createdBy : null,
-      status: "active" as ResumePoolStatus,
+      status: "active" satisfies ResumePoolStatus,
       targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
       updatedAt: now,
     });
@@ -607,8 +608,17 @@ export async function loadResumePoolItem(
   );
 }
 
+export interface PublishPrivatePoolItemDependencies {
+  enqueueSemanticIndex: typeof enqueueResumeSemanticIndexJobBestEffort;
+}
+
+const defaultPublishPrivatePoolItemDependencies: PublishPrivatePoolItemDependencies = {
+  enqueueSemanticIndex: enqueueResumeSemanticIndexJobBestEffort,
+};
+
 export async function publishPrivatePoolItem(
   input: PublishPrivatePoolItemInput,
+  dependencies = defaultPublishPrivatePoolItemDependencies,
 ): Promise<ResumePoolDetail> {
   const privateItem = await loadAccessiblePoolItem(input);
   if (!privateItem || privateItem.scope !== "private") {
@@ -675,7 +685,7 @@ export async function publishPrivatePoolItem(
   if (!publicItem) {
     throw new Error("公共简历池记录创建失败");
   }
-  await enqueueResumeSemanticIndexJobBestEffort({
+  await dependencies.enqueueSemanticIndex({
     organizationId: input.organizationId,
     sourceId: publicItem.id,
     sourceType: "resume_pool_item",
@@ -683,12 +693,23 @@ export async function publishPrivatePoolItem(
   return publicItem;
 }
 
+export interface ImportPoolItemDependencies {
+  cloneSemanticIndex: typeof cloneResumeSemanticIndexFromPoolToInterview;
+  findDuplicateMatches: typeof findSemanticResumeDuplicates;
+}
+
+const defaultImportPoolItemDependencies: ImportPoolItemDependencies = {
+  cloneSemanticIndex: cloneResumeSemanticIndexFromPoolToInterview,
+  findDuplicateMatches: findSemanticResumeDuplicates,
+};
+
 export async function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
+  dependencies = defaultImportPoolItemDependencies,
 ): Promise<ResumePoolImportResult> {
   const result = await admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
     cloneSemanticIndex: (admission) =>
-      cloneResumeSemanticIndexFromPoolToInterview({
+      dependencies.cloneSemanticIndex({
         poolItemId: admission.poolItemId,
         resumeRecordId: admission.resumeRecordId,
         sourceOrganizationId: admission.sourceOrganizationId,
@@ -777,7 +798,7 @@ export async function importPoolItemToResumeLibrary(
       return resumeRecordId;
     },
     findDuplicateMatches: async ({ admission, existingResumeRecordId, source }) => {
-      const matches = await findSemanticResumeDuplicates({
+      const matches = await dependencies.findDuplicateMatches({
         email: source.candidateEmail ?? source.resumeProfile?.email ?? null,
         excludeSources: existingResumeRecordId
           ? [{ sourceId: existingResumeRecordId, sourceType: "studio_interview" }]
@@ -875,7 +896,18 @@ export async function importPoolItemToResumeLibrary(
   return result;
 }
 
-export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<void> {
+export interface DeleteOwnPoolItemDependencies {
+  deleteSemanticIndex: typeof deleteResumeSemanticIndexBestEffort;
+}
+
+const defaultDeleteOwnPoolItemDependencies: DeleteOwnPoolItemDependencies = {
+  deleteSemanticIndex: deleteResumeSemanticIndexBestEffort,
+};
+
+export async function deleteOwnPoolItem(
+  input: DeleteOwnPoolItemInput,
+  dependencies = defaultDeleteOwnPoolItemDependencies,
+): Promise<void> {
   const deleted = await db
     .delete(resumePoolItem)
     .where(
@@ -891,7 +923,7 @@ export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<
   if (deleted.length === 0) {
     throw new Error("简历不存在或无权删除");
   }
-  await deleteResumeSemanticIndexBestEffort({
+  await dependencies.deleteSemanticIndex({
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
   });

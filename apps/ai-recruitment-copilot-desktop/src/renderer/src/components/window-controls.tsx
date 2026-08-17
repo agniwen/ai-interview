@@ -1,3 +1,4 @@
+import type { IpcRendererEvent } from "electron";
 import { useEffect, useState } from "react";
 
 function ControlButton({
@@ -87,7 +88,7 @@ export function WindowControls(): React.JSX.Element | null {
 
     void syncMaximized();
 
-    const handleMaximizedChanged = (_event: unknown, nextMaximized: boolean): void => {
+    const handleMaximizedChanged = (_event: IpcRendererEvent, nextMaximized: boolean): void => {
       setMaximized(nextMaximized);
     };
 

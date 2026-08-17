@@ -1,48 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { NotificationDocumentAccessError } from "../utils";
-import type { grantPlatformNotificationDocumentAccess } from "../utils";
-import { platformRouter } from "../../../route";
+import { createPlatformRouter } from "../../../route";
 
-interface NotificationUtilsModule {
-  grantPlatformNotificationDocumentAccess: typeof grantPlatformNotificationDocumentAccess;
-  NotificationDocumentAccessError: typeof NotificationDocumentAccessError;
-}
-
-const mocks = vi.hoisted(() => ({
+const mocks = {
   grantDocumentAccess: vi.fn(),
   previewNotification: vi.fn(),
   queryNotifications: vi.fn(),
   resendNotification: vi.fn(),
-}));
-
-vi.mock("../dao", () => ({
-  platformNotificationProviderFilterValues: ["all", "feishu", "feishu_interview"] as const,
-  platformNotificationStatusFilterValues: ["all", "pending", "sent", "failed"] as const,
-  queryPaginatedPlatformNotifications: mocks.queryNotifications,
-}));
-
-vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications",
-  () => ({ resendInterviewSummaryNotification: mocks.resendNotification }),
-);
-
-vi.mock("../utils", async (importOriginal) => ({
-  ...(await importOriginal<NotificationUtilsModule>()),
-  grantPlatformNotificationDocumentAccess: mocks.grantDocumentAccess,
-  previewPlatformFeishuNotification: mocks.previewNotification,
-}));
+};
 
 function makeApp(role?: string) {
   return factory
     .createApp()
     .use("*", async (c, next) => {
       if (role) {
+        // SAFETY: This test constructs the value with the asserted contract before this boundary.
         c.set("user", { id: "user_1", role } as never);
       }
       await next();
     })
-    .route("/platform", platformRouter);
+    .route("/platform", createPlatformRouter({ notifications: mocks }));
 }
 
 describe("platform notifications routes", () => {

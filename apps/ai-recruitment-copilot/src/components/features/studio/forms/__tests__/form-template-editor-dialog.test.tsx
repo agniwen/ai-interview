@@ -1,24 +1,18 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   enableReactActEnvironment,
   installNoopResizeObserver,
   renderInAct,
   unmountInAct,
 } from "@/test-utils/react-act";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "../form-template-editor-dialog";
 
 enableReactActEnvironment();
 installNoopResizeObserver();
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("@/lib/client/workspace-context", () => ({
-  useWorkspaceSlug: () => "default",
-}));
 
 const roots: Awaited<ReturnType<typeof renderInAct>>["root"][] = [];
 
@@ -31,14 +25,23 @@ afterEach(async () => {
 
 describe("CandidateFormTemplateEditorDialog", () => {
   it("can open the create dialog without recursively resetting form state", async () => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: () => ({ addEventListener: () => {}, matches: false, removeEventListener: () => {} }),
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { root } = await renderInAct(
-      <CandidateFormTemplateEditorDialog
-        jobDescriptions={[]}
-        onOpenChange={() => {}}
-        onSaved={() => {}}
-        open
-        record={null}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceSlugProvider id="org-default" memberRole="admin" permissions={{}} slug="default">
+          <CandidateFormTemplateEditorDialog
+            jobDescriptions={[]}
+            onOpenChange={() => {}}
+            onSaved={() => {}}
+            open
+            record={null}
+          />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>,
     );
     roots.push(root);
 

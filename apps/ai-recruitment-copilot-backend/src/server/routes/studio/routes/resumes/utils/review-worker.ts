@@ -1,7 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
+import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
@@ -30,6 +32,11 @@ function reviewRunWhere(runId: string | null | undefined) {
     return isNull(studioInterview.resumeReviewRunId);
   }
   return runId ? eq(studioInterview.resumeReviewRunId, runId) : undefined;
+}
+
+function parseResumeScreeningResult(value: JsonValue | null): ResumeScreeningResult | null {
+  const parsed = resumeScreeningResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function guardedRecordWhere(input: {
@@ -78,7 +85,7 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     return record
       ? {
           ...record,
-          resumeScreeningResult: record.resumeScreeningResult as ResumeScreeningResult | null,
+          resumeScreeningResult: parseResumeScreeningResult(record.resumeScreeningResult),
         }
       : null;
   },
@@ -408,13 +415,28 @@ async function processResumePoolReviewGenerationJob(
     );
 }
 
-export async function processResumeReviewGenerationJob(input: ResumeReviewGenerationJobData) {
+export interface ResumeReviewWorkerDependencies {
+  processResumePoolReviewGeneration: typeof processResumePoolReviewGenerationJob;
+  resolveRecordJobDescription: typeof resolveRecordJobDescriptionId;
+  runAssessmentLifecycle: typeof runResumeAssessmentLifecycle;
+}
+
+const defaultResumeReviewWorkerDependencies: ResumeReviewWorkerDependencies = {
+  processResumePoolReviewGeneration: processResumePoolReviewGenerationJob,
+  resolveRecordJobDescription: resolveRecordJobDescriptionId,
+  runAssessmentLifecycle: runResumeAssessmentLifecycle,
+};
+
+export async function processResumeReviewGenerationJob(
+  input: ResumeReviewGenerationJobData,
+  dependencies = defaultResumeReviewWorkerDependencies,
+) {
   if (input.source === "resume_pool_upload") {
-    return processResumePoolReviewGenerationJob(input);
+    return dependencies.processResumePoolReviewGeneration(input);
   }
   const force = Boolean(input.force) || input.source === "reassess";
-  const jobDescriptionId = await resolveRecordJobDescriptionId(input);
-  return runResumeAssessmentLifecycle(
+  const jobDescriptionId = await dependencies.resolveRecordJobDescription(input);
+  return dependencies.runAssessmentLifecycle(
     {
       expectedJobDescriptionId: jobDescriptionId,
       expectedRunId: input.runId,

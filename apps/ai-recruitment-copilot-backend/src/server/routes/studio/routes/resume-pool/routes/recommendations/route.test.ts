@@ -1,24 +1,27 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { createResumePoolRecommendationsRouter } from "./route";
+import type { ResumePoolRecommendationsDependencies } from "./route";
 
-const mocks = vi.hoisted(() => ({
-  loadResumePoolItem: vi.fn(),
-  recommendJobDescriptionsForResume: vi.fn(),
-}));
+const mocks = {
+  loadResumePoolItem: vi.fn<ResumePoolRecommendationsDependencies["loadResumePoolItem"]>(),
+  recommendJobDescriptionsForResume:
+    vi.fn<ResumePoolRecommendationsDependencies["recommendJobDescriptionsForResume"]>(),
+};
 
-vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
-}));
-vi.mock("../../dao", () => ({
-  loadResumePoolItem: mocks.loadResumePoolItem,
-}));
-vi.mock("../../utils/jd-recommendations", () => ({
-  recommendJobDescriptionsForResume: mocks.recommendJobDescriptionsForResume,
-}));
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
-import { resumePoolRecommendationsRouter } from "./route";
+const dependencies: ResumePoolRecommendationsDependencies = {
+  ...mocks,
+  permissionMiddlewares: [
+    async (_c, next) => {
+      await next();
+    },
+    async (_c, next) => {
+      await next();
+    },
+  ],
+};
 
 const ORGANIZATION_ID = "org_recommendations_route";
 const USER_ID = "user_recommendations_route";
@@ -31,17 +34,32 @@ const STUB_RESULT = {
   status: "ready" as const,
 };
 
-const RESUME_PROFILE = { name: "候选人", skills: ["TypeScript"] };
+const RESUME_PROFILE: ResumeProfile = {
+  age: null,
+  email: null,
+  gender: null,
+  name: "候选人",
+  personalStrengths: [],
+  phone: null,
+  projectExperiences: [],
+  schools: [],
+  skills: ["TypeScript"],
+  targetRoles: [],
+  workExperiences: [],
+  workYears: null,
+};
 
 function makeApp() {
   return factory
     .createApp()
     .use("*", async (c, next) => {
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
       c.set("user", { id: USER_ID } as never);
       await next();
     })
-    .route("/:id/recommendations", resumePoolRecommendationsRouter);
+    .route("/:id/recommendations", createResumePoolRecommendationsRouter(dependencies));
 }
 
 const client = testClient(makeApp());

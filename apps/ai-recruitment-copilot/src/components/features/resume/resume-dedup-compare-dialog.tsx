@@ -26,6 +26,8 @@ import { ImageResumePreviewContent } from "./resume-document-preview-dialog";
 import { getResumeComparisonDocument } from "./resume-dedup-compare-model";
 import type { ResumeComparisonSourceType } from "./resume-dedup-compare-model";
 import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
+import { syncScrollProgress } from "./resume-dedup-scroll-model";
+export { syncScrollProgress } from "./resume-dedup-scroll-model";
 
 export type ResumeDedupCompareMode = "detail" | "resume";
 
@@ -52,20 +54,6 @@ interface ResumeComparisonRef {
   candidateName: string;
   id: string;
   sourceType: ResumeComparisonSourceType;
-}
-
-function scrollProgress(element: HTMLElement): number {
-  const scrollRange = element.scrollHeight - element.clientHeight;
-  return scrollRange > 0 ? Math.min(1, Math.max(0, element.scrollTop / scrollRange)) : 0;
-}
-
-function syncScrollProgress(source: HTMLElement, target: HTMLElement): number {
-  const targetScrollTop =
-    scrollProgress(source) * Math.max(0, target.scrollHeight - target.clientHeight);
-  if (Math.abs(target.scrollTop - targetScrollTop) >= 0.5) {
-    target.scrollTop = targetScrollTop;
-  }
-  return targetScrollTop;
 }
 
 function useSynchronizedScroll(

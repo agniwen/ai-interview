@@ -8,6 +8,8 @@ import {
 } from "./meeting-intelligence";
 import type { MeetingIntelligenceJobData } from "./meeting-intelligence";
 
+const NO_JOB = undefined;
+
 const job: MeetingIntelligenceJobData = { processingRunId: "intelligence-run-80" };
 
 describe("Meeting Intelligence queue", () => {
@@ -38,7 +40,7 @@ describe("Meeting Intelligence queue", () => {
   it("replaces a retained failed job during reconciliation", async () => {
     const remove = vi.fn(() => Promise.resolve());
     const queue = {
-      add: vi.fn(() => Promise.resolve()),
+      add: vi.fn(() => Promise.resolve(NO_JOB)),
       getJob: vi.fn(() => Promise.resolve({ getState: () => Promise.resolve("failed"), remove })),
     };
 

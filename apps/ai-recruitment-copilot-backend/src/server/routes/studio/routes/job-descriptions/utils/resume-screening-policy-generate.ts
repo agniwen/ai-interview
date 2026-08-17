@@ -3,10 +3,7 @@ import {
   generateStructuredWithMastraAgent,
   resumeScreeningPolicyDraftAgent,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
-import type {
-  ResumeScreeningPolicy,
-  ResumeScreeningRuleSeverity,
-} from "@arc/shared/resume-screening";
+import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 
 const MIN_EDUCATION_RULE_ID = "minimum-education";
 const MIN_WORK_YEARS_RULE_ID = "minimum-work-years";
@@ -138,7 +135,7 @@ export async function generateResumeScreeningPolicyFromJobDescription(input: {
     rules.push({
       id: `semantic-${index + 1}`,
       requirement,
-      severity: rule.severity as ResumeScreeningRuleSeverity,
+      severity: rule.severity,
       type: "semantic",
     });
   }

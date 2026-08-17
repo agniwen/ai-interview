@@ -43,9 +43,9 @@ import {
   batchStatusMeta,
   formatCount,
   formatDuration,
-  formatJson,
   getInitials,
   getJobDataSummary,
+  isQueueJobData,
   normalizeParseStatusFilter,
   normalizeStateFilter,
   normalizeUploadStatusFilter,
@@ -54,6 +54,7 @@ import {
   stateVariant,
   uploadItemStatusMeta,
 } from "./queues-grid-model";
+import type { JobStateFilter, ParseStatusFilter, UploadStatusFilter } from "./queues-grid-model";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
 const PLATFORM_QUEUE_OPTIONS = [
@@ -213,6 +214,64 @@ interface QueueJobsResult {
   totalPages: number;
 }
 
+interface QueueJobsRequest {
+  query: {
+    page: string;
+    pageSize: string;
+    parseStatus: ParseStatusFilter;
+    search?: string;
+    state: JobStateFilter;
+    uploadStatus: UploadStatusFilter;
+  };
+  queueName: string;
+}
+
+export interface QueuesGridDependencies {
+  fetchJobs: (request: QueueJobsRequest) => Promise<QueueJobsResult>;
+  fetchOverview: () => Promise<QueuesOverviewResult>;
+}
+
+const defaultQueuesGridDependencies: QueuesGridDependencies = {
+  fetchJobs: ({ query, queueName }) =>
+    rpcFetch<QueueJobsResult>(
+      rpc.api.platform.queues[":queueName"].jobs.$get({
+        param: { queueName },
+        query,
+      }),
+      "加载队列任务失败",
+    ),
+  fetchOverview: () =>
+    rpcFetch<QueuesOverviewResult>(rpc.api.platform.queues.$get(), "加载队列概览失败"),
+};
+
+export function createQueueJobsFetcher(fetchJobs: QueuesGridDependencies["fetchJobs"]) {
+  return (params: {
+    search: string;
+    page: number;
+    pageSize: number;
+    filters: QueueFilters;
+  }): Promise<QueueJobsResult> => {
+    const queueName = params.filters.queue || DEFAULT_QUEUE_NAME;
+    const query = params.search
+      ? {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
+          search: params.search,
+          state: normalizeStateFilter(params.filters.state),
+          uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
+        }
+      : {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
+          state: normalizeStateFilter(params.filters.state),
+          uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
+        };
+    return fetchJobs({ query, queueName });
+  };
+}
+
 function QueueOrganizationCell({ organization }: { organization: QueueJobRecord["organization"] }) {
   if (!organization) {
     return <span className="text-muted-foreground text-sm">—</span>;
@@ -247,11 +306,11 @@ function QueueUserCell({ user }: { user: QueueJobRecord["triggeredBy"] }) {
   );
 }
 
-function DetailField({ label, value }: { label: string; value: ReactNode }) {
+function DetailField({ label, title, value }: { label: string; title?: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 truncate text-sm" title={typeof value === "string" ? value : undefined}>
+      <p className="mt-1 truncate text-sm" title={title}>
         {value || "—"}
       </p>
     </div>
@@ -348,33 +407,35 @@ function RawJobFallback({ job }: { job: QueueJobRecord }) {
     <div className="min-h-0 overflow-auto rounded-lg border bg-muted/30 p-4">
       <p className="mb-3 text-muted-foreground text-sm">未匹配到具体上传任务，显示队列原始信息。</p>
       <pre className="whitespace-pre-wrap break-all text-xs leading-relaxed">
-        {formatJson({
-          attemptsMade: job.attemptsMade,
-          attemptsStarted: job.attemptsStarted,
-          data: job.data,
-          failedReason: job.failedReason,
-          finishedOn: job.finishedOn,
-          id: job.id,
-          name: job.name,
-          processedBy: job.processedBy,
-          processedOn: job.processedOn,
-          progress: job.progress,
-          returnvalue: job.returnvalue,
-          state: job.state,
-          timestamp: job.timestamp,
-        })}
+        {JSON.stringify(
+          {
+            attemptsMade: job.attemptsMade,
+            attemptsStarted: job.attemptsStarted,
+            data: job.data,
+            failedReason: job.failedReason,
+            finishedOn: job.finishedOn,
+            id: job.id,
+            name: job.name,
+            processedBy: job.processedBy,
+            processedOn: job.processedOn,
+            progress: job.progress,
+            returnvalue: job.returnvalue,
+            state: job.state,
+            timestamp: job.timestamp,
+          },
+          null,
+          2,
+        ) ?? "null"}
       </pre>
     </div>
   );
 }
 
-function QueueMetric({ label, value }: { label: string; value: number | string }) {
+function QueueMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border bg-background px-4 py-3">
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 font-semibold text-lg">
-        {typeof value === "number" ? formatCount(value) : value}
-      </p>
+      <p className="mt-1 font-semibold text-lg">{formatCount(value)}</p>
     </div>
   );
 }
@@ -484,12 +545,15 @@ export function QueueJobDetailDialog({
   );
 }
 
-export function QueuesGrid() {
+export function QueuesGrid({
+  dependencies = defaultQueuesGridDependencies,
+}: {
+  dependencies?: QueuesGridDependencies;
+}) {
   const queryClient = useQueryClient();
   const [detailJob, setDetailJob] = useState<QueueJobRecord | null>(null);
   const overviewQuery = useQuery({
-    queryFn: () =>
-      rpcFetch<QueuesOverviewResult>(rpc.api.platform.queues.$get(), "加载队列概览失败"),
+    queryFn: dependencies.fetchOverview,
     queryKey: ["platform-queues"],
     refetchOnWindowFocus: false,
     staleTime: 5000,
@@ -513,32 +577,7 @@ export function QueuesGrid() {
     ];
   }, [overviewQuery.data?.records]);
 
-  const fetchJobs = useMemo(
-    () =>
-      (params: {
-        search: string;
-        page: number;
-        pageSize: number;
-        filters: QueueFilters;
-      }): Promise<QueueJobsResult> => {
-        const queueName = params.filters.queue || DEFAULT_QUEUE_NAME;
-        return rpcFetch<QueueJobsResult>(
-          rpc.api.platform.queues[":queueName"].jobs.$get({
-            param: { queueName },
-            query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
-              parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
-              state: normalizeStateFilter(params.filters.state),
-              uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
-            },
-          }),
-          "加载队列任务失败",
-        );
-      },
-    [],
-  );
+  const fetchJobs = useMemo(() => createQueueJobsFetcher(dependencies.fetchJobs), [dependencies]);
 
   const grid = useDataGridState<QueueJobRecord, QueueFilters>({
     defaultPageSize: 20,
@@ -629,7 +668,7 @@ export function QueuesGrid() {
         title: "触发用户",
       }),
       textColumn<QueueJobRecord>({
-        cell: (record) => getJobDataSummary(record.data),
+        cell: (record) => getJobDataSummary(isQueueJobData(record.data) ? record.data : null),
         key: "name",
         title: "关联数据",
         truncate: "max-w-76",

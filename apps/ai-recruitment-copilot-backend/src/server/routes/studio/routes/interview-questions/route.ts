@@ -52,14 +52,14 @@ function normalizeQuestions(
   templateId: string,
   now: Date,
 ) {
-  return questions.map((question, index) => ({
+  return questions.map((question) => ({
     content: question.content.trim(),
     createdAt: now,
     difficulty: question.difficulty,
     evaluationFocus: question.evaluationFocus?.trim() || null,
     followUpDirections: question.followUpDirections?.trim() || null,
     id: question.id?.trim() || crypto.randomUUID(),
-    sortOrder: typeof question.sortOrder === "number" ? question.sortOrder : index,
+    sortOrder: question.sortOrder,
     templateId,
     updatedAt: now,
   }));

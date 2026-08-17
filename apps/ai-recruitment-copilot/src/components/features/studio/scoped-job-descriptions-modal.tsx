@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
+import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -86,28 +87,27 @@ export function ScopedJobDescriptionsModal({
   const listQuery = useQuery({
     enabled: open && scope !== null,
     placeholderData: (prev) => prev,
-    queryFn: async (): Promise<PaginatedJobDescriptionResult> => {
+    queryFn: (): Promise<PaginatedJobDescriptionResult> => {
       if (!scope) {
-        return { page, pageSize, records: [], total: 0, totalPages: 1 };
+        return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }
       // 两种 scope 都走 JD 列表 RPC，过滤维度通过 query key 区分。
       // Both scopes hit the same JD list RPC; differ only by which filter key.
       const scopedQuery =
         scope.type === "interviewer" ? { interviewerId: scope.id } : { departmentId: scope.id };
-      const res = await rpc.api.w[":slug"].studio["job-descriptions"].$get({
-        param: { slug },
-        query: {
-          ...scopedQuery,
-          page: String(page),
-          pageSize: String(pageSize),
-          sortBy: "createdAt",
-          sortOrder: "desc",
-        },
-      });
-      if (!res.ok) {
-        throw new Error("加载在招岗位失败");
-      }
-      return (await res.json()) as PaginatedJobDescriptionResult;
+      return rpcFetch<PaginatedJobDescriptionResult>(
+        rpc.api.w[":slug"].studio["job-descriptions"].$get({
+          param: { slug },
+          query: {
+            ...scopedQuery,
+            page: String(page),
+            pageSize: String(pageSize),
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        }),
+        "加载在招岗位失败",
+      );
     },
     // scope 变更时自动重新查询；type + id 组成唯一 key。
     // Re-query on scope change; type + id together form the unique key.

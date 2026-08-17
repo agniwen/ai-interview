@@ -5,6 +5,10 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { vi } from "vitest";
 
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
 /**
  * Flush React state updates from microtasks + one macrotask.
  * Needed when createRoot tests await network mocks / react-query outside `act`.
@@ -70,14 +74,14 @@ export async function unmountInAct(root: Root): Promise<void> {
 
 /** Mark this jsdom global as a React act environment (React 19). */
 export function enableReactActEnvironment(): void {
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 }
 
 export function installNoopResizeObserver(): void {
-  class TestResizeObserver {
-    disconnect = vi.fn();
-    observe = vi.fn();
-    unobserve = vi.fn();
+  class TestResizeObserver implements ResizeObserver {
+    disconnect: ResizeObserver["disconnect"] = vi.fn();
+    observe: ResizeObserver["observe"] = vi.fn();
+    unobserve: ResizeObserver["unobserve"] = vi.fn();
   }
-  globalThis.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver;
+  globalThis.ResizeObserver = TestResizeObserver;
 }

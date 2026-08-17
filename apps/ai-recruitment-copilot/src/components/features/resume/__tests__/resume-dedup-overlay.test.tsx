@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import {
@@ -11,25 +11,27 @@ import {
 } from "@/test-utils/react-act";
 import { ResumeDuplicateMatchBadge } from "../resume-duplicate-match-badge";
 import { ResumeDedupMatchList, ResumeDuplicateMatchesDialog } from "../resume-dedup-overlay";
+import type { ResumeDedupMatchListDependencies } from "../resume-dedup-overlay";
 
 enableReactActEnvironment();
 installNoopResizeObserver();
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: (media: string): MediaQueryList => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  }),
+});
 
-vi.mock("@/lib/client/workspace-context", () => ({
-  useOptionalWorkspaceSlug: () => "default",
-  useWorkspaceCan: () => false,
-  useWorkspaceSlug: () => "default",
-}));
-
-vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
-}));
-
-vi.mock("../resume-dedup-compare-dialog", () => ({
-  ResumeDedupCompareDialog: ({ mode }: { mode: string }) => (
-    <div data-testid="resume-dedup-compare">{mode}</div>
-  ),
-}));
+const dependencies: ResumeDedupMatchListDependencies = {
+  renderComparison: ({ mode }) => <div data-testid="resume-dedup-compare">{mode}</div>,
+};
 
 const roots: Awaited<ReturnType<typeof renderInAct>>["root"][] = [];
 
@@ -46,6 +48,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     const { root } = await renderInAct(
       <QueryClientProvider client={queryClient}>
         <ResumeDuplicateMatchesDialog
+          dependencies={dependencies}
           matches={[
             {
               candidateEmail: "suspected@example.com",

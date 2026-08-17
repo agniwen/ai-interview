@@ -8,6 +8,7 @@ import type {
   PlatformNotificationStatusFilter,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/notifications/dao";
 import { createQueryClient } from "@arc/shared/query-client";
+import { z } from "zod";
 
 export interface PlatformNotificationFilters extends Record<string, string> {
   providerId: PlatformNotificationProviderFilter;
@@ -32,5 +33,6 @@ export async function loadPlatformNotificationsHydrationState(
     queryKey: buildDataGridQueryKey(["platform-notifications"], query),
   });
 
-  return structuredClone(dehydrate(queryClient)) as unknown as JsonValue;
+  const serialized = JSON.stringify(dehydrate(queryClient));
+  return z.json().parse(JSON.parse(serialized)) satisfies JsonValue;
 }

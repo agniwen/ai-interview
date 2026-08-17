@@ -2,10 +2,11 @@
 
 import { IconDownload, IconLoader2, IconPhotoOff, IconX } from "@tabler/icons-react";
 import { Suspense, lazy, useEffect, useState } from "react";
-import { DocxViewerPreview } from "@/components/ui/docx-viewer";
+import type { ComponentProps, ReactNode } from "react";
+import type { DocxViewerPreview as DocxViewerPreviewComponent } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
+import type { XlsxViewerPreview as XlsxViewerPreviewComponent } from "@/components/ui/xlsx-viewer";
 import { cn } from "@arc/shared/utils";
 import { runAsyncAction } from "@/lib/client/async-control";
 
@@ -17,6 +18,16 @@ const PdfPreviewDialog = lazy(async () => {
   return { default: mod.PdfPreviewDialog };
 });
 
+const DocxViewerPreview = lazy(async () => {
+  const mod = await import("@/components/ui/docx-viewer");
+  return { default: mod.DocxViewerPreview };
+});
+
+const XlsxViewerPreview = lazy(async () => {
+  const mod = await import("@/components/ui/xlsx-viewer");
+  return { default: mod.XlsxViewerPreview };
+});
+
 export interface ResumeDocumentPreviewDialogProps {
   downloadUrl?: string;
   kind: ResumeDocumentPreviewKind;
@@ -25,6 +36,16 @@ export interface ResumeDocumentPreviewDialogProps {
   url: string;
   filename?: string;
 }
+
+export interface ResumeDocumentPreviewDialogDependencies {
+  renderDocxPreview: (props: ComponentProps<typeof DocxViewerPreviewComponent>) => ReactNode;
+  renderXlsxPreview: (props: ComponentProps<typeof XlsxViewerPreviewComponent>) => ReactNode;
+}
+
+const defaultResumeDocumentPreviewDialogDependencies: ResumeDocumentPreviewDialogDependencies = {
+  renderDocxPreview: (props) => <DocxViewerPreview {...props} />,
+  renderXlsxPreview: (props) => <XlsxViewerPreview {...props} />,
+};
 
 function getResumePreviewDownloadFileName(
   kind: ResumeDocumentPreviewKind,
@@ -177,13 +198,14 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
 }
 
 export function ResumeDocumentPreviewDialog({
+  dependencies = defaultResumeDocumentPreviewDialogDependencies,
   downloadUrl,
   kind,
   open,
   onOpenChange,
   url,
   filename,
-}: ResumeDocumentPreviewDialogProps) {
+}: ResumeDocumentPreviewDialogProps & { dependencies?: ResumeDocumentPreviewDialogDependencies }) {
   const [isDark, setIsDark] = useState(false);
   const title = filename ?? getDefaultPreviewTitle(kind);
   const downloadFileName = getResumePreviewDownloadFileName(kind, filename);
@@ -250,27 +272,25 @@ export function ResumeDocumentPreviewDialog({
         />
       }
     >
-      {kind === "docx" ? (
-        <DocxViewerPreview
-          className="h-full"
-          fileName={filename}
-          isDark={isDark}
-          onIsDarkChange={setIsDark}
-          showDownload={false}
-          showUpload={false}
-          src={url}
-        />
-      ) : (
-        <XlsxViewerPreview
-          className="h-full"
-          fileName={filename}
-          isDark={isDark}
-          onIsDarkChange={setIsDark}
-          showDownload={false}
-          showUpload={false}
-          src={url}
-        />
-      )}
+      {kind === "docx"
+        ? dependencies.renderDocxPreview({
+            className: "h-full",
+            fileName: filename,
+            isDark,
+            onIsDarkChange: setIsDark,
+            showDownload: false,
+            showUpload: false,
+            src: url,
+          })
+        : dependencies.renderXlsxPreview({
+            className: "h-full",
+            fileName: filename,
+            isDark,
+            onIsDarkChange: setIsDark,
+            showDownload: false,
+            showUpload: false,
+            src: url,
+          })}
     </Modal>
   );
 }

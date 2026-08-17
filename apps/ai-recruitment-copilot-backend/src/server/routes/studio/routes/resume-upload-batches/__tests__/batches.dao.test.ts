@@ -466,7 +466,8 @@ describe("claimNextPendingItem", () => {
           if (item) {
             // 原始行是 snake_case，通过 id 字段跟踪认领顺序。
             // Raw row uses snake_case keys; track claim order via id.
-            const rawId = (item as unknown as Record<string, unknown>).id as string;
+            // SAFETY: This test constructs the value with the asserted contract before this boundary.
+            const rawId = (item as { id: string }).id;
             claimedIds.push(rawId);
           }
         }
