@@ -12,9 +12,11 @@ export function UnevaluatedText({ className }: { className?: string }) {
 export function OverviewDimensionRadar({
   compact = false,
   dimensions,
+  showTooltip = true,
 }: {
   compact?: boolean;
   dimensions: ReviewDimensionDisplay[];
+  showTooltip?: boolean;
 }) {
   if (dimensions.length === 0) {
     return (
@@ -34,17 +36,21 @@ export function OverviewDimensionRadar({
       ariaLabel="简历维度评分雷达图"
       compact={compact}
       dimensions={dimensions}
-      tooltipBody={(payload) => (
-        <div className="min-w-0 space-y-1">
-          <div className="font-medium text-foreground">
-            {payload.label}：{String(payload.score ?? "—")}
-          </div>
-          <div className="text-muted-foreground text-xs leading-5">
-            权重 {String(payload.weight ?? "—")}%
-            {typeof payload.rationale === "string" ? ` · ${payload.rationale}` : ""}
-          </div>
-        </div>
-      )}
+      tooltipBody={
+        showTooltip
+          ? (payload) => (
+              <div className="min-w-0 space-y-1">
+                <div className="font-medium text-foreground">
+                  {payload.label}：{String(payload.score ?? "—")}
+                </div>
+                <div className="text-muted-foreground text-xs leading-5">
+                  权重 {String(payload.weight ?? "—")}%
+                  {typeof payload.rationale === "string" ? ` · ${payload.rationale}` : ""}
+                </div>
+              </div>
+            )
+          : undefined
+      }
     />
   );
 }

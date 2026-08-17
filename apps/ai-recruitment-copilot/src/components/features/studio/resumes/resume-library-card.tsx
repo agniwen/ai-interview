@@ -7,6 +7,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
+import { ResumeAiScoreHoverCard } from "@/components/features/studio/resumes/resume-ai-score-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -404,6 +405,10 @@ function ResumeLibraryCardComponent({
   const reviewCard = hasRetainedLegacyReview
     ? { ...baseReviewCard, label: `老版本结果 · ${baseReviewCard.label}` }
     : baseReviewCard;
+  const hasAiScoreDetail =
+    artifactMode === "structured"
+      ? record.structuredCompositeScore !== null
+      : record.resumeReviewBaseScore !== null;
   let replacementAttemptLabel: string | null = null;
   if (hasRetainedLegacyReview && record.resumeEvaluationAttemptMode === "structured") {
     if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
@@ -552,17 +557,29 @@ function ResumeLibraryCardComponent({
                         <IconSparkles className="size-3.5" />
                       </span>
                     }
-                    label="下一步建议"
+                    label="AI评分"
                   >
                     <span className="flex min-w-0 items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "min-w-0 truncate font-medium",
-                          REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                        )}
-                      >
-                        {reviewCard.label}
-                      </span>
+                      {hasAiScoreDetail ? (
+                        <ResumeAiScoreHoverCard
+                          className={cn(
+                            "min-w-0 truncate font-medium",
+                            REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                          )}
+                          recordId={record.id}
+                        >
+                          {reviewCard.label}
+                        </ResumeAiScoreHoverCard>
+                      ) : (
+                        <span
+                          className={cn(
+                            "min-w-0 truncate font-medium",
+                            REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                          )}
+                        >
+                          {reviewCard.label}
+                        </span>
+                      )}
                       {replacementAttemptLabel ? (
                         <span className="shrink-0 text-muted-foreground">
                           {replacementAttemptLabel}

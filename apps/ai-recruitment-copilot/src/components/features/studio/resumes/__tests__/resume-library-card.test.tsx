@@ -4,6 +4,12 @@ import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
 import { ResumeLibraryCard } from "../resume-library-card";
 
+vi.mock("@/components/features/studio/resumes/resume-ai-score-hover-card", () => ({
+  ResumeAiScoreHoverCard: ({ children }: { children: React.ReactNode }) => (
+    <span data-ai-score-hover-card>{children}</span>
+  ),
+}));
+
 const record: ResumeLibraryListRecord = {
   candidateEmail: null,
   candidateName: "测试候选人",
@@ -119,6 +125,7 @@ describe("ResumeLibraryCard", () => {
     );
 
     expect(content).toContain("未通过门槛 · 68 分");
+    expect(content).toContain("data-ai-score-hover-card");
   });
 
   it("keeps showing a labeled legacy score after the job upgrades", () => {
