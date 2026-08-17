@@ -43,6 +43,7 @@ import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import { normalizeSkill } from "./skills";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
+import { loadLatestFeishuDocumentUrls } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/feishu-document-urls";
 
 function parseResumeReviewBaseScore(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value.trim() === "") {
@@ -427,6 +428,7 @@ function selectRows({
 // 但 row.stageProgress 可能是 null —— 兜一手让下游永远拿到完整 shape）。
 // Default fallback when the aggregation row returns null altogether.
 interface ResumeDerivedFields {
+  feishuDocumentUrl: string | null;
   hasInterviewRounds: boolean;
   lastInterviewAt: string | null;
   resumeParseRetryable: boolean | null;
@@ -434,6 +436,7 @@ interface ResumeDerivedFields {
 }
 
 const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
+  feishuDocumentUrl: null,
   hasInterviewRounds: false,
   lastInterviewAt: null,
   resumeParseRetryable: null,
@@ -447,13 +450,14 @@ async function loadResumeDerivedFields(
   organizationId: string,
 ): Promise<Map<string, ResumeDerivedFields>> {
   const ids = uniq(candidateIds.filter(Boolean));
-  const [stageProgressById, retryableIds] = await Promise.all([
+  const [stageProgressById, retryableIds, documentUrls] = await Promise.all([
     loadResumeStageProgress(ids),
     loadResumeParseRetryEligibility({
       ids,
       organizationId,
       target: "resume_library",
     }),
+    loadLatestFeishuDocumentUrls({ ids, key: "interviewRecordId", organizationId }),
   ]);
   const result = new Map<string, ResumeDerivedFields>();
   for (const id of ids) {
@@ -462,6 +466,7 @@ async function loadResumeDerivedFields(
       stageProgress: { ...EMPTY_STAGE_PROGRESS },
     };
     result.set(id, {
+      feishuDocumentUrl: documentUrls.get(id) ?? null,
       hasInterviewRounds: bundle.stageProgress.aiInterview !== null,
       lastInterviewAt: bundle.lastInterviewAt,
       resumeParseRetryable: retryableIds.get(id) ?? null,
@@ -536,6 +541,7 @@ function toRecord(
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     duplicateMatch: duplicateMatch ?? null,
+    feishuDocumentUrl: resolvedDerived.feishuDocumentUrl,
     hasInterviewRounds: resolvedDerived.hasInterviewRounds,
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,

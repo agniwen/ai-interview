@@ -137,6 +137,7 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     creatorName: null,
     creatorOrganizationName: null,
     duplicateMatch: null,
+    feishuDocumentUrl: null,
     hasInterviewRounds: false,
     hasResumeFile: true,
     hrResumeAssessment: null,

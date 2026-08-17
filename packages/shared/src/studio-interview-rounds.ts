@@ -35,6 +35,7 @@ export interface StudioInterviewRoundListRecord {
   allowTextInput: boolean;
   conversationId: string | null;
   hasReport: boolean;
+  feishuDocumentUrl: string | null;
   /** 完整面试链接相对路径 / Relative interview link path. */
   interviewLink: string;
   createdBy: string | null;

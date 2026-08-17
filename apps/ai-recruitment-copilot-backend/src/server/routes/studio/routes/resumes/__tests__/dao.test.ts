@@ -7,6 +7,7 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   department,
   interviewConversation,
+  interviewNotification,
   jobDescription,
   member,
   organization,
@@ -202,6 +203,49 @@ describe("queryPaginatedResumeRecords", () => {
     expect(result.total).toBe(2);
     const names = result.records.map((r) => r.candidateName).toSorted();
     expect(names).toEqual(["郭靖", "李四"].toSorted());
+  });
+
+  it("returns the latest generated Feishu document for each candidate", async () => {
+    await db.insert(interviewNotification).values([
+      {
+        createdAt: new Date("2026-05-13T11:00:00.000Z"),
+        feishuDocumentUrl: "https://example.feishu.cn/docx/older",
+        id: "notification_resume_dao_older",
+        interviewRecordId: "ri_test_a_1",
+        organizationId: ORG_A,
+        providerId: "feishu:test",
+        recipientOpenId: "ou_test",
+        status: "sent",
+        type: "summary_ready",
+        updatedAt: new Date("2026-05-13T11:00:00.000Z"),
+      },
+      {
+        createdAt: new Date("2026-05-13T12:00:00.000Z"),
+        feishuDocumentUrl: "https://example.feishu.cn/docx/latest",
+        id: "notification_resume_dao_latest",
+        interviewRecordId: "ri_test_a_1",
+        organizationId: ORG_A,
+        providerId: "feishu:test",
+        recipientOpenId: "ou_test",
+        status: "sent",
+        type: "summary_ready",
+        updatedAt: new Date("2026-05-13T12:00:00.000Z"),
+      },
+    ]);
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      expect(result.records.find((record) => record.id === "ri_test_a_1")?.feishuDocumentUrl).toBe(
+        "https://example.feishu.cn/docx/latest",
+      );
+      expect(
+        result.records.find((record) => record.id === "ri_test_a_2")?.feishuDocumentUrl,
+      ).toBeNull();
+    } finally {
+      await db
+        .delete(interviewNotification)
+        .where(eq(interviewNotification.interviewRecordId, "ri_test_a_1"));
+    }
   });
 
   it("does not leak rows from sibling organizations", async () => {

@@ -392,6 +392,24 @@ export function InterviewManagementPage() {
         title: "报告",
       }),
       customColumn<StudioInterviewRoundListRecord>({
+        cell: (r) =>
+          r.feishuDocumentUrl ? (
+            <a
+              className="text-primary underline underline-offset-4 hover:text-primary/80"
+              href={r.feishuDocumentUrl}
+              onClick={(event) => event.stopPropagation()}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              查看档案
+            </a>
+          ) : (
+            <span className="text-muted-foreground">未生成</span>
+          ),
+        key: "feishuDocumentUrl",
+        title: "首选人档案",
+      }),
+      customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
         key: "creatorName",
         title: "创建人",

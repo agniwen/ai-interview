@@ -13,6 +13,7 @@ const record: ResumeLibraryListRecord = {
   creatorImage: null,
   creatorName: null,
   duplicateMatch: null,
+  feishuDocumentUrl: null,
   hasInterviewRounds: false,
   hasResumeFile: false,
   id: "resume-1",
@@ -54,6 +55,41 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
+  it("shows the candidate profile action only when a Feishu document exists", () => {
+    const noop = vi.fn();
+    const renderCard = (feishuDocumentUrl: string | null) =>
+      renderToStaticMarkup(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{ ...record, feishuDocumentUrl }}
+          retrying={false}
+          selected={false}
+        />,
+      );
+
+    expect(renderCard(null)).not.toContain(">档案<");
+    const withDocument = renderCard("https://example.feishu.cn/docx/candidate");
+    expect(withDocument).toContain(">档案<");
+    expect(withDocument).toContain('href="https://example.feishu.cn/docx/candidate"');
+  });
+
   it("shows the composite score when the candidate did not pass a gate", () => {
     const noop = vi.fn();
     const content = renderToStaticMarkup(

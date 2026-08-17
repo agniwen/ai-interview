@@ -3,6 +3,7 @@ import {
   IconCircleOff,
   IconDots,
   IconEdit,
+  IconFileText,
   IconLoader2,
   IconRefresh,
   IconSparkles,
@@ -324,6 +325,20 @@ export function ResumeLibraryCardActions({
           <TextActionButton label="AI面" onClick={() => onLaunchInterview(record)}>
             <IconSparkles className={ACTION_ICON_CLASS} />
           </TextActionButton>
+        ) : null}
+        {record.feishuDocumentUrl ? (
+          <Button
+            className={ACTION_BUTTON_CLASS}
+            nativeButton={false}
+            render={
+              <a href={record.feishuDocumentUrl} rel="noopener noreferrer" target="_blank">
+                <IconFileText className={ACTION_ICON_CLASS} />
+                <span>档案</span>
+              </a>
+            }
+            size="sm"
+            variant="ghost"
+          />
         ) : null}
         <MoreMenu
           canClose={flags.canClose}

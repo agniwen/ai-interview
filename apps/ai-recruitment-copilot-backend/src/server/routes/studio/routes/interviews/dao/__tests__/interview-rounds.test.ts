@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   interviewConversation,
+  interviewNotification,
   member,
   organization,
   studioInterview,
@@ -219,7 +220,6 @@ describe("queryPaginatedInterviewRounds", () => {
       status: "completed",
       updatedAt: NOW,
     });
-
     try {
       const result = await queryPaginatedInterviewRounds(ORG);
       const row = result.records.find((record) => record.id === "rnd-a1");
@@ -228,6 +228,53 @@ describe("queryPaginatedInterviewRounds", () => {
       await db
         .delete(interviewConversation)
         .where(eq(interviewConversation.conversationId, "conv_rounds_dao_last_interview_at"));
+    }
+  });
+
+  it("returns the Feishu document for the round conversation", async () => {
+    const conversationId = "conv_rounds_dao_feishu_document";
+    await db.insert(interviewConversation).values({
+      conversationId,
+      createdAt: NOW,
+      interviewRecordId: "cand-a",
+      lastSyncedAt: NOW,
+      organizationId: ORG,
+      scheduleEntryId: "rnd-a1",
+      status: "completed",
+      updatedAt: NOW,
+    });
+    await db
+      .update(studioInterviewSchedule)
+      .set({ conversationId })
+      .where(eq(studioInterviewSchedule.id, "rnd-a1"));
+    await db.insert(interviewNotification).values({
+      conversationId,
+      createdAt: NOW,
+      feishuDocumentUrl: "https://example.feishu.cn/docx/round-a1",
+      id: "notification_rounds_dao_feishu_document",
+      interviewRecordId: "cand-a",
+      organizationId: ORG,
+      providerId: "feishu:test",
+      recipientOpenId: "ou_test",
+      status: "sent",
+      type: "summary_ready",
+      updatedAt: NOW,
+    });
+
+    try {
+      const result = await queryPaginatedInterviewRounds(ORG);
+      const withDocument = result.records.find((record) => record.id === "rnd-a1");
+      const withoutDocument = result.records.find((record) => record.id === "rnd-a2");
+      expect(withDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
+      expect(withoutDocument?.feishuDocumentUrl).toBeNull();
+    } finally {
+      await db
+        .update(studioInterviewSchedule)
+        .set({ conversationId: null })
+        .where(eq(studioInterviewSchedule.id, "rnd-a1"));
+      await db
+        .delete(interviewConversation)
+        .where(eq(interviewConversation.conversationId, conversationId));
     }
   });
 });

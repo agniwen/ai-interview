@@ -168,6 +168,7 @@ export interface ResumeLibraryListRecord {
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
   duplicateMatch: ResumeDuplicateMatchSummary | null;
+  feishuDocumentUrl: string | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
   hasInterviewRounds: boolean;
