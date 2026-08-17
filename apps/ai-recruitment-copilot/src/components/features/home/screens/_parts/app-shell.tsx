@@ -297,13 +297,13 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="relative z-1 flex min-w-0 items-center gap-2">
         <SidebarTriggerButton />
         {/* Separator: mx-2 h-4 vertical */}
         <span aria-hidden="true" className="mx-2 h-4 w-px bg-border" />
         <BreadcrumbBar crumbs={breadcrumb} />
       </div>
-      <div className="flex items-center gap-1">
+      <div className="relative z-1 flex items-center gap-1">
         {actions ?? <WorkspaceSwitcher />}
         <ThemeToggleButton />
       </div>

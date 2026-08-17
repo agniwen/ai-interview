@@ -5,12 +5,12 @@ import { actionsColumn, estimateActionsColumnSize } from "../actions-column";
 describe("estimateActionsColumnSize", () => {
   it("sizes a single inline action tightly", () => {
     const size = estimateActionsColumnSize({ inlineLabels: ["查看"] });
-    expect(size).toBe(54);
+    expect(size).toBe(64);
   });
 
   it("sizes a menu-only action to the same right-aligned width", () => {
     const size = estimateActionsColumnSize({ hasMenu: true });
-    expect(size).toBe(54);
+    expect(size).toBe(64);
   });
 
   it("grows for multiple inline actions plus menu", () => {

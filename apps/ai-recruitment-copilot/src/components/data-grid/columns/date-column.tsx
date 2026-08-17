@@ -1,8 +1,6 @@
-import { IconArrowsUpDown } from "@tabler/icons-react";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
-import { Button } from "@/components/ui/button";
 import type { DataGridFeatures } from "../table-features";
 
 export interface DateColumnOptions<TData> {
@@ -30,19 +28,7 @@ export function dateColumn<TData extends RowData>(
       />
     ),
     enableSorting: opts.sortable ?? false,
-    header: opts.sortable
-      ? ({ column }) => (
-          <Button
-            className="h-5 px-1 text-muted-foreground text-xs"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            size="xs"
-            variant="ghost"
-          >
-            {opts.title}
-            <IconArrowsUpDown className="size-3.5" />
-          </Button>
-        )
-      : opts.title,
+    header: opts.title,
     id: opts.key,
   };
 }

@@ -8,8 +8,10 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 import type { ReactNode } from "react";
+import { IconArrowsUpDown } from "@tabler/icons-react";
 import { flexRender, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -324,6 +326,14 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                   {headerGroup.headers.map((header) => {
                     const pin = header.column.getIsPinned();
                     const edge = getPinnedEdgeSides(header.column);
+                    const canSort = Boolean(onSortingChange && header.column.getCanSort());
+                    const headerContent = header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext());
+                    const headerLabel =
+                      typeof header.column.columnDef.header === "string"
+                        ? header.column.columnDef.header
+                        : header.column.id;
                     return (
                       <TableHead
                         className={cn(
@@ -343,9 +353,24 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                           stickToTop: !!maxHeight,
                         })}
                       >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
+                        {canSort && headerContent ? (
+                          <div className="flex items-center gap-0.5">
+                            <span>{headerContent}</span>
+                            <Button
+                              aria-label={`按${headerLabel}排序`}
+                              onClick={() =>
+                                header.column.toggleSorting(header.column.getIsSorted() === "asc")
+                              }
+                              size="icon-xs"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <IconArrowsUpDown />
+                            </Button>
+                          </div>
+                        ) : (
+                          headerContent
+                        )}
                       </TableHead>
                     );
                   })}

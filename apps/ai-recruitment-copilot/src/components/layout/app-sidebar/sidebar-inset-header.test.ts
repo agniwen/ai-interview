@@ -17,6 +17,7 @@ describe("sidebar inset header appearance", () => {
     expect(headerSource).toContain("after:from-20%");
     expect(headerSource).toContain("after:to-transparent");
     expect(headerSource).toContain("after:pointer-events-none");
+    expect(headerSource.match(/relative z-1/g)).toHaveLength(2);
     expect(headerSource).not.toContain("backdrop-blur");
     expect(headerSource).not.toContain("border-b");
   });
