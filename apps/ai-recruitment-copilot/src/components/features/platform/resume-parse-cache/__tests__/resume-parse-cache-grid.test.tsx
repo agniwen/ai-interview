@@ -155,10 +155,10 @@ describe("ResumeParseCacheGrid", () => {
     const actionsHeader = [...document.querySelectorAll("th")].find(
       (header) => header.textContent?.trim() === "操作",
     );
-    expect(actionsHeader?.style.width).toBe("110px");
-    expect(actionsHeader?.style.minWidth).toBe("110px");
-    expect(actionsHeader?.style.maxWidth).toBe("110px");
-    expect(actionsHeader?.querySelector("div")?.classList.contains("pr-2.5")).toBe(true);
+    expect(actionsHeader?.style.width).toBe("122px");
+    expect(actionsHeader?.style.minWidth).toBe("122px");
+    expect(actionsHeader?.style.maxWidth).toBe("122px");
+    expect(actionsHeader?.querySelector("div")?.classList.contains("px-2.5")).toBe(true);
     expect(findButton("删除")?.classList.contains("px-2.5")).toBe(true);
     expect(findButton("删除")?.classList.contains("pr-0")).toBe(false);
 

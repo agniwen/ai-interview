@@ -638,6 +638,8 @@ function ManagedMailIngestPage() {
             show: (row) => canManageMailIngestAccounts && !row.account,
           },
         ],
+        // 最多同时显示“查看”和“编辑”，按两个实际按钮的内容宽度锁定列宽。
+        size: 114,
       }),
     ],
     [canManageMailIngestAccounts, navigate, roleLabelByValue, slug],

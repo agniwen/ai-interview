@@ -6,13 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/date-time-picker";
-import {
-  actionsColumn,
-  customColumn,
-  DataGrid,
-  estimateActionsColumnSize,
-  useDataGridState,
-} from "@/components/data-grid";
+import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -584,7 +578,7 @@ export function PlatformMailIngestAccountsGrid() {
           },
         ],
         // “编辑”和“新建”互斥显示，按单个最长按钮计算列宽。
-        size: estimateActionsColumnSize({ inlineLabels: ["编辑"] }),
+        size: 68,
       }),
     ],
     [],

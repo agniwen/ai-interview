@@ -52,8 +52,10 @@ const ACTION_CELL_HORIZONTAL_PADDING = 20;
 const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
 /** Flex gap between action buttons (`gap-0.5`). */
 const ACTION_BUTTON_GAP = 2;
-/** Extra header inset matching the final button's right padding (`pr-2.5`). */
-const ACTION_HEADER_EXTRA_RIGHT_PADDING = 10;
+/** Extra header inset matching the action buttons' horizontal padding (`px-2.5`). */
+const ACTION_HEADER_EXTRA_HORIZONTAL_PADDING = 20;
+/** Small visual buffer so action controls and focus outlines are not cramped. */
+const ACTION_COLUMN_WIDTH_BUFFER = 12;
 const MIN_ACTION_COLUMN_SIZE = 44;
 const HEADER_LABEL = "操作";
 
@@ -95,14 +97,14 @@ export function estimateActionsColumnSize(opts: {
   const headerWidth = Math.ceil(
     estimateActionLabelWidth(headerLabel) +
       ACTION_CELL_HORIZONTAL_PADDING +
-      ACTION_HEADER_EXTRA_RIGHT_PADDING,
+      ACTION_HEADER_EXTRA_HORIZONTAL_PADDING,
   );
 
-  return Math.max(MIN_ACTION_COLUMN_SIZE, contentWidth, headerWidth);
+  return Math.max(MIN_ACTION_COLUMN_SIZE, contentWidth, headerWidth) + ACTION_COLUMN_WIDTH_BUFFER;
 }
 
 export function ActionsColumnHeader({ children }: { children: ReactNode }) {
-  return <div className="pr-2.5 text-right">{children}</div>;
+  return <div className="px-2.5 text-right">{children}</div>;
 }
 
 export function actionsColumn<TData extends RowData>(
