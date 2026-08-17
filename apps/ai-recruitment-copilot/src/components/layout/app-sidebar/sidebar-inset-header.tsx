@@ -27,12 +27,11 @@ export function SidebarInsetHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-11 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 border-b border-border/40 bg-background/80 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
-        // "flex h-(--header-height) shrink-0 bg-sidebar items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        "sticky top-0 z-11 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-transparent px-4 transition-[width,height] ease-linear after:pointer-events-none after:absolute after:top-0 after:right-0 after:left-0 after:h-[calc(var(--header-height)*2)] after:bg-linear-to-b after:from-background after:from-20% after:to-transparent after:content-[''] group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2 relative z-1">
         <SidebarTrigger className="-ml-1 md:hidden" />
         {activeMenuIcon ? (
           <span
@@ -45,7 +44,7 @@ export function SidebarInsetHeader({
         ) : null}
         {breadcrumb ? <>{breadcrumb}</> : null}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 relative z-1">
         {actions}
         <ThemeToggle />
       </div>

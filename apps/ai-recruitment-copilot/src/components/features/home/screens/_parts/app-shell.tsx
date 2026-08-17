@@ -291,9 +291,9 @@ interface InsetHeaderProps {
 function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   return (
     <header
-      // 真实 SidebarInsetHeader: h-(--header-height) shrink-0 bg-background items-center justify-between gap-2 border-border border-b px-4
+      // 真实 SidebarInsetHeader: 本体透明，底部叠加两倍 header 高度的渐变层。
       className={cn(
-        "flex h-12 shrink-0 items-center justify-between gap-2 border-border border-b bg-background px-4",
+        "relative z-10 flex h-12 shrink-0 items-center justify-between gap-2 bg-transparent px-4 after:pointer-events-none after:absolute after:top-0 after:right-0 after:left-0 after:h-24 after:bg-linear-to-b after:from-background after:from-20% after:to-transparent after:content-['']",
         className,
       )}
     >

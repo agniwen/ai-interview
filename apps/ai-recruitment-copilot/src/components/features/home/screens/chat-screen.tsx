@@ -6,7 +6,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 // 用途：landing 用「简历筛选 Chat」简化版 UI，1:1 对齐真实组件：
-// - ChatHeader: SidebarInsetHeader 面包屑 "简历筛选助手" + bg-background/60 backdrop-blur-md
+// - ChatHeader: SidebarInsetHeader 面包屑 "简历筛选助手"
 // - QuickSuggestions: max-w-5xl px-3 + "快速提问" 标签 + 圆角 pill (rounded-2xl border-border/70 bg-card/70)
 // - Message: user 气泡 (bg-white border rounded-2xl px-3 py-2 max-w-[88%]) / assistant 无气泡铺满
 // - PDF 卡: rounded-lg border bg-card p-3 + filename + (预览/查看结构化/一键入库) 三按钮行 border-t pt-3
@@ -336,7 +336,6 @@ export function ChatScreen({ className }: { className?: string }) {
       <AppShell
         bodyClassName="bg-background dark:bg-background"
         breadcrumb={BREADCRUMB}
-        headerClassName="bg-background/60 backdrop-blur-md"
         sidebar={<ChatNav />}
         tab="agent"
       >

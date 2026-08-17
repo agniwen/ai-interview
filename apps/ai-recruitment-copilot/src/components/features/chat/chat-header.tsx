@@ -84,7 +84,6 @@ export function ChatHeader() {
   return (
     <SidebarInsetHeader
       actions={<WorkspaceSwitcher />}
-      className="bg-background/60 backdrop-blur-md"
       breadcrumb={
         <Breadcrumb>
           <BreadcrumbList className="min-w-0 flex-nowrap">
