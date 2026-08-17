@@ -67,7 +67,7 @@ export function MarkdownEditorToolbar({ editor, disabled }: Props) {
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-0.5 border-b bg-background px-3 py-1.5">
       <IconBtn
         aria-label="撤销"
         disabled={editDisabled}
