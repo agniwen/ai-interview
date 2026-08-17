@@ -79,7 +79,7 @@ function CommandInput({
         variant === "combobox" &&
           cn(
             cossFieldSurfaceClass,
-            "m-1 mb-0 flex h-8 items-center gap-2 px-2.5 has-focus-within:border-ring has-focus-within:ring-1 has-focus-within:ring-ring",
+            "m-1 mb-0 flex h-8 items-center gap-2 px-2.5 has-focus-within:shadow-[0_1px_1px_0_--theme(--color-foreground/16%)]",
           ),
       )}
     >

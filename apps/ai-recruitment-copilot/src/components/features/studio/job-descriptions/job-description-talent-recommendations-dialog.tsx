@@ -327,7 +327,6 @@ export function JobDescriptionTalentRecommendationsDialog({
   return (
     <>
       <Modal
-        bodyClassName="px-6 py-5"
         description="基于岗位 JD 与已索引简历的语义相似度生成。"
         onOpenChange={onOpenChange}
         open={open}

@@ -122,7 +122,7 @@ function DialogModal({
           <div
             className={cn(
               cossModalSurfaceClass,
-              "flex max-h-[90vh] flex-col overflow-hidden rounded-3xl",
+              "flex max-h-[90vh] flex-col overflow-hidden rounded-lg",
               className,
             )}
           >
@@ -132,13 +132,14 @@ function DialogModal({
               headerExtra={headerExtra}
               headerLayout={headerLayout}
               isMobile={false}
-              className={cn("border-b px-6 pt-5 pb-4", headerClassName)}
+              className={cn("border-b px-5 pt-4 pb-3", headerClassName)}
             />
             {showCloseButton ? (
               <DialogPrimitive.Close
+                data-slot="modal-close"
                 className={cn(
-                  "absolute right-4 top-4 rounded-xs opacity-70 ring-offset-background transition-opacity",
-                  "hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                  "absolute right-4 top-4 rounded-xs opacity-70 transition-opacity",
+                  "hover:opacity-100 focus:outline-hidden",
                   "disabled:pointer-events-none data-popup-open:bg-accent data-popup-open:text-muted-foreground",
                   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                 )}
@@ -149,19 +150,19 @@ function DialogModal({
             ) : null}
             <div
               data-slot="modal-body"
-              className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}
+              className={cn("min-h-0 flex-1 overflow-y-auto px-5 py-4", bodyClassName)}
             >
               {children}
             </div>
             {footer ? (
               <div
                 className={cn(
-                  "flex shrink-0 flex-col-reverse gap-2 border-t bg-background px-6 py-4",
+                  "flex shrink-0 flex-col-reverse gap-2 border-t bg-background px-5 py-3",
                   "sm:flex-row sm:justify-end",
                   footerClassName,
                 )}
               >
-                <ButtonSizeProvider size="lg">{footer}</ButtonSizeProvider>
+                <ButtonSizeProvider size="default">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
           </div>
@@ -263,7 +264,7 @@ function DrawerModal({
                   footerClassName,
                 )}
               >
-                <ButtonSizeProvider size="lg">{footer}</ButtonSizeProvider>
+                <ButtonSizeProvider size="default">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
           </div>

@@ -77,7 +77,7 @@ function AlertDialogFooter({ className, children, ...props }: React.ComponentPro
       )}
       {...props}
     >
-      <ButtonSizeProvider size="lg">{children}</ButtonSizeProvider>
+      <ButtonSizeProvider size="default">{children}</ButtonSizeProvider>
     </div>
   );
 }

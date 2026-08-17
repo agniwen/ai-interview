@@ -205,7 +205,6 @@ export function ScopedJobDescriptionsModal({
   return (
     <>
       <Modal
-        bodyClassName="px-6 py-5"
         description="可在表格内删除某个岗位；删除会同时解除该岗位与所有面试官的关联，且无法恢复。"
         onOpenChange={onOpenChange}
         open={open}

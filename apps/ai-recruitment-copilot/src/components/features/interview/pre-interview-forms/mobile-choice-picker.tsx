@@ -153,13 +153,13 @@ export function MobileChoicePicker({
               }
               setOpen(false);
             }}
-            size="lg"
+            size="default"
             type="button"
           >
             确认
           </Button>
           <DrawerClose asChild>
-            <Button size="lg" type="button" variant="outline">
+            <Button size="default" type="button" variant="outline">
               取消
             </Button>
           </DrawerClose>
