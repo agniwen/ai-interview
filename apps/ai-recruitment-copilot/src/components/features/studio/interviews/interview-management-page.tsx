@@ -401,13 +401,13 @@ export function InterviewManagementPage() {
               rel="noopener noreferrer"
               target="_blank"
             >
-              查看档案
+              查看评价表
             </a>
           ) : (
             <span className="text-muted-foreground">未生成</span>
           ),
         key: "feishuDocumentUrl",
-        title: "首选人档案",
+        title: "候选人评价表",
       }),
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,

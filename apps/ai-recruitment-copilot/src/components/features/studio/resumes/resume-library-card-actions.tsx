@@ -333,7 +333,7 @@ export function ResumeLibraryCardActions({
             render={
               <a href={record.feishuDocumentUrl} rel="noopener noreferrer" target="_blank">
                 <IconFileText className={ACTION_ICON_CLASS} />
-                <span>档案</span>
+                <span>评价表</span>
               </a>
             }
             size="sm"

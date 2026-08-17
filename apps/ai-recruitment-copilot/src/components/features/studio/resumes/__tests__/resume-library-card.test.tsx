@@ -55,7 +55,7 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
-  it("shows the candidate profile action only when a Feishu document exists", () => {
+  it("shows the candidate evaluation form action only when a Feishu document exists", () => {
     const noop = vi.fn();
     const renderCard = (feishuDocumentUrl: string | null) =>
       renderToStaticMarkup(
@@ -84,9 +84,9 @@ describe("ResumeLibraryCard", () => {
         />,
       );
 
-    expect(renderCard(null)).not.toContain(">档案<");
+    expect(renderCard(null)).not.toContain(">评价表<");
     const withDocument = renderCard("https://example.feishu.cn/docx/candidate");
-    expect(withDocument).toContain(">档案<");
+    expect(withDocument).toContain(">评价表<");
     expect(withDocument).toContain('href="https://example.feishu.cn/docx/candidate"');
   });
 
