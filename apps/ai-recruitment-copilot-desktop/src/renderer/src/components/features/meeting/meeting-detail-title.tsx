@@ -1,4 +1,5 @@
 import { RECORDING_TITLE_MAX_LENGTH } from "@arc/shared/meeting-recording";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
@@ -25,16 +26,34 @@ export function MeetingDetailTitle({
   onSubmit,
   title,
 }: MeetingDetailTitleProps) {
+  const editorRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const handleFocusOut = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof Node) || !editor.contains(event.relatedTarget)) {
+        onCancel();
+      }
+    };
+
+    editor.addEventListener("focusout", handleFocusOut);
+    return () => editor.removeEventListener("focusout", handleFocusOut);
+  }, [isEditing, onCancel]);
+
   if (isEditing) {
     const normalizedTitle = editingTitle.trim();
     return (
       <form
         className="flex h-7 min-w-0 max-w-full items-center gap-1"
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            onCancel();
-          }
-        }}
+        ref={editorRef}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();

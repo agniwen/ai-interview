@@ -45,6 +45,8 @@ type RouteSearchParams = Record<string, SearchParamValue | undefined>;
 
 type RouteSearchUpdates = Record<string, number | string | undefined>;
 
+const EMPTY_ROUTE_SEARCH: RouteSearchParams = {};
+
 function isSearchParamValue(value: unknown): value is SearchParamValue {
   if (Array.isArray(value)) {
     return value.every(
@@ -100,7 +102,9 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   const rawRouteSearch = useRouterState({
     select: (state) => state.location.search,
   });
-  const routeSearch: RouteSearchParams = isRouteSearchParams(rawRouteSearch) ? rawRouteSearch : {};
+  const routeSearch: RouteSearchParams = isRouteSearchParams(rawRouteSearch)
+    ? rawRouteSearch
+    : EMPTY_ROUTE_SEARCH;
   const queryClient = useQueryClient();
   const defaultPageSize = opts.defaultPageSize ?? 10;
 
@@ -287,7 +291,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     pageSize: queryParams.pageSize,
   };
 
-  const filterValues = useMemo(() => ({ ...filters, search }), [search, filters, filterKeys]);
+  const filterValues = useMemo(() => ({ ...filters, search }), [search, filters]);
 
   const onFilterChange = (key: string, value: string) => {
     if (key === "search") {
