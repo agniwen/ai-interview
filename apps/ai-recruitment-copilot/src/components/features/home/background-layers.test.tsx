@@ -65,7 +65,7 @@ describe("BackgroundLayers", () => {
     });
 
     const mesh = container.querySelector<HTMLElement>('[data-testid="mesh-gradient"]');
-    expect(mesh?.dataset.colors).toBe("#e0eaff,#241d9a,#f75092,#9f50d3");
+    expect(mesh?.dataset.colors).toBe("#e3ebff,#1d4ed8,#3e68df,#7699ef");
     expect(mesh?.dataset.distortion).toBe("0.8");
     expect(mesh?.dataset.swirl).toBe("0.1");
     expect(mesh?.dataset.grainMixer).toBe("0");

@@ -21,7 +21,7 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-violet-100 sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-blue-100 sm:mb-4 sm:text-base lg:text-lg";
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();

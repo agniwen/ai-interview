@@ -39,7 +39,7 @@ describe("Hero", () => {
     const buttons = container.querySelectorAll("button");
 
     expect(heading?.className).toContain("dark:text-white");
-    expect(brand?.className).toContain("dark:text-violet-100");
+    expect(brand?.className).toContain("dark:text-blue-100");
     expect(description?.className).toContain("dark:text-white/80");
     expect(heading?.className).not.toContain("text-shadow");
     expect(description?.className).not.toContain("text-shadow");

@@ -43,7 +43,7 @@ export function BackgroundLayersView({
           <>
             <div className="absolute inset-0">
               <MeshGradientComponent
-                colors={["#e0eaff", "#241d9a", "#f75092", "#9f50d3"]}
+                colors={["#e3ebff", "#1d4ed8", "#3e68df", "#7699ef"]}
                 distortion={0.8}
                 grainMixer={0}
                 grainOverlay={0}
@@ -62,9 +62,9 @@ export function BackgroundLayersView({
           <>
             <div className="absolute inset-0 opacity-100">
               <GrainientComponent
-                color1="#b9d6e6"
-                color2="#279cff"
-                color3="#B497CF"
+                color1="#d6e2fa"
+                color2="#1D4ED8"
+                color3="#7999e4"
                 timeSpeed={0.5}
                 colorBalance={0}
                 warpStrength={1}

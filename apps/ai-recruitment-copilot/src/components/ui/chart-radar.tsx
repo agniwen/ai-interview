@@ -33,15 +33,14 @@ export interface RadarDimensionPoint {
 }
 
 /**
- * Soft sky-blue matching the previous Recharts radar look
- * (light: brand blue #3D8EEE family; dark: soft periwinkle).
+ * Klein-blue radar colors tuned for contrast on the two theme surfaces.
  */
 const DEFAULT_CONFIG: ChartConfig = {
   score: {
     label: "评分",
     theme: {
-      dark: "#a5b4fc",
-      light: "oklch(0.68 0.135 254)",
+      dark: "#7699ef",
+      light: "#1d4ed8",
     },
   },
 };
