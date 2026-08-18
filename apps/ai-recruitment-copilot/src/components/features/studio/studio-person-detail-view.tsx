@@ -11,6 +11,7 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import { AnimatePresence, m } from "motion/react";
+import { createPortal } from "react-dom";
 import { cn } from "@arc/shared/utils";
 
 import {
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs } from "@/components/ui/tabs";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 import { DETAIL_PAGE_FLOATING_ACTION_CLASS } from "./studio-person-detail-model";
 import type { StudioPersonDetailSlots, StudioPersonDetailTab } from "./studio-person-detail-model";
@@ -47,6 +49,7 @@ function isStudioPersonDetailTab(value: string): value is StudioPersonDetailTab 
 }
 
 export function StudioPersonDetailView({ model }: { model: StudioPersonDetailViewModel }) {
+  const isHydrated = useHydrated();
   const {
     activeTab,
     canViewReportMetadata,
@@ -80,6 +83,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
   return (
     <>
       <Tabs
+        className={cn(floatingActionBar && "pb-[calc(7rem+env(safe-area-inset-bottom))]")}
         key={`${roundId ?? recordId ?? "empty"}`}
         onValueChange={(value) => {
           if (isStudioPersonDetailTab(value)) {
@@ -100,28 +104,33 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
           title,
         })}
       </Tabs>
-      <AnimatePresence>
-        {floatingActionBar ? (
-          <m.div
-            animate={{ opacity: 1, y: 0 }}
-            className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
-            exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
-            transition={
-              reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
-            }
-          >
-            <div
-              className={cn(
-                "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
-                DETAIL_PAGE_FLOATING_ACTION_CLASS,
-              )}
-            >
-              {floatingActionBar}
-            </div>
-          </m.div>
-        ) : null}
-      </AnimatePresence>
+      {isHydrated
+        ? createPortal(
+            <AnimatePresence>
+              {floatingActionBar ? (
+                <m.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
+                  exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+                  transition={
+                    reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
+                  }
+                >
+                  <div
+                    className={cn(
+                      "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
+                      DETAIL_PAGE_FLOATING_ACTION_CLASS,
+                    )}
+                  >
+                    {floatingActionBar}
+                  </div>
+                </m.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
       {mode === "interview" && canViewReportMetadata ? (
         <InterviewReportMetadataDialog
           onOpenChange={(open) => {

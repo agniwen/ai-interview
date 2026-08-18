@@ -202,6 +202,10 @@ describe("ResumeOverviewPanel", () => {
     expect(content).toContain("查看详情");
     expect(content).not.toContain("最高学历为大专");
     expect(content).not.toContain("拥有支付行业经验");
+    const aiScoreHeading = [...container.querySelectorAll("h3")].find(
+      (heading) => heading.textContent === "AI评分",
+    );
+    expect(aiScoreHeading?.parentElement?.className).toContain("min-h-10");
     expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
       "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
     );

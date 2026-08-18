@@ -3,6 +3,7 @@
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { RecruitmentCopilotBrand } from "./recruitment-copilot-brand";
 import { resolveSidebarTab } from "./sidebar-slot-transition";
 import type { SidebarTabValue } from "./sidebar-slot-transition";
 
@@ -52,47 +53,50 @@ export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDep
   };
 
   return (
-    <Tabs
-      // Manual activation: Radix's default "automatic" mode calls
-      // onValueChange on focus — when sonner restores focus to the
-      // previously-active tab trigger after dismissing a toast, that
-      // would route us back to the wrong tab.
-      activationMode="manual"
-      className="w-full group-data-[collapsible=icon]:hidden"
-      onValueChange={handleChange}
-      value={activeTab ?? "agent"}
-    >
-      <TabsList className="w-full dark:bg-sidebar/60  select-none">
-        <TabsTrigger
-          onFocus={() => {
-            preloadTab("agent");
-          }}
-          onPointerEnter={() => {
-            preloadTab("agent");
-          }}
-          onTouchStart={() => {
-            preloadTab("agent");
-          }}
-          value="agent"
-        >
-          Agent
-        </TabsTrigger>
-        <TabsTrigger
-          onFocus={() => {
-            preloadTab("studio");
-          }}
-          onPointerEnter={() => {
-            preloadTab("studio");
-          }}
-          onTouchStart={() => {
-            preloadTab("studio");
-          }}
-          value="studio"
-        >
-          Studio
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <div className="flex w-full flex-col gap-3 group-data-[collapsible=icon]:gap-0">
+      <RecruitmentCopilotBrand />
+      <Tabs
+        // Manual activation: Radix's default "automatic" mode calls
+        // onValueChange on focus — when sonner restores focus to the
+        // previously-active tab trigger after dismissing a toast, that
+        // would route us back to the wrong tab.
+        activationMode="manual"
+        className="w-full group-data-[collapsible=icon]:hidden"
+        onValueChange={handleChange}
+        value={activeTab ?? "agent"}
+      >
+        <TabsList className="w-full select-none bg-sidebar-accent dark:bg-black/15">
+          <TabsTrigger
+            onFocus={() => {
+              preloadTab("agent");
+            }}
+            onPointerEnter={() => {
+              preloadTab("agent");
+            }}
+            onTouchStart={() => {
+              preloadTab("agent");
+            }}
+            value="agent"
+          >
+            Agent
+          </TabsTrigger>
+          <TabsTrigger
+            onFocus={() => {
+              preloadTab("studio");
+            }}
+            onPointerEnter={() => {
+              preloadTab("studio");
+            }}
+            onTouchStart={() => {
+              preloadTab("studio");
+            }}
+            value="studio"
+          >
+            Studio
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
   );
 }
 

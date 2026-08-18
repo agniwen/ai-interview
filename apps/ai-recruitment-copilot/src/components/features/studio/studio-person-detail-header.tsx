@@ -330,7 +330,7 @@ export function buildStudioPersonDetailHeader({
   let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
     bodyLayoutClassName = cn(
-      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]",
+      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem] xl:gap-x-6",
       canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-hidden",
       !canUseTimelineRailScroll && "xl:items-start",
     );

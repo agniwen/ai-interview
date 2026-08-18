@@ -35,6 +35,16 @@ describe("sidebar slot transition", () => {
     expect(packageSource).not.toContain('"glimm"');
   });
 
+  it("uses the shared auto-hiding ScrollArea for sidebar content", () => {
+    const appSidebarSource = readFileSync(new URL("app-sidebar.tsx", import.meta.url), "utf-8");
+
+    expect(appSidebarSource).toContain('import { ScrollArea } from "@/components/ui/scroll-area"');
+    expect(appSidebarSource).toContain(
+      '<ScrollArea className="min-h-0 flex-1" scrollFade scrollbars="leave">',
+    );
+    expect(appSidebarSource).toContain('<SidebarContent className="relative overflow-hidden">');
+  });
+
   it("follows the Agent and Studio tab order", () => {
     expect(resolveSidebarSlotDirection("agent", "studio")).toBe(1);
     expect(resolveSidebarSlotDirection("studio", "agent")).toBe(-1);

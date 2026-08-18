@@ -17,7 +17,7 @@ import { cn } from "@arc/shared/utils";
 
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
-import { CandidateTimeline } from "./candidate-timeline";
+import { CandidateDetailRail } from "./candidate-detail-rail";
 import { DetailBodySkeleton } from "./studio-person-detail-skeletons";
 import { AgentInstructionsPanel } from "./interviews/agent-instructions-panel";
 import {
@@ -230,12 +230,12 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
             canUseTimelineRailScroll ? "xl:h-full" : "",
           )}
         >
-          <CandidateTimeline
+          <CandidateDetailRail
             className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
-            data={candidateTimeline}
-            density="rail"
-            isLoading={isTimelineLoading}
-            scrollMode={canUseTimelineRailScroll ? "internal" : "page"}
+            isTimelineLoading={isTimelineLoading}
+            profile={resumeRecord?.resumeProfile ?? null}
+            timeline={candidateTimeline}
+            useInternalScroll={canUseTimelineRailScroll}
           />
         </aside>
       ) : null}

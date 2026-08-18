@@ -21,7 +21,7 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { CandidateTimelineSkeleton } from "@/components/features/studio/candidate-timeline";
+import { CandidateDetailRailSkeleton } from "@/components/features/studio/candidate-detail-rail";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
@@ -70,8 +70,8 @@ function getRecruiterResumeDocumentTitle(candidateName: string | null | undefine
 function RecruiterResumeDetailSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5">
-      <div className="flex min-w-0 flex-col gap-5">
-        <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-4">
+      <div className="flex min-w-0 flex-col gap-3">
+        <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <Skeleton className="mb-3 h-8 w-28" />
@@ -92,10 +92,10 @@ function RecruiterResumeDetailSkeleton() {
             </div>
           </div>
         </header>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem] xl:gap-x-6">
           <div className="min-w-0 flex flex-col gap-8">
             <section className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-h-10 flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-5 w-14" />
                   <Skeleton className="h-6 w-16 rounded-full" />
@@ -153,7 +153,7 @@ function RecruiterResumeDetailSkeleton() {
             </section>
           </div>
           <aside className="hidden min-w-0 max-w-full overflow-hidden xl:block">
-            <CandidateTimelineSkeleton />
+            <CandidateDetailRailSkeleton />
           </aside>
         </div>
       </div>
@@ -326,9 +326,9 @@ function RecruiterResumeDetailPage() {
           onUpdated={invalidateAll}
           recordId={recordId}
           shell={({ body, description, headerExtra, title }) => (
-            <div className="flex min-w-0 flex-col gap-5">
+            <div className="flex min-w-0 flex-col gap-3">
               <RecruiterResumeDetailHeaderOverride onBack={navigateBackToList} />
-              <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-4">
+              <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <RecruiterResumeDetailHeaderText description={description} title={title} />

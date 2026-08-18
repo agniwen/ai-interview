@@ -30,11 +30,17 @@ function ActivityRecordShell({ avatar, content }: { avatar: ReactNode; content: 
   );
 }
 
-export function CandidateTimelineSkeleton({ className }: { className?: string }) {
+export function CandidateTimelineSkeleton({
+  className,
+  showHeading = true,
+}: {
+  className?: string;
+  showHeading?: boolean;
+}) {
   return (
     <div className={cn("max-w-full overflow-hidden", className)}>
-      <Skeleton className="h-5 w-24" />
-      <div className="mt-5 flex flex-col gap-4">
+      {showHeading ? <Skeleton className="h-5 w-24" /> : null}
+      <div className={cn("flex flex-col gap-4", showHeading && "mt-5")}>
         {Array.from({ length: 5 }).map((_, index) => (
           <ActivityRecordShell
             avatar={<Skeleton className="size-5 rounded-full" />}
@@ -280,18 +286,20 @@ export function CandidateTimeline({
   density = "default",
   isLoading,
   scrollMode = "internal",
+  showHeading = true,
 }: {
   className?: string;
   data: CandidateTimelineResponse | null | undefined;
   density?: CandidateTimelineDensity;
   isLoading: boolean;
   scrollMode?: CandidateTimelineScrollMode;
+  showHeading?: boolean;
 }) {
   const isRail = density === "rail";
   const canUseInternalScroll = isRail && scrollMode === "internal";
 
   if (isLoading) {
-    return <CandidateTimelineSkeleton className={className} />;
+    return <CandidateTimelineSkeleton className={className} showHeading={showHeading} />;
   }
 
   const events = data?.events ?? [];
@@ -304,11 +312,13 @@ export function CandidateTimeline({
         className,
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-medium text-sm">活动记录</h3>
+      {showHeading ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-medium text-sm">活动记录</h3>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {events.length === 0 ? (
         <Empty className="mt-5 min-h-48">
@@ -323,7 +333,8 @@ export function CandidateTimeline({
       ) : (
         <ol
           className={cn(
-            "relative mt-5 flex min-w-0 max-w-full flex-col gap-4",
+            "relative flex min-w-0 max-w-full flex-col gap-4",
+            showHeading && "mt-5",
             canUseInternalScroll && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
           )}
         >

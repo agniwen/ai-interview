@@ -20,6 +20,7 @@ import Avvvatars from "avvvatars-react";
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
 import { Badge } from "@/components/ui/badge";
+import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -645,9 +646,12 @@ function ResumeCardList() {
                         ({record.id})
                       </span>
                     </span>
-                    <Badge variant={record.lifecycleStage === "简历筛选" ? "outline" : "info"}>
-                      {record.lifecycleStage} · {record.lifecycleDetail}
-                    </Badge>
+                    <ResumeLifecycleBadge
+                      detailLabel={record.lifecycleDetail}
+                      fullLabel={`${record.lifecycleStage} · ${record.lifecycleDetail}`}
+                      stageLabel={record.lifecycleStage}
+                      tone={record.lifecycleStage === "简历筛选" ? "outline" : "info"}
+                    />
                   </div>
 
                   <div className="min-w-0">

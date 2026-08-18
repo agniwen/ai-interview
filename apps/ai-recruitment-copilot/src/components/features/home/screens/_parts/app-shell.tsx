@@ -27,6 +27,7 @@ import {
 // classes match the actual shadcn primitives the production app uses.
 
 import type { ReactNode } from "react";
+import { RecruitmentCopilotBrand } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";
 
@@ -89,7 +90,7 @@ function SidebarTabs({ active }: SidebarTabsProps) {
   return (
     // 对齐 Tabs default variant：bg-muted + h-9 + p-[3px] + rounded-lg + 子项 shadow-sm
     // Matches Tabs default variant: bg-muted h-9 p-[3px] rounded-lg; active gets shadow-sm
-    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted/60 p-[3px] text-muted-foreground">
+    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-sidebar-accent p-[3px] text-muted-foreground dark:bg-black/15">
       {(["agent", "studio"] as const).map((value) => {
         const isActive = value === active;
         return (
@@ -356,6 +357,7 @@ export function AppShell({
         <div className="flex h-full w-full flex-col  text-sidebar-foreground">
           {/* SidebarHeader: gap-3 (AppSidebar override) flex flex-col gap-2 p-2 */}
           <div className="flex shrink-0 flex-col gap-3 p-2">
+            <RecruitmentCopilotBrand />
             <SidebarTabs active={tab} />
           </div>
           {/* SidebarContent: flex min-h-0 flex-1 flex-col overflow-hidden */}

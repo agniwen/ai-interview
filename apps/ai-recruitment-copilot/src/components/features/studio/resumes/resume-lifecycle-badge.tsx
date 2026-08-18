@@ -9,11 +9,18 @@ import { cn } from "@arc/shared/utils";
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 
 const lifecycleHoverRingClass = {
-  info: "hover:ring-sky-500/10",
+  info: "hover:ring-primary/10 dark:text-chart-4",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
   success: "hover:ring-emerald-500/10",
   warning: "hover:ring-amber-500/10",
 } satisfies Record<ResumeLifecycleBadgeTone, string>;
+
+const lifecycleBadgeVariant = {
+  info: "default",
+  outline: "outline",
+  success: "success",
+  warning: "warning",
+} as const satisfies Record<ResumeLifecycleBadgeTone, "default" | ResumeLifecycleBadgeTone>;
 
 interface ResumeLifecycleBadgeProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -42,7 +49,7 @@ export function ResumeLifecycleBadge({
     <button
       aria-label={accessibleLabel}
       className={cn(
-        badgeVariants({ variant: tone }),
+        badgeVariants({ variant: lifecycleBadgeVariant[tone] }),
         "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 py-1 pr-1.5 text-left font-normal",
         "duration-200 hover:ring-2 focus-visible:outline-none",
         lifecycleHoverRingClass[tone],

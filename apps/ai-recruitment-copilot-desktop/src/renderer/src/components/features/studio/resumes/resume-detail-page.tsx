@@ -20,7 +20,7 @@ function ResumeDetailSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 py-4 sm:px-6">
       <div className="flex min-w-0 flex-col gap-5">
-        <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-4">
+        <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
           <div className="min-w-0">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="mt-2 h-4 w-64 max-w-full" />
@@ -169,7 +169,7 @@ export function ResumeDetailPage() {
         value={activeTab}
       >
         <div className="flex min-w-0 flex-col gap-5">
-          <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-4">
+          <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <DetailHeaderText detail={detail} />

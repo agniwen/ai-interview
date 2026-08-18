@@ -108,7 +108,7 @@ export function ResumeOverviewAiScoreSection({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-h-10 flex-wrap items-center gap-2">
         <h3 className="font-medium text-sm">AI评分</h3>
         {statusBadges}
       </div>

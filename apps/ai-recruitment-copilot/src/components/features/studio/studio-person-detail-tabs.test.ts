@@ -10,6 +10,15 @@ const headerSource = readFileSync(
   "utf-8",
 );
 const bodySource = readFileSync(new URL("studio-person-detail-body.tsx", import.meta.url), "utf-8");
+const detailRailSource = readFileSync(
+  new URL("candidate-detail-rail.tsx", import.meta.url),
+  "utf-8",
+);
+const viewSource = readFileSync(new URL("studio-person-detail-view.tsx", import.meta.url), "utf-8");
+const modelSource = readFileSync(
+  new URL("studio-person-detail-model.tsx", import.meta.url),
+  "utf-8",
+);
 const resultContentSource = readFileSync(
   new URL("interview-result/interview-result-tab-content.tsx", import.meta.url),
   "utf-8",
@@ -28,15 +37,43 @@ const recordSelectorSource = readFileSync(
 );
 
 describe("AI 面试详情 tabs", () => {
-  it("places the resume activity timeline in a right rail on wide screens", () => {
+  it("places resume summary and activity tabs in a right rail on wide screens", () => {
     expect(headerSource).toContain(
       'const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview"',
     );
     expect(headerSource).toContain("xl:grid-cols-[minmax(0,1fr)_28rem]");
+    expect(headerSource).toContain("xl:gap-x-6");
     expect(bodySource).toContain("{showTimelineRail ? (");
     expect(bodySource).toContain("<aside");
-    expect(bodySource).toContain('density="rail"');
+    expect(bodySource).toContain("<CandidateDetailRail");
+    expect(bodySource).toContain("profile={resumeRecord?.resumeProfile ?? null}");
+    expect(detailRailSource).toContain('value="career-summary"');
+    expect(detailRailSource).toContain('variant="underline"');
+    expect(detailRailSource).toContain("履历概要");
+    expect(detailRailSource).toContain('value="activity"');
+    expect(detailRailSource).toContain("活动记录");
+    expect(detailRailSource).toContain("<CandidateTimeline");
+    expect(detailRailSource).toContain("showHeading={false}");
     expect(bodySource).not.toContain("showTimelineAtBottom");
+  });
+
+  it("reserves bottom space when the page floating action bar is visible", () => {
+    expect(viewSource).toContain(
+      'floatingActionBar && "pb-[calc(7rem+env(safe-area-inset-bottom))]"',
+    );
+  });
+
+  it("keeps the floating action bar at its established viewport position", () => {
+    expect(viewSource).toContain("bottom-[calc(2.5rem+env(safe-area-inset-bottom))]");
+    expect(viewSource).toContain("z-40");
+    expect(modelSource).toContain("bg-background/80");
+  });
+
+  it("portals the floating action bar outside the Studio stacking context", () => {
+    expect(viewSource).toContain('import { createPortal } from "react-dom"');
+    expect(viewSource).toContain("const isHydrated = useHydrated()");
+    expect(viewSource).toContain("createPortal(");
+    expect(viewSource).toContain("document.body");
   });
 
   it("keeps communication questions and form responses inside the result tab", () => {

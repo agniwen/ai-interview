@@ -8,6 +8,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarBodyPortalTarget,
   SidebarFooterPortalTarget,
@@ -29,11 +30,13 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
         <SidebarTabs />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
-      <SidebarContent className="relative overflow-x-hidden">
-        <SidebarBodyPortalTarget className="contents" />
-        <SidebarSlotHydrationFallback>
-          <SidebarBodySkeleton />
-        </SidebarSlotHydrationFallback>
+      <SidebarContent className="relative overflow-hidden">
+        <ScrollArea className="min-h-0 flex-1" scrollFade scrollbars="leave">
+          <SidebarBodyPortalTarget className="contents" />
+          <SidebarSlotHydrationFallback>
+            <SidebarBodySkeleton />
+          </SidebarSlotHydrationFallback>
+        </ScrollArea>
       </SidebarContent>
       <SidebarFooter className="p-0">
         <SidebarFooterPortalTarget className="contents" />
