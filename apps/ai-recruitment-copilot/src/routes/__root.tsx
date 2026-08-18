@@ -21,7 +21,7 @@ import { env } from "@/env/client";
 import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
 
 const ROOT_DESCRIPTION =
-  "面向招聘场景的 AI 协同工作台，覆盖简历筛选、模拟面试与候选人评估全流程。AI Recruitment Copilot — your end-to-end hiring workflow.";
+  "面向招聘团队的 AI 协同工作台，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。AI Recruitment Copilot — one connected hiring workflow.";
 const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

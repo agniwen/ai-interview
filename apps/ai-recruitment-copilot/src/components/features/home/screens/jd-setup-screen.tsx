@@ -1,4 +1,4 @@
-import { IconChevronDown, IconFileText, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconSparkles, IconX } from "@tabler/icons-react";
 // 用途：process step 1 简化版 UI——「新建在招岗位」Dialog 叠在 JD 管理页之上。
 // 对齐 JobDescriptionFormDialog 的字段：岗位名称 / 部门 / 面试官（multi） / 简要描述 / 岗位 Prompt。
 // Purpose: simplified UI of the "新建在招岗位" dialog overlaying the JD list page.
@@ -100,19 +100,14 @@ const PROMPT_TEXT = `## 候选人要求
 function JdFormDialog() {
   return (
     <div
-      className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex w-[720px] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
-      style={{ maxHeight: 720 }}
+      className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex w-[1200px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-[0_4px_24px_rgb(0_0_0/0.05)] dark:shadow-[0_4px_24px_rgb(0_0_0/0.2)]"
+      style={{ maxHeight: 800 }}
     >
-      <div className="flex items-start justify-between gap-4 border-border border-b px-6 pt-5 pb-4">
+      <div className="flex items-start justify-between gap-4 border-b px-5 pt-4 pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-md bg-primary/5 text-primary/75">
-              <IconFileText className="size-4" strokeWidth={1.75} />
-            </span>
-            <h2 className="font-semibold text-[16px]">新建在招岗位</h2>
-          </div>
-          <p className="mt-1.5 text-[12px] text-muted-foreground">
-            为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。
+          <h2 className="font-semibold text-[16px]">新建在招岗位</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            岗位 JD 同时用于简历评估和 AI 面试，请确认要求清晰、分层且可量化。
           </p>
         </div>
         <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-foreground/[0.04]">
@@ -120,41 +115,91 @@ function JdFormDialog() {
         </span>
       </div>
 
-      <div className="flex flex-col gap-4 overflow-auto px-6 py-5">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-3 overflow-auto px-5 py-3">
+        <div className="grid grid-cols-[1fr_320px] items-center gap-6 rounded-lg bg-muted/35 px-4 py-3">
+          <div>
             <FieldLabel required>岗位名称</FieldLabel>
-            <TextInput value="资深前端工程师" />
+            <p className="mt-1 text-[11px] text-muted-foreground">候选人和面试都会引用这个名称。</p>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <FieldLabel required>部门</FieldLabel>
-            <Select value="研发部" />
+          <TextInput value="资深前端工程师" />
+        </div>
+        <div className="grid grid-cols-[1fr_320px] items-center gap-6 rounded-lg bg-muted/35 px-4 py-3">
+          <div>
+            <FieldLabel>岗位编码</FieldLabel>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              用于内部识别；保存时可自动生成。
+            </p>
+          </div>
+          <TextInput value="FE-SENIOR-01" />
+        </div>
+        <div className="grid grid-cols-[1fr_320px] items-center gap-6 rounded-lg bg-muted/35 px-4 py-3">
+          <div>
+            <FieldLabel required>所属部门</FieldLabel>
+            <p className="mt-1 text-[11px] text-muted-foreground">决定默认可选择的面试官范围。</p>
+          </div>
+          <Select value="研发部" />
+        </div>
+        <div className="grid grid-cols-[1fr_320px] items-center gap-6 rounded-lg bg-muted/35 px-4 py-3">
+          <div>
+            <FieldLabel>允许匹配跨部门面试官</FieldLabel>
+            <p className="mt-1 text-[11px] text-muted-foreground">关闭时仅可选择所属部门面试官。</p>
+          </div>
+          <div className="flex justify-end">
+            <span className="flex h-6 w-11 items-center rounded-full bg-muted px-0.5">
+              <span className="size-5 rounded-full bg-background" />
+            </span>
           </div>
         </div>
-
-        <div className="flex flex-col gap-1.5">
-          <FieldLabel>面试官</FieldLabel>
+        <div className="grid grid-cols-[1fr_320px] items-center gap-6 rounded-lg bg-muted/35 px-4 py-3">
+          <div>
+            <FieldLabel required>面试官</FieldLabel>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              选择负责该岗位的一位或多位面试官。
+            </p>
+          </div>
           <MultiSelectInterviewers />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <FieldLabel>简要描述</FieldLabel>
-          <Textarea rows={2} value="主导前端架构演进，推动微前端落地与性能优化体系建设。" />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <FieldLabel required>岗位 Prompt</FieldLabel>
-          <Textarea rows={9} value={PROMPT_TEXT} />
-          <p className="text-[10px] text-muted-foreground">
-            面试时会作为 system prompt 注入语音 agent，建议覆盖职责、技术栈和考察维度。
-          </p>
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div className="flex flex-col gap-1.5 rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between">
+              <FieldLabel required>岗位 JD</FieldLabel>
+              <span className="flex items-center gap-1 text-primary text-xs">
+                <IconSparkles className="size-3.5" />
+                AI 补充
+              </span>
+            </div>
+            <Textarea rows={9} value={PROMPT_TEXT} />
+          </div>
+          <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+            <div>
+              <FieldLabel>评分规则</FieldLabel>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                从岗位要求生成可解释的评估维度与扣分项。
+              </p>
+            </div>
+            {["技术能力 · 40%", "项目影响 · 30%", "协作与表达 · 20%", "风险项 · 10%"].map(
+              (rule) => (
+                <div
+                  className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-[12px]"
+                  key={rule}
+                >
+                  <span>{rule}</span>
+                  <span className="text-muted-foreground">待生成</span>
+                </div>
+              ),
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-border border-t px-6 py-3">
+      <div className="flex items-center justify-end gap-2 border-t bg-background px-5 py-3">
         <span className="rounded-md border border-border px-3 py-1.5 text-[12px]">取消</span>
         <span className="rounded-md bg-primary/80 px-3 py-1.5 font-medium text-[12px] text-primary-foreground">
-          保存
+          生成评分规则并继续
+        </span>
+        <span className="rounded-md bg-primary/80 px-3 py-1.5 font-medium text-[12px] text-primary-foreground">
+          创建草稿
         </span>
       </div>
     </div>
@@ -199,7 +244,7 @@ function JdSetupContent() {
   return (
     <div className="relative h-full">
       <DimmedJobsBackground />
-      <div className="absolute inset-0 bg-foreground/30 dark:bg-foreground/5 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-xs" />
       <JdFormDialog />
     </div>
   );

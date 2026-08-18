@@ -16,52 +16,38 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScreenFrame } from "./screen-frame";
 
-// ─────────────── Agent audio visualizer (bars) ───────────────
-// 对齐真实 AgentAudioVisualizerBar：横排等宽圆角竖条，各条高度独立 scaleY 起伏
-// 模拟 useMultibandTrackVolume 的实时音量分布。
-// Mirrors the real AgentAudioVisualizerBar: row of rounded bars whose scaleY
-// animates with offset delays to mimic real-time audio levels.
-const BAR_DELAYS = [-0.2, -0.6, -0.1, -0.45, 0, -0.35, -0.15, -0.5, -0.25];
-
-function AgentAudioBars() {
+// 主舞台使用当前 AgentAudioVisualizerAura，而不是旧版音量柱。
+function AgentAudioAura() {
   return (
-    <div className="relative flex h-[220px] items-center justify-center gap-3">
-      {/* keyframes 内联：避免改全局 globals.css */}
+    <div className="relative grid size-[310px] place-items-center">
       <style>{`
-        @keyframes audio-bar {
-          0%, 100% { transform: scaleY(0.18); }
-          50%      { transform: scaleY(1); }
+        @keyframes audio-aura {
+          0%, 100% { transform: scale(.92) rotate(-5deg); opacity: .62; }
+          50% { transform: scale(1.04) rotate(5deg); opacity: .9; }
         }
       `}</style>
-      {BAR_DELAYS.map((delay, i) => (
-        <span
-          aria-hidden="true"
-          className="block w-7 origin-center rounded-full bg-primary/45"
-          // biome-ignore lint/suspicious/noArrayIndexKey: stable decorative bars
-          key={i}
-          style={{
-            animation: "audio-bar 1.4s ease-in-out infinite",
-            animationDelay: `${delay}s`,
-            height: "180px",
-          }}
-        />
-      ))}
+      <span
+        aria-hidden="true"
+        className="absolute size-[290px] rounded-[48%] bg-[radial-gradient(circle_at_35%_35%,color-mix(in_oklch,var(--primary)_55%,transparent),transparent_62%)] blur-xl"
+        style={{ animation: "audio-aura 3.2s ease-in-out infinite" }}
+      />
+      <span
+        aria-hidden="true"
+        className="absolute size-[220px] rounded-[44%] bg-[radial-gradient(circle_at_65%_60%,color-mix(in_oklch,var(--chart-2)_48%,transparent),transparent_68%)] blur-md"
+        style={{ animation: "audio-aura 2.6s ease-in-out -1s infinite reverse" }}
+      />
+      <span className="relative size-16 rounded-full bg-primary/25" />
     </div>
   );
 }
 
 // ─────────────── Candidate camera tile ───────────────
 function CandidateCameraTile() {
-  // 真实 TileLayout 在 chat 关闭时把第二个 tile 放在 col-start-2 row-start-3 place-content-end，
-  // 也就是右下角靠下；这里用绝对定位放右下角，尺寸贴近真实小窗。
   return (
-    <div className="absolute right-6 bottom-[180px] z-30 h-[140px] w-[200px] overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-slate-700 to-slate-900 shadow-xl ring-1 ring-black/10">
-      <div className="-translate-x-1/2 absolute bottom-[-32px] left-1/2 grid size-[110px] place-items-center rounded-full bg-slate-600/60">
-        <IconUser className="size-10 text-slate-400" strokeWidth={1.5} />
+    <div className="absolute right-12 bottom-[210px] z-30 aspect-square size-[90px] overflow-hidden rounded-md bg-muted drop-shadow-lg/20">
+      <div className="grid size-full place-items-center bg-muted">
+        <IconUser className="size-8 text-muted-foreground/60" strokeWidth={1.5} />
       </div>
-      <Badge className="absolute top-2 left-2 backdrop-blur" variant="inverse">
-        <span className="size-1.5 animate-pulse rounded-full bg-rose-500/45" />你
-      </Badge>
     </div>
   );
 }
@@ -148,7 +134,7 @@ function ControlBar() {
   // inner row: justify-between (tools-group + leave button)
   return (
     <div className="-translate-x-1/2 absolute bottom-6 left-1/2 z-50 w-fit">
-      <div className="flex flex-col rounded-[31px] border border-input/50 bg-background p-3 shadow-md/30 dark:border-muted">
+      <div className="flex flex-col rounded-[31px] border border-input/50 bg-background p-3 dark:border-muted">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <TrackControl
@@ -204,7 +190,7 @@ function InterviewCanvas() {
 
       {/* Center stage: agent aura visualizer */}
       <div className="absolute inset-0 z-20 flex items-center justify-center">
-        <AgentAudioBars />
+        <AgentAudioAura />
       </div>
 
       {/* Bottom-right: candidate camera tile */}

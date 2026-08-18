@@ -12,7 +12,7 @@ import { Personas } from "./personas";
 import { ProcessTabs } from "./process-tabs";
 import { ProductShot } from "./product-shot";
 import { HomeSmoothScroll } from "./smooth-scroll";
-import { Testimonials } from "./testimonials";
+import { DecisionPrinciples } from "./testimonials";
 
 export default function HomeShell() {
   const navigate = useNavigate();
@@ -45,7 +45,7 @@ export default function HomeShell() {
           <FeatureBlocks />
           <CapabilityGrid />
           <Personas />
-          <Testimonials />
+          <DecisionPrinciples />
           <ProcessTabs />
           <Faq />
           {/* <CtaSection

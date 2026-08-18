@@ -130,10 +130,7 @@ function SummaryStats() {
   return (
     <section className="grid grid-cols-4 gap-4">
       {SUMMARY_STATS.map((item) => (
-        <div
-          className="rounded-xl border border-border bg-background p-4 shadow-xs"
-          key={item.label}
-        >
+        <div className="rounded-xl border border-border bg-background p-4" key={item.label}>
           <p className="text-muted-foreground text-xs">{item.label}</p>
           <p className="mt-1 font-semibold text-3xl leading-none tabular-nums">{item.value}</p>
           <p className="mt-3 truncate text-muted-foreground text-xs">{item.hint}</p>
@@ -147,7 +144,7 @@ function InterviewListBackground() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
-        description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"
+        description="查看每位候选人的 AI 面试安排、进展和报告，方便随时跟进。"
         title="AI 面试"
       />
       <SummaryStats />
@@ -271,12 +268,9 @@ function ModalTabs() {
   //   active: data-[active]:bg-background data-[active]:text-foreground data-[active]:shadow-sm
   //   inactive: text-foreground/60 (hover:text-foreground)
   const tabs = [
-    { active: false, label: "概览" },
-    { active: true, label: "面试报告" },
-    { active: false, label: "AI 题目" },
+    { active: true, label: "结果" },
     { active: false, label: "经历" },
     { active: false, label: "Agent 提示词" },
-    { active: false, label: "表单答复" },
   ];
   return (
     <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -300,84 +294,85 @@ function ModalTabs() {
   );
 }
 
-// ─────────────── 面试报告 tab content (mirrors EvaluationResults) ───────────────
-interface QuestionEval {
-  order: number;
-  question: string;
-  score: number;
-  maxScore: number;
-  assessment: string;
-}
-
-const QUESTIONS: QuestionEval[] = [
-  {
-    assessment: "完整讲清楚商家后台从 monolith → 微前端的演进路径，覆盖 8 个团队的拆分节奏。",
-    maxScore: 100,
-    order: 1,
-    question: "请聊聊你最近主导的一个大型前端项目。",
-    score: 92,
-  },
-  {
-    assessment: "样式隔离与状态共享的取舍讲得清，shadow DOM + 共享 store 折中方案有具体落地。",
-    maxScore: 100,
-    order: 2,
-    question: "拆分过程中最具挑战的技术决策是什么？",
-    score: 88,
-  },
-  {
-    assessment: "首屏 2.4s → 1.1s、包体压缩 38%、迭代周期 2 周 → 5 天，数据完整可追溯。",
-    maxScore: 100,
-    order: 3,
-    question: "性能指标变化怎样？给出具体收益。",
-    score: 90,
-  },
-  {
-    assessment: "讲到了周会同步与 RFC 流程，但跨团队推动决策的具体例子偏少，下一轮可深入。",
-    maxScore: 100,
-    order: 4,
-    question: "在多团队协作中，你如何推动技术决策落地？",
-    score: 76,
-  },
-];
-
 function EvaluationContent() {
-  // 真实 EvaluationResults: <div className="space-y-3">
-  // overallScore 行: flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5
-  //   - text-2xl text-primary/75 tabular-nums font-medium
-  //   - text-muted-foreground text-sm "/ 100"
-  //   - Badge ml-auto (success variant)
-  // overallAssessment: text-muted-foreground text-sm leading-normal
-  // questions: each rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm
-  //   - flex items-start justify-between gap-2: "1. question" + score "92/100"
-  //   - assessment: mt-1.5 text-muted-foreground leading-normal
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
-        <span className="font-medium text-2xl text-primary/75 tabular-nums">86</span>
-        <span className="text-muted-foreground text-sm">/ 100</span>
-        <Badge className="ml-auto" variant="success">
-          推荐进入下一轮
-        </Badge>
+    <div className="flex flex-col gap-6">
+      <div className="flex h-9 w-fit items-center rounded-md border border-input px-3 text-sm">
+        第一轮 · 2025-05-13 10:30
       </div>
-      <p className="text-muted-foreground text-sm leading-normal">
-        候选人具备完整的微前端架构落地经验，技术深度与工程素养扎实，能用数据讲清楚优化收益。沟通节奏清晰、能主动展开追问。团队协作部分案例描述偏简略，建议在下一轮补充跨团队推动决策的具体例子。
-      </p>
-      <div className="space-y-2">
-        {QUESTIONS.map((q) => (
-          <div
-            className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm"
-            key={q.order}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="min-w-0 font-medium leading-normal">
-                {q.order}. {q.question}
-              </p>
-              <span className="shrink-0 font-semibold tabular-nums">
-                {q.score}
-                <span className="font-normal text-muted-foreground">/{q.maxScore}</span>
-              </span>
+      <div className="grid grid-cols-2 gap-6">
+        <div className="relative flex flex-col rounded-2xl bg-muted/72 p-1">
+          <div className="flex h-8 items-center justify-between px-4">
+            <span className="font-semibold text-sm">面试结果</span>
+            <Badge variant="success">已生成</Badge>
+          </div>
+          <div className="relative flex-1 rounded-xl border border-muted bg-background px-4 py-5">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">开始时间</p>
+                <p className="mt-1">2025-05-13 10:30</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">结束时间</p>
+                <p className="mt-1">2025-05-13 11:08</p>
+              </div>
             </div>
-            <p className="mt-1.5 text-muted-foreground leading-normal">{q.assessment}</p>
+            <div className="mt-5 grid grid-cols-3 gap-6 border-border/50 border-t pt-5 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">评分</p>
+                <p className="mt-1 font-medium">86 / 100</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">建议</p>
+                <Badge className="mt-1" variant="success">
+                  推荐进入下一轮
+                </Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">对话</p>
+                <p className="mt-1">12 次候选人回复</p>
+              </div>
+            </div>
+            <p className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6">
+              候选人具备完整的微前端架构落地经验，技术深度与工程素养扎实；跨团队推动案例建议在下一轮继续确认。
+            </p>
+          </div>
+        </div>
+        <div className="relative flex flex-col rounded-2xl bg-muted/72 p-1">
+          <div className="flex h-8 items-center px-4 font-semibold text-sm">候选人信息</div>
+          <div className="relative flex-1 rounded-xl border border-muted bg-background px-4 py-5">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">姓名</p>
+                <p className="mt-1">李铭</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">目标岗位</p>
+                <p className="mt-1">资深前端工程师</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">邮箱</p>
+                <p className="mt-1">li.ming@example.com</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">简历</p>
+                <p className="mt-1">简历_李铭.pdf</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        {[
+          ["表单题", "共 3 题", "候选人已完成基本信息与工作偏好填写。"],
+          ["沟通题", "共 8 题", "完整记录岗位核心能力与项目证据。"],
+        ].map(([title, count, copy]) => (
+          <div className="relative flex flex-col rounded-2xl bg-muted/72 p-1" key={title}>
+            <div className="flex h-8 items-center gap-2 px-4">
+              <span className="font-semibold text-sm">{title}</span>
+              <Badge variant="outline">{count}</Badge>
+            </div>
+            <div className="relative rounded-xl border border-muted bg-background px-4 py-5 text-muted-foreground text-sm">
+              {copy}
+            </div>
           </div>
         ))}
       </div>
@@ -391,20 +386,20 @@ function DetailDialog() {
   // - Overlay: fixed inset-0 z-50 backdrop-blur-xs bg-background/60 (我们在父层做)
   // - Content outer: -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 fixed w-full max-w-[calc(100%-2rem)]
   //                  + size=full: sm:w-[min(96vw,1440px)] sm:max-w-none
-  // - Inner card: relative flex max-h-[90vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg
+  // - Inner card: modal surface with its real whisper shadow; no extra screen-frame shadow.
   // - Header (stack): border-b px-6 pt-5 pb-4 + gap-1.5 + title text-lg font-semibold + description text-sm muted + headerExtra
   // - Close X: absolute right-4 top-4 rounded-xs opacity-70
   // - Body: min-h-0 flex-1 overflow-y-auto px-6 py-5
   return (
     <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 z-50 w-[min(96%,1440px)]">
-      <div className="relative flex max-h-[88vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg">
+      <div className="relative flex max-h-[88vh] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-[0_4px_24px_rgb(0_0_0/0.05)] dark:shadow-[0_4px_24px_rgb(0_0_0/0.2)]">
         {/* Close button */}
         <span className="absolute top-4 right-4 grid size-7 place-items-center rounded-xs text-foreground/70 opacity-70">
           <IconX className="size-4" />
         </span>
 
         {/* Header (stack layout) */}
-        <div className="flex shrink-0 flex-col gap-1.5 border-b px-6 pt-5 pb-4 text-left">
+        <div className="flex shrink-0 flex-col gap-1.5 border-b px-5 pt-4 pb-3 text-left">
           <div className="flex flex-wrap items-center gap-3 font-semibold text-foreground text-lg leading-none">
             <span>李铭</span>
             {/* Completed evaluation badge */}
@@ -415,7 +410,7 @@ function DetailDialog() {
         </div>
 
         {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-background px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-background px-5 py-4">
           <EvaluationContent />
         </div>
       </div>

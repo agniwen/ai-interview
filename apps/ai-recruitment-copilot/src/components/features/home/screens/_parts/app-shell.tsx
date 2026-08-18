@@ -1,15 +1,20 @@
 import {
   IconBuilding,
+  IconCalendarEvent,
+  IconChartBar,
   IconChevronRight,
   IconClipboardList,
   IconFileText,
   IconLayoutSidebarLeftCollapse,
+  IconLayoutGrid,
   IconListCheck,
+  IconMailCheck,
   IconMessageChatbot,
   IconMoon,
   IconPlus,
   IconRobot,
-  IconSelector,
+  IconShieldCheck,
+  IconSquareCheck,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -41,7 +46,10 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { icon: IconUsers, label: "招聘" },
+      { icon: IconLayoutGrid, label: "人才库" },
       { icon: IconRobot, label: "AI 面试" },
+      { icon: IconCalendarEvent, label: "日程管理" },
+      { icon: IconChartBar, label: "数据看板" },
     ],
     label: "工作台",
   },
@@ -64,6 +72,8 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: IconUser, label: "个人中心" },
       { icon: IconUserCog, label: "工作区管理" },
+      { icon: IconMailCheck, label: "邮箱监听" },
+      { icon: IconShieldCheck, label: "权限管理" },
       { icon: IconMessageChatbot, label: "上下文设置" },
     ],
     label: "系统配置",
@@ -130,8 +140,9 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                     className={cn(
                       "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
                       active
-                        ? "bg-background font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground",
+                        ? "border-sidebar-border/80 bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        : "border-transparent text-sidebar-foreground opacity-90",
+                      "border",
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
@@ -166,13 +177,16 @@ const CHAT_CONVERSATIONS: ChatConversation[] = [
 export function ChatNav() {
   return (
     <>
+      <div className="flex items-center gap-1.5 px-2 pb-2">
+        <span className="flex h-9 flex-1 items-center gap-2 rounded-md px-2 text-sidebar-foreground/80">
+          <IconPlus className="size-4" />
+          <span className="font-medium text-sm">新建对话</span>
+        </span>
+        <span className="grid size-9 place-items-center rounded-md text-sidebar-foreground/80">
+          <IconSquareCheck className="size-4" />
+        </span>
+      </div>
       <div className="flex w-full min-w-0 flex-col p-2">
-        <div className="flex items-center justify-between px-2 pt-1 pb-2">
-          <span className="font-medium text-sidebar-foreground/70 text-xs">最近会话</span>
-          <span className="grid size-6 place-items-center rounded-md text-sidebar-foreground/60">
-            <IconPlus className="size-3.5" />
-          </span>
-        </div>
         <ul className="flex w-full min-w-0 flex-col gap-0.5">
           {CHAT_CONVERSATIONS.map((c) => (
             <li className="group/conv relative" key={c.title}>
@@ -203,22 +217,14 @@ export function ChatNav() {
 
 // ─────────────────── Sidebar footer: user section ───────────────────
 function SidebarUserSection() {
-  // 真实 SidebarUserSection 展开态：border-t + px-2 py-2 包裹；按钮 w-full justify-start gap-2 p-1! rounded-full
-  // 内容：Avatar size="default" (size-9) + 姓名/组织 + ChevronsUpDown
-  // Real expanded state: border-t wrapper + ghost button (rounded-full p-1 gap-2)
+  // 真实展开态只显示小头像和用户名；工作区切换位于页面标题栏。
   return (
     <div className="border-border border-t px-2 py-2">
-      <div className="flex w-full items-center gap-2">
-        <div className="flex w-full items-center gap-2 rounded-full p-1">
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary/15 to-primary/30 font-medium text-[12px] text-primary/75">
-            GJ
-          </div>
-          <div className="min-w-0 flex-1 text-left">
-            <p className="truncate font-medium text-sm">郭靖</p>
-            <p className="truncate text-muted-foreground text-xs">Workspace</p>
-          </div>
-          <IconSelector className="size-4 shrink-0 text-muted-foreground" />
+      <div className="flex h-9 w-full items-center gap-2 rounded-lg px-2">
+        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/15 font-medium text-[12px] text-primary/75">
+          GJ
         </div>
+        <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">郭靖</p>
       </div>
     </div>
   );
@@ -257,7 +263,7 @@ function WorkspaceSwitcher() {
   return (
     <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
       <span className="truncate">Workspace</span>
-      <IconSelector className="size-4 opacity-60" />
+      <IconChevronRight className="size-4 rotate-90 opacity-60" />
     </span>
   );
 }
@@ -299,9 +305,7 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
     >
       <div className="relative z-1 flex min-w-0 items-center gap-2">
         <SidebarTriggerButton />
-        {/* Separator: mx-2 h-4 vertical */}
-        <span aria-hidden="true" className="mx-2 h-4 w-px bg-border" />
-        <BreadcrumbBar crumbs={breadcrumb} />
+        <BreadcrumbBar crumbs={breadcrumb.slice(-1)} />
       </div>
       <div className="relative z-1 flex items-center gap-1">
         {actions ?? <WorkspaceSwitcher />}
@@ -341,7 +345,7 @@ export function AppShell({
   return (
     // 真实外层：has-data-[variant=inset]:bg-sidebar
     // inset 自身是 bg-background，四周露出的底色与 sidebar 保持一致。
-    <div className="flex h-full w-full bg-sidebar/70 text-foreground">
+    <div className="flex h-full w-full bg-sidebar text-foreground">
       <aside
         // 真实 sidebar 外层：p-2 group-data-[collapsible=icon]:w-... 在 inset 变体下；
         // 内层是 bg-sidebar (light) / dark:bg-sidebar 的 sidebar 列。
@@ -363,7 +367,7 @@ export function AppShell({
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
           + variant=inset: m-3 ml-0 rounded-xl shadow-none
           + layout 上还加了 border border-border */}
-      <main className="relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-none">
+      <main className="relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
         <InsetHeader actions={headerActions} breadcrumb={breadcrumb} className={headerClassName} />
         {/* @container/main min-h-0 flex-1 bg-background (OverlayScrollbars ScrollArea) */}
         <ScrollArea className={cn("@container/main min-h-0 flex-1 bg-background", bodyClassName)}>

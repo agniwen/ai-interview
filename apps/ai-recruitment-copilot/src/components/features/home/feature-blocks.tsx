@@ -29,35 +29,31 @@ const blocks: Block[] = [
   {
     Screen: ChatScreen,
     bullets: [
-      "支持一次上传多份 PDF 简历",
-      "围绕岗位要求持续追问候选人亮点与风险",
-      "自动汇总筛选建议，便于团队对齐",
+      "一次上传多份 PDF 简历",
+      "对照岗位要求梳理亮点、风险与缺口",
+      "每项判断都能回到简历原文",
     ],
     eyebrow: "Resume Screening",
-    lead: "把简历筛选搬进对话框。上传完直接和 AI 讨论：这位候选人哪儿亮、哪儿可疑、和岗位贴不贴。不必从头读到尾。",
-    title: "看简历这件事。聊几句就清楚。",
+    lead: "上传简历，直接问 AI：经历是否匹配，优势在哪里，还有什么需要确认。结论不只被说出来，也能回到原文。",
+    title: "先看证据。再做判断。",
   },
   {
     Screen: JobsScreen,
     bullets: [
-      "在工作台维护岗位、JD、面试官人设、面试问题",
-      "上下文设置一次设定多次复用",
-      "JD 与候选人评估上下文打通",
+      "统一维护岗位、JD 与面试重点",
+      "面试官设定与问题模板持续复用",
+      "同一份语境贯穿筛选与面试",
     ],
     eyebrow: "Workspace",
-    lead: "工作台是招聘的主场。岗位、JD、面试官人设、题库都在这儿安家，每一次评估都长在真实语境之上，不再悬空在关键词表面。",
-    title: "岗位、JD、人设、题库。安顿在一处。",
+    lead: "职责、要求、面试重点和问题模板，都从同一份岗位语境出发。设置一次，之后的筛选与面试自然保持一致。",
+    title: "岗位语境。只需要讲清一次。",
   },
   {
     Screen: InterviewScreen,
-    bullets: [
-      "实时语音对话，追问节奏可控",
-      "自动记录候选人作答、节奏、停顿",
-      "面试结束即获得结构化评估",
-    ],
+    bullets: ["候选人打开链接即可开始", "根据回答实时追问关键细节", "同步沉淀对话记录与结构化评估"],
     eyebrow: "Voice Interview",
-    lead: "把链接发给候选人，对方开口，AI 接话。节奏接近真人，追问咬着简历和岗位走。面试落幕，结构化评估同步出炉。",
-    title: "面试这件事。让 AI 先开口。",
+    lead: "把链接发给候选人，AI 会沿着简历、岗位和当下的回答继续追问。面试结束，过程与判断一起留下。",
+    title: "候选人开口。AI 接着问。",
   },
 ];
 
@@ -258,9 +254,7 @@ function SceneCard({ block }: { block: Block }) {
           {block.lead}
         </p>
       </div>
-      {/* 卡片自带阴影，screen 内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
-      {/* Card has its own shadow; suppress the inner shadow-xl so it doesn't get clipped by the article's overflow-hidden */}
-      <block.Screen className="w-full shadow-none ring-foreground/[0.06]" />
+      <block.Screen className="w-full" />
       <ul className="mt-auto space-y-2">
         {block.bullets.map((bullet, i) => (
           <li className="flex items-start gap-3" key={bullet}>

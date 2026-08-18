@@ -44,6 +44,7 @@ export function JobDescriptionViewDialog({
     if (!record) {
       return <div className="py-10 text-center text-muted-foreground text-sm">未找到该岗位。</div>;
     }
+    const interviewers = record.interviewers ?? [];
     return (
       <div className="space-y-5 text-sm">
         <section className="space-y-1.5">
@@ -55,9 +56,9 @@ export function JobDescriptionViewDialog({
 
         <section className="space-y-1.5">
           <h3 className="font-medium text-muted-foreground text-xs">面试官</h3>
-          {record.interviewers.length > 0 ? (
+          {interviewers.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              {record.interviewers.map((person) => (
+              {interviewers.map((person) => (
                 <Badge key={person.id} variant="secondary">
                   {person.name}
                 </Badge>

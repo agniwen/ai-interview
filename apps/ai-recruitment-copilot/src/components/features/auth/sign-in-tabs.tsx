@@ -82,13 +82,13 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
     }
     return (
       <TabsContent className="mt-4 space-y-3" value="feishu">
-        <FeishuSignInButton callbackURL={callbackURL} />
         <FeishuSignInButton
           callbackURL={callbackURL}
           label="极光 HR 飞书登录"
           providerId="feishu-jiguang-hr"
           variant="default"
         />
+        <FeishuSignInButton callbackURL={callbackURL} />
       </TabsContent>
     );
   }

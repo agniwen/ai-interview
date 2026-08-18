@@ -1,29 +1,25 @@
 import {
+  IconArrowsSort,
+  IconBriefcase,
   IconChevronDown,
-  IconChevronRight,
-  IconCloudUpload,
+  IconDots,
+  IconEdit,
+  IconFileText,
   IconFilterX,
   IconPlus,
   IconRefresh,
   IconSearch,
+  IconSparkles,
+  IconUpload,
 } from "@tabler/icons-react";
+import Avvvatars from "avvvatars-react";
 // 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
 // - PageHeader: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
 // - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
-// - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
+// - ResumeLibraryCardList: Toolbar + 当前候选人卡片结构
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
-import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { cn } from "@arc/shared/utils";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -34,7 +30,7 @@ const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, lab
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      className={`flex flex-col gap-0 overflow-hidden rounded-xl border border-border bg-background py-0 shadow-xs ${className ?? ""}`}
+      className={`flex flex-col gap-0 overflow-hidden rounded-2xl border border-input bg-card py-0 ${className ?? ""}`}
     >
       {children}
     </div>
@@ -174,60 +170,83 @@ function StatusCard() {
   );
 }
 
-// ─────────────────── 近 30 天每日新增 (area chart) ───────────────────
-const DAILY_POINTS = [
-  2, 1, 3, 2, 4, 3, 5, 4, 2, 3, 6, 5, 4, 7, 8, 6, 5, 7, 9, 8, 6, 7, 10, 9, 8, 11, 12, 10, 9, 12,
-];
-const DAILY_GREEN = "oklch(0.74 0.08 150)";
+// ─────────────────── 近一年入库日历 (current contribution heatmap) ───────────────────
+const CALENDAR_LEVEL_COLORS = [
+  "color-mix(in oklab, var(--muted-foreground) 14%, var(--background))",
+  "#9be9a8",
+  "#40c463",
+  "#30a14e",
+  "#216e39",
+] as const;
+const CALENDAR_LEVELS = Array.from({ length: 27 * 7 }, (_, index) => {
+  if (index % 29 === 0 || index % 41 === 0) {
+    return 4;
+  }
+  if (index % 11 === 0 || index % 17 === 0) {
+    return 3;
+  }
+  if (index % 5 === 0) {
+    return 2;
+  }
+  if (index % 3 === 0) {
+    return 1;
+  }
+  return 0;
+});
 
 function DailyAddedCard() {
-  const total = DAILY_POINTS.reduce((acc, v) => acc + v, 0);
-  const max = Math.max(...DAILY_POINTS);
-  const w = 280;
-  const h = 96;
-  const step = w / (DAILY_POINTS.length - 1);
-  const points = DAILY_POINTS.map((v, i) => [i * step, h - (v / max) * (h - 8) - 4] as const);
-  const line = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
-  const area = `${line} L${w},${h} L0,${h} Z`;
-
   return (
     <ChartCardShell
-      description="展示近 30 天新增趋势"
+      description="近一年每日入库热力，悬停可看各成员上传量"
       metrics={[
-        { label: "30 天新增", value: String(total) },
-        { label: "单日峰值", value: String(max) },
+        { label: "一年新增", value: "188" },
+        { label: "单日峰值", value: "12" },
       ]}
-      title="近 30 天每日新增"
+      title="入库日历"
     >
-      <svg
-        aria-hidden="true"
-        className="h-32 w-full"
-        preserveAspectRatio="none"
-        viewBox={`0 0 ${w} ${h}`}
-      >
-        <defs>
-          <linearGradient id="resume-daily-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={DAILY_GREEN} stopOpacity={0.22} />
-            <stop offset="100%" stopColor={DAILY_GREEN} stopOpacity={0.035} />
-          </linearGradient>
-        </defs>
-        {/* CartesianGrid 横线 */}
-        {[0.25, 0.5, 0.75].map((p) => (
-          <line
-            key={p}
-            stroke="currentColor"
-            strokeDasharray="2 3"
-            strokeWidth="0.5"
-            x1="0"
-            x2={w}
-            y1={h * p}
-            y2={h * p}
-            className="text-border"
-          />
-        ))}
-        <path d={area} fill="url(#resume-daily-fill)" />
-        <path d={line} fill="none" stroke={DAILY_GREEN} strokeLinecap="round" strokeWidth={1.75} />
-      </svg>
+      <div className="flex h-36 flex-col gap-2 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <div
+            className="grid w-max gap-0.5"
+            style={{
+              gridAutoColumns: 12,
+              gridAutoFlow: "column",
+              gridTemplateRows: "repeat(7, 12px)",
+            }}
+          >
+            {CALENDAR_LEVELS.map((level, index) => (
+              <span
+                aria-hidden="true"
+                className="size-3 rounded-[2px]"
+                // The contribution cells are a stable, decorative time series.
+                // oxlint-disable-next-line react/no-array-index-key
+                key={index}
+                style={{ backgroundColor: CALENDAR_LEVEL_COLORS[level] }}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between px-1 text-muted-foreground text-[10px]">
+            <span>3月</span>
+            <span>4月</span>
+            <span>5月</span>
+            <span>6月</span>
+            <span>7月</span>
+            <span>8月</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-1.5 text-muted-foreground text-[10px]">
+          <span>少</span>
+          {CALENDAR_LEVEL_COLORS.map((color) => (
+            <span
+              aria-hidden="true"
+              className="size-3 rounded-[2px]"
+              key={color}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+          <span>多</span>
+        </div>
+      </div>
     </ChartCardShell>
   );
 }
@@ -361,7 +380,7 @@ function PipelineStageTabs() {
 // ─────────────────── DataGrid Toolbar (search filter + 上传简历 button) ───────────────────
 function FilterSelectChip({ label }: { label: string }) {
   return (
-    <span className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs sm:w-auto sm:min-w-45">
+    <span className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm sm:w-auto sm:min-w-45">
       <span className="truncate text-muted-foreground">{label}</span>
       <IconChevronDown className="size-4 shrink-0 text-muted-foreground opacity-50" />
     </span>
@@ -381,7 +400,7 @@ function ToolbarIconButton({
     <span
       aria-label={label}
       aria-disabled={disabled}
-      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-xs ${
+      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground ${
         disabled ? "opacity-45" : ""
       }`}
     >
@@ -398,7 +417,7 @@ function ResumeToolbar() {
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative min-w-[15rem]">
           <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
-          <div className="flex h-9 w-full items-center rounded-md border border-input bg-background pr-9 pl-9 text-muted-foreground text-sm shadow-xs">
+          <div className="flex h-9 w-full items-center rounded-md border border-input bg-background pr-9 pl-9 text-muted-foreground text-sm">
             搜索候选人、邮箱、电话、简历名或目标岗位
           </div>
         </div>
@@ -414,14 +433,14 @@ function ResumeToolbar() {
         </ToolbarIconButton>
         <div className="flex flex-wrap gap-2">
           <button
-            className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 font-medium text-sm shadow-xs"
+            className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 font-medium text-sm"
             type="button"
           >
-            <IconCloudUpload className="size-4" />
-            批量上传
+            <IconArrowsSort className="size-4" />
+            综合分排序
           </button>
           <button
-            className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm shadow-xs"
+            className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm"
             type="button"
           >
             <IconPlus className="size-4" />
@@ -433,244 +452,268 @@ function ResumeToolbar() {
   );
 }
 
-// ─────────────────── DataGrid Table inside Card ───────────────────
-interface ResumeRow {
+// ─────────────────── Current card list ───────────────────
+interface ResumeCardData {
   createdAt: string;
   creator: string;
+  education: ProfileSnapshotLine[];
   email: string;
-  hasPdf: boolean;
-  jobDepartment: string;
-  jobLink: string;
-  lastInterviewAt: string;
+  id: string;
+  job: string;
   lifecycleDetail: string;
   lifecycleStage: string;
-  lifecycleTone: "info" | "outline" | "success" | "warning";
   name: string;
+  score: string;
+  scoreTone: "success" | "warning";
+  skills: string[];
+  summary: string;
+  work: ProfileSnapshotLine[];
 }
 
-const RESUMES: ResumeRow[] = [
+interface ProfileSnapshotLine {
+  period: string;
+  primary: string;
+  secondary: string;
+}
+
+const RESUMES: ResumeCardData[] = [
   {
     createdAt: "2025-05-12 14:32",
     creator: "张三",
+    education: [{ period: "2013–2017", primary: "浙江大学", secondary: "计算机科学" }],
     email: "li.ming@example.com",
-    hasPdf: true,
-    jobDepartment: "研发部",
-    jobLink: "资深前端工程师",
-    lastInterviewAt: "2025-05-13 10:30",
+    id: "01842",
+    job: "技术部 / 资深前端工程师",
     lifecycleDetail: "1/2 待下轮",
     lifecycleStage: "AI 面试",
-    lifecycleTone: "info",
     name: "李铭",
+    score: "推荐 · 86 分",
+    scoreTone: "success",
+    skills: ["React", "TypeScript", "微前端", "性能优化"],
+    summary: "8 年前端经验，主导过中大型架构升级；技术深度与岗位核心要求匹配。",
+    work: [
+      { period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" },
+      { period: "2017–2021", primary: "网易", secondary: "前端工程师" },
+    ],
   },
   {
     createdAt: "2025-05-11 09:18",
     creator: "李四",
+    education: [{ period: "2012–2016", primary: "武汉大学", secondary: "工商管理" }],
     email: "wang.xin@example.com",
-    hasPdf: true,
-    jobDepartment: "产品部",
-    jobLink: "增长产品经理",
-    lastInterviewAt: "2025-05-12 15:00",
+    id: "01831",
+    job: "产品部 / 增长产品经理",
     lifecycleDetail: "1/2 已安排",
     lifecycleStage: "真人复面",
-    lifecycleTone: "info",
     name: "王欣",
+    score: "推荐 · 81 分",
+    scoreTone: "success",
+    skills: ["增长实验", "商业化", "数据分析"],
+    summary: "具备完整增长闭环经验，实验设计能力突出；需要进一步确认团队管理范围。",
+    work: [
+      { period: "2020–至今", primary: "小红书", secondary: "增长产品负责人" },
+      { period: "2016–2020", primary: "美团", secondary: "产品经理" },
+    ],
   },
   {
     createdAt: "2025-05-10 16:05",
     creator: "王五",
+    education: [{ period: "2009–2013", primary: "华中科技大学", secondary: "软件工程" }],
     email: "zhao.an@example.com",
-    hasPdf: false,
-    jobDepartment: "研发部",
-    jobLink: "后端架构师",
-    lastInterviewAt: "—",
+    id: "01819",
+    job: "技术部 / 后端架构师",
     lifecycleDetail: "待处理",
     lifecycleStage: "简历筛选",
-    lifecycleTone: "outline",
     name: "赵安",
-  },
-  {
-    createdAt: "2025-05-10 11:24",
-    creator: "张三",
-    email: "chen.jia@example.com",
-    hasPdf: true,
-    jobDepartment: "数据部",
-    jobLink: "数据分析师",
-    lastInterviewAt: "2025-05-11 11:20",
-    lifecycleDetail: "草稿",
-    lifecycleStage: "Offer",
-    lifecycleTone: "outline",
-    name: "陈佳",
-  },
-  {
-    createdAt: "2025-05-09 17:42",
-    creator: "孙七",
-    email: "liu.yi@example.com",
-    hasPdf: true,
-    jobDepartment: "设计部",
-    jobLink: "UI 设计师",
-    lastInterviewAt: "—",
-    lifecycleDetail: "待处理",
-    lifecycleStage: "简历筛选",
-    lifecycleTone: "outline",
-    name: "刘一",
-  },
-  {
-    createdAt: "2025-05-09 10:08",
-    creator: "李四",
-    email: "zhou.bin@example.com",
-    hasPdf: true,
-    jobDepartment: "运营部",
-    jobLink: "社群运营专员",
-    lastInterviewAt: "2025-05-10 09:30",
-    lifecycleDetail: "已淘汰",
-    lifecycleStage: "已结案",
-    lifecycleTone: "outline",
-    name: "周斌",
+    score: "匹配 · 72 分",
+    scoreTone: "warning",
+    skills: ["Java", "分布式系统", "PostgreSQL"],
+    summary: "基础架构经验扎实，但简历中缺少大型团队协作与关键稳定性指标。",
+    work: [
+      { period: "2019–至今", primary: "携程", secondary: "后端架构师" },
+      { period: "2013–2019", primary: "阿里云", secondary: "高级开发工程师" },
+    ],
   },
 ];
 
-const LIFECYCLE_RING_CLASS = {
-  info: "hover:ring-sky-500/10",
-  outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
-  success: "hover:ring-emerald-500/10",
-  warning: "hover:ring-amber-500/10",
-} satisfies Record<ResumeRow["lifecycleTone"], string>;
-
-function LifecycleBadge({ row }: { row: ResumeRow }) {
+function CandidateAvatar({ record }: { record: ResumeCardData }) {
   return (
-    <Badge
-      className={cn(
-        "group/lifecycle w-44 max-w-full justify-start text-left transition-shadow duration-200 hover:ring-2",
-        LIFECYCLE_RING_CLASS[row.lifecycleTone],
-      )}
-      render={
-        <button
-          aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
-          title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
-          type="button"
-        >
-          <span className="shrink-0">{row.lifecycleStage}</span>
-          <span aria-hidden="true" className="shrink-0 opacity-45">
-            ·
-          </span>
-          <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
-          <span
-            aria-hidden="true"
-            className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
-          >
-            <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
-          </span>
-        </button>
-      }
-      variant={row.lifecycleTone}
-    />
+    <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
+      <Avvvatars
+        radius={48}
+        size={48}
+        style="shape"
+        value={[record.name, record.email].filter(Boolean).join(" ") || record.id}
+      />
+    </div>
   );
 }
 
-function ResumeTable() {
+function ResumeCardMetaItem({
+  children,
+  icon,
+  label,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
-    <Table className="table-fixed" variant="card">
-      <TableHeader>
-        <TableRow>
-          <TableHead aria-label="选择" className="w-12">
-            <span
-              aria-hidden="true"
-              className="size-4 rounded-[3px] border border-foreground/30 inline-block"
-            />
-          </TableHead>
-          <TableHead className="w-[260px]">候选人</TableHead>
-          <TableHead className="w-[230px]">关联岗位</TableHead>
-          <TableHead className="w-[220px]">当前环节</TableHead>
-          <TableHead className="w-[150px]">创建人</TableHead>
-          <TableHead className="w-[170px]">创建时间</TableHead>
-          <TableHead className="w-[170px]">最近面试时间</TableHead>
-          <TableHead aria-label="操作" className="w-[170px] text-right" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {RESUMES.map((r) => (
-          <TableRow key={r.name}>
-            <TableCell aria-label="选择简历">
-              <span
-                aria-hidden="true"
-                className="inline-block size-4 rounded-[3px] border border-foreground/30"
-              />
-            </TableCell>
-            <TableCell aria-label={`候选人：${r.name}`}>
-              <div className="flex min-w-0 items-start gap-2">
-                {r.hasPdf ? (
-                  <span
-                    aria-label="查看简历 PDF"
-                    className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
-                  >
-                    <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
-                  </span>
-                ) : (
-                  <span
-                    aria-disabled="true"
-                    aria-label="暂无简历 PDF"
-                    className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                  >
-                    <PdfFileIcon className="size-8" />
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                    {r.name}
+    <span className="flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <span aria-hidden="true" className="inline-flex shrink-0 text-muted-foreground/70">
+        {icon}
+      </span>
+      <span className="sr-only">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </span>
+  );
+}
+
+function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLine }) {
+  return (
+    <p
+      className="flex min-w-0 items-baseline gap-2"
+      title={`${line.period} · ${line.primary} · ${line.secondary}`}
+    >
+      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{line.period}</span>
+      <span className="min-w-0 truncate text-foreground text-sm">
+        {line.primary} · {line.secondary}
+      </span>
+    </p>
+  );
+}
+
+function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
+  return (
+    <div className="min-w-0 xl:border-border/60 xl:border-l xl:border-dashed xl:pl-8">
+      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
+        {record.work.map((line) => (
+          <ProfileSnapshotLine key={`${line.period}-${line.primary}`} line={line} />
+        ))}
+        <div className="my-0.5 border-border/60 border-t" />
+        {record.education.map((line) => (
+          <ProfileSnapshotLine key={`${line.period}-${line.primary}`} line={line} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const CARD_ACTIONS = [
+  { icon: IconFileText, label: "简历" },
+  { icon: IconEdit, label: "编辑" },
+  { icon: IconSparkles, label: "AI面" },
+  { icon: IconDots, label: "更多" },
+] as const;
+
+function ResumeCardActions() {
+  return (
+    <div className="flex justify-end self-center">
+      <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
+        {CARD_ACTIONS.map(({ icon: Icon, label }) => (
+          <span
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-xs"
+            key={label}
+          >
+            <Icon className="size-3.5" />
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResumeCardList() {
+  return (
+    <div className="grid gap-3">
+      {RESUMES.map((record) => (
+        <article
+          className="overflow-hidden rounded-2xl border border-input bg-card dark:bg-background"
+          key={record.id}
+        >
+          <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+            <div className="flex min-w-0 gap-3">
+              <span className="relative z-20 mt-3 inline-block size-4 shrink-0 rounded-[3px] border border-foreground/30" />
+              <CandidateAvatar record={record} />
+              <div className="min-w-0 flex-1">
+                <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
+                    <span className="min-w-0 truncate font-semibold text-base">
+                      {record.name}{" "}
+                      <span className="font-normal text-muted-foreground/60 text-xs">
+                        ({record.id})
+                      </span>
+                    </span>
+                    <Badge variant={record.lifecycleStage === "简历筛选" ? "outline" : "info"}>
+                      {record.lifecycleStage} · {record.lifecycleDetail}
+                    </Badge>
                   </div>
-                  <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
-                    {r.email}
+
+                  <div className="min-w-0">
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+                      <ResumeCardMetaItem
+                        icon={<IconBriefcase className="size-3.5" />}
+                        label="关联岗位"
+                      >
+                        <span className="text-foreground">{record.job}</span>
+                      </ResumeCardMetaItem>
+                      <ResumeCardMetaItem icon={<IconUpload className="size-3.5" />} label="上传人">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[9px] text-foreground">
+                            {record.creator.slice(0, 1)}
+                          </span>
+                          <span className="truncate">上传人 {record.creator}</span>
+                        </span>
+                      </ResumeCardMetaItem>
+                      <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs tabular-nums">
+                        {record.createdAt}
+                      </span>
+                      <ResumeCardMetaItem
+                        icon={
+                          <IconSparkles
+                            className={`size-3.5 ${
+                              record.scoreTone === "success"
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-amber-700 dark:text-amber-300"
+                            }`}
+                          />
+                        }
+                        label="AI评分"
+                      >
+                        <span
+                          className={`font-medium ${
+                            record.scoreTone === "success"
+                              ? "text-emerald-700 dark:text-emerald-300"
+                              : "text-amber-700 dark:text-amber-300"
+                          }`}
+                        >
+                          {record.score}
+                        </span>
+                      </ResumeCardMetaItem>
+                    </div>
+
+                    <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
+                      {record.summary}
+                    </p>
+                    <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
+                      {record.skills.map((skill) => (
+                        <Badge className="max-w-52 truncate" key={skill} variant="outline">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
+
+                  <ResumeCardProfileSnapshot record={record} />
                 </div>
               </div>
-            </TableCell>
-            <TableCell>
-              <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                {r.jobDepartment} / {r.jobLink}
-              </span>
-            </TableCell>
-            <TableCell>
-              <LifecycleBadge row={r} />
-            </TableCell>
-            <TableCell aria-label={`创建人：${r.creator}`}>
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
-                />
-                <span>{r.creator}</span>
-              </div>
-            </TableCell>
-            <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
-            <TableCell className="text-muted-foreground tabular-nums">
-              {r.lastInterviewAt}
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center justify-end gap-0.5">
-                <span
-                  aria-label="查看简历"
-                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                >
-                  查看
-                </span>
-                <span
-                  aria-label="编辑简历"
-                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                >
-                  编辑
-                </span>
-                <span
-                  aria-label="更多简历操作"
-                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                >
-                  更多
-                </span>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+            </div>
+            <ResumeCardActions />
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -687,7 +730,7 @@ function ResumesContent() {
       <PipelineStageTabs />
       <div className="space-y-4">
         <ResumeToolbar />
-        <ResumeTable />
+        <ResumeCardList />
       </div>
     </div>
   );

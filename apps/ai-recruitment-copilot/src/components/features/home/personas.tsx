@@ -17,24 +17,21 @@ interface Persona {
 const personas: Persona[] = [
   {
     Icon: IconBriefcase,
-    description:
-      "在工作台配置岗位、面试问题与面试官设定，向候选人发送模拟面试链接，集中查看每个候选人的评估结果。",
+    description: "设置岗位语境，推进筛选、AI 面试与真人复面。每位候选人走到哪一步，都清楚可见。",
     role: "HR / 招聘负责人",
-    title: "把招聘流程沉淀为可复用的工作流",
+    title: "流程清楚。推进自然。",
   },
   {
     Icon: IconUsers,
-    description:
-      "通过聊天式筛选快速浏览简历，查看 AI 给出的亮点、风险与追问过程，决定是否安排深入面试。",
+    description: "直接查看简历证据、关键回答与风险提示，把时间留给真正需要人来判断的问题。",
     role: "业务面试官 / 用人经理",
-    title: "判断更快、依据更完整",
+    title: "少翻材料。多看证据。",
   },
   {
     Icon: IconMicrophone,
-    description:
-      "通过链接进入实时语音模拟面试，完整经历追问与作答流程，提交后得到一致的结构化记录。",
+    description: "无需注册，打开链接即可参加 AI 面试。跟随清晰提示回答，把注意力留给表达本身。",
     role: "候选人",
-    title: "贴近真实节奏的面试体验",
+    title: "打开链接。就可以开始。",
   },
 ];
 
@@ -42,10 +39,9 @@ export function Personas() {
   return (
     <Section width="wide">
       <Eyebrow>For Every Role</Eyebrow>
-      <SectionTitle>三种角色。一张工作台。</SectionTitle>
+      <SectionTitle>每个人，看到自己该看的。</SectionTitle>
       <SectionLead>
-        招聘负责人在配置流程，面试官在评估候选人，候选人在面对 AI
-        答题。三个人各做各的，所有上下文在同一处同步。
+        招聘负责人推进流程，用人经理判断能力，候选人专注表达。信息在同一处流动，角色不被混在一起。
       </SectionLead>
 
       <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">

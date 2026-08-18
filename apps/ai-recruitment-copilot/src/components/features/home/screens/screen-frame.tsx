@@ -1,9 +1,27 @@
-// 用途：landing page 的简化版 UI 画板。固定 1400×900 内部画布，通过 container query
+// 用途：landing page 的简化版 UI 画板。固定 1600×900 内部画布，通过 container query
 // scale 到容器实际宽度，保持像素级布局的精确性同时随容器自适应。
-// Purpose: fixed 1400x900 inner canvas scaled to fit container width via cqi units,
+// Purpose: fixed 1600x900 inner canvas scaled to fit container width via cqi units,
 // keeping pixel-perfect mock layout while flexing to outer width.
 import type { ReactNode } from "react";
 import { cn } from "@arc/shared/utils";
+
+const WINDOW_CONTROL_BASE_CLASS =
+  "relative size-3.5 overflow-hidden rounded-full shadow-[inset_0_1px_1px_rgb(255_255_255_/_0.18)]";
+
+const WINDOW_CONTROLS = [
+  {
+    colorClass: "bg-[linear-gradient(145deg,#df3e47_0%,#ff5c5f_52%,#ff9196_100%)]",
+    name: "close",
+  },
+  {
+    colorClass: "bg-[linear-gradient(145deg,#d69400_0%,#ffc400_52%,#ffe184_100%)]",
+    name: "minimize",
+  },
+  {
+    colorClass: "bg-[linear-gradient(145deg,#218b3d_0%,#32bd56_52%,#99df7a_100%)]",
+    name: "zoom",
+  },
+] as const;
 
 interface ScreenFrameProps {
   children: ReactNode;
@@ -16,23 +34,29 @@ interface ScreenFrameProps {
 export function ScreenFrame({ children, className, chrome = true }: ScreenFrameProps) {
   return (
     <div
+      data-slot="screen-frame"
       className={cn(
-        "relative pointer-events-none p-1 select-none overflow-hidden rounded-lg shadow-xl ring-1 ring-foreground/5 backdrop-blur",
-        " bg-background/80",
+        "relative pointer-events-none overflow-hidden rounded-xl bg-background/75 p-1 select-none backdrop-blur-xl",
         className,
       )}
     >
       {chrome ? (
         <div className="flex h-7 flex-row items-center">
           <div className="flex gap-2 px-2">
-            <i className="size-3 rounded-full bg-[#FF5C5F]" />
-            <i className="size-3 rounded-full bg-[#FFCC00]" />
-            <i className="size-3 rounded-full bg-[#34C759]" />
+            {WINDOW_CONTROLS.map(({ colorClass, name }) => (
+              <span
+                aria-hidden="true"
+                className={cn(WINDOW_CONTROL_BASE_CLASS, colorClass)}
+                data-window-control={name}
+                key={name}
+              />
+            ))}
           </div>
         </div>
       ) : null}
       <div
-        className="relative aspect-[1600/900] w-full overflow-hidden rounded-md border border-border bg-background/80"
+        data-slot="screen-frame-content"
+        className="relative aspect-[1600/900] w-full overflow-hidden rounded-lg bg-background"
         style={{ containerType: "inline-size" }}
       >
         <div

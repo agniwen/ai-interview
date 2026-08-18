@@ -17,16 +17,17 @@ import {
 } from "@/components/ui/field";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-function describeInterviewers(jd: JobDescriptionListRecord): string {
-  if (jd.interviewers.length === 0) {
+export function describeInterviewers(jd: JobDescriptionListRecord): string {
+  const interviewers = jd.interviewers ?? [];
+  if (interviewers.length === 0) {
     return "未配置面试官";
   }
-  const head = jd.interviewers
+  const head = interviewers
     .slice(0, 3)
     .map((item) => item.name)
     .join(" / ");
-  const more = jd.interviewers.length > 3 ? " …" : "";
-  return `面试官 ${jd.interviewers.length} 位：${head}${more}`;
+  const more = interviewers.length > 3 ? " …" : "";
+  return `面试官 ${interviewers.length} 位：${head}${more}`;
 }
 
 function buildJdLabel(jd: JobDescriptionListRecord): string {

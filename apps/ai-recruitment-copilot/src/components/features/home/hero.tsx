@@ -31,7 +31,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <Badge>
+        <Badge className="dark:border-primary/45! dark:bg-primary/25! dark:text-blue-100!">
           <IconSparkles aria-hidden="true" data-icon="inline-start" />
           招聘 AI 协同工作台
         </Badge>
@@ -56,13 +56,13 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             AI Recruitment Copilot
           </m.span>
         )}
-        <SplitText text="简历，先聊清楚。面试，一开口就来。" />
+        <SplitText text="更快看清。谁更合适。" />
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
         <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-white/80 sm:text-lg sm:leading-[1.8]">
-          上传简历，和 AI
-          先聊几句。把面试链接发出去，让候选人开口面对面。亮点、风险、追问过程、回答表现，一条工作流里全程在场。
+          从岗位标准出发，AI 帮你筛简历、问重点、整理证据，再交给团队判断。筛选、AI
+          面试和真人复面，始终沿着同一条招聘链路。
         </p>
       </FadeContent>
 
@@ -74,7 +74,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             type="button"
             variant="outline"
           >
-            <span>开始简历筛选</span>
+            <span>开始筛选简历</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-[margin,max-width,opacity] duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
               <IconArrowRight aria-hidden="true" className="size-4" />
             </span>

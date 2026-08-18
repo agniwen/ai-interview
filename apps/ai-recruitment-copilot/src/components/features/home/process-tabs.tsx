@@ -27,34 +27,34 @@ interface Step {
 const steps: Step[] = [
   {
     Screen: JdSetupScreen,
-    body: "在工作台维护岗位描述、关键能力要求与面试官人设，作为后续筛选与面试的统一上下文。",
-    label: "上传 JD",
+    body: "整理职责、能力要求、筛选门槛与面试重点，建立整条招聘流程共用的判断基准。",
+    label: "设置岗位",
     number: "01",
-    title: "在工作台设定岗位语境",
+    title: "先把岗位讲清楚",
     value: "step-1",
   },
   {
     Screen: ChatScreen,
-    body: "上传一批 PDF 简历，AI 围绕岗位要求展开聊天式追问，输出每位候选人的亮点、风险与建议。",
+    body: "AI 对照岗位要求梳理经历、亮点与风险，并保留每一项判断对应的简历证据。",
     label: "简历筛选",
     number: "02",
-    title: "聊天式完成简历初筛",
+    title: "先看证据，再看结论",
     value: "step-2",
   },
   {
     Screen: InterviewScreen,
-    body: "向候选人发送语音面试链接，AI 按岗位语境进行实时追问，完整记录对话节奏与作答内容。",
-    label: "语音面试",
+    body: "候选人打开链接即可开始。AI 根据当下回答继续追问，完整记录过程与关键证据。",
+    label: "AI 面试",
     number: "03",
-    title: "发起实时语音模拟面试",
+    title: "顺着回答，继续问下去",
     value: "step-3",
   },
   {
     Screen: EvaluationScreen,
-    body: "面试结束后查看结构化评估、对话记录与时间线，与简历阶段的判断对照，做出最终决定。",
-    label: "查看评估",
+    body: "把简历、对话与结构化评估放在一起，决定进入真人复面、录用或结束流程。",
+    label: "团队决策",
     number: "04",
-    title: "查看完整评估与对话记录",
+    title: "把证据交给最终判断",
     value: "step-4",
   },
 ];
@@ -68,9 +68,9 @@ export function ProcessTabs() {
     <Section width="wide">
       <div className="max-w-3xl">
         <Eyebrow>How It Works</Eyebrow>
-        <SectionTitle>JD 进来。评估出去。中间四步，连得很顺。</SectionTitle>
+        <SectionTitle>从岗位开始。到决定结束。</SectionTitle>
         <SectionLead>
-          每一步都长在同一个产品里。候选人的上下文和团队的判断，不再各走各的。
+          同一份岗位语境，贯穿简历筛选、AI 面试和团队评审。信息不断线，判断有来处。
         </SectionLead>
       </div>
 

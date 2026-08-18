@@ -224,9 +224,9 @@ function ScoreVisual() {
   );
 }
 
-// 数据可控：隐私清单 + 勾选
+// 数据边界：权限与记录清单 + 勾选
 function PrivacyVisual() {
-  const items = ["仅用于本次评估", "不参与模型训练", "可随时清除原始数据"];
+  const items = ["工作区权限控制", "过程记录可追溯", "历史数据可管理"];
   return (
     <ul className="flex flex-col gap-1.5">
       {items.map((t) => (
@@ -260,48 +260,47 @@ interface BentoConfig extends Omit<BentoTileProps, "className"> {
 const tiles: BentoConfig[] = [
   {
     Icon: IconMessage2,
-    description:
-      "围绕岗位语境追问候选人亮点与风险，AI 持续根据回答继续深挖，而不是简单的关键词匹配。",
+    description: "对照岗位要求梳理候选人的经历、亮点与风险，并保留判断来自哪段简历。",
     span: "lg:col-span-2 lg:row-span-2",
-    title: "聊天式筛选",
+    title: "有依据的筛选",
     visual: <ChatBubblesVisual />,
   },
   {
     Icon: IconClipboardList,
-    description: "在工作台维护岗位、JD、面试官人设、面试问题，全局复用。",
+    description: "岗位要求、筛选重点、面试官设定与问题模板，一次配置，全程复用。",
     layout: "split",
     span: "lg:col-span-2",
-    title: "工作台配置",
+    title: "统一的岗位语境",
     visual: <WorkbenchVisual />,
   },
   {
     Icon: IconSparkles,
-    description: "AI 自动追问、记录节奏与停顿，沉淀完整对话上下文。",
+    description: "不照着题单机械提问。AI 会根据回答继续追问，把关键细节问清楚。",
     span: "lg:col-span-1",
-    title: "智能追问",
+    title: "会继续问的 AI",
     visual: <FollowUpVisual />,
   },
   {
     Icon: IconRadio,
-    description: "一键发起实时语音模拟面试，候选人通过链接即可参与。",
+    description: "链接发给候选人即可开始，过程实时记录，第一轮面试不再反复协调时间。",
     span: "lg:col-span-1",
-    title: "实时语音面试",
+    title: "随时可开始的 AI 面试",
     visual: <LiveVoiceVisual />,
   },
   {
     Icon: IconGauge,
-    description: "结构化展示候选人亮点、风险、推荐度，团队判断有共同依据。",
+    description: "把亮点、风险、回答证据和建议放在一起，团队看到的是同一份事实。",
     layout: "split",
     span: "lg:col-span-2",
-    title: "结构化评估",
+    title: "可复盘的评估",
     visual: <ScoreVisual />,
   },
   {
     Icon: IconShieldCheck,
-    description: "简历内容与面试录音仅用于本次评估，不会用于训练模型。",
+    description: "简历、面试记录与评估统一留在工作区，权限、过程和数据流转清晰可见。",
     layout: "split",
     span: "lg:col-span-2",
-    title: "数据可控",
+    title: "清晰的数据边界",
     visual: <PrivacyVisual />,
   },
 ];
@@ -339,8 +338,8 @@ export function CapabilityGrid() {
     <Section width="wide">
       <div className="max-w-3xl">
         <Eyebrow>Capabilities</Eyebrow>
-        <SectionTitle>招聘要用的，一件没少。</SectionTitle>
-        <SectionLead>从筛简历、问问题、判作答到下结论，AI 在每一环都把推理摊开给你看。</SectionLead>
+        <SectionTitle>招聘需要的，都在一条链路里。</SectionTitle>
+        <SectionLead>不是替你做决定。是把每个决定需要的证据，提前整理好。</SectionLead>
       </div>
 
       <CapabilityBento />

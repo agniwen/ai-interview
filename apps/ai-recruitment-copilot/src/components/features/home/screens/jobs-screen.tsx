@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -24,7 +25,7 @@ const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, lab
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      className={`flex flex-col gap-3 rounded-xl border border-border bg-background py-4 shadow-xs ${className ?? ""}`}
+      className={`flex flex-col gap-3 rounded-xl border border-border bg-background py-4 ${className ?? ""}`}
     >
       {children}
     </div>
@@ -220,11 +221,11 @@ function JobsToolbar() {
         <div className="relative min-w-[15rem]">
           <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent pl-9 pr-3 text-muted-foreground text-sm">
-            搜索岗位名称
+            搜索在招岗位名称或描述
           </div>
         </div>
-        <MultiSelectChip label="选择部门" />
-        <MultiSelectChip label="选择面试官" />
+        <MultiSelectChip label="全部部门" />
+        <MultiSelectChip label="全部面试官" />
       </div>
       <div className="ml-auto flex items-center gap-2">
         <button
@@ -241,62 +242,76 @@ function JobsToolbar() {
 
 // ─────────────── Table ───────────────
 interface JobRow {
-  name: string;
+  code: string;
+  createdAt: string;
   department: string;
   interviewers: string[];
-  formCount: number;
-  questionCount: number;
-  createdAt: string;
+  jd: string;
+  name: string;
+  resumeCount: number;
+  status: "草稿" | "已发布";
 }
 
 const JOBS: JobRow[] = [
   {
+    code: "FE-SENIOR-01",
     createdAt: "2025-05-12 14:32",
     department: "研发部",
-    formCount: 2,
     interviewers: ["郭靖", "李四"],
+    jd: "负责前端架构演进与性能体系建设",
     name: "资深前端工程师",
-    questionCount: 14,
+    resumeCount: 18,
+    status: "已发布",
   },
   {
+    code: "BE-ARCH-01",
     createdAt: "2025-05-08 10:18",
     department: "研发部",
-    formCount: 1,
     interviewers: ["李四"],
+    jd: "建设高可用服务与数据基础设施",
     name: "后端架构师",
-    questionCount: 18,
+    resumeCount: 12,
+    status: "已发布",
   },
   {
+    code: "PM-GROWTH-02",
     createdAt: "2025-05-05 16:45",
     department: "产品部",
-    formCount: 2,
     interviewers: ["王五", "钱六"],
+    jd: "负责增长策略、实验设计与商业化闭环",
     name: "增长产品经理",
-    questionCount: 12,
+    resumeCount: 9,
+    status: "草稿",
   },
   {
+    code: "DESIGN-UI-03",
     createdAt: "2025-05-02 11:24",
     department: "设计部",
-    formCount: 1,
     interviewers: ["赵六"],
+    jd: "负责核心产品体验与设计系统",
     name: "UI 设计师",
-    questionCount: 10,
+    resumeCount: 7,
+    status: "已发布",
   },
   {
+    code: "DATA-ANALYST-01",
     createdAt: "2025-04-28 09:18",
     department: "数据部",
-    formCount: 2,
     interviewers: ["孙七", "周八"],
+    jd: "搭建业务指标体系并支持决策分析",
     name: "数据分析师",
-    questionCount: 15,
+    resumeCount: 6,
+    status: "已发布",
   },
   {
+    code: "OPS-01",
     createdAt: "2025-04-25 13:05",
     department: "运营部",
-    formCount: 1,
     interviewers: ["周八"],
+    jd: "负责内容运营与用户增长",
     name: "运营专员",
-    questionCount: 9,
+    resumeCount: 3,
+    status: "草稿",
   },
 ];
 
@@ -306,10 +321,12 @@ function JobsTable() {
       <TableHeader>
         <TableRow>
           <TableHead>岗位名</TableHead>
+          <TableHead>状态</TableHead>
+          <TableHead>编码</TableHead>
           <TableHead>部门</TableHead>
           <TableHead>面试官</TableHead>
-          <TableHead>面试表单</TableHead>
-          <TableHead>面试题</TableHead>
+          <TableHead>简历关联</TableHead>
+          <TableHead>岗位 JD</TableHead>
           <TableHead>创建时间</TableHead>
           <TableHead aria-label="操作" className="text-right" />
         </TableRow>
@@ -328,23 +345,22 @@ function JobsTable() {
                 <span className="truncate font-medium">{j.name}</span>
               </div>
             </TableCell>
+            <TableCell>
+              <Badge variant={j.status === "已发布" ? "success" : "outline"}>{j.status}</Badge>
+            </TableCell>
+            <TableCell className="font-mono text-muted-foreground">{j.code}</TableCell>
             <TableCell className="text-foreground/80">{j.department}</TableCell>
             <TableCell aria-label={`面试官：${j.interviewers.join("、")}`}>
               <div className="flex items-center gap-2">
-                <div className="flex">
-                  {j.interviewers.slice(0, 3).map((name, idx) => (
-                    <span
-                      aria-hidden="true"
-                      className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-primary/15 to-primary/30 ring-2 ring-background first:ml-0"
-                      key={`${j.name}-${name}-${idx}`}
-                    />
-                  ))}
-                </div>
-                <span className="truncate text-foreground/80">{j.interviewers.join("、")}</span>
+                {j.interviewers.map((name) => (
+                  <Badge key={name} variant="outline">
+                    {name}
+                  </Badge>
+                ))}
               </div>
             </TableCell>
-            <TableCell className="text-muted-foreground tabular-nums">{j.formCount}</TableCell>
-            <TableCell className="text-muted-foreground tabular-nums">{j.questionCount}</TableCell>
+            <TableCell className="text-muted-foreground">关联了 {j.resumeCount} 个简历</TableCell>
+            <TableCell className="max-w-52 truncate text-muted-foreground">{j.jd}</TableCell>
             <TableCell className="text-muted-foreground tabular-nums">{j.createdAt}</TableCell>
             <TableCell>
               <div className="flex items-center justify-end gap-0.5">
@@ -379,7 +395,7 @@ function JobsContent() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
-        description="维护岗位 JD、面试官与题库，所有简历筛选和面试评估共用同一份岗位语境。"
+        description="维护在招岗位、JD 和要求；候选人、面试官和面试都会挂到对应岗位上。"
         title="岗位设置"
       />
       <ChartsRow />
