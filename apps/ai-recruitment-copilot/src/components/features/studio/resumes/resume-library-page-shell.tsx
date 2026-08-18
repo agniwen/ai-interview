@@ -100,9 +100,9 @@ export function ResumeLibraryPageShell({
         }}
         value={grid.filters.stage || "all"}
       >
-        <TabsList className="grid w-full  grid-cols-2 h-auto items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-wrap">
+        <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
           <TabsTrigger
-            className=" w-full flex-col items-start gap-0.5 px-3  sm:w-auto sm:px-8 py-1.5 h-12!"
+            className="h-12! w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
             value="all"
           >
             <span className="text-sm leading-tight">全部</span>
@@ -112,7 +112,7 @@ export function ResumeLibraryPageShell({
           </TabsTrigger>
           {VISIBLE_PIPELINE_STAGES.map((s) => (
             <TabsTrigger
-              className=" w-full flex-col items-start gap-0.5 px-3 sm:w-auto sm:px-8 py-1.5 h-12!"
+              className="h-12! w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
               key={s}
               value={s}
             >

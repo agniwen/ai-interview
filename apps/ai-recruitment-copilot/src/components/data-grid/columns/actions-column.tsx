@@ -59,6 +59,10 @@ const ACTION_COLUMN_WIDTH_BUFFER = 12;
 const MIN_ACTION_COLUMN_SIZE = 44;
 const HEADER_LABEL = "操作";
 
+/** Text-only table action that adopts the secondary button surface on hover. */
+export const TABLE_ACTION_BUTTON_CLASS =
+  "h-8 px-2.5 text-xs hover:border-border hover:bg-secondary/80 hover:text-secondary-foreground";
+
 function estimateActionLabelWidth(label: string) {
   let width = 0;
   for (const char of label) {
@@ -136,7 +140,7 @@ export function actionsColumn<TData extends RowData>(
             return (
               <Button
                 aria-label={action.label}
-                className="h-8 px-2.5 text-xs"
+                className={TABLE_ACTION_BUTTON_CLASS}
                 disabled={disabled}
                 key={action.label}
                 onClick={async () => {
@@ -156,7 +160,7 @@ export function actionsColumn<TData extends RowData>(
                 render={
                   <Button
                     aria-label="更多操作"
-                    className="h-8 px-2.5 text-xs"
+                    className={TABLE_ACTION_BUTTON_CLASS}
                     size="sm"
                     title="更多操作"
                     variant="text"

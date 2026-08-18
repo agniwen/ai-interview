@@ -72,7 +72,7 @@ export function ResumeLibraryFiltersBar({
         }}
         value={filters.stage || "all"}
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-wrap">
+        <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
           {PIPELINE_STAGE_TABS.map((tab) => (
             <TabsTrigger
               className="h-12! w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"

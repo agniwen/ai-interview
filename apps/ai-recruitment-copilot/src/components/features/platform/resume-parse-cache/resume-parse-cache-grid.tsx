@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { runAsyncAction } from "@/lib/client/async-control";
 import {
   ActionsColumnHeader,
+  TABLE_ACTION_BUTTON_CLASS,
   customColumn,
   DataGrid,
   dateColumn,
@@ -263,7 +264,7 @@ function DeleteCachePopover({
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
         render={
-          <Button className="h-8 px-2.5 text-xs" size="sm" type="button" variant="text">
+          <Button className={TABLE_ACTION_BUTTON_CLASS} size="sm" type="button" variant="text">
             删除
           </Button>
         }
@@ -434,7 +435,7 @@ export function ResumeParseCacheGrid({
         cell: (record) => (
           <div className="flex items-center justify-end gap-0.5">
             <Button
-              className="h-8 px-2.5 text-xs"
+              className={TABLE_ACTION_BUTTON_CLASS}
               onClick={() => setViewTarget(record)}
               size="sm"
               type="button"
