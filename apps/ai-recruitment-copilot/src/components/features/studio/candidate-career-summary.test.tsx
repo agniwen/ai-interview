@@ -137,6 +137,7 @@ describe("CandidateCareerSummary", () => {
     if (companySection) {
       companySection.scrollIntoView = scrollIntoView;
     }
+    expect(companySection?.className).toContain("scroll-mt-4");
     const workEntry = container.querySelector<HTMLButtonElement>(
       '[data-slot="candidate-career-summary"] button',
     );
