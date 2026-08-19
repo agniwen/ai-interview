@@ -101,7 +101,7 @@ export interface ExperienceItemProps {
 function ExperienceItem({ experience }: ExperienceItemProps) {
   return (
     <div
-      className="relative flex scroll-mt-4 flex-col gap-4 py-4"
+      className="relative flex scroll-mt-8 flex-col gap-4 py-4"
       data-company-name={experience.companyName}
       data-slot="work-experience-company"
     >
