@@ -132,6 +132,7 @@ const DUPLICATE_SCORE_THRESHOLD = 90;
 interface DuplicateMatchSummaryRow {
   level: ResumeSemanticDuplicateLevel;
   otherCreatedAt?: string | null;
+  otherCreatorImage?: string | null;
   otherCreatorName?: string | null;
   otherId: string;
   score: number;
@@ -195,6 +196,7 @@ export function aggregateDuplicateMatchSummaries(
       if (latestMatchedResume) {
         summary.latestMatchedResume = {
           createdAt: latestMatchedResume.otherCreatedAt,
+          creatorImage: latestMatchedResume.otherCreatorImage ?? null,
           creatorName: latestMatchedResume.otherCreatorName ?? null,
         };
       }
@@ -230,6 +232,7 @@ function toDuplicateMatchSummaryRow(
   return {
     level: row.level,
     otherCreatedAt: serializeDate(row.otherCreatedAt ?? null),
+    otherCreatorImage: row.otherCreatorImage,
     otherCreatorName: row.otherCreatorName,
     otherId: row.otherId,
     otherType: row.otherType,
@@ -304,6 +307,7 @@ export async function listActiveStudioDuplicateMatchSummaries(input: {
       .select({
         level: resumeDuplicateMatch.level,
         otherCreatedAt: duplicateInterview.createdAt,
+        otherCreatorImage: duplicateCreator.image,
         otherCreatorName: duplicateCreator.name,
         otherId: resumeDuplicateMatch.matchedSourceId,
         otherType: resumeDuplicateMatch.matchedSourceType,
@@ -332,6 +336,7 @@ export async function listActiveStudioDuplicateMatchSummaries(input: {
       .select({
         level: resumeDuplicateMatch.level,
         otherCreatedAt: duplicateInterview.createdAt,
+        otherCreatorImage: duplicateCreator.image,
         otherCreatorName: duplicateCreator.name,
         otherId: resumeDuplicateMatch.sourceId,
         otherType: resumeDuplicateMatch.sourceType,

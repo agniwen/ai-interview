@@ -5,6 +5,7 @@ export interface ResumeDuplicateMatchSummary {
   highestLevel: ResumeDuplicateMatchLevel | null;
   latestMatchedResume?: {
     createdAt: string;
+    creatorImage: string | null;
     creatorName: string | null;
   };
 }

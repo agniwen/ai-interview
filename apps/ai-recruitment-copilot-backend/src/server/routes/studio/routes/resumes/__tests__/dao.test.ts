@@ -373,6 +373,7 @@ describe("queryPaginatedResumeRecords", () => {
         highestLevel: "high",
         latestMatchedResume: {
           createdAt: NOW.toISOString(),
+          creatorImage: null,
           creatorName: "resume-dao-alt",
         },
       });
@@ -384,6 +385,7 @@ describe("queryPaginatedResumeRecords", () => {
         highestLevel: "high",
         latestMatchedResume: {
           createdAt: NOW.toISOString(),
+          creatorImage: null,
           creatorName: "resume-dao",
         },
       });
@@ -394,6 +396,7 @@ describe("queryPaginatedResumeRecords", () => {
         highestLevel: "high",
         latestMatchedResume: {
           createdAt: NOW.toISOString(),
+          creatorImage: null,
           creatorName: "resume-dao-alt",
         },
       });

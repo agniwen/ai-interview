@@ -235,6 +235,7 @@ describe("aggregateDuplicateMatchSummaries", () => {
       {
         level: "high",
         otherCreatedAt: "2026-08-18T04:20:00.000Z",
+        otherCreatorImage: "https://example.com/heye.png",
         otherCreatorName: "荷叶",
         otherId: "duplicate-90",
         score: 90,
@@ -255,6 +256,7 @@ describe("aggregateDuplicateMatchSummaries", () => {
       highestLevel: "high",
       latestMatchedResume: {
         createdAt: "2026-08-18T04:20:00.000Z",
+        creatorImage: "https://example.com/heye.png",
         creatorName: "荷叶",
       },
     });
@@ -293,6 +295,7 @@ describe("aggregateDuplicateMatchSummaries", () => {
       highestLevel: "high",
       latestMatchedResume: {
         createdAt: "2026-08-18T04:20:00.000Z",
+        creatorImage: null,
         creatorName: "达里尔",
       },
     });

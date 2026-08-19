@@ -163,6 +163,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
           highestLevel: "high",
           latestMatchedResume: {
             createdAt: "2026-08-18T04:20:00.000Z",
+            creatorImage: "https://example.com/heye.png",
             creatorName: "荷叶",
           },
         }}
@@ -171,8 +172,13 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
     roots.push(root);
 
-    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
-      "重复简历，荷叶于 26/08/18 12:20 创建",
+    const creator = document.querySelector<HTMLElement>('[data-slot="duplicate-match-creator"]');
+    expect(creator?.className).toContain("max-w-20");
+    expect(creator?.className).toContain("truncate");
+    expect(document.querySelector('[data-slot="avatar"]')?.classList).toContain("size-4");
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeNull();
+    expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
+      "荷叶 26/08/18 12:20 创建过了",
     );
   });
 
@@ -184,6 +190,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
           highestLevel: "high",
           latestMatchedResume: {
             createdAt: "2026-08-20T04:20:00.000Z",
+            creatorImage: null,
             creatorName: "达里尔",
           },
         }}
@@ -192,8 +199,8 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
     roots.push(root);
 
-    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
-      "重复简历 2 条，达里尔创建，晚于当前简历创建",
+    expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
+      "达里尔于 26/08/20 12:20 又创建了一份",
     );
   });
 
@@ -205,6 +212,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
           highestLevel: "high",
           latestMatchedResume: {
             createdAt: "2026-08-18T04:20:00.000Z",
+            creatorImage: null,
             creatorName: null,
           },
         }}
@@ -213,8 +221,8 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
     roots.push(root);
 
-    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
-      "重复简历，未知创建人于 26/08/18 12:20 创建",
+    expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
+      "未知创建人 26/08/18 12:20 创建过了",
     );
   });
 
