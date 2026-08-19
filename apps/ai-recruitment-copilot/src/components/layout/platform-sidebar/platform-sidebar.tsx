@@ -18,13 +18,15 @@ import {
   SidebarFooterSkeleton,
   SidebarSlotHydrationFallback,
 } from "@/components/layout/app-sidebar/sidebar-slot-skeleton";
+import { RecruitmentCopilotBrand } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 
 type PlatformSidebarProps = ComponentProps<typeof Sidebar>;
 
 export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader className="gap-3">
+      <SidebarHeader className="relative gap-3 overflow-x-clip">
+        <RecruitmentCopilotBrand />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
       <SidebarContent>
