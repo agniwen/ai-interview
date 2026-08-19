@@ -84,6 +84,28 @@ const defaultImportResumePoolDialogDependencies: ImportResumePoolDialogDependenc
   useWorkspaceSlug,
 };
 
+function getAvailableSourceJobDescriptionId(
+  item: ResumePoolListRecord | null,
+  options: { value: string }[],
+) {
+  const sourceId = item?.jobDescriptionId;
+  if (!sourceId) {
+    return "";
+  }
+  return options.some((option) => option.value === sourceId) ? sourceId : "";
+}
+
+function getImportDialogDescription(
+  item: ResumePoolListRecord | null,
+  isReimport: boolean,
+  candidateTitle: string,
+) {
+  if (!item) {
+    return;
+  }
+  return isReimport ? "已存在招聘记录，是否再次新建。" : candidateTitle;
+}
+
 export function ImportResumePoolDialog({
   dependencies = defaultImportResumePoolDialogDependencies,
   item,
@@ -104,9 +126,11 @@ export function ImportResumePoolDialog({
   const isReimport = Boolean(item?.importedResumeRecordId);
   const importedRecords = item?.importedRecords ?? [];
   const candidateTitle = item ? getCandidateTitle(item) : "";
+  const itemId = item?.id ?? null;
+  const sourceJobDescriptionId = getAvailableSourceJobDescriptionId(item, jobDescriptionOptions);
 
   useEffect(() => {
-    if (!item) {
+    if (!itemId) {
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setMode("bind");
       setJobDescriptionId("");
@@ -114,13 +138,10 @@ export function ImportResumePoolDialog({
       setDetailRecordId(null);
       return;
     }
-    const canUseSourceJd =
-      item.jobDescriptionId &&
-      jobDescriptionOptions.some((jd) => jd.value === item.jobDescriptionId);
     setMode("bind");
-    setJobDescriptionId(canUseSourceJd ? (item.jobDescriptionId ?? "") : "");
+    setJobDescriptionId(sourceJobDescriptionId);
     setDuplicates(null);
-  }, [item, jobDescriptionOptions]);
+  }, [itemId, sourceJobDescriptionId]);
 
   const mutation = useMutation({
     mutationFn: async (dedupPolicy: "check" | "force") => {
@@ -159,10 +180,7 @@ export function ImportResumePoolDialog({
 
   const bindInvalid = mode === "bind" && !jobDescriptionId;
   const { isPending } = mutation;
-  let dialogDescription: string | undefined;
-  if (item) {
-    dialogDescription = isReimport ? "已存在招聘记录，是否再次新建。" : candidateTitle;
-  }
+  const dialogDescription = getImportDialogDescription(item, isReimport, candidateTitle);
 
   return (
     <>

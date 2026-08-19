@@ -69,6 +69,62 @@ afterEach(() => {
 });
 
 describe("ImportResumePoolDialog", () => {
+  it("keeps the selected job after the dialog rerenders", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    const item: ResumePoolListRecord = {
+      ...importedItem,
+      id: "pool-item-new",
+      importedRecords: [],
+      importedResumeRecordId: null,
+      jobDescriptionId: null,
+    };
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ImportResumePoolDialog
+            dependencies={dependencies}
+            item={item}
+            onImported={vi.fn()}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const jobInput = document.querySelector<HTMLInputElement>("#resume-pool-import-jd");
+    expect(jobInput).not.toBeNull();
+    await act(async () => {
+      jobInput?.focus();
+      jobInput?.click();
+      jobInput?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+      await Promise.resolve();
+    });
+
+    const jobOption = document.querySelector<HTMLElement>('[data-slot="combobox-item"]');
+    expect(jobOption?.textContent).toContain("研发部 / 前端工程师");
+    await act(async () => {
+      jobOption?.click();
+      await Promise.resolve();
+    });
+
+    expect(jobInput?.value).toBe("研发部 / 前端工程师");
+    const confirmButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("确认新建"),
+    );
+    expect(confirmButton?.disabled).toBe(false);
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
   it("confirms and requests a new import for an imported resume", async () => {
     importResumePoolItemMock.mockResolvedValue({
       resumeRecordId: "resume-record-2",
