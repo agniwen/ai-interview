@@ -118,6 +118,7 @@ function createValidRawArtifact(engine: {
     requiredRelevantExperience: null,
     runId: "run-1",
     schemaVersion: 1 as const,
+    skillAssessments: [],
     skillExpectations: { auxiliary: [], core: [] },
     timeline: {
       employmentEpisodes: [],

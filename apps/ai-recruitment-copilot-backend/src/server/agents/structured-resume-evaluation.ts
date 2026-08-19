@@ -23,6 +23,7 @@ import type {
   StructuredResumeGateJudgment,
   StructuredResumeRuleJudgment,
 } from "@arc/shared/structured-resume-scoring";
+import type { StructuredResumeSkillAssessment } from "@arc/db-schema/structured-resume-evaluation";
 import {
   generateStructuredWithMastraAgent,
   structuredResumeAdjustmentAgent,
@@ -612,22 +613,28 @@ function deriveEducationLevelJudgment(
   };
 }
 
-function deriveSkillRuleJudgments(
+export function deriveStructuredSkillAssessments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
   gateOutput?: GateAgentOutput,
-): StructuredResumeRuleJudgment[] {
+): StructuredResumeSkillAssessment[] {
   const expectations = new Map<
     string,
     {
-      kind: "auxiliary" | "core";
-      sourceRef: { kind: string; path: string };
+      expectationType: "auxiliary" | "core";
+      normalizedSkill: string;
+      requirementGroupId: string;
+      satisfactionMode: "all" | "any";
+      sourceRef: StructuredResumeSkillAssessment["sourceRef"];
       sourceText: string;
     }
   >();
   for (const item of input.jobSnapshot.blueprint.coreSkills) {
     expectations.set(normalizedSkill(item.normalizedSkill), {
-      kind: "core",
+      expectationType: "core",
+      normalizedSkill: item.normalizedSkill,
+      requirementGroupId: item.requirementGroupId,
+      satisfactionMode: item.satisfactionMode,
       sourceRef: item.sourceRef,
       sourceText: item.sourceText,
     });
@@ -636,19 +643,14 @@ function deriveSkillRuleJudgments(
     const key = normalizedSkill(item.normalizedSkill);
     if (!expectations.has(key)) {
       expectations.set(key, {
-        kind: "auxiliary",
+        expectationType: "auxiliary",
+        normalizedSkill: item.normalizedSkill,
+        requirementGroupId: item.requirementGroupId,
+        satisfactionMode: item.satisfactionMode,
         sourceRef: item.sourceRef,
         sourceText: item.sourceText,
       });
     }
-  }
-  if (expectations.size === 0) {
-    return [
-      judgment("skill.missing_core", "not_applicable", "岗位蓝图未设置核心技能。"),
-      judgment("skill.missing_auxiliary", "not_applicable", "岗位蓝图未设置辅助技能。"),
-      judgment("skill.shallow", "not_applicable", "岗位蓝图未设置技能期望。"),
-      judgment("skill.no_related_skill", "not_applicable", "岗位蓝图未设置技能期望。"),
-    ];
   }
 
   const factBySkill = new Map<string, (typeof facts.skillFacts)[number]>();
@@ -670,7 +672,7 @@ function deriveSkillRuleJudgments(
     expectation,
     fact: (() => {
       if (
-        expectation.kind !== "core" ||
+        expectation.expectationType !== "core" ||
         expectation.sourceRef.kind !== "hard_gate" ||
         expectation.sourceRef.path !== "hardGates.requiredSkills"
       ) {
@@ -688,9 +690,11 @@ function deriveSkillRuleJudgments(
           status: "missing" as const,
         };
       }
-      let status: "applied" | "missing" | "shallow";
+      let status: StructuredResumeSkillAssessment["status"];
       if (gateJudgment.aiStatus === "failed") {
         status = "missing";
+      } else if (gateJudgment.evidence.length === 0) {
+        status = "insufficient_evidence";
       } else if (gateJudgment.aiStatus === "needs_verification") {
         status = "shallow";
       } else {
@@ -699,31 +703,102 @@ function deriveSkillRuleJudgments(
       return {
         evidence: gateJudgment.evidence,
         normalizedSkill: key,
-        reason: `沿用同一必备技能的门槛判断：${gateJudgment.reason}`,
+        reason:
+          status === "insufficient_evidence"
+            ? `硬性门槛判断为通过，但没有可审计的简历证据：${gateJudgment.reason}`
+            : `沿用同一必备技能的门槛判断：${gateJudgment.reason}`,
         status,
       };
     })(),
   }));
-  const unresolved = classified.some((item) => item.fact === undefined);
-  const unresolvedCore = classified.some(
-    (item) => item.expectation.kind === "core" && item.fact === undefined,
+  return classified.map(({ expectation, fact }) => ({
+    evidence: fact?.evidence ?? [],
+    expectationType: expectation.expectationType,
+    normalizedSkill: expectation.normalizedSkill,
+    reason: fact?.reason ?? "AI 未返回该岗位技能的有效判断。",
+    requirementGroupId: expectation.requirementGroupId,
+    satisfactionMode: expectation.satisfactionMode,
+    sourceRef: expectation.sourceRef,
+    sourceText: expectation.sourceText,
+    status: fact?.status ?? "insufficient_evidence",
+  }));
+}
+
+function deriveSkillRuleJudgments(
+  assessments: StructuredResumeSkillAssessment[],
+): StructuredResumeRuleJudgment[] {
+  if (assessments.length === 0) {
+    return [
+      judgment("skill.missing_core", "not_applicable", "岗位蓝图未设置核心技能。"),
+      judgment("skill.missing_auxiliary", "not_applicable", "岗位蓝图未设置辅助技能。"),
+      judgment("skill.shallow", "not_applicable", "岗位蓝图未设置技能期望。"),
+      judgment("skill.no_related_skill", "not_applicable", "岗位蓝图未设置技能期望。"),
+    ];
+  }
+  const grouped = new Map<string, StructuredResumeSkillAssessment[]>();
+  for (const assessment of assessments) {
+    const group = grouped.get(assessment.requirementGroupId) ?? [];
+    group.push(assessment);
+    grouped.set(assessment.requirementGroupId, group);
+  }
+  const effective = [...grouped.values()].map((group) => {
+    const [first] = group;
+    if (!first) {
+      throw new Error("岗位技能要求组不能为空");
+    }
+    if (first.satisfactionMode === "all") {
+      return {
+        expectationType: first.expectationType,
+        missing: group.filter((item) => item.status === "missing"),
+        shallow: group.filter((item) => item.status === "shallow"),
+        unresolved: group.some((item) => item.status === "insufficient_evidence"),
+      };
+    }
+    if (group.some((item) => item.status === "applied")) {
+      return {
+        expectationType: first.expectationType,
+        missing: [],
+        shallow: [],
+        unresolved: false,
+      };
+    }
+    const shallow = group.find((item) => item.status === "shallow");
+    if (shallow) {
+      return {
+        expectationType: first.expectationType,
+        missing: [],
+        shallow: [shallow],
+        unresolved: false,
+      };
+    }
+    const unresolved = group.some((item) => item.status === "insufficient_evidence");
+    return {
+      expectationType: first.expectationType,
+      missing: unresolved ? [] : [first],
+      shallow: [],
+      unresolved,
+    };
+  });
+  const unresolved = effective.some((group) => group.unresolved);
+  const unresolvedCore = effective.some(
+    (group) => group.expectationType === "core" && group.unresolved,
   );
-  const unresolvedAuxiliary = classified.some(
-    (item) => item.expectation.kind === "auxiliary" && item.fact === undefined,
+  const unresolvedAuxiliary = effective.some(
+    (group) => group.expectationType === "auxiliary" && group.unresolved,
   );
-  const missingCore = classified.filter(
-    (item) => item.expectation.kind === "core" && item.fact?.status === "missing",
+  const missingCore = effective.flatMap((group) =>
+    group.expectationType === "core" ? group.missing : [],
   );
-  const missingAuxiliary = classified.filter(
-    (item) => item.expectation.kind === "auxiliary" && item.fact?.status === "missing",
+  const missingAuxiliary = effective.flatMap((group) =>
+    group.expectationType === "auxiliary" ? group.missing : [],
   );
-  const shallow = classified.filter((item) => item.fact?.status === "shallow");
-  const hasRelatedEvidence = classified.some(
-    (item) => item.fact?.status === "applied" || item.fact?.status === "shallow",
+  const shallow = effective.flatMap((group) => group.shallow);
+  const hasRelatedEvidence = assessments.some(
+    (item) => item.status === "applied" || item.status === "shallow",
   );
   const ruleFromCount = (
     ruleId: "skill.missing_auxiliary" | "skill.missing_core" | "skill.shallow",
-    items: typeof classified,
+    items: StructuredResumeSkillAssessment[],
     applicable: boolean,
     hasUnresolvedFacts: boolean,
   ) => {
@@ -732,8 +807,8 @@ function deriveSkillRuleJudgments(
     }
     if (items.length > 0) {
       return {
-        evidence: items.flatMap((item) => item.fact?.evidence ?? []),
-        reason: `按去重后的岗位技能逐项归一化，共命中 ${items.length} 项。`,
+        evidence: items.flatMap((item) => item.evidence),
+        reason: `按岗位技能要求组归一化，共命中 ${items.length} 个扣分单位；任一满足组最多计 1 个单位。`,
         ruleId,
         status: "matched" as const,
         units: items.length,
@@ -759,7 +834,7 @@ function deriveSkillRuleJudgments(
     );
   } else if (!unresolved) {
     noRelatedSkill = {
-      evidence: classified.flatMap((item) => item.fact?.evidence ?? []),
+      evidence: assessments.flatMap((item) => item.evidence),
       reason: "全部去重后的岗位技能均为 missing。",
       ruleId: "skill.no_related_skill",
       status: "matched",
@@ -769,13 +844,13 @@ function deriveSkillRuleJudgments(
     ruleFromCount(
       "skill.missing_core",
       missingCore,
-      classified.some((item) => item.expectation.kind === "core"),
+      assessments.some((item) => item.expectationType === "core"),
       unresolvedCore,
     ),
     ruleFromCount(
       "skill.missing_auxiliary",
       missingAuxiliary,
-      classified.some((item) => item.expectation.kind === "auxiliary"),
+      assessments.some((item) => item.expectationType === "auxiliary"),
       unresolvedAuxiliary,
     ),
     ruleFromCount("skill.shallow", shallow, true, unresolved),
@@ -996,6 +1071,7 @@ export function deriveStructuredRuleJudgments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
   gateOutput?: GateAgentOutput,
+  skillAssessments = deriveStructuredSkillAssessments(input, facts, gateOutput),
 ): StructuredRuleJudgments {
   const judgments: StructuredRuleJudgments = {
     educationBackground: [],
@@ -1065,7 +1141,7 @@ export function deriveStructuredRuleJudgments(
     }
     judgments[dimension].push(normalized);
   }
-  judgments.skillMatch.push(...deriveSkillRuleJudgments(input, facts, gateOutput));
+  judgments.skillMatch.push(...deriveSkillRuleJudgments(skillAssessments));
 
   judgments.experienceRelevance.push(
     deriveMissingExperienceYearsJudgment(input, facts, gateOutput),
@@ -1453,10 +1529,16 @@ export function computeStructuredResumeCalculation(input: {
         }
       : dimensionOutput;
   const gateJudgments = buildGateJudgments(workflowInput, gateOutput);
+  const skillAssessments = deriveStructuredSkillAssessments(
+    workflowInput,
+    normalizedDimensionOutput,
+    gateOutput,
+  );
   const dimensionRuleJudgments = deriveStructuredRuleJudgments(
     workflowInput,
     normalizedDimensionOutput,
     gateOutput,
+    skillAssessments,
   );
   const adjustments = buildAdjustmentMatches(workflowInput, adjustmentOutput);
   const calculation = computeStructuredResumeEvaluation({
@@ -1466,7 +1548,7 @@ export function computeStructuredResumeCalculation(input: {
     gateJudgments,
     weights: workflowInput.jobSnapshot.publishedConfig.weights,
   });
-  return { calculation, dimensionRuleJudgments, normalizedDimensionOutput };
+  return { calculation, dimensionRuleJudgments, normalizedDimensionOutput, skillAssessments };
 }
 
 function isStructuredNarrativeFactuallyConsistent(
@@ -1636,6 +1718,7 @@ export function assembleStructuredResumeEvaluation(input: {
       : null,
     runId: workflowInput.resumeInput.runId,
     schemaVersion: 1,
+    skillAssessments: calculationResult.skillAssessments,
     skillExpectations: {
       auxiliary: workflowInput.jobSnapshot.blueprint.auxiliarySkills.map(
         (skill) => skill.normalizedSkill,

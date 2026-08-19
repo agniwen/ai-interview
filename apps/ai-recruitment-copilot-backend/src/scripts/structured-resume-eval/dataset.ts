@@ -262,6 +262,7 @@ function artifactEvidence(
       artifact.dimensions[dimension].ruleJudgments.flatMap((item) => item.evidence),
     ),
     ...artifact.adjustments.matches.flatMap((item) => item.evidence),
+    ...artifact.skillAssessments.flatMap((item) => item.evidence),
     ...artifact.timeline.employmentEpisodes.flatMap((item) => item.evidence),
   ];
 }

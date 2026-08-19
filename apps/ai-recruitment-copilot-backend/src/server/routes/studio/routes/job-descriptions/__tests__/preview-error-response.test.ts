@@ -61,6 +61,9 @@ const ruleDraft = {
   },
   educationExpectation: null,
   requiredRelevantExperience: null,
+  skillRequirementGroups: [
+    { expectationType: "core" as const, satisfactionMode: "all" as const, skills: ["React"] },
+  ],
 };
 
 const previewResult = {

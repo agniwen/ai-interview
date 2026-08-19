@@ -95,10 +95,13 @@ describe("generateEvaluationBlueprintCandidate", () => {
       prompt.includes("提取经验、项目、潜力与稳定性评分依据"),
     );
 
-    expect(JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION).toBe("structured-job-blueprint-v9");
+    expect(JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION).toBe("structured-job-blueprint-v10");
     expect(skillPrompt).toContain("岗位职责、经验、项目、管理行为、业务成果和软能力不得作为技能");
     expect(skillPrompt).toContain("核心技能最多 8 项，辅助技能最多 8 项");
     expect(skillPrompt).toContain("优先条件或加分项下的内容不得进入技能");
+    expect(skillPrompt).toContain("严格服从原文，不得改写关系");
+    expect(skillPrompt).toContain("互为替代、属于同类方案且掌握任意一种即可");
+    expect(skillPrompt).toContain("需要共同使用、能力互补或分别支撑不同职责");
     expect(experiencePrompt).toContain("优先条件或加分项下的内容不得进入基础评分依据");
   });
 
@@ -109,7 +112,14 @@ describe("generateEvaluationBlueprintCandidate", () => {
         return Promise.resolve({
           object: {
             auxiliarySkills: [],
-            coreSkills: [{ normalizedSkill: "React", sourceText: "精通 React" }],
+            coreSkills: [
+              {
+                normalizedSkill: "React",
+                requirementGroup: "react",
+                satisfactionMode: "all",
+                sourceText: "精通 React",
+              },
+            ],
             educationExpectation: null,
           },
           text: "",

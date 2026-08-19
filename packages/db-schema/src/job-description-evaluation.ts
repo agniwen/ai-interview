@@ -40,9 +40,21 @@ export const atomicGateRequirementSchema = sourceBackedExpectationSchema
   })
   .strict();
 
+export const jobSkillSatisfactionModeSchema = z.enum(["all", "any"]);
+
 export const jobSkillExpectationSchema = sourceBackedExpectationSchema
   .extend({
     normalizedSkill: z.string().trim().min(1),
+    requirementGroupId: z.string().trim().min(1),
+    satisfactionMode: jobSkillSatisfactionModeSchema,
+  })
+  .strict();
+
+export const jobSkillRequirementGroupDraftSchema = z
+  .object({
+    expectationType: z.enum(["auxiliary", "core"]),
+    satisfactionMode: jobSkillSatisfactionModeSchema,
+    skills: z.array(z.string().trim().min(1).max(200)).min(1).max(50),
   })
   .strict();
 
@@ -121,6 +133,7 @@ export const jobEvaluationRuleDraftSchema = z
       })
       .strict()
       .nullable(),
+    skillRequirementGroups: z.array(jobSkillRequirementGroupDraftSchema).max(100),
   })
   .strict()
   .superRefine((draft, context) => {
@@ -131,6 +144,61 @@ export const jobEvaluationRuleDraftSchema = z
           code: "custom",
           message: "同一技能不能同时配置为核心技能和辅助技能",
           path: ["auxiliarySkills", index],
+        });
+      }
+    }
+    const expectedSkills = new Map<
+      string,
+      { expectationType: "auxiliary" | "core"; skill: string }
+    >();
+    for (const skill of draft.coreSkills) {
+      expectedSkills.set(skill.normalize("NFKC").toLowerCase(), {
+        expectationType: "core",
+        skill,
+      });
+    }
+    for (const skill of draft.auxiliarySkills) {
+      expectedSkills.set(skill.normalize("NFKC").toLowerCase(), {
+        expectationType: "auxiliary",
+        skill,
+      });
+    }
+    const groupedSkills = new Set<string>();
+    for (const [groupIndex, group] of draft.skillRequirementGroups.entries()) {
+      if (group.satisfactionMode === "any" && group.skills.length < 2) {
+        context.addIssue({
+          code: "custom",
+          message: "任一满足的技能要求组至少需要两个可替代技能",
+          path: ["skillRequirementGroups", groupIndex, "skills"],
+        });
+      }
+      for (const [skillIndex, skill] of group.skills.entries()) {
+        const key = skill.normalize("NFKC").toLowerCase();
+        const expected = expectedSkills.get(key);
+        if (!expected || expected.expectationType !== group.expectationType) {
+          context.addIssue({
+            code: "custom",
+            message: "技能要求组只能引用同类型的岗位技能",
+            path: ["skillRequirementGroups", groupIndex, "skills", skillIndex],
+          });
+          continue;
+        }
+        if (groupedSkills.has(key)) {
+          context.addIssue({
+            code: "custom",
+            message: "每个岗位技能必须且只能属于一个技能要求组",
+            path: ["skillRequirementGroups", groupIndex, "skills", skillIndex],
+          });
+        }
+        groupedSkills.add(key);
+      }
+    }
+    for (const [key, expected] of expectedSkills) {
+      if (!groupedSkills.has(key)) {
+        context.addIssue({
+          code: "custom",
+          message: `岗位技能“${expected.skill}”缺少技能要求组`,
+          path: ["skillRequirementGroups"],
         });
       }
     }
@@ -195,6 +263,44 @@ export const jobEvaluationBlueprintSchema = z
         });
       }
     }
+    const skillGroups = new Map<
+      string,
+      { count: number; expectationType: "auxiliary" | "core"; satisfactionMode: "all" | "any" }
+    >();
+    for (const [expectationType, skills] of [
+      ["core", blueprint.coreSkills],
+      ["auxiliary", blueprint.auxiliarySkills],
+    ] as const) {
+      for (const skill of skills) {
+        const group = skillGroups.get(skill.requirementGroupId);
+        if (
+          group &&
+          (group.expectationType !== expectationType ||
+            group.satisfactionMode !== skill.satisfactionMode)
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: "同一技能要求组的技能类型和满足方式必须一致",
+            path: [`${expectationType}Skills`],
+          });
+          continue;
+        }
+        skillGroups.set(skill.requirementGroupId, {
+          count: (group?.count ?? 0) + 1,
+          expectationType,
+          satisfactionMode: skill.satisfactionMode,
+        });
+      }
+    }
+    for (const [groupId, group] of skillGroups) {
+      if (group.satisfactionMode === "any" && group.count < 2) {
+        context.addIssue({
+          code: "custom",
+          message: "任一满足的技能要求组至少需要两个可替代技能",
+          path: [group.expectationType === "core" ? "coreSkills" : "auxiliarySkills", groupId],
+        });
+      }
+    }
   });
 
 export type JobEvaluationMode = z.infer<typeof jobEvaluationModeSchema>;
@@ -208,6 +314,24 @@ export type RelevantExperienceScope = z.infer<typeof relevantExperienceScopeSche
 export function toJobEvaluationRuleDraft(
   blueprint: JobEvaluationBlueprint,
 ): JobEvaluationRuleDraft {
+  const skillRequirementGroups = new Map<
+    string,
+    JobEvaluationRuleDraft["skillRequirementGroups"][number]
+  >();
+  for (const [expectationType, skills] of [
+    ["core", blueprint.coreSkills],
+    ["auxiliary", blueprint.auxiliarySkills],
+  ] as const) {
+    for (const skill of skills) {
+      const group = skillRequirementGroups.get(skill.requirementGroupId) ?? {
+        expectationType,
+        satisfactionMode: skill.satisfactionMode,
+        skills: [],
+      };
+      group.skills.push(skill.normalizedSkill);
+      skillRequirementGroups.set(skill.requirementGroupId, group);
+    }
+  }
   return {
     auxiliarySkills: blueprint.auxiliarySkills.map((skill) => skill.normalizedSkill),
     coreSkills: blueprint.coreSkills.map((skill) => skill.normalizedSkill),
@@ -231,5 +355,6 @@ export function toJobEvaluationRuleDraft(
           years: blueprint.requiredRelevantExperience.years,
         }
       : null,
+    skillRequirementGroups: [...skillRequirementGroups.values()],
   };
 }

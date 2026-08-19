@@ -71,6 +71,26 @@ function serializeList(label: string, values: string[]): string[] {
   return [label, ...values.map((value) => `- ${value}`)];
 }
 
+function serializeSkillGroups(
+  label: string,
+  expectationType: "auxiliary" | "core",
+  ruleDraft: JobEvaluationRuleDraft,
+): string[] {
+  const groups = ruleDraft.skillRequirementGroups.filter(
+    (group) => group.expectationType === expectationType,
+  );
+  return [
+    label,
+    ...groups.map((group) => {
+      if (group.skills.length === 1) {
+        return `- ${group.skills[0]}`;
+      }
+      const modeLabel = group.satisfactionMode === "any" ? "任一掌握" : "全部掌握";
+      return `- ${modeLabel}：${group.skills.join("、")}`;
+    }),
+  ];
+}
+
 function serializeDeductionRule(
   ruleId: StructuredResumeRuleId,
   config: JobDescriptionDeductionRules[StructuredResumeRuleId],
@@ -98,8 +118,8 @@ export function serializeEvaluationRules({
     }
     lines.push(`【${DIMENSION_LABELS[dimension]}】`);
     if (dimension === "skillMatch") {
-      lines.push(...serializeList("核心技能：", ruleDraft.coreSkills));
-      lines.push(...serializeList("辅助技能：", ruleDraft.auxiliarySkills));
+      lines.push(...serializeSkillGroups("核心技能：", "core", ruleDraft));
+      lines.push(...serializeSkillGroups("辅助技能：", "auxiliary", ruleDraft));
     }
     if (dimension === "experienceRelevance") {
       lines.push(`相关经验要求：${experienceValue(ruleDraft.requiredRelevantExperience)}`);

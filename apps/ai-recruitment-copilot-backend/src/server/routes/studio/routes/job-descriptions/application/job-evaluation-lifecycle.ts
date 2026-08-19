@@ -28,6 +28,7 @@ import {
   compileEvaluationBlueprint,
   generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
+  stableSkillRequirementGroupId,
 } from "../utils/evaluation-blueprint-compiler";
 import type { JobEvaluationRuleDraftProgress } from "../utils/evaluation-blueprint-compiler";
 
@@ -205,16 +206,40 @@ export function applyManualRuleDraft(
     ]),
   ) as JobEvaluationBlueprint["dimensionExpectations"];
   const experienceRequirements = applyManualExperienceRequirement(blueprint, draft);
+  const skillGroupBySkill = new Map<
+    string,
+    { requirementGroupId: string; satisfactionMode: "all" | "any" }
+  >();
+  for (const group of draft.skillRequirementGroups) {
+    const requirementGroupId = stableSkillRequirementGroupId(
+      group.expectationType,
+      group.satisfactionMode,
+      group.skills,
+    );
+    for (const skill of group.skills) {
+      skillGroupBySkill.set(skill.normalize("NFKC").toLowerCase(), {
+        requirementGroupId,
+        satisfactionMode: group.satisfactionMode,
+      });
+    }
+  }
+  const manualSkill = (skill: string, index: number, expectationType: "auxiliary" | "core") => {
+    const group = skillGroupBySkill.get(skill.normalize("NFKC").toLowerCase());
+    if (!group) {
+      throw new Error(`岗位技能“${skill}”缺少技能要求组`);
+    }
+    return {
+      normalizedSkill: skill,
+      ...group,
+      ...manualSource(`${expectationType}Skills.${index}`, skill),
+    };
+  };
   return jobEvaluationBlueprintSchema.parse({
     ...blueprint,
-    auxiliarySkills: draft.auxiliarySkills.map((skill, index) => ({
-      normalizedSkill: skill,
-      ...manualSource(`auxiliarySkills.${index}`, skill),
-    })),
-    coreSkills: draft.coreSkills.map((skill, index) => ({
-      normalizedSkill: skill,
-      ...manualSource(`coreSkills.${index}`, skill),
-    })),
+    auxiliarySkills: draft.auxiliarySkills.map((skill, index) =>
+      manualSkill(skill, index, "auxiliary"),
+    ),
+    coreSkills: draft.coreSkills.map((skill, index) => manualSkill(skill, index, "core")),
     dimensionExpectations,
     educationExpectation: draft.educationExpectation
       ? {

@@ -126,6 +126,9 @@ describe("job evaluation lifecycle", () => {
         },
         educationExpectation: null,
         requiredRelevantExperience: null,
+        skillRequirementGroups: [
+          { expectationType: "core", satisfactionMode: "all", skills: ["React"] },
+        ],
       },
     });
 
@@ -185,6 +188,7 @@ describe("job evaluation lifecycle", () => {
           scopeDescription: "前端开发",
           years: 6,
         },
+        skillRequirementGroups: [],
       },
     });
 

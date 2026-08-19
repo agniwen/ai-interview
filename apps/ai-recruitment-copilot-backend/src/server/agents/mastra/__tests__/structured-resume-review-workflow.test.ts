@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import type { JsonObject } from "@arc/db-schema/json";
+import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,
@@ -247,6 +248,8 @@ describe("structured resume workflow contracts", () => {
           coreSkills: [
             {
               normalizedSkill: "TypeScript",
+              requirementGroupId: "skill-group-typescript",
+              satisfactionMode: "all" as const,
               sourceRef: { kind: "job_description" as const, path: "description" },
               sourceText: "熟练掌握 TypeScript",
             },
@@ -499,6 +502,8 @@ describe("structured resume workflow contracts", () => {
           auxiliarySkills: [
             {
               normalizedSkill: "Redis",
+              requirementGroupId: "skill-group-redis-auxiliary",
+              satisfactionMode: "all" as const,
               sourceRef: { kind: "job_description" as const, path: "description" },
               sourceText: "熟悉 Redis 优先",
             },
@@ -506,11 +511,15 @@ describe("structured resume workflow contracts", () => {
           coreSkills: [
             {
               normalizedSkill: "TypeScript",
+              requirementGroupId: "skill-group-typescript",
+              satisfactionMode: "all" as const,
               sourceRef: { kind: "job_description" as const, path: "description" },
               sourceText: "熟练掌握 TypeScript",
             },
             {
               normalizedSkill: "Redis",
+              requirementGroupId: "skill-group-redis-core",
+              satisfactionMode: "all" as const,
               sourceRef: { kind: "hard_gate" as const, path: "hardGates.requiredSkills" },
               sourceText: "必须掌握 Redis",
             },
@@ -555,6 +564,60 @@ describe("structured resume workflow contracts", () => {
     });
   });
 
+  it("counts an any-satisfaction skill group once and waives missing alternatives when one is applied", () => {
+    const anyGroupSkills = ["React", "Vue"].map((normalizedSkill) => ({
+      normalizedSkill,
+      requirementGroupId: "skill-group-frontend-framework",
+      satisfactionMode: "any" as const,
+      sourceRef: { kind: "job_description" as const, path: "description" },
+      sourceText: "熟悉 React 或 Vue 任一框架",
+    }));
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: { ...blueprint, coreSkills: anyGroupSkills },
+      },
+    };
+    const facts = {
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [
+        {
+          evidence: [],
+          normalizedSkill: "React",
+          reason: "简历未体现 React",
+          status: "missing" as const,
+        },
+        {
+          evidence: [{ quote: "Vue", source: "resume_text" as const }],
+          normalizedSkill: "Vue",
+          reason: "项目中使用 Vue",
+          status: "applied" as const,
+        },
+      ],
+    };
+
+    const satisfied = deriveStructuredRuleJudgments(input, facts).skillMatch;
+    expect(satisfied.find((item) => item.ruleId === "skill.missing_core")).toMatchObject({
+      status: "not_matched",
+    });
+
+    const missing = deriveStructuredRuleJudgments(input, {
+      ...facts,
+      skillFacts: facts.skillFacts.map((fact) => ({
+        ...fact,
+        evidence: [],
+        status: "missing" as const,
+      })),
+    }).skillMatch;
+    expect(missing.find((item) => item.ruleId === "skill.missing_core")).toMatchObject({
+      status: "matched",
+      units: 1,
+    });
+  });
+
   it("uses required-skill gate judgments as the authoritative facts for gate-derived skills", () => {
     const tsGate = {
       category: "required_skills" as const,
@@ -586,16 +649,22 @@ describe("structured resume workflow contracts", () => {
           coreSkills: [
             {
               normalizedSkill: "TS/JS",
+              requirementGroupId: "skill-group-ts-js",
+              satisfactionMode: "all" as const,
               sourceRef: tsGate.sourceRef,
               sourceText: tsGate.sourceText,
             },
             {
               normalizedSkill: "H5 互动",
+              requirementGroupId: "skill-group-h5",
+              satisfactionMode: "all" as const,
               sourceRef: h5Gate.sourceRef,
               sourceText: h5Gate.sourceText,
             },
             {
               normalizedSkill: "Node.js",
+              requirementGroupId: "skill-group-node",
+              satisfactionMode: "all" as const,
               sourceRef: nodeGate.sourceRef,
               sourceText: nodeGate.sourceText,
             },
@@ -603,11 +672,15 @@ describe("structured resume workflow contracts", () => {
           hardGateRequirements: [tsGate, h5Gate, nodeGate],
         },
       },
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeText: "React、H5、Node.js",
+      },
     };
 
-    const judgments = deriveStructuredRuleJudgments(
-      input,
-      {
+    const calculationResult = computeStructuredResumeCalculation({
+      adjustmentOutput: { judgments: [] },
+      dimensionOutput: {
         employmentEpisodes: [],
         projects: [],
         ruleJudgments: [],
@@ -632,7 +705,7 @@ describe("structured resume workflow contracts", () => {
           },
         ],
       },
-      {
+      gateOutput: {
         judgments: [
           {
             aiStatus: "failed",
@@ -648,7 +721,9 @@ describe("structured resume workflow contracts", () => {
           },
         ],
       },
-    ).skillMatch;
+      workflowInput: input,
+    });
+    const judgments = calculationResult.dimensionRuleJudgments.skillMatch;
 
     expect(judgments.find((item) => item.ruleId === "skill.missing_core")).toMatchObject({
       status: "matched",
@@ -658,6 +733,53 @@ describe("structured resume workflow contracts", () => {
       status: "matched",
       units: 1,
     });
+    expect(calculationResult.skillAssessments).toEqual([
+      {
+        evidence: [{ quote: "React", source: "resume_text" }],
+        expectationType: "core",
+        normalizedSkill: "TS/JS",
+        reason: "沿用同一必备技能的门槛判断：未体现 TS/JS",
+        requirementGroupId: "skill-group-ts-js",
+        satisfactionMode: "all",
+        sourceRef: tsGate.sourceRef,
+        sourceText: tsGate.sourceText,
+        status: "missing",
+      },
+      {
+        evidence: [{ quote: "H5", source: "resume_text" }],
+        expectationType: "core",
+        normalizedSkill: "H5 互动",
+        reason: "沿用同一必备技能的门槛判断：只有 H5，未体现互动经验",
+        requirementGroupId: "skill-group-h5",
+        satisfactionMode: "all",
+        sourceRef: h5Gate.sourceRef,
+        sourceText: h5Gate.sourceText,
+        status: "shallow",
+      },
+      {
+        evidence: [],
+        expectationType: "core",
+        normalizedSkill: "Node.js",
+        reason: "硬性门槛模型未返回该必备技能，按未命中处理。",
+        requirementGroupId: "skill-group-node",
+        satisfactionMode: "all",
+        sourceRef: nodeGate.sourceRef,
+        sourceText: nodeGate.sourceText,
+        status: "missing",
+      },
+    ]);
+    const artifact = assembleStructuredResumeEvaluation({
+      calculationResult,
+      narrative: narrativeOutput,
+      workflowInput: input,
+    });
+    expect(artifact.skillAssessments).toEqual(calculationResult.skillAssessments);
+    expect(
+      structuredResumeEvaluationV1Schema.safeParse({
+        ...artifact,
+        skillAssessments: artifact.skillAssessments.slice(1),
+      }).success,
+    ).toBe(false);
   });
 
   it("does not treat team sizes above an explicit range as satisfying that gate", () => {

@@ -20,20 +20,28 @@ function input(): CompileEvaluationBlueprintInput {
       auxiliarySkills: [
         {
           normalizedSkill: "Redis",
+          requirementGroup: "redis",
+          satisfactionMode: "all",
           sourceText: "熟悉 Redis 优先",
         },
       ],
       coreSkills: [
         {
           normalizedSkill: "React",
+          requirementGroup: "react",
+          satisfactionMode: "all",
           sourceText: "必须熟练掌握 React",
         },
         {
           normalizedSkill: "TypeScript",
+          requirementGroup: "typescript",
+          satisfactionMode: "all",
           sourceText: "必须熟练掌握 TypeScript",
         },
         {
           normalizedSkill: "PromptOnly",
+          requirementGroup: "prompt-only",
+          satisfactionMode: "all",
           sourceText: "必须掌握 PromptOnly",
         },
       ],
@@ -120,6 +128,33 @@ describe("compileEvaluationBlueprint", () => {
         points: 5,
         sourceText: "有招聘 SaaS 经验",
       },
+    ]);
+  });
+
+  it("freezes model-classified any-satisfaction skills into one stable requirement group", () => {
+    const grouped = input();
+    grouped.description = "熟悉 React 或 Vue 任一框架。";
+    grouped.modelOutput.coreSkills = [];
+    grouped.modelOutput.dimensionExpectations.projectMatch = [];
+    grouped.modelOutput.auxiliarySkills = ["React", "Vue"].map((normalizedSkill) => ({
+      normalizedSkill,
+      requirementGroup: "frontend-framework",
+      satisfactionMode: "any" as const,
+      sourceText: "熟悉 React 或 Vue 任一框架",
+    }));
+
+    const blueprint = compileEvaluationBlueprint(grouped, {
+      generatedAt: "2026-07-29T10:00:00.000Z",
+      modelId: "test-model",
+      promptVersion: "v10",
+    });
+
+    expect(new Set(blueprint.auxiliarySkills.map((skill) => skill.requirementGroupId)).size).toBe(
+      1,
+    );
+    expect(blueprint.auxiliarySkills.map((skill) => skill.satisfactionMode)).toEqual([
+      "any",
+      "any",
     ]);
   });
 

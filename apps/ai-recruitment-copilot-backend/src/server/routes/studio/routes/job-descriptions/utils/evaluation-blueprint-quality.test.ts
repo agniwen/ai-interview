@@ -37,6 +37,15 @@ function compile(input: CompileEvaluationBlueprintInput) {
   });
 }
 
+function skillCandidate(normalizedSkill: string, sourceText: string) {
+  return {
+    normalizedSkill,
+    requirementGroup: normalizedSkill,
+    satisfactionMode: "all" as const,
+    sourceText,
+  };
+}
+
 describe("evaluation blueprint scoring quality", () => {
   it("keeps experience, project, soft capabilities, and priority items out of skill deductions", () => {
     const skillRequirement =
@@ -56,32 +65,18 @@ describe("evaluation blueprint scoring quality", () => {
     );
     input.modelOutput.coreSkills = [
       ...["TypeScript/JavaScript", "Vue3/React", "前端工程化"].map((normalizedSkill) => ({
-        normalizedSkill,
-        sourceText: skillRequirement,
+        ...skillCandidate(normalizedSkill, skillRequirement),
       })),
-      {
-        normalizedSkill: "需求拆解",
-        sourceText: "能独立拆解需求、把控项目、攻坚技术难点",
-      },
-      {
-        normalizedSkill: "视频内容平台增长",
-        sourceText: "具备视频内容平台增长、商业化项目落地经验",
-      },
-      { normalizedSkill: "团队管理", sourceText: "3年以上团队管理经验" },
-      {
-        normalizedSkill: "跨部门协同",
-        sourceText: "结果导向，跨部门协同能力强，兼顾业务落地与技术体系建设",
-      },
+      skillCandidate("需求拆解", "能独立拆解需求、把控项目、攻坚技术难点"),
+      skillCandidate("视频内容平台增长", "具备视频内容平台增长、商业化项目落地经验"),
+      skillCandidate("团队管理", "3年以上团队管理经验"),
+      skillCandidate("跨部门协同", "结果导向，跨部门协同能力强，兼顾业务落地与技术体系建设"),
     ];
     input.modelOutput.auxiliarySkills = [
       ...["视频流媒体", "H5互动", "性能监控体系"].map((normalizedSkill) => ({
-        normalizedSkill,
-        sourceText: skillRequirement,
+        ...skillCandidate(normalizedSkill, skillRequirement),
       })),
-      {
-        normalizedSkill: "头部内容平台从业经验",
-        sourceText: "字节、芒果、B站、快手等头部内容平台从业经验",
-      },
+      skillCandidate("头部内容平台从业经验", "字节、芒果、B站、快手等头部内容平台从业经验"),
     ];
     input.modelOutput.requiredRelevantExperiences = [
       {
@@ -153,14 +148,12 @@ describe("evaluation blueprint scoring quality", () => {
     const coreSource = `必须熟练掌握 ${coreSkills.join("、")}`;
     const auxiliarySource = `熟悉 ${auxiliarySkills.join("、")}`;
     const input = emptyInput(`${coreSource}。${auxiliarySource}。`);
-    input.modelOutput.coreSkills = coreSkills.map((normalizedSkill) => ({
-      normalizedSkill,
-      sourceText: coreSource,
-    }));
-    input.modelOutput.auxiliarySkills = auxiliarySkills.map((normalizedSkill) => ({
-      normalizedSkill,
-      sourceText: auxiliarySource,
-    }));
+    input.modelOutput.coreSkills = coreSkills.map((normalizedSkill) =>
+      skillCandidate(normalizedSkill, coreSource),
+    );
+    input.modelOutput.auxiliarySkills = auxiliarySkills.map((normalizedSkill) =>
+      skillCandidate(normalizedSkill, auxiliarySource),
+    );
 
     const blueprint = compile(input);
 
@@ -171,7 +164,7 @@ describe("evaluation blueprint scoring quality", () => {
   it("keeps a technical skill when its source sentence also mentions experience", () => {
     const skillSource = "8年以上前端研发经验，精通 React";
     const input = emptyInput(skillSource);
-    input.modelOutput.coreSkills = [{ normalizedSkill: "React", sourceText: skillSource }];
+    input.modelOutput.coreSkills = [skillCandidate("React", skillSource)];
     input.modelOutput.requiredRelevantExperiences = [
       {
         relevanceScope: "role",
@@ -186,7 +179,7 @@ describe("evaluation blueprint scoring quality", () => {
 
   it("keeps a base requirement even when the same text is repeated under priority conditions", () => {
     const input = emptyInput("优先条件\n熟悉 Redis", "任职要求\n熟悉 Redis");
-    input.modelOutput.auxiliarySkills = [{ normalizedSkill: "Redis", sourceText: "熟悉 Redis" }];
+    input.modelOutput.auxiliarySkills = [skillCandidate("Redis", "熟悉 Redis")];
 
     expect(compile(input).auxiliarySkills.map((skill) => skill.normalizedSkill)).toEqual(["Redis"]);
   });

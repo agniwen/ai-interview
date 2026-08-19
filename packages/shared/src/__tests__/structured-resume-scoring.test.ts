@@ -603,6 +603,8 @@ describe("structured evaluation schemas", () => {
       coreSkills: [
         {
           normalizedSkill: "TypeScript",
+          requirementGroupId: "skill-group-typescript",
+          satisfactionMode: "all",
           sourceRef: { kind: "job_description", path: "description" },
           sourceText: "熟练掌握 TypeScript",
         },
@@ -624,6 +626,12 @@ describe("structured evaluation schemas", () => {
     };
 
     expect(jobEvaluationBlueprintSchema.safeParse(blueprint).success).toBe(true);
+    expect(
+      jobEvaluationBlueprintSchema.safeParse({
+        ...blueprint,
+        coreSkills: [{ ...blueprint.coreSkills[0], satisfactionMode: "any" }],
+      }).success,
+    ).toBe(false);
     expect(
       jobEvaluationBlueprintSchema.safeParse({
         ...blueprint,

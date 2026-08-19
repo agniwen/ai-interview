@@ -128,6 +128,52 @@ function createDetail(): ResumeLibraryDetail {
         },
       },
       runId: "run-1",
+      skillAssessments: [
+        {
+          evidence: [{ quote: "主导支付系统重构", source: "resume_text" }],
+          expectationType: "core",
+          normalizedSkill: "TypeScript",
+          reason: "有实际项目运用证据",
+          requirementGroupId: "skill-group-typescript",
+          satisfactionMode: "all",
+          sourceRef: { kind: "job_description", path: "description" },
+          sourceText: "熟练掌握 TypeScript",
+          status: "applied",
+        },
+        {
+          evidence: [],
+          expectationType: "core",
+          normalizedSkill: "React",
+          reason: "简历未体现 React",
+          requirementGroupId: "skill-group-frontend-framework",
+          satisfactionMode: "any",
+          sourceRef: { kind: "job_description", path: "description" },
+          sourceText: "熟练掌握 React",
+          status: "missing",
+        },
+        {
+          evidence: [{ quote: "参与 Redis 缓存设计", source: "resume_text" }],
+          expectationType: "auxiliary",
+          normalizedSkill: "Redis",
+          reason: "仅提及相关项目，缺少直接实操说明",
+          requirementGroupId: "skill-group-redis",
+          satisfactionMode: "all",
+          sourceRef: { kind: "job_description", path: "description" },
+          sourceText: "熟悉 Redis 优先",
+          status: "shallow",
+        },
+        {
+          evidence: [],
+          expectationType: "core",
+          normalizedSkill: "Node.js",
+          reason: "AI 未返回该岗位技能的有效判断。",
+          requirementGroupId: "skill-group-frontend-framework",
+          satisfactionMode: "any",
+          sourceRef: { kind: "job_description", path: "description" },
+          sourceText: "熟练掌握 Node.js",
+          status: "insufficient_evidence",
+        },
+      ],
     },
   });
 }
@@ -194,6 +240,19 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).toContain("高级");
     expect(content).toContain("团队定位");
     expect(content).toContain("核心业务研发");
+    expect(content).toContain("技能判定明细");
+    expect(content).toContain("TypeScript");
+    expect(content).toContain("React");
+    expect(content).toContain("Redis");
+    expect(content).toContain("Node.js");
+    expect(content).toContain("已应用");
+    expect(content).toContain("缺失");
+    expect(content).toContain("浅层");
+    expect(content).toContain("证据不足");
+    expect(content).toContain("任一满足");
+    expect(content).toContain("简历未体现 React");
+    expect(content).toContain("主导支付系统重构");
+    expect(container.querySelectorAll("[data-structured-skill-assessment]")).toHaveLength(4);
     expect(
       Array.from(container.querySelectorAll("blockquote"), (node) => node.textContent),
     ).toEqual(expect.arrayContaining(["最高学历为大专", "拥有支付行业经验"]));
@@ -209,7 +268,17 @@ describe("StructuredResumeEvaluationPanel", () => {
       (element) => element.textContent,
     );
     expect(frameTitles.slice(0, 2)).toEqual(["综合评价", "维度评分"]);
-    expect(frameTitles.slice(2, 5)).toEqual(["硬性门槛", "职级建议", "团队定位"]);
+    expect(frameTitles.slice(2, 6)).toEqual(["技能判定明细", "硬性门槛", "职级建议", "团队定位"]);
+    const recommendationPanels = ["职级建议", "团队定位"].map((title) => {
+      const frameTitle = [
+        ...container.querySelectorAll<HTMLElement>('[data-slot="frame-panel-title"]'),
+      ].find((element) => element.textContent === title);
+      return frameTitle
+        ?.closest('[data-slot="frame"]')
+        ?.querySelector<HTMLElement>('[data-slot="frame-panel"]');
+    });
+    expect(recommendationPanels).toHaveLength(2);
+    expect(recommendationPanels.every((panel) => panel?.classList.contains("flex-1"))).toBe(true);
     expect(container.querySelectorAll("[data-structured-dimension-group]")).toHaveLength(3);
     expect(container.querySelectorAll("[data-structured-dimension-score]")).toHaveLength(6);
     expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(

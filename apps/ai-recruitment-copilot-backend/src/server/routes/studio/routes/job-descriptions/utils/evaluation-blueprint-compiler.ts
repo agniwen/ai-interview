@@ -50,6 +50,8 @@ interface SourceCandidate {
 
 interface BlueprintSkillCandidate extends SourceCandidate {
   normalizedSkill: string;
+  requirementGroup: string;
+  satisfactionMode: "all" | "any";
 }
 
 interface BlueprintExpectationCandidate extends SourceCandidate {
@@ -93,14 +95,16 @@ export interface BlueprintCompilerCandidate
 const sourceCandidateSchema = z.object({ sourceText: z.string().trim().min(1) });
 const skillCandidateSchema = sourceCandidateSchema.extend({
   normalizedSkill: z.string().trim().min(1),
+  requirementGroup: z.string().trim().min(1).max(80),
+  satisfactionMode: z.enum(["all", "any"]),
 });
 const expectationCandidateSchema = sourceCandidateSchema.extend({
   expectation: z.string().trim().min(1),
 });
 
 export const scoringBlueprintCandidateSchema = z.object({
-  auxiliarySkills: z.array(skillCandidateSchema),
-  coreSkills: z.array(skillCandidateSchema),
+  auxiliarySkills: z.array(skillCandidateSchema).max(8),
+  coreSkills: z.array(skillCandidateSchema).max(8),
   dimensionExpectations: z.object({
     educationBackground: z.array(expectationCandidateSchema),
     experienceRelevance: z.array(expectationCandidateSchema),
@@ -205,6 +209,18 @@ export class BlueprintCompilationError extends Error {
 
 function normalizeSource(value: string): string {
   return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase();
+}
+
+export function stableSkillRequirementGroupId(
+  expectationType: "auxiliary" | "core",
+  satisfactionMode: "all" | "any",
+  skills: string[],
+): string {
+  return `skill_group_${computeJobEvaluationPayloadHash({
+    expectationType,
+    satisfactionMode,
+    skills: skills.map(normalizeSource).toSorted(),
+  }).slice(0, 20)}`;
 }
 
 function sourceContains(source: string | null | undefined, quote: string): boolean {
@@ -350,10 +366,51 @@ function mapSkillCandidates(
     return [
       {
         normalizedSkill: candidate.normalizedSkill.trim(),
+        requirementGroup: candidate.requirementGroup,
+        satisfactionMode: candidate.satisfactionMode,
         sourceRef,
         sourceText: candidate.sourceText.trim(),
       },
     ];
+  });
+}
+
+function freezeSkillRequirementGroups(
+  expectationType: "auxiliary" | "core",
+  skills: ReturnType<typeof mapSkillCandidates>,
+) {
+  const groups = new Map<string, typeof skills>();
+  for (const skill of skills) {
+    const group = groups.get(skill.requirementGroup) ?? [];
+    if (group.some((item) => item.satisfactionMode !== skill.satisfactionMode)) {
+      throw new BlueprintCompilationError(
+        "JOB_BLUEPRINT_INVALID_SKILL_GROUP",
+        `技能要求组“${skill.requirementGroup}”的满足方式不一致`,
+      );
+    }
+    group.push(skill);
+    groups.set(skill.requirementGroup, group);
+  }
+  return [...groups.values()].flatMap((group) => {
+    const satisfactionMode = group[0]?.satisfactionMode;
+    if (!satisfactionMode) {
+      return [];
+    }
+    if (satisfactionMode === "any" && group.length < 2) {
+      throw new BlueprintCompilationError(
+        "JOB_BLUEPRINT_INVALID_SKILL_GROUP",
+        `任一满足的技能要求组至少需要两个可替代技能：${group[0]?.normalizedSkill ?? "未知技能"}`,
+      );
+    }
+    const requirementGroupId = stableSkillRequirementGroupId(
+      expectationType,
+      satisfactionMode,
+      group.map((skill) => skill.normalizedSkill),
+    );
+    return group.map(({ requirementGroup: _requirementGroup, ...skill }) => ({
+      ...skill,
+      requirementGroupId,
+    }));
   });
 }
 
@@ -673,14 +730,17 @@ export function compileEvaluationBlueprint(
   }
   assertCompleteHardGateCoverage(input, hardGateAtoms);
 
-  const coreSkills = mapSkillCandidates(input, input.modelOutput.coreSkills).slice(
-    0,
-    MAX_SCORING_SKILLS_PER_TIER,
+  const coreSkills = freezeSkillRequirementGroups(
+    "core",
+    mapSkillCandidates(input, input.modelOutput.coreSkills).slice(0, MAX_SCORING_SKILLS_PER_TIER),
   );
   const coreKeys = new Set(coreSkills.map((skill) => normalizeSource(skill.normalizedSkill)));
-  const auxiliarySkills = mapSkillCandidates(input, input.modelOutput.auxiliarySkills)
-    .filter((skill) => !coreKeys.has(normalizeSource(skill.normalizedSkill)))
-    .slice(0, MAX_SCORING_SKILLS_PER_TIER);
+  const auxiliarySkills = freezeSkillRequirementGroups(
+    "auxiliary",
+    mapSkillCandidates(input, input.modelOutput.auxiliarySkills)
+      .filter((skill) => !coreKeys.has(normalizeSource(skill.normalizedSkill)))
+      .slice(0, MAX_SCORING_SKILLS_PER_TIER),
+  );
 
   const dimensionExpectations = compileDimensionExpectations(input);
   const compiledExperienceCandidates = compileRelevantExperienceCandidates(input);
@@ -726,7 +786,7 @@ export function compileEvaluationBlueprint(
   return jobEvaluationBlueprintSchema.parse(blueprint);
 }
 
-export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v9";
+export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v10";
 
 interface EvaluationBlueprintGenerationJob {
   description: string | null;
@@ -823,6 +883,48 @@ export type JobEvaluationRuleDraftProgress = (
   ruleDraft: JobEvaluationRuleDraft,
 ) => Promise<void> | void;
 
+function validateGeneratedSkillRequirementGroups(value: SkillEducationCandidate): void {
+  for (const skills of [value.coreSkills, value.auxiliarySkills]) {
+    const groups = new Map<string, typeof skills>();
+    for (const skill of skills) {
+      const group = groups.get(skill.requirementGroup) ?? [];
+      group.push(skill);
+      groups.set(skill.requirementGroup, group);
+    }
+    for (const [groupName, group] of groups) {
+      const modes = new Set(group.map((skill) => skill.satisfactionMode));
+      if (modes.size !== 1) {
+        throw new Error(`技能要求组“${groupName}”的 satisfactionMode 必须一致。`);
+      }
+      if (group[0]?.satisfactionMode === "any" && group.length < 2) {
+        throw new Error(`任一满足的技能要求组“${groupName}”至少需要两个可替代技能。`);
+      }
+    }
+  }
+}
+
+function buildProgressSkillRequirementGroups(
+  skillEducation: SkillEducationCandidate | null,
+): JobEvaluationRuleDraft["skillRequirementGroups"] {
+  const groups = new Map<string, JobEvaluationRuleDraft["skillRequirementGroups"][number]>();
+  for (const [expectationType, skills] of [
+    ["core", skillEducation?.coreSkills ?? []],
+    ["auxiliary", skillEducation?.auxiliarySkills ?? []],
+  ] as const) {
+    for (const skill of skills) {
+      const key = `${expectationType}:${skill.requirementGroup}`;
+      const group = groups.get(key) ?? {
+        expectationType,
+        satisfactionMode: skill.satisfactionMode,
+        skills: [],
+      };
+      group.skills.push(skill.normalizedSkill);
+      groups.set(key, group);
+    }
+  }
+  return [...groups.values()];
+}
+
 function toProgressRuleDraft(
   skillEducation: SkillEducationCandidate | null,
   remainingDimensions: RemainingDimensionsCandidate | null,
@@ -866,6 +968,7 @@ function toProgressRuleDraft(
           years: primaryExperience.years,
         }
       : null,
+    skillRequirementGroups: buildProgressSkillRequirementGroups(skillEducation),
   };
 }
 
@@ -904,11 +1007,14 @@ async function generateScoringBlueprintCandidate(
       maxOutputTokens: 4000,
       prompt: [
         "请只根据岗位 JD 和基础评分项目提取技能与学历评分依据。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
-        'JSON 字段必须严格为：{"coreSkills":[{"normalizedSkill":"标准技能名","sourceText":"JD连续原文"}],"auxiliarySkills":[{"normalizedSkill":"标准技能名","sourceText":"JD连续原文"}],"educationExpectation":{"degreeLevel":"bachelor","majorExpectation":"专业要求","sourceText":"JD连续原文"}}。degreeLevel 只能是 associate、bachelor、master、doctorate 或 JSON null；majorExpectation 可为 JSON null；没有学历要求时 educationExpectation 返回 JSON null。没有技能时数组返回 []，不得省略任何字段。',
+        'JSON 字段必须严格为：{"coreSkills":[{"normalizedSkill":"标准技能名","sourceText":"JD连续原文","requirementGroup":"组内临时标识","satisfactionMode":"all|any"}],"auxiliarySkills":[同结构],"educationExpectation":{"degreeLevel":"bachelor","majorExpectation":"专业要求","sourceText":"JD连续原文"}}。degreeLevel 只能是 associate、bachelor、master、doctorate 或 JSON null；majorExpectation 可为 JSON null；没有学历要求时 educationExpectation 返回 JSON null。没有技能时数组返回 []，不得省略任何字段。',
         "不得推测或生成硬性门槛、权重、扣分数值、优先条件或排除条件。enabledRuleIds 只表示启用的基础规则，不代表分值。",
         "只能复述 description 或 prompt 中存在的要求，每项 sourceText 必须逐字复制其中的最短连续原文片段，禁止删词、改写或拼接；括号内的“请 HR 确认”等文字也不得擅自删除。对于新版岗位，prompt 是 HR 确认后的完整 JD。",
         "技能只包括岗位明确要求候选人掌握的技术语言、框架、工具、平台或专业方法；岗位职责、经验、项目、管理行为、业务成果和软能力不得作为技能。",
         "核心技能只来自任职要求、核心技能或技能要求中“必须、精通、熟练掌握”等明确强要求；辅助技能来自“熟悉、了解”等软要求。不要把职责动作拆成技能。合并同义项后核心技能最多 8 项，辅助技能最多 8 项。",
+        "必须为每项技能设置 requirementGroup 和 satisfactionMode。JD 原文明示“且、并且、同时、和、与、及、以及、均需、and、all of”等并列关系时，相关技能使用同一个 requirementGroup 且 satisfactionMode=all；明示“或、或者、任一、任选、至少一种、其中之一、二选一、or、any of、one of”等选择关系时，相关技能使用同一个 requirementGroup 且 satisfactionMode=any。若同一句同时出现多种连接词，按其实际逻辑作用域拆组；严格服从原文，不得改写关系。",
+        "JD 没有明示并列或选择关系时，由你根据岗位语义判断：互为替代、属于同类方案且掌握任意一种即可完成同一职责的技能，放入同一个 any 组；需要共同使用、能力互补或分别支撑不同职责的技能，放入同一个 all 组或各自独立的 all 组。不得仅因技能出现在同一句、使用顿号或同属技术栈就判为 any；无法确认可替代时使用独立 all 组。",
+        "同一个要求组内所有技能的 requirementGroup 和 satisfactionMode 必须完全一致；不同要求不得复用 requirementGroup。any 组至少包含两个技能，独立技能使用只含自身的 all 组。示例：“React 或 Vue 任一”是一个 any 组；“React、TypeScript 均需熟练掌握”是一个 all 组；“熟悉主流前端框架，如 React、Vue”在没有其他限制时可判断为一个 any 组。",
         "优先条件或加分项下的内容不得进入技能；从业背景、行业经历和项目经历应留在经验或项目维度。",
         "educationExpectation 只提取 JD 明确写出的学历层级和专业要求；没有则返回 null。不要生成 ID、分数或扣分。",
         JSON.stringify(skillEducationInput),
@@ -917,7 +1023,10 @@ async function generateScoringBlueprintCandidate(
       schema: skillEducationCandidateSchema,
       temperature: 0,
       timeoutMs: 120_000,
-      validate: (value) => validateScoringCandidateSources(value, skillEducationInput),
+      validate: (value) => {
+        validateScoringCandidateSources(value, skillEducationInput);
+        validateGeneratedSkillRequirementGroups(value);
+      },
     });
   }
   function generateRemainingDimensions() {

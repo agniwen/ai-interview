@@ -102,4 +102,24 @@ describe("JobEvaluationBlueprintPreview", () => {
     expect(projectSection).not.toContain("岗位判断依据：");
     expect(projectSection).toContain("计分规则：");
   });
+
+  it("shows whether grouped skills require all or any one", () => {
+    const groupedBlueprint: JobEvaluationBlueprint = {
+      ...blueprint,
+      coreSkills: ["React", "Vue"].map((normalizedSkill) => ({
+        normalizedSkill,
+        requirementGroupId: "skill-group-frontend-framework",
+        satisfactionMode: "any" as const,
+        sourceRef,
+        sourceText: "熟悉 React 或 Vue 任一框架",
+      })),
+    };
+
+    const rules = serializeEvaluationRules({
+      deductionRules: createDefaultJobDescriptionStructuredConfig().deductionRules,
+      ruleDraft: toJobEvaluationRuleDraft(groupedBlueprint),
+    });
+
+    expect(rules).toContain("任一掌握：React、Vue");
+  });
 });

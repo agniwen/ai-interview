@@ -213,6 +213,10 @@ _Avoid_: Client-generated preview, published blueprint, live model output
 The recruiter-confirmed immutable interpretation of a structured job's source-backed evaluation inputs, compiled before publication into atomic gates, skill expectations, and normalized job-side scoring expectations without inventing unstated requirements.
 _Avoid_: Runtime JD extraction, mutable prompt output, resume evaluation result
 
+**Job Skill Requirement Group**:
+A source-backed set of core or auxiliary skills in a published job evaluation blueprint, evaluated either as all required or any one sufficient. Explicit conjunction or choice language in the job description is preserved; when the source does not state the relation, the blueprint compiler classifies complementary skills as all required and substitutable same-category skills as any one sufficient.
+_Avoid_: Flat skill list, skill alias group, runtime scoring guess
+
 **Atomic Resume Gate Requirement**:
 One stable requirement compiled from a draft free-text gate into the published evaluation blueprint and independently judged for each resume. Its result retains the raw AI status and evidence; an optional recruiter correction produces the effective gate status without erasing the AI judgment.
 _Avoid_: Entire gate text box, scoring deduction, recruiter decision

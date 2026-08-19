@@ -110,6 +110,7 @@ const structuredCalculationResultSchema = z
     calculation: structuredCalculationSchema,
     dimensionRuleJudgments: dimensionRuleJudgmentsSchema,
     normalizedDimensionOutput: structuredDimensionAgentOutputSchema,
+    skillAssessments: structuredResumeEvaluationV1Schema.shape.skillAssessments,
   })
   .strict();
 const calculationOutputSchema = adjustmentOutputSchema.extend({

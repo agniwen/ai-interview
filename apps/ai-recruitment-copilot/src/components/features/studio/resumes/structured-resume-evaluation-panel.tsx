@@ -46,6 +46,17 @@ const GRADE_LABELS = {
 type StructuredDimensionKey = (typeof STRUCTURED_RESUME_DIMENSIONS)[number];
 type StructuredEvaluation = NonNullable<ResumeLibraryDetail["structuredResumeEvaluation"]>;
 type StructuredDimensionResult = StructuredEvaluation["dimensions"][StructuredDimensionKey];
+type StructuredSkillAssessment = StructuredEvaluation["skillAssessments"][number];
+
+const SKILL_ASSESSMENT_STATUS_META = {
+  applied: { label: "已应用", variant: "success" },
+  insufficient_evidence: { label: "证据不足", variant: "secondary" },
+  missing: { label: "缺失", variant: "destructive" },
+  shallow: { label: "浅层", variant: "warning" },
+} as const satisfies Record<
+  StructuredSkillAssessment["status"],
+  { label: string; variant: "destructive" | "secondary" | "success" | "warning" }
+>;
 
 function uniqueEvidence<T extends { quote: string; source: string }>(evidence: T[]) {
   return [...new Map(evidence.map((item) => [`${item.source}:${item.quote}`, item])).values()];
@@ -146,7 +157,7 @@ function StructuredRecommendationPanels({
           <FrameHeader>
             <FrameTitle>职级建议</FrameTitle>
           </FrameHeader>
-          <FramePanel className="space-y-2">
+          <FramePanel className="flex flex-1 flex-col gap-2">
             <p className="font-medium text-base leading-6">{narrative.levelRecommendation.level}</p>
             <p className="text-muted-foreground text-sm leading-6">
               {narrative.levelRecommendation.rationale}
@@ -159,7 +170,7 @@ function StructuredRecommendationPanels({
           <FrameHeader>
             <FrameTitle>团队定位</FrameTitle>
           </FrameHeader>
-          <FramePanel className="space-y-2">
+          <FramePanel className="flex flex-1 flex-col gap-2">
             <p className="font-medium text-base leading-6">
               {narrative.teamPositioning.suggestion}
             </p>
@@ -170,6 +181,72 @@ function StructuredRecommendationPanels({
         </Frame>
       ) : null}
     </div>
+  );
+}
+
+function StructuredSkillAssessmentPanel({
+  assessments,
+}: {
+  assessments: StructuredSkillAssessment[];
+}) {
+  if (assessments.length === 0) {
+    return null;
+  }
+  const groupSizes = new Map<string, number>();
+  for (const assessment of assessments) {
+    groupSizes.set(
+      assessment.requirementGroupId,
+      (groupSizes.get(assessment.requirementGroupId) ?? 0) + 1,
+    );
+  }
+  return (
+    <Frame>
+      <FrameHeader className="justify-between gap-3">
+        <FrameTitle>技能判定明细</FrameTitle>
+        <span className="text-muted-foreground text-xs">按要求组对照已发布岗位技能</span>
+      </FrameHeader>
+      <FramePanel className="divide-y p-0">
+        {assessments.map((assessment) => {
+          const statusMeta = SKILL_ASSESSMENT_STATUS_META[assessment.status];
+          return (
+            <div
+              className="flex flex-col gap-3 p-4"
+              data-structured-skill-assessment={assessment.normalizedSkill}
+              key={`${assessment.expectationType}:${assessment.normalizedSkill}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-sm">{assessment.normalizedSkill}</span>
+                <Badge variant="outline">
+                  {assessment.expectationType === "core" ? "核心技能" : "辅助技能"}
+                </Badge>
+                {assessment.satisfactionMode === "any" ||
+                (groupSizes.get(assessment.requirementGroupId) ?? 0) > 1 ? (
+                  <Badge variant="secondary">
+                    {assessment.satisfactionMode === "any" ? "任一满足" : "全部满足"}
+                  </Badge>
+                ) : null}
+                <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+              </div>
+              <div className="flex flex-col gap-1 text-sm leading-6">
+                <p className="text-muted-foreground">{assessment.reason}</p>
+                <p className="text-xs">
+                  <span className="text-muted-foreground">岗位要求：</span>
+                  {assessment.sourceText}
+                </p>
+              </div>
+              {uniqueEvidence(assessment.evidence).map((evidence) => (
+                <blockquote
+                  className="border-l-2 pl-3 text-muted-foreground text-xs"
+                  key={`${evidence.source}-${evidence.quote}`}
+                >
+                  {evidence.quote}
+                </blockquote>
+              ))}
+            </div>
+          );
+        })}
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -397,6 +474,8 @@ export function StructuredResumeEvaluationPanel({
           ))}
         </div>
       </Frame>
+
+      <StructuredSkillAssessmentPanel assessments={evaluation.skillAssessments} />
 
       <Frame>
         <FrameHeader>
