@@ -16,16 +16,20 @@ const BRAND_BLOBATAR_STYLE: BrandBlobatarStyle = {
   "--mo-eye": "var(--background)",
   "--mo-head": "currentColor",
 };
-// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Blobatar's public round-trait key is named "shape".
-const BRAND_BLOBATAR_TRAITS = { shape: 0.11 };
+const BRAND_BLOBATAR_TRAITS = {
+  "body.n": 0.999,
+  "body.r": 0.38,
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Blobatar's public round-trait key is named "shape".
+  shape: 0.11,
+};
 
 export function RecruitmentCopilotMark({ className }: { className?: string }) {
   return (
     <Blobatar
-      animate="always"
+      animate="hover"
       className={cn("shrink-0 text-[#002FA7] dark:text-white", className)}
       data-slot="recruitment-copilot-mark"
-      name="AI Recruitment Copilot"
+      name="alain00"
       palette={BRAND_BLOBATAR_PALETTE}
       style={BRAND_BLOBATAR_STYLE}
       traits={BRAND_BLOBATAR_TRAITS}
