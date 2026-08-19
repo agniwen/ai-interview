@@ -193,6 +193,15 @@ function getRoleFormText(mode: RoleFormMode) {
   };
 }
 
+function getRoleFormDefaults(state: RoleFormState | null) {
+  const sourceRole = state?.role?.role ?? "";
+  const sourceName = state?.role?.name ?? "";
+  return {
+    roleIdentifier: state?.mode === "copy" ? `${sourceRole}-copy` : sourceRole,
+    roleName: state?.mode === "copy" ? `${sourceName} 副本`.trim() : sourceName,
+  };
+}
+
 function RoleFormDialog({
   onOpenChange,
   onSubmit,
@@ -206,23 +215,10 @@ function RoleFormDialog({
   state: RoleFormState | null;
   submitting: boolean;
 }) {
+  const defaults = getRoleFormDefaults(state);
   const [error, setError] = useState<string | null>(null);
-  const [roleIdentifier, setRoleIdentifier] = useState("");
-  const [roleName, setRoleName] = useState("");
-
-  useEffect(() => {
-    if (!state) {
-      return;
-    }
-
-    const sourceRole = state.role?.role ?? "";
-    const sourceName = state.role?.name ?? "";
-    const defaultName = state.mode === "copy" ? `${sourceName} 副本`.trim() : sourceName;
-    const defaultRole = state.mode === "copy" ? `${sourceRole}-copy` : sourceRole;
-    setError(null);
-    setRoleName(defaultName);
-    setRoleIdentifier(defaultRole);
-  }, [state]);
+  const [roleIdentifier, setRoleIdentifier] = useState(defaults.roleIdentifier);
+  const [roleName, setRoleName] = useState(defaults.roleName);
 
   const { description, submitLabel, title } = getRoleFormText(state?.mode ?? "create");
 
@@ -663,6 +659,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
       </section>
 
       <RoleFormDialog
+        key={roleFormState ? `${roleFormState.mode}:${roleFormState.role?.id ?? "new"}` : "closed"}
         onOpenChange={(open) => {
           if (!open) {
             setRoleFormState(null);
