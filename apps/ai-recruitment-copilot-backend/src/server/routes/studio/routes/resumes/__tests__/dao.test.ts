@@ -371,6 +371,11 @@ describe("queryPaginatedResumeRecords", () => {
       expect(result.records.find((row) => row.id === "ri_test_a_1")?.duplicateMatch).toEqual({
         count: 1,
         highestLevel: "high",
+        latestDuplicate: {
+          candidateName: "李四",
+          createdAt: NOW.toISOString(),
+          creatorName: "resume-dao-alt",
+        },
       });
       // 双向计数：a_2 是活跃行（a_1→a_2）的 matched 侧，也计入 a_2 的重复。
       // Bidirectional counts: a_2 is the matched side of the active row, so it
@@ -378,10 +383,23 @@ describe("queryPaginatedResumeRecords", () => {
       expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toEqual({
         count: 1,
         highestLevel: "high",
+        latestDuplicate: {
+          candidateName: "郭靖",
+          createdAt: NOW.toISOString(),
+          creatorName: "resume-dao",
+        },
       });
 
       const detail = await loadResumeDetail("ri_test_a_1", ORG_A);
-      expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "high" });
+      expect(detail?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "high",
+        latestDuplicate: {
+          candidateName: "李四",
+          createdAt: NOW.toISOString(),
+          creatorName: "resume-dao-alt",
+        },
+      });
     } finally {
       await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
     }

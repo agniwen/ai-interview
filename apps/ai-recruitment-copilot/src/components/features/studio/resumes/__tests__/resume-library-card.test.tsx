@@ -129,6 +129,37 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("未通过门槛 · 68 分");
   });
 
+  it("places the duplicate badge immediately after the lifecycle badge", () => {
+    const noop = vi.fn();
+    const content = renderWithQueryClient(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canForceReparse={false}
+        canRetryResumeParse={false}
+        canUpdateResumeLibrary={false}
+        currentMemberRole="viewer"
+        currentUserId={null}
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onForceReparse={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{ ...record, duplicateMatch: { count: 2, highestLevel: "high" } }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content.indexOf("简历筛选")).toBeLessThan(content.indexOf("重复简历 2 条"));
+  });
+
   it("places the AI score inside the generated summary paragraph", () => {
     const noop = vi.fn();
     const content = renderWithQueryClient(

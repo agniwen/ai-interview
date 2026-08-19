@@ -155,6 +155,50 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(badge?.className).toContain("font-normal");
   });
 
+  it("shows who created the latest earlier duplicate and when", async () => {
+    const { root } = await renderInAct(
+      <ResumeDuplicateMatchBadge
+        duplicateMatch={{
+          count: 1,
+          highestLevel: "high",
+          latestDuplicate: {
+            candidateName: "重复候选人",
+            createdAt: "2026-08-18T04:20:00.000Z",
+            creatorName: "荷叶",
+          },
+        }}
+        sourceCreatedAt="2026-08-19T04:20:00.000Z"
+      />,
+    );
+    roots.push(root);
+
+    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
+      "重复简历，荷叶于 26/08/18 12:20 创建",
+    );
+  });
+
+  it("marks the latest duplicate when it was created after the current resume", async () => {
+    const { root } = await renderInAct(
+      <ResumeDuplicateMatchBadge
+        duplicateMatch={{
+          count: 2,
+          highestLevel: "high",
+          latestDuplicate: {
+            candidateName: "稍后重复候选人",
+            createdAt: "2026-08-20T04:20:00.000Z",
+            creatorName: "达里尔",
+          },
+        }}
+        sourceCreatedAt="2026-08-19T04:20:00.000Z"
+      />,
+    );
+    roots.push(root);
+
+    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
+      "重复简历 2 条，达里尔创建，晚于当前简历创建",
+    );
+  });
+
   // 产品决策：查重查看忽略 resumeLibrary/resumePool 读权限配置 ——
   // 即使当前用户没有某一侧的读权限，详情/简历对照入口依然可见可用。
   it("keeps cross-resource comparison actions without read permission", async () => {

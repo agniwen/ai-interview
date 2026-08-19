@@ -210,7 +210,13 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
   if (!record.duplicateMatch) {
     return null;
   }
-  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
+  return (
+    <ResumeDuplicateMatchBadge
+      duplicateMatch={record.duplicateMatch}
+      onClick={onClick}
+      sourceCreatedAt={record.createdAt}
+    />
+  );
 }
 
 function getResumeAvatarValue(record: ResumeLibraryListRecord) {
@@ -599,7 +605,6 @@ function ResumeLibraryCardComponent({
                     ({formatResumeRecordDisplayId(record.id)})
                   </span>
                 </button>
-                {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
                 <ResumeLifecycleBadge
                   className="max-w-full"
                   detailLabel={lifecycle.detailLabel}
@@ -611,6 +616,7 @@ function ResumeLibraryCardComponent({
                   stageLabel={lifecycle.stageLabel}
                   tone={lifecycle.tone}
                 />
+                {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
               </div>
 
               <div className="min-w-0">

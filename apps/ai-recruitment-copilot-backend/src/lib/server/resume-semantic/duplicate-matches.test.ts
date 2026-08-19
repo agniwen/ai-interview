@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import {
-  aggregateDuplicateMatchCounts,
+  aggregateDuplicateMatchSummaries,
   deleteDuplicateMatchesForSource,
   isDuplicateMatchVisibleToSource,
   listDuplicateMatchesForSource,
@@ -197,42 +197,115 @@ describe("resolveDuplicateMatchRows", () => {
   });
 });
 
-describe("aggregateDuplicateMatchCounts", () => {
-  it("counts distinct duplicates per subject with the highest level", () => {
-    const result = aggregateDuplicateMatchCounts([
-      { level: "high", otherId: "dup-1", subjectId: "first" },
-      { level: "medium", otherId: "dup-2", subjectId: "first" },
-    ]);
-
-    expect(result.get("first")).toEqual({ count: 2, highestLevel: "high" });
-  });
-
-  it("does not double-count a pair with both directions", () => {
-    const result = aggregateDuplicateMatchCounts([
-      { level: "high", otherId: "second", subjectId: "first" },
-      { level: "medium", otherId: "second", subjectId: "first" },
-    ]);
-
-    expect(result.get("first")).toEqual({ count: 1, highestLevel: "high" });
-  });
-
-  it("counts a single pair for both subjects (bidirectional)", () => {
-    // One row (source=later, matched=first) feeds the count query twice:
-    // the source side and the matched side. Both records end up with count 1.
-    const result = aggregateDuplicateMatchCounts([
-      { level: "high", otherId: "first", subjectId: "later" },
-      { level: "high", otherId: "later", subjectId: "first" },
+describe("aggregateDuplicateMatchSummaries", () => {
+  it("deduplicates pairs while preserving bidirectional summaries", () => {
+    const result = aggregateDuplicateMatchSummaries([
+      {
+        level: "high",
+        otherCandidateName: null,
+        otherCreatedAt: null,
+        otherCreatorName: null,
+        otherId: "first",
+        score: 96,
+        subjectId: "later",
+      },
+      {
+        level: "high",
+        otherCandidateName: null,
+        otherCreatedAt: null,
+        otherCreatorName: null,
+        otherId: "later",
+        score: 96,
+        subjectId: "first",
+      },
+      {
+        level: "high",
+        otherCandidateName: null,
+        otherCreatedAt: null,
+        otherCreatorName: null,
+        otherId: "later",
+        score: 94,
+        subjectId: "first",
+      },
     ]);
 
     expect(result.get("first")).toEqual({ count: 1, highestLevel: "high" });
     expect(result.get("later")).toEqual({ count: 1, highestLevel: "high" });
   });
 
-  it("skips self rows and returns an empty map for no input", () => {
-    expect(
-      aggregateDuplicateMatchCounts([{ level: "high", otherId: "first", subjectId: "first" }]).size,
-    ).toBe(0);
-    expect(aggregateDuplicateMatchCounts([]).size).toBe(0);
+  it("counts only matches scoring at least 90 as duplicates", () => {
+    const result = aggregateDuplicateMatchSummaries([
+      {
+        level: "high",
+        otherCandidateName: "真正重复候选人",
+        otherCreatedAt: "2026-08-18T04:20:00.000Z",
+        otherCreatorName: "荷叶",
+        otherId: "duplicate-96",
+        score: 96,
+        subjectId: "current",
+      },
+      {
+        level: "medium",
+        otherCandidateName: "相似候选人",
+        otherCreatedAt: "2026-08-19T04:20:00.000Z",
+        otherCreatorName: "达里尔",
+        otherId: "similar-88",
+        score: 88,
+        subjectId: "current",
+      },
+    ]);
+
+    expect(result.get("current")).toEqual({
+      count: 1,
+      highestLevel: "high",
+      latestDuplicate: {
+        candidateName: "真正重复候选人",
+        createdAt: "2026-08-18T04:20:00.000Z",
+        creatorName: "荷叶",
+      },
+    });
+  });
+
+  it("uses the most recently created match among true duplicates", () => {
+    const result = aggregateDuplicateMatchSummaries([
+      {
+        level: "high",
+        otherCandidateName: "较早重复候选人",
+        otherCreatedAt: "2026-08-17T04:20:00.000Z",
+        otherCreatorName: "荷叶",
+        otherId: "duplicate-96",
+        score: 96,
+        subjectId: "current",
+      },
+      {
+        level: "high",
+        otherCandidateName: "最近重复候选人",
+        otherCreatedAt: "2026-08-18T04:20:00.000Z",
+        otherCreatorName: "达里尔",
+        otherId: "duplicate-94",
+        score: 94,
+        subjectId: "current",
+      },
+      {
+        level: "medium",
+        otherCandidateName: "更新但仅相似的候选人",
+        otherCreatedAt: "2026-08-19T04:20:00.000Z",
+        otherCreatorName: "兰登",
+        otherId: "similar-88",
+        score: 88,
+        subjectId: "current",
+      },
+    ]);
+
+    expect(result.get("current")).toEqual({
+      count: 2,
+      highestLevel: "high",
+      latestDuplicate: {
+        candidateName: "最近重复候选人",
+        createdAt: "2026-08-18T04:20:00.000Z",
+        creatorName: "达里尔",
+      },
+    });
   });
 });
 

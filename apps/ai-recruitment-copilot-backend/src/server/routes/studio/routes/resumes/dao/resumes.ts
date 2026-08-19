@@ -16,7 +16,7 @@ import {
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { listActiveDuplicateMatchCounts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { listActiveDuplicateMatchSummaries } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import {
   buildOrderBy,
@@ -491,9 +491,9 @@ async function loadResumeDerivedFields(
 }
 
 function toDuplicateMatchSummary(
-  value: { count: number; highestLevel: "high" | "low" | "medium" | null } | undefined,
+  value: ResumeDuplicateMatchSummary | undefined,
 ): ResumeDuplicateMatchSummary | null {
-  return value && value.count > 0 ? { count: value.count, highestLevel: value.highestLevel } : null;
+  return value && value.count > 0 ? value : null;
 }
 
 function parseStoredJson<TSchema extends z.ZodType>(
@@ -670,7 +670,7 @@ export async function queryPaginatedResumeRecords(
   const recordIds = rows.map((row) => row.id);
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields(recordIds, organizationId),
-    listActiveDuplicateMatchCounts({
+    listActiveDuplicateMatchSummaries({
       organizationId,
       sourceIds: recordIds,
       sourceType: "studio_interview",
@@ -772,7 +772,7 @@ export async function loadResumeDetail(
   );
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id], organizationId),
-    listActiveDuplicateMatchCounts({
+    listActiveDuplicateMatchSummaries({
       organizationId,
       sourceIds: [rest.id],
       sourceType: "studio_interview",

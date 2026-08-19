@@ -30,7 +30,7 @@ import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates"
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,
-  listActiveDuplicateMatchCounts,
+  listActiveDuplicateMatchSummaries,
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
@@ -465,7 +465,7 @@ async function loadPoolDuplicateMatches(input: {
   const sourceIds = input.rows
     .filter((row) => row.organizationId === input.organizationId)
     .map((row) => row.id);
-  const counts = await listActiveDuplicateMatchCounts({
+  const counts = await listActiveDuplicateMatchSummaries({
     organizationId: input.organizationId,
     sourceIds,
     sourceType: "resume_pool_item",

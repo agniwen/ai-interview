@@ -15,7 +15,7 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { listActiveDuplicateMatchCounts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { listActiveDuplicateMatchSummaries } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import {
   jobDescription,
   mailIngestAccount,
@@ -253,7 +253,7 @@ async function loadAttachments(organizationId: string, batchIds: string[]) {
     .where(inArray(resumeUploadBatchItem.batchId, batchIds))
     .orderBy(asc(resumeUploadBatchItem.batchId), asc(resumeUploadBatchItem.orderIndex));
   const poolItemIds = rows.map((row) => row.poolItemId).filter((id): id is string => id !== null);
-  const duplicates = await listActiveDuplicateMatchCounts({
+  const duplicates = await listActiveDuplicateMatchSummaries({
     organizationId,
     sourceIds: poolItemIds,
     sourceType: "resume_pool_item",
