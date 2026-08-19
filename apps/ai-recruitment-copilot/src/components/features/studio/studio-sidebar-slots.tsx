@@ -214,7 +214,7 @@ function SidebarNavItem({
       onPointerEnter={(event) => onHover(event.currentTarget)}
     >
       <SidebarMenuButton
-        className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/80 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${active ? "" : " hover:bg-transparent!"}`}
+        className={`relative z-10 cursor-default select-none border border-transparent transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=true]:border-sidebar-border/60 data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100${active ? "" : " hover:bg-transparent!"}`}
         isActive={active}
         render={
           <Link to={href}>

@@ -477,7 +477,7 @@ function ChatSidebarBody({
               className={cn(
                 "group/session-item relative z-10 flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-[border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
                 isActive && !editMode
-                  ? "border-sidebar-border/80 bg-sidebar-accent"
+                  ? "border-sidebar-border/60 bg-sidebar-accent"
                   : "hover:bg-transparent!",
                 editMode && isSelected ? "border-sidebar-border/80 bg-sidebar-accent" : "",
               )}

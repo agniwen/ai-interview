@@ -34,7 +34,7 @@ function describeDuplicateMatchBadge(
     return { baseLabel, fullLabel: baseLabel };
   }
   if (Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt) {
-    const suffix = `于 ${createdAtLabel} 再次建立`;
+    const suffix = `于${createdAtLabel}再次创建`;
     return {
       baseLabel,
       creatorImage: latestMatchedResume.creatorImage,
@@ -44,7 +44,7 @@ function describeDuplicateMatchBadge(
     };
   }
 
-  const suffix = ` ${createdAtLabel}已建立`;
+  const suffix = ` ${createdAtLabel}已创建`;
   return {
     baseLabel,
     creatorImage: latestMatchedResume.creatorImage,
