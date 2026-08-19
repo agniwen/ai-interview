@@ -14,7 +14,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,6 @@ export function JobDescriptionFormDialog({
     record,
     resolvedInitialValues,
   });
-  setActiveTabRef.current = formState.setActiveTab;
   const {
     activeTab,
     codeLocked,
@@ -182,7 +181,10 @@ export function JobDescriptionFormDialog({
     slug,
   });
 
-  submitRef.current = submitJobDescription;
+  useEffect(() => {
+    setActiveTabRef.current = setActiveTab;
+    submitRef.current = submitJobDescription;
+  }, [setActiveTab, submitJobDescription]);
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
