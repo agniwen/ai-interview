@@ -141,6 +141,7 @@ describe("CandidateCareerSummary", () => {
     const workEntry = container.querySelector<HTMLButtonElement>(
       '[data-slot="candidate-career-summary"] button',
     );
+    expect(workEntry?.getAttribute("aria-label")).toBe("查看 示例公司 工作经历");
     expect(workEntry?.className).toContain("hover:bg-muted/40");
     expect(workEntry?.className).not.toContain("px-2");
     expect(workEntry?.querySelector('[data-slot="work-entry-copy"]')?.className).toContain(

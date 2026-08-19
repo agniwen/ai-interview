@@ -68,6 +68,7 @@ function WorkHistory({
             key={[experience.company, experience.role, experience.period, index].join("\u001F")}
           >
             <button
+              aria-label={`查看 ${companyName} 工作经历`}
               className="group/work-entry w-full min-w-0 cursor-pointer rounded-md py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onWorkExperienceSelect(companyName)}
               type="button"
