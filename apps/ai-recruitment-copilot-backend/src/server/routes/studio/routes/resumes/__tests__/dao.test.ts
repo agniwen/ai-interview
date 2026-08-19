@@ -372,7 +372,6 @@ describe("queryPaginatedResumeRecords", () => {
         count: 1,
         highestLevel: "high",
         latestDuplicate: {
-          candidateName: "李四",
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao-alt",
         },
@@ -384,7 +383,6 @@ describe("queryPaginatedResumeRecords", () => {
         count: 1,
         highestLevel: "high",
         latestDuplicate: {
-          candidateName: "郭靖",
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao",
         },
@@ -395,7 +393,6 @@ describe("queryPaginatedResumeRecords", () => {
         count: 1,
         highestLevel: "high",
         latestDuplicate: {
-          candidateName: "李四",
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao-alt",
         },

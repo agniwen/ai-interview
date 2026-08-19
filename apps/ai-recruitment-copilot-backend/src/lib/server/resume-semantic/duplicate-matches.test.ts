@@ -202,7 +202,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
     const result = aggregateDuplicateMatchSummaries([
       {
         level: "high",
-        otherCandidateName: null,
         otherCreatedAt: null,
         otherCreatorName: null,
         otherId: "first",
@@ -211,7 +210,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       },
       {
         level: "high",
-        otherCandidateName: null,
         otherCreatedAt: null,
         otherCreatorName: null,
         otherId: "later",
@@ -220,7 +218,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       },
       {
         level: "high",
-        otherCandidateName: null,
         otherCreatedAt: null,
         otherCreatorName: null,
         otherId: "later",
@@ -237,20 +234,18 @@ describe("aggregateDuplicateMatchSummaries", () => {
     const result = aggregateDuplicateMatchSummaries([
       {
         level: "high",
-        otherCandidateName: "真正重复候选人",
         otherCreatedAt: "2026-08-18T04:20:00.000Z",
         otherCreatorName: "荷叶",
-        otherId: "duplicate-96",
-        score: 96,
+        otherId: "duplicate-90",
+        score: 90,
         subjectId: "current",
       },
       {
         level: "medium",
-        otherCandidateName: "相似候选人",
         otherCreatedAt: "2026-08-19T04:20:00.000Z",
         otherCreatorName: "达里尔",
-        otherId: "similar-88",
-        score: 88,
+        otherId: "similar-89",
+        score: 89,
         subjectId: "current",
       },
     ]);
@@ -259,7 +254,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       count: 1,
       highestLevel: "high",
       latestDuplicate: {
-        candidateName: "真正重复候选人",
         createdAt: "2026-08-18T04:20:00.000Z",
         creatorName: "荷叶",
       },
@@ -270,7 +264,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
     const result = aggregateDuplicateMatchSummaries([
       {
         level: "high",
-        otherCandidateName: "较早重复候选人",
         otherCreatedAt: "2026-08-17T04:20:00.000Z",
         otherCreatorName: "荷叶",
         otherId: "duplicate-96",
@@ -279,7 +272,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       },
       {
         level: "high",
-        otherCandidateName: "最近重复候选人",
         otherCreatedAt: "2026-08-18T04:20:00.000Z",
         otherCreatorName: "达里尔",
         otherId: "duplicate-94",
@@ -288,7 +280,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       },
       {
         level: "medium",
-        otherCandidateName: "更新但仅相似的候选人",
         otherCreatedAt: "2026-08-19T04:20:00.000Z",
         otherCreatorName: "兰登",
         otherId: "similar-88",
@@ -301,7 +292,6 @@ describe("aggregateDuplicateMatchSummaries", () => {
       count: 2,
       highestLevel: "high",
       latestDuplicate: {
-        candidateName: "最近重复候选人",
         createdAt: "2026-08-18T04:20:00.000Z",
         creatorName: "达里尔",
       },

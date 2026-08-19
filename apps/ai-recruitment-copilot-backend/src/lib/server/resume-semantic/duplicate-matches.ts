@@ -131,17 +131,18 @@ const DUPLICATE_SCORE_THRESHOLD = 90;
 
 interface DuplicateMatchSummaryRow {
   level: ResumeSemanticDuplicateLevel;
-  otherCandidateName: string | null;
-  otherCreatedAt: string | null;
-  otherCreatorName: string | null;
+  otherCreatedAt?: string | null;
+  otherCreatorName?: string | null;
   otherId: string;
   score: number;
   subjectId: string;
 }
 
-export function aggregateDuplicateMatchSummaries(
-  rows: DuplicateMatchSummaryRow[],
-): Map<string, ResumeDuplicateMatchSummary> {
+interface DuplicateMatchDirectionRow extends DuplicateMatchSummaryRow {
+  otherType: ResumeSemanticSourceType;
+}
+
+function groupBestDuplicateMatches(rows: DuplicateMatchSummaryRow[]) {
   const matchesBySubject = new Map<string, Map<string, DuplicateMatchSummaryRow>>();
   for (const row of rows) {
     if (row.otherId === row.subjectId) {
@@ -154,20 +155,37 @@ export function aggregateDuplicateMatchSummaries(
     }
     matchesBySubject.set(row.subjectId, matches);
   }
+  return new Map(
+    [...matchesBySubject].map(([subjectId, matches]) => [subjectId, [...matches.values()]]),
+  );
+}
 
+function aggregateDuplicateMatchCounts(
+  rows: DuplicateMatchSummaryRow[],
+): Map<string, ResumeDuplicateMatchSummary> {
   const result = new Map<string, ResumeDuplicateMatchSummary>();
-  for (const [subjectId, matches] of matchesBySubject) {
-    const allMatches = [...matches.values()];
+  for (const [subjectId, matches] of groupBestDuplicateMatches(rows)) {
+    let highestLevel: ResumeSemanticDuplicateLevel | null = null;
+    for (const match of matches) {
+      if (highestLevel === null || LEVEL_PRIORITY[match.level] > LEVEL_PRIORITY[highestLevel]) {
+        highestLevel = match.level;
+      }
+    }
+    result.set(subjectId, { count: matches.length, highestLevel });
+  }
+  return result;
+}
+
+export function aggregateDuplicateMatchSummaries(
+  rows: DuplicateMatchSummaryRow[],
+): Map<string, ResumeDuplicateMatchSummary> {
+  const result = new Map<string, ResumeDuplicateMatchSummary>();
+  for (const [subjectId, allMatches] of groupBestDuplicateMatches(rows)) {
     const duplicates = allMatches.filter((match) => match.score >= DUPLICATE_SCORE_THRESHOLD);
     if (duplicates.length > 0) {
       const [latestDuplicate] = duplicates
-        .filter(
-          (
-            match,
-          ): match is DuplicateMatchSummaryRow & {
-            otherCandidateName: string;
-            otherCreatedAt: string;
-          } => Boolean(match.otherCandidateName && match.otherCreatedAt),
+        .filter((match): match is DuplicateMatchSummaryRow & { otherCreatedAt: string } =>
+          Boolean(match.otherCreatedAt),
         )
         .toSorted((left, right) => right.otherCreatedAt.localeCompare(left.otherCreatedAt));
       const summary: ResumeDuplicateMatchSummary = {
@@ -176,9 +194,8 @@ export function aggregateDuplicateMatchSummaries(
       };
       if (latestDuplicate) {
         summary.latestDuplicate = {
-          candidateName: latestDuplicate.otherCandidateName,
           createdAt: latestDuplicate.otherCreatedAt,
-          creatorName: latestDuplicate.otherCreatorName,
+          creatorName: latestDuplicate.otherCreatorName ?? null,
         };
       }
       result.set(subjectId, summary);
@@ -207,7 +224,21 @@ export function isDuplicateMatchVisibleToSource(
   return sourceType !== "studio_interview" || otherType === "studio_interview";
 }
 
-export async function listActiveDuplicateMatchSummaries(input: {
+function toDuplicateMatchSummaryRow(
+  row: Omit<DuplicateMatchDirectionRow, "otherCreatedAt"> & { otherCreatedAt?: Date | null },
+): DuplicateMatchDirectionRow {
+  return {
+    level: row.level,
+    otherCreatedAt: serializeDate(row.otherCreatedAt ?? null),
+    otherCreatorName: row.otherCreatorName,
+    otherId: row.otherId,
+    otherType: row.otherType,
+    score: row.score,
+    subjectId: row.subjectId,
+  };
+}
+
+export async function listActiveDuplicateMatchCounts(input: {
   organizationId: string;
   sourceType: ResumeSemanticSourceType;
   sourceIds: string[];
@@ -215,36 +246,16 @@ export async function listActiveDuplicateMatchSummaries(input: {
   if (input.sourceIds.length === 0) {
     return new Map();
   }
-  // 双向计数：一条查重行会对两个 subject 各贡献一次——source 侧记录看到
-  // 「早于它上传的重复」，matched 侧记录看到「后来上传、把它判为重复的份」，
-  // 这样第一份简历也能看到后面上传的重复份。聚合层再按对去重。
-  // A dedup row contributes to both subjects: the source side sees an earlier
-  // duplicate; the matched side sees a later upload that flagged it. The
-  // aggregator dedupes per pair.
-  const duplicateInterview = alias(studioInterview, "duplicate_studio_interview");
-  const duplicateCreator = alias(user, "duplicate_creator");
   const [sourceSideRows, matchedSideRows] = await Promise.all([
     db
       .select({
         level: resumeDuplicateMatch.level,
-        otherCandidateName: duplicateInterview.candidateName,
-        otherCreatedAt: duplicateInterview.createdAt,
-        otherCreatorName: duplicateCreator.name,
         otherId: resumeDuplicateMatch.matchedSourceId,
         otherType: resumeDuplicateMatch.matchedSourceType,
         score: resumeDuplicateMatch.score,
         subjectId: resumeDuplicateMatch.sourceId,
       })
       .from(resumeDuplicateMatch)
-      .leftJoin(
-        duplicateInterview,
-        and(
-          eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
-          eq(duplicateInterview.id, resumeDuplicateMatch.matchedSourceId),
-          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
-        ),
-      )
-      .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
       .where(
         and(
           eq(resumeDuplicateMatch.organizationId, input.organizationId),
@@ -256,24 +267,12 @@ export async function listActiveDuplicateMatchSummaries(input: {
     db
       .select({
         level: resumeDuplicateMatch.level,
-        otherCandidateName: duplicateInterview.candidateName,
-        otherCreatedAt: duplicateInterview.createdAt,
-        otherCreatorName: duplicateCreator.name,
         otherId: resumeDuplicateMatch.sourceId,
         otherType: resumeDuplicateMatch.sourceType,
         score: resumeDuplicateMatch.score,
         subjectId: resumeDuplicateMatch.matchedSourceId,
       })
       .from(resumeDuplicateMatch)
-      .leftJoin(
-        duplicateInterview,
-        and(
-          eq(resumeDuplicateMatch.sourceType, "studio_interview"),
-          eq(duplicateInterview.id, resumeDuplicateMatch.sourceId),
-          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
-        ),
-      )
-      .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
       .where(
         and(
           eq(resumeDuplicateMatch.organizationId, input.organizationId),
@@ -284,28 +283,82 @@ export async function listActiveDuplicateMatchSummaries(input: {
       ),
   ]);
 
-  const scopedRows = [
-    ...sourceSideRows.map((row) => ({
-      level: row.level,
-      otherCandidateName: row.otherCandidateName,
-      otherCreatedAt: serializeDate(row.otherCreatedAt),
-      otherCreatorName: row.otherCreatorName,
-      otherId: row.otherId,
-      otherType: row.otherType,
-      score: row.score,
-      subjectId: row.subjectId,
-    })),
-    ...matchedSideRows.map((row) => ({
-      level: row.level,
-      otherCandidateName: row.otherCandidateName,
-      otherCreatedAt: serializeDate(row.otherCreatedAt),
-      otherCreatorName: row.otherCreatorName,
-      otherId: row.otherId,
-      otherType: row.otherType,
-      score: row.score,
-      subjectId: row.subjectId,
-    })),
-  ].filter((row) => isDuplicateMatchVisibleToSource(input.sourceType, row.otherType));
+  const scopedRows = [...sourceSideRows, ...matchedSideRows]
+    .map(toDuplicateMatchSummaryRow)
+    .filter((row) => isDuplicateMatchVisibleToSource(input.sourceType, row.otherType));
+
+  return aggregateDuplicateMatchCounts(scopedRows);
+}
+
+export async function listActiveStudioDuplicateMatchSummaries(input: {
+  organizationId: string;
+  sourceIds: string[];
+}): Promise<Map<string, ResumeDuplicateMatchSummary>> {
+  if (input.sourceIds.length === 0) {
+    return new Map();
+  }
+  const duplicateInterview = alias(studioInterview, "duplicate_studio_interview");
+  const duplicateCreator = alias(user, "duplicate_creator");
+  const [sourceSideRows, matchedSideRows] = await Promise.all([
+    db
+      .select({
+        level: resumeDuplicateMatch.level,
+        otherCreatedAt: duplicateInterview.createdAt,
+        otherCreatorName: duplicateCreator.name,
+        otherId: resumeDuplicateMatch.matchedSourceId,
+        otherType: resumeDuplicateMatch.matchedSourceType,
+        score: resumeDuplicateMatch.score,
+        subjectId: resumeDuplicateMatch.sourceId,
+      })
+      .from(resumeDuplicateMatch)
+      .innerJoin(
+        duplicateInterview,
+        and(
+          eq(duplicateInterview.id, resumeDuplicateMatch.matchedSourceId),
+          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
+        ),
+      )
+      .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
+      .where(
+        and(
+          eq(resumeDuplicateMatch.organizationId, input.organizationId),
+          eq(resumeDuplicateMatch.sourceType, "studio_interview"),
+          eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
+          inArray(resumeDuplicateMatch.sourceId, input.sourceIds),
+          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+        ),
+      ),
+    db
+      .select({
+        level: resumeDuplicateMatch.level,
+        otherCreatedAt: duplicateInterview.createdAt,
+        otherCreatorName: duplicateCreator.name,
+        otherId: resumeDuplicateMatch.sourceId,
+        otherType: resumeDuplicateMatch.sourceType,
+        score: resumeDuplicateMatch.score,
+        subjectId: resumeDuplicateMatch.matchedSourceId,
+      })
+      .from(resumeDuplicateMatch)
+      .innerJoin(
+        duplicateInterview,
+        and(
+          eq(duplicateInterview.id, resumeDuplicateMatch.sourceId),
+          eq(duplicateInterview.organizationId, resumeDuplicateMatch.organizationId),
+        ),
+      )
+      .leftJoin(duplicateCreator, eq(duplicateInterview.createdBy, duplicateCreator.id))
+      .where(
+        and(
+          eq(resumeDuplicateMatch.organizationId, input.organizationId),
+          eq(resumeDuplicateMatch.sourceType, "studio_interview"),
+          eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
+          inArray(resumeDuplicateMatch.matchedSourceId, input.sourceIds),
+          inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+        ),
+      ),
+  ]);
+
+  const scopedRows = [...sourceSideRows, ...matchedSideRows].map(toDuplicateMatchSummaryRow);
 
   return aggregateDuplicateMatchSummaries(scopedRows);
 }

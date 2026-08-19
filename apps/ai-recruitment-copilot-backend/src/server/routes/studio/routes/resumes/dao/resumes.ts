@@ -16,7 +16,7 @@ import {
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { listActiveDuplicateMatchSummaries } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { listActiveStudioDuplicateMatchSummaries } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import {
   buildOrderBy,
@@ -670,10 +670,9 @@ export async function queryPaginatedResumeRecords(
   const recordIds = rows.map((row) => row.id);
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields(recordIds, organizationId),
-    listActiveDuplicateMatchSummaries({
+    listActiveStudioDuplicateMatchSummaries({
       organizationId,
       sourceIds: recordIds,
-      sourceType: "studio_interview",
     }),
   ]);
   return {
@@ -772,10 +771,9 @@ export async function loadResumeDetail(
   );
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id], organizationId),
-    listActiveDuplicateMatchSummaries({
+    listActiveStudioDuplicateMatchSummaries({
       organizationId,
       sourceIds: [rest.id],
-      sourceType: "studio_interview",
     }),
   ]);
   return {

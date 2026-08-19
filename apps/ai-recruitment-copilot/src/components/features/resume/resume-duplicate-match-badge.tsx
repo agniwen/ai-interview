@@ -17,7 +17,7 @@ function getDuplicateMatchBadgeLabel(
     return baseLabel;
   }
 
-  const creatorName = latestDuplicate.creatorName ?? latestDuplicate.candidateName;
+  const creatorName = latestDuplicate.creatorName ?? "未知创建人";
   const latestCreatedAt = Date.parse(latestDuplicate.createdAt);
   const currentCreatedAt = sourceCreatedAt ? Date.parse(sourceCreatedAt) : Number.NaN;
   if (Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt) {

@@ -162,7 +162,6 @@ describe("ResumeDuplicateMatchesDialog", () => {
           count: 1,
           highestLevel: "high",
           latestDuplicate: {
-            candidateName: "重复候选人",
             createdAt: "2026-08-18T04:20:00.000Z",
             creatorName: "荷叶",
           },
@@ -184,7 +183,6 @@ describe("ResumeDuplicateMatchesDialog", () => {
           count: 2,
           highestLevel: "high",
           latestDuplicate: {
-            candidateName: "稍后重复候选人",
             createdAt: "2026-08-20T04:20:00.000Z",
             creatorName: "达里尔",
           },
@@ -196,6 +194,27 @@ describe("ResumeDuplicateMatchesDialog", () => {
 
     expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
       "重复简历 2 条，达里尔创建，晚于当前简历创建",
+    );
+  });
+
+  it("does not attribute creation to the candidate when the creator is missing", async () => {
+    const { root } = await renderInAct(
+      <ResumeDuplicateMatchBadge
+        duplicateMatch={{
+          count: 1,
+          highestLevel: "high",
+          latestDuplicate: {
+            createdAt: "2026-08-18T04:20:00.000Z",
+            creatorName: null,
+          },
+        }}
+        sourceCreatedAt="2026-08-19T04:20:00.000Z"
+      />,
+    );
+    roots.push(root);
+
+    expect(document.querySelector('[data-slot="badge"]')?.textContent).toBe(
+      "重复简历，未知创建人于 26/08/18 12:20 创建",
     );
   });
 
