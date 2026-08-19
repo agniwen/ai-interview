@@ -253,7 +253,7 @@ describe("aggregateDuplicateMatchSummaries", () => {
     expect(result.get("current")).toEqual({
       count: 1,
       highestLevel: "high",
-      latestDuplicate: {
+      latestMatchedResume: {
         createdAt: "2026-08-18T04:20:00.000Z",
         creatorName: "荷叶",
       },
@@ -291,7 +291,7 @@ describe("aggregateDuplicateMatchSummaries", () => {
     expect(result.get("current")).toEqual({
       count: 2,
       highestLevel: "high",
-      latestDuplicate: {
+      latestMatchedResume: {
         createdAt: "2026-08-18T04:20:00.000Z",
         creatorName: "达里尔",
       },

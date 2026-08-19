@@ -371,7 +371,7 @@ describe("queryPaginatedResumeRecords", () => {
       expect(result.records.find((row) => row.id === "ri_test_a_1")?.duplicateMatch).toEqual({
         count: 1,
         highestLevel: "high",
-        latestDuplicate: {
+        latestMatchedResume: {
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao-alt",
         },
@@ -382,7 +382,7 @@ describe("queryPaginatedResumeRecords", () => {
       expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toEqual({
         count: 1,
         highestLevel: "high",
-        latestDuplicate: {
+        latestMatchedResume: {
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao",
         },
@@ -392,7 +392,7 @@ describe("queryPaginatedResumeRecords", () => {
       expect(detail?.duplicateMatch).toEqual({
         count: 1,
         highestLevel: "high",
-        latestDuplicate: {
+        latestMatchedResume: {
           createdAt: NOW.toISOString(),
           creatorName: "resume-dao-alt",
         },

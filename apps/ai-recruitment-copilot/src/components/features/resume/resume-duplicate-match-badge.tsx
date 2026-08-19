@@ -12,19 +12,19 @@ function getDuplicateMatchBadgeLabel(
   const badgeText = isDuplicate ? "重复简历" : "相似简历";
   const baseLabel =
     duplicateMatch.count > 1 ? `${badgeText} ${duplicateMatch.count} 条` : badgeText;
-  const { latestDuplicate } = duplicateMatch;
-  if (!(isDuplicate && latestDuplicate)) {
+  const { latestMatchedResume } = duplicateMatch;
+  if (!(isDuplicate && latestMatchedResume)) {
     return baseLabel;
   }
 
-  const creatorName = latestDuplicate.creatorName ?? "未知创建人";
-  const latestCreatedAt = Date.parse(latestDuplicate.createdAt);
+  const creatorName = latestMatchedResume.creatorName ?? "未知创建人";
+  const latestCreatedAt = Date.parse(latestMatchedResume.createdAt);
   const currentCreatedAt = sourceCreatedAt ? Date.parse(sourceCreatedAt) : Number.NaN;
   if (Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt) {
     return `${baseLabel}，${creatorName}创建，晚于当前简历创建`;
   }
 
-  const createdAtLabel = formatTimeDisplayText(latestDuplicate.createdAt);
+  const createdAtLabel = formatTimeDisplayText(latestMatchedResume.createdAt);
   return createdAtLabel ? `${baseLabel}，${creatorName}于 ${createdAtLabel} 创建` : baseLabel;
 }
 

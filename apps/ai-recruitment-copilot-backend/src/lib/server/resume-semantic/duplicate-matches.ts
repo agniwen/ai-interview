@@ -183,7 +183,7 @@ export function aggregateDuplicateMatchSummaries(
   for (const [subjectId, allMatches] of groupBestDuplicateMatches(rows)) {
     const duplicates = allMatches.filter((match) => match.score >= DUPLICATE_SCORE_THRESHOLD);
     if (duplicates.length > 0) {
-      const [latestDuplicate] = duplicates
+      const [latestMatchedResume] = duplicates
         .filter((match): match is DuplicateMatchSummaryRow & { otherCreatedAt: string } =>
           Boolean(match.otherCreatedAt),
         )
@@ -192,10 +192,10 @@ export function aggregateDuplicateMatchSummaries(
         count: duplicates.length,
         highestLevel: "high",
       };
-      if (latestDuplicate) {
-        summary.latestDuplicate = {
-          createdAt: latestDuplicate.otherCreatedAt,
-          creatorName: latestDuplicate.otherCreatorName ?? null,
+      if (latestMatchedResume) {
+        summary.latestMatchedResume = {
+          createdAt: latestMatchedResume.otherCreatedAt,
+          creatorName: latestMatchedResume.otherCreatorName ?? null,
         };
       }
       result.set(subjectId, summary);
