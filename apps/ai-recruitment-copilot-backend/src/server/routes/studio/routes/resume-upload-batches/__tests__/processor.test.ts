@@ -40,12 +40,16 @@ const dependencies = {
     vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumeSemanticIndexJobBestEffort"]>(),
   findAttachmentByStorageKey:
     vi.fn<ResumeUploadBatchProcessorDependencies["findAttachmentByStorageKey"]>(),
+  generateInterviewQuestionsForProfile:
+    vi.fn<ResumeUploadBatchProcessorDependencies["generateInterviewQuestionsForProfile"]>(),
   getObjectStream: vi.fn<ResumeUploadBatchProcessorDependencies["getObjectStream"]>(),
   parseResumeBytesToProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["parseResumeBytesToProfile"]>(),
   projectAttachmentToResumeProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["projectAttachmentToResumeProfile"]>(),
   reassessResumeRecord: vi.fn<ResumeUploadBatchProcessorDependencies["reassessResumeRecord"]>(),
+  resolveCandidateQuestionGenerationEnabled:
+    vi.fn<ResumeUploadBatchProcessorDependencies["resolveCandidateQuestionGenerationEnabled"]>(),
   updateParseResultByHash:
     vi.fn<ResumeUploadBatchProcessorDependencies["updateParseResultByHash"]>(),
 } satisfies ResumeUploadBatchProcessorDependencies;
@@ -60,6 +64,13 @@ const USER_A = "bulk_proc_user_a";
 const STORAGE_KEY_PREFIX = "storage/bulk-proc-test/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
+const GENERATED_QUESTIONS = Array.from({ length: 10 }, (_, index) => ({
+  difficulty: "easy" as const,
+  evaluationFocus: `考察重点 ${index + 1}`,
+  followUpDirections: `追问方向 ${index + 1}`,
+  order: index + 1,
+  question: `面试题 ${index + 1}`,
+}));
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
 // 返回一个有效的 ReadableStream 响应体，模拟 S3 成功返回。
@@ -229,7 +240,9 @@ beforeEach(() => {
   // SAFETY: The fallback reassessment result is intentionally ignored by this processor test.
   dependencies.reassessResumeRecord.mockImplementation(() => Promise.resolve(undefined as never));
   dependencies.findAttachmentByStorageKey.mockResolvedValue(null);
+  dependencies.generateInterviewQuestionsForProfile.mockResolvedValue(GENERATED_QUESTIONS);
   dependencies.projectAttachmentToResumeProfile.mockReturnValue(null);
+  dependencies.resolveCandidateQuestionGenerationEnabled.mockReturnValue(true);
   dependencies.updateParseResultByHash.mockResolvedValue();
 });
 
@@ -283,6 +296,14 @@ describe("processNextItem — happy path", () => {
       phone: "13800000000",
       targetRoles: ["Engineer"],
     });
+    dependencies.generateInterviewQuestionsForProfile.mockImplementationOnce(async () => {
+      const [recordDuringGeneration] = await db
+        .select({ resumeParseStatus: studioInterview.resumeParseStatus })
+        .from(studioInterview)
+        .where(eq(studioInterview.id, recordId));
+      expect(recordDuringGeneration?.resumeParseStatus).toBe("processing");
+      return GENERATED_QUESTIONS;
+    });
 
     const result = await processBatchItem(beforeItem.id);
 
@@ -312,6 +333,16 @@ describe("processNextItem — happy path", () => {
     expect(interview.resumeParseStatus).toBe("ready");
     expect(interview.resumeParsedAt).toBeTruthy();
     expect(interview.resumeText).toBe("Test User OCR 原文");
+    expect(interview.interviewQuestions).toEqual(GENERATED_QUESTIONS);
+    expect(dependencies.generateInterviewQuestionsForProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Test User" }),
+    );
+    expect(
+      dependencies.generateInterviewQuestionsForProfile.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      dependencies.enqueueResumeReviewGenerationForRecordBestEffort.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
     expect(dependencies.enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
       autoMatchJobDescription: false,
       generationToken: beforeItem.id,
@@ -331,6 +362,33 @@ describe("processNextItem — happy path", () => {
     expect(result?.batch.processedCount).toBe(1);
     expect(result?.batch.succeededCount).toBe(1);
     expect(result?.batch.status).toBe("completed");
+  });
+
+  it("面试题生成失败时仍完成简历解析，并保留空题目供发起时兜底", async () => {
+    const { item, recordId } = await createQueuedSingleItemBatch();
+    mockS3OK();
+    mockParseOK({
+      email: "question-fallback@example.com",
+      name: "Question Fallback",
+      phone: null,
+      targetRoles: ["Engineer"],
+    });
+    dependencies.generateInterviewQuestionsForProfile.mockRejectedValueOnce(
+      new Error("question generation unavailable"),
+    );
+
+    const result = await processBatchItem(item.id);
+
+    expect(result?.item?.status).toBe("succeeded");
+    const [interview] = await db
+      .select({
+        interviewQuestions: studioInterview.interviewQuestions,
+        resumeParseStatus: studioInterview.resumeParseStatus,
+      })
+      .from(studioInterview)
+      .where(eq(studioInterview.id, recordId));
+    expect(interview?.resumeParseStatus).toBe("ready");
+    expect(interview?.interviewQuestions).toEqual([]);
   });
 });
 

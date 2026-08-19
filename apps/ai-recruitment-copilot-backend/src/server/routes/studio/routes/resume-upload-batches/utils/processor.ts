@@ -30,12 +30,12 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import {
-  enqueueResumePoolReviewGenerationBestEffort,
-  enqueueResumeReviewGenerationForRecordBestEffort,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
-import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
+  completeParsedResumeEnrichment,
+  defaultParsedResumeEnrichmentDependencies,
+  generateParsedResumeQuestionsBestEffort,
+} from "./parsed-resume-enrichment";
+import type { ParsedResumeEnrichmentDependencies } from "./parsed-resume-enrichment";
 import {
   assertBatchItemNotCancelled,
   getClaimMissRetryError,
@@ -68,27 +68,20 @@ type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
-export interface ResumeUploadBatchProcessorDependencies {
-  enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;
-  enqueueResumeReviewGenerationForRecordBestEffort: typeof enqueueResumeReviewGenerationForRecordBestEffort;
-  enqueueResumeSemanticIndexJobBestEffort: typeof enqueueResumeSemanticIndexJobBestEffort;
+export interface ResumeUploadBatchProcessorDependencies extends ParsedResumeEnrichmentDependencies {
   findAttachmentByStorageKey: typeof findAttachmentByStorageKey;
   getObjectStream: typeof getObjectStream;
   parseResumeBytesToProfile: typeof parseResumeBytesToProfile;
   projectAttachmentToResumeProfile: typeof projectAttachmentToResumeProfile;
-  reassessResumeRecord: typeof reassessResumeRecord;
   updateParseResultByHash: typeof updateParseResultByHash;
 }
 
 const defaultResumeUploadBatchProcessorDependencies: ResumeUploadBatchProcessorDependencies = {
-  enqueueResumePoolReviewGenerationBestEffort,
-  enqueueResumeReviewGenerationForRecordBestEffort,
-  enqueueResumeSemanticIndexJobBestEffort,
+  ...defaultParsedResumeEnrichmentDependencies,
   findAttachmentByStorageKey,
   getObjectStream,
   parseResumeBytesToProfile,
   projectAttachmentToResumeProfile,
-  reassessResumeRecord,
   updateParseResultByHash,
 };
 
@@ -222,6 +215,7 @@ async function upsertParsedResumeRecord({
       notes: null,
       organizationId,
       resumeFileName: item.originalFileName,
+      resumeParseStatus: "processing",
       resumeProfile,
       resumeReview: null,
       resumeReviewError: null,
@@ -270,7 +264,7 @@ async function upsertParsedResumeRecord({
         resumeContentHash: item.contentHash,
         resumeFileName: item.originalFileName,
         resumeParseError: null,
-        resumeParseStatus: "ready",
+        resumeParseStatus: "processing",
         resumeParsedAt: now,
         resumeProfile,
         resumeStorageKey: item.storageKey,
@@ -381,94 +375,6 @@ async function fetchAndParse(
     succeededPoolItemId: null,
     succeededRecordId,
   };
-}
-
-async function requireEnrichmentTasks(tasks: Promise<boolean>[]): Promise<void> {
-  const results = await Promise.all(tasks);
-  if (results.some((enqueued) => !enqueued)) {
-    throw new Error("简历后续分析任务入队失败。");
-  }
-}
-
-async function scheduleLibraryEvaluation(
-  input: {
-    autoMatchJobDescription: boolean;
-    generationToken: string;
-    jobDescriptionId: string | null;
-    organizationId: string;
-    resumeRecordId: string;
-  },
-  dependencies: ResumeUploadBatchProcessorDependencies,
-): Promise<boolean> {
-  const result = await dependencies.enqueueResumeReviewGenerationForRecordBestEffort({
-    ...input,
-    source: "resume_upload",
-  });
-  if (result.status === "failed") {
-    return false;
-  }
-  if (result.status === "fallback_sync") {
-    await dependencies.reassessResumeRecord({
-      organizationId: input.organizationId,
-      resumeRecordId: input.resumeRecordId,
-    });
-  }
-  return true;
-}
-
-async function enqueueParsedResumeEnrichment(
-  input: {
-    autoMatchJobDescription: boolean;
-    generationToken: string;
-    jobDescriptionId: string | null;
-    organizationId: string;
-    succeededPoolItemId: string | null;
-    succeededRecordId: string | null;
-  },
-  dependencies: ResumeUploadBatchProcessorDependencies,
-): Promise<void> {
-  if (input.succeededRecordId) {
-    await requireEnrichmentTasks([
-      scheduleLibraryEvaluation(
-        {
-          autoMatchJobDescription: input.autoMatchJobDescription,
-          generationToken: input.generationToken,
-          jobDescriptionId: input.jobDescriptionId,
-          organizationId: input.organizationId,
-          resumeRecordId: input.succeededRecordId,
-        },
-        dependencies,
-      ),
-      dependencies.enqueueResumeSemanticIndexJobBestEffort({
-        organizationId: input.organizationId,
-        sourceId: input.succeededRecordId,
-        sourceType: "studio_interview",
-      }),
-    ]);
-    return;
-  }
-  if (!input.succeededPoolItemId) {
-    return;
-  }
-  const tasks: Promise<boolean>[] = [
-    dependencies.enqueueResumeSemanticIndexJobBestEffort({
-      organizationId: input.organizationId,
-      sourceId: input.succeededPoolItemId,
-      sourceType: "resume_pool_item",
-    }),
-  ];
-  if (input.autoMatchJobDescription || input.jobDescriptionId) {
-    tasks.push(
-      dependencies.enqueueResumePoolReviewGenerationBestEffort({
-        autoMatchJobDescription: input.autoMatchJobDescription,
-        generationToken: input.generationToken,
-        jobDescriptionId: input.jobDescriptionId,
-        organizationId: input.organizationId,
-        poolItemId: input.succeededPoolItemId,
-      }),
-    );
-  }
-  await requireEnrichmentTasks(tasks);
 }
 
 // 結果を DB に書き戻し、batch カウンターを更新する。
@@ -631,7 +537,17 @@ async function processClaimedItem(
 
   if (!outcome.errorMessage) {
     try {
-      await enqueueParsedResumeEnrichment(
+      await generateParsedResumeQuestionsBestEffort(
+        {
+          organizationId: batchRow.organizationId,
+          resumeRecordId: outcome.succeededRecordId,
+        },
+        dependencies,
+      );
+      if (await isBatchItemCancelled(batchRow.id, item.id)) {
+        return loadCancelledProcessResult(item, batchRow, startedAt);
+      }
+      await completeParsedResumeEnrichment(
         {
           ...outcome,
           generationToken: item.id,

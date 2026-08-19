@@ -34,12 +34,16 @@ const dependencies = {
     vi.fn<ResumeUploadBatchProcessorDependencies["enqueueResumeSemanticIndexJobBestEffort"]>(),
   findAttachmentByStorageKey:
     vi.fn<ResumeUploadBatchProcessorDependencies["findAttachmentByStorageKey"]>(),
+  generateInterviewQuestionsForProfile:
+    vi.fn<ResumeUploadBatchProcessorDependencies["generateInterviewQuestionsForProfile"]>(),
   getObjectStream: vi.fn<ResumeUploadBatchProcessorDependencies["getObjectStream"]>(),
   parseResumeBytesToProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["parseResumeBytesToProfile"]>(),
   projectAttachmentToResumeProfile:
     vi.fn<ResumeUploadBatchProcessorDependencies["projectAttachmentToResumeProfile"]>(),
   reassessResumeRecord: vi.fn<ResumeUploadBatchProcessorDependencies["reassessResumeRecord"]>(),
+  resolveCandidateQuestionGenerationEnabled:
+    vi.fn<ResumeUploadBatchProcessorDependencies["resolveCandidateQuestionGenerationEnabled"]>(),
   updateParseResultByHash:
     vi.fn<ResumeUploadBatchProcessorDependencies["updateParseResultByHash"]>(),
 } satisfies ResumeUploadBatchProcessorDependencies;
@@ -220,7 +224,9 @@ beforeEach(() => {
   // SAFETY: The fallback reassessment result is intentionally ignored by this processor test.
   dependencies.reassessResumeRecord.mockImplementation(() => Promise.resolve(undefined as never));
   dependencies.findAttachmentByStorageKey.mockResolvedValue(null);
+  dependencies.generateInterviewQuestionsForProfile.mockResolvedValue([]);
   dependencies.projectAttachmentToResumeProfile.mockReturnValue(null);
+  dependencies.resolveCandidateQuestionGenerationEnabled.mockReturnValue(true);
   dependencies.updateParseResultByHash.mockResolvedValue();
 });
 
