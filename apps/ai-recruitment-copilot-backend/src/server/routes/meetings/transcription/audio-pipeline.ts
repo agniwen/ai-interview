@@ -11,6 +11,12 @@ import type { FinalTranscriptionAudioChunk } from "./provider";
 const execFileAsync = promisify(execFile);
 export const MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS = 30 * 60 * 1000;
 
+export function assertMeetingTranscriptionFfmpegAvailable(versionLine: string): void {
+  if (!versionLine.startsWith("ffmpeg version ")) {
+    throw new Error("FFmpeg version output is invalid");
+  }
+}
+
 export function assertMeetingTranscriptionFfmpegVersion(
   versionLine: string,
   expected?: string,

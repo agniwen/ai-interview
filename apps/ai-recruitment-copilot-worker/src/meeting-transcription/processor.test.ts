@@ -6,6 +6,7 @@ import {
 import type { MeetingTranscriptionDependencies } from "./processor";
 
 import {
+  assertMeetingTranscriptionFfmpegAvailable,
   assertMeetingTranscriptionFfmpegVersion,
   createMeetingTranscriptionProviderForJob,
   runMeetingTranscriptionProcessing,
@@ -122,7 +123,15 @@ describe("Meeting final transcription processor", () => {
     ).toThrow("does not match worker endpoint");
   });
 
-  it("requires the pinned FFmpeg version prefix", () => {
+  it("accepts any valid FFmpeg version for the worker runtime", () => {
+    expect(() => assertMeetingTranscriptionFfmpegAvailable("ffmpeg version 5.1.9")).not.toThrow();
+    expect(() => assertMeetingTranscriptionFfmpegAvailable("ffmpeg version 9.0.1")).not.toThrow();
+    expect(() => assertMeetingTranscriptionFfmpegAvailable("unexpected output")).toThrow(
+      "version output is invalid",
+    );
+  });
+
+  it("still supports pinned FFmpeg versions for reproducible evaluations", () => {
     expect(() => assertMeetingTranscriptionFfmpegVersion("ffmpeg version 5.1.9")).toThrow(
       "is required",
     );

@@ -17,7 +17,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-endpoint";
 import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import {
-  assertMeetingTranscriptionFfmpegVersion,
+  assertMeetingTranscriptionFfmpegAvailable,
   mergeMeetingTranscriptionChunkResults,
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
@@ -35,7 +35,10 @@ import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
 import pLimit from "p-limit";
 
-export { assertMeetingTranscriptionFfmpegVersion } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
+export {
+  assertMeetingTranscriptionFfmpegAvailable,
+  assertMeetingTranscriptionFfmpegVersion,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
 
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
@@ -201,10 +204,7 @@ export function createDefaultMeetingTranscriptionDependencies(
 
 export async function validateMeetingTranscriptionRuntime(): Promise<void> {
   const versionLine = await readMeetingTranscriptionFfmpegVersion(process.env.FFMPEG_BIN);
-  assertMeetingTranscriptionFfmpegVersion(
-    versionLine,
-    process.env.MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX,
-  );
+  assertMeetingTranscriptionFfmpegAvailable(versionLine);
   console.info("[meeting-transcription-worker] ffmpeg runtime", { version: versionLine });
 }
 
