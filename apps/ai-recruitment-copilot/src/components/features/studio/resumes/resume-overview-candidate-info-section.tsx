@@ -90,6 +90,10 @@ export function ResumeOverviewCandidateInfoSection({
   const displayName = detail.candidateName || detail.resumeProfile?.name || null;
   const displayEmail = detail.candidateEmail ?? detail.resumeProfile?.email ?? null;
   const displayPhone = detail.candidatePhone ?? detail.resumeProfile?.phone ?? null;
+  const profileTargetRoles = detail.resumeProfile?.targetRoles ?? [];
+  const displayTargetRoles =
+    profileTargetRoles.length > 0 ? profileTargetRoles.join("、") : detail.targetRole;
+  const targetRolesField = <DataField label="求职意向" value={displayTargetRoles} />;
 
   function startEditing() {
     setDraft(toOverviewIdentityDraft(detail));
@@ -243,6 +247,7 @@ export function ResumeOverviewCandidateInfoSection({
               value={draft.jobDescriptionId}
             />
           </div>
+          {targetRolesField}
           <Field>
             <FieldLabel htmlFor="overview-resume-evaluation">简历评估</FieldLabel>
             <Select
@@ -341,6 +346,7 @@ export function ResumeOverviewCandidateInfoSection({
             }
             valueClassName="font-medium"
           />
+          {targetRolesField}
           <DataField label="简历评估" value={resumeEvaluation.label} valueClassName="font-medium" />
           <DataField label="性别" value={detail.resumeProfile?.gender} />
           <DataField kind="number" label="年龄" value={detail.resumeProfile?.age} />

@@ -20,6 +20,7 @@ import { WorkExperience } from "@/components/features/resume/work-experience";
 interface ResumeProfileViewProps {
   profile: ResumeProfile | null;
   showBasicInfo?: boolean;
+  showTargetRoles?: boolean;
 }
 
 const PLACEHOLDER = "未发现信息";
@@ -252,7 +253,11 @@ function ResumeProfileBasicFields({ profile }: { profile: ResumeProfile }) {
   );
 }
 
-export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfileViewProps) {
+export function ResumeProfileView({
+  profile,
+  showBasicInfo = true,
+  showTargetRoles = true,
+}: ResumeProfileViewProps) {
   if (!profile) {
     return <p className="text-muted-foreground text-sm">暂无结构化简历，仅有候选人基础信息。</p>;
   }
@@ -268,8 +273,14 @@ export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfi
         </DataFields>
       ) : null}
 
-      <ResumeProfileSection title="求职意向">
-        <ChipList items={profile.targetRoles} />
+      {showTargetRoles ? (
+        <ResumeProfileSection title="求职意向">
+          <ChipList items={profile.targetRoles} />
+        </ResumeProfileSection>
+      ) : null}
+
+      <ResumeProfileSection title="工作经历">
+        <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
       <ResumeProfileSection title="教育经历">
@@ -278,10 +289,6 @@ export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfi
         ) : (
           <ChipList items={profile.schools} />
         )}
-      </ResumeProfileSection>
-
-      <ResumeProfileSection title="工作经历">
-        <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
       <ResumeProfileSection title="项目经历">

@@ -124,6 +124,16 @@ const LEVEL_PRIORITY = {
   medium: 1,
 } satisfies Record<ResumeSemanticDuplicateLevel, number>;
 
+export function isDuplicateMatchVisibleToSource(
+  sourceType: ResumeSemanticSourceType,
+  otherType: ResumeSemanticSourceType,
+): boolean {
+  // 招聘台只在招聘台记录之间判重；人才库仍可展示跨来源对比。
+  // Recruiting records dedupe only against recruiting records; the talent pool
+  // keeps its existing cross-source comparison behavior.
+  return sourceType !== "studio_interview" || otherType === "studio_interview";
+}
+
 /**
  * 把「subjectId → otherId → level」行聚合成每个 subject 的重复数量与最高风险等级；
  * 同一对（otherId）只计一次，等级取该对中更高的一档。
@@ -189,6 +199,7 @@ export async function listActiveDuplicateMatchCounts(input: {
       .select({
         level: resumeDuplicateMatch.level,
         otherId: resumeDuplicateMatch.matchedSourceId,
+        otherType: resumeDuplicateMatch.matchedSourceType,
         subjectId: resumeDuplicateMatch.sourceId,
       })
       .from(resumeDuplicateMatch)
@@ -204,6 +215,7 @@ export async function listActiveDuplicateMatchCounts(input: {
       .select({
         level: resumeDuplicateMatch.level,
         otherId: resumeDuplicateMatch.sourceId,
+        otherType: resumeDuplicateMatch.sourceType,
         subjectId: resumeDuplicateMatch.matchedSourceId,
       })
       .from(resumeDuplicateMatch)
@@ -217,18 +229,22 @@ export async function listActiveDuplicateMatchCounts(input: {
       ),
   ]);
 
-  return aggregateDuplicateMatchCounts([
+  const scopedRows = [
     ...sourceSideRows.map((row) => ({
       level: row.level,
       otherId: row.otherId,
+      otherType: row.otherType,
       subjectId: row.subjectId,
     })),
     ...matchedSideRows.map((row) => ({
       level: row.level,
       otherId: row.otherId,
+      otherType: row.otherType,
       subjectId: row.subjectId,
     })),
-  ]);
+  ].filter((row) => isDuplicateMatchVisibleToSource(input.sourceType, row.otherType));
+
+  return aggregateDuplicateMatchCounts(scopedRows);
 }
 
 type DuplicateMatchRow = typeof resumeDuplicateMatch.$inferSelect;
@@ -384,7 +400,9 @@ export async function listDuplicateMatchesForSource(input: {
   // 把本记录判为重复的记录（即第一份也能看到后面上传的重复份）。
   // Bidirectional: the source side is an earlier duplicate; the matched side
   // is a later upload that flagged this record as its duplicate.
-  const resolvedMatches = resolveDuplicateMatchRows(input.sourceId, matchRows);
+  const resolvedMatches = resolveDuplicateMatchRows(input.sourceId, matchRows).filter((match) =>
+    isDuplicateMatchVisibleToSource(input.sourceType, match.otherType),
+  );
   const studioIds = resolvedMatches.flatMap((match) =>
     match.otherType === "studio_interview" ? [match.otherId] : [],
   );

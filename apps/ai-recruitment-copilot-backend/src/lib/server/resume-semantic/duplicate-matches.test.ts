@@ -3,6 +3,7 @@ import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/serve
 import {
   aggregateDuplicateMatchCounts,
   deleteDuplicateMatchesForSource,
+  isDuplicateMatchVisibleToSource,
   listDuplicateMatchesForSource,
   resolveDuplicateMatchRows,
   toDuplicateMatchInsertRows,
@@ -106,6 +107,17 @@ describe("toDuplicateMatchInsertRows", () => {
 describe("listDuplicateMatchesForSource", () => {
   it("is exported for duplicate badge detail endpoints", () => {
     expect(listDuplicateMatchesForSource).toBeTypeOf("function");
+  });
+});
+
+describe("isDuplicateMatchVisibleToSource", () => {
+  it("hides talent-pool matches from recruiting records", () => {
+    expect(isDuplicateMatchVisibleToSource("studio_interview", "resume_pool_item")).toBe(false);
+    expect(isDuplicateMatchVisibleToSource("studio_interview", "studio_interview")).toBe(true);
+  });
+
+  it("keeps the talent pool's existing cross-source comparison", () => {
+    expect(isDuplicateMatchVisibleToSource("resume_pool_item", "studio_interview")).toBe(true);
   });
 });
 

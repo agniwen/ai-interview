@@ -117,4 +117,19 @@ describe("resume profile badges", () => {
     expect(html.indexOf("当前项目")).toBeLessThan(html.indexOf("近期项目"));
     expect(html.indexOf("近期项目")).toBeLessThan(html.indexOf("早期项目"));
   });
+
+  it("places education after work experience and before skills", () => {
+    const html = renderToStaticMarkup(<ResumeProfileView profile={profile} />);
+
+    expect(html.indexOf("工作经历")).toBeLessThan(html.indexOf("教育经历"));
+    expect(html.indexOf("教育经历")).toBeLessThan(html.indexOf("掌握技能"));
+  });
+
+  it("can omit target roles when they are displayed with candidate information", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView profile={profile} showTargetRoles={false} />,
+    );
+
+    expect(html).not.toContain("求职意向");
+  });
 });

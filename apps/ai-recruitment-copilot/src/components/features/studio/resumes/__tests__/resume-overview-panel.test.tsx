@@ -151,12 +151,64 @@ function createUpgradedLegacyDetail(): ResumeLibraryDetail {
   } as ResumeLibraryDetail;
 }
 
+function createCandidateInfoDetail(): ResumeLibraryDetail {
+  return {
+    ...createStructuredDetail(),
+    resumeProfile: {
+      age: 28,
+      educationExperiences: [],
+      email: "candidate@example.com",
+      gender: "女",
+      name: "测试候选人",
+      personalStrengths: [],
+      phone: "13800138000",
+      projectExperiences: [],
+      schools: [],
+      skills: ["TypeScript"],
+      targetRoles: ["前端工程师", "全栈工程师"],
+      workExperiences: [],
+      workYears: 5,
+    },
+    targetRole: "前端工程师",
+  };
+}
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
 });
 
 describe("ResumeOverviewPanel", () => {
+  it("shows job intention as read-only candidate information", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createCandidateInfoDetail()} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const candidateInfoSection = [...container.querySelectorAll("section")].find((section) =>
+      [...section.querySelectorAll("h3")].some((heading) => heading.textContent === "候选人信息"),
+    );
+    const targetRoleField = [
+      ...(candidateInfoSection?.querySelectorAll("[data-slot=data-field]") ?? []),
+    ].find((field) => field.querySelector("dt")?.textContent === "求职意向");
+
+    expect(targetRoleField?.textContent).toContain("前端工程师、全栈工程师");
+    expect(targetRoleField?.querySelector("input,button")).toBeNull();
+    expect(
+      [...container.querySelectorAll("h4")].some((heading) => heading.textContent === "求职意向"),
+    ).toBe(false);
+
+    act(() => root.unmount());
+  });
+
   it("retains the legacy result when a structured reassessment fails", () => {
     const container = document.createElement("div");
     document.body.append(container);
