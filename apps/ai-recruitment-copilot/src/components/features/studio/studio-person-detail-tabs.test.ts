@@ -46,6 +46,9 @@ describe("AI 面试详情 tabs", () => {
     expect(bodySource).toContain("{showTimelineRail ? (");
     expect(bodySource).toContain("<aside");
     expect(bodySource).toContain("<CandidateDetailRail");
+    expect(bodySource).toContain(
+      '"xl:sticky xl:top-[calc(var(--header-height)+1rem)] xl:self-start"',
+    );
     expect(bodySource).toContain("profile={resumeRecord?.resumeProfile ?? null}");
     expect(detailRailSource).toContain('value="career-summary"');
     expect(detailRailSource).toContain('variant="underline"');
@@ -54,6 +57,10 @@ describe("AI 面试详情 tabs", () => {
     expect(detailRailSource).toContain("活动记录");
     expect(detailRailSource).toContain("<CandidateTimeline");
     expect(detailRailSource).toContain("showHeading={false}");
+    expect(detailRailSource.match(/<ScrollArea/g)).toHaveLength(2);
+    expect(detailRailSource).toContain('className="max-h-[70vh]"');
+    expect(detailRailSource).toContain("scrollFade");
+    expect(detailRailSource).not.toContain("scrollbars=");
     expect(bodySource).not.toContain("showTimelineAtBottom");
   });
 

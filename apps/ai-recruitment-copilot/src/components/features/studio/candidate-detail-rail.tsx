@@ -3,6 +3,7 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { CandidateTimelineResponse } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateCareerSummary } from "./candidate-career-summary";
@@ -46,20 +47,15 @@ export function CandidateDetailRail({
   onWorkExperienceSelect,
   profile,
   timeline,
-  useInternalScroll,
 }: {
   className?: string;
   isTimelineLoading: boolean;
   onWorkExperienceSelect: (companyName: string) => void;
   profile: ResumeProfile | null;
   timeline: CandidateTimelineResponse | null | undefined;
-  useInternalScroll: boolean;
 }) {
   return (
-    <Tabs
-      className={cn("max-w-full gap-4", useInternalScroll && "xl:h-full xl:min-h-0", className)}
-      defaultValue="career-summary"
-    >
+    <Tabs className={cn("max-w-full gap-4", className)} defaultValue="career-summary">
       <TabsList className="w-full" variant="underline">
         <TabsTrigger className="flex-1" value="career-summary">
           履历概要
@@ -68,24 +64,28 @@ export function CandidateDetailRail({
           活动记录
         </TabsTrigger>
       </TabsList>
-      <TabsContent
-        className={cn(useInternalScroll && "xl:min-h-0 xl:overflow-y-auto xl:pr-1")}
-        value="career-summary"
-      >
-        <CandidateCareerSummary onWorkExperienceSelect={onWorkExperienceSelect} profile={profile} />
+      <TabsContent value="career-summary">
+        <ScrollArea className="max-h-[70vh]" scrollFade>
+          <div className="pr-2">
+            <CandidateCareerSummary
+              onWorkExperienceSelect={onWorkExperienceSelect}
+              profile={profile}
+            />
+          </div>
+        </ScrollArea>
       </TabsContent>
-      <TabsContent
-        className={cn(useInternalScroll && "xl:min-h-0 xl:overflow-hidden")}
-        value="activity"
-      >
-        <CandidateTimeline
-          className={useInternalScroll ? "xl:h-full" : undefined}
-          data={timeline}
-          density="rail"
-          isLoading={isTimelineLoading}
-          scrollMode={useInternalScroll ? "internal" : "page"}
-          showHeading={false}
-        />
+      <TabsContent value="activity">
+        <ScrollArea className="max-h-[70vh]" scrollFade>
+          <div className="pr-2">
+            <CandidateTimeline
+              data={timeline}
+              density="rail"
+              isLoading={isTimelineLoading}
+              scrollMode="page"
+              showHeading={false}
+            />
+          </div>
+        </ScrollArea>
       </TabsContent>
     </Tabs>
   );

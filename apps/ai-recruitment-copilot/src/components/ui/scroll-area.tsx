@@ -24,7 +24,7 @@ function ScrollArea({
   orientation,
   scrollbarGutter,
   scrollFade,
-  scrollbars = "leave",
+  scrollbars = "scroll",
   scrollRestorationId,
   events: externalEvents,
   viewportClassName,

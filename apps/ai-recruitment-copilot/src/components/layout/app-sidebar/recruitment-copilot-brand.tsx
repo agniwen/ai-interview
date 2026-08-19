@@ -26,10 +26,10 @@ const BRAND_BLOBATAR_TRAITS = {
 export function RecruitmentCopilotMark({ className }: { className?: string }) {
   return (
     <Blobatar
-      animate="hover"
+      animate="always"
       className={cn("shrink-0 text-[#002FA7] dark:text-white", className)}
       data-slot="recruitment-copilot-mark"
-      name="alain00"
+      name="allen"
       palette={BRAND_BLOBATAR_PALETTE}
       style={BRAND_BLOBATAR_STYLE}
       traits={BRAND_BLOBATAR_TRAITS}

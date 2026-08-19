@@ -30,7 +30,6 @@ function StudioLayout({ children }: { children: ReactNode }) {
         <ScrollArea
           className="@container/main min-h-0 flex-1 bg-background"
           scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
-          scrollbars="never"
         >
           <SiteHeader />
           <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">

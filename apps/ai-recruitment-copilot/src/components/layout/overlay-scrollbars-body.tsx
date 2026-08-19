@@ -17,7 +17,7 @@ export function OverlayScrollbarsBody({
     defer: true,
     options: {
       scrollbars: {
-        autoHide: "leave",
+        autoHide: "scroll",
         autoHideDelay: 600,
         theme: "os-theme-app",
       },

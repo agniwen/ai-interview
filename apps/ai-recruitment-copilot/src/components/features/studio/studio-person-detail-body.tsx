@@ -228,18 +228,18 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
         <aside
           className={cn(
             "min-h-0 min-w-0 max-w-full overflow-hidden",
-            canUseTimelineRailScroll ? "xl:h-full" : "",
+            canUseTimelineRailScroll
+              ? "xl:h-full"
+              : "xl:sticky xl:top-[calc(var(--header-height)+1rem)] xl:self-start",
           )}
         >
           <CandidateDetailRail
-            className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             isTimelineLoading={isTimelineLoading}
             onWorkExperienceSelect={(companyName) => {
               scrollToWorkExperienceCompany(tabContentRootRef.current, companyName);
             }}
             profile={resumeRecord?.resumeProfile ?? null}
             timeline={candidateTimeline}
-            useInternalScroll={canUseTimelineRailScroll}
           />
         </aside>
       ) : null}
