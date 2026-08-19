@@ -13,7 +13,7 @@ import { IconArrowUpRight } from "@tabler/icons-react";
 // the caller to launch the close flow.
 
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
@@ -65,7 +65,11 @@ export function CreateOrEditOfferDialog({
   onSaved,
 }: OfferDialogProps) {
   const slug = useWorkspaceSlug();
-  const [form, setForm] = useState<OfferFormState>(() => createBlankOfferFormState());
+  const [form, setForm] = useState<OfferFormState>(() =>
+    mode === "edit" && existingDraft
+      ? offerFormStateFromDraft(existingDraft)
+      : createBlankOfferFormState(),
+  );
   const setFormField = createOfferFormFieldSetter(setForm);
   const [sendImmediately, setSendImmediately] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
@@ -76,21 +80,6 @@ export function CreateOrEditOfferDialog({
     }
     onOpenChange(next);
   }
-
-  // 编辑模式打开时同步现值；新建模式打开时清空。
-  // Sync form on open: prefill in edit mode, blank in create mode.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    if (mode === "edit" && existingDraft) {
-      setForm(offerFormStateFromDraft(existingDraft));
-      setSendImmediately(false);
-    } else {
-      setForm(createBlankOfferFormState());
-      setSendImmediately(false);
-    }
-  }, [open, mode, existingDraft]);
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -196,13 +185,6 @@ export function RespondOfferDialog({
   const slug = useWorkspaceSlug();
   const [response, setResponse] = useState<"accepted" | "declined" | "counter">("accepted");
   const [counter, setCounter] = useState("");
-
-  useEffect(() => {
-    if (draft) {
-      setResponse("accepted");
-      setCounter("");
-    }
-  }, [draft]);
 
   const mutation = useMutation({
     mutationFn: () => {

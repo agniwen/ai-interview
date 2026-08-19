@@ -229,13 +229,6 @@ export function CandidateFormTemplateEditorDialog({
   );
 
   useEffect(() => {
-    if (open) {
-      form.reset(resolvedInitialValues);
-      setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
-    }
-  }, [open, form, resolvedInitialValues]);
-
-  useEffect(() => {
     if (!open) {
       return;
     }

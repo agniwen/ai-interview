@@ -606,7 +606,7 @@ export function CandidateFormTemplateManagementPage({
         <CandidateFormTemplateEditorDialog
           initialDraft={createDraft}
           jobDescriptions={jobDescriptions}
-          key={editorDialogKey}
+          key={`${editorDialogKey}:${crud.formDialogOpen ? "open" : "closed"}`}
           onOpenChange={onEditorOpenChange}
           onSaved={() => {
             grid.invalidate();
