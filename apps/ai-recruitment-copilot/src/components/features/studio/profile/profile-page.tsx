@@ -275,7 +275,8 @@ export function ProfilePage() {
       return;
     }
 
-    const seq = (requestSeqRef.current += 1);
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
     setSaveStatus("saving");
 
     const { error } = await authClient.updateUser({ name: trimmed });

@@ -90,7 +90,8 @@ export function GlobalConfigForm({ initial }: Props) {
       return;
     }
 
-    const seq = (requestSeqRef.current += 1);
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
     try {
       const saved = await rpcFetch<GlobalConfigRecord>(
         rpc.api.w[":slug"].studio["global-config"].$put({

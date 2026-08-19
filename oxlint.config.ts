@@ -5,6 +5,12 @@ import next from "ultracite/oxlint/next";
 import react from "ultracite/oxlint/react";
 
 export default defineConfig({
+  // React Compiler's recommended validation rules are published as correctness
+  // rules in Oxlint. Start as warnings; existing violations need a separate
+  // remediation pass before they can safely block CI.
+  categories: {
+    correctness: "warn",
+  },
   extends: [core, react, next],
   ignorePatterns: [
     ".agents/**",

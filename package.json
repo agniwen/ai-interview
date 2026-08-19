@@ -23,10 +23,10 @@
     "skills:update": "npx skills update -y"
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.78.0",
+    "@oxlint/plugins": "1.79.0",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
-    "oxlint": "^1.78.0",
+    "oxlint": "^1.79.0",
     "turbo": "^2.5.0",
     "typescript": "catalog:",
     "ultracite": "7.6.0"

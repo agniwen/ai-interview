@@ -457,7 +457,7 @@ function ResumeToolbar() {
 interface ResumeCardData {
   createdAt: string;
   creator: string;
-  education: ProfileSnapshotLine[];
+  education: ProfileSnapshotLineData[];
   email: string;
   id: string;
   job: string;
@@ -468,10 +468,10 @@ interface ResumeCardData {
   scoreTone: "success" | "warning";
   skills: string[];
   summary: string;
-  work: ProfileSnapshotLine[];
+  work: ProfileSnapshotLineData[];
 }
 
-interface ProfileSnapshotLine {
+interface ProfileSnapshotLineData {
   period: string;
   primary: string;
   secondary: string;
@@ -570,7 +570,7 @@ function ResumeCardMetaItem({
   );
 }
 
-function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLine }) {
+function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLineData }) {
   return (
     <p
       className="flex min-w-0 items-baseline gap-2"
