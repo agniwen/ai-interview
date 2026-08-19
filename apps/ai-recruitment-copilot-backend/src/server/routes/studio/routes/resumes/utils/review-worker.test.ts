@@ -11,6 +11,8 @@ const JOB = {
 };
 
 const mocks = {
+  generateCandidateInterviewQuestions:
+    vi.fn<ResumeReviewWorkerDependencies["generateCandidateInterviewQuestions"]>(),
   processResumePoolReviewGeneration:
     vi.fn<ResumeReviewWorkerDependencies["processResumePoolReviewGeneration"]>(),
   resolveRecordJobDescription:
@@ -22,11 +24,13 @@ const dependencies: ResumeReviewWorkerDependencies = mocks;
 
 describe("processResumeReviewGenerationJob", () => {
   beforeEach(() => {
+    mocks.generateCandidateInterviewQuestions.mockReset();
     mocks.processResumePoolReviewGeneration.mockReset();
     mocks.resolveRecordJobDescription.mockReset();
     mocks.runAssessmentLifecycle.mockReset();
     mocks.resolveRecordJobDescription.mockResolvedValue("jd-1");
     mocks.runAssessmentLifecycle.mockResolvedValue({ status: "ready" });
+    mocks.generateCandidateInterviewQuestions.mockResolvedValue("generated");
   });
 
   it("starts the assessment lifecycle with the resolved job binding", async () => {
@@ -96,6 +100,24 @@ describe("processResumeReviewGenerationJob", () => {
       poolItemId: "pool-1",
       source: "resume_pool_upload",
     });
+    expect(mocks.runAssessmentLifecycle).not.toHaveBeenCalled();
+  });
+
+  it("routes resume-pool imports to asynchronous candidate question generation", async () => {
+    await processResumeReviewGenerationJob(
+      {
+        organizationId: "org-1",
+        resumeRecordId: "resume-1",
+        source: "resume_pool_import_questions",
+      },
+      dependencies,
+    );
+
+    expect(mocks.generateCandidateInterviewQuestions).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      resumeRecordId: "resume-1",
+    });
+    expect(mocks.resolveRecordJobDescription).not.toHaveBeenCalled();
     expect(mocks.runAssessmentLifecycle).not.toHaveBeenCalled();
   });
 

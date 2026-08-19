@@ -390,6 +390,42 @@ describe("processNextItem — happy path", () => {
     expect(interview?.resumeParseStatus).toBe("ready");
     expect(interview?.interviewQuestions).toEqual([]);
   });
+
+  it("异步生成期间已有题目写入时不覆盖较新的题目", async () => {
+    const { item, recordId } = await createQueuedSingleItemBatch();
+    const manuallySavedQuestions = [
+      {
+        difficulty: "medium" as const,
+        evaluationFocus: "手动保存的考察重点",
+        followUpDirections: "手动保存的追问方向",
+        order: 1,
+        question: "手动保存的问题",
+      },
+    ];
+    mockS3OK();
+    mockParseOK({
+      email: "question-race@example.com",
+      name: "Question Race",
+      phone: null,
+      targetRoles: ["Engineer"],
+    });
+    dependencies.generateInterviewQuestionsForProfile.mockImplementationOnce(async () => {
+      await db
+        .update(studioInterview)
+        .set({ interviewQuestions: manuallySavedQuestions })
+        .where(eq(studioInterview.id, recordId));
+      return GENERATED_QUESTIONS;
+    });
+
+    const result = await processBatchItem(item.id);
+
+    expect(result?.item?.status).toBe("succeeded");
+    const [interview] = await db
+      .select({ interviewQuestions: studioInterview.interviewQuestions })
+      .from(studioInterview)
+      .where(eq(studioInterview.id, recordId));
+    expect(interview?.interviewQuestions).toEqual(manuallySavedQuestions);
+  });
 });
 
 describe("processNextItem — cancellation race", () => {

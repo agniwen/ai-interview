@@ -14,9 +14,9 @@ import {
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
-type PersistedResumeRecordReviewJobData = Exclude<
+type PersistedResumeRecordReviewJobData = Extract<
   ResumeReviewGenerationJobData,
-  { source: "resume_pool_upload" }
+  { source: "reassess" | "resume_pool_import" | "resume_upload" }
 >;
 type ResumeRecordReviewSchedulingInput = Omit<PersistedResumeRecordReviewJobData, "runId">;
 

@@ -90,6 +90,17 @@ describe("resume review generation queue", () => {
       poolItemId: "pool-1",
       source: "resume_pool_upload",
     });
+    expect(
+      resumeReviewGenerationJobSchema.parse({
+        organizationId: "org-1",
+        resumeRecordId: "resume-1",
+        source: "resume_pool_import_questions",
+      }),
+    ).toEqual({
+      organizationId: "org-1",
+      resumeRecordId: "resume-1",
+      source: "resume_pool_import_questions",
+    });
   });
 
   it("builds stable BullMQ-compatible job ids", () => {
@@ -106,6 +117,12 @@ describe("resume review generation queue", () => {
         resumeRecordId: "resume:1",
       }),
     ).toBe("resume-review-resume-1-jd-1");
+    expect(
+      buildResumeReviewGenerationJobId({
+        resumeRecordId: "resume:1",
+        source: "resume_pool_import_questions",
+      }),
+    ).toBe("resume-questions-resume-1");
   });
 
   it("builds one stable upload job id per parsed target", () => {

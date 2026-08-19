@@ -55,9 +55,16 @@ const resumePoolReviewJobSchema = z.object({
   source: z.literal("resume_pool_upload"),
 });
 
+const resumePoolImportQuestionsJobSchema = z.object({
+  organizationId: z.string().min(1),
+  resumeRecordId: z.string().min(1),
+  source: z.literal("resume_pool_import_questions"),
+});
+
 export const resumeReviewGenerationJobSchema = z.discriminatedUnion("source", [
   resumeRecordReviewJobSchema,
   resumePoolReviewJobSchema,
+  resumePoolImportQuestionsJobSchema,
 ]);
 
 export type ResumeReviewGenerationJobData = z.infer<typeof resumeReviewGenerationJobSchema>;
@@ -140,13 +147,19 @@ function normalizeJobIdPart(value: string): string {
 export function buildResumeReviewGenerationJobId(input: {
   force?: boolean;
   generationToken?: string;
-  jobDescriptionId: string | null;
+  jobDescriptionId?: string | null;
   poolItemId?: string;
   reassessToken?: string;
   resumeRecordId?: string;
   runId?: string;
   source?: ResumeReviewGenerationJobData["source"];
 }): string {
+  if (input.source === "resume_pool_import_questions") {
+    if (!input.resumeRecordId) {
+      throw new Error("Candidate question jobs require resumeRecordId.");
+    }
+    return `resume-questions-${normalizeJobIdPart(input.resumeRecordId)}`;
+  }
   if (input.source === "resume_pool_upload") {
     const { poolItemId } = input;
     if (!poolItemId) {
@@ -387,10 +400,8 @@ export async function enqueueResumeReviewGenerationJobs(
         return;
       }
       const state = await existing.getState();
-      if (
-        state === "failed" ||
-        (!data.generationToken && shouldRemoveExistingResumeParseJob(state))
-      ) {
+      const generationToken = "generationToken" in data ? data.generationToken : undefined;
+      if (state === "failed" || (!generationToken && shouldRemoveExistingResumeParseJob(state))) {
         await existing.remove();
       }
     }),
@@ -433,9 +444,9 @@ export function createResumeReviewGenerationWorker(
     const data = job?.data;
     console.error("[resume-review-generation-worker] job failed", {
       error,
-      jobDescriptionId: data?.jobDescriptionId,
+      jobDescriptionId: data && "jobDescriptionId" in data ? data.jobDescriptionId : undefined,
       jobId: job?.id,
-      poolItemId: data?.poolItemId,
+      poolItemId: data && "poolItemId" in data ? data.poolItemId : undefined,
       resumeRecordId: data && "resumeRecordId" in data ? data.resumeRecordId : undefined,
     });
   });

@@ -17,6 +17,7 @@ import {
   generateLegacyResumeReviewBestEffort,
   generateResumeAssessment,
 } from "./review-generation";
+import { generateCandidateInterviewQuestions } from "./candidate-question-generation";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
 
@@ -297,7 +298,10 @@ async function matchJobDescriptionId(input: {
 }
 
 async function resolveRecordJobDescriptionId(
-  input: Exclude<ResumeReviewGenerationJobData, { source: "resume_pool_upload" }>,
+  input: Extract<
+    ResumeReviewGenerationJobData,
+    { source: "reassess" | "resume_pool_import" | "resume_upload" }
+  >,
 ): Promise<string | null> {
   if (!(input.source === "resume_upload" && input.autoMatchJobDescription)) {
     return input.jobDescriptionId;
@@ -416,12 +420,14 @@ async function processResumePoolReviewGenerationJob(
 }
 
 export interface ResumeReviewWorkerDependencies {
+  generateCandidateInterviewQuestions: typeof generateCandidateInterviewQuestions;
   processResumePoolReviewGeneration: typeof processResumePoolReviewGenerationJob;
   resolveRecordJobDescription: typeof resolveRecordJobDescriptionId;
   runAssessmentLifecycle: typeof runResumeAssessmentLifecycle;
 }
 
 const defaultResumeReviewWorkerDependencies: ResumeReviewWorkerDependencies = {
+  generateCandidateInterviewQuestions,
   processResumePoolReviewGeneration: processResumePoolReviewGenerationJob,
   resolveRecordJobDescription: resolveRecordJobDescriptionId,
   runAssessmentLifecycle: runResumeAssessmentLifecycle,
@@ -431,6 +437,12 @@ export async function processResumeReviewGenerationJob(
   input: ResumeReviewGenerationJobData,
   dependencies = defaultResumeReviewWorkerDependencies,
 ) {
+  if (input.source === "resume_pool_import_questions") {
+    return dependencies.generateCandidateInterviewQuestions({
+      organizationId: input.organizationId,
+      resumeRecordId: input.resumeRecordId,
+    });
+  }
   if (input.source === "resume_pool_upload") {
     return dependencies.processResumePoolReviewGeneration(input);
   }

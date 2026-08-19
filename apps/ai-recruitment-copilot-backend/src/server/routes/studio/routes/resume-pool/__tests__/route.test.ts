@@ -14,6 +14,8 @@ const mocks = {
     vi.fn<ResumePoolRouterDependencies["createPptxPreviewPdfResponse"]>(),
   createResumePoolItem: vi.fn<ResumePoolRouterDependencies["createResumePoolItem"]>(),
   deleteOwnPoolItem: vi.fn<ResumePoolRouterDependencies["deleteOwnPoolItem"]>(),
+  enqueueCandidateQuestionGenerationForRecordBestEffort:
+    vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
   findSemanticResumeDuplicates:
     vi.fn<ResumePoolRouterDependencies["findSemanticResumeDuplicates"]>(),
   getObjectBytes: vi.fn<ResumePoolRouterDependencies["getObjectBytes"]>(),
@@ -424,6 +426,11 @@ describe("resumePoolImportInputSchema", () => {
 });
 
 describe("resume pool import route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.enqueueCandidateQuestionGenerationForRecordBestEffort.mockResolvedValue(true);
+  });
+
   it("forwards an explicit reimport request to the DAO", async () => {
     mocks.importPoolItemToResumeLibrary.mockResolvedValue({
       resumeRecordId: "resume-record-2",
@@ -448,6 +455,10 @@ describe("resume pool import route", () => {
       organizationId: ORGANIZATION_ID,
       poolItemId: "pool-item-1",
       reimport: true,
+    });
+    expect(mocks.enqueueCandidateQuestionGenerationForRecordBestEffort).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      resumeRecordId: "resume-record-2",
     });
   });
 });

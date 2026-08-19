@@ -1,31 +1,31 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { generateInterviewQuestionsForProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  defaultCandidateQuestionGenerationDependencies,
+  generateCandidateInterviewQuestions,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/candidate-question-generation";
+import type { CandidateQuestionGenerationDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/candidate-question-generation";
 import {
   enqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { studioInterview } from "@arc/db-schema/schema";
-import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
 
-export interface ParsedResumeEnrichmentDependencies {
+export interface ParsedResumeEnrichmentDependencies extends CandidateQuestionGenerationDependencies {
   enqueueResumePoolReviewGenerationBestEffort: typeof enqueueResumePoolReviewGenerationBestEffort;
   enqueueResumeReviewGenerationForRecordBestEffort: typeof enqueueResumeReviewGenerationForRecordBestEffort;
   enqueueResumeSemanticIndexJobBestEffort: typeof enqueueResumeSemanticIndexJobBestEffort;
-  generateInterviewQuestionsForProfile: typeof generateInterviewQuestionsForProfile;
   reassessResumeRecord: typeof reassessResumeRecord;
-  resolveCandidateQuestionGenerationEnabled: typeof resolveCandidateQuestionGenerationEnabled;
 }
 
 export const defaultParsedResumeEnrichmentDependencies: ParsedResumeEnrichmentDependencies = {
   enqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort,
   enqueueResumeSemanticIndexJobBestEffort,
-  generateInterviewQuestionsForProfile,
+  ...defaultCandidateQuestionGenerationDependencies,
   reassessResumeRecord,
-  resolveCandidateQuestionGenerationEnabled,
 };
 
 interface ParsedResumeEnrichmentInput {
@@ -84,47 +84,23 @@ export async function generateParsedResumeQuestionsBestEffort(
   },
   dependencies: ParsedResumeEnrichmentDependencies = defaultParsedResumeEnrichmentDependencies,
 ): Promise<void> {
-  if (
-    !input.resumeRecordId ||
-    !dependencies.resolveCandidateQuestionGenerationEnabled(process.env)
-  ) {
+  if (!input.resumeRecordId) {
     return;
   }
 
   const startedAt = Date.now();
   logStep("questions.generate.start", { resumeRecordId: input.resumeRecordId });
   try {
-    const [record] = await db
-      .select({
-        interviewQuestions: studioInterview.interviewQuestions,
-        resumeProfile: studioInterview.resumeProfile,
-      })
-      .from(studioInterview)
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1);
-    if (!record?.resumeProfile || record.interviewQuestions.length > 0) {
-      return;
-    }
-    const interviewQuestions = await dependencies.generateInterviewQuestionsForProfile(
-      record.resumeProfile,
+    const result = await generateCandidateInterviewQuestions(
+      {
+        organizationId: input.organizationId,
+        resumeRecordId: input.resumeRecordId,
+      },
+      dependencies,
     );
-    await db
-      .update(studioInterview)
-      .set({ interviewQuestions, updatedAt: new Date() })
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-        ),
-      );
     logStep("questions.generate.done", {
-      count: interviewQuestions.length,
       durationMs: Date.now() - startedAt,
+      result,
       resumeRecordId: input.resumeRecordId,
     });
   } catch (error) {
