@@ -11,14 +11,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 import { canDeletePoolRecord, groupResumePoolRecordsByCreatedAt } from "./resume-pool-page-model";
 import { ResumePoolCard } from "./resume-pool-details";
@@ -155,9 +148,6 @@ export function ResumePoolEmptyState({
           <IconFileText className="size-5" />
         </EmptyMedia>
         <EmptyTitle>{emptyTitle}</EmptyTitle>
-        <EmptyDescription>
-          {canResetFilters ? "调整搜索或筛选条件后重试。" : "点击右上角新建第一份人才记录。"}
-        </EmptyDescription>
       </EmptyHeader>
       {canResetFilters || !canUpload ? null : (
         <EmptyContent>

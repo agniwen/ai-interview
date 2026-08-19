@@ -61,12 +61,12 @@ function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & str
 }
 export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
 const RESUME_LIBRARY_CARD_HEIGHTS = {
-  base: 564,
-  lg: 476,
-  md: 504,
-  sm: 476,
-  xl: 290,
-  xxl: 242,
+  base: 412,
+  lg: 314,
+  md: 351,
+  sm: 331,
+  xl: 236,
+  xxl: 234,
 } as const;
 
 export function getResumeLibraryCardHeight(viewportWidth: number) {
@@ -239,19 +239,6 @@ export function firstSearchValue(value: SearchParamsRecord[string]): string | un
   const firstValue = Array.isArray(value) ? value[0] : value;
   return firstValue === undefined ? undefined : String(firstValue);
 }
-
-// pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
-// Short helper text shown inside each pipelineStage tab; hidden on mobile so
-// tabs stay compact in narrow viewports.
-export const PIPELINE_STAGE_TAB_DESCRIPTIONS = {
-  ai_interview: "AI 面试阶段",
-  all: "全部候选人",
-  closed: "已结案候选人",
-  human_interview: "等候真人复面",
-  offer: "Offer 协商中",
-  screening: "简历筛选中",
-  written_test: "笔试阶段",
-} as const satisfies Record<(typeof pipelineStageValues)[number] | "all", string>;
 
 // 笔试阶段暂未启用对应的入口/元数据 UI，先在 tabs 中隐藏，避免点进去发现啥也没有。
 // schema、后端 API 仍保留，把 UI 建出来后只要从这里删掉对应 key 即可。

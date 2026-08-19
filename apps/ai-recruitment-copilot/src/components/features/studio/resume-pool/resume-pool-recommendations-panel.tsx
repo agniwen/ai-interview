@@ -202,8 +202,8 @@ export function ResumePoolRecommendationsPanel({
           <EmptyMedia variant="icon">
             <IconFileSearch className="size-5" />
           </EmptyMedia>
-          <EmptyTitle>语义索引未启用</EmptyTitle>
-          <EmptyDescription>需要完成 embedding 与 Qdrant 配置后才能生成岗位推荐。</EmptyDescription>
+          <EmptyTitle>岗位推荐暂不可用</EmptyTitle>
+          <EmptyDescription>请联系管理员检查推荐服务配置。</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -216,8 +216,8 @@ export function ResumePoolRecommendationsPanel({
           <EmptyMedia variant="icon">
             <IconLoader2 className="size-5 animate-spin" />
           </EmptyMedia>
-          <EmptyTitle>索引处理中</EmptyTitle>
-          <EmptyDescription>岗位/简历索引处理中，稍后重试。</EmptyDescription>
+          <EmptyTitle>推荐准备中</EmptyTitle>
+          <EmptyDescription>请稍后重试。</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -229,10 +229,10 @@ export function ResumePoolRecommendationsPanel({
     let emptyDescription: string;
     if (vectorHitCount === 0) {
       emptyTitle = "暂无命中";
-      emptyDescription = "未命中任何已索引岗位。";
+      emptyDescription = "暂未找到匹配岗位。";
     } else if (aboveThresholdCount === 0) {
       emptyTitle = "暂无合适岗位";
-      emptyDescription = "命中岗位相似度均未达到推荐阈值。";
+      emptyDescription = "暂未找到足够匹配的岗位。";
     } else {
       emptyTitle = "岗位已下架";
       emptyDescription = "匹配到的岗位已被删除或下架。";

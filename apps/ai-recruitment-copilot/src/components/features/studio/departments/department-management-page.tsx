@@ -19,14 +19,7 @@ import {
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -207,10 +200,7 @@ export function DepartmentManagementPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="按团队建好部门，方便给岗位和面试官归队，协作和统计也更清楚。"
-          title="部门管理"
-        />
+        <PageHeader title="部门管理" />
 
         <DataGrid<DepartmentListRecord>
           {...grid.bind}
@@ -222,9 +212,6 @@ export function DepartmentManagementPage() {
                   <IconBuilding className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>还没有部门</EmptyTitle>
-                <EmptyDescription>
-                  创建部门之后可以把面试官和在招岗位组织起来，面试时按部门挑选配置。
-                </EmptyDescription>
               </EmptyHeader>
               {canCreateDepartment ? (
                 <EmptyContent>

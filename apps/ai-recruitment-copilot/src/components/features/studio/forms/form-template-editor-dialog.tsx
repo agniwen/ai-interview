@@ -247,7 +247,7 @@ export function CandidateFormTemplateEditorDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑表单题" : "新建表单题"}
-      description="候选人在面试开始前根据作用域填写该表单题；提交瞬间的题目结构会被冻结为快照。"
+      description="提交后的题目内容不会随模板修改。"
       size="full"
       className="h-[90vh]"
       bodyClassName="overflow-y-auto p-0"

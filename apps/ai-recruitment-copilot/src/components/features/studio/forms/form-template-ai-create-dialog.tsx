@@ -108,7 +108,6 @@ export function FormTemplateAiCreateDialog({
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成题目并打开「新建表单题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>

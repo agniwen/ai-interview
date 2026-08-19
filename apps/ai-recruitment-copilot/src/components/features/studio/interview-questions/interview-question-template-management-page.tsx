@@ -476,10 +476,7 @@ export function InterviewQuestionTemplateManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="AI 面试时按顺序追问的题目，可全局或按岗位复用；发起后会冻结，改模板不影响已开始的场次。"
-          title="沟通题"
-        />
+        <PageHeader description="可全局或按岗位复用；修改不会影响已发起的面试。" title="沟通题" />
 
         <DataGrid<InterviewQuestionTemplateListRecord>
           {...grid.bind}

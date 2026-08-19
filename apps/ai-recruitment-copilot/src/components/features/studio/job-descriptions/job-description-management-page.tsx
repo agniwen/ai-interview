@@ -421,10 +421,7 @@ export function JobDescriptionManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="维护在招岗位、JD 和要求；候选人、面试官和面试都会挂到对应岗位上。"
-          title="岗位设置"
-        />
+        <PageHeader title="岗位设置" />
 
         <ClientOnly fallback={<Skeleton className="h-80 w-full" />}>
           <JobDescriptionCharts metrics={metrics} />
@@ -454,9 +451,6 @@ export function JobDescriptionManagementPage({
                     <IconFileText className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>还没有在招岗位</EmptyTitle>
-                  <EmptyDescription>
-                    创建在招岗位之后即可在面试记录中引用，并带上面试官 prompt 与音色。
-                  </EmptyDescription>
                 </EmptyHeader>
                 {canCreateJobDescription ? (
                   <EmptyContent className="flex items-center justify-center">

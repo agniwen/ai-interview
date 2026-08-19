@@ -26,13 +26,7 @@ import {
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -525,7 +519,6 @@ export function NotificationsGrid() {
                 <IconBell className="size-5" />
               </EmptyMedia>
               <EmptyTitle>暂无飞书通知</EmptyTitle>
-              <EmptyDescription>还没有通过飞书机器人发送的面试报告通知。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

@@ -161,7 +161,7 @@ export function InterviewQuestionTemplateEditorDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "编辑沟通题" : "新建沟通题"}
-      description="AI 面试时按顺序向候选人追问的题目；创建面试瞬间会冻结为快照，之后编辑不影响已发起的面试。"
+      description="修改不会影响已发起的面试。"
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
       footer={

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -107,9 +106,6 @@ export function InviteDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>邀请新成员</DialogTitle>
-          <DialogDescription>
-            生成一次性邀请链接后会自动复制到剪贴板，可直接发给对方加入当前工作区。
-          </DialogDescription>
         </DialogHeader>
         <Separator />
         <FieldGroup className="gap-5">

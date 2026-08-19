@@ -140,7 +140,7 @@ export function GlobalConfigForm({ initial }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        description="公司名称、简介和开场收尾话术。候选人准备页能看到简介，AI面试官也会用到。"
+        description="公司简介显示在候选人准备页；话术用于 AI 面试开场与收尾。"
         title="上下文设置"
       />
 

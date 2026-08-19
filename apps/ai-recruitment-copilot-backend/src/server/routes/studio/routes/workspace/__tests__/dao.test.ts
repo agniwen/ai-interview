@@ -13,6 +13,7 @@ import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
   listWorkspaceMembers,
+  listWorkspaceMemberLastActives,
   listRecruitingGroupBoard,
   UNGROUPED_RECRUITING_GROUP_ID,
 } from "../dao";
@@ -216,5 +217,17 @@ describe("workspace recruiting group dao", () => {
         id: MEMBER,
       }),
     ]);
+  }, 30_000);
+
+  it("serializes an aggregated member last-active timestamp", async () => {
+    const lastActiveAt = new Date("2026-08-19T06:30:00.000Z");
+    await db.update(user).set({ lastActiveAt }).where(eq(user.id, MEMBER));
+
+    const records = await listWorkspaceMemberLastActives(ORG);
+
+    expect(records).toContainEqual({
+      lastActiveAt: lastActiveAt.toISOString(),
+      userId: MEMBER,
+    });
   }, 30_000);
 });

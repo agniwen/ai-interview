@@ -146,7 +146,6 @@ export function ScopedInterviewersModal({
   return (
     <>
       <Modal
-        description="列出归属于该部门的全部面试官；点击「引用岗位」可以查看并删除该面试官引用的岗位。"
         onOpenChange={onOpenChange}
         open={open}
         size="2xl"

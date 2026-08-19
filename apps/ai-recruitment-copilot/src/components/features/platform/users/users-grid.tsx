@@ -33,13 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Dialog,
   DialogContent,
@@ -411,7 +405,7 @@ export function UsersGrid() {
       toast.error(error.message ?? "强制下线失败");
       return;
     }
-    toast.success(`${forceLogoutTarget.name || forceLogoutTarget.email} 的所有 session 已撤销`);
+    toast.success(`${forceLogoutTarget.name || forceLogoutTarget.email} 已从所有设备退出`);
     setForceLogoutTarget(null);
   }
 
@@ -561,7 +555,6 @@ export function UsersGrid() {
                 <IconUsers className="size-5" />
               </EmptyMedia>
               <EmptyTitle>还没有用户</EmptyTitle>
-              <EmptyDescription>平台上暂无任何用户记录。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }
@@ -587,9 +580,7 @@ export function UsersGrid() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>编辑用户备注</DialogTitle>
-            <DialogDescription>
-              {remarkTarget ? remarkTarget.name || remarkTarget.email : "为用户添加平台内部备注。"}
-            </DialogDescription>
+            <DialogDescription>{remarkTarget?.name || remarkTarget?.email}</DialogDescription>
           </DialogHeader>
           <Field>
             <FieldLabel htmlFor="platform-user-remark">备注</FieldLabel>
@@ -622,8 +613,7 @@ export function UsersGrid() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认封禁用户？</AlertDialogTitle>
             <AlertDialogDescription>
-              将封禁「{banTarget?.name || banTarget?.email}」并撤销该用户所有 session。
-              之后该用户再次登录会看到封禁提示，并保持退出登录状态。
+              将封禁「{banTarget?.name || banTarget?.email}」并退出其所有设备。解封前无法登录。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -676,8 +666,7 @@ export function UsersGrid() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认强制下线？</AlertDialogTitle>
             <AlertDialogDescription>
-              将撤销「{forceLogoutTarget?.name || forceLogoutTarget?.email}」名下所有
-              session（不分工作区），下次访问时需要重新登录。封禁账号请用「封禁」操作。
+              {`将退出「${forceLogoutTarget?.name || forceLogoutTarget?.email}」的所有设备，下次访问需重新登录。账号不会被封禁。`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -11,7 +11,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -102,7 +101,6 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
       <DialogContent>
         <DialogHeader>
           <DialogTitle>工作区设置</DialogTitle>
-          <DialogDescription>修改当前工作区的显示名称。</DialogDescription>
         </DialogHeader>
         <form className="flex flex-col gap-4" id="workspace-settings-form" onSubmit={onSubmit}>
           <FieldGroup>

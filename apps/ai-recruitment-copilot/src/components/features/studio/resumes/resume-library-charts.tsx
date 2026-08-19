@@ -124,7 +124,7 @@ function ChartCardShell({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   metrics: [MetricItem, MetricItem];
   children: ReactNode;
 }) {
@@ -133,7 +133,9 @@ function ChartCardShell({
       <div className="grid border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
         <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
           <CardTitle className="truncate text-base">{title}</CardTitle>
-          <CardDescription className="truncate">{description}</CardDescription>
+          {description ? (
+            <CardDescription className="truncate">{description}</CardDescription>
+          ) : null}
         </CardHeader>
         {metrics.map((metric) => (
           <div
@@ -551,7 +553,6 @@ function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dail
 
   return (
     <ChartCardShell
-      description={hasData ? "近一年每日入库热力，悬停可看各成员上传量" : "近一年暂无新增"}
       metrics={[
         { label: "一年新增", value: formatCompact(total) },
         { label: "单日峰值", value: formatCompact(peak) },

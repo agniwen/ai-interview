@@ -112,9 +112,6 @@ export function JobDescriptionBasicSettingsFields({
             >
               <FieldContent className="min-w-0 gap-0.5">
                 <FieldLabel htmlFor={field.name}>岗位编码</FieldLabel>
-                <FieldDescription className="text-xs leading-relaxed">
-                  用于内部识别；保存时可自动生成。
-                </FieldDescription>
               </FieldContent>
               <div className={JOB_SETTING_CONTROL_CLASS}>
                 <InputGroup>

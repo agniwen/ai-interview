@@ -209,7 +209,7 @@ export function MailIngestAccountCard() {
   const deleting = deleteMutation.isPending;
   const disabled = saving || deleting || accountsQuery.isLoading;
 
-  let statusLine = "worker 开启后每 15 分钟轮询一次";
+  let statusLine = "每 15 分钟检查一次新邮件";
   if (account?.lastCheckedAt) {
     statusLine = `上次轮询：${formatDateOnly(account.lastCheckedAt)}`;
   } else if (!account) {
@@ -218,10 +218,7 @@ export function MailIngestAccountCard() {
 
   return (
     <>
-      <SettingsSection
-        description="轮询 Boss 直聘简历邮件，自动加入你的私有招聘台解析队列。"
-        title="简历邮箱采集"
-      >
+      <SettingsSection description="符合条件的简历邮件会自动导入你的招聘台。" title="简历邮箱采集">
         <SettingsGroup>
           <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -252,7 +249,6 @@ export function MailIngestAccountCard() {
       </SettingsSection>
 
       <Modal
-        description="配置 IMAP 账号后，系统会按关键字轮询并导入简历。"
         footer={
           <>
             {account ? (

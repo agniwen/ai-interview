@@ -429,7 +429,7 @@ export function JobDescriptionUpgradeDialog({
                     <div>
                       <h2 className="font-semibold text-base">新版岗位 JD</h2>
                       <p className="text-muted-foreground text-sm">
-                        只使用这段 Prompt 初始化新版结构化配置；旧描述和旧筛选规则不会自动转换。
+                        新版结构化配置仅根据此处岗位 JD 生成；旧版内容不会自动迁移。
                       </p>
                     </div>
                     <div className="relative">

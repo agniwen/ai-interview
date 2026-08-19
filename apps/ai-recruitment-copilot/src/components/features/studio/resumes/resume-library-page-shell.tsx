@@ -9,10 +9,7 @@ import { studioResumeKeys } from "@/lib/client/api/query-keys";
 import type { ResumeMetricsScope } from "@/lib/client/atoms/resume-metrics-scope";
 import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
-import {
-  PIPELINE_STAGE_TAB_DESCRIPTIONS,
-  VISIBLE_PIPELINE_STAGES,
-} from "./resume-library-page-model";
+import { VISIBLE_PIPELINE_STAGES } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 
 export function ResumeLibraryPageShell({
@@ -83,7 +80,6 @@ export function ResumeLibraryPageShell({
             </Button>
           </div>
         }
-        description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         title="招聘台"
       />
       <ResumeLibraryMetricsSection
@@ -101,25 +97,12 @@ export function ResumeLibraryPageShell({
         value={grid.filters.stage || "all"}
       >
         <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
-          <TabsTrigger
-            className="h-12! w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
-            value="all"
-          >
+          <TabsTrigger className="h-10! w-full px-3 sm:w-auto sm:px-8" value="all">
             <span className="text-sm leading-tight">全部</span>
-            <span className="hidden text-[11px] font-normal leading-tight text-muted-foreground sm:inline">
-              {PIPELINE_STAGE_TAB_DESCRIPTIONS.all}
-            </span>
           </TabsTrigger>
           {VISIBLE_PIPELINE_STAGES.map((s) => (
-            <TabsTrigger
-              className="h-12! w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
-              key={s}
-              value={s}
-            >
+            <TabsTrigger className="h-10! w-full px-3 sm:w-auto sm:px-8" key={s} value={s}>
               <span className="text-sm leading-tight">{pipelineStageMeta[s].label}</span>
-              <span className="hidden text-[11px] font-normal leading-tight text-muted-foreground sm:inline">
-                {PIPELINE_STAGE_TAB_DESCRIPTIONS[s]}
-              </span>
             </TabsTrigger>
           ))}
         </TabsList>

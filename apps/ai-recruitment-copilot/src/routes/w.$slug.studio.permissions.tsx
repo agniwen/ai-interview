@@ -9,11 +9,7 @@ function StudioPermissionsRoute() {
     <div className="mx-auto w-full max-w-[96rem]">
       <WorkspacePermissionsSection
         headerRender={({ actionRender }) => (
-          <PageHeader
-            actionRender={actionRender}
-            description="自定义角色，并决定每个角色能进哪些页面、能做什么操作。"
-            title="权限管理"
-          />
+          <PageHeader actionRender={actionRender} title="权限管理" />
         )}
       />
     </div>

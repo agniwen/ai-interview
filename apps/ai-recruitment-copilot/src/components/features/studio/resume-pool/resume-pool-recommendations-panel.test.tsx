@@ -118,7 +118,7 @@ describe("ResumePoolRecommendationsPanel", () => {
     const { root } = await renderAndFlush(baseDetail);
 
     await vi.waitFor(() => {
-      expect(document.body.textContent).toContain("语义索引未启用");
+      expect(document.body.textContent).toContain("岗位推荐暂不可用");
     });
 
     act(() => {
@@ -137,7 +137,7 @@ describe("ResumePoolRecommendationsPanel", () => {
     const { root } = await renderAndFlush(baseDetail);
 
     await vi.waitFor(() => {
-      expect(document.body.textContent).toContain("索引处理中，稍后重试");
+      expect(document.body.textContent).toContain("推荐准备中");
     });
 
     act(() => {

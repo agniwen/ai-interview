@@ -112,7 +112,6 @@ export function InterviewQuestionTemplateAiCreateDialog({
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成沟通题并打开「新建沟通题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>

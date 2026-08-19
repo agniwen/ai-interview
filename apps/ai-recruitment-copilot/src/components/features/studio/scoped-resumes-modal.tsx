@@ -152,7 +152,7 @@ export function ScopedResumesModal({
   return (
     <>
       <Modal
-        description="只读视图：列出归属于该在招岗位、未归档的候选人与简历。点击候选人姓名可查看详情。"
+        description="仅展示该岗位下未归档的候选人。"
         onOpenChange={onOpenChange}
         open={open}
         size="2xl"

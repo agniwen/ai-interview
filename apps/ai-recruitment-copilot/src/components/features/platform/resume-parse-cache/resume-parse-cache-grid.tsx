@@ -23,13 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Popover,
   PopoverContent,
@@ -471,7 +465,6 @@ export function ResumeParseCacheGrid({
                 <IconDatabase />
               </EmptyMedia>
               <EmptyTitle>没有解析缓存</EmptyTitle>
-              <EmptyDescription>当前筛选条件下没有可复用的 OCR 或结构化解析结果。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

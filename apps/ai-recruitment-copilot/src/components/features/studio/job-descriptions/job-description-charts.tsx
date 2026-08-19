@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { barX, barY, defineChart, dot, link, ruleX, ruleY } from "@tanstack/charts";
 import { scaleBand, scaleLinear } from "d3-scale";
 import { z } from "zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
@@ -75,12 +75,10 @@ interface MetricItem {
 
 function ChartCardShell({
   title,
-  description,
   metrics,
   children,
 }: {
   title: string;
-  description: string;
   metrics: [MetricItem, MetricItem];
   children: ReactNode;
 }) {
@@ -89,7 +87,6 @@ function ChartCardShell({
       <div className="grid border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
         <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
           <CardTitle className="truncate text-base">{title}</CardTitle>
-          <CardDescription className="truncate">{description}</CardDescription>
         </CardHeader>
         {metrics.map((metric) => (
           <div className="border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5" key={metric.label}>
@@ -185,7 +182,6 @@ function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"
 
   return (
     <ChartCardShell
-      description={hasData ? "柱形排名：看哪些岗位候选人更多" : "暂无候选人"}
       metrics={[
         { label: "候选人", value: formatCompact(total) },
         { label: "峰值岗位", value: formatCompact(max) },
@@ -298,7 +294,6 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
 
   return (
     <ChartCardShell
-      description={hasData ? "进度条：完成轮次 / 总轮次" : "暂无面试轮次"}
       metrics={[
         { label: "平均完成", value: `${average}%` },
         { label: "已完成", value: `${formatCompact(done)}/${formatCompact(total)}` },
@@ -404,7 +399,6 @@ function LoadCard({ rows }: { rows: JobDescriptionMetrics["loadByInterviewer"] }
 
   return (
     <ChartCardShell
-      description={hasData ? "棒棒糖图：端点强调负载，不强调面积" : "暂无进行中面试"}
       metrics={[
         { label: "总负载", value: formatCompact(total) },
         { label: "最高负载", value: formatCompact(max) },

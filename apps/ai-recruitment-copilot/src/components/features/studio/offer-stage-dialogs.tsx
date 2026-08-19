@@ -114,7 +114,7 @@ export function CreateOrEditOfferDialog({
           <DialogDescription>
             {mode === "edit"
               ? "草稿状态可编辑。发送后请用「记录响应」/「撤回」操作。"
-              : "新建版本会自动 supersede 已发出未结的旧版本。"}
+              : "新建版本会替换尚未结束的已发出版本。"}
           </DialogDescription>
         </DialogHeader>
 

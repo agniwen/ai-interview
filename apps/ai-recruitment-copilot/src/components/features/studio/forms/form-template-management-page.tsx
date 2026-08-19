@@ -496,10 +496,7 @@ export function CandidateFormTemplateManagementPage({
   return (
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
-        <PageHeader
-          description="面试开始前让候选人先填的问题，可按岗位复用；提交后会跟着这份面试一起留档。"
-          title="表单题"
-        />
+        <PageHeader description="可按岗位复用；提交后随面试留档。" title="表单题" />
 
         <DataGrid<CandidateFormTemplateListRecord>
           {...grid.bind}

@@ -358,7 +358,7 @@ export function ResumePoolPage() {
         <PageHeader
           className="max-w-3xl"
           title="人才库"
-          description="还没进入流程、或暂时归档的简历放这里；合适了再推进到招聘台。"
+          description="推进到招聘台后进入招聘流程。"
         />
         <div className="flex flex-col gap-4">
           <Toolbar
@@ -437,8 +437,8 @@ export function ResumePoolPage() {
       </div>
 
       <ResumeUploadEntryDialog
-        description="选择 1 份或多份 PDF 上传到人才库，随后进入后台解析队列。"
-        fileUploadDescription="可选择 1 份或多份 PDF，上传到人才库后在后台异步解析。"
+        description="支持同时上传多份 PDF。"
+        fileUploadDescription="支持同时上传多份 PDF。"
         fileUploadTitle="请选择要上传到人才库的简历文件"
         onMultipleFilesPicked={handleQueuedUploadFilesPicked}
         onOpenChange={setUploadEntryOpen}

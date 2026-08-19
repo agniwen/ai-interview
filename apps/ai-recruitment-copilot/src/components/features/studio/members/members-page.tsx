@@ -548,7 +548,6 @@ export function MembersManagementPage() {
   return (
     <div className="mx-auto w-full max-w-[96rem] space-y-6">
       <PageHeader
-        description="管理成员、邀请链接和招聘组，谁能协作、能看到什么，都在这里安排。"
         title={
           <span className="inline-flex min-w-0 items-center gap-2">
             <span className="truncate">{org?.name ?? "工作区"}</span>

@@ -17,7 +17,7 @@ import { StudioSummaryCards } from "@/components/features/studio/studio-summary-
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartColor, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -165,7 +165,7 @@ function MetricTile({
   label,
   value,
 }: {
-  description: string;
+  description?: string;
   label: string;
   value: string;
 }) {
@@ -176,7 +176,9 @@ function MetricTile({
         <div className="mt-1 font-mono font-semibold text-xl leading-none tabular-nums">
           {value}
         </div>
-        <div className="mt-1 truncate text-muted-foreground text-[11px]">{description}</div>
+        {description ? (
+          <div className="mt-1 truncate text-muted-foreground text-[11px]">{description}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -212,7 +214,6 @@ function FunnelCard({ metrics }: { metrics: ResumeLibraryMetrics }) {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="text-base">招聘漏斗</CardTitle>
-            <CardDescription>按候选人当前所处阶段展示主流程存量和流失结果。</CardDescription>
           </div>
           <Badge variant="outline">不含已归档</Badge>
         </div>
@@ -295,7 +296,6 @@ function ActionQueueCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">运营待办</CardTitle>
-        <CardDescription>从阶段、轮次和通知状态中抽出的需要 HR 关注的队列。</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {items.map((item) => (
@@ -399,7 +399,6 @@ function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">近 30 天招聘活动</CardTitle>
-        <CardDescription>新增简历、AI 面试完成、真人复面完成和 Offer 发出趋势。</CardDescription>
       </CardHeader>
       <CardContent>
         {totalActivity > 0 && definition ? (
@@ -428,7 +427,6 @@ function JobPipelineCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">岗位候选人分布</CardTitle>
-        <CardDescription>按在招岗位展示当前候选人量和关键阶段堆积。</CardDescription>
       </CardHeader>
       <CardContent>
         {metrics.jobPipeline.length > 0 ? (
@@ -502,7 +500,6 @@ function OfferStatusCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Offer 状态</CardTitle>
-        <CardDescription>展示 Offer 草稿、发送、接受、拒绝和过期状态。</CardDescription>
       </CardHeader>
       <CardContent>
         {total > 0 && definition ? (
@@ -540,10 +537,7 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
 
   return (
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4 md:gap-6">
-      <PageHeader
-        title="数据看板"
-        description="看看候选人漏斗、待办、岗位分布和 Offer 进度，了解这阵子招聘做得怎么样。"
-      />
+      <PageHeader title="数据看板" />
       <StudioSummaryCards
         items={[
           {
@@ -587,16 +581,13 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
           <Card>
             <CardHeader>
               <CardTitle className="text-base">近 30 天补充指标</CardTitle>
-              <CardDescription>表单、复面和漏斗结果的快速读数。</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
               <MetricTile
-                description="候选人侧已提交的面试前表单"
                 label="表单提交"
                 value={formatCompact(metrics.summary.formsSubmitted30d)}
               />
               <MetricTile
-                description="人工复面完成量"
                 label="复面完成"
                 value={formatCompact(metrics.summary.humanCompleted30d)}
               />

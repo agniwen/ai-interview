@@ -11,13 +11,7 @@ import {
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { OrgDetailDialog } from "./org-detail-dialog";
@@ -149,7 +143,6 @@ export function OrganizationsGrid() {
                 <IconBuilding className="size-5" />
               </EmptyMedia>
               <EmptyTitle>还没有工作区</EmptyTitle>
-              <EmptyDescription>平台上暂无任何 organization 记录。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

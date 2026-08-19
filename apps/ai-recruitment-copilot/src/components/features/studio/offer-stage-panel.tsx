@@ -130,7 +130,7 @@ export function OfferStagePanel({
         <div>
           <h3 className="font-medium text-sm">Offer 版本</h3>
           <p className="text-muted-foreground text-xs">
-            管理 {candidateName} 的 Offer：新版本会自动 supersede 旧的草稿/已发版本。
+            管理 {candidateName} 的 Offer；新版本会替换旧草稿或尚未结束的已发版本。
           </p>
         </div>
         {disabled || !canCreate ? null : (

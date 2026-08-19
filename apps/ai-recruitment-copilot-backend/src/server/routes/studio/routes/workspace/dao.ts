@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { serializeDate } from "@arc/ai-recruitment-copilot-backend/lib/server/db/serialize";
 import { startOfBeijingDay } from "@arc/shared/beijing-calendar";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -463,13 +464,6 @@ export interface MemberLastActiveRow {
   lastActiveAt: string | null;
 }
 
-function toIso(value: Date | null): string | null {
-  if (value === null) {
-    return null;
-  }
-  return value.toISOString();
-}
-
 /**
  * 取工作区每个成员"最近一次活跃"时间。
  *
@@ -505,10 +499,9 @@ export async function listWorkspaceMemberLastActives(
   // current timezone.
   const rows = await db
     .select({
-      lastActiveAt:
-        sql<Date | null>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`.as(
-          "last_active_at",
-        ),
+      lastActiveAt: sql<
+        Date | string | null
+      >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`.as("last_active_at"),
       userId: user.id,
     })
     .from(user)
@@ -518,7 +511,7 @@ export async function listWorkspaceMemberLastActives(
     .orderBy(desc(sql`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`));
 
   return rows.map((row) => ({
-    lastActiveAt: toIso(row.lastActiveAt),
+    lastActiveAt: serializeDate(row.lastActiveAt),
     userId: row.userId,
   }));
 }

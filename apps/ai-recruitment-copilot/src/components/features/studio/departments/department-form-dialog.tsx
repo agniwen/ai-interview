@@ -82,7 +82,6 @@ export function DepartmentFormDialog({
 
   return (
     <EntityFormDialog
-      description="部门用于对面试官和在招岗位进行组织分组。"
       formId="department-form"
       isEdit={isEdit}
       isSubmitting={isSubmitting}

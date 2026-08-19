@@ -266,9 +266,7 @@ export function LaunchInterviewDialog({
         setResumeDetail(detail);
         const profile = detail?.resumeProfile ?? null;
         if (!env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS) {
-          setQuestionGenerationNotice(
-            "已通过环境变量关闭候选人特定面试题自动生成；可在下方手动添加题目，或直接发起。",
-          );
+          setQuestionGenerationNotice("当前未启用面试题自动生成；可手动添加题目，或直接发起。");
           return;
         }
         if (!profile) {

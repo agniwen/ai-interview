@@ -29,7 +29,7 @@ export function useResumeLibraryBulkUpload({
       setProgressOpen(false);
       setPendingFiles([]);
       void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
-      toast.success(`${detail.batch.totalCount} 份简历已上传，后台正在解析`);
+      toast.success(`${detail.batch.totalCount} 份简历已上传，正在解析`);
     },
     onRecordsChanged: invalidateAll,
   });

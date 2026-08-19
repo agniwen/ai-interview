@@ -269,10 +269,7 @@ export function StudioCalendarPage({
 
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-      <PageHeader
-        description="按月、周或日查看 AI 面试计划、实际面试记录与真人面试。日程为只读，面试时间请在候选人详情中调整。"
-        title="日程管理"
-      />
+      <PageHeader description="日程只读；面试时间需在候选人详情中调整。" title="日程管理" />
       {calendarQuery.isError ? (
         <Alert variant="destructive">
           <AlertTitle>日程加载失败</AlertTitle>

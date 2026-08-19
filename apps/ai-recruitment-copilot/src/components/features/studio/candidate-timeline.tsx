@@ -7,13 +7,7 @@ import type { ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@arc/shared/utils";
@@ -327,7 +321,6 @@ export function CandidateTimeline({
               <IconHistory />
             </EmptyMedia>
             <EmptyTitle>暂无活动记录</EmptyTitle>
-            <EmptyDescription>候选人产生面试、表单或阶段流转后会显示在这里。</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (

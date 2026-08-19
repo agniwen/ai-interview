@@ -176,7 +176,7 @@ function OrganizationSection({
   }[];
 }) {
   return (
-    <SettingsSection description="当前账号所属工作区与角色。" title="我的工作区">
+    <SettingsSection title="我的工作区">
       <SettingsGroup>
         {organizations.length === 0 ? (
           <div className="px-3.5 py-3 text-muted-foreground text-sm">尚未加入任何工作区</div>
@@ -346,7 +346,7 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
-      <PageHeader description="管理你在工作区中的展示信息与个人活动。" title="个人中心" />
+      <PageHeader title="个人中心" />
 
       <ProfileHero
         email={user?.email}
@@ -360,7 +360,7 @@ export function ProfilePage() {
       <SettingsSection title="账号资料">
         <SettingsGroup>
           <SettingsRow
-            description="显示在成员列表、邀请记录和个人菜单中。失焦或停顿约 1 秒后自动保存。"
+            description="显示在成员列表、邀请记录和个人菜单中。"
             htmlFor="profile-name"
             label="显示名称"
           >
@@ -387,7 +387,7 @@ export function ProfilePage() {
               ) : null}
             </div>
           </SettingsRow>
-          <SettingsRow description="由登录方式提供，不可在此修改。" label="登录邮箱">
+          <SettingsRow label="登录邮箱">
             <Input disabled readOnly value={user?.email ?? ""} />
           </SettingsRow>
         </SettingsGroup>

@@ -1,4 +1,4 @@
-import { IconBriefcase, IconSparkles, IconUpload } from "@tabler/icons-react";
+import { IconBriefcase, IconInfoCircle, IconSparkles, IconUpload } from "@tabler/icons-react";
 import Avvvatars from "avvvatars-react";
 import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
 import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
@@ -333,19 +334,45 @@ function renderResumeCardProfileSnapshotMoreRow(key: string) {
   );
 }
 
-function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
+function renderResumeCardProfileHoverLine(line: ResumeLibraryProfileSnapshotLine) {
+  return (
+    <p
+      className="flex min-w-0 items-baseline gap-2"
+      key={`${line.primary}-${line.secondary ?? ""}-${line.period ?? ""}`}
+    >
+      {line.period ? (
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{line.period}</span>
+      ) : null}
+      <span className="min-w-0 wrap-break-word text-foreground text-sm">
+        {[line.primary, line.secondary].filter(Boolean).join(" · ")}
+      </span>
+    </p>
+  );
+}
+
+function getResumeCardProfileSnapshotGroups(snapshot: ResumeLibraryProfileSnapshot) {
   const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
   const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
-  const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
-  const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
+
+  return {
+    educationLines,
+    hasEducationGroup: educationLines.length > 0 || snapshot.educationHasMore,
+    hasWorkGroup: workLines.length > 0 || snapshot.workHasMore,
+    workLines,
+  };
+}
+
+function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
+  const { educationLines, hasEducationGroup, hasWorkGroup, workLines } =
+    getResumeCardProfileSnapshotGroups(snapshot);
 
   if (!(hasWorkGroup || hasEducationGroup)) {
     return null;
   }
 
   return (
-    <div className="min-w-0 xl:border-border/60 xl:border-l xl:border-dashed xl:pl-8">
-      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
+    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 2xl:block">
+      <div className="grid min-w-0 content-start gap-1 text-sm 2xl:max-w-sm">
         {workLines.map(renderResumeCardProfileSnapshotLine)}
         {snapshot.workHasMore ? renderResumeCardProfileSnapshotMoreRow("work-more") : null}
         {hasWorkGroup && hasEducationGroup ? (
@@ -357,6 +384,67 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
           : null}
       </div>
     </div>
+  );
+}
+
+function ResumeCardProfileSnapshotHoverCard({
+  snapshot,
+}: {
+  snapshot: ResumeLibraryProfileSnapshot;
+}) {
+  const { educationLines, hasEducationGroup, hasWorkGroup, workLines } =
+    getResumeCardProfileSnapshotGroups(snapshot);
+
+  if (!(hasWorkGroup || hasEducationGroup)) {
+    return null;
+  }
+
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <button
+            aria-label="更多工作与教育经历"
+            className="inline-flex min-h-6 min-w-0 items-center gap-1.5 rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:hidden"
+            type="button"
+          >
+            <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
+            <span>更多</span>
+          </button>
+        }
+      />
+      <HoverCardContent
+        align="start"
+        className="w-[28rem] max-w-[calc(100vw-1.5rem)] p-3"
+        side="bottom"
+        sideOffset={8}
+      >
+        <div className="flex min-w-0 flex-col gap-3">
+          {hasWorkGroup ? (
+            <section className="min-w-0">
+              <h4 className="mb-1.5 font-medium text-xs">工作经历</h4>
+              <div className="grid min-w-0 gap-1">
+                {workLines.map(renderResumeCardProfileHoverLine)}
+                {snapshot.workHasMore
+                  ? renderResumeCardProfileSnapshotMoreRow("compact-work-more")
+                  : null}
+              </div>
+            </section>
+          ) : null}
+          {hasEducationGroup ? (
+            <section className="min-w-0">
+              <h4 className="mb-1.5 font-medium text-xs">教育经历</h4>
+              <div className="grid min-w-0 gap-1">
+                {educationLines.map(renderResumeCardProfileHoverLine)}
+                {snapshot.educationHasMore
+                  ? renderResumeCardProfileSnapshotMoreRow("compact-education-more")
+                  : null}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -499,7 +587,7 @@ function ResumeLibraryCardComponent({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
+            <div className="grid min-w-0 gap-x-4 gap-y-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] 2xl:gap-x-8">
               <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
                 <button
                   className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
@@ -526,9 +614,9 @@ function ResumeLibraryCardComponent({
               </div>
 
               <div className="min-w-0">
-                <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
                   <ResumeCardMetaItem
-                    className="sm:col-span-2 2xl:col-span-1"
+                    className="w-full xl:w-auto"
                     icon={<IconBriefcase className="size-3.5" />}
                     label="关联岗位"
                   >
@@ -550,49 +638,32 @@ function ResumeLibraryCardComponent({
                   <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
                     <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
                   </span>
-                  <ResumeCardMetaItem
-                    icon={
-                      <span className={REVIEW_ACTION_TONE_CLASS[reviewCard.tone]}>
-                        <IconSparkles className="size-3.5" />
-                      </span>
-                    }
-                    label="AI评分"
-                  >
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      {hasAiScoreDetail ? (
-                        <ResumeAiScoreHoverCard
-                          className={cn(
-                            "min-w-0 truncate font-medium",
-                            REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                          )}
-                          recordId={record.id}
-                        >
-                          {reviewCard.label}
-                        </ResumeAiScoreHoverCard>
-                      ) : (
-                        <span
-                          className={cn(
-                            "min-w-0 truncate font-medium",
-                            REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                          )}
-                        >
-                          {reviewCard.label}
-                        </span>
-                      )}
-                      {replacementAttemptLabel ? (
-                        <span className="shrink-0 text-muted-foreground">
-                          {replacementAttemptLabel}
-                        </span>
-                      ) : null}
-                    </span>
-                  </ResumeCardMetaItem>
+                  <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
                 </div>
 
-                {summary ? (
-                  <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
-                    {summary}
-                  </p>
-                ) : null}
+                <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
+                  <IconSparkles
+                    aria-hidden
+                    className={cn(
+                      "mr-1 inline size-3.5 align-[-2px]",
+                      REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                    )}
+                  />
+                  {hasAiScoreDetail ? (
+                    <ResumeAiScoreHoverCard
+                      className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}
+                      recordId={record.id}
+                    >
+                      {reviewCard.label}
+                    </ResumeAiScoreHoverCard>
+                  ) : (
+                    <span className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}>
+                      {reviewCard.label}
+                    </span>
+                  )}
+                  {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}
+                  {summary ? ` ${summary}` : null}
+                </p>
 
                 {skills.length > 0 ? (
                   <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">

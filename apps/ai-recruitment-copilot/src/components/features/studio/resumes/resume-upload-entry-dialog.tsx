@@ -25,8 +25,8 @@ interface ResumeUploadEntryDialogProps {
   title?: string;
 }
 
-const DEFAULT_DESCRIPTION = `选择 1 份或多份简历都会进入后台上传任务。支持 ${supportedResumeDocumentLabel}。`;
-const DEFAULT_FILE_UPLOAD_DESCRIPTION = `可选择 1 份或多份简历文件；上传后将在后台解析入库，最多 ${MAX_BULK_BATCH_SIZE} 份。`;
+const DEFAULT_DESCRIPTION = `支持 ${supportedResumeDocumentLabel}，单次最多 ${MAX_BULK_BATCH_SIZE} 份。`;
+const DEFAULT_FILE_UPLOAD_DESCRIPTION = `可同时选择多份文件，单次最多 ${MAX_BULK_BATCH_SIZE} 份。`;
 
 function validateResumeFiles(files: File[]) {
   if (files.length === 0) {

@@ -464,7 +464,7 @@ function InterviewEditBody({
   return (
     <>
       <Modal
-        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在招聘台编辑。"
+        description="状态只读；候选人基础信息请在招聘台编辑。"
         footer={
           isLoading ? undefined : (
             <div className="flex w-full flex-wrap items-center justify-end gap-2">

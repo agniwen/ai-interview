@@ -89,9 +89,6 @@ function ServiceStatusCard({ data }: { data: OverviewResult }) {
           <IconActivityHeartbeat />
           自部署服务状态
         </CardTitle>
-        <CardDescription>
-          通过 Room Service 进行实时探测；不会向浏览器下发 API Key 或 Secret。
-        </CardDescription>
         <CardAction>
           <Badge variant={online ? "default" : "destructive"}>{online ? "在线" : "不可用"}</Badge>
         </CardAction>
@@ -117,7 +114,6 @@ function DeploymentCards({
     <Card>
       <CardHeader>
         <CardTitle>部署组件</CardTitle>
-        <CardDescription>根据自部署文档整理；点击查看网络与持久化详情。</CardDescription>
       </CardHeader>
       <CardPanel className="grid gap-3 sm:grid-cols-2">
         {LIVEKIT_DEPLOYMENT_COMPONENTS.map((component) => (

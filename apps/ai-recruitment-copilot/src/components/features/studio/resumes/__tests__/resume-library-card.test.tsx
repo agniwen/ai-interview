@@ -129,6 +129,84 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("未通过门槛 · 68 分");
   });
 
+  it("places the AI score inside the generated summary paragraph", () => {
+    const noop = vi.fn();
+    const content = renderWithQueryClient(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canForceReparse={false}
+        canRetryResumeParse={false}
+        canUpdateResumeLibrary={false}
+        currentMemberRole="viewer"
+        currentUserId={null}
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onForceReparse={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{ ...record, resumeSummary: "AI 生成的候选人评价" }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content).toMatch(
+      /<p class="[^"]*text-sm[^"]*">.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
+    );
+    expect(content).not.toContain("</button> · AI 生成的候选人评价");
+    expect(content).not.toContain('<span class="sr-only">AI评分</span>');
+  });
+
+  it("uses a compact profile hover trigger below the largest breakpoint", () => {
+    const noop = vi.fn();
+    const content = renderWithQueryClient(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canForceReparse={false}
+        canRetryResumeParse={false}
+        canUpdateResumeLibrary={false}
+        currentMemberRole="viewer"
+        currentUserId={null}
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onForceReparse={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{
+          ...record,
+          resumeProfileSnapshot: {
+            ...EMPTY_RESUME_PROFILE_SNAPSHOT,
+            education: [{ period: "2016–2020", primary: "浙江大学", secondary: "计算机科学" }],
+            work: [{ period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" }],
+          },
+        }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content).toContain('aria-label="更多工作与教育经历"');
+    expect(content).toContain(">更多</span>");
+    expect(content).toContain("2xl:hidden");
+    expect(content).toContain("2xl:block");
+    expect(content).toContain("字节跳动");
+    expect(content).toContain("浙江大学");
+  });
+
   it("keeps showing a labeled legacy score after the job upgrades", () => {
     const noop = vi.fn();
     const content = renderWithQueryClient(

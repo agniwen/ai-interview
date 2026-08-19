@@ -327,7 +327,6 @@ export function JobDescriptionTalentRecommendationsDialog({
   return (
     <>
       <Modal
-        description="基于岗位 JD 与已索引简历的语义相似度生成。"
         onOpenChange={onOpenChange}
         open={open}
         size="2xl"
@@ -353,8 +352,8 @@ export function JobDescriptionTalentRecommendationsDialog({
               <EmptyMedia variant="icon">
                 <IconFileSearch className="size-5" />
               </EmptyMedia>
-              <EmptyTitle>语义推荐未启用</EmptyTitle>
-              <EmptyDescription>需要完成 embedding 与 Qdrant 配置后才能生成推荐。</EmptyDescription>
+              <EmptyTitle>人才推荐暂不可用</EmptyTitle>
+              <EmptyDescription>请联系管理员检查推荐服务配置。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : null}
@@ -369,7 +368,7 @@ export function JobDescriptionTalentRecommendationsDialog({
                 <IconUserCheck className="size-5" />
               </EmptyMedia>
               <EmptyTitle>暂无推荐人才</EmptyTitle>
-              <EmptyDescription>当前没有足够匹配的已索引简历。</EmptyDescription>
+              <EmptyDescription>当前没有足够匹配的简历。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : null}

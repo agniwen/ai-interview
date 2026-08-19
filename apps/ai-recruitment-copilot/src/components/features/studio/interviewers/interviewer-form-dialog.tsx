@@ -179,7 +179,7 @@ export function InterviewerFormDialog({
 
   return (
     <EntityFormDialog
-      description="AI面试官的 prompt 与音色会在开始面试时传给语音 agent。"
+      description="人设与音色将在面试开始时生效。"
       formId="interviewer-form"
       isEdit={isEdit}
       isSubmitting={isSubmitting}
