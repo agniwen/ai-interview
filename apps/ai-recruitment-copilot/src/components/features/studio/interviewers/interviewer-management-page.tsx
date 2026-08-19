@@ -241,7 +241,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                   <EmptyContent>
                     <Button onClick={crud.openCreate}>
                       <IconPlus className="size-4" />
-                      新建 AI面试官
+                      创建AI面试官
                     </Button>
                   </EmptyContent>
                 ) : null}
@@ -258,7 +258,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                 onClick={crud.openCreate}
               >
                 <IconPlus className="size-4" />
-                新建 AI面试官
+                创建AI面试官
               </Button>
             ) : null
           }

@@ -110,11 +110,11 @@ export function CreateOrEditOfferDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "编辑 Offer 草稿" : "新建 Offer"}</DialogTitle>
+          <DialogTitle>{mode === "edit" ? "编辑 Offer 草稿" : "创建 Offer"}</DialogTitle>
           <DialogDescription>
             {mode === "edit"
               ? "草稿状态可编辑。发送后请用「记录响应」/「撤回」操作。"
-              : "新建版本会替换尚未结束的已发出版本。"}
+              : "创建版本会替换尚未结束的已发出版本。"}
           </DialogDescription>
         </DialogHeader>
 
@@ -216,7 +216,7 @@ export function RespondOfferDialog({
         <DialogHeader>
           <DialogTitle>记录候选人响应</DialogTitle>
           <DialogDescription>
-            候选人接受 → 建议结案为「已录用」；候选人议价 → 当前版本保持已发出，后续新建版本响应。
+            候选人接受 → 建议结案为「已录用」；候选人议价 → 当前版本保持已发出，后续创建版本响应。
           </DialogDescription>
         </DialogHeader>
 

@@ -116,7 +116,7 @@ describe("ImportResumePoolDialog", () => {
 
     expect(jobInput?.value).toBe("研发部 / 前端工程师");
     const confirmButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("确认新建"),
+      button.textContent?.includes("确认创建"),
     );
     expect(confirmButton?.disabled).toBe(false);
 
@@ -151,17 +151,17 @@ describe("ImportResumePoolDialog", () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("已存在招聘记录，是否再次新建。");
+    expect(document.body.textContent).toContain("已存在招聘记录，是否再次创建。");
     const radioGroupText = document.querySelector('[data-slot="radio-group"]')?.textContent ?? "";
     expect(radioGroupText.indexOf("绑定岗位")).toBeLessThan(radioGroupText.indexOf("不绑定岗位"));
-    expect(document.body.textContent).toContain("已新建的招聘记录");
+    expect(document.body.textContent).toContain("已创建的招聘记录");
     const importedRecordButton = document.querySelector<HTMLButtonElement>(
-      '[aria-label="查看已新建的招聘记录 resume-record-2"]',
+      '[aria-label="查看已创建的招聘记录 resume-record-2"]',
     );
     expect(importedRecordButton).toBeTruthy();
     const creatorAvatar = importedRecordButton?.querySelector<HTMLElement>('[data-slot="avatar"]');
     expect(
-      document.querySelector('[aria-label="查看已新建的招聘记录 resume-record-1"]'),
+      document.querySelector('[aria-label="查看已创建的招聘记录 resume-record-1"]'),
     ).toBeTruthy();
     expect(document.body.textContent).toContain("创建人 招聘管理员");
     expect(document.body.textContent).toContain("创建人 人事专员");
@@ -175,7 +175,7 @@ describe("ImportResumePoolDialog", () => {
     });
 
     const confirmButton = [...document.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("确认再次新建"),
+      button.textContent?.includes("确认再次创建"),
     );
     expect(confirmButton).toBeTruthy();
 

@@ -105,7 +105,7 @@ function JdFormDialog() {
     >
       <div className="flex items-start justify-between gap-4 border-b px-5 pt-4 pb-3">
         <div>
-          <h2 className="font-semibold text-[16px]">新建在招岗位</h2>
+          <h2 className="font-semibold text-[16px]">创建在招岗位</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
             岗位 JD 同时用于简历评估和 AI 面试，请确认要求清晰、分层且可量化。
           </p>

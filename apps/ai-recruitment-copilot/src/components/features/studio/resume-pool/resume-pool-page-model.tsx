@@ -115,7 +115,7 @@ export function getResumePoolImportActionState(record: ResumePoolListRecord) {
   if (record.importedResumeRecordId) {
     return {
       disabled: false,
-      label: "再次新建招聘记录",
+      label: "再次创建招聘记录",
       loading: false,
     };
   }
@@ -124,7 +124,7 @@ export function getResumePoolImportActionState(record: ResumePoolListRecord) {
     case "ready": {
       return {
         disabled: false,
-        label: "新建招聘记录",
+        label: "创建招聘记录",
         loading: false,
       };
     }

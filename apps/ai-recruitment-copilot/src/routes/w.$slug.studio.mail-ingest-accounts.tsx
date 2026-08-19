@@ -265,7 +265,7 @@ function MailIngestAccountDialog({
       }
 
       if (!password) {
-        throw new Error("新建配置时必须填写客户端密码");
+        throw new Error("创建配置时必须填写客户端密码");
       }
       await rpcFetch<MailIngestAccountRecord>(
         rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$post({
@@ -296,7 +296,7 @@ function MailIngestAccountDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "编辑邮箱监听" : "新建邮箱监听"}</DialogTitle>
+          <DialogTitle>{isEdit ? "编辑邮箱监听" : "创建邮箱监听"}</DialogTitle>
           <DialogDescription>
             {row
               ? `${row.user.name || row.user.email} · ${row.user.email}`
@@ -428,7 +428,7 @@ function MailIngestAccountDialog({
                 }
                 value={form.listenStartAt}
               />
-              <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
+              <FieldDescription>留空表示扫描全部邮件；创建时默认从当前时间开始。</FieldDescription>
             </Field>
 
             <Field orientation="horizontal">
@@ -648,7 +648,7 @@ function ManagedMailIngestPage() {
             show: (row) => canManageMailIngestAccounts && Boolean(row.account),
           },
           {
-            label: "新建",
+            label: "创建",
             onClick: (row) => setEditingRow(row),
             show: (row) => canManageMailIngestAccounts && !row.account,
           },

@@ -211,10 +211,10 @@ export function MeetingSidebarSlots() {
               render={
                 <Link search={{}} to="/meetings/new">
                   <Icon icon="ph:record" />
-                  <span>新建录制</span>
+                  <span>创建录制</span>
                 </Link>
               }
-              tooltip="新建录制"
+              tooltip="创建录制"
             />
           </SidebarMenuItem>
           <SidebarNavItem

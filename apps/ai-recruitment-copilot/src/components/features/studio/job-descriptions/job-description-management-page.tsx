@@ -456,7 +456,7 @@ export function JobDescriptionManagementPage({
                   <EmptyContent className="flex items-center justify-center">
                     <Button disabled={missingRefs} onClick={() => crud.openCreate()}>
                       <IconPlus className="size-4" />
-                      新建在招岗位
+                      创建在招岗位
                     </Button>
                   </EmptyContent>
                 ) : null}
@@ -473,7 +473,7 @@ export function JobDescriptionManagementPage({
                 onClick={() => crud.openCreate()}
               >
                 <IconPlus className="size-4" />
-                新建在招岗位
+                创建在招岗位
               </Button>
             ) : null
           }

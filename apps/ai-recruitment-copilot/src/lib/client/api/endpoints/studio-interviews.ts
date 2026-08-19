@@ -425,7 +425,7 @@ export function createHumanInterviewMeeting(
       json: input,
       param: { slug },
     }),
-    "新建真人复面会议失败",
+    "创建真人复面会议失败",
   );
 }
 
@@ -551,7 +551,7 @@ export function createHumanInterviewRound(
       json: input,
       param: { id: candidateId, slug },
     }),
-    "新建真人复面失败",
+    "创建真人复面失败",
   );
 }
 
@@ -643,7 +643,7 @@ export function createOfferDraft(
       json: input,
       param: { id: candidateId, slug },
     }),
-    "新建 Offer 失败",
+    "创建 Offer 失败",
   );
 }
 

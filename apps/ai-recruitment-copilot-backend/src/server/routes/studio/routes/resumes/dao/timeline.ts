@@ -412,7 +412,7 @@ export async function loadCandidateTimeline(
         textMeta("文本作答", round.allowTextInput ? "允许" : "关闭"),
       ]),
       occurredAt: round.createdAt,
-      title: "创建 AI 面试轮次",
+      title: "创建AI面试轮次",
       tone: "info",
     });
     addEvent(events, {

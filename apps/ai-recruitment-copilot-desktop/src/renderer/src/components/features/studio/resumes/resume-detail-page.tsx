@@ -195,7 +195,7 @@ export function ResumeDetailPage() {
                   type="button"
                 >
                   <Icon className="size-4" icon="ph:record" />
-                  新建录制
+                  创建录制
                 </Button>
               </div>
             </div>

@@ -181,7 +181,7 @@ export function ChatNav() {
       <div className="flex items-center gap-1.5 px-2 pb-2">
         <span className="flex h-9 flex-1 items-center gap-2 rounded-md px-2 text-sidebar-foreground/80">
           <IconPlus className="size-4" />
-          <span className="font-medium text-sm">新建对话</span>
+          <span className="font-medium text-sm">创建对话</span>
         </span>
         <span className="grid size-9 place-items-center rounded-md text-sidebar-foreground/80">
           <IconSquareCheck className="size-4" />

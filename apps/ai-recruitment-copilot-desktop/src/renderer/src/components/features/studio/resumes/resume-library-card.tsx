@@ -305,7 +305,7 @@ function MeetingRecordingAction({ onStart, visible }: { onStart?: () => void; vi
         variant="default"
       >
         <Icon className="size-4" icon="ph:record" />
-        新建录制
+        创建录制
       </Button>
     </m.div>
   );

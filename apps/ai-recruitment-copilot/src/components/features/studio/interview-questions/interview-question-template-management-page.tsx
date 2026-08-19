@@ -502,7 +502,7 @@ export function InterviewQuestionTemplateManagementPage({
                       }}
                     >
                       <IconPlus className="size-4" />
-                      新建沟通题
+                      创建沟通题
                     </Button>
                     <Button
                       aria-label="AI 创建沟通题"
@@ -553,7 +553,7 @@ export function InterviewQuestionTemplateManagementPage({
                   }}
                 >
                   <IconPlus className="size-4" />
-                  新建沟通题
+                  创建沟通题
                 </Button>
                 <Button
                   aria-label="AI 创建沟通题"

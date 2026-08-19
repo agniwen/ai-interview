@@ -15,7 +15,7 @@ export function contentHeaderTitle(input: {
 }): string {
   const { pathname, sessionArchived, sessionTitle } = input;
   if (pathname === "/meetings/new") {
-    return "新建录制";
+    return "创建录制";
   }
   if (parseMeetingSessionId(pathname)) {
     if (sessionArchived) {

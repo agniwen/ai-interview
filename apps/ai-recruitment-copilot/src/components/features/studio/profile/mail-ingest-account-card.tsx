@@ -408,7 +408,7 @@ export function MailIngestAccountCard() {
                 }
                 value={form.listenStartAt}
               />
-              <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
+              <FieldDescription>留空表示扫描全部邮件；创建时默认从当前时间开始。</FieldDescription>
             </Field>
           </FieldGroup>
         </form>

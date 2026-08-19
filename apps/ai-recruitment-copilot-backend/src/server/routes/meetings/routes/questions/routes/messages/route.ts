@@ -69,7 +69,7 @@ export function createMeetingQuestionMessagesRouter(
         return c.json({ error: "请等待当前问题回答完成后再继续提问" }, 409);
       }
       if (result === "thread-limit") {
-        return c.json({ error: "当前提问线程已达问题数量上限，请新建线程" }, 409);
+        return c.json({ error: "当前提问线程已达问题数量上限，请创建线程" }, 409);
       }
       if (result === "rate-limited") {
         c.header("Retry-After", "60");

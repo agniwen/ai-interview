@@ -190,7 +190,7 @@ export function InterviewerFormDialog({
       open={open}
       size="xl"
       submitDisabled={noDepartments}
-      title={isEdit ? "编辑 AI面试官" : "新建 AI面试官"}
+      title={isEdit ? "编辑 AI面试官" : "创建AI面试官"}
     >
       <div className="grid gap-5 md:grid-cols-2">
         <form.Field name="name">

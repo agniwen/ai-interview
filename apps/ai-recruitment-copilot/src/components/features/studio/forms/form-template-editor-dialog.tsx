@@ -246,7 +246,7 @@ export function CandidateFormTemplateEditorDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "编辑表单题" : "新建表单题"}
+      title={isEdit ? "编辑表单题" : "创建表单题"}
       description="提交后的题目内容不会随模板修改。"
       size="full"
       className="h-[90vh]"

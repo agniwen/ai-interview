@@ -601,7 +601,7 @@ export function InterviewManagementPage() {
                 </EmptyMedia>
                 <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>
-                  请前往招聘台新建招聘记录，选择「保存并发起面试」即可创建面试。
+                  请前往招聘台创建招聘记录，选择「保存并发起面试」即可创建面试。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>

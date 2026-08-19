@@ -103,7 +103,7 @@ function getImportDialogDescription(
   if (!item) {
     return;
   }
-  return isReimport ? "已存在招聘记录，是否再次新建。" : candidateTitle;
+  return isReimport ? "已存在招聘记录，是否再次创建。" : candidateTitle;
 }
 
 export function ImportResumePoolDialog({
@@ -165,14 +165,14 @@ export function ImportResumePoolDialog({
           return;
         }
       }
-      dependencies.notifyError(error instanceof Error ? error.message : "新建招聘记录失败");
+      dependencies.notifyError(error instanceof Error ? error.message : "创建招聘记录失败");
     },
     onSuccess: (result) => {
       if (result.status === "duplicate_found") {
         setDuplicates(result);
         return;
       }
-      dependencies.notifySuccess(isReimport ? "已再次新建招聘记录" : "已新建招聘记录");
+      dependencies.notifySuccess(isReimport ? "已再次创建招聘记录" : "已创建招聘记录");
       onImported();
       onOpenChange(false);
     },
@@ -200,7 +200,7 @@ export function ImportResumePoolDialog({
               ) : (
                 <IconDatabase className="size-4" />
               )}
-              {isReimport ? "确认再次新建" : "确认新建"}
+              {isReimport ? "确认再次创建" : "确认创建"}
             </Button>
           </>
         }
@@ -212,20 +212,20 @@ export function ImportResumePoolDialog({
         }}
         open={item !== null}
         size="md"
-        title={isReimport ? "再次新建招聘记录" : "新建招聘记录"}
+        title={isReimport ? "再次创建招聘记录" : "创建招聘记录"}
         description={dialogDescription}
       >
         <div className="flex flex-col gap-5">
           {isReimport && importedRecords.length > 0 ? (
             <Field>
-              <FieldLabel>已新建的招聘记录</FieldLabel>
+              <FieldLabel>已创建的招聘记录</FieldLabel>
               <FieldContent>
                 <div className="flex flex-col gap-2">
                   {importedRecords.map((record) => {
                     const creatorName = record.creatorName?.trim() || "已删除用户";
                     return (
                       <Button
-                        aria-label={`查看已新建的招聘记录 ${record.resumeRecordId}`}
+                        aria-label={`查看已创建的招聘记录 ${record.resumeRecordId}`}
                         className="h-auto w-full justify-between py-3"
                         key={record.resumeRecordId}
                         onClick={() => setDetailRecordId(record.resumeRecordId)}

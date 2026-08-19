@@ -233,7 +233,7 @@ function JobsToolbar() {
           type="button"
         >
           <IconPlus className="size-4" />
-          新建在招岗位
+          创建在招岗位
         </button>
       </div>
     </div>

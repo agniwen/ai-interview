@@ -118,9 +118,9 @@ function ResumePoolDetailSummaryPanel({
             {resumeParseStatusBadge(detail)}
             {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
             {detail.importedResumeRecordId ? (
-              <Badge variant="success">已新建招聘记录</Badge>
+              <Badge variant="success">已创建招聘记录</Badge>
             ) : (
-              <Badge variant="secondary">未新建招聘记录</Badge>
+              <Badge variant="secondary">未创建招聘记录</Badge>
             )}
           </div>
           {isError ? (

@@ -109,7 +109,7 @@ function ChatSidebarHeader({
             className="h-9 justify-center  gap-2 text-sidebar-foreground/80"
             onClick={onNewConversation}
             size="default"
-            tooltip="新建对话"
+            tooltip="创建对话"
           >
             <IconPlus className="size-4" />
           </SidebarMenuButton>
@@ -161,7 +161,7 @@ function ChatSidebarHeader({
         variant="ghost"
       >
         <IconPlus className="size-4" />
-        <span className="font-medium text-sm">新建对话</span>
+        <span className="font-medium text-sm">创建对话</span>
       </Button>
       <Tooltip>
         <TooltipTrigger

@@ -128,7 +128,7 @@ function MeetingQuestionThreadState({
     return <p className="py-6 text-center text-muted-foreground text-sm">正在加载提问内容…</p>;
   }
   return (
-    <p className="py-6 text-center text-muted-foreground text-sm">新建一个只属于你的提问线程。</p>
+    <p className="py-6 text-center text-muted-foreground text-sm">创建一个只属于你的提问线程。</p>
   );
 }
 
@@ -227,7 +227,7 @@ export function MeetingQuestionsPanel({
           type="button"
           variant="outline"
         >
-          新建提问
+          创建提问
         </Button>
       </FrameHeader>
       <FramePanel className="flex flex-col gap-4">

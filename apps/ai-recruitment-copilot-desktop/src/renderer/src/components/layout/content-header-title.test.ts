@@ -3,7 +3,7 @@ import { contentHeaderTitle, parseMeetingSessionId } from "./content-header-titl
 
 describe("contentHeaderTitle", () => {
   it("uses sidebar menu labels on menu routes", () => {
-    expect(contentHeaderTitle({ pathname: "/meetings/new" })).toBe("新建录制");
+    expect(contentHeaderTitle({ pathname: "/meetings/new" })).toBe("创建录制");
     expect(contentHeaderTitle({ pathname: "/meetings" })).toBe("录制记录");
     expect(contentHeaderTitle({ pathname: "/recruitment" })).toBe("AI Recruitment Copilot 招聘台");
     expect(contentHeaderTitle({ pathname: "/resumes/rec-1" })).toBe(

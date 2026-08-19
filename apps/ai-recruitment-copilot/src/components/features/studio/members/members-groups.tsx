@@ -225,7 +225,7 @@ export function RecruitingGroupsPanel({
               placeholder="新组别"
               value={newGroupName}
             />
-            <Button aria-label="新建组别" onClick={onCreateGroup} size="icon" variant="outline">
+            <Button aria-label="创建组别" onClick={onCreateGroup} size="icon" variant="outline">
               <IconPlus className="size-4" />
             </Button>
           </div>

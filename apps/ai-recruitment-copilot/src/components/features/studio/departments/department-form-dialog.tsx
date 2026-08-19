@@ -91,7 +91,7 @@ export function DepartmentFormDialog({
       }}
       open={open}
       size="md"
-      title={isEdit ? "编辑部门" : "新建部门"}
+      title={isEdit ? "编辑部门" : "创建部门"}
     >
       <form.Field name="name">
         {(field) => {

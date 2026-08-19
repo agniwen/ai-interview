@@ -92,7 +92,7 @@ export const studioInterviewHumanRouter = factory
         return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
       }
       if (candidate.pipelineStage === "offer") {
-        return c.json({ error: "候选人已进入 Offer 阶段，不能再新建真人面试轮次。" }, 400);
+        return c.json({ error: "候选人已进入 Offer 阶段，不能再创建真人面试轮次。" }, 400);
       }
 
       const input = c.req.valid("json");

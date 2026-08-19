@@ -220,7 +220,7 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     read: "允许查看工作区审计日志。当前主要作为系统能力预留，具体入口会按该权限控制。",
   },
   candidateForm: {
-    create: "允许在「表单题」页面新建表单题。",
+    create: "允许在「表单题」页面创建表单题。",
     delete: "允许删除表单题。",
     read: "允许加载「表单题」列表、详情、版本详情，以及表单 AI 生成所需的读取接口。",
     update: "允许编辑、归档/恢复表单题，并使用表单 AI 生成或更新表单内容。",
@@ -242,7 +242,7 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     update: "允许保存「上下文设置」里的公司信息、面试话术等上下文配置。",
   },
   humanInterview: {
-    create: "允许将候选人推进到真人复面，并新建真人复面轮次或视频会议。",
+    create: "允许将候选人推进到真人复面，并创建真人复面轮次或视频会议。",
     delete: "允许取消真人复面轮次，或删除尚未开始的真人复面会议。",
     read: "允许查看真人复面阶段页签、轮次、会议和入场链接。",
     update: "允许调整真人复面时间、结束会议、标记完成并录入面试评价。",
@@ -284,7 +284,7 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
       "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
   },
   offer: {
-    create: "允许将候选人推进到 Offer，并新建 Offer 草稿。",
+    create: "允许将候选人推进到 Offer，并创建 Offer 草稿。",
     delete: "允许撤回已创建或已发送的 Offer。",
     read: "允许查看 Offer 阶段页签和 Offer 版本记录。",
     update: "允许编辑 Offer 草稿、发送 Offer，并记录候选人响应。",

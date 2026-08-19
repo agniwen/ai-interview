@@ -163,7 +163,7 @@ export function GlobalConfigForm({ initial }: Props) {
 
         <Field>
           <FieldLabel htmlFor="job-code-prefix">岗位编码前缀</FieldLabel>
-          <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
+          <FieldDescription>创建岗位时编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
           <InputGroup>
             <InputGroupInput
               id="job-code-prefix"

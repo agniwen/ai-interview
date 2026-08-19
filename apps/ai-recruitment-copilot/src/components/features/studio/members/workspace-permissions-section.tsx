@@ -189,7 +189,7 @@ function getRoleFormText(mode: RoleFormMode) {
   return {
     description: "填写角色名称和标识，创建后即可在表格中配置权限。",
     submitLabel: "创建角色",
-    title: "新建角色",
+    title: "创建角色",
   };
 }
 
@@ -440,7 +440,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
       type="button"
     >
       <IconPlus data-icon="inline-start" />
-      新建角色
+      创建角色
     </Button>
   ) : null;
   const header = headerRender?.({ actionRender: createRoleAction });

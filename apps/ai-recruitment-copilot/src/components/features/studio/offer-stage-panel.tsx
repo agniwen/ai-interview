@@ -84,11 +84,11 @@ export function OfferStagePanel({
     }
 
     if (drafts.length === 0) {
-      let emptyDescription = "你可以查看 Offer 记录，但不能新建 Offer。";
+      let emptyDescription = "你可以查看 Offer 记录，但不能创建 Offer。";
       if (disabled) {
-        emptyDescription = "已结案候选人不可新建 Offer。";
+        emptyDescription = "已结案候选人不可创建 Offer。";
       } else if (canCreate) {
-        emptyDescription = "点「新建 Offer」起草第一版。";
+        emptyDescription = "点「创建 Offer」起草第一版。";
       }
       return (
         <Empty className="border-border">
@@ -136,7 +136,7 @@ export function OfferStagePanel({
         {disabled || !canCreate ? null : (
           <Button onClick={() => setCreateOpen(true)} size="sm">
             <IconPlus className="size-4" />
-            新建 Offer
+            创建 Offer
           </Button>
         )}
       </div>

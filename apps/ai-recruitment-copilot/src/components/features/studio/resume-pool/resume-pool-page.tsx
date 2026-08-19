@@ -334,8 +334,8 @@ export function ResumePoolPage() {
       {
         key: "importStatus" as const,
         options: [
-          { label: "已新建招聘记录", value: "imported" },
-          { label: "未新建招聘记录", value: "not_imported" },
+          { label: "已创建招聘记录", value: "imported" },
+          { label: "未创建招聘记录", value: "not_imported" },
         ],
         placeholder: "按入库状态筛选",
         type: "select" as const,
@@ -518,7 +518,7 @@ export function ResumePoolPage() {
             <AlertDialogTitle>确认删除这份{deletePoolRecordLabel(deleteTarget)}？</AlertDialogTitle>
             <AlertDialogDescription>
               这会永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
-              已新建招聘记录的人才不会删除。
+              已创建招聘记录的人才不会删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

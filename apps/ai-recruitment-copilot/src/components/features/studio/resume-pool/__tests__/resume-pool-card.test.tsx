@@ -156,7 +156,7 @@ describe("ResumePoolCard", () => {
         selectionDisabled={false}
       />,
     );
-    const reimportButton = html.match(/<button[^>]*aria-label="再次新建招聘记录"[^>]*>/u)?.[0];
+    const reimportButton = html.match(/<button[^>]*aria-label="再次创建招聘记录"[^>]*>/u)?.[0];
 
     expect(reimportButton).toBeDefined();
     expect(reimportButton).not.toMatch(/\sdisabled(?:=|\s|>)/u);

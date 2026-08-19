@@ -160,7 +160,7 @@ export function InterviewQuestionTemplateEditorDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "编辑沟通题" : "新建沟通题"}
+      title={isEdit ? "编辑沟通题" : "创建沟通题"}
       description="修改不会影响已发起的面试。"
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"

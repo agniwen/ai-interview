@@ -49,7 +49,7 @@ describe("InterviewQuestionTemplateEditorDialog", () => {
     );
     roots.push(root);
 
-    expect(document.body.textContent).toContain("新建沟通题");
+    expect(document.body.textContent).toContain("创建沟通题");
   });
 
   it("shows a visible validation message when all questions are removed", async () => {

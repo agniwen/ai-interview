@@ -111,7 +111,7 @@ export function LinkedInterviewQuestionTemplatesList({
         <div>
           <p className="font-medium text-sm">岗位关联的沟通题</p>
           <p className="mt-1 text-muted-foreground text-xs">
-            创建 AI 面试时会自动绑定到下列沟通题的最新版本；全局沟通题在「沟通题」菜单中维护。
+            创建AI面试时会自动绑定到下列沟通题的最新版本；全局沟通题在「沟通题」菜单中维护。
           </p>
         </div>
         <Button

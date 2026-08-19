@@ -217,7 +217,7 @@ export function DepartmentManagementPage() {
                 <EmptyContent>
                   <Button onClick={crud.openCreate}>
                     <IconPlus className="size-4" />
-                    新建部门
+                    创建部门
                   </Button>
                 </EmptyContent>
               ) : null}
@@ -229,7 +229,7 @@ export function DepartmentManagementPage() {
             canCreateDepartment ? (
               <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
                 <IconPlus className="size-4" />
-                新建部门
+                创建部门
               </Button>
             ) : null
           }

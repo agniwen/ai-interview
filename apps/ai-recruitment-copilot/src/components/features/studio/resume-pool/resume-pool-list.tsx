@@ -153,7 +153,7 @@ export function ResumePoolEmptyState({
         <EmptyContent>
           <Button onClick={onUpload}>
             <IconUserPlus className="size-4" />
-            新建人才记录
+            创建人才记录
           </Button>
         </EmptyContent>
       )}
@@ -341,7 +341,7 @@ export function ResumePoolToolbarActions({
           {canUpload ? (
             <Button className="sm:w-auto" onClick={onUpload}>
               <IconUserPlus className="size-4" />
-              新建人才记录
+              创建人才记录
             </Button>
           ) : null}
           {canOpenBatchList && hasActiveUploadBatches ? (

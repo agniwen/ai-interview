@@ -522,7 +522,7 @@ export function CandidateFormTemplateManagementPage({
                       }}
                     >
                       <IconPlus className="size-4" />
-                      新建表单题
+                      创建表单题
                     </Button>
                     <Button
                       aria-label="AI 创建表单题"
@@ -573,7 +573,7 @@ export function CandidateFormTemplateManagementPage({
                   }}
                 >
                   <IconPlus className="size-4" />
-                  新建表单题
+                  创建表单题
                 </Button>
                 <Button
                   aria-label="AI 创建表单题"

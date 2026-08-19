@@ -45,6 +45,6 @@ describe("CandidateFormTemplateEditorDialog", () => {
     );
     roots.push(root);
 
-    expect(document.body.textContent).toContain("新建表单题");
+    expect(document.body.textContent).toContain("创建表单题");
   });
 });

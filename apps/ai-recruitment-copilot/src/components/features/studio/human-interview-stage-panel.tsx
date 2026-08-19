@@ -185,7 +185,7 @@ export function HumanInterviewStagePanel({
       </Card>
     );
   } else if (rounds.length === 0) {
-    let emptyDescription = "你可以查看真人复面记录，但不能新建复面。";
+    let emptyDescription = "你可以查看真人复面记录，但不能创建复面。";
     if (disabled) {
       emptyDescription = "已结案候选人不可新增复面，请先重新激活。";
     } else if (canCreate) {

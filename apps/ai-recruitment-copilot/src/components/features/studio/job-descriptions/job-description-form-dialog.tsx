@@ -274,7 +274,7 @@ export function JobDescriptionFormDialog({
       <Modal
         open={open}
         onOpenChange={onOpenChange}
-        title={isEdit ? "编辑在招岗位" : "新建在招岗位"}
+        title={isEdit ? "编辑在招岗位" : "创建在招岗位"}
         description={
           isLegacyJob
             ? "旧版评估配置只读；这里仅维护所属部门、跨部门范围和面试官。需要修改评估设置时，请从岗位列表发起新版升级。"
