@@ -3,7 +3,7 @@
 import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
@@ -218,11 +218,9 @@ function PlatformMailIngestAccountDialog({
   row: PlatformMailIngestAccountRow | null;
 }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<MailIngestFormState>(DEFAULT_FORM);
-
-  useEffect(() => {
-    setForm(row ? buildInitialForm(row) : DEFAULT_FORM);
-  }, [row]);
+  const [form, setForm] = useState<MailIngestFormState>(() =>
+    row ? buildInitialForm(row) : DEFAULT_FORM,
+  );
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -642,6 +640,7 @@ export function PlatformMailIngestAccountsGrid() {
       />
 
       <PlatformMailIngestAccountDialog
+        key={editingRow ? `${editingRow.organization.id}:${editingRow.user.id}` : "closed"}
         onOpenChange={(open) => {
           if (!open) {
             setEditingRow(null);

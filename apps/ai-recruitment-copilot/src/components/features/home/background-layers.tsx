@@ -6,7 +6,7 @@ import { MeshGradient } from "@paper-design/shaders-react";
 import { useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import type { ComponentProps, ComponentType } from "react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { AsciiHero } from "@/components/react-bits/ascii-hero";
 import Grainient from "@/components/react-bits/grainient";
 
@@ -103,11 +103,14 @@ export function BackgroundLayersView({
 export function BackgroundLayers() {
   const { resolvedTheme } = useTheme();
   const prefersReducedMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => {
+      const controller = new AbortController();
+      return () => controller.abort();
+    },
+    () => true,
+    () => false,
+  );
 
   return (
     <BackgroundLayersView

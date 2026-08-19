@@ -5,12 +5,8 @@ import next from "ultracite/oxlint/next";
 import react from "ultracite/oxlint/react";
 
 export default defineConfig({
-  // React Compiler's recommended validation rules are published as correctness
-  // rules in Oxlint. Start as warnings; existing violations need a separate
-  // remediation pass before they can safely block CI.
-  categories: {
-    correctness: "warn",
-  },
+  // Keep the React Compiler rules at their upstream severities: its diagnostics
+  // are warnings, while explicit project rules remain errors.
   extends: [core, react, next],
   ignorePatterns: [
     ".agents/**",
@@ -53,11 +49,25 @@ export default defineConfig({
       },
     },
     {
-      // Electron desktop app is not a Next.js app; Next-only rules do not apply.
+      // Electron desktop does not enable React Compiler; its compiler diagnostics
+      // would not describe code that actually passes through the transform.
       files: ["apps/ai-recruitment-copilot-desktop/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-html-link-for-pages": "off",
         "nextjs/no-img-element": "off",
+        "react/globals": "off",
+        "react/incompatible-library": "off",
+        "react/preserve-manual-memoization": "off",
+        "react/purity": "off",
+        "react/refs": "off",
+        "react/set-state-in-effect": "off",
+      },
+    },
+    {
+      // Tests are never compiled by the app's React Compiler transform.
+      files: ["**/__tests__/**/*.{ts,tsx}", "**/__test__/**/*.{ts,tsx}"],
+      rules: {
+        "react/globals": "off",
       },
     },
   ],

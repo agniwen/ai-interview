@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { toAbsoluteUrl } from "@/lib/client/clipboard";
@@ -276,17 +276,15 @@ export function InviteLinksDialog({
   const [editTarget, setEditTarget] = useState<InviteLinkDto | null>(null);
   const [editRole, setEditRole] = useState(() => getDefaultInviteLinkRole(assignableRoles));
 
-  useEffect(() => {
-    if (createOpen) {
-      setCreateRole(getDefaultInviteLinkRole(assignableRoles));
-    }
-  }, [assignableRoles, createOpen]);
+  function openCreateDialog() {
+    setCreateRole(getDefaultInviteLinkRole(assignableRoles));
+    setCreateOpen(true);
+  }
 
-  useEffect(() => {
-    if (editTarget) {
-      setEditRole(editTarget.initialRole);
-    }
-  }, [editTarget]);
+  function openEditDialog(target: InviteLinkDto) {
+    setEditRole(target.initialRole);
+    setEditTarget(target);
+  }
 
   const { data: linksData, isPending } = useQuery({
     enabled: open,
@@ -388,7 +386,7 @@ export function InviteLinksDialog({
         </DialogHeader>
 
         <div className="flex justify-end">
-          <Button disabled={assignableRoles.length === 0} onClick={() => setCreateOpen(true)}>
+          <Button disabled={assignableRoles.length === 0} onClick={openCreateDialog}>
             生成新链接
           </Button>
         </div>
@@ -407,7 +405,7 @@ export function InviteLinksDialog({
                   link={link}
                   onCopy={() => copyInviteUrl(link.code)}
                   onDisable={() => disableMutation.mutate(link.id)}
-                  onEdit={() => setEditTarget(link)}
+                  onEdit={() => openEditDialog(link)}
                   onEnable={() => enableMutation.mutate(link.id)}
                   onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
                   roleLabelByValue={roleLabelByValue}

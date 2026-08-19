@@ -9,7 +9,7 @@ import {
 import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
@@ -91,23 +91,12 @@ export function ResumeOverviewCandidateInfoSection({
   const displayEmail = detail.candidateEmail ?? detail.resumeProfile?.email ?? null;
   const displayPhone = detail.candidatePhone ?? detail.resumeProfile?.phone ?? null;
 
-  useEffect(() => {
-    if (!editing) {
-      setDraft(toOverviewIdentityDraft(detail));
-      setNameError(null);
-      setJdError(null);
-    }
-  }, [detail, editing]);
-
-  // Drop edit mode if permission / parse status no longer allows it.
-  useEffect(() => {
-    if (!showEdit && editing) {
-      setEditing(false);
-      setDraft(toOverviewIdentityDraft(detail));
-      setNameError(null);
-      setJdError(null);
-    }
-  }, [detail, editing, showEdit]);
+  function startEditing() {
+    setDraft(toOverviewIdentityDraft(detail));
+    setNameError(null);
+    setJdError(null);
+    setEditing(true);
+  }
 
   function handleCancel() {
     setDraft(toOverviewIdentityDraft(detail));
@@ -204,7 +193,7 @@ export function ResumeOverviewCandidateInfoSection({
         <Button
           aria-label="编辑候选人信息"
           className="size-7"
-          onClick={() => setEditing(true)}
+          onClick={startEditing}
           size="icon-sm"
           type="button"
           variant="ghost"

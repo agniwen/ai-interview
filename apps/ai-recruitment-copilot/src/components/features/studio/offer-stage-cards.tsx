@@ -14,7 +14,7 @@ import { IconBan, IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-re
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
@@ -73,16 +73,13 @@ export function CandidateExpectationsBlock({
   const [earliestJoiningDate, setEarliestJoiningDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  // 打开编辑时同步当前值。
-  // Sync form when entering edit mode.
-  useEffect(() => {
-    if (editing) {
-      setExpectedSalary(meta?.expectedSalary ? String(meta.expectedSalary) : "");
-      setCurrentSalary(meta?.currentSalary ? String(meta.currentSalary) : "");
-      setEarliestJoiningDate(meta?.earliestJoiningDate ?? "");
-      setNotes(meta?.notes ?? "");
-    }
-  }, [editing, meta]);
+  function startEditing() {
+    setExpectedSalary(meta?.expectedSalary ? String(meta.expectedSalary) : "");
+    setCurrentSalary(meta?.currentSalary ? String(meta.currentSalary) : "");
+    setEarliestJoiningDate(meta?.earliestJoiningDate ?? "");
+    setNotes(meta?.notes ?? "");
+    setEditing(true);
+  }
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -198,7 +195,7 @@ export function CandidateExpectationsBlock({
             </p>
           </div>
           {disabled ? null : (
-            <Button onClick={() => setEditing(true)} size="sm" variant="ghost">
+            <Button onClick={startEditing} size="sm" variant="ghost">
               <IconPencil className="size-3.5" />
               编辑
             </Button>
@@ -264,12 +261,6 @@ export function OfferCardView({
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
 
-  useEffect(() => {
-    if (editing) {
-      setForm(offerFormStateFromDraft(draft));
-    }
-  }, [draft, editing]);
-
   const cancelMutation = useMutation({
     mutationFn: () => cancelOfferDraft(slug, candidateId, draft.id),
     onError: (e) => toast.error(e instanceof Error ? e.message : "撤回失败"),
@@ -291,6 +282,11 @@ export function OfferCardView({
   function cancelEditing() {
     setForm(offerFormStateFromDraft(draft));
     setEditing(false);
+  }
+
+  function startEditing() {
+    setForm(offerFormStateFromDraft(draft));
+    setEditing(true);
   }
 
   if (editing && canUpdate && draft.status === "draft") {
@@ -352,7 +348,7 @@ export function OfferCardView({
                 canUpdate={canUpdate}
                 cancelMutation={cancelMutation}
                 draft={draft}
-                onEdit={() => setEditing(true)}
+                onEdit={startEditing}
                 onRespond={onRespond}
               />
             </div>

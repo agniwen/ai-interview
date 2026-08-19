@@ -14,7 +14,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const PROMPT_MAX = 2000;
@@ -55,13 +55,14 @@ export function FormTemplateAiCreateDialog({
     [jobDescriptions],
   );
 
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(next: boolean) {
+    if (!next) {
       setPrompt("");
       setJobDescriptionId(null);
       setGenerating(false);
     }
-  }, [open]);
+    onOpenChange(next);
+  }
 
   async function handleGenerate() {
     if (!jobDescriptionId) {
@@ -100,7 +101,7 @@ export function FormTemplateAiCreateDialog({
           jobDescriptionId,
           questions: result.questions,
         });
-        onOpenChange(false);
+        handleOpenChange(false);
       },
     });
   }
@@ -113,7 +114,7 @@ export function FormTemplateAiCreateDialog({
         <>
           <Button
             disabled={generating}
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             type="button"
             variant="outline"
           >
@@ -133,7 +134,7 @@ export function FormTemplateAiCreateDialog({
       }
       onOpenChange={(next) => {
         if (!generating) {
-          onOpenChange(next);
+          handleOpenChange(next);
         }
       }}
       open={open}

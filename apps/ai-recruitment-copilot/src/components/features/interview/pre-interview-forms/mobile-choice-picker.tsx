@@ -12,7 +12,7 @@ import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,14 +52,12 @@ export function MobileChoicePicker({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Set<string>>(selectedValues);
 
-  // Sync the in-drawer draft whenever the drawer opens (or external value changes
-  // while it's closed) so the user always starts from the current state.
-  // 抽屉打开（或关闭期间外部值变化）时把 draft 同步到当前值，确保用户从最新状态开始。
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(next: boolean) {
+    if (next) {
       setDraft(selectedValues);
     }
-  }, [open, selectedValues]);
+    setOpen(next);
+  }
 
   const triggerLabel = useMemo(() => {
     if (selectedValues.size === 0) {
@@ -71,7 +69,7 @@ export function MobileChoicePicker({
   }, [question.options, selectedValues]);
 
   return (
-    <Drawer onOpenChange={setOpen} open={open}>
+    <Drawer onOpenChange={handleOpenChange} open={open}>
       <button
         className={cn(
           "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
@@ -80,7 +78,7 @@ export function MobileChoicePicker({
         )}
         data-invalid={invalid ? true : undefined}
         id={inputId}
-        onClick={() => setOpen(true)}
+        onClick={() => handleOpenChange(true)}
         type="button"
       >
         <span

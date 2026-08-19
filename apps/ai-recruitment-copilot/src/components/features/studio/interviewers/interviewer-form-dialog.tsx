@@ -92,12 +92,14 @@ export function InterviewerFormDialog({
     setPlayingPreviewVoice(null);
   }, []);
 
-  useEffect(() => {
-    if (!open) {
+  useEffect(() => () => stopVoicePreview(), [stopVoicePreview]);
+
+  function handleOpenChange(next: boolean) {
+    if (!next) {
       stopVoicePreview();
     }
-    return () => stopVoicePreview();
-  }, [open, stopVoicePreview]);
+    onOpenChange(next);
+  }
 
   async function handlePreviewVoice(voice: MinimaxVoiceId) {
     if (playingPreviewVoice === voice) {
@@ -181,7 +183,7 @@ export function InterviewerFormDialog({
       formId="interviewer-form"
       isEdit={isEdit}
       isSubmitting={isSubmitting}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       onSubmit={async () => {
         await form.handleSubmit();
       }}

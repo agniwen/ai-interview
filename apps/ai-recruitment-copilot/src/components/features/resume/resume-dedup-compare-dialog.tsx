@@ -525,18 +525,19 @@ export function ResumeDedupCompareDialog({
   });
   useSynchronizedScroll(currentViewport, matchViewport, isScrollSyncEnabled);
 
-  useEffect(() => {
-    if (open) {
+  function handleOpenChange(next: boolean) {
+    if (next) {
       setIsScrollSyncEnabled(true);
     }
-  }, [open]);
+    onOpenChange(next);
+  }
 
   return (
     <Modal
       bodyClassName="min-h-0 overflow-hidden p-0"
       className="h-[92dvh]"
       description="左侧为当前简历，右侧为疑似简历。"
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       open={open}
       size="full"
       title={mode === "detail" ? "简历详情对比" : "原始简历对比"}

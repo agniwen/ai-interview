@@ -2,7 +2,7 @@
 
 import { IconMail } from "@tabler/icons-react";
 import type { ReactElement } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -62,11 +62,12 @@ export function InviteDialog({
   const [submitting, setSubmitting] = useState(false);
   const canInviteWithSelectedRole = assignableRoles.includes(role);
 
-  useEffect(() => {
-    if (open) {
+  function handleOpenChange(next: boolean) {
+    if (next) {
       setRole(getDefaultInviteRole(assignableRoles));
     }
-  }, [assignableRoles, open]);
+    setOpen(next);
+  }
 
   async function onSubmit() {
     const trimmedEmail = email.trim();
@@ -101,7 +102,7 @@ export function InviteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={trigger ?? <Button>邀请成员</Button>} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -158,7 +159,7 @@ export function InviteDialog({
           </Field>
         </FieldGroup>
         <DialogFooter>
-          <Button onClick={() => setOpen(false)} type="button" variant="outline">
+          <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
           <Button

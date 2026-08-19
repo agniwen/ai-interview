@@ -9,7 +9,6 @@ import type {
 import { resumeScreeningRuleSeveritySchema } from "@arc/shared/resume-screening";
 import { z } from "zod";
 
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -140,17 +139,6 @@ export function ResumeScreeningPolicyFields({
   const semanticSeverity = semanticRules[0]?.severity ?? "warning";
   const requiredSkillsPolicyText = joinRuleLines(requiredSkillsRule?.requiredSkills ?? []);
   const semanticPolicyText = joinRuleLines(semanticRules.map((rule) => rule.requirement));
-  const [requiredSkillsText, setRequiredSkillsText] = useState(requiredSkillsPolicyText);
-  const [semanticRulesText, setSemanticRulesText] = useState(semanticPolicyText);
-
-  useEffect(() => {
-    setRequiredSkillsText(requiredSkillsPolicyText);
-  }, [requiredSkillsPolicyText]);
-
-  useEffect(() => {
-    setSemanticRulesText(semanticPolicyText);
-  }, [semanticPolicyText]);
-
   function patchPolicy(next: Partial<ResumeScreeningPolicy>) {
     onChange({ ...policy, ...next });
   }
@@ -185,7 +173,6 @@ export function ResumeScreeningPolicyFields({
   }
 
   function setRequiredSkills(value: string) {
-    setRequiredSkillsText(value);
     const requiredSkills = splitRuleLines(value);
     if (requiredSkills.length === 0) {
       patchPolicy({ rules: removeRule(policy.rules, REQUIRED_SKILLS_RULE_ID) });
@@ -241,7 +228,6 @@ export function ResumeScreeningPolicyFields({
   }
 
   function setSemanticRules(value: string) {
-    setSemanticRulesText(value);
     const requirements = splitRuleLines(value);
     const nonSemanticRules = policy.rules.filter((rule) => rule.type !== "semantic");
     patchPolicy({
@@ -433,7 +419,7 @@ export function ResumeScreeningPolicyFields({
               maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
               onChange={(event) => setRequiredSkills(event.target.value)}
               placeholder={"React\nTypeScript\nNode.js"}
-              value={requiredSkillsText}
+              value={requiredSkillsPolicyText}
             />
             <InputGroupAddon align="block-end">
               <InputGroupText>
@@ -517,7 +503,7 @@ export function ResumeScreeningPolicyFields({
               placeholder={
                 "有互联网或餐饮行业招聘经验优先\n独立负责并交付过总监级及以上人员猎聘经验"
               }
-              value={semanticRulesText}
+              value={semanticPolicyText}
             />
             <InputGroupAddon align="block-end">
               <InputGroupText>已填写 {semanticRules.length} 条</InputGroupText>

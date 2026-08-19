@@ -3,7 +3,7 @@
 import { IconSettings } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent, ReactElement } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,13 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
+  function handleOpenChange(next: boolean) {
+    if (next) {
       setName(currentName);
       setFieldError(null);
     }
-  }, [currentName, open]);
+    setOpen(next);
+  }
 
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && trimmedName !== currentName.trim() && !submitting;
@@ -87,7 +88,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
   }
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger
         render={
           trigger ?? (

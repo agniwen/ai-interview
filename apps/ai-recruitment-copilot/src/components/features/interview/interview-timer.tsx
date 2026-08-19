@@ -34,7 +34,6 @@ export function InterviewTimer({
     if (startedAt === null) {
       return;
     }
-    setNow(Date.now());
     const id = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
