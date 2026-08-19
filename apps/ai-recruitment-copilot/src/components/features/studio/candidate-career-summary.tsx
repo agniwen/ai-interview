@@ -100,21 +100,26 @@ function WorkHistory({
             key={[experience.company, experience.role, experience.period, index].join("\u001F")}
           >
             <button
-              className="w-full min-w-0 cursor-pointer rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group/work-entry w-full min-w-0 cursor-pointer rounded-md py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onWorkExperienceSelect(companyName)}
               type="button"
             >
-              <div className="flex min-w-0 items-baseline justify-between gap-3">
-                <p className="min-w-0 wrap-break-word font-medium text-sm">
-                  {company ?? <EmptyValue />}
-                </p>
-                <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+                <div
+                  className="min-w-0 transition-transform duration-150 ease-out group-hover/work-entry:translate-x-1.5 group-focus-visible/work-entry:translate-x-1.5 motion-reduce:transform-none motion-reduce:transition-none"
+                  data-slot="work-entry-copy"
+                >
+                  <p className="min-w-0 wrap-break-word font-medium text-sm">
+                    {company ?? <EmptyValue />}
+                  </p>
+                  <p className="mt-1 min-w-0 wrap-break-word text-muted-foreground text-xs">
+                    {role ?? <EmptyValue />}
+                  </p>
+                </div>
+                <span className="col-start-2 row-start-1 shrink-0 text-muted-foreground text-xs tabular-nums transition-transform duration-150 ease-out group-hover/work-entry:-translate-x-1.5 group-focus-visible/work-entry:-translate-x-1.5 motion-reduce:transform-none motion-reduce:transition-none">
                   {period ?? <EmptyValue />}
                 </span>
               </div>
-              <p className="mt-1 min-w-0 wrap-break-word text-muted-foreground text-xs">
-                {role ?? <EmptyValue />}
-              </p>
             </button>
           </li>
         );

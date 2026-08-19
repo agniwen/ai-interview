@@ -141,6 +141,13 @@ describe("CandidateCareerSummary", () => {
       '[data-slot="candidate-career-summary"] button',
     );
     expect(workEntry?.className).toContain("hover:bg-muted/40");
+    expect(workEntry?.className).not.toContain("px-2");
+    expect(workEntry?.querySelector('[data-slot="work-entry-copy"]')?.className).toContain(
+      "group-hover/work-entry:translate-x-1.5",
+    );
+    expect(workEntry?.querySelector("span")?.className).toContain(
+      "group-hover/work-entry:-translate-x-1.5",
+    );
 
     act(() => {
       workEntry?.click();
