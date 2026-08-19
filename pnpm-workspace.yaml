@@ -116,6 +116,7 @@ minimumReleaseAgeExclude:
   - "@oxlint/binding-win32-x64-msvc@1.79.0"
   - "@oxlint/plugins@1.79.0"
   - oxlint@1.79.0
+  - blobatar@2.0.0
 
 # Web-only package patch. Worker Docker `pnpm deploy` only installs a subset of
 # workspace packages, so this patch is unused there — allow rather than fail CI.

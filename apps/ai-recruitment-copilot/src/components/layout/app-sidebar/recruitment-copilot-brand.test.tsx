@@ -3,18 +3,19 @@ import { describe, expect, it } from "vitest";
 import { RecruitmentCopilotBrand } from "./recruitment-copilot-brand";
 
 describe("RecruitmentCopilotBrand", () => {
-  it("renders the animated mark with theme-aware body and eye colors", () => {
+  it("renders the animated Blobatar with theme-aware colors and responsive sizing", () => {
     const markup = renderToStaticMarkup(<RecruitmentCopilotBrand />);
 
     expect(markup).toContain("AI Recruitment Copilot");
+    expect(markup).toContain('data-slot="recruitment-copilot-mark"');
+    expect(markup).toContain("mo-always");
     expect(markup).toContain("text-[#002FA7]");
     expect(markup).toContain("dark:text-white");
-    expect(markup).toContain("fill-white");
-    expect(markup).toContain("dark:fill-background");
-    expect(markup).toContain("recruitment-copilot-eye-a");
-    expect(markup).toContain("prefers-reduced-motion: reduce");
+    expect(markup).toContain("--mo-head:currentColor");
+    expect(markup).toContain("--mo-eye:var(--background)");
     expect(markup).toContain("group-data-[collapsible=icon]:size-7");
     expect(markup).toContain("group-data-[collapsible=icon]:justify-center");
     expect(markup).toContain("group-data-[collapsible=icon]:opacity-0");
+    expect(markup).not.toContain("recruitment-copilot-eye-a");
   });
 });
