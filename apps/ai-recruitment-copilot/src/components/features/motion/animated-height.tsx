@@ -93,6 +93,7 @@ export function AnimatedHeight({
     containerRef.current?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
   };
   if (renderContainer) {
+    // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
     return renderContainer({
       children: (
         <div ref={innerRef} style={{ display: "flow-root" }}>

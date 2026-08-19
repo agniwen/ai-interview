@@ -107,6 +107,7 @@ export function ImportResumePoolDialog({
 
   useEffect(() => {
     if (!item) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setMode("bind");
       setJobDescriptionId("");
       setDuplicates(null);

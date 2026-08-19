@@ -248,6 +248,7 @@ export function ProfilePage() {
 
   useEffect(() => {
     const next = user?.name ?? "";
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setName(next);
     lastSavedNameRef.current = next;
     latestNameRef.current = next;

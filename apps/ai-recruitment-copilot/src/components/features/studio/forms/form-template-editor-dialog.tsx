@@ -233,6 +233,7 @@ export function CandidateFormTemplateEditorDialog({
       return;
     }
     if (questionIds.length === 0) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setSelectedQuestionId(null);
       return;
     }

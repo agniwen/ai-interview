@@ -126,6 +126,7 @@ export function ResumeLibraryCardList({
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
     [records],
   );
+  // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is compiler-incompatible and is intentionally skipped.
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
     count: records.length,
     estimateSize: () => cardHeight,

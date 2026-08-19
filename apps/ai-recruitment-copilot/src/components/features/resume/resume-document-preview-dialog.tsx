@@ -122,6 +122,7 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
     const controller = new AbortController();
     let objectUrl: string | null = null;
 
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setStatus("loading");
     setImageSource(null);
 

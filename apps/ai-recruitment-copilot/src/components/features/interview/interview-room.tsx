@@ -48,6 +48,7 @@ function AgentSpeechTimer() {
 
   useEffect(() => {
     if (startedAt === null && state === "speaking") {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setStartedAt(Date.now());
     }
   }, [state, startedAt]);
@@ -413,6 +414,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   }, [interviewId, roundId]);
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     void loadEntryData();
   }, [loadEntryData]);
 
@@ -479,6 +481,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
   const isDisconnected = session.connectionState === ConnectionState.Disconnected;
   const isConnecting = session.connectionState === ConnectionState.Connecting;
+  const { room } = session;
   const wasConnectedRef = useRef(false);
   // 用户主动点"结束面试"时置 true。区分主动结束 vs 网络断连：
   // 前者走 /complete?mode=final 直接置 completed；
@@ -503,7 +506,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // Set the ref synchronously so the connectionState/auto-rejoin effects
   // see it on the same tick, ahead of the async setRoundStatus update.
   useEffect(() => {
-    const { room } = session;
     if (!room) {
       return;
     }
@@ -520,7 +522,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     return () => {
       room.off(RoomEvent.Disconnected, onDisconnected);
     };
-  }, [session.room]);
+  }, [room]);
 
   // 监听硬断连：
   // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；

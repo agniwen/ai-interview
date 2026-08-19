@@ -139,6 +139,7 @@ export function RecruitingCopilotContextProvider({
   const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setCitations([]);
     setDetailTarget(null);
     setPreviewRecord(null);

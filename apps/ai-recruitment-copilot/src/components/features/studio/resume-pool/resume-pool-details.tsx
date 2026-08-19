@@ -419,11 +419,13 @@ export function ResumePoolDetailDialog({
   const bound = Boolean(detailQuery.data?.jobDescriptionId);
   // 切换到另一份简历时关闭推荐弹窗，避免状态残留
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setRecommendationsOpen(false);
   }, [itemId]);
   // 绑定成功后（简历变为已关联）自动关闭推荐弹窗，让用户看到更新后的「关联岗位」字段
   useEffect(() => {
     if (recommendationsOpen && bound) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setRecommendationsOpen(false);
     }
   }, [recommendationsOpen, bound]);

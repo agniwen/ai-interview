@@ -173,6 +173,7 @@ export function OrgDetailDialog({
 
   useEffect(() => {
     if (open && orgId) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       void fetchDetail(1);
     }
     if (!open) {

@@ -15,6 +15,7 @@ export function WorkspaceSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const activeTab = resolveSidebarTab(pathname) ?? "agent";
   const previousTabRef = useRef<SidebarTabValue>(activeTab);
+  // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
   const direction = resolveSidebarSlotDirection(previousTabRef.current, activeTab);
   const slug = useWorkspaceSlug();
   const { state } = useSidebar();

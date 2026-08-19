@@ -290,6 +290,7 @@ function RecruitingActionProposalCard({
 
   useEffect(() => {
     if (confirmation) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setLocalConfirmation(confirmation);
     }
   }, [confirmation]);
@@ -297,6 +298,7 @@ function RecruitingActionProposalCard({
   useEffect(() => {
     const confirmedJobId = effectiveConfirmation?.jobDescriptionId;
     if (confirmedJobId) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setSelectedJobDescriptionId(confirmedJobId);
     }
   }, [effectiveConfirmation?.jobDescriptionId]);

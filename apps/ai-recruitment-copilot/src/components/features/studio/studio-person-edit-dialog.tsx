@@ -409,6 +409,7 @@ function InterviewEditBody({
     if (!round) {
       return;
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setFormValues(createInterviewRoundFormValues(round));
   }, [round]);
 

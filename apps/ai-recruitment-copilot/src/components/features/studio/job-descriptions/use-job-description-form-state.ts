@@ -69,11 +69,13 @@ export function useJobDescriptionFormState({
     [currentRecord, interviewers, resolvedInitialValues],
   );
 
+  // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
   useEffect(() => setWorkingRecord(record), [record]);
 
   useEffect(() => {
     if (open) {
       form.reset(resolvedInitialValues);
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setActiveTab("basic");
       setPendingGeneratedJobDescription(null);
       const nextPreview = recordEvaluationPreview(record);

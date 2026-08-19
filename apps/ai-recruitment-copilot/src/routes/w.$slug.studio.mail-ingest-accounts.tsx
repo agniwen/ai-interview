@@ -240,6 +240,7 @@ function MailIngestAccountDialog({
   const [form, setForm] = useState<MailIngestFormState>(DEFAULT_FORM);
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setForm(row ? buildInitialForm(row) : DEFAULT_FORM);
   }, [row]);
 

@@ -596,6 +596,7 @@ export function ChatSidebarSlots({
       return;
     }
 
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setNow(Date.now());
     const intervalId = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(intervalId);
@@ -606,6 +607,7 @@ export function ChatSidebarSlots({
       return;
     }
 
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setBulkConfirmOpen(false);
     setDeleteTargetId(null);
     setEditMode(false);

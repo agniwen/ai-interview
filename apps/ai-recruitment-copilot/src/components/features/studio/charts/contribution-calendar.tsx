@@ -172,6 +172,7 @@ export function ContributionCalendar({
   const didScrollToEndRef = useRef(false);
   const calendarScrollEvents = useMemo<EventListeners>(
     () =>
+      // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
       withHorizontalWheelScroll({
         initialized: (instance) => {
           didScrollToEndRef.current = false;

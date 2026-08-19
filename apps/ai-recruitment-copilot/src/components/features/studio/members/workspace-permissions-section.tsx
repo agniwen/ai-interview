@@ -339,6 +339,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
   });
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setDraftByRoleId(
       Object.fromEntries(dynamicRoles.map((role) => [role.id, copyPermission(role.permission)])),
     );

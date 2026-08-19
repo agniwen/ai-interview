@@ -145,6 +145,7 @@ export function UploadTaskInbox() {
   const total = query.data?.pages[0]?.total ?? 0;
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
   const rowCount = records.length + (query.hasNextPage ? 1 : 0);
+  // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is compiler-incompatible and is intentionally skipped.
   const virtualizer = useVirtualizer({
     count: rowCount,
     estimateSize: () => TASK_ROW_ESTIMATE,

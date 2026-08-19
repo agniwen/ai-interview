@@ -239,6 +239,7 @@ export function InterviewManagementPage() {
     });
 
     if (roundIdFromUrl) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setDetailRoundId(roundIdFromUrl);
     } else if (recordIdFromUrl) {
       setDetailRecordId(recordIdFromUrl);

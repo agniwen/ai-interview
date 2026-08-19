@@ -93,6 +93,7 @@ export function useStudioPersonDetailController({
   const navigate = useNavigate();
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setActiveTab(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
@@ -147,6 +148,7 @@ export function useStudioPersonDetailController({
   } = queries;
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setSelectedResultConversationId(null);
   }, [latestCandidateRoundId]);
 
@@ -181,6 +183,7 @@ export function useStudioPersonDetailController({
 
   useEffect(() => {
     if (optimisticPipelineStage && record?.pipelineStage === optimisticPipelineStage) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setOptimisticPipelineStage(null);
     }
   }, [optimisticPipelineStage, record?.pipelineStage]);
@@ -218,6 +221,7 @@ export function useStudioPersonDetailController({
 
   useEffect(() => {
     if (record && !availableTabs.has(activeTab)) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setActiveTab("overview");
     }
   }, [activeTab, availableTabs, record]);

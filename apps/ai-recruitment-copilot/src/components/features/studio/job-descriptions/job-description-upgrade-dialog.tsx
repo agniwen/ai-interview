@@ -158,6 +158,7 @@ export function JobDescriptionUpgradeDialog({
     if (!draft) {
       return;
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setPrompt(draft.prompt);
     setStructuredConfig(draft.structuredConfig);
     setDeductionRules(draft.structuredConfig.deductionRules);

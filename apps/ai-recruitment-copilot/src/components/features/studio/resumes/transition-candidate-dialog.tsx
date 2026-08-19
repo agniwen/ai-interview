@@ -178,6 +178,7 @@ function CloseDialog({
     if (!open) {
       return;
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setOutcome(initialOutcome ?? "rejected");
     setInternalNotes("");
     setFeedbackToCandidate("");
@@ -469,6 +470,7 @@ function ReactivateDialog({
 
   useEffect(() => {
     if (open) {
+      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setReactivationReason("");
       setTargetStage("screening");
     }
