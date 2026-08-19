@@ -3,11 +3,11 @@ import {
   formatResumeEducationSchoolWithLevel,
   sortResumeEducationExperiences,
 } from "@arc/shared/resume-education";
+import { sortResumeExperiencesByPeriod } from "@arc/shared/resume-experience";
 import { IconBriefcase2, IconSchool } from "@tabler/icons-react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 
 const PLACEHOLDER = "未发现信息";
-const CURRENT_PERIOD_PATTERN = /至今|现在|目前|当前|present|current|now/i;
 
 type WorkExperience = ResumeProfile["workExperiences"][number];
 type EducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
@@ -17,42 +17,10 @@ function cleanText(value: string | null | undefined): string | null {
   return trimmed && trimmed !== PLACEHOLDER ? trimmed : null;
 }
 
-function getPeriodSortKey(period: string | null | undefined): number {
-  const value = cleanText(period);
-  if (!value) {
-    return Number.NEGATIVE_INFINITY;
-  }
-  if (CURRENT_PERIOD_PATTERN.test(value)) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const dateKeys = [
-    ...Array.from(value.matchAll(/(\d{4})(?:[./年-]\s*(\d{1,2})月?)?/gu), (match) => {
-      const year = Number(match[1]);
-      const month = Number(match[2] ?? 12);
-      return year * 12 + month;
-    }),
-    ...Array.from(value.matchAll(/(\d{1,2})[./-](\d{4})/gu), (match) => {
-      const month = Number(match[1]);
-      const year = Number(match[2]);
-      return year * 12 + month;
-    }),
-  ];
-
-  return dateKeys.length > 0 ? Math.max(...dateKeys) : Number.NEGATIVE_INFINITY;
-}
-
 export function sortCareerWorkExperiences(
   experiences: readonly WorkExperience[],
 ): WorkExperience[] {
-  return experiences
-    .map((experience, index) => ({ experience, index }))
-    .toSorted((left, right) => {
-      const leftPeriod = getPeriodSortKey(left.experience.period);
-      const rightPeriod = getPeriodSortKey(right.experience.period);
-      return leftPeriod === rightPeriod ? left.index - right.index : rightPeriod - leftPeriod;
-    })
-    .map(({ experience }) => experience);
+  return sortResumeExperiencesByPeriod(experiences);
 }
 
 function CareerSection({

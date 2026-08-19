@@ -59,4 +59,62 @@ describe("resume profile badges", () => {
 
     expect(html.match(/data-slot="badge"/g)).toHaveLength(1);
   });
+
+  it("renders work and project experiences from newest to oldest", () => {
+    const html = renderToStaticMarkup(
+      <ResumeProfileView
+        profile={{
+          ...profile,
+          projectExperiences: [
+            {
+              name: "早期项目",
+              period: "2019.01-2020.01",
+              role: null,
+              summary: null,
+              techStack: [],
+            },
+            {
+              name: "当前项目",
+              period: "2024.06-至今",
+              role: null,
+              summary: null,
+              techStack: [],
+            },
+            {
+              name: "近期项目",
+              period: "2022.03-2024.05",
+              role: null,
+              summary: null,
+              techStack: [],
+            },
+          ],
+          workExperiences: [
+            {
+              company: "早期公司",
+              period: "2018.01-2020.01",
+              role: "早期职位",
+              summary: null,
+            },
+            {
+              company: "当前公司",
+              period: "2024.06-至今",
+              role: "当前职位",
+              summary: null,
+            },
+            {
+              company: "近期公司",
+              period: "2021.01-2024.05",
+              role: "近期职位",
+              summary: null,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html.indexOf("当前公司")).toBeLessThan(html.indexOf("近期公司"));
+    expect(html.indexOf("近期公司")).toBeLessThan(html.indexOf("早期公司"));
+    expect(html.indexOf("当前项目")).toBeLessThan(html.indexOf("近期项目"));
+    expect(html.indexOf("近期项目")).toBeLessThan(html.indexOf("早期项目"));
+  });
 });
