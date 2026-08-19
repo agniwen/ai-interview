@@ -523,7 +523,7 @@ function ResumeLibraryCardComponent({
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
       className={cn(
-        "h-full overflow-hidden transition-colors hover:border-border hover:bg-muted/30",
+        "h-full overflow-hidden rounded-xl transition-colors hover:border-border hover:bg-muted/30",
         selected
           ? "border-primary/40 bg-primary/5 hover:border-primary/60 hover:bg-primary/5"
           : "dark:bg-background dark:hover:bg-input/30",
@@ -567,7 +567,7 @@ function ResumeLibraryCardComponent({
       <button
         aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
         aria-pressed={selected}
-        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         data-resume-card-interactive="true"
         onClick={(event) => {
           event.preventDefault();

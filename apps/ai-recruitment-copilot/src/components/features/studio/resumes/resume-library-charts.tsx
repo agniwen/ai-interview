@@ -129,7 +129,7 @@ function ChartCardShell({
   children: ReactNode;
 }) {
   return (
-    <Card className="h-full gap-0 overflow-hidden py-0">
+    <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
       <div className="grid border-b sm:h-22 sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
         <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
           <CardTitle className="truncate text-base">{title}</CardTitle>

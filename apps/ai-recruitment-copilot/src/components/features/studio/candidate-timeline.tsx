@@ -1,13 +1,12 @@
 "use client";
 
-import { IconHistory, IconRobot, IconUserCircle } from "@tabler/icons-react";
+import { IconRobot, IconUserCircle } from "@tabler/icons-react";
 import type { CandidateTimelineEvent, CandidateTimelineResponse } from "@arc/shared/studio-resumes";
 import type { ReactNode } from "react";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@arc/shared/utils";
@@ -314,16 +313,7 @@ export function CandidateTimeline({
         </div>
       ) : null}
 
-      {events.length === 0 ? (
-        <Empty className="mt-5 min-h-48">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <IconHistory />
-            </EmptyMedia>
-            <EmptyTitle>暂无活动记录</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : (
+      {events.length > 0 ? (
         <ol
           className={cn(
             "relative flex min-w-0 max-w-full flex-col gap-4",
@@ -335,7 +325,7 @@ export function CandidateTimeline({
             <TimelineEventItem event={event} key={event.id} />
           ))}
         </ol>
-      )}
+      ) : null}
     </div>
   );
 }

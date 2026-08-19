@@ -230,7 +230,7 @@ export function ResumeLibraryCardList({
     listContent = (
       <div className="grid gap-3">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton className="h-44 rounded-2xl" key={index} />
+          <Skeleton className="h-44 rounded-xl" key={index} />
         ))}
       </div>
     );
@@ -293,7 +293,10 @@ export function ResumeLibraryCardList({
   }
 
   return (
-    <div className="flex flex-col gap-4" ref={listRootRef}>
+    <div
+      className="flex flex-col gap-4 [&_[data-slot=combobox-chips]]:!rounded-lg [&_[data-slot=input-control]]:!rounded-lg [&_[data-slot=input-group]]:!rounded-lg"
+      ref={listRootRef}
+    >
       <Toolbar
         canResetFilters={grid.bind.canResetFilters}
         filterValues={grid.bind.filterValues}

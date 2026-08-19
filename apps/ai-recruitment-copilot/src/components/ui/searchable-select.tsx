@@ -67,6 +67,8 @@ export interface SearchableSelectProps {
   id?: string;
   /** 自定义触发器内显示已选项 / Custom render for the selected label inside trigger. */
   renderSelected?: (option: SearchableSelectOption) => ReactNode;
+  /** Whether the open list locks document scrolling and outside interaction. */
+  modal?: boolean;
 }
 
 function getOptionSearchText(option: SearchableSelectOption) {
@@ -113,6 +115,7 @@ export function SearchableSelect({
   listClassName,
   contentSide = "bottom",
   id,
+  modal = true,
 }: SearchableSelectProps) {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -164,7 +167,7 @@ export function SearchableSelect({
       itemToStringValue={(item) => item.value}
       items={options}
       limit={INITIAL_RESULT_LIMIT}
-      modal
+      modal={modal}
       onInputValueChange={(next) => setInputValue(next)}
       onOpenChange={handleOpenChange}
       onValueChange={handleValueChange}

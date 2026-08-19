@@ -148,7 +148,7 @@ function RecruitingListSkeleton() {
   return (
     <div className="grid gap-3">
       {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton className="h-44 w-full rounded-2xl" key={index} />
+        <Skeleton className="h-44 w-full rounded-xl" key={index} />
       ))}
     </div>
   );

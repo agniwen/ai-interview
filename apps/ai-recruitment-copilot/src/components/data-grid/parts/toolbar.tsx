@@ -144,6 +144,7 @@ export function Toolbar(props: ToolbarProps) {
                   clearable={filter.clearable ?? true}
                   disabled={filter.disabled}
                   emptyMessage={filter.emptyMessage ?? "没有匹配项"}
+                  modal={false}
                   onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
                   options={filter.options}
                   placeholder={filter.placeholder ?? "请选择"}
@@ -178,6 +179,7 @@ export function Toolbar(props: ToolbarProps) {
               <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
                 <SearchableMultiSelect
                   emptyMessage={filter.emptyMessage ?? "没有匹配项"}
+                  modal={false}
                   onChange={(next) => onFilterChange?.(filter.key, arrayToCsv(next))}
                   options={filter.options}
                   placeholder={filter.placeholder ?? "请选择"}

@@ -34,22 +34,22 @@ function describeDuplicateMatchBadge(
     return { baseLabel, fullLabel: baseLabel };
   }
   if (Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt) {
-    const suffix = `于 ${createdAtLabel} 又创建了一份`;
+    const suffix = `于 ${createdAtLabel} 再次建立`;
     return {
       baseLabel,
       creatorImage: latestMatchedResume.creatorImage,
       creatorName,
-      fullLabel: `${creatorName}${suffix}`,
+      fullLabel: `${creatorName} ${suffix}`,
       suffix,
     };
   }
 
-  const suffix = ` ${createdAtLabel} 创建过了`;
+  const suffix = ` ${createdAtLabel}已建立`;
   return {
     baseLabel,
     creatorImage: latestMatchedResume.creatorImage,
     creatorName,
-    fullLabel: `${creatorName}${suffix}`,
+    fullLabel: `${creatorName} ${suffix}`,
     suffix,
   };
 }
@@ -70,7 +70,7 @@ function DuplicateMatchBadgeContent({
             </AvatarFallback>
           </Avatar>
           <span className="max-w-20 truncate" data-slot="duplicate-match-creator">
-            {description.creatorName}
+            {`${description.creatorName}`}
           </span>
           <span className="shrink-0">{description.suffix}</span>
         </span>

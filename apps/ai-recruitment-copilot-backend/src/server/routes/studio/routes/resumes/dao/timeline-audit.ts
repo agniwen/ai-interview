@@ -9,26 +9,35 @@ import {
 import type { CandidateTimelineEventTone } from "@arc/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 
+const optionalAuditStringSchema = z
+  .string()
+  .nullish()
+  .transform((value) => value ?? undefined);
+const optionalAuditNumberSchema = z
+  .number()
+  .nullish()
+  .transform((value) => value ?? undefined);
+
 const auditDetailSchema = z
   .object({
-    fromJobDescriptionId: z.string().optional(),
-    fromJobDescriptionName: z.string().optional(),
-    fromStage: z.string().optional(),
+    fromJobDescriptionId: optionalAuditStringSchema,
+    fromJobDescriptionName: optionalAuditStringSchema,
+    fromStage: optionalAuditStringSchema,
     fromStatus: resumeEvaluationStatusSchema.nullable().optional(),
-    outcome: z.string().optional(),
-    position: z.string().optional(),
-    questionCount: z.number().optional(),
-    reactivationReason: z.string().optional(),
-    reason: z.string().optional(),
-    response: z.string().optional(),
-    roundLabel: z.string().optional(),
-    toJobDescriptionId: z.string().optional(),
-    toJobDescriptionName: z.string().optional(),
-    toOutcome: z.string().optional(),
-    toStage: z.string().optional(),
+    outcome: optionalAuditStringSchema,
+    position: optionalAuditStringSchema,
+    questionCount: optionalAuditNumberSchema,
+    reactivationReason: optionalAuditStringSchema,
+    reason: optionalAuditStringSchema,
+    response: optionalAuditStringSchema,
+    roundLabel: optionalAuditStringSchema,
+    toJobDescriptionId: optionalAuditStringSchema,
+    toJobDescriptionName: optionalAuditStringSchema,
+    toOutcome: optionalAuditStringSchema,
+    toStage: optionalAuditStringSchema,
     toStatus: resumeEvaluationStatusSchema.nullable().optional(),
-    turnCount: z.number().optional(),
-    version: z.number().optional(),
+    turnCount: optionalAuditNumberSchema,
+    version: optionalAuditNumberSchema,
   })
   .passthrough();
 

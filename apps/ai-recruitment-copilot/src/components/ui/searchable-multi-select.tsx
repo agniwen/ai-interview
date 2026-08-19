@@ -55,6 +55,8 @@ export interface SearchableMultiSelectProps {
   selectedBadgeLimit?: number;
   triggerClassName?: string;
   id?: string;
+  /** Whether the open list locks document scrolling and outside interaction. */
+  modal?: boolean;
 }
 
 function getInitials(label: string): string {
@@ -78,6 +80,7 @@ export function SearchableMultiSelect({
   selectedBadgeLimit,
   triggerClassName,
   id,
+  modal = true,
 }: SearchableMultiSelectProps) {
   const anchorRef = useComboboxAnchor();
   const fallbackId = useId();
@@ -108,7 +111,7 @@ export function SearchableMultiSelect({
         itemToStringValue={(item) => item.value}
         items={options}
         limit={INITIAL_RESULT_LIMIT}
-        modal
+        modal={modal}
         multiple
         onValueChange={(next) => onChange(next.map((item) => item.value))}
         value={selectedItems}

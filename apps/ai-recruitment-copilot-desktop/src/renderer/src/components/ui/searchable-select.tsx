@@ -79,6 +79,8 @@ export interface SearchableSelectProps {
   onSearch?: (query: string) => void;
   /** 服务端加载中时的空态文案旁提示（可选）。 */
   loading?: boolean;
+  /** Whether the open list locks document scrolling and outside interaction. */
+  modal?: boolean;
 }
 
 function getOptionSearchText(option: SearchableSelectOption) {
@@ -130,6 +132,7 @@ export function SearchableSelect({
   serverSideFilter = false,
   onSearch,
   loading = false,
+  modal = true,
 }: SearchableSelectProps) {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -189,7 +192,7 @@ export function SearchableSelect({
       itemToStringValue={(item) => item.value}
       items={options}
       limit={INITIAL_RESULT_LIMIT}
-      modal
+      modal={modal}
       onInputValueChange={(next) => {
         setInputValue(next);
         if (open && serverSideFilter) {
