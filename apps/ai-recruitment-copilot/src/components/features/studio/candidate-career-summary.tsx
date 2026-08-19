@@ -75,7 +75,13 @@ function CareerSection({
   );
 }
 
-function WorkHistory({ experiences }: { experiences: readonly WorkExperience[] }) {
+function WorkHistory({
+  experiences,
+  onWorkExperienceSelect,
+}: {
+  experiences: readonly WorkExperience[];
+  onWorkExperienceSelect: (companyName: string) => void;
+}) {
   const sortedExperiences = sortCareerWorkExperiences(experiences);
   if (sortedExperiences.length === 0) {
     return <EmptyValue className="text-sm" />;
@@ -87,22 +93,29 @@ function WorkHistory({ experiences }: { experiences: readonly WorkExperience[] }
         const role = cleanText(experience.role);
         const period = cleanText(experience.period);
         const company = cleanText(experience.company);
+        const companyName = company ?? "未发现公司";
         return (
           <li
             className="min-w-0"
             key={[experience.company, experience.role, experience.period, index].join("\u001F")}
           >
-            <div className="flex min-w-0 items-baseline justify-between gap-3">
-              <p className="min-w-0 wrap-break-word font-medium text-sm">
-                {company ?? <EmptyValue />}
+            <button
+              className="w-full min-w-0 cursor-pointer rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => onWorkExperienceSelect(companyName)}
+              type="button"
+            >
+              <div className="flex min-w-0 items-baseline justify-between gap-3">
+                <p className="min-w-0 wrap-break-word font-medium text-sm">
+                  {company ?? <EmptyValue />}
+                </p>
+                <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+                  {period ?? <EmptyValue />}
+                </span>
+              </div>
+              <p className="mt-1 min-w-0 wrap-break-word text-muted-foreground text-xs">
+                {role ?? <EmptyValue />}
               </p>
-              <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-                {period ?? <EmptyValue />}
-              </span>
-            </div>
-            <p className="mt-1 min-w-0 wrap-break-word text-muted-foreground text-xs">
-              {role ?? <EmptyValue />}
-            </p>
+            </button>
           </li>
         );
       })}
@@ -170,7 +183,13 @@ function EducationHistory({
   );
 }
 
-export function CandidateCareerSummary({ profile }: { profile: ResumeProfile | null }) {
+export function CandidateCareerSummary({
+  onWorkExperienceSelect,
+  profile,
+}: {
+  onWorkExperienceSelect: (companyName: string) => void;
+  profile: ResumeProfile | null;
+}) {
   if (!profile) {
     return <p className="text-muted-foreground text-sm">暂无结构化履历信息。</p>;
   }
@@ -178,7 +197,10 @@ export function CandidateCareerSummary({ profile }: { profile: ResumeProfile | n
   return (
     <div className="flex min-w-0 flex-col gap-7" data-slot="candidate-career-summary">
       <CareerSection icon={IconBriefcase2} title="工作经历">
-        <WorkHistory experiences={profile.workExperiences} />
+        <WorkHistory
+          experiences={profile.workExperiences}
+          onWorkExperienceSelect={onWorkExperienceSelect}
+        />
       </CareerSection>
       <CareerSection icon={IconSchool} title="教育经历">
         <EducationHistory

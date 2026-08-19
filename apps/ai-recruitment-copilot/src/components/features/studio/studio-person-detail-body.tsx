@@ -4,6 +4,7 @@
 import { IconArrowBackUp, IconLoader2 } from "@tabler/icons-react";
 
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { scrollToWorkExperienceCompany } from "@/components/features/resume/work-experience";
 import {
   ResumeOverviewPanel,
   ResumeReviewStructuredView,
@@ -233,6 +234,9 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           <CandidateDetailRail
             className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             isTimelineLoading={isTimelineLoading}
+            onWorkExperienceSelect={(companyName) => {
+              scrollToWorkExperienceCompany(tabContentRootRef.current, companyName);
+            }}
             profile={resumeRecord?.resumeProfile ?? null}
             timeline={candidateTimeline}
             useInternalScroll={canUseTimelineRailScroll}

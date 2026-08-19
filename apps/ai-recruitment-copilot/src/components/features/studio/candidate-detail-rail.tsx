@@ -43,12 +43,14 @@ export function CandidateDetailRailSkeleton({ className }: { className?: string 
 export function CandidateDetailRail({
   className,
   isTimelineLoading,
+  onWorkExperienceSelect,
   profile,
   timeline,
   useInternalScroll,
 }: {
   className?: string;
   isTimelineLoading: boolean;
+  onWorkExperienceSelect: (companyName: string) => void;
   profile: ResumeProfile | null;
   timeline: CandidateTimelineResponse | null | undefined;
   useInternalScroll: boolean;
@@ -70,7 +72,7 @@ export function CandidateDetailRail({
         className={cn(useInternalScroll && "xl:min-h-0 xl:overflow-y-auto xl:pr-1")}
         value="career-summary"
       >
-        <CandidateCareerSummary profile={profile} />
+        <CandidateCareerSummary onWorkExperienceSelect={onWorkExperienceSelect} profile={profile} />
       </TabsContent>
       <TabsContent
         className={cn(useInternalScroll && "xl:min-h-0 xl:overflow-hidden")}

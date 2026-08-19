@@ -64,6 +64,19 @@ export interface WorkExperienceProps {
   experiences: ExperienceItemType[];
 }
 
+export function scrollToWorkExperienceCompany(root: ParentNode | null, companyName: string): void {
+  const companySections =
+    root?.querySelectorAll<HTMLElement>('[data-slot="work-experience-company"]') ?? [];
+  const target = [...companySections].find(
+    (section) => section.dataset.companyName === companyName,
+  );
+  if (!target) {
+    return;
+  }
+
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function WorkExperience({ className, experiences }: WorkExperienceProps) {
   return (
     <div
@@ -87,7 +100,11 @@ export interface ExperienceItemProps {
 
 function ExperienceItem({ experience }: ExperienceItemProps) {
   return (
-    <div className="relative flex flex-col gap-4 py-4">
+    <div
+      className="relative flex flex-col gap-4 py-4"
+      data-company-name={experience.companyName}
+      data-slot="work-experience-company"
+    >
       <div className="not-prose flex items-center gap-3">
         <div className="relative z-[1] flex size-6 shrink-0 items-center justify-center bg-background">
           {experience.companyLogo ? (
