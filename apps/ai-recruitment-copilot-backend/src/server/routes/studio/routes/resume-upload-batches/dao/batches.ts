@@ -72,6 +72,7 @@ export interface CreateBatchInput {
   organizationId: string;
   userId: string;
   jdMode: "bind" | "auto" | "none";
+  jobMatchRequestedAt?: Date | null;
   jobDescriptionId: string | null;
   dedupPolicy: "skip" | "create";
   referralTargetRole?: string | null;
@@ -103,6 +104,7 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
       id: batchId,
       jdMode: input.jdMode,
       jobDescriptionId: input.jobDescriptionId,
+      jobMatchRequestedAt: input.jobMatchRequestedAt ?? null,
       organizationId: input.organizationId,
       resumePoolScope: target === "resume_pool" ? scope : null,
       status: "pending",
@@ -191,6 +193,28 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
           type: "created" as const,
         })),
       );
+      if (input.jdMode === "bind" && input.jobDescriptionId) {
+        const bindingMode =
+          input.sourceChannel === "referral" || input.sourceChannel === "mail_ingest"
+            ? "automatic"
+            : "manual";
+        await tx.insert(resumePoolEvent).values(
+          poolRows.map(({ poolItemId }) => ({
+            actorId: input.userId,
+            createdAt: now,
+            id: crypto.randomUUID(),
+            organizationId: input.organizationId,
+            payload: {
+              bindingMode,
+              fromJobDescriptionId: null,
+              source: input.sourceChannel === "referral" ? "referral" : "batch_fixed_job",
+              toJobDescriptionId: input.jobDescriptionId,
+            },
+            poolItemId,
+            type: "bound" as const,
+          })),
+        );
+      }
     }
     await tx.insert(resumeUploadBatchItem).values(
       rows.map(({ file, itemId, orderIndex, poolItemId, recordId }) => ({

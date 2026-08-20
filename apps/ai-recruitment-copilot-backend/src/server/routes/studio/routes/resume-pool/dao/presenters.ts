@@ -8,6 +8,7 @@ import {
 } from "@arc/shared/resume-education";
 import type {
   ResumePoolDetail,
+  ResumePoolJobBindingMode,
   ResumePoolListRecord,
   ResumePoolProfileHighlights,
   ResumePoolSourceChannel,
@@ -142,6 +143,7 @@ export function toResumePoolListRecord(
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
   jobDescriptionName: string | null = null,
   resumeParseRetryable = false,
+  jobBindingMode: ResumePoolJobBindingMode | null = null,
 ): ResumePoolListRecord {
   const latestImport = importRows[0] ?? null;
   return {
@@ -160,6 +162,7 @@ export function toResumePoolListRecord(
       resumeRecordId: item.resumeRecordId,
     })),
     importedResumeRecordId: latestImport?.resumeRecordId ?? null,
+    jobBindingMode: row.jobDescriptionId ? jobBindingMode : null,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName,
     masteredSkills: buildMasteredSkills(row.resumeProfile),
@@ -201,6 +204,7 @@ export function toResumePoolDetail(
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
   jobDescriptionName: string | null = null,
   resumeParseRetryable = false,
+  jobBindingMode: ResumePoolJobBindingMode | null = null,
 ): ResumePoolDetail {
   return {
     ...toResumePoolListRecord(
@@ -211,6 +215,7 @@ export function toResumePoolDetail(
       duplicateMatch,
       jobDescriptionName,
       resumeParseRetryable,
+      jobBindingMode,
     ),
     resumeProfile: row.resumeProfile,
   };

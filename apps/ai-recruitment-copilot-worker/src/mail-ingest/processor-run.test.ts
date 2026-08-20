@@ -237,8 +237,49 @@ describe("runMailIngestOnce", () => {
       expect.objectContaining({
         jdMode: "bind",
         jobDescriptionId: "jd_1",
+        jobMatchRequestedAt: expect.any(Date),
         organizationId: "org_1",
         resumePoolScope: "public",
+      }),
+    );
+  });
+
+  it("uses automatic matching for a new mail batch when the account has no fixed job", async () => {
+    mocks.connect.mockImplementation(() => Promise.resolve());
+    mocks.search.mockResolvedValue([150]);
+    mocks.fetchOne.mockResolvedValue({
+      envelope: { subject: "【BOSS直聘】王泽投递 前端工程师" },
+      internalDate: new Date("2026-06-18T10:01:00.000Z"),
+      source: Buffer.from("raw message"),
+    });
+    mocks.parseMail.mockResolvedValue(
+      parsedMail({
+        attachments: [
+          {
+            checksum: "fixture-auto-match-checksum",
+            content: Buffer.from("resume"),
+            contentDisposition: "attachment",
+            contentType: "application/pdf",
+            filename: "王泽-前端工程师.pdf",
+            headerLines: [],
+            headers: new Map(),
+            related: false,
+            size: 6,
+            type: "attachment",
+          },
+        ],
+        subject: "【BOSS直聘】王泽投递 前端工程师",
+      }),
+    );
+
+    await processor.runMailIngestOnce(config);
+
+    expect(mocks.insertBatchWithItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jdMode: "auto",
+        jobDescriptionId: null,
+        jobMatchRequestedAt: expect.any(Date),
+        sourceChannel: "mail_ingest",
       }),
     );
   });

@@ -34,8 +34,8 @@ import type {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/vector-store";
 
 const JD_REC_EMBED_TIMEOUT_MS = 3000;
-const SCORE_THRESHOLD = 55;
 const DESCRIPTION_SUMMARY_LENGTH = 200;
+const SCORE_THRESHOLD = 55;
 
 export interface JobDescriptionDisplayRow {
   departmentName: string | null;
@@ -45,6 +45,7 @@ export interface JobDescriptionDisplayRow {
 }
 
 export interface RecommendJdInput {
+  minimumScore?: number;
   organizationId: string;
   resume: { id: string; jobDescriptionId: string | null; profile: ResumeProfile | null };
   topN: number;
@@ -57,6 +58,7 @@ interface ChunkEmbedding {
 
 export interface ScoreJdCoreInput {
   chunkEmbeddings: ChunkEmbedding[];
+  minimumScore?: number;
   organizationId: string;
 }
 
@@ -209,10 +211,12 @@ export async function scoreJobDescriptionsForResume(
   );
   const bySource = mergeVectorScores(resultGroups.flat(), "job_description");
   const retrievedIds = new Set(bySource.keys());
-  const aboveThreshold = [...bySource.entries()]
+  const scored = [...bySource.entries()]
     .map(([jdId, similarity]) => ({ jdId, score: weightedScore(similarity), similarity }))
-    .filter((entry) => entry.score >= SCORE_THRESHOLD)
     .toSorted((a, b) => b.score - a.score || a.jdId.localeCompare(b.jdId));
+  const aboveThreshold = scored.filter(
+    (entry) => entry.score >= (input.minimumScore ?? SCORE_THRESHOLD),
+  );
 
   const rows = await deps.loadJobDescriptionsForDisplay(
     input.organizationId,
@@ -285,7 +289,11 @@ export async function recommendJobDescriptionsForResume(
   }
 
   const core = await scoreJobDescriptionsForResume(
-    { chunkEmbeddings, organizationId: input.organizationId },
+    {
+      chunkEmbeddings,
+      minimumScore: input.minimumScore,
+      organizationId: input.organizationId,
+    },
     deps,
   );
 

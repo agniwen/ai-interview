@@ -3,7 +3,12 @@ import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
-import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
+import type {
+  ResumePoolScope,
+  ResumePoolStatus,
+  ResumeJobMatchRunStatus,
+  ResumeJobMatchSelectionMethod,
+} from "@arc/db-schema/schema";
 import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
@@ -53,6 +58,7 @@ export interface ResumePoolImportedRecord {
 }
 
 export type ResumePoolSourceChannel = "mail_ingest" | "referral";
+export type ResumePoolJobBindingMode = "automatic" | "manual";
 
 export interface ResumePoolListRecord {
   id: string;
@@ -77,6 +83,7 @@ export interface ResumePoolListRecord {
   notes: string | null;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
+  jobBindingMode: ResumePoolJobBindingMode | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
   resumeContentHash: string | null;
@@ -99,6 +106,29 @@ export interface ResumePoolListRecord {
 
 export interface ResumePoolDetail extends ResumePoolListRecord {
   resumeProfile: ResumeProfile | null;
+}
+
+export interface ResumePoolJobMatchCandidate {
+  aiRank: number | null;
+  aiReason: string | null;
+  aiScore: number | null;
+  available: boolean;
+  code: string | null;
+  departmentName: string | null;
+  id: string;
+  isCurrent: boolean;
+  name: string;
+  recallRank: number | null;
+  vectorScore: number | null;
+}
+
+export interface ResumePoolJobMatchResult {
+  candidates: ResumePoolJobMatchCandidate[];
+  createdAt: string;
+  id: string;
+  selectedJobDescriptionId: string | null;
+  selectionMethod: ResumeJobMatchSelectionMethod | null;
+  status: ResumeJobMatchRunStatus;
 }
 
 export interface PaginatedResumePoolResult {

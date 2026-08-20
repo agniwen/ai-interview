@@ -1,5 +1,5 @@
 /* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
-import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   jobDescription,
@@ -9,13 +9,15 @@ import {
   resumePoolEvent,
   resumePoolImport,
   resumePoolItem,
+  resumeJobMatchCandidate,
+  resumeJobMatchRun,
   resumeUploadBatchItem,
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonObject } from "@arc/db-schema/json";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type {
@@ -23,6 +25,8 @@ import type {
   ResumePoolDetail,
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
+  ResumePoolJobBindingMode,
+  ResumePoolJobMatchResult,
   ResumePoolSourceChannel,
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
@@ -55,6 +59,7 @@ export interface CreateResumePoolItemInput {
   candidatePhone: string | null;
   contentHash: string | null;
   createdBy: string | null;
+  jobBindingMode?: ResumePoolJobBindingMode | null;
   jobDescriptionId: string | null;
   notes: string | null;
   organizationId: string | null;
@@ -186,7 +191,7 @@ async function writeResumePoolEvent(
   input: {
     actorId: string | null;
     organizationId: string | null;
-    payload?: JsonValue;
+    payload?: JsonObject;
     poolItemId: string;
     type: ResumePoolEventType;
   },
@@ -199,6 +204,43 @@ async function writeResumePoolEvent(
     poolItemId: input.poolItemId,
     type: input.type,
   });
+}
+
+function jobBindingModeFromEventPayload(
+  payload: JsonObject | null,
+): ResumePoolJobBindingMode | null {
+  if (payload?.bindingMode === "automatic" || payload?.bindingMode === "manual") {
+    return payload.bindingMode;
+  }
+  return null;
+}
+
+async function loadJobBindingModes(
+  poolItemIds: readonly string[],
+): Promise<Map<string, ResumePoolJobBindingMode>> {
+  if (poolItemIds.length === 0) {
+    return new Map();
+  }
+  const events = await db
+    .select({ payload: resumePoolEvent.payload, poolItemId: resumePoolEvent.poolItemId })
+    .from(resumePoolEvent)
+    .where(
+      and(inArray(resumePoolEvent.poolItemId, [...poolItemIds]), eq(resumePoolEvent.type, "bound")),
+    )
+    .orderBy(desc(resumePoolEvent.createdAt), desc(resumePoolEvent.id));
+  const modes = new Map<string, ResumePoolJobBindingMode>();
+  const seenPoolItemIds = new Set<string>();
+  for (const event of events) {
+    if (seenPoolItemIds.has(event.poolItemId)) {
+      continue;
+    }
+    seenPoolItemIds.add(event.poolItemId);
+    const mode = jobBindingModeFromEventPayload(event.payload);
+    if (mode) {
+      modes.set(event.poolItemId, mode);
+    }
+  }
+  return modes;
 }
 
 // oxlint-disable-next-line complexity -- central data mapper for pool rows.
@@ -252,6 +294,20 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
       poolItemId: id,
       type: "created",
     });
+    if (input.jobDescriptionId && input.jobBindingMode) {
+      await writeResumePoolEvent(tx, {
+        actorId: input.createdBy,
+        organizationId: input.organizationId,
+        payload: {
+          bindingMode: input.jobBindingMode,
+          fromJobDescriptionId: null,
+          source: "created_with_job",
+          toJobDescriptionId: input.jobDescriptionId,
+        },
+        poolItemId: id,
+        type: "bound",
+      });
+    }
   });
   return id;
 }
@@ -526,7 +582,7 @@ export async function queryResumePoolItems(
   const imports = await Promise.all(
     rows.map((row) => loadImportsForOrg(row.item.id, input.organizationId)),
   );
-  const [sourceChannels, duplicateMatches, retryableIds] = await Promise.all([
+  const [sourceChannels, duplicateMatches, retryableIds, jobBindingModes] = await Promise.all([
     loadSourceChannels(rows.map((row) => row.item.id)),
     loadPoolDuplicateMatches({
       organizationId: input.organizationId,
@@ -537,6 +593,7 @@ export async function queryResumePoolItems(
       organizationId: input.organizationId,
       target: "resume_pool",
     }),
+    loadJobBindingModes(rows.map((row) => row.item.id)),
   ]);
   return {
     records: rows.map((row, index) =>
@@ -550,6 +607,7 @@ export async function queryResumePoolItems(
         row.item.resumeParseStatus === "failed" &&
           Boolean(row.item.resumeStorageKey) &&
           (retryableIds.get(row.item.id) ?? true),
+        jobBindingModes.get(row.item.id) ?? null,
       ),
     ),
     total: totalRow?.total ?? 0,
@@ -594,7 +652,10 @@ export async function loadResumePoolItem(
         target: "resume_pool",
       }),
     ]);
-  const sourceChannels = await loadSourceChannels([row.id]);
+  const [sourceChannels, jobBindingModes] = await Promise.all([
+    loadSourceChannels([row.id]),
+    loadJobBindingModes([row.id]),
+  ]);
   return toResumePoolDetail(
     row,
     importRows,
@@ -605,6 +666,7 @@ export async function loadResumePoolItem(
     row.resumeParseStatus === "failed" &&
       Boolean(row.resumeStorageKey) &&
       (retryableIds.get(row.id) ?? true),
+    jobBindingModes.get(row.id) ?? null,
   );
 }
 
@@ -887,7 +949,7 @@ export async function importPoolItemToResumeLibrary(
       await writeResumePoolEvent(tx, {
         actorId: input.importedBy,
         organizationId: input.organizationId,
-        payload: { jobDescriptionId: input.jobDescriptionId },
+        payload: { bindingMode: "manual", jobDescriptionId: input.jobDescriptionId },
         poolItemId: input.poolItemId,
         type: "bound",
       });
@@ -943,27 +1005,148 @@ export async function bindResumePoolItemJobDescription(
   input: BindResumePoolItemJobDescriptionInput,
 ): Promise<boolean> {
   return await db.transaction(async (tx) => {
-    const updated = await tx
-      .update(resumePoolItem)
-      .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+    const [current] = await tx
+      .select({ jobDescriptionId: resumePoolItem.jobDescriptionId })
+      .from(resumePoolItem)
       .where(
         and(
           eq(resumePoolItem.id, input.poolItemId),
           eq(resumePoolItem.organizationId, input.organizationId),
-          isNull(resumePoolItem.jobDescriptionId),
         ),
       )
-      .returning({ id: resumePoolItem.id });
-    if (updated.length === 0) {
+      .for("update")
+      .limit(1);
+    if (!current) {
       return false;
     }
+    if (current.jobDescriptionId === input.jobDescriptionId) {
+      return true;
+    }
+    const [latestRun] = await tx
+      .select({ id: resumeJobMatchRun.id })
+      .from(resumeJobMatchRun)
+      .where(
+        and(
+          eq(resumeJobMatchRun.poolItemId, input.poolItemId),
+          eq(resumeJobMatchRun.organizationId, input.organizationId),
+        ),
+      )
+      .orderBy(desc(resumeJobMatchRun.createdAt))
+      .limit(1);
+    const [candidate] = latestRun
+      ? await tx
+          .select({
+            aiRank: resumeJobMatchCandidate.aiRank,
+            recallRank: resumeJobMatchCandidate.recallRank,
+          })
+          .from(resumeJobMatchCandidate)
+          .where(
+            and(
+              eq(resumeJobMatchCandidate.runId, latestRun.id),
+              eq(resumeJobMatchCandidate.jobDescriptionId, input.jobDescriptionId),
+            ),
+          )
+          .limit(1)
+      : [];
+    await tx
+      .update(resumePoolItem)
+      .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+      .where(eq(resumePoolItem.id, input.poolItemId));
     await writeResumePoolEvent(tx, {
       actorId: input.actorId,
       organizationId: input.organizationId,
-      payload: { jobDescriptionId: input.jobDescriptionId },
+      payload: {
+        bindingMode: "manual",
+        fromJobDescriptionId: current.jobDescriptionId,
+        matchRunId: latestRun?.id ?? null,
+        selectedCandidateRank: candidate?.aiRank ?? candidate?.recallRank ?? null,
+        source: "hr_rebind",
+        toJobDescriptionId: input.jobDescriptionId,
+      },
       poolItemId: input.poolItemId,
       type: "bound",
     });
     return true;
   });
+}
+
+export async function loadResumePoolJobMatchResult(input: {
+  organizationId: string;
+  poolItemId: string;
+}): Promise<ResumePoolJobMatchResult | null> {
+  const [run] = await db
+    .select({
+      createdAt: resumeJobMatchRun.createdAt,
+      id: resumeJobMatchRun.id,
+      selectedJobDescriptionId: resumeJobMatchRun.selectedJobDescriptionId,
+      selectionMethod: resumeJobMatchRun.selectionMethod,
+      status: resumeJobMatchRun.status,
+    })
+    .from(resumeJobMatchRun)
+    .where(
+      and(
+        eq(resumeJobMatchRun.organizationId, input.organizationId),
+        eq(resumeJobMatchRun.poolItemId, input.poolItemId),
+      ),
+    )
+    .orderBy(desc(resumeJobMatchRun.createdAt))
+    .limit(1);
+  if (!run) {
+    return null;
+  }
+  const [poolItem, candidates] = await Promise.all([
+    db
+      .select({ jobDescriptionId: resumePoolItem.jobDescriptionId })
+      .from(resumePoolItem)
+      .where(
+        and(
+          eq(resumePoolItem.id, input.poolItemId),
+          eq(resumePoolItem.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        aiRank: resumeJobMatchCandidate.aiRank,
+        aiReason: resumeJobMatchCandidate.aiReason,
+        aiScore: resumeJobMatchCandidate.aiScore,
+        currentLifecycleStatus: jobDescription.lifecycleStatus,
+        currentOrganizationId: jobDescription.organizationId,
+        jobDescriptionId: resumeJobMatchCandidate.jobDescriptionId,
+        jobSnapshot: resumeJobMatchCandidate.jobSnapshot,
+        recallRank: resumeJobMatchCandidate.recallRank,
+        vectorScore: resumeJobMatchCandidate.vectorScore,
+      })
+      .from(resumeJobMatchCandidate)
+      .leftJoin(jobDescription, eq(resumeJobMatchCandidate.jobDescriptionId, jobDescription.id))
+      .where(eq(resumeJobMatchCandidate.runId, run.id))
+      .orderBy(
+        sql`${resumeJobMatchCandidate.aiRank} asc nulls last`,
+        sql`${resumeJobMatchCandidate.recallRank} asc nulls last`,
+      ),
+  ]);
+  const currentJobDescriptionId = poolItem[0]?.jobDescriptionId ?? null;
+  return {
+    candidates: candidates.map((candidate) => ({
+      aiRank: candidate.aiRank,
+      aiReason: candidate.aiReason,
+      aiScore: candidate.aiScore,
+      available:
+        candidate.currentLifecycleStatus === "published" &&
+        candidate.currentOrganizationId === input.organizationId,
+      code: candidate.jobSnapshot.code,
+      departmentName: candidate.jobSnapshot.departmentName,
+      id: candidate.jobDescriptionId ?? candidate.jobSnapshot.id,
+      isCurrent:
+        currentJobDescriptionId === (candidate.jobDescriptionId ?? candidate.jobSnapshot.id),
+      name: candidate.jobSnapshot.name,
+      recallRank: candidate.recallRank,
+      vectorScore: candidate.vectorScore,
+    })),
+    createdAt: run.createdAt.toISOString(),
+    id: run.id,
+    selectedJobDescriptionId: run.selectedJobDescriptionId,
+    selectionMethod: run.selectionMethod,
+    status: run.status,
+  };
 }

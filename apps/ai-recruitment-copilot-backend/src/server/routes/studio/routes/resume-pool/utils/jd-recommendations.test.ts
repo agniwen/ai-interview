@@ -98,10 +98,11 @@ const depsWith = (opts: {
 
 const call = (
   deps: ReturnType<typeof depsWith>,
-  over: Partial<{ jobDescriptionId: string | null; topN: number }> = {},
+  over: Partial<{ jobDescriptionId: string | null; minimumScore: number; topN: number }> = {},
 ) =>
   recommendJobDescriptionsForResume(
     {
+      minimumScore: over.minimumScore,
       organizationId: "org-1",
       resume: { id: "r-1", jobDescriptionId: over.jobDescriptionId ?? null, profile },
       topN: over.topN ?? 10,
@@ -123,12 +124,21 @@ describe("recommendJobDescriptionsForResume", () => {
     expect(res.diagnostics.vectorHitCount).toBe(1);
   });
 
-  it("阈值：全 0.2 → recommendations 空，仍为 ready（命中过 0 但被阈值筛掉）", async () => {
+  it("人工推荐保留 55 分门槛：全 0.2 的低分岗位不进入候选", async () => {
     const res = await call(depsWith({ search: () => 0.2 }));
     expect(res.status).toBe("ready");
     expect(res.recommendations).toEqual([]);
     expect(res.diagnostics.vectorHitCount).toBe(1);
+    expect(res.diagnostics.aboveThresholdCount).toBe(0);
     expect(res.diagnostics.eligibleCount).toBe(0);
+  });
+
+  it("自动匹配可显式取消召回门槛，把低分岗位交给后续 AI 精排", async () => {
+    const res = await call(depsWith({ search: () => 0.2 }), { minimumScore: 0 });
+    expect(res.status).toBe("ready");
+    expect(res.recommendations).toEqual([expect.objectContaining({ id: "jd-1", score: 20 })]);
+    expect(res.diagnostics.aboveThresholdCount).toBe(1);
+    expect(res.diagnostics.eligibleCount).toBe(1);
   });
 
   it("topN 截断：3 个过阈值 JD，topN=1 只返回 1 个", async () => {

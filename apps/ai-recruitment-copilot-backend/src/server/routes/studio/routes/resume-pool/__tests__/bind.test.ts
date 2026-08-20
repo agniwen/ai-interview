@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- binding, auto-match, HR-race, and import scenarios share one database fixture. */
 // POST /:id/bind 集成测试（直接连接真实 PG 数据库，不 mock db/dao）。
 // Integration tests for the bind endpoint — hit the real Postgres dev database
 // through the actual route + DAO; only the permission middleware is bypassed.
@@ -11,7 +12,12 @@ import {
   jobDescription,
   member,
   organization,
+  resumePoolEvent,
   resumePoolItem,
+  resumeJobMatchCandidate,
+  resumeJobMatchRun,
+  resumeUploadBatch,
+  resumeUploadBatchItem,
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
@@ -19,15 +25,22 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import {
   createResumePoolItem,
+  bindResumePoolItemJobDescription,
   importPoolItemToResumeLibrary,
+  loadResumePoolItem,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import type { ImportPoolItemDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { matchNewMailResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/job-match/service";
+import type { MailResumeJobMatchServiceDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/job-match/service";
 import { createResumePoolRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/route";
 import type { ResumePoolRouterDependencies } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/route";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 const mocks = {
   cloneSemanticIndex: vi.fn<ImportPoolItemDependencies["cloneSemanticIndex"]>(),
+  enqueueCandidateQuestionGeneration:
+    vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
   enqueueResumeReviewGeneration:
     vi.fn<ResumePoolRouterDependencies["enqueueResumeReviewGenerationForRecordBestEffort"]>(),
   findDuplicateMatches: vi.fn<ImportPoolItemDependencies["findDuplicateMatches"]>(),
@@ -74,6 +87,8 @@ function makeApp() {
     .route(
       "/",
       createResumePoolRouter({
+        enqueueCandidateQuestionGenerationForRecordBestEffort:
+          mocks.enqueueCandidateQuestionGeneration,
         enqueueResumeReviewGenerationForRecordBestEffort: mocks.enqueueResumeReviewGeneration,
         importPoolItemToResumeLibrary: (input) =>
           importPoolItemToResumeLibrary(input, {
@@ -87,23 +102,120 @@ function makeApp() {
 
 const client = testClient(makeApp());
 
-async function seedPoolItem(overrides: { contentHash: string; jobDescriptionId?: string | null }) {
+async function seedPoolItem(overrides: {
+  contentHash: string;
+  jobDescriptionId?: string | null;
+  resumeFileName?: string;
+  resumeProfile?: ResumeProfile;
+}) {
+  const resumeProfile = overrides.resumeProfile ?? PROFILE;
   return await createResumePoolItem({
-    candidateEmail: PROFILE.email,
-    candidateName: PROFILE.name,
-    candidatePhone: PROFILE.phone,
+    candidateEmail: resumeProfile.email,
+    candidateName: resumeProfile.name,
+    candidatePhone: resumeProfile.phone,
     contentHash: overrides.contentHash,
     createdBy: USER_A,
     jobDescriptionId: overrides.jobDescriptionId ?? null,
     notes: null,
     organizationId: ORG_A,
-    resumeFileName: "candidate.pdf",
-    resumeProfile: PROFILE,
+    resumeFileName: overrides.resumeFileName ?? "candidate.pdf",
+    resumeProfile,
     resumeText: "候选人甲 OCR 原文",
     scope: "private",
     storageKey: "attachments/resume-pool/bind-test.pdf",
     targetRole: "前端工程师",
   });
+}
+
+async function seedMailMatchBatch(poolItemId: string, requested: boolean): Promise<string> {
+  const batchId = crypto.randomUUID();
+  const batchItemId = crypto.randomUUID();
+  await db.insert(resumeUploadBatch).values({
+    createdAt: NOW,
+    createdBy: USER_A,
+    dedupPolicy: "skip",
+    id: batchId,
+    jdMode: "auto",
+    jobDescriptionId: null,
+    jobMatchRequestedAt: requested ? NOW : null,
+    organizationId: ORG_A,
+    resumePoolScope: "public",
+    status: "completed",
+    target: "resume_pool",
+    totalCount: 1,
+    updatedAt: NOW,
+  });
+  await db.insert(resumeUploadBatchItem).values({
+    batchId,
+    fileSize: 100,
+    id: batchItemId,
+    orderIndex: 0,
+    organizationId: ORG_A,
+    originalFileName: "candidate.pdf",
+    poolItemId,
+    status: "succeeded",
+    storageKey: "attachments/resume-pool/bind-test.pdf",
+  });
+  await db
+    .update(resumePoolItem)
+    .set({ sourceChannel: "mail_ingest" })
+    .where(eq(resumePoolItem.id, poolItemId));
+  return batchItemId;
+}
+
+async function matchDependencies(
+  selectedJobDescriptionId = JD_A_REPLACEMENT,
+): Promise<MailResumeJobMatchServiceDependencies> {
+  const jobs = await listRecruitingJobDescriptions(ORG_A);
+  return {
+    listPublishedJobs: vi.fn(() => Promise.resolve(jobs)),
+    rankCandidates: vi.fn(() =>
+      Promise.resolve({
+        candidates: [
+          {
+            jobDescriptionId: selectedJobDescriptionId,
+            matchScore: 88,
+            rank: 1,
+            reason: "综合经历最匹配",
+          },
+          {
+            jobDescriptionId: selectedJobDescriptionId === JD_A ? JD_A_REPLACEMENT : JD_A,
+            matchScore: 76,
+            rank: 2,
+            reason: "技能部分匹配",
+          },
+        ],
+        selectedJobDescriptionId,
+      }),
+    ),
+    recallCandidates: vi.fn((input) =>
+      Promise.resolve({
+        diagnostics: { aboveThresholdCount: 2, eligibleCount: 2, vectorHitCount: 2 },
+        recommendations: [
+          {
+            departmentName: "Resume Pool Bind Department A",
+            description: null,
+            id: JD_A,
+            name: "前端工程师",
+            reasons: [],
+            score: 20,
+            similarity: { skillRole: 0.2 },
+          },
+          {
+            departmentName: "Resume Pool Bind Department A",
+            description: null,
+            id: JD_A_REPLACEMENT,
+            name: "资深前端工程师",
+            reasons: [],
+            score: 18,
+            similarity: { skillRole: 0.18 },
+          },
+        ],
+        resume: { id: input.resume.id },
+        status: "ready" as const,
+      }),
+    ),
+  };
 }
 
 async function cleanup() {
@@ -276,9 +388,18 @@ describe("POST /:id/bind", () => {
     // 详情 DTO 现在带出关联岗位名，供简历详情页「关联岗位」字段展示。
     expect(
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
-      (body as { jobDescriptionId: string | null; jobDescriptionName: string | null })
-        ?.jobDescriptionName,
+      (
+        body as {
+          jobBindingMode: "automatic" | "manual" | null;
+          jobDescriptionId: string | null;
+          jobDescriptionName: string | null;
+        }
+      )?.jobDescriptionName,
     ).toBe("前端工程师");
+    expect(
+      // SAFETY: This test constructs the value with the asserted contract before this boundary.
+      (body as { jobBindingMode: "automatic" | "manual" | null })?.jobBindingMode,
+    ).toBe("manual");
 
     const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
     expect(row?.jobDescriptionId).toBe(JD_A);
@@ -294,7 +415,7 @@ describe("POST /:id/bind", () => {
     expect(await response.json()).toEqual({ error: "记录不存在。" });
   });
 
-  it("returns 409 when the pool item is already bound (bind-once)", async () => {
+  it("treats rebinding to the current job as an idempotent success", async () => {
     const poolItemId = await seedPoolItem({
       contentHash: "hash-bind-already-bound",
       jobDescriptionId: JD_A,
@@ -305,17 +426,295 @@ describe("POST /:id/bind", () => {
       param: { id: poolItemId },
     });
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: "该简历已绑定岗位。" });
+    expect(response.status).toBe(200);
+    // SAFETY: The successful bind response follows ResumePoolDetail's binding-mode contract.
+    expect(
+      // Existing bindings have no explicit binding mode and must not be guessed.
+      ((await response.json()) as { jobBindingMode: "automatic" | "manual" | null }).jobBindingMode,
+    ).toBeNull();
 
     const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
     expect(row?.jobDescriptionId).toBe(JD_A);
+  });
+
+  it("allows HR to rebind and records the old and new jobs without a reason", async () => {
+    const poolItemId = await seedPoolItem({
+      contentHash: "hash-bind-replacement",
+      jobDescriptionId: JD_A,
+    });
+
+    const response = await client[":id"].bind.$post({
+      json: { jobDescriptionId: JD_A_REPLACEMENT },
+      param: { id: poolItemId },
+    });
+
+    expect(response.status).toBe(200);
+    const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
+    expect(row?.jobDescriptionId).toBe(JD_A_REPLACEMENT);
+    const events = await db
+      .select({ payload: resumePoolEvent.payload })
+      .from(resumePoolEvent)
+      .where(eq(resumePoolEvent.poolItemId, poolItemId));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            fromJobDescriptionId: JD_A,
+            matchRunId: null,
+            selectedCandidateRank: null,
+            source: "hr_rebind",
+            toJobDescriptionId: JD_A_REPLACEMENT,
+          }),
+        }),
+      ]),
+    );
+  });
+});
+
+describe("new mail resume automatic job matching", () => {
+  it("binds AI Top1 and persists the full low-score candidate list", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-mail-auto-match" });
+    const batchItemId = await seedMailMatchBatch(poolItemId, true);
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      await matchDependencies(),
+    );
+
+    expect(result).toEqual({ handled: true, jobDescriptionId: JD_A_REPLACEMENT });
+    const detail = await loadResumePoolItem({
+      organizationId: ORG_A,
+      poolItemId,
+      userId: USER_A,
+    });
+    expect(detail?.jobBindingMode).toBe("automatic");
+    const [run] = await db
+      .select()
+      .from(resumeJobMatchRun)
+      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+    expect(run).toMatchObject({
+      model: expect.any(String),
+      promptVersion: "mail-resume-job-rerank-v1",
+      selectedJobDescriptionId: JD_A_REPLACEMENT,
+      selectionMethod: "ai_rerank",
+      status: "succeeded",
+    });
+    const candidates = await db
+      .select()
+      .from(resumeJobMatchCandidate)
+      .where(eq(resumeJobMatchCandidate.runId, run?.id ?? "missing"));
+    expect(candidates).toHaveLength(2);
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ jobDescriptionId: JD_A, vectorScore: 20 }),
+        expect.objectContaining({ jobDescriptionId: JD_A_REPLACEMENT, vectorScore: 18 }),
+      ]),
+    );
+    const events = await db
+      .select({ payload: resumePoolEvent.payload })
+      .from(resumePoolEvent)
+      .where(eq(resumePoolEvent.poolItemId, poolItemId));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            fromJobDescriptionId: null,
+            matchRunId: run?.id,
+            selectedCandidateRank: 1,
+            selectionMethod: "ai_rerank",
+            source: "auto_match",
+            toJobDescriptionId: JD_A_REPLACEMENT,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("leaves AI metadata empty when an exact filename directly selects the job", async () => {
+    const poolItemId = await seedPoolItem({
+      contentHash: "hash-mail-filename-exact",
+      resumeFileName: "候选人-前端工程师.pdf",
+    });
+    const batchItemId = await seedMailMatchBatch(poolItemId, true);
+    const dependencies = await matchDependencies();
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      dependencies,
+    );
+
+    expect(result).toEqual({ handled: true, jobDescriptionId: JD_A });
+    expect(dependencies.rankCandidates).not.toHaveBeenCalled();
+    const [run] = await db
+      .select()
+      .from(resumeJobMatchRun)
+      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+    expect(run).toMatchObject({
+      model: null,
+      promptVersion: null,
+      selectedJobDescriptionId: JD_A,
+      selectionMethod: "filename_exact",
+      status: "succeeded",
+    });
+  });
+
+  it("records the selected vector candidate's actual recall rank after AI fallback", async () => {
+    const poolItemId = await seedPoolItem({
+      contentHash: "hash-mail-vector-fallback-rank",
+      resumeProfile: { ...PROFILE, targetRoles: [] },
+    });
+    const batchItemId = await seedMailMatchBatch(poolItemId, true);
+    const dependencies = await matchDependencies();
+    dependencies.recallCandidates = vi.fn((input) =>
+      Promise.resolve({
+        diagnostics: { aboveThresholdCount: 1, eligibleCount: 1, vectorHitCount: 1 },
+        recommendations: [
+          {
+            departmentName: "Resume Pool Bind Department A",
+            description: null,
+            id: JD_A,
+            name: "前端工程师",
+            reasons: [],
+            score: 18,
+            similarity: { skillRole: 0.18 },
+          },
+          {
+            departmentName: "Resume Pool Bind Department A",
+            description: null,
+            id: JD_A_REPLACEMENT,
+            name: "资深前端工程师",
+            reasons: [],
+            score: 20,
+            similarity: { skillRole: 0.2 },
+          },
+        ],
+        resume: { id: input.resume.id },
+        status: "ready" as const,
+      }),
+    );
+    dependencies.rankCandidates = vi.fn(() => Promise.reject(new Error("AI unavailable")));
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      dependencies,
+    );
+
+    expect(result).toEqual({ handled: true, jobDescriptionId: JD_A_REPLACEMENT });
+    const [run] = await db
+      .select()
+      .from(resumeJobMatchRun)
+      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+    expect(run).toMatchObject({
+      model: expect.any(String),
+      promptVersion: "mail-resume-job-rerank-v1",
+      selectionMethod: "vector_fallback",
+    });
+    const events = await db
+      .select({ payload: resumePoolEvent.payload })
+      .from(resumePoolEvent)
+      .where(eq(resumePoolEvent.poolItemId, poolItemId));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            selectedCandidateRank: 2,
+            selectionMethod: "vector_fallback",
+            toJobDescriptionId: JD_A_REPLACEMENT,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("does not run or change historical mail batches without the new marker", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-mail-historical" });
+    const batchItemId = await seedMailMatchBatch(poolItemId, false);
+    const dependencies = await matchDependencies();
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      dependencies,
+    );
+
+    expect(result).toEqual({ handled: false, jobDescriptionId: null });
+    expect(dependencies.listPublishedJobs).not.toHaveBeenCalled();
+    const runs = await db
+      .select()
+      .from(resumeJobMatchRun)
+      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+    expect(runs).toHaveLength(0);
+  });
+
+  it("keeps an HR binding made while AI is ranking and marks the run superseded", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-mail-hr-race" });
+    const batchItemId = await seedMailMatchBatch(poolItemId, true);
+    const dependencies = await matchDependencies(JD_A_REPLACEMENT);
+    const defaultRankCandidates = dependencies.rankCandidates;
+    dependencies.rankCandidates = vi.fn(async (profile, candidates, options) => {
+      await bindResumePoolItemJobDescription({
+        actorId: USER_A,
+        jobDescriptionId: JD_A,
+        organizationId: ORG_A,
+        poolItemId,
+      });
+      return await defaultRankCandidates(profile, candidates, options);
+    });
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      dependencies,
+    );
+
+    expect(result).toEqual({ handled: true, jobDescriptionId: JD_A });
+    const [run] = await db
+      .select({ status: resumeJobMatchRun.status })
+      .from(resumeJobMatchRun)
+      .where(eq(resumeJobMatchRun.poolItemId, poolItemId));
+    expect(run?.status).toBe("superseded");
+  });
+
+  it("does not mislabel an HR binding as automatic when HR picks the same AI Top1", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-mail-hr-same-top1-race" });
+    const batchItemId = await seedMailMatchBatch(poolItemId, true);
+    const dependencies = await matchDependencies(JD_A_REPLACEMENT);
+    const defaultRankCandidates = dependencies.rankCandidates;
+    dependencies.rankCandidates = vi.fn(async (profile, candidates, options) => {
+      await bindResumePoolItemJobDescription({
+        actorId: USER_A,
+        jobDescriptionId: JD_A_REPLACEMENT,
+        organizationId: ORG_A,
+        poolItemId,
+      });
+      return await defaultRankCandidates(profile, candidates, options);
+    });
+
+    const result = await matchNewMailResumePoolItem(
+      { batchItemId, organizationId: ORG_A, poolItemId },
+      dependencies,
+    );
+
+    expect(result).toEqual({ handled: true, jobDescriptionId: JD_A_REPLACEMENT });
+    const events = await db
+      .select({ payload: resumePoolEvent.payload })
+      .from(resumePoolEvent)
+      .where(eq(resumePoolEvent.poolItemId, poolItemId));
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ payload: expect.objectContaining({ source: "hr_rebind" }) }),
+      ]),
+    );
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ payload: expect.objectContaining({ source: "auto_match" }) }),
+      ]),
+    );
   });
 });
 
 describe("POST /:id/import job association", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.enqueueCandidateQuestionGeneration.mockResolvedValue(true);
     mocks.enqueueResumeReviewGeneration.mockResolvedValue({
       runId: "resume-pool-import-review-run",
       status: "enqueued",
@@ -343,6 +742,14 @@ describe("POST /:id/import job association", () => {
       jobDescriptionId: JD_A,
       jobDescriptionName: "前端工程师",
     });
+    expect(mocks.enqueueResumeReviewGeneration).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueResumeReviewGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobDescriptionId: JD_A,
+        poolItemId,
+        source: "resume_pool_import",
+      }),
+    );
   });
 
   it("replaces the pool item job when explicitly reimported for another job", async () => {
@@ -398,5 +805,6 @@ describe("POST /:id/import job association", () => {
       jobDescriptionId: JD_A,
       jobDescriptionName: "前端工程师",
     });
+    expect(mocks.enqueueResumeReviewGeneration).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,7 @@ import {
   createResumePoolItem as defaultCreateResumePoolItem,
   deleteOwnPoolItem as defaultDeleteOwnPoolItem,
   importPoolItemToResumeLibrary as defaultImportPoolItemToResumeLibrary,
+  loadResumePoolJobMatchResult as defaultLoadResumePoolJobMatchResult,
   listResumePoolUploaders as defaultListResumePoolUploaders,
   loadResumePoolItem as defaultLoadResumePoolItem,
   publishPrivatePoolItem as defaultPublishPrivatePoolItem,
@@ -74,6 +75,7 @@ export interface ResumePoolRouterDependencies {
   listResumePoolUploaders: typeof defaultListResumePoolUploaders;
   loadRecruitingJobDescriptionById: typeof defaultLoadRecruitingJobDescriptionById;
   loadResumePoolItem: typeof defaultLoadResumePoolItem;
+  loadResumePoolJobMatchResult: typeof defaultLoadResumePoolJobMatchResult;
   normalizeResumeFile: typeof defaultNormalizeResumeFile;
   parseResumeFastToProfile: typeof defaultParseResumeFastToProfile;
   publishPrivatePoolItem: typeof defaultPublishPrivatePoolItem;
@@ -146,6 +148,7 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   listResumePoolUploaders: defaultListResumePoolUploaders,
   loadRecruitingJobDescriptionById: defaultLoadRecruitingJobDescriptionById,
   loadResumePoolItem: defaultLoadResumePoolItem,
+  loadResumePoolJobMatchResult: defaultLoadResumePoolJobMatchResult,
   normalizeResumeFile: defaultNormalizeResumeFile,
   parseResumeFastToProfile: defaultParseResumeFastToProfile,
   publishPrivatePoolItem: defaultPublishPrivatePoolItem,
@@ -180,6 +183,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
     listResumePoolUploaders,
     loadRecruitingJobDescriptionById,
     loadResumePoolItem,
+    loadResumePoolJobMatchResult,
     normalizeResumeFile,
     parseResumeFastToProfile,
     publishPrivatePoolItem,
@@ -554,6 +558,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             candidatePhone: input.data.candidatePhone ?? null,
             contentHash: uploadResult.contentHash,
             createdBy: user.id,
+            jobBindingMode: input.data.jobDescriptionId ? "manual" : null,
             jobDescriptionId: input.data.jobDescriptionId ?? null,
             notes: input.data.notes ?? null,
             organizationId: activeOrg.id,
@@ -686,6 +691,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
               and(
                 eq(jobDescription.id, jobDescriptionId),
                 eq(jobDescription.organizationId, activeOrg.id),
+                eq(jobDescription.lifecycleStatus, "published"),
               ),
             )
             .limit(1);
@@ -699,7 +705,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             poolItemId: item.id,
           });
           if (!bound) {
-            return c.json({ error: "该简历已绑定岗位。" }, 409);
+            return c.json({ error: "记录不存在。" }, 404);
           }
           const updated = await loadResumePoolItem({
             organizationId: activeOrg.id,
@@ -709,6 +715,25 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
           return c.json(updated, 200);
         },
       )
+      .get("/:id/job-match", requirePermission("resumePool", "read"), async (c) => {
+        const { activeOrg, user } = c.var;
+        if (!activeOrg || !user) {
+          return c.json({ message: "Unauthorized" }, 401);
+        }
+        const item = await loadResumePoolItem({
+          organizationId: activeOrg.id,
+          poolItemId: c.req.param("id"),
+          userId: user.id,
+        });
+        if (!item) {
+          return c.json({ error: "记录不存在。" }, 404);
+        }
+        const result = await loadResumePoolJobMatchResult({
+          organizationId: activeOrg.id,
+          poolItemId: item.id,
+        });
+        return c.json(result, 200);
+      })
       .route("/:id/recommendations", resumePoolRecommendationsRouter)
   );
 }

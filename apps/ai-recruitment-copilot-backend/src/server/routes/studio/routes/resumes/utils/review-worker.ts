@@ -9,6 +9,7 @@ import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-re
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
+import { matchNewMailResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/job-match/service";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
@@ -365,7 +366,16 @@ async function processResumePoolReviewGenerationJob(
     return;
   }
   let { jobDescriptionId } = record;
-  if (input.autoMatchJobDescription && !jobDescriptionId) {
+  const mailMatch = input.generationToken
+    ? await matchNewMailResumePoolItem({
+        batchItemId: input.generationToken,
+        organizationId: input.organizationId,
+        poolItemId: input.poolItemId,
+      })
+    : { handled: false, jobDescriptionId: null };
+  if (mailMatch.handled) {
+    ({ jobDescriptionId } = mailMatch);
+  } else if (input.autoMatchJobDescription && !jobDescriptionId) {
     jobDescriptionId = await matchJobDescriptionId({
       organizationId: input.organizationId,
       resumeFileName: record.resumeFileName,

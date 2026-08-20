@@ -139,6 +139,7 @@ async function createBatchForMail(
     files,
     jdMode: binding.jdMode,
     jobDescriptionId: binding.jobDescriptionId,
+    jobMatchRequestedAt: new Date(),
     organizationId: account.organizationId,
     resumePoolScope: "public",
     sourceChannel: "mail_ingest",
@@ -180,10 +181,9 @@ async function resolveMailJobBinding(
   dependencies: MailIngestDependencies,
 ): Promise<MailJobBindingResult> {
   const hasDefaultJd = Boolean(account.jobDescriptionId);
-  const defaultBinding = {
-    jdMode: account.jdMode,
-    jobDescriptionId: account.jobDescriptionId,
-  };
+  const defaultBinding = account.jobDescriptionId
+    ? { jdMode: account.jdMode, jobDescriptionId: account.jobDescriptionId }
+    : { jdMode: "auto" as const, jobDescriptionId: null };
   const codes = extractJobCodesFromSubject(subject);
   const jobs = codes.length
     ? await dependencies.fetchPublishedJobDescriptionsByCodes(account.organizationId, codes)

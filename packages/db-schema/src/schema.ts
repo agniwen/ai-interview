@@ -2281,7 +2281,7 @@ export const resumePoolEvent = pgTable(
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
-    payload: jsonb("payload"),
+    payload: jsonb("payload").$type<JsonObject | null>(),
     poolItemId: text("pool_item_id")
       .notNull()
       .references(() => resumePoolItem.id, { onDelete: "cascade" }),
@@ -2321,6 +2321,9 @@ export const resumeUploadBatch = pgTable(
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
+    // Only newly-created mail batches opt into automatic job binding.
+    // Existing batches stay null and are never matched retroactively.
+    jobMatchRequestedAt: timestamp("job_match_requested_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -2388,6 +2391,38 @@ export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "fai
 
 export type MailIngestSkipReason = "no_supported_attachment";
 export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fallback";
+
+export type ResumeJobMatchRunStatus =
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "no_candidates"
+  | "superseded";
+export type ResumeJobMatchSelectionMethod =
+  | "mail_subject_code_exact"
+  | "account_fixed"
+  | "filename_exact"
+  | "ai_rerank"
+  | "strong_signal_fallback"
+  | "vector_fallback"
+  | "ai_full_list";
+export type ResumeJobMatchRecallSource =
+  | "subject_code"
+  | "account_fixed"
+  | "target_role"
+  | "target_role_exact"
+  | "target_role_core"
+  | "filename"
+  | "vector"
+  | "ai_full_list";
+
+export interface ResumeJobMatchJobSnapshot {
+  code: string | null;
+  contentHash: string;
+  departmentName: string | null;
+  id: string;
+  name: string;
+}
 
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview" | "job_description";
 export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
@@ -2501,7 +2536,7 @@ export const mailIngestAccount = pgTable(
     imapHost: text("imap_host").notNull().default("imap.qiye.aliyun.com"),
     imapPort: integer("imap_port").notNull().default(993),
     imapSecure: boolean("imap_secure").default(true).notNull(),
-    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull().default("none"),
+    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull().default("auto"),
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
@@ -2587,6 +2622,91 @@ export const mailIngestMessage = pgTable(
     ),
     index("mail_ingest_message_batch_idx").on(table.batchId),
     index("mail_ingest_message_account_received_idx").on(table.accountId, table.receivedAt.desc()),
+  ],
+);
+
+export const resumeJobMatchRun = pgTable(
+  "resume_job_match_run",
+  {
+    batchItemId: text("batch_item_id").references(() => resumeUploadBatchItem.id, {
+      onDelete: "set null",
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    mailMessageId: text("mail_message_id").references(() => mailIngestMessage.id, {
+      onDelete: "set null",
+    }),
+    matcherVersion: text("matcher_version").notNull(),
+    model: text("model"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    poolItemId: text("pool_item_id")
+      .notNull()
+      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+    promptVersion: text("prompt_version"),
+    resumeInputHash: text("resume_input_hash").notNull(),
+    selectedJobDescriptionId: text("selected_job_description_id").references(
+      () => jobDescription.id,
+      { onDelete: "set null" },
+    ),
+    selectionMethod: text("selection_method").$type<ResumeJobMatchSelectionMethod>(),
+    status: text("status").$type<ResumeJobMatchRunStatus>().notNull(),
+  },
+  (table) => [
+    uniqueIndex("resume_job_match_run_pool_batch_version_uq").on(
+      table.poolItemId,
+      table.batchItemId,
+      table.matcherVersion,
+    ),
+    index("resume_job_match_run_org_pool_created_idx").on(
+      table.organizationId,
+      table.poolItemId,
+      table.createdAt,
+    ),
+    index("resume_job_match_run_selected_job_idx").on(table.selectedJobDescriptionId),
+  ],
+);
+
+export const resumeJobMatchCandidate = pgTable(
+  "resume_job_match_candidate",
+  {
+    aiRank: integer("ai_rank"),
+    aiReason: text("ai_reason"),
+    aiScore: integer("ai_score"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    jobSnapshot: jsonb("job_snapshot").$type<ResumeJobMatchJobSnapshot>().notNull(),
+    overviewScore: doublePrecision("overview_score"),
+    recallRank: integer("recall_rank"),
+    recallSource: text("recall_source").$type<ResumeJobMatchRecallSource>().notNull(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => resumeJobMatchRun.id, { onDelete: "cascade" }),
+    skillRoleScore: doublePrecision("skill_role_score"),
+    vectorScore: integer("vector_score"),
+    workProjectScore: doublePrecision("work_project_score"),
+  },
+  (table) => [
+    uniqueIndex("resume_job_match_candidate_run_job_uq").on(table.runId, table.jobDescriptionId),
+    uniqueIndex("resume_job_match_candidate_run_ai_rank_uq").on(table.runId, table.aiRank),
+    index("resume_job_match_candidate_job_idx").on(table.jobDescriptionId),
+    check(
+      "resume_job_match_candidate_ai_score_check",
+      sql`${table.aiScore} IS NULL OR (${table.aiScore} >= 0 AND ${table.aiScore} <= 100)`,
+    ),
+    check(
+      "resume_job_match_candidate_ai_rank_check",
+      sql`${table.aiRank} IS NULL OR ${table.aiRank} > 0`,
+    ),
+    check(
+      "resume_job_match_candidate_recall_rank_check",
+      sql`${table.recallRank} IS NULL OR ${table.recallRank} > 0`,
+    ),
   ],
 );
 

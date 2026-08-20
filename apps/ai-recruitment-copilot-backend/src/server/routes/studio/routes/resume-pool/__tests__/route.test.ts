@@ -89,6 +89,7 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
     importedAt: null,
     importedRecords: [],
     importedResumeRecordId: null,
+    jobBindingMode: null,
     jobDescriptionId: null,
     jobDescriptionName: null,
     masteredSkills: [],

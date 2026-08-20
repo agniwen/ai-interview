@@ -217,6 +217,8 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.organizationId,
       to: r.organization.id,
     }),
+    resumeJobMatchCandidates: r.many.resumeJobMatchCandidate(),
+    resumeJobMatchRuns: r.many.resumeJobMatchRun(),
     studioInterviews: r.many.studioInterview(),
     user: r.one.user({
       from: r.jobDescription.createdBy,
@@ -501,6 +503,39 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
     }),
   },
+  resumeJobMatchCandidate: {
+    jobDescription: r.one.jobDescription({
+      from: r.resumeJobMatchCandidate.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    run: r.one.resumeJobMatchRun({
+      from: r.resumeJobMatchCandidate.runId,
+      to: r.resumeJobMatchRun.id,
+    }),
+  },
+  resumeJobMatchRun: {
+    batchItem: r.one.resumeUploadBatchItem({
+      from: r.resumeJobMatchRun.batchItemId,
+      to: r.resumeUploadBatchItem.id,
+    }),
+    candidates: r.many.resumeJobMatchCandidate(),
+    mailMessage: r.one.mailIngestMessage({
+      from: r.resumeJobMatchRun.mailMessageId,
+      to: r.mailIngestMessage.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeJobMatchRun.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.resumeJobMatchRun.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+    selectedJobDescription: r.one.jobDescription({
+      from: r.resumeJobMatchRun.selectedJobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+  },
   resumePoolEvent: {
     actor: r.one.user({
       from: r.resumePoolEvent.actorId,
@@ -544,6 +579,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.resumePoolItem.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    jobMatchRuns: r.many.resumeJobMatchRun(),
     organization: r.one.organization({
       from: r.resumePoolItem.organizationId,
       to: r.organization.id,

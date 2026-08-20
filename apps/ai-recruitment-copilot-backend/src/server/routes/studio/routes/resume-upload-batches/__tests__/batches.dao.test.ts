@@ -2,7 +2,7 @@
 // Integration tests for the bulk-resume-upload batch DAO — hit the real Postgres
 // dev database; no mocking per project convention.
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -11,6 +11,7 @@ import {
   member,
   organization,
   resumeDuplicateMatch,
+  resumePoolEvent,
   resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
@@ -232,6 +233,52 @@ describe("insertBatchWithItems", () => {
       expect(poolItem?.jobDescriptionId).toBe(REFERRAL_JD);
       expect(poolItem?.sourceChannel).toBe("referral");
       expect(poolItem?.targetRole).toBe("内推前端工程师");
+      const [bindingEvent] = await db
+        .select({ payload: resumePoolEvent.payload })
+        .from(resumePoolEvent)
+        .where(and(eq(resumePoolEvent.poolItemId, poolItemId), eq(resumePoolEvent.type, "bound")));
+      expect(bindingEvent?.payload).toEqual(
+        expect.objectContaining({ bindingMode: "automatic", source: "referral" }),
+      );
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await deleteFixtureResumePoolItems({
+        organizationIds: [ORG_A],
+        storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+        userIds: [USER_A],
+      });
+    }
+  });
+
+  it("records a mail-ingest fixed-job binding as automatic before resume parsing", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "bind",
+      jobDescriptionId: REFERRAL_JD,
+      jobMatchRequestedAt: new Date(),
+      organizationId: ORG_A,
+      resumePoolScope: "public",
+      sourceChannel: "mail_ingest",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    try {
+      const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
+      const poolItemId = detail?.items[0]?.poolItemId;
+      expect(poolItemId).toBeTruthy();
+      if (!poolItemId) {
+        throw new Error("Expected resume pool item to be created");
+      }
+      const [bindingEvent] = await db
+        .select({ payload: resumePoolEvent.payload })
+        .from(resumePoolEvent)
+        .where(and(eq(resumePoolEvent.poolItemId, poolItemId), eq(resumePoolEvent.type, "bound")));
+
+      expect(bindingEvent?.payload).toEqual(
+        expect.objectContaining({ bindingMode: "automatic", source: "batch_fixed_job" }),
+      );
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
       await deleteFixtureResumePoolItems({
