@@ -70,11 +70,11 @@ describe("generateEvaluationBlueprintCandidate", () => {
       agent,
     );
 
+    expect(mocks.generate).toHaveBeenCalledTimes(3);
+    expect(mocks.generate.mock.calls[2]?.[0]).toContain("3年以上团队管理经验");
     expect(result.requiredRelevantExperiences).toEqual(
       completeExperience.requiredRelevantExperiences,
     );
-    expect(mocks.generate).toHaveBeenCalledTimes(3);
-    expect(mocks.generate.mock.calls[2]?.[0]).toContain("3年以上团队管理经验");
   });
 
   it("keeps skills, experience, projects, and priority conditions in separate prompt scopes", async () => {
@@ -95,7 +95,7 @@ describe("generateEvaluationBlueprintCandidate", () => {
       prompt.includes("提取经验、项目、潜力与稳定性评分依据"),
     );
 
-    expect(JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION).toBe("structured-job-blueprint-v10");
+    expect(JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION).toBe("structured-job-blueprint-v11");
     expect(skillPrompt).toContain("岗位职责、经验、项目、管理行为、业务成果和软能力不得作为技能");
     expect(skillPrompt).toContain("核心技能最多 8 项，辅助技能最多 8 项");
     expect(skillPrompt).toContain("优先条件或加分项下的内容不得进入技能");
@@ -103,6 +103,55 @@ describe("generateEvaluationBlueprintCandidate", () => {
     expect(skillPrompt).toContain("互为替代、属于同类方案且掌握任意一种即可");
     expect(skillPrompt).toContain("需要共同使用、能力互补或分别支撑不同职责");
     expect(experiencePrompt).toContain("优先条件或加分项下的内容不得进入基础评分依据");
+  });
+
+  it("preserves explicit and inferred AND/OR relations while compiling hard gates", async () => {
+    const structuredConfig = createDefaultJobDescriptionStructuredConfig();
+    structuredConfig.hardGates.requiredSkills = "Go 或 Java 均可";
+    mocks.generate.mockImplementation((prompt: string) => {
+      if (prompt.includes("提取技能与学历评分依据")) {
+        return Promise.resolve({ object: skillEducation, text: "" });
+      }
+      if (prompt.includes("HR 已配置的硬性门槛")) {
+        return Promise.resolve({
+          object: {
+            hardGateAtoms: [
+              {
+                category: "required_skills",
+                normalizedRequirement: "掌握 Go 或 Java 任一语言",
+                sourceText: "Go 或 Java 均可",
+              },
+            ],
+          },
+          text: "",
+        });
+      }
+      return Promise.resolve({
+        object: {
+          dimensionExpectations: {
+            experienceRelevance: [],
+            potential: [],
+            projectMatch: [],
+            stability: [],
+          },
+          requiredRelevantExperiences: [],
+        },
+        text: "",
+      });
+    });
+
+    await generateEvaluationBlueprintCandidate(
+      { description: null, prompt: "Go 或 Java 均可", structuredConfig },
+      undefined,
+      agent,
+    );
+
+    const hardGatePrompt = mocks.generate.mock.calls
+      .map(([prompt]) => String(prompt))
+      .find((prompt) => prompt.includes("HR 已配置的硬性门槛"));
+    expect(hardGatePrompt).toContain("严格保留原文的 AND / OR 关系");
+    expect(hardGatePrompt).toContain("不得拆成多个都必须满足的原子项");
+    expect(hardGatePrompt).toContain("由模型根据语义判断");
   });
 
   it("reports validated rule-draft snapshots as parallel generation groups complete", async () => {

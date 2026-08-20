@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { setTimeout as delay } from "node:timers/promises";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   configureAlibabaCodingPlanApiKey,
   mastraModels,
@@ -299,6 +299,28 @@ function isRetryableStructuredOutputError(error: Error): boolean {
   );
 }
 
+const transientGenerationErrorSchema = z
+  .object({
+    status: z.number().optional(),
+    statusCode: z.number().optional(),
+  })
+  .passthrough();
+
+function isRetryableTransientGenerationError(error: Error): boolean {
+  const metadata = transientGenerationErrorSchema.safeParse(error);
+  const status = metadata.success ? (metadata.data.status ?? metadata.data.statusCode) : undefined;
+  if (
+    status !== undefined &&
+    (status === 408 || status === 409 || status === 425 || status === 429 || status >= 500)
+  ) {
+    return true;
+  }
+  const message = `${error.name} ${error.message}`.toLowerCase();
+  return /timeout|timed out|aborterror|econnreset|etimedout|eai_again|socket hang up|rate limit/.test(
+    message,
+  );
+}
+
 export class StructuredOutputValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -353,6 +375,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   maxOutputTokens,
   prompt,
   retryOnInvalid,
+  retryOnTransient,
   schema,
   temperature,
   timeoutMs,
@@ -363,6 +386,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   maxOutputTokens?: number;
   prompt: string;
   retryOnInvalid?: boolean;
+  retryOnTransient?: boolean;
   schema: TSchema;
   temperature?: number;
   timeoutMs?: number;
@@ -370,7 +394,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
 }): Promise<z.infer<TSchema>> {
   let attemptPrompt = prompt;
   let lastError = new Error("AI 生成的结构化内容校验失败。");
-  const maxAttempts = retryOnInvalid ? 2 : 1;
+  const maxAttempts = retryOnInvalid || retryOnTransient ? 2 : 1;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
     try {
@@ -384,17 +408,30 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       result = await withTimeout(agent.generate(attemptPrompt, generateOptions), timeoutMs);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      if (retryOnTransient && isRetryableTransientGenerationError(lastError)) {
+        if (attempt + 1 < maxAttempts) {
+          continue;
+        }
+        throw lastError;
+      }
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
       }
       lastError = new StructuredOutputValidationError(lastError.message);
-      if (attempt + 1 < maxAttempts) {
+      if (retryOnInvalid && attempt + 1 < maxAttempts) {
         attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+        continue;
       }
-      continue;
+      break;
     }
     if (result.error) {
       lastError = result.error;
+      if (retryOnTransient && isRetryableTransientGenerationError(lastError)) {
+        if (attempt + 1 < maxAttempts) {
+          continue;
+        }
+        throw lastError;
+      }
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
       }
@@ -427,9 +464,11 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
         }
       }
     }
-    if (attempt + 1 < maxAttempts) {
+    if (retryOnInvalid && attempt + 1 < maxAttempts) {
       attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+      continue;
     }
+    break;
   }
   if (fallbackToTextGeneration) {
     const fallbackPrompt = `${prompt}\n\n原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。`;

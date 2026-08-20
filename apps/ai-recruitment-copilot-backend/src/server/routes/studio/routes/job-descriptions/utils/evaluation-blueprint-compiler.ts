@@ -492,7 +492,16 @@ function compileRelevantExperienceCandidates(input: CompileEvaluationBlueprintIn
   });
 }
 
-function isConfiguredConditionClause(input: CompileEvaluationBlueprintInput, clause: string) {
+interface ExperienceThresholdInput {
+  description: string | null;
+  prompt: string;
+  structuredConfig?: JobDescriptionStructuredConfig;
+}
+
+function isConfiguredConditionClause(input: ExperienceThresholdInput, clause: string) {
+  if (!input.structuredConfig) {
+    return false;
+  }
   const configuredConditions = [
     ...Object.values(input.structuredConfig.hardGates),
     ...input.structuredConfig.priorityConditions.map((condition) => condition.condition),
@@ -503,7 +512,7 @@ function isConfiguredConditionClause(input: CompileEvaluationBlueprintInput, cla
   );
 }
 
-function explicitExperienceThresholds(input: CompileEvaluationBlueprintInput) {
+function explicitExperienceThresholds(input: ExperienceThresholdInput) {
   const unique = new Map<string, { clause: string; years: number }>();
   for (const source of [input.description ?? "", input.prompt].map(baseScoringSource)) {
     for (const rawClause of source.split(/[\n；;。，,]+/u)) {
@@ -536,7 +545,7 @@ function explicitExperienceThresholds(input: CompileEvaluationBlueprintInput) {
 }
 
 function assertCompleteExperienceRequirementCoverage(
-  input: CompileEvaluationBlueprintInput,
+  input: ExperienceThresholdInput,
   candidates: readonly { sourceText: string; years: number }[],
 ): void {
   const usedCandidateIndexes = new Set<number>();
@@ -797,7 +806,7 @@ export function compileEvaluationBlueprint(
   return jobEvaluationBlueprintSchema.parse(blueprint);
 }
 
-export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v10";
+export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v11";
 
 interface EvaluationBlueprintGenerationJob {
   description: string | null;
@@ -867,6 +876,7 @@ function validateRemainingDimensionsCandidate(
   input: ScoringBlueprintGenerationInput,
 ): void {
   validateScoringCandidateSources(value, input);
+  assertCompleteExperienceRequirementCoverage(input, value.requiredRelevantExperiences);
   if (value.dimensionExpectations.projectMatch.length > 3) {
     throw new Error("projectMatch 最多返回 3 项岗位级项目标准。");
   }
@@ -1118,6 +1128,8 @@ function generateHardGateCompilerCandidate(
       'JSON 字段必须严格为：{"hardGateAtoms":[{"category":"education|language_ability|other|required_certificates|required_skills|work_experience|work_location","normalizedRequirement":"规范化要求","sourceText":"对应门槛分类的连续原文"}]}。没有门槛时返回 {"hardGateAtoms":[]}。',
       "不得读取、推测或补充岗位 JD 的要求；空分类不生成。",
       "必须完整覆盖每个非空分类中的全部要求。以换行、分号或句号分隔的每段都至少返回一个原子项，不得遗漏任何一段。",
+      "严格保留原文的 AND / OR 关系：原文明示“且、并、同时”时才拆成需要全部满足的原子项；原文明示“或、任一、均可”时，整个选择关系保留为一个原子项，不得拆成多个都必须满足的原子项。",
+      "如果同一段列举多个同类技能但没有连接词，由模型根据语义判断它们是需要共同掌握，还是掌握任意一种即可；判断为任意一种即可时，也必须保留为一个原子项。",
       "每项 sourceText 必须是对应硬性门槛分类文本中的连续原文片段。",
       "category 映射：education=education，languageAbility=language_ability，other=other，requiredCertificates=required_certificates，requiredSkills=required_skills，workExperience=work_experience，workLocation=work_location。",
       "不要生成评分维度、技能分类、经验评分依据、分数或扣分。",

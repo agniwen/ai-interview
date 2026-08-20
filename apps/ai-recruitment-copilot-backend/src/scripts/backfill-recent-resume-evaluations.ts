@@ -20,7 +20,9 @@ export interface BackfillRecentResumeOptions {
   apply: boolean;
   asOf?: string;
   campaign: string;
+  jobId?: string;
   limit: number;
+  resumeId?: string;
 }
 
 export interface RecentResumeRow {
@@ -72,6 +74,10 @@ export function parseBackfillRecentResumeOptions(argv: string[]): BackfillRecent
       options.campaign = value;
     } else if (key === "--as-of" && value) {
       options.asOf = value;
+    } else if (key === "--job-id" && value) {
+      options.jobId = value;
+    } else if (key === "--resume-id" && value) {
+      options.resumeId = value;
     } else if (key === "--limit" && value) {
       options.limit = Number.parseInt(value, 10);
     } else {
@@ -153,7 +159,12 @@ function targetFingerprint(rows: RecentResumeRow[]): string {
     .digest("hex");
 }
 
-async function loadRecentRows(limit: number, asOf?: string): Promise<RecentResumeRow[]> {
+async function loadRecentRows(
+  limit: number,
+  asOf?: string,
+  jobId?: string,
+  resumeId?: string,
+): Promise<RecentResumeRow[]> {
   const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, lte }] = await Promise.all([
     import("../lib/server/db"),
     import("@arc/db-schema/schema"),
@@ -191,6 +202,8 @@ async function loadRecentRows(limit: number, asOf?: string): Promise<RecentResum
       and(
         eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
         asOf ? lte(studioInterview.createdAt, new Date(asOf)) : undefined,
+        jobId ? eq(studioInterview.jobDescriptionId, jobId) : undefined,
+        resumeId ? eq(studioInterview.id, resumeId) : undefined,
       ),
     )
     .orderBy(desc(studioInterview.createdAt), desc(studioInterview.id))
@@ -462,7 +475,7 @@ async function processTarget(row: RecentResumeRow, campaign: string) {
           resumeText: claim.resumeText,
           runId: claim.runId,
         }),
-      { minTimeout: 5000, retries: 2 },
+      { minTimeout: 5000, retries: 1 },
     );
     const committed = await commitAssessment(row, claim, assessment);
     return committed
@@ -496,7 +509,7 @@ function summarizeRows(rows: RecentResumeRow[], campaign: string) {
 
 async function run(options: BackfillRecentResumeOptions): Promise<void> {
   await assertTargetWorkspace();
-  const rows = await loadRecentRows(options.limit, options.asOf);
+  const rows = await loadRecentRows(options.limit, options.asOf, options.jobId, options.resumeId);
   const summary = summarizeRows(rows, options.campaign);
   const unsupportedJobs = new Map<string, { count: number; id: string; name: string }>();
   for (const { classification, row } of rows.map((current) => ({
@@ -523,8 +536,10 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
       eligible: summary.eligible.length,
       event: "preflight",
       fingerprint: targetFingerprint(rows),
+      jobId: options.jobId ?? null,
       limit: options.limit,
       mode: options.apply ? "apply" : "dry-run",
+      resumeId: options.resumeId ?? null,
       selected: rows.length,
       skipped: {
         alreadyCompletedCampaign: summary.alreadyCompletedCampaign,

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   generateStructuredWithMastraAgent,
   generateTextWithMastraAgent,
+  StructuredOutputValidationError,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 describe("simple Mastra generators", () => {
@@ -168,6 +169,46 @@ describe("simple Mastra generators", () => {
         schema: z.object({ title: z.string().min(1) }),
       }),
     ).rejects.toBe(timeoutError);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a transient timeout inside the current structured stage when enabled", async () => {
+    const timeoutError = new Error("Request timed out after 240000ms");
+    timeoutError.name = "TimeoutError";
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(timeoutError)
+      .mockResolvedValueOnce({ object: { title: "前端工程师" }, text: "" });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        retryOnTransient: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0]).toBe("生成结构化对象");
+  });
+
+  it("does not let transient retries opt into invalid-output retries", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ object: undefined, text: "" })
+      .mockResolvedValueOnce({ object: { title: "不应调用" }, text: "" });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnTransient: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).rejects.toBeInstanceOf(StructuredOutputValidationError);
 
     expect(generate).toHaveBeenCalledTimes(1);
   });

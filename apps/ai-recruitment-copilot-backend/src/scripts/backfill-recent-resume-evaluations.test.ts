@@ -54,13 +54,17 @@ describe("recent resume evaluation backfill", () => {
         "--apply",
         "--as-of=2026-08-19T09:38:20.978Z",
         "--campaign=job-upgrade-rescore-20260820",
+        "--job-id=job-1",
         "--limit=12",
+        "--resume-id=resume-1",
       ]),
     ).toEqual({
       apply: true,
       asOf: "2026-08-19T09:38:20.978Z",
       campaign: "job-upgrade-rescore-20260820",
+      jobId: "job-1",
       limit: 12,
+      resumeId: "resume-1",
     });
     expect(() => parseBackfillRecentResumeOptions(["--limit=501"])).toThrow("1 到 500");
     expect(() => parseBackfillRecentResumeOptions(["--campaign=不合法"])).toThrow("--campaign");

@@ -21,6 +21,7 @@ import {
   createStructuredResumeReviewWorkflow,
   runStructuredResumeReviewWorkflow,
 } from "../workflows/structured-resume-review-workflow";
+import type { StructuredResumeWorkflowLogContext } from "../workflows/structured-resume-review-workflow";
 
 interface RecordedGeneratorCall {
   maxOutputTokens?: number;
@@ -138,6 +139,23 @@ const narrativeOutput = {
     suggestion: "核心业务研发",
   },
 };
+
+function createDeferred<T>() {
+  let resolvePromise: ((value: T) => void) | undefined;
+  // oxlint-disable-next-line promise/avoid-new -- The concurrency test needs externally controlled completion.
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return {
+    promise,
+    resolve(value: T) {
+      if (!resolvePromise) {
+        throw new Error("Deferred promise was not initialized.");
+      }
+      resolvePromise(value);
+    },
+  };
+}
 
 describe("structured resume workflow contracts", () => {
   beforeEach(() => {
@@ -278,6 +296,8 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("证据引用白名单");
     expect(prompt).toContain('"resume_profile":["候选人"]');
     expect(prompt).toContain('"normalizedSkill":"TypeScript"');
+    expect(prompt).not.toContain('"hardGateRequirements"');
+    expect(prompt).not.toContain('"publishedConfig"');
     expect(generatorCalls[0]?.maxOutputTokens).toBe(16_000);
     expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
     const validate = generatorCalls[0]?.validate;
@@ -319,6 +339,8 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("简历没有写明或没有证据支持门槛要求时，判定 failed");
     expect(prompt).toContain("needs_verification 仅用于简历已有相关证据但证据相互冲突");
     expect(prompt).toContain("即使判断为 failed 且没有相关经历，也必须显式返回空数组");
+    expect(prompt).not.toContain('"dimensionExpectations"');
+    expect(prompt).not.toContain('"publishedConfig"');
 
     const omittedGate = {
       category: "other" as const,
@@ -391,6 +413,48 @@ describe("structured resume workflow contracts", () => {
 
     expect(result.projects[0]?.evidence).toEqual([
       { quote: "统筹应用商店分发与多渠道获客", source: "resume_text" },
+    ]);
+  });
+
+  it("reduces a date-prefixed evidence quote to an exact company fragment", async () => {
+    const output = {
+      employmentEpisodes: [],
+      projects: [
+        {
+          current: false,
+          endMonth: "2018-02",
+          evidence: [
+            {
+              quote: "2016.11—2018.02 北京钱来钱往网络科技有限公司",
+              source: "resume_text",
+            },
+          ],
+          id: "project-1",
+          relevant: true,
+        },
+      ],
+      ruleJudgments: [],
+      skillFacts: [],
+    };
+    const validatingGenerator: StructuredResumeGenerator = (input) => {
+      const parsed = input.schema.parse(output);
+      input.validate?.(parsed);
+      return Promise.resolve(parsed);
+    };
+
+    const result = await judgeStructuredDimensionEvidence(
+      {
+        ...workflowInput,
+        resumeInput: {
+          ...workflowInput.resumeInput,
+          resumeText: "北京钱来钱往网络科技有限公司",
+        },
+      },
+      validatingGenerator,
+    );
+
+    expect(result.projects[0]?.evidence).toEqual([
+      { quote: "北京钱来钱往网络科技有限公司", source: "resume_text" },
     ]);
   });
 
@@ -1668,6 +1732,128 @@ describe("structured resume workflow contracts", () => {
         teamPositioning: narrativeOutput.teamPositioning,
       },
     });
+  });
+
+  it("starts hard-gate and dimension judgments concurrently before adjustments", async () => {
+    const calls: string[] = [];
+    const gate = createDeferred<{ judgments: [] }>();
+    const dimension = createDeferred<{
+      employmentEpisodes: [];
+      projects: [];
+      ruleJudgments: [];
+      skillFacts: [];
+    }>();
+    const workflow = createStructuredResumeReviewWorkflow({
+      assemble: assembleStructuredResumeEvaluation,
+      compute: computeStructuredResumeCalculation,
+      generateNarrative: () => Promise.resolve(narrativeOutput),
+      judgeAdjustments: () => {
+        calls.push("adjustment:start");
+        return Promise.resolve({ judgments: [] });
+      },
+      judgeDimensionEvidence: async () => {
+        calls.push("dimension:start");
+        const output = await dimension.promise;
+        calls.push("dimension:end");
+        return output;
+      },
+      judgeHardGates: async () => {
+        calls.push("gate:start");
+        const output = await gate.promise;
+        calls.push("gate:end");
+        return output;
+      },
+      validate: validateStructuredResumeInput,
+    });
+    const run = runStructuredResumeReviewWorkflow(
+      {
+        ...workflowInput,
+        jobSnapshot: {
+          ...workflowInput.jobSnapshot,
+          blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+        },
+      },
+      workflow,
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(calls).toEqual(expect.arrayContaining(["gate:start", "dimension:start"]));
+      });
+      expect(calls).not.toContain("adjustment:start");
+    } finally {
+      gate.resolve({ judgments: [] });
+      dimension.resolve({
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      });
+    }
+
+    await run;
+    expect(calls.indexOf("adjustment:start")).toBeGreaterThan(calls.indexOf("gate:end"));
+    expect(calls.indexOf("adjustment:start")).toBeGreaterThan(calls.indexOf("dimension:end"));
+  });
+
+  it("logs each workflow stage with stable run context and duration", async () => {
+    const logEvents: {
+      context: StructuredResumeWorkflowLogContext;
+      message: string;
+    }[] = [];
+    let now = 100;
+    const workflow = createStructuredResumeReviewWorkflow({
+      assemble: assembleStructuredResumeEvaluation,
+      compute: computeStructuredResumeCalculation,
+      generateNarrative: () => Promise.resolve(narrativeOutput),
+      judgeAdjustments: () => Promise.resolve({ judgments: [] }),
+      judgeDimensionEvidence: () =>
+        Promise.resolve({
+          employmentEpisodes: [],
+          projects: [],
+          ruleJudgments: [],
+          skillFacts: [],
+        }),
+      judgeHardGates: () => Promise.resolve({ judgments: [] }),
+      logger: {
+        error(message, context) {
+          logEvents.push({ context, message });
+        },
+        info(message, context) {
+          logEvents.push({ context, message });
+        },
+      },
+      now: () => {
+        now += 25;
+        return now;
+      },
+      validate: validateStructuredResumeInput,
+    });
+
+    await runStructuredResumeReviewWorkflow(
+      {
+        ...workflowInput,
+        jobSnapshot: {
+          ...workflowInput.jobSnapshot,
+          blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+        },
+      },
+      workflow,
+    );
+
+    expect(logEvents).toContainEqual({
+      context: {
+        durationMs: 50,
+        jobDescriptionId: "job-1",
+        modelId: "model",
+        runId: "run-1",
+        step: "judge-hard-gates",
+      },
+      message: "[structured-resume-review] step completed",
+    });
+    expect(
+      logEvents.filter((event) => event.message === "[structured-resume-review] step completed"),
+    ).toHaveLength(7);
   });
 
   it("preserves a readable error when Mastra serializes a failed workflow step", async () => {

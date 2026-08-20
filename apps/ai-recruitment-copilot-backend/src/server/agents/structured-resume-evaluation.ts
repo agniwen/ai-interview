@@ -38,7 +38,7 @@ import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-bac
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
-export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v1";
+export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v2";
 const STRUCTURED_RESUME_AGENT_TIMEOUT_MS = 240_000;
 export const STRUCTURED_RESUME_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
@@ -364,10 +364,39 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "projects 只返回与岗位要求可能相关的项目；无相关项目时返回空数组，不要枚举明确无关的项目。",
 ].join("\n");
 
+interface StructuredResumePromptBase {
+  evaluationAsOf: string;
+  resumeProfile: StructuredResumeWorkflowInput["resumeInput"]["resumeProfile"];
+}
+
+interface HardGatePromptPayload extends StructuredResumePromptBase {
+  hardGateRequirements: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["hardGateRequirements"];
+  requiredRelevantExperiences: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["requiredRelevantExperiences"];
+}
+
+interface DimensionPromptPayload extends StructuredResumePromptBase {
+  enabledRuleIds: string[];
+  jobExpectations: Pick<
+    StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"],
+    "auxiliarySkills" | "coreSkills" | "dimensionExpectations" | "educationExpectation"
+  >;
+}
+
+interface AdjustmentPromptPayload extends StructuredResumePromptBase {
+  exclusionConditions: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["exclusionConditions"];
+  priorityConditions: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["priorityConditions"];
+}
+
+type StructuredResumePromptPayload =
+  | AdjustmentPromptPayload
+  | DimensionPromptPayload
+  | HardGatePromptPayload;
+
 function buildPrompt(
   title: string,
   input: StructuredResumeWorkflowInput,
   guidance?: string,
+  payload?: StructuredResumePromptPayload,
 ): string {
   return [
     title,
@@ -376,11 +405,18 @@ function buildPrompt(
     "quote 必须是声明来源中的逐字连续片段：resume_text 引用连续原文，resume_profile 引用单个字符串叶子值；不得跨字段拼接、改写或概括。",
     `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${buildEvidenceQuoteCatalog(input)}`,
     "不得输出扣分、时长合计、维度分、综合分或等级。",
-    JSON.stringify(input),
+    JSON.stringify(payload ?? input),
   ].join("\n");
 }
 
-const EVIDENCE_FRAGMENT_SEPARATOR = /[，。；：、,.!?！？:;（）()【】[\]/|]+/u;
+function structuredResumeContext(input: StructuredResumeWorkflowInput) {
+  return {
+    evaluationAsOf: input.resumeInput.evaluationAsOf,
+    resumeProfile: input.resumeInput.resumeProfile,
+  };
+}
+
+const EVIDENCE_FRAGMENT_SEPARATOR = /[\s，。；：、,.!?！？:;（）()【】[\]/|—–-]+/u;
 const EVIDENCE_TERMINAL_PUNCTUATION = /[，。；：、,.!?！？:;]+$/u;
 const MIN_AUDITABLE_EVIDENCE_FRAGMENT_LENGTH = 8;
 
@@ -539,8 +575,14 @@ export function judgeStructuredHardGates(
         "对 blueprint.requiredRelevantExperiences 中的每个评分要求，也必须按 requirementId 返回独立判断和 experienceEpisodes；这些要求只用于经验缺年扣分，不会自动成为硬性门槛。",
         "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
       ].join("\n"),
+      {
+        ...structuredResumeContext(input),
+        hardGateRequirements: input.jobSnapshot.blueprint.hardGateRequirements,
+        requiredRelevantExperiences: input.jobSnapshot.blueprint.requiredRelevantExperiences,
+      },
     ),
     retryOnInvalid: true,
+    retryOnTransient: true,
     schema: structuredGateAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
@@ -559,8 +601,21 @@ export function judgeStructuredDimensionEvidence(
       "提取月级工作时间线、主职/并发关系、窄口径相关性和非时间类规则语义。不要计算月份或时间窗口。",
       input,
       STRUCTURED_DIMENSION_RULE_GUIDANCE,
+      {
+        ...structuredResumeContext(input),
+        enabledRuleIds: Object.entries(input.jobSnapshot.publishedConfig.deductionRules)
+          .filter(([, rule]) => rule.enabled)
+          .map(([ruleId]) => ruleId),
+        jobExpectations: {
+          auxiliarySkills: input.jobSnapshot.blueprint.auxiliarySkills,
+          coreSkills: input.jobSnapshot.blueprint.coreSkills,
+          dimensionExpectations: input.jobSnapshot.blueprint.dimensionExpectations,
+          educationExpectation: input.jobSnapshot.blueprint.educationExpectation,
+        },
+      },
     ),
     retryOnInvalid: true,
+    retryOnTransient: true,
     schema: structuredDimensionAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
@@ -594,8 +649,14 @@ export function judgeStructuredAdjustments(
         "硬性门槛中的 failed 或 needs_verification 事实，不得在同义或重叠的优先/排除条件中无新证据地改判为已命中。",
         gateContext,
       ].join("\n"),
+      {
+        ...structuredResumeContext(input),
+        exclusionConditions: input.jobSnapshot.blueprint.exclusionConditions,
+        priorityConditions: input.jobSnapshot.blueprint.priorityConditions,
+      },
     ),
     retryOnInvalid: true,
+    retryOnTransient: true,
     schema: structuredAdjustmentAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
@@ -1624,6 +1685,7 @@ export function generateStructuredNarrative(
       }),
     ].join("\n"),
     retryOnInvalid: true,
+    retryOnTransient: true,
     schema: structuredNarrativeAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,

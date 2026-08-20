@@ -1,5 +1,5 @@
 import { Queue, Worker } from "bullmq";
-import type { JobsOptions, JobState, JobType } from "bullmq";
+import type { Job, JobsOptions, JobState, JobType } from "bullmq";
 import { z } from "zod";
 import {
   buildResumeParseQueuePrefix,
@@ -73,6 +73,24 @@ export type ResumeReviewGenerationJobProcessor = (
 ) => Promise<void>;
 type ResumeReviewGenerationCountState = (typeof RESUME_REVIEW_GENERATION_COUNT_TYPES)[number];
 export type ResumeReviewGenerationJobListState = "all" | ResumeReviewGenerationCountState;
+type ResumeReviewGenerationLogJob = Pick<
+  Job<ResumeReviewGenerationJobData>,
+  "attemptsMade" | "data" | "finishedOn" | "id" | "processedOn"
+>;
+
+function buildResumeReviewGenerationLogContext(job: ResumeReviewGenerationLogJob | undefined) {
+  const data = job?.data;
+  return {
+    attemptsMade: job?.attemptsMade,
+    jobDescriptionId: data && "jobDescriptionId" in data ? data.jobDescriptionId : undefined,
+    jobId: job?.id,
+    organizationId: data?.organizationId,
+    poolItemId: data && "poolItemId" in data ? data.poolItemId : undefined,
+    resumeRecordId: data && "resumeRecordId" in data ? data.resumeRecordId : undefined,
+    runId: data && "runId" in data ? data.runId : undefined,
+    source: data?.source,
+  };
+}
 
 export interface ResumeReviewGenerationQueueOverview {
   counts: ResumeParseQueueCounts;
@@ -132,9 +150,17 @@ function createRedisConnection(env: NodeJS.ProcessEnv = process.env) {
   return createRedisConnectionFromUrl(url);
 }
 
-function jobOptions(): JobsOptions {
+export function defaultResumeReviewGenerationJobOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): JobsOptions {
+  const configuredAttempts = Number.parseInt(
+    env.RESUME_REVIEW_GENERATION_QUEUE_ATTEMPTS || "2",
+    10,
+  );
   return {
-    ...defaultResumeParseJobOptions(),
+    ...defaultResumeParseJobOptions(env),
+    attempts:
+      Number.isFinite(configuredAttempts) && configuredAttempts > 0 ? configuredAttempts : 2,
     removeOnComplete: { count: 2000 },
     removeOnFail: { count: 5000 },
   };
@@ -198,6 +224,41 @@ export function resolveResumeReviewGenerationWorkerConcurrency(
 ): number {
   const value = Number.parseInt(env.RESUME_REVIEW_GENERATION_WORKER_CONCURRENCY || "9", 10);
   return Number.isFinite(value) && value > 0 ? value : 9;
+}
+
+export function createResumeReviewGenerationWorkerLogHandlers() {
+  return {
+    active(job: ResumeReviewGenerationLogJob) {
+      console.info(
+        "[resume-review-generation-worker] job active",
+        buildResumeReviewGenerationLogContext(job),
+      );
+    },
+    completed(job: ResumeReviewGenerationLogJob) {
+      const durationMs = job.processedOn
+        ? Math.max(0, (job.finishedOn ?? Date.now()) - job.processedOn)
+        : undefined;
+      console.info("[resume-review-generation-worker] job completed", {
+        ...buildResumeReviewGenerationLogContext(job),
+        durationMs,
+      });
+    },
+    error(error: Error) {
+      console.error("[resume-review-generation-worker] worker error", error);
+    },
+    failed(job: ResumeReviewGenerationLogJob | undefined, error: Error) {
+      console.error("[resume-review-generation-worker] job failed", {
+        error,
+        ...buildResumeReviewGenerationLogContext(job),
+      });
+    },
+    ready() {
+      console.info("[resume-review-generation-worker] ready", {
+        concurrency: resolveResumeReviewGenerationWorkerConcurrency(),
+        queue: RESUME_REVIEW_GENERATION_QUEUE_NAME,
+      });
+    },
+  };
 }
 
 export function isResumeReviewGenerationQueueConfigured(): boolean {
@@ -411,7 +472,7 @@ export async function enqueueResumeReviewGenerationJobs(
       data,
       name: RESUME_REVIEW_GENERATION_JOB_NAME,
       opts: {
-        ...jobOptions(),
+        ...defaultResumeReviewGenerationJobOptions(),
         jobId: buildResumeReviewGenerationJobId(data),
       },
     })),
@@ -434,22 +495,12 @@ export function createResumeReviewGenerationWorker(
     },
   );
 
-  worker.on("ready", () => {
-    console.info("[resume-review-generation-worker] ready", {
-      concurrency: resolveResumeReviewGenerationWorkerConcurrency(),
-      queue: RESUME_REVIEW_GENERATION_QUEUE_NAME,
-    });
-  });
-  worker.on("failed", (job, error) => {
-    const data = job?.data;
-    console.error("[resume-review-generation-worker] job failed", {
-      error,
-      jobDescriptionId: data && "jobDescriptionId" in data ? data.jobDescriptionId : undefined,
-      jobId: job?.id,
-      poolItemId: data && "poolItemId" in data ? data.poolItemId : undefined,
-      resumeRecordId: data && "resumeRecordId" in data ? data.resumeRecordId : undefined,
-    });
-  });
+  const logHandlers = createResumeReviewGenerationWorkerLogHandlers();
+  worker.on("ready", logHandlers.ready);
+  worker.on("active", logHandlers.active);
+  worker.on("completed", logHandlers.completed);
+  worker.on("failed", logHandlers.failed);
+  worker.on("error", logHandlers.error);
 
   return worker;
 }

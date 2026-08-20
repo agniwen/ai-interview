@@ -38,6 +38,13 @@ const STEP_LABELS = {
 const gateOutputSchema = structuredResumeWorkflowInputSchema.extend({
   gateOutput: structuredGateAgentOutputSchema,
 });
+const dimensionEvidenceOutputSchema = structuredResumeWorkflowInputSchema.extend({
+  dimensionOutput: structuredDimensionAgentOutputSchema,
+});
+const parallelJudgmentOutputSchema = z.object({
+  "judge-dimension-evidence": dimensionEvidenceOutputSchema,
+  "judge-hard-gates": gateOutputSchema,
+});
 const dimensionOutputSchema = gateOutputSchema.extend({
   dimensionOutput: structuredDimensionAgentOutputSchema,
 });
@@ -128,6 +135,15 @@ function workflowInputFrom(input: StructuredResumeWorkflowInput): StructuredResu
   };
 }
 
+export interface StructuredResumeWorkflowLogContext {
+  durationMs?: number;
+  error?: Error;
+  jobDescriptionId: string;
+  modelId: string;
+  runId: string;
+  step: keyof typeof STEP_LABELS;
+}
+
 export function createStructuredResumeReviewWorkflow(deps: {
   assemble: typeof assembleStructuredResumeEvaluation;
   compute: typeof computeStructuredResumeCalculation;
@@ -135,10 +151,47 @@ export function createStructuredResumeReviewWorkflow(deps: {
   judgeAdjustments: typeof judgeStructuredAdjustments;
   judgeDimensionEvidence: typeof judgeStructuredDimensionEvidence;
   judgeHardGates: typeof judgeStructuredHardGates;
+  logger?: {
+    error: (message: string, context: StructuredResumeWorkflowLogContext) => void;
+    info: (message: string, context: StructuredResumeWorkflowLogContext) => void;
+  };
+  now?: () => number;
   validate: typeof validateStructuredResumeInput;
 }) {
+  const now = deps.now ?? Date.now;
+  async function runStep<T>(
+    step: keyof typeof STEP_LABELS,
+    input: StructuredResumeWorkflowInput,
+    execute: () => Promise<T> | T,
+  ): Promise<T> {
+    const context = {
+      jobDescriptionId: input.jobSnapshot.jobId,
+      modelId: input.engine.modelId,
+      runId: input.resumeInput.runId,
+      step,
+    };
+    const startedAt = now();
+    deps.logger?.info("[structured-resume-review] step started", context);
+    try {
+      const output = await execute();
+      deps.logger?.info("[structured-resume-review] step completed", {
+        ...context,
+        durationMs: Math.max(0, now() - startedAt),
+      });
+      return output;
+    } catch (error) {
+      deps.logger?.error("[structured-resume-review] step failed", {
+        ...context,
+        durationMs: Math.max(0, now() - startedAt),
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+      throw error;
+    }
+  }
+
   const validateInput = createStep({
-    execute: ({ inputData }) => Promise.resolve(deps.validate(inputData)),
+    execute: ({ inputData }) =>
+      runStep("validate-structured-input", inputData, () => deps.validate(inputData)),
     id: "validate-structured-input",
     inputSchema: structuredResumeWorkflowInputSchema,
     outputSchema: structuredResumeWorkflowInputSchema,
@@ -146,7 +199,9 @@ export function createStructuredResumeReviewWorkflow(deps: {
   const judgeHardGates = createStep({
     execute: async ({ inputData }) => ({
       ...inputData,
-      gateOutput: await deps.judgeHardGates(workflowInputFrom(inputData)),
+      gateOutput: await runStep("judge-hard-gates", inputData, () =>
+        deps.judgeHardGates(workflowInputFrom(inputData)),
+      ),
     }),
     id: "judge-hard-gates",
     inputSchema: structuredResumeWorkflowInputSchema,
@@ -155,27 +210,33 @@ export function createStructuredResumeReviewWorkflow(deps: {
   const judgeDimensionEvidence = createStep({
     execute: async ({ inputData }) => ({
       ...inputData,
-      dimensionOutput: await deps.judgeDimensionEvidence(workflowInputFrom(inputData)),
-    }),
-    id: "judge-dimension-evidence",
-    inputSchema: gateOutputSchema,
-    outputSchema: dimensionOutputSchema,
-  });
-  const judgeAdjustments = createStep({
-    execute: async ({ inputData }) => ({
-      ...inputData,
-      adjustmentOutput: await deps.judgeAdjustments(
-        workflowInputFrom(inputData),
-        inputData.gateOutput,
+      dimensionOutput: await runStep("judge-dimension-evidence", inputData, () =>
+        deps.judgeDimensionEvidence(workflowInputFrom(inputData)),
       ),
     }),
+    id: "judge-dimension-evidence",
+    inputSchema: structuredResumeWorkflowInputSchema,
+    outputSchema: dimensionEvidenceOutputSchema,
+  });
+  const judgeAdjustments = createStep({
+    execute: async ({ inputData }) => {
+      const gateResult = inputData["judge-hard-gates"];
+      const dimensionResult = inputData["judge-dimension-evidence"];
+      return {
+        ...gateResult,
+        adjustmentOutput: await runStep("judge-adjustments", gateResult, () =>
+          deps.judgeAdjustments(workflowInputFrom(gateResult), gateResult.gateOutput),
+        ),
+        dimensionOutput: dimensionResult.dimensionOutput,
+      };
+    },
     id: "judge-adjustments",
-    inputSchema: dimensionOutputSchema,
+    inputSchema: parallelJudgmentOutputSchema,
     outputSchema: adjustmentOutputSchema,
   });
   const computeScore = createStep({
     execute: ({ inputData }) =>
-      Promise.resolve({
+      runStep("compute-structured-score", inputData, () => ({
         ...inputData,
         calculationResult: deps.compute({
           adjustmentOutput: inputData.adjustmentOutput,
@@ -183,7 +244,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
           gateOutput: inputData.gateOutput,
           workflowInput: workflowInputFrom(inputData),
         }),
-      }),
+      })),
     id: "compute-structured-score",
     inputSchema: adjustmentOutputSchema,
     outputSchema: calculationOutputSchema,
@@ -191,10 +252,12 @@ export function createStructuredResumeReviewWorkflow(deps: {
   const generateNarrative = createStep({
     execute: async ({ inputData }) => ({
       ...inputData,
-      narrative: await deps.generateNarrative({
-        calculationResult: inputData.calculationResult,
-        workflowInput: workflowInputFrom(inputData),
-      }),
+      narrative: await runStep("generate-structured-narrative", inputData, () =>
+        deps.generateNarrative({
+          calculationResult: inputData.calculationResult,
+          workflowInput: workflowInputFrom(inputData),
+        }),
+      ),
     }),
     id: "generate-structured-narrative",
     inputSchema: calculationOutputSchema,
@@ -202,7 +265,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
   });
   const assemble = createStep({
     execute: ({ inputData }) =>
-      Promise.resolve(
+      runStep("assemble-structured-evaluation", inputData, () =>
         deps.assemble({
           calculationResult: inputData.calculationResult,
           narrative: inputData.narrative,
@@ -223,10 +286,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
     })
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflow composition API.
       .then(validateInput)
-      // oxlint-disable-next-line prefer-await-to-then -- Mastra workflow composition API.
-      .then(judgeHardGates)
-      // oxlint-disable-next-line prefer-await-to-then -- Mastra workflow composition API.
-      .then(judgeDimensionEvidence)
+      .parallel([judgeHardGates, judgeDimensionEvidence])
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflow composition API.
       .then(judgeAdjustments)
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflow composition API.
@@ -246,6 +306,7 @@ export const structuredResumeReviewWorkflow = createStructuredResumeReviewWorkfl
   judgeAdjustments: judgeStructuredAdjustments,
   judgeDimensionEvidence: judgeStructuredDimensionEvidence,
   judgeHardGates: judgeStructuredHardGates,
+  logger: console,
   validate: validateStructuredResumeInput,
 });
 

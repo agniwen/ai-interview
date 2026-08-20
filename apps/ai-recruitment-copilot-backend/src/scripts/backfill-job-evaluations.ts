@@ -61,6 +61,7 @@ export interface BackfillOptions {
   concurrency: number;
   jobId?: string;
   limit?: number;
+  refresh: boolean;
 }
 
 function normalizeSourceText(value: string): string {
@@ -148,10 +149,18 @@ export function shouldReuseAnalyzedDraft(version: number): boolean {
 }
 
 export function parseBackfillOptions(argv: string[]): BackfillOptions {
-  const options: BackfillOptions = { apply: false, concurrency: DEFAULT_CONCURRENCY };
+  const options: BackfillOptions = {
+    apply: false,
+    concurrency: DEFAULT_CONCURRENCY,
+    refresh: false,
+  };
   for (const argument of argv) {
     if (argument === "--apply") {
       options.apply = true;
+      continue;
+    }
+    if (argument === "--refresh") {
+      options.refresh = true;
       continue;
     }
     const [key, value] = argument.split("=", 2);
@@ -175,19 +184,24 @@ export function parseBackfillOptions(argv: string[]): BackfillOptions {
   if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit < 1)) {
     throw new Error("--limit 必须是正整数。");
   }
+  if (options.refresh && !options.jobId) {
+    throw new Error("--refresh 必须同时指定 --job-id，避免批量覆盖已发布岗位。");
+  }
   return options;
 }
 
-function buildAnalysisPrompt(jobDescription: string): string {
+export function buildAnalysisPrompt(jobDescription: string): string {
   return `你正在把旧版招聘岗位升级为可审计的结构化评分配置。请只依据下方 JD 提取条件。
 
 规则：
 1. 每一项必须逐字引用 JD 中可连续定位的原文，不得改写、概括或补充常识。
-2. hardGates 只放明确不可妥协的必备门槛；按学历、语言、其他、证书、技能、工作经验、工作地点分类。
-3. priorityConditions 只放 JD 明确表达的优先、加分、最好具备但非必需条件。
-4. exclusionConditions 只放 JD 明确表达的不接受、淘汰或减分条件；不要自行添加跳槽、空窗等通用惩罚。
-5. 同一原文不能重复出现在多个列表；没有依据的类别返回空数组。
-6. 不要输出 ID、分值或解释，分值由服务端统一设为 5 分。
+2. hardGates 只放 JD 明确表达为不可妥协、客观、可由简历直接核验且不满足就不能进入下一阶段的必备门槛；按学历、语言、其他、证书、技能、工作经验、工作地点分类。
+3. 职责描述、软性能力、工作风格、抗压、协作、架构能力、项目推进、稳定交付、持续改进等不得进入 hardGates；不得因为它出现在“任职要求”章节就默认视为硬性门槛。
+4. priorityConditions 只放 JD 明确表达的优先、加分、最好具备但非必需条件。
+5. exclusionConditions 只放 JD 明确表达的不接受、淘汰或减分条件；不要自行添加跳槽、空窗等通用惩罚。
+6. 保留 JD 原文中的“且 / 并 / 同时 / 或 / 任一”关系，不得把 OR 条件拆成多个必须同时满足的门槛。原文没有连接词时，由模型根据语义判断是全部必须，还是同类能力掌握任意一种即可；若属于任意一种即可，必须保留为同一个连续原文条件。
+7. 同一原文不能重复出现在多个列表；没有依据的类别返回空数组。
+8. 不要输出 ID、分值或解释，分值由服务端统一设为 5 分。
 
 JD 原文：
 <<<JD
@@ -204,6 +218,7 @@ async function analyzeJobDescription(jobDescription: string): Promise<JobEvaluat
     maxOutputTokens: 5000,
     prompt: buildAnalysisPrompt(jobDescription),
     retryOnInvalid: true,
+    retryOnTransient: true,
     schema: jobEvaluationConfigAnalysisSchema,
     temperature: 0,
     timeoutMs: 120_000,
@@ -273,7 +288,7 @@ async function upgradeLegacyJob(job: BackfillJobRow, actorId: string) {
   });
 }
 
-async function repairStructuredJob(job: BackfillJobRow, actorId: string) {
+async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh: boolean) {
   const [
     { db },
     { jobDescription, jobDescriptionEvaluationUpgradeAudit, studioInterview },
@@ -316,7 +331,7 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string) {
     ) {
       throw new Error("岗位状态已变化，拒绝覆盖。");
     }
-    if (jobEvaluationBlueprintSchema.safeParse(current.evaluationBlueprint).success) {
+    if (!refresh && jobEvaluationBlueprintSchema.safeParse(current.evaluationBlueprint).success) {
       return { invalidatedLegacyAttemptCount: 0, status: "already_current" as const };
     }
     const now = new Date();
@@ -330,7 +345,7 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string) {
       id: crypto.randomUUID(),
       jobDescriptionId: current.id,
       legacySnapshot: {
-        backfillKind: "structured_blueprint_rebuild",
+        backfillKind: refresh ? "structured_blueprint_refresh" : "structured_blueprint_rebuild",
         evaluationBlueprint: current.evaluationBlueprint,
         evaluationBlueprintHash: current.evaluationBlueprintHash,
         structuredConfig: current.structuredConfig,
@@ -475,7 +490,7 @@ async function run(options: BackfillOptions): Promise<void> {
   ]);
   const beforeOtherWorkspaces = await workspaceFingerprint(TARGET_WORKSPACE_ID);
   const { fallbackActor, jobs } = await loadScope();
-  let targets = jobs.filter(needsJobEvaluationBackfill);
+  let targets = options.refresh ? jobs : jobs.filter(needsJobEvaluationBackfill);
   if (options.jobId) {
     targets = targets.filter((job) => job.id === options.jobId);
   }
@@ -515,12 +530,12 @@ async function run(options: BackfillOptions): Promise<void> {
           const result = await pRetry(
             async () => {
               const current = await loadJobById(job.id);
-              if (!needsJobEvaluationBackfill(current)) {
+              if (!options.refresh && !needsJobEvaluationBackfill(current)) {
                 return { invalidatedLegacyAttemptCount: 0, status: "already_current" as const };
               }
               return current.evaluationMode === "legacy"
                 ? upgradeLegacyJob(current, fallbackActor)
-                : repairStructuredJob(current, fallbackActor);
+                : repairStructuredJob(current, fallbackActor, options.refresh);
             },
             { retries: 2 },
           );

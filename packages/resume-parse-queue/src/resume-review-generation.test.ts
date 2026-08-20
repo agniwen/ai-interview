@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildResumeReviewGenerationJobId,
+  defaultResumeReviewGenerationJobOptions,
   getResumeReviewGenerationQueueOverview,
   resolveResumeReviewGenerationWorkerConcurrency,
   resumeReviewGenerationJobSchema,
@@ -185,6 +186,18 @@ describe("resume review generation queue", () => {
         RESUME_REVIEW_GENERATION_WORKER_CONCURRENCY: "3",
       }),
     ).toBe(3);
+  });
+
+  it("limits whole-workflow retries after stage-local AI retries", () => {
+    expect(defaultResumeReviewGenerationJobOptions({})).toMatchObject({
+      attempts: 2,
+      backoff: { delay: 30_000, type: "exponential" },
+    });
+    expect(
+      defaultResumeReviewGenerationJobOptions({
+        RESUME_REVIEW_GENERATION_QUEUE_ATTEMPTS: "1",
+      }),
+    ).toMatchObject({ attempts: 1 });
   });
 
   it("returns an empty overview when Redis is not configured", async () => {

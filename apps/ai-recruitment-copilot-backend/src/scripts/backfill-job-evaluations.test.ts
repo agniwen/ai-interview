@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import {
+  buildAnalysisPrompt,
   mergeAnalyzedConfig,
   needsJobEvaluationBackfill,
   parseBackfillOptions,
@@ -37,6 +38,16 @@ describe("job evaluation backfill", () => {
     expect(result.hardGates.requiredSkills).toBe("必须掌握 TypeScript");
   });
 
+  it("keeps soft qualities and ordinary responsibilities out of hard gates", () => {
+    const prompt = buildAnalysisPrompt("负责架构设计，具备良好的抗压能力；Go 或 Java 均可");
+
+    expect(prompt).toContain("客观、可由简历直接核验");
+    expect(prompt).toContain("职责描述、软性能力、工作风格、抗压、协作、架构能力");
+    expect(prompt).toContain("不得因为它出现在“任职要求”章节就默认视为硬性门槛");
+    expect(prompt).toContain("保留 JD 原文中的“且 / 并 / 同时 / 或 / 任一”关系");
+    expect(prompt).toContain("由模型根据语义判断是全部必须，还是同类能力掌握任意一种即可");
+  });
+
   it("rejects AI conditions that cannot be audited against the JD", () => {
     expect(() =>
       validateAnalysisQuotes(analysis, "本科及以上；必须掌握 TypeScript；有 PostgreSQL 经验优先"),
@@ -70,12 +81,20 @@ describe("job evaluation backfill", () => {
   });
 
   it("defaults to dry-run with ten workers and caps concurrency", () => {
-    expect(parseBackfillOptions([])).toEqual({ apply: false, concurrency: 10 });
+    expect(parseBackfillOptions([])).toEqual({ apply: false, concurrency: 10, refresh: false });
     expect(parseBackfillOptions(["--apply", "--concurrency=3", "--limit=2"])).toEqual({
       apply: true,
       concurrency: 3,
       limit: 2,
+      refresh: false,
     });
+    expect(parseBackfillOptions(["--apply", "--job-id=job-1", "--refresh"])).toEqual({
+      apply: true,
+      concurrency: 10,
+      jobId: "job-1",
+      refresh: true,
+    });
+    expect(() => parseBackfillOptions(["--refresh"])).toThrow("--job-id");
     expect(() => parseBackfillOptions(["--concurrency=11"])).toThrow("1 到 10");
   });
 
