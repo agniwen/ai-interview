@@ -152,6 +152,11 @@ export const WORKSPACE_PERMISSION_GROUPS = [
         label: "审计日志",
       },
       {
+        actions: ["create", "read", "update", "delete"] as const,
+        key: "resumeEmailIngest",
+        label: "简历邮箱采集",
+      },
+      {
         actions: ["create", "read", "update", "delete", "manage"] as const,
         key: "mailIngestAccount",
         label: "邮箱监听",
@@ -297,6 +302,12 @@ const RESOURCE_ACTION_DESCRIPTIONS = {
     delete: "允许删除沟通题。",
     read: "允许加载沟通题列表、全部模板选项、模板详情、版本详情和沟通题相关选择器。",
     update: "允许编辑、归档/恢复沟通题和模板版本内容。",
+  },
+  resumeEmailIngest: {
+    create: "允许在「个人中心」新增自己的简历邮箱采集配置。",
+    delete: "允许在「个人中心」删除自己的简历邮箱采集配置。",
+    read: "允许在「个人中心」查看自己的简历邮箱采集配置。",
+    update: "允许在「个人中心」编辑自己的简历邮箱采集配置。",
   },
   resumeLibrary: {
     create: "允许上传或创建「招聘台」候选人记录；从人才库导入招聘台也需要该权限。",

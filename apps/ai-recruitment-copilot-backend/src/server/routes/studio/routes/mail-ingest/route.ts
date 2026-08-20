@@ -29,6 +29,7 @@ import {
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 
 type MailIngestPermissionAction = "create" | "delete" | "manage" | "read" | "update";
+type ResumeEmailIngestPermissionAction = "create" | "delete" | "read" | "update";
 
 export interface MailIngestRouteDependencies {
   createMailIngestAccount: typeof createMailIngestAccount;
@@ -43,6 +44,9 @@ export interface MailIngestRouteDependencies {
   requireMailIngestPermission: (
     action: MailIngestPermissionAction,
   ) => ReturnType<typeof requirePermission<"mailIngestAccount">>;
+  requireResumeEmailIngestPermission: (
+    action: ResumeEmailIngestPermissionAction,
+  ) => ReturnType<typeof requirePermission<"resumeEmailIngest">>;
   updateMailIngestAccount: typeof updateMailIngestAccount;
   updateWorkspaceMailIngestAccount: typeof updateWorkspaceMailIngestAccount;
   validateMailIngestAccountLogin: typeof validateMailIngestAccountLogin;
@@ -59,6 +63,7 @@ const defaultDependencies: MailIngestRouteDependencies = {
   mailIngestAccountExistsInOrg,
   queryPaginatedWorkspaceMailIngestAccounts,
   requireMailIngestPermission: (action) => requirePermission("mailIngestAccount", action),
+  requireResumeEmailIngestPermission: (action) => requirePermission("resumeEmailIngest", action),
   updateMailIngestAccount,
   updateWorkspaceMailIngestAccount,
   validateMailIngestAccountLogin,
@@ -226,7 +231,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
         return c.json(result, 200);
       },
     )
-    .get("/", dependencies.requireMailIngestPermission("read"), async (c) => {
+    .get("/", dependencies.requireResumeEmailIngestPermission("read"), async (c) => {
       const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
@@ -236,7 +241,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
     })
     .post(
       "/",
-      dependencies.requireMailIngestPermission("create"),
+      dependencies.requireResumeEmailIngestPermission("create"),
       zValidator("json", createMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
       async (c) => {
         const { activeOrg, user } = c.var;
@@ -269,7 +274,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
     )
     .patch(
       "/:id",
-      dependencies.requireMailIngestPermission("update"),
+      dependencies.requireResumeEmailIngestPermission("update"),
       zValidator("json", updateMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
       async (c) => {
         const { activeOrg, user } = c.var;
@@ -316,7 +321,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
         }
       },
     )
-    .delete("/:id", dependencies.requireMailIngestPermission("delete"), async (c) => {
+    .delete("/:id", dependencies.requireResumeEmailIngestPermission("delete"), async (c) => {
       const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
@@ -333,7 +338,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
     })
     .get(
       "/:id/messages",
-      dependencies.requireMailIngestPermission("read"),
+      dependencies.requireResumeEmailIngestPermission("read"),
       zValidator("query", listMailMessagesQuerySchema, jsonValidatorError("查询参数不合法")),
       async (c) => {
         const { activeOrg, user } = c.var;

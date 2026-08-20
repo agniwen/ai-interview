@@ -7,14 +7,23 @@ import { createMailIngestRouter } from "../route";
 const mocks = {
   computeWorkspacePermissionSnapshot: vi.fn(),
   listAccountMailMessages: vi.fn(),
+  listMailIngestAccounts: vi.fn(),
   mailIngestAccountExistsInOrg: vi.fn(),
 };
 
 const mailIngestRouter = createMailIngestRouter({
   listAccountMailMessages: mocks.listAccountMailMessages,
+  listMailIngestAccounts: mocks.listMailIngestAccounts,
   mailIngestAccountExistsInOrg: mocks.mailIngestAccountExistsInOrg,
   requireMailIngestPermission: (action) =>
     requirePermission("mailIngestAccount", action, {
+      createRequestWorkspaceAuthorizer: (input) =>
+        createRequestWorkspaceAuthorizer(input, {
+          computeWorkspacePermissionSnapshot: mocks.computeWorkspacePermissionSnapshot,
+        }),
+    }),
+  requireResumeEmailIngestPermission: (action) =>
+    requirePermission("resumeEmailIngest", action, {
       createRequestWorkspaceAuthorizer: (input) =>
         createRequestWorkspaceAuthorizer(input, {
           computeWorkspacePermissionSnapshot: mocks.computeWorkspacePermissionSnapshot,
@@ -40,6 +49,7 @@ describe("managed messages permission (real middleware)", () => {
     vi.clearAllMocks();
     mocks.mailIngestAccountExistsInOrg.mockResolvedValue(true);
     mocks.listAccountMailMessages.mockResolvedValue({ records: [], total: 0 });
+    mocks.listMailIngestAccounts.mockResolvedValue([]);
   });
 
   it("denies (403) when the shared snapshot lacks mailIngestAccount manage", async () => {
@@ -71,5 +81,33 @@ describe("managed messages permission (real middleware)", () => {
 
     const res = await app.request("/mail-ingest-accounts/managed/account_1/messages");
     expect(res.status).toBe(200);
+  });
+
+  it("denies personal account listing when only mailIngestAccount read is granted", async () => {
+    mocks.computeWorkspacePermissionSnapshot.mockResolvedValue({
+      role: "admin",
+      statements: {
+        mailIngestAccount: ["read"],
+      },
+    });
+
+    const res = await app.request("/mail-ingest-accounts");
+
+    expect(res.status).toBe(403);
+    expect(mocks.listMailIngestAccounts).not.toHaveBeenCalled();
+  });
+
+  it("allows personal account listing when resumeEmailIngest read is granted", async () => {
+    mocks.computeWorkspacePermissionSnapshot.mockResolvedValue({
+      role: "member",
+      statements: {
+        resumeEmailIngest: ["read"],
+      },
+    });
+
+    const res = await app.request("/mail-ingest-accounts");
+
+    expect(res.status).toBe(200);
+    expect(mocks.listMailIngestAccounts).toHaveBeenCalledWith("org_1", "admin_1");
   });
 });

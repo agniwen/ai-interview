@@ -96,6 +96,7 @@ describe("workspace role permission helpers", () => {
     expect(items.map((item) => item.key)).toContain("offer:update");
     expect(items.map((item) => item.key)).toContain("offer:delete");
     expect(items.map((item) => item.key)).toContain("mailIngestAccount:manage");
+    expect(items.map((item) => item.key)).toContain("resumeEmailIngest:read");
     expect(items.map((item) => item.key)).not.toContain("resume:read");
     expect(items.map((item) => item.key)).toContain("globalConfig:update");
   });

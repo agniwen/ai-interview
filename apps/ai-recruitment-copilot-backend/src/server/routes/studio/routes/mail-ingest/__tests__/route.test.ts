@@ -40,6 +40,13 @@ const dependencies: MailIngestRouteDependencies = {
       }
       return await next();
     }),
+  requireResumeEmailIngestPermission: () =>
+    factory.createMiddleware(async (c, next) => {
+      if (c.req.header("x-test-permission") === "deny") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+      return await next();
+    }),
 };
 
 const platformDependencies: PlatformMailIngestDependencies = {

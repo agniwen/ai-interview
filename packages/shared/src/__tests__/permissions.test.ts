@@ -34,6 +34,9 @@ describe("permissions matrix", () => {
       const { owner } = roles;
       expect(owner.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
       expect(owner.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(owner.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("can browse every studio page", () => {
@@ -72,6 +75,9 @@ describe("permissions matrix", () => {
         expect.arrayContaining(["read", "update"]),
       );
       expect(roles.admin.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(roles.admin.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("can browse every studio page", () => {
@@ -110,6 +116,9 @@ describe("permissions matrix", () => {
         expect.arrayContaining(["read", "update"]),
       );
       expect(roles.member.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(roles.member.statements.resumeEmailIngest).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
     });
 
     it("has no member management access", () => {
@@ -160,6 +169,7 @@ describe("permissions matrix", () => {
         "resumeLibrary",
         "resumePool",
         "resumeUploadBatch",
+        "resumeEmailIngest",
       ] as const;
       for (const resource of resources) {
         expect(stmts[resource] ?? []).toHaveLength(0);
@@ -190,6 +200,9 @@ describe("permission matrix cross-cut", () => {
     ["admin", "mailIngestAccount", "manage", true],
     ["member", "mailIngestAccount", "manage", false],
     ["member", "mailIngestAccount", "create", false],
+    ["owner", "resumeEmailIngest", "read", true],
+    ["admin", "resumeEmailIngest", "update", true],
+    ["member", "resumeEmailIngest", "create", true],
     // department / interviewer
     ["member", "department", "create", true],
     ["member", "interviewer", "update", true],

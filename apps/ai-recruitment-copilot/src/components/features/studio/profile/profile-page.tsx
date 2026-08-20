@@ -399,7 +399,7 @@ export function ProfilePage() {
         organizations={organizations}
       />
 
-      <PermissionGate resource="member" action="update">
+      <PermissionGate resource="resumeEmailIngest" action="read">
         <MailIngestAccountCard />
       </PermissionGate>
     </div>

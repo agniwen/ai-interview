@@ -38,6 +38,9 @@ describe("computeWorkspacePermissionSnapshot", () => {
     expect(snapshot.statements.interview).toEqual(
       expect.arrayContaining(["create", "read", "update", "delete"]),
     );
+    expect(snapshot.statements.resumeEmailIngest).toEqual(
+      expect.arrayContaining(["create", "read", "update", "delete"]),
+    );
     expect(mocks.listGroupRoles).not.toHaveBeenCalled();
   });
 
@@ -56,6 +59,9 @@ describe("computeWorkspacePermissionSnapshot", () => {
     expect(snapshot.statements.page).toEqual(expect.arrayContaining(["resumes", "members"]));
     expect(snapshot.statements.page).not.toEqual(expect.arrayContaining(["permissions"]));
     expect(snapshot.statements.offer).toEqual(
+      expect.arrayContaining(["create", "read", "update", "delete"]),
+    );
+    expect(snapshot.statements.resumeEmailIngest).toEqual(
       expect.arrayContaining(["create", "read", "update", "delete"]),
     );
   });
@@ -89,6 +95,9 @@ describe("computeWorkspacePermissionSnapshot", () => {
     expect(snapshot.statements.interview).toBeUndefined();
     expect(snapshot.statements.resumeLibrary).toBeUndefined();
     expect(snapshot.statements.page).toEqual(expect.arrayContaining(["resumes"]));
+    expect(snapshot.statements.resumeEmailIngest).toEqual(
+      expect.arrayContaining(["create", "read", "update", "delete"]),
+    );
   });
 
   it("loads dynamic role permissions from organizationRole", async () => {
