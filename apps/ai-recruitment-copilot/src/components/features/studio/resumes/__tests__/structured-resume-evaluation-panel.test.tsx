@@ -184,6 +184,92 @@ afterEach(() => {
 });
 
 describe("StructuredResumeEvaluationPanel", () => {
+  it("renders readable gate dimensions and the specific job requirement", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const detail = createDetail();
+    const evaluation = detail.structuredResumeEvaluation;
+    if (!evaluation) {
+      throw new Error("missing evaluation fixture");
+    }
+
+    // SAFETY: This fixture supplies the blueprint fields used by the renderer.
+    const detailWithGateRequirements = {
+      ...detail,
+      structuredResumeEvaluation: {
+        ...evaluation,
+        blueprint: {
+          hardGateRequirements: [
+            {
+              category: "other",
+              normalizedRequirement: "接受海外出差",
+              requirementId: "gate-other",
+              sourceRef: { kind: "hard_gate", path: "hardGates.other" },
+              sourceText: "接受海外出差",
+            },
+            {
+              category: "required_skills",
+              normalizedRequirement: "TypeScript",
+              requirementId: "gate-skills",
+              sourceRef: { kind: "hard_gate", path: "hardGates.requiredSkills" },
+              sourceText: "必须具备 TypeScript 开发经验",
+            },
+            {
+              category: "work_experience",
+              normalizedRequirement: "3 年前端开发经验",
+              requirementId: "gate-experience",
+              sourceRef: { kind: "hard_gate", path: "hardGates.workExperience" },
+              sourceText: "具备 3 年前端开发经验",
+            },
+          ],
+        } as typeof evaluation.blueprint,
+        gates: {
+          ...evaluation.gates,
+          judgments: [
+            {
+              aiStatus: "failed",
+              category: "other",
+              evidence: [],
+              reason: "简历未说明是否接受海外出差。",
+              requirementId: "gate-other",
+            },
+            {
+              aiStatus: "passed",
+              category: "required_skills",
+              evidence: [],
+              reason: "简历体现相关开发经验。",
+              requirementId: "gate-skills",
+            },
+            {
+              aiStatus: "needs_verification",
+              category: "work_experience",
+              evidence: [],
+              reason: "经历时间信息不完整。",
+              requirementId: "gate-experience",
+            },
+          ],
+        },
+      },
+    } as ResumeLibraryDetail;
+
+    act(() => {
+      root.render(
+        <StructuredResumeEvaluationPanel canEdit={false} detail={detailWithGateRequirements} />,
+      );
+    });
+
+    const content = container.textContent ?? "";
+    expect(content).toContain("其他：接受海外出差");
+    expect(content).toContain("必备技能：必须具备 TypeScript 开发经验");
+    expect(content).toContain("工作经验：具备 3 年前端开发经验");
+    expect(content).not.toContain("门槛维度：");
+    expect(content).not.toContain("required_skills");
+    expect(content).not.toContain("work_experience");
+
+    act(() => root.unmount());
+  });
+
   it("renders the reassessment action inside the comprehensive evaluation header", () => {
     const container = document.createElement("div");
     document.body.append(container);

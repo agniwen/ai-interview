@@ -37,6 +37,16 @@ const GATE_LABELS = {
   passed: "门槛通过",
 } satisfies Record<StructuredResumeGateStatus, string>;
 
+const HARD_GATE_CATEGORY_LABELS = new Map([
+  ["education", "学历"],
+  ["language_ability", "语言能力"],
+  ["other", "其他"],
+  ["required_certificates", "必备证书"],
+  ["required_skills", "必备技能"],
+  ["work_experience", "工作经验"],
+  ["work_location", "工作地点"],
+]);
+
 const GRADE_LABELS = {
   matched: "匹配",
   recommended: "推荐",
@@ -47,6 +57,7 @@ type StructuredDimensionKey = (typeof STRUCTURED_RESUME_DIMENSIONS)[number];
 type StructuredEvaluation = NonNullable<ResumeLibraryDetail["structuredResumeEvaluation"]>;
 type StructuredDimensionResult = StructuredEvaluation["dimensions"][StructuredDimensionKey];
 type StructuredSkillAssessment = StructuredEvaluation["skillAssessments"][number];
+type StructuredGateRequirement = StructuredEvaluation["blueprint"]["hardGateRequirements"][number];
 
 const SKILL_ASSESSMENT_STATUS_META = {
   applied: { label: "已应用", variant: "success" },
@@ -296,6 +307,96 @@ function EmptyHardGateState({ hasGates }: { hasGates: boolean }) {
   return <p className="p-4 text-muted-foreground text-sm">岗位未配置硬性门槛</p>;
 }
 
+function getGateRequirementsById(
+  evaluation: StructuredEvaluation,
+): Map<string, StructuredGateRequirement> {
+  const requirements = evaluation.blueprint?.hardGateRequirements;
+  if (!requirements) {
+    return new Map();
+  }
+  return new Map(requirements.map((requirement) => [requirement.requirementId, requirement]));
+}
+
+function StructuredGateJudgmentItem({
+  canCorrectCurrentRun,
+  judgment,
+  onUpdate,
+  requirement,
+  savingRequirementId,
+}: {
+  canCorrectCurrentRun: boolean;
+  judgment: StructuredEvaluation["gates"]["judgments"][number];
+  onUpdate: (requirementId: string, correctedStatus: StructuredResumeGateStatus | null) => void;
+  requirement: StructuredEvaluation["blueprint"]["hardGateRequirements"][number] | undefined;
+  savingRequirementId: string | null;
+}) {
+  const effectiveStatus = judgment.correction?.correctedStatus ?? judgment.aiStatus;
+  const categoryLabel =
+    HARD_GATE_CATEGORY_LABELS.get(requirement?.category ?? judgment.category) ?? "其他门槛";
+
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={statusVariant(effectiveStatus)}>{GATE_LABELS[effectiveStatus]}</Badge>
+        {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
+      </div>
+      <p className="text-sm leading-6">
+        <span className="font-medium">{categoryLabel}：</span>
+        {requirement?.sourceText ?? "当前评估未记录具体要求"}
+      </p>
+      <p className="text-muted-foreground text-sm leading-6">
+        <span className="text-foreground">AI 判断：</span>
+        {judgment.reason}
+      </p>
+      {uniqueEvidence(judgment.evidence).map((evidence) => (
+        <blockquote
+          className="border-l-2 pl-3 text-muted-foreground text-xs"
+          key={`${evidence.source}-${evidence.quote}`}
+        >
+          {evidence.quote}
+        </blockquote>
+      ))}
+      {canCorrectCurrentRun ? (
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["passed", "标记通过"],
+              ["failed", "标记未通过"],
+              ["needs_verification", "标记待核实"],
+            ] as const
+          ).map(([status, label]) => (
+            <Button
+              disabled={savingRequirementId === judgment.requirementId}
+              key={status}
+              onClick={() => {
+                onUpdate(judgment.requirementId, status);
+              }}
+              size="sm"
+              type="button"
+              variant={judgment.correction?.correctedStatus === status ? "secondary" : "outline"}
+            >
+              {label}
+            </Button>
+          ))}
+          {judgment.correction ? (
+            <Button
+              disabled={savingRequirementId === judgment.requirementId}
+              onClick={() => {
+                onUpdate(judgment.requirementId, null);
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              恢复 AI 判断
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function StructuredResumeEvaluationPanel({
   canEdit,
   detail,
@@ -323,6 +424,8 @@ export function StructuredResumeEvaluationPanel({
       </section>
     );
   }
+
+  const gateRequirementsById = getGateRequirementsById(evaluation);
 
   const dimensions = STRUCTURED_RESUME_DIMENSIONS.map((key) => {
     const result = evaluation.dimensions[key];
@@ -483,68 +586,16 @@ export function StructuredResumeEvaluationPanel({
         </FrameHeader>
         <FramePanel className="divide-y p-0">
           <EmptyHardGateState hasGates={evaluation.gates.judgments.length > 0} />
-          {evaluation.gates.judgments.map((judgment) => {
-            const effectiveStatus = judgment.correction?.correctedStatus ?? judgment.aiStatus;
-            return (
-              <div className="space-y-3 p-4" key={judgment.requirementId}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-sm">{judgment.category}</span>
-                  <Badge variant={statusVariant(effectiveStatus)}>
-                    {GATE_LABELS[effectiveStatus]}
-                  </Badge>
-                  {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
-                </div>
-                <p className="text-muted-foreground text-sm leading-6">{judgment.reason}</p>
-                {uniqueEvidence(judgment.evidence).map((evidence) => (
-                  <blockquote
-                    className="border-l-2 pl-3 text-muted-foreground text-xs"
-                    key={`${evidence.source}-${evidence.quote}`}
-                  >
-                    {evidence.quote}
-                  </blockquote>
-                ))}
-                {canCorrectCurrentRun ? (
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        ["passed", "标记通过"],
-                        ["failed", "标记未通过"],
-                        ["needs_verification", "标记待核实"],
-                      ] as const
-                    ).map(([status, label]) => (
-                      <Button
-                        disabled={savingRequirementId === judgment.requirementId}
-                        key={status}
-                        onClick={() => {
-                          updateGate(judgment.requirementId, status);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant={
-                          judgment.correction?.correctedStatus === status ? "secondary" : "outline"
-                        }
-                      >
-                        {label}
-                      </Button>
-                    ))}
-                    {judgment.correction ? (
-                      <Button
-                        disabled={savingRequirementId === judgment.requirementId}
-                        onClick={() => {
-                          updateGate(judgment.requirementId, null);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        恢复 AI 判断
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+          {evaluation.gates.judgments.map((judgment) => (
+            <StructuredGateJudgmentItem
+              canCorrectCurrentRun={canCorrectCurrentRun}
+              judgment={judgment}
+              key={judgment.requirementId}
+              onUpdate={updateGate}
+              requirement={gateRequirementsById.get(judgment.requirementId)}
+              savingRequirementId={savingRequirementId}
+            />
+          ))}
         </FramePanel>
       </Frame>
 

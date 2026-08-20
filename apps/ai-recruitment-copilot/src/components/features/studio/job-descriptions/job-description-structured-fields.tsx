@@ -111,7 +111,7 @@ function HardGateFields({
       <SectionHeader description="填写需要一票否决的条件；留空项不参与评估。" title="硬性门槛" />
       <Tabs
         activationMode="manual"
-        className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-4"
+        className="flex min-w-0 flex-col gap-3"
         onValueChange={(nextValue) => {
           const nextField = HARD_GATE_FIELDS.find(({ key }) => key === nextValue);
           if (!nextField || nextField.key === activeHardGate) {
@@ -121,20 +121,12 @@ function HardGateFields({
           shouldFocusActiveInput.current = !disabled;
           setActiveHardGate(nextField.key);
         }}
-        orientation="vertical"
+        orientation="horizontal"
         value={activeHardGate}
       >
-        <TabsList
-          aria-label="硬性门槛字段"
-          className="h-fit w-full items-stretch"
-          variant="underline"
-        >
+        <TabsList aria-label="硬性门槛字段" className="w-full items-stretch" variant="underline">
           {HARD_GATE_FIELDS.map((definition) => (
-            <TabsTrigger
-              className="data-active:rounded-l-none"
-              key={definition.key}
-              value={definition.key}
-            >
+            <TabsTrigger key={definition.key} value={definition.key}>
               {definition.label}
             </TabsTrigger>
           ))}

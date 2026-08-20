@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("JobDescriptionStructuredFields", () => {
-  it("uses vertical tabs for hard gates without nested section cards or markers", () => {
+  it("uses horizontal tabs for hard gates without nested section cards or markers", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(
       <JobDescriptionStructuredFields
@@ -34,14 +34,17 @@ describe("JobDescriptionStructuredFields", () => {
     expect(conditionHeading?.previousElementSibling).toBeNull();
     expect(container.querySelector('[data-slot="card"]')).toBeNull();
     expect(container.querySelector<HTMLElement>('[data-slot="tabs"]')?.dataset.orientation).toBe(
-      "vertical",
+      "horizontal",
+    );
+    expect(container.querySelector<HTMLElement>('[data-slot="tabs"]')?.className).toContain(
+      "flex-col",
     );
     expect(container.querySelectorAll('[data-slot="tabs-tab"]')).toHaveLength(7);
     expect(container.querySelector<HTMLElement>('[data-slot="tabs-list"]')?.dataset.variant).toBe(
       "underline",
     );
-    expect(container.querySelector('[data-slot="tabs-tab"]')?.className).toContain(
-      "data-active:rounded-l-none",
+    expect(container.querySelector<HTMLElement>('[data-slot="tabs-list"]')?.className).toContain(
+      "overflow-x-auto",
     );
     const hardGateInput = container.querySelector("textarea");
     expect(hardGateInput?.className).toContain("h-56");
@@ -50,7 +53,7 @@ describe("JobDescriptionStructuredFields", () => {
     expect(container.querySelector('label[for="hard-gate-education"]')).toBeNull();
   });
 
-  it("switches the visible hard-gate input from the vertical tab list", async () => {
+  it("switches the visible hard-gate input from the horizontal tab list", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

@@ -10,6 +10,10 @@ import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/compo
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import {
+  SettingsGroup,
+  SettingsRow,
+} from "@/components/features/studio/profile/profile-settings-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +31,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -52,6 +55,14 @@ import {
   resolveMailIngestProviderId,
 } from "@/lib/client/mail-ingest-providers";
 import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
+import {
+  DEFAULT_MAIL_INGEST_PLATFORM_ID,
+  MAIL_INGEST_PLATFORMS,
+  getMailIngestPlatform,
+  isMailIngestPlatformId,
+  resolveMailIngestPlatformId,
+} from "@/lib/client/mail-ingest-platforms";
+import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
 import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
@@ -61,11 +72,10 @@ const DEFAULT_FORM: MailIngestFormState = {
   imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
   imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
   listenStartAt: "",
+  monitoringPlatform: DEFAULT_MAIL_INGEST_PLATFORM_ID,
   password: "",
   providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID,
-  subjectKeyword: "boss直聘",
   userId: "",
-  username: "",
 };
 
 interface MailIngestAccountRecord {
@@ -120,9 +130,8 @@ interface MailIngestFormState {
   listenStartAt: string;
   password: string;
   providerId: MailIngestProviderId;
-  subjectKeyword: string;
+  monitoringPlatform: MailIngestPlatformId;
   userId: string;
-  username: string;
 }
 
 type MailIngestAccountUpdate = ReturnType<typeof toPayload> & {
@@ -148,7 +157,6 @@ function buildNewForm(user: PlatformMailIngestAccountRow["user"]): MailIngestFor
     emailAddress: user.email,
     listenStartAt: isoStringToDateTimeLocalInput(new Date().toISOString()),
     userId: user.id,
-    username: user.email,
   };
 }
 
@@ -173,11 +181,10 @@ function buildInitialForm(row: PlatformMailIngestAccountRow): MailIngestFormStat
       imapHost: row.account.imapHost,
       imapPort: String(row.account.imapPort),
       listenStartAt: isoStringToDateTimeLocalInput(row.account.listenStartAt),
+      monitoringPlatform: resolveMailIngestPlatformId(row.account.subjectKeyword),
       password: "",
       providerId: resolveMailIngestProviderId(row.account.imapHost, row.account.imapPort),
-      subjectKeyword: row.account.subjectKeyword,
       userId: row.user.id,
-      username: row.account.username,
     };
   }
 
@@ -189,12 +196,13 @@ function toPayload(form: MailIngestFormState) {
   if (!(Number.isFinite(port) && port > 0)) {
     throw new Error("IMAP 端口无效");
   }
-  if (!(form.emailAddress.trim() && form.username.trim())) {
-    throw new Error("邮箱地址和登录账号不能为空");
+  const emailAddress = form.emailAddress.trim();
+  if (!emailAddress) {
+    throw new Error("监听邮箱不能为空");
   }
 
   return {
-    emailAddress: form.emailAddress.trim(),
+    emailAddress,
     enabled: form.enabled,
     failedMailbox: "ARC-Failed",
     imapHost: form.imapHost.trim(),
@@ -203,8 +211,8 @@ function toPayload(form: MailIngestFormState) {
     listenStartAt: dateTimeLocalInputToISOString(form.listenStartAt),
     mailbox: "INBOX",
     processedMailbox: "ARC-Processed",
-    subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
-    username: form.username.trim(),
+    subjectKeyword: getMailIngestPlatform(form.monitoringPlatform).subjectKeyword,
+    username: emailAddress,
   };
 }
 
@@ -295,9 +303,8 @@ function PlatformMailIngestAccountDialog({
             mutation.mutate();
           }}
         >
-          <FieldGroup className="gap-5">
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-user">成员</FieldLabel>
+          <SettingsGroup>
+            <SettingsRow htmlFor="platform-mail-ingest-user" label="成员">
               <Select disabled value={form.userId}>
                 <SelectTrigger id="platform-mail-ingest-user" className="w-full">
                   <SelectValue placeholder="选择成员" />
@@ -310,10 +317,13 @@ function PlatformMailIngestAccountDialog({
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-email">监听邮箱</FieldLabel>
+            <SettingsRow
+              description="用于接收简历邮件，也会作为邮箱登录账号提交。"
+              htmlFor="platform-mail-ingest-email"
+              label="监听邮箱"
+            >
               <Input
                 id="platform-mail-ingest-email"
                 autoComplete="email"
@@ -325,24 +335,13 @@ function PlatformMailIngestAccountDialog({
                 type="email"
                 value={form.emailAddress}
               />
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-username">登录账号</FieldLabel>
-              <Input
-                id="platform-mail-ingest-username"
-                autoComplete="username"
-                disabled={pending}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, username: event.target.value }))
-                }
-                placeholder="通常与邮箱地址相同"
-                value={form.username}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-password">客户端密码</FieldLabel>
+            <SettingsRow
+              description={isEdit ? "留空则沿用已保存的客户端密码。" : undefined}
+              htmlFor="platform-mail-ingest-password"
+              label="客户端密码"
+            >
               <Input
                 id="platform-mail-ingest-password"
                 autoComplete="new-password"
@@ -354,11 +353,13 @@ function PlatformMailIngestAccountDialog({
                 type="password"
                 value={form.password}
               />
-              <FieldDescription>密码会加密保存；企业邮箱需开启 IMAP/SMTP 服务。</FieldDescription>
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-provider">邮箱服务</FieldLabel>
+            <SettingsRow
+              description={`IMAP：${form.imapHost}:${form.imapPort}`}
+              htmlFor="platform-mail-ingest-provider"
+              label="邮箱服务"
+            >
               <Select
                 disabled={pending}
                 value={form.providerId}
@@ -384,25 +385,43 @@ function PlatformMailIngestAccountDialog({
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <FieldDescription>
-                IMAP：{form.imapHost}:{form.imapPort}
-              </FieldDescription>
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-keyword">标题关键字</FieldLabel>
-              <Input
-                id="platform-mail-ingest-keyword"
+            <SettingsRow
+              description="提交时会将监听平台映射为对应的邮件标题关键字。"
+              htmlFor="platform-mail-ingest-platform"
+              label="监听平台"
+            >
+              <Select
                 disabled={pending}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, subjectKeyword: event.target.value }))
-                }
-                value={form.subjectKeyword}
-              />
-            </Field>
+                value={form.monitoringPlatform}
+                onValueChange={(value) => {
+                  if (!value || !isMailIngestPlatformId(value)) {
+                    return;
+                  }
+                  setForm((current) => ({ ...current, monitoringPlatform: value }));
+                }}
+              >
+                <SelectTrigger className="w-full" id="platform-mail-ingest-platform">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {MAIL_INGEST_PLATFORMS.map((platform) => (
+                      <SelectItem key={platform.id} value={platform.id}>
+                        {platform.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="platform-mail-ingest-listen-start">监听起始时间</FieldLabel>
+            <SettingsRow
+              description="留空表示扫描全部邮件；创建时默认从当前时间开始。"
+              htmlFor="platform-mail-ingest-listen-start"
+              label="监听起始时间"
+            >
               <DateTimePicker
                 id="platform-mail-ingest-listen-start"
                 disabled={pending}
@@ -411,19 +430,17 @@ function PlatformMailIngestAccountDialog({
                 }
                 value={form.listenStartAt}
               />
-              <FieldDescription>留空表示扫描全部邮件；创建时默认从当前时间开始。</FieldDescription>
-            </Field>
+            </SettingsRow>
 
-            <Field orientation="horizontal">
+            <SettingsRow description="关闭后停止轮询该邮箱。" label="启用监听">
               <Switch
                 checked={form.enabled}
                 disabled={pending}
                 id="platform-mail-ingest-enabled"
                 onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
               />
-              <FieldLabel htmlFor="platform-mail-ingest-enabled">启用监听</FieldLabel>
-            </Field>
-          </FieldGroup>
+            </SettingsRow>
+          </SettingsGroup>
 
           <DialogFooter>
             <Button
@@ -560,7 +577,7 @@ export function PlatformMailIngestAccountsGrid() {
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) => row.account?.subjectKeyword ?? "-",
         key: "subjectKeyword",
-        title: "标题关键字",
+        title: "监听平台",
       }),
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) =>
@@ -632,7 +649,7 @@ export function PlatformMailIngestAccountsGrid() {
           {
             key: "search",
             minWidth: "20rem",
-            placeholder: "搜索工作区、成员、邮箱、IMAP 或标题关键字",
+            placeholder: "搜索工作区、成员、邮箱、IMAP 或监听平台",
             type: "search",
           },
         ]}

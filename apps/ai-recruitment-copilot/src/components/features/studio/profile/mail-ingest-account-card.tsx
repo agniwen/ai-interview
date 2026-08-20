@@ -9,9 +9,9 @@ import { DateTimePicker } from "@/components/date-time-picker";
 import {
   SettingsGroup,
   SettingsSection,
+  SettingsRow,
 } from "@/components/features/studio/profile/profile-settings-ui";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -38,6 +38,14 @@ import {
   resolveMailIngestProviderId,
 } from "@/lib/client/mail-ingest-providers";
 import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
+import {
+  DEFAULT_MAIL_INGEST_PLATFORM_ID,
+  MAIL_INGEST_PLATFORMS,
+  getMailIngestPlatform,
+  isMailIngestPlatformId,
+  resolveMailIngestPlatformId,
+} from "@/lib/client/mail-ingest-platforms";
+import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
 import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
@@ -64,8 +72,7 @@ interface MailIngestFormState {
   listenStartAt: string;
   password: string;
   providerId: MailIngestProviderId;
-  subjectKeyword: string;
-  username: string;
+  monitoringPlatform: MailIngestPlatformId;
 }
 
 const DEFAULT_MAIL_INGEST_FORM = {
@@ -74,10 +81,9 @@ const DEFAULT_MAIL_INGEST_FORM = {
   imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
   imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
   listenStartAt: "",
+  monitoringPlatform: DEFAULT_MAIL_INGEST_PLATFORM_ID,
   password: "",
   providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID,
-  subjectKeyword: "boss直聘",
-  username: "",
 } satisfies MailIngestFormState;
 
 const errorPayloadSchema = z.object({ error: z.string().optional() }).nullable();
@@ -99,10 +105,9 @@ function formFromAccount(account: MailIngestAccountRecord | null): MailIngestFor
     imapHost: account.imapHost,
     imapPort: String(account.imapPort),
     listenStartAt: isoStringToDateTimeLocalInput(account.listenStartAt),
+    monitoringPlatform: resolveMailIngestPlatformId(account.subjectKeyword),
     password: "",
     providerId: resolveMailIngestProviderId(account.imapHost, account.imapPort),
-    subjectKeyword: account.subjectKeyword,
-    username: account.username,
   };
 }
 
@@ -138,11 +143,12 @@ export function MailIngestAccountCard() {
       if (!(Number.isFinite(port) && port > 0)) {
         throw new Error("IMAP 端口无效");
       }
-      if (!(form.emailAddress.trim() && form.username.trim())) {
-        throw new Error("邮箱地址和登录账号不能为空");
+      const emailAddress = form.emailAddress.trim();
+      if (!emailAddress) {
+        throw new Error("监听邮箱不能为空");
       }
       const payload = {
-        emailAddress: form.emailAddress.trim(),
+        emailAddress,
         enabled: form.enabled,
         failedMailbox: "ARC-Failed",
         imapHost: form.imapHost.trim(),
@@ -151,8 +157,8 @@ export function MailIngestAccountCard() {
         listenStartAt: dateTimeLocalInputToISOString(form.listenStartAt),
         mailbox: "INBOX",
         processedMailbox: "ARC-Processed",
-        subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
-        username: form.username.trim(),
+        subjectKeyword: getMailIngestPlatform(form.monitoringPlatform).subjectKeyword,
+        username: emailAddress,
       };
       const response = account
         ? await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$patch({
@@ -283,7 +289,7 @@ export function MailIngestAccountCard() {
         onOpenChange={setOpen}
         open={open}
         size="lg"
-        title="编辑简历邮箱采集信息"
+        title="简历邮箱采集设置"
       >
         <form
           className="flex flex-col gap-4"
@@ -293,21 +299,12 @@ export function MailIngestAccountCard() {
             saveMutation.mutate();
           }}
         >
-          <div className="flex items-center justify-between gap-3 rounded-lg border px-3.5 py-2.5">
-            <div className="min-w-0">
-              <p className="font-medium text-sm">启用采集</p>
-              <p className="text-muted-foreground text-xs">关闭后停止轮询该邮箱。</p>
-            </div>
-            <Switch
-              checked={form.enabled}
-              disabled={disabled}
-              onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
-            />
-          </div>
-
-          <FieldGroup className="gap-3">
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-email">邮箱地址</FieldLabel>
+          <SettingsGroup>
+            <SettingsRow
+              description="用于接收简历邮件，也会作为邮箱登录账号提交。"
+              htmlFor="mail-ingest-email"
+              label="监听邮箱"
+            >
               <Input
                 id="mail-ingest-email"
                 autoComplete="email"
@@ -319,24 +316,13 @@ export function MailIngestAccountCard() {
                 type="email"
                 value={form.emailAddress}
               />
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-username">登录账号</FieldLabel>
-              <Input
-                id="mail-ingest-username"
-                autoComplete="username"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, username: event.target.value }))
-                }
-                placeholder="通常与邮箱地址相同"
-                value={form.username}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-password">客户端密码</FieldLabel>
+            <SettingsRow
+              description="密码会加密保存；已配置密码时留空则不修改。"
+              htmlFor="mail-ingest-password"
+              label="客户端密码"
+            >
               <Input
                 id="mail-ingest-password"
                 autoComplete="new-password"
@@ -348,13 +334,13 @@ export function MailIngestAccountCard() {
                 type="password"
                 value={form.password}
               />
-              <FieldDescription>
-                密码会加密保存；阿里企业邮箱需开启 IMAP/SMTP 服务。
-              </FieldDescription>
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-provider">邮箱服务</FieldLabel>
+            <SettingsRow
+              description={`IMAP：${form.imapHost}:${form.imapPort}`}
+              htmlFor="mail-ingest-provider"
+              label="邮箱服务"
+            >
               <Select
                 disabled={disabled}
                 value={form.providerId}
@@ -381,25 +367,43 @@ export function MailIngestAccountCard() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <FieldDescription>
-                IMAP：{form.imapHost}:{form.imapPort}
-              </FieldDescription>
-            </Field>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-keyword">标题关键字</FieldLabel>
-              <Input
-                id="mail-ingest-keyword"
+            <SettingsRow
+              description="提交时会将监听平台映射为对应的邮件标题关键字。"
+              htmlFor="mail-ingest-platform"
+              label="监听平台"
+            >
+              <Select
                 disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, subjectKeyword: event.target.value }))
-                }
-                value={form.subjectKeyword}
-              />
-            </Field>
+                value={form.monitoringPlatform}
+                onValueChange={(value) => {
+                  if (!value || !isMailIngestPlatformId(value)) {
+                    return;
+                  }
+                  setForm((current) => ({ ...current, monitoringPlatform: value }));
+                }}
+              >
+                <SelectTrigger className="w-full" id="mail-ingest-platform">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {MAIL_INGEST_PLATFORMS.map((platform) => (
+                      <SelectItem key={platform.id} value={platform.id}>
+                        {platform.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-listen-start">监听起始时间</FieldLabel>
+            <SettingsRow
+              description="留空表示扫描全部邮件；创建时默认从当前时间开始。"
+              htmlFor="mail-ingest-listen-start"
+              label="监听起始时间"
+            >
               <DateTimePicker
                 id="mail-ingest-listen-start"
                 disabled={disabled}
@@ -408,9 +412,17 @@ export function MailIngestAccountCard() {
                 }
                 value={form.listenStartAt}
               />
-              <FieldDescription>留空表示扫描全部邮件；创建时默认从当前时间开始。</FieldDescription>
-            </Field>
-          </FieldGroup>
+            </SettingsRow>
+
+            <SettingsRow description="关闭后停止轮询该邮箱。" label="启用采集">
+              <Switch
+                checked={form.enabled}
+                disabled={disabled}
+                id="mail-ingest-enabled"
+                onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
+              />
+            </SettingsRow>
+          </SettingsGroup>
         </form>
       </Modal>
     </>

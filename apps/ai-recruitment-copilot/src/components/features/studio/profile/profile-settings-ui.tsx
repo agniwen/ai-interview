@@ -55,7 +55,9 @@ export function SettingsRow({
           <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
         ) : null}
       </div>
-      <div className="w-full shrink-0 sm:w-auto sm:min-w-[14rem] sm:max-w-xs">{children}</div>
+      <div className="flex w-full shrink-0 justify-end sm:w-auto sm:min-w-[14rem] sm:max-w-xs">
+        {children}
+      </div>
     </div>
   );
 }
