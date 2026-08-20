@@ -291,6 +291,45 @@ describe("compileEvaluationBlueprint", () => {
     ).toThrow("JD 中的明确经验年限没有被完整识别");
   });
 
+  it("does not require configured conditions to be duplicated as base experience scoring", () => {
+    const configured = input();
+    configured.prompt = `${configured.prompt}。1.5 年以上搜索引擎营销经验优先。`;
+    configured.structuredConfig.priorityConditions = [
+      {
+        condition: "1.5 年以上搜索引擎营销经验优先",
+        id: "priority-search-marketing",
+        points: 5,
+      },
+    ];
+
+    expect(() =>
+      compileEvaluationBlueprint(configured, {
+        generatedAt: "2026-07-29T10:00:00.000Z",
+        modelId: "test-model",
+        promptVersion: "v1",
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not parse a numbered-list prefix as a decimal experience threshold", () => {
+    const numbered = input();
+    numbered.prompt = `${numbered.prompt}\n1.10年以上人力资源管理工作经验`;
+    numbered.modelOutput.requiredRelevantExperiences.push({
+      relevanceScope: "role",
+      scopeDescription: "人力资源管理",
+      sourceText: "10年以上人力资源管理工作经验",
+      years: 10,
+    });
+
+    expect(() =>
+      compileEvaluationBlueprint(numbered, {
+        generatedAt: "2026-07-29T10:00:00.000Z",
+        modelId: "test-model",
+        promptVersion: "v1",
+      }),
+    ).not.toThrow();
+  });
+
   it("keeps multiple experience gates and selects the highest threshold for scoring", () => {
     const multipleRequirements = input();
     multipleRequirements.structuredConfig.hardGates.workExperience =

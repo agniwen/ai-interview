@@ -349,6 +349,7 @@ export async function* streamTextWithMastraAgent({
 // oxlint-disable-next-line complexity -- retries, schema fallback, and semantic validation share one generation attempt loop.
 export async function generateStructuredWithMastraAgent<TSchema extends z.ZodType>({
   agent,
+  fallbackToTextGeneration,
   maxOutputTokens,
   prompt,
   retryOnInvalid,
@@ -358,6 +359,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   validate,
 }: {
   agent: MastraGeneratorLike;
+  fallbackToTextGeneration?: boolean;
   maxOutputTokens?: number;
   prompt: string;
   retryOnInvalid?: boolean;
@@ -428,6 +430,30 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     if (attempt + 1 < maxAttempts) {
       attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
     }
+  }
+  if (fallbackToTextGeneration) {
+    const fallbackPrompt = `${prompt}\n\n原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。`;
+    const fallbackOptions: MastraGenerateOptions = {
+      modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+    };
+    if (timeoutMs !== undefined) {
+      fallbackOptions.abortSignal = AbortSignal.timeout(timeoutMs);
+    }
+    const fallbackResult = await withTimeout(
+      agent.generate(fallbackPrompt, fallbackOptions),
+      timeoutMs,
+    );
+    if (fallbackResult.error) {
+      throw fallbackResult.error;
+    }
+    const fallbackObject = schema.safeParse(fallbackResult.object);
+    if (fallbackObject.success) {
+      validate?.(fallbackObject.data);
+      return fallbackObject.data;
+    }
+    const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback");
+    validate?.(fallback);
+    return fallback;
   }
   throw lastError;
 }

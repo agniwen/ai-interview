@@ -116,6 +116,46 @@ describe("simple Mastra generators", () => {
     expect(generate.mock.calls[1]?.[0]).toContain("STRUCTURED_OUTPUT_SCHEMA_VALIDATION_FAILED");
   });
 
+  it("can fall back to schema-validated plain JSON generation", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ object: undefined, text: "无法生成" })
+      .mockResolvedValueOnce({ object: undefined, text: "仍然无法生成" })
+      .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        fallbackToTextGeneration: true,
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(3);
+    expect(generate.mock.calls[2]?.[1]).not.toHaveProperty("structuredOutput");
+    expect(generate.mock.calls[2]?.[0]).toContain("只输出一个严格符合上述字段和类型的 JSON 对象");
+  });
+
+  it("accepts the object channel from plain generation fallback", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ object: undefined, text: "" })
+      .mockResolvedValueOnce({ object: undefined, text: "" })
+      .mockResolvedValueOnce({ object: { title: "前端工程师" }, text: "" });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        fallbackToTextGeneration: true,
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+  });
+
   it("does not retry when the structured provider times out", async () => {
     const timeoutError = new Error("Request timed out after 90000ms");
     const generate = vi.fn().mockRejectedValue(timeoutError);

@@ -492,19 +492,30 @@ function compileRelevantExperienceCandidates(input: CompileEvaluationBlueprintIn
   });
 }
 
-function explicitExperienceThresholds(
-  input: Pick<CompileEvaluationBlueprintInput, "description" | "prompt">,
-) {
+function isConfiguredConditionClause(input: CompileEvaluationBlueprintInput, clause: string) {
+  const configuredConditions = [
+    ...Object.values(input.structuredConfig.hardGates),
+    ...input.structuredConfig.priorityConditions.map((condition) => condition.condition),
+    ...input.structuredConfig.exclusionConditions.map((condition) => condition.condition),
+  ].filter(Boolean);
+  return configuredConditions.some(
+    (condition) => sourceContains(condition, clause) || sourceContains(clause, condition),
+  );
+}
+
+function explicitExperienceThresholds(input: CompileEvaluationBlueprintInput) {
   const unique = new Map<string, { clause: string; years: number }>();
   for (const source of [input.description ?? "", input.prompt].map(baseScoringSource)) {
     for (const rawClause of source.split(/[\n；;。，,]+/u)) {
       const clause = rawClause
         .trim()
+        .replace(/^\d+[.)、]\s*/u, "")
         .replaceAll(/[（(][^）)]*(?:建议|优先|加分项|最好)[^）)]*(?:[）)]|$)/gu, "")
         .trim();
       if (
         !clause ||
         /^(?:建议|优先|加分项|最好)/u.test(clause) ||
+        isConfiguredConditionClause(input, clause) ||
         !/(?:经验|经历|从业|工作年限|任职年限)/u.test(clause)
       ) {
         continue;
@@ -525,7 +536,7 @@ function explicitExperienceThresholds(
 }
 
 function assertCompleteExperienceRequirementCoverage(
-  input: Pick<CompileEvaluationBlueprintInput, "description" | "prompt">,
+  input: CompileEvaluationBlueprintInput,
   candidates: readonly { sourceText: string; years: number }[],
 ): void {
   const usedCandidateIndexes = new Set<number>();
@@ -856,7 +867,6 @@ function validateRemainingDimensionsCandidate(
   input: ScoringBlueprintGenerationInput,
 ): void {
   validateScoringCandidateSources(value, input);
-  assertCompleteExperienceRequirementCoverage(input, value.requiredRelevantExperiences);
   if (value.dimensionExpectations.projectMatch.length > 3) {
     throw new Error("projectMatch 最多返回 3 项岗位级项目标准。");
   }
@@ -1004,6 +1014,7 @@ async function generateScoringBlueprintCandidate(
   function generateSkillEducation() {
     return generateStructuredWithMastraAgent({
       agent,
+      fallbackToTextGeneration: true,
       maxOutputTokens: 4000,
       prompt: [
         "请只根据岗位 JD 和基础评分项目提取技能与学历评分依据。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
@@ -1032,6 +1043,7 @@ async function generateScoringBlueprintCandidate(
   function generateRemainingDimensions() {
     return generateStructuredWithMastraAgent({
       agent,
+      fallbackToTextGeneration: true,
       maxOutputTokens: 5000,
       prompt: [
         "请只根据岗位 JD 和基础评分项目提取经验、项目、潜力与稳定性评分依据。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
@@ -1099,6 +1111,7 @@ function generateHardGateCompilerCandidate(
   }
   return generateStructuredWithMastraAgent({
     agent,
+    fallbackToTextGeneration: true,
     maxOutputTokens: 3000,
     prompt: [
       "请只把 HR 已配置的硬性门槛拆成原子要求。只返回一个 JSON 对象，不要输出分析过程、Markdown 或解释。",
