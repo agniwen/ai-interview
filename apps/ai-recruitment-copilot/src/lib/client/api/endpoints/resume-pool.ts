@@ -3,6 +3,7 @@ import type {
   ResumePoolDetail,
   ResumePoolImportInput,
   ResumePoolImportResult,
+  ResumePoolJobMatchResult,
   ResumePoolListRecord,
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
@@ -83,6 +84,18 @@ export function bindResumePoolItem(
       param: { id, slug },
     }),
     "绑定岗位失败",
+  );
+}
+
+export function fetchResumePoolJobMatch(
+  slug: string,
+  id: string,
+): Promise<ResumePoolJobMatchResult | null> {
+  return rpcFetch<ResumePoolJobMatchResult | null>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"]["job-match"].$get({
+      param: { id, slug },
+    }),
+    "加载岗位匹配结果失败",
   );
 }
 

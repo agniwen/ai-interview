@@ -2,10 +2,15 @@
 
 import { IconFileSearch, IconLoader2 } from "@tabler/icons-react";
 import type {
+  JobDescriptionListRecord,
   JobDescriptionRecommendation,
   JobDescriptionRecommendationResult,
 } from "@arc/shared/job-descriptions";
-import type { ResumePoolDetail } from "@arc/shared/resume-pool";
+import type {
+  ResumePoolDetail,
+  ResumePoolJobMatchCandidate,
+  ResumePoolJobMatchResult,
+} from "@arc/shared/resume-pool";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +25,12 @@ import {
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { bindResumePoolItem, isApiError, rpcFetch } from "@/lib/client/api";
+import {
+  bindResumePoolItem,
+  fetchResumePoolJobMatch,
+  isApiError,
+  rpcFetch,
+} from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
 function RecommendationsSkeleton() {
@@ -103,8 +113,111 @@ function JobDescriptionRecommendationCard({
   );
 }
 
+function PersistedJobMatchCandidateCard({
+  candidate,
+  disabled,
+  matching,
+  onMatch,
+}: {
+  candidate: ResumePoolJobMatchCandidate;
+  disabled: boolean;
+  matching: boolean;
+  onMatch: (jobDescriptionId: string) => void;
+}) {
+  let actionLabel = "岗位已停止招聘";
+  if (candidate.isCurrent) {
+    actionLabel = "当前关联岗位";
+  } else if (candidate.available) {
+    actionLabel = "改绑到此岗位";
+  }
+  return (
+    <Card className="min-w-0 overflow-hidden rounded-md py-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 border-border/70 border-b px-3 py-3">
+        <div className="min-w-0">
+          <CardTitle className="truncate text-sm leading-5">{candidate.name}</CardTitle>
+          {candidate.departmentName ? (
+            <p className="mt-1 truncate text-muted-foreground text-xs">
+              {candidate.departmentName}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {candidate.aiRank ? <Badge variant="outline">AI #{candidate.aiRank}</Badge> : null}
+          {candidate.aiScore === null ? null : (
+            <Badge variant="secondary">AI 分 {candidate.aiScore}</Badge>
+          )}
+          {candidate.vectorScore === null ? null : (
+            <Badge variant="outline">向量分 {candidate.vectorScore}</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="px-3 py-3 text-xs">
+        <p className="wrap-break-word text-muted-foreground leading-5">
+          {candidate.aiReason ?? "该岗位由明确投递线索或向量排序选出。"}
+        </p>
+      </CardContent>
+      <CardFooter className="border-muted/60 border-t px-3 py-3">
+        <Button
+          className="w-full"
+          disabled={disabled || candidate.isCurrent || !candidate.available}
+          onClick={() => onMatch(candidate.id)}
+          size="sm"
+          type="button"
+          variant={candidate.isCurrent ? "secondary" : "outline"}
+        >
+          {matching ? <IconLoader2 className="size-4 animate-spin" /> : null}
+          {actionLabel}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function PublishedJobCard({
+  actionLabel,
+  disabled,
+  jobDescription,
+  matching,
+  onMatch,
+}: {
+  actionLabel: string;
+  disabled: boolean;
+  jobDescription: JobDescriptionListRecord;
+  matching: boolean;
+  onMatch: (jobDescriptionId: string) => void;
+}) {
+  return (
+    <Card className="min-w-0 overflow-hidden rounded-md py-0">
+      <CardHeader className="border-border/70 border-b px-3 py-3">
+        <CardTitle className="truncate text-sm leading-5">{jobDescription.name}</CardTitle>
+        {jobDescription.departmentName ? (
+          <p className="truncate text-muted-foreground text-xs">{jobDescription.departmentName}</p>
+        ) : null}
+      </CardHeader>
+      <CardFooter className="px-3 py-3">
+        <Button
+          className="w-full"
+          disabled={disabled}
+          onClick={() => onMatch(jobDescription.id)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {matching ? <IconLoader2 className="size-4 animate-spin" /> : null}
+          {actionLabel}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 export interface ResumePoolRecommendationsDependencies {
   bindResumePoolItem: typeof bindResumePoolItem;
+  fetchMatchResult: (
+    slug: string,
+    resumePoolItemId: string,
+  ) => Promise<ResumePoolJobMatchResult | null>;
+  fetchPublishedJobs: (slug: string) => Promise<JobDescriptionListRecord[]>;
   fetchRecommendations: (
     slug: string,
     resumePoolItemId: string,
@@ -115,6 +228,14 @@ export interface ResumePoolRecommendationsDependencies {
 
 const defaultDependencies: ResumePoolRecommendationsDependencies = {
   bindResumePoolItem,
+  fetchMatchResult: fetchResumePoolJobMatch,
+  fetchPublishedJobs: async (slug) => {
+    const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+      rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({ param: { slug } }),
+      "加载在招岗位列表失败",
+    );
+    return payload.records;
+  },
   fetchRecommendations: (slug, resumePoolItemId) =>
     rpcFetch<JobDescriptionRecommendationResult>(
       rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
@@ -127,6 +248,7 @@ const defaultDependencies: ResumePoolRecommendationsDependencies = {
   notifyError: (message) => toast.error(message),
 };
 
+/* oxlint-disable complexity -- this panel coordinates dependent persisted-match, published-job fallback, recommendation, and bind states. */
 export function ResumePoolRecommendationsPanel({
   detail,
   dependencies = defaultDependencies,
@@ -140,10 +262,32 @@ export function ResumePoolRecommendationsPanel({
 }) {
   const bound = Boolean(detail.jobDescriptionId);
   const queryClient = useQueryClient();
+  const matchQuery = useQuery({
+    queryFn: () => dependencies.fetchMatchResult(slug, detail.id),
+    queryKey: ["resume-pool", "job-match", slug, detail.id] as const,
+    staleTime: 60 * 1000,
+  });
   const query = useQuery({
-    enabled: !bound,
+    enabled: matchQuery.isSuccess && !matchQuery.data && !bound,
     queryFn: () => dependencies.fetchRecommendations(slug, detail.id),
     queryKey: ["resume-pool", "jd-recommendations", slug, detail.id] as const,
+    staleTime: 60 * 1000,
+  });
+  const hasPersistedAlternative = Boolean(
+    matchQuery.data?.candidates.some((candidate) => candidate.available && !candidate.isCurrent),
+  );
+  const hasAvailablePersistedCandidate = Boolean(
+    matchQuery.data?.candidates.some((candidate) => candidate.available),
+  );
+  const needsPublishedJobFallback =
+    matchQuery.isSuccess &&
+    (bound
+      ? !matchQuery.data || !hasPersistedAlternative
+      : Boolean(matchQuery.data && !hasAvailablePersistedCandidate));
+  const publishedJobsQuery = useQuery({
+    enabled: needsPublishedJobFallback,
+    queryFn: () => dependencies.fetchPublishedJobs(slug),
+    queryKey: ["job-descriptions", "recruiting", slug] as const,
     staleTime: 60 * 1000,
   });
 
@@ -163,20 +307,19 @@ export function ResumePoolRecommendationsPanel({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["resume-pool", "detail", slug, detail.id] });
       void queryClient.invalidateQueries({ queryKey: ["resume-pool", slug] });
+      void queryClient.invalidateQueries({
+        queryKey: ["resume-pool", "job-match", slug, detail.id],
+      });
       // 直接通知父级关闭弹窗，不依赖详情 refetch 翻转 bound（refetch 慢/失败时也能关）。
       onBound?.();
     },
   });
 
-  if (bound) {
-    return null;
-  }
-
-  if (query.isLoading) {
+  if (matchQuery.isLoading || query.isLoading || publishedJobsQuery.isLoading) {
     return <RecommendationsSkeleton />;
   }
 
-  if (query.isError) {
+  if (matchQuery.isError || query.isError || publishedJobsQuery.isError) {
     return (
       <Empty className="border-border">
         <EmptyHeader>
@@ -187,6 +330,57 @@ export function ResumePoolRecommendationsPanel({
           <EmptyDescription>请稍后重试。</EmptyDescription>
         </EmptyHeader>
       </Empty>
+    );
+  }
+
+  if (matchQuery.data && (bound ? hasPersistedAlternative : hasAvailablePersistedCandidate)) {
+    return (
+      <div className="space-y-3">
+        {matchQuery.data.candidates.map((candidate) => (
+          <PersistedJobMatchCandidateCard
+            candidate={candidate}
+            disabled={bindMutation.isPending}
+            key={candidate.id}
+            matching={bindMutation.isPending && bindMutation.variables === candidate.id}
+            onMatch={(jobDescriptionId) => bindMutation.mutate(jobDescriptionId)}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (needsPublishedJobFallback) {
+    const availablePublishedJobs = (publishedJobsQuery.data ?? []).filter(
+      (jobDescription) => jobDescription.id !== detail.jobDescriptionId,
+    );
+    if (availablePublishedJobs.length === 0) {
+      return (
+        <Empty className="border-border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconFileSearch className="size-5" />
+            </EmptyMedia>
+            <EmptyTitle>{bound ? "暂无其他发布岗位" : "暂无发布岗位"}</EmptyTitle>
+            <EmptyDescription>
+              {bound ? "当前没有可用于改绑的其他在招岗位。" : "当前没有可用于绑定的在招岗位。"}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        {availablePublishedJobs.map((jobDescription) => (
+          <PublishedJobCard
+            actionLabel={bound ? "改绑到此岗位" : "绑定到此岗位"}
+            disabled={bindMutation.isPending}
+            jobDescription={jobDescription}
+            key={jobDescription.id}
+            matching={bindMutation.isPending && bindMutation.variables === jobDescription.id}
+            onMatch={(jobDescriptionId) => bindMutation.mutate(jobDescriptionId)}
+          />
+        ))}
+      </div>
     );
   }
 
@@ -264,3 +458,4 @@ export function ResumePoolRecommendationsPanel({
     </div>
   );
 }
+/* oxlint-enable complexity */

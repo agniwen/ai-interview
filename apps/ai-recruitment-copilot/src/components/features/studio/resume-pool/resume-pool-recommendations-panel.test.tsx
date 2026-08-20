@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { ResumePoolDetail } from "@arc/shared/resume-pool";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -11,6 +12,12 @@ import type { ResumePoolRecommendationsDependencies } from "./resume-pool-recomm
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const rpcFetchMock = vi.hoisted(() => vi.fn());
+const fetchMatchResultMock = vi.hoisted(() =>
+  vi.fn<ResumePoolRecommendationsDependencies["fetchMatchResult"]>(() => Promise.resolve(null)),
+);
+const fetchPublishedJobsMock = vi.hoisted(() =>
+  vi.fn<ResumePoolRecommendationsDependencies["fetchPublishedJobs"]>(() => Promise.resolve([])),
+);
 const bindResumePoolItemMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
 
@@ -25,6 +32,8 @@ class MockApiError extends Error {
 
 const dependencies: ResumePoolRecommendationsDependencies = {
   bindResumePoolItem: bindResumePoolItemMock,
+  fetchMatchResult: fetchMatchResultMock,
+  fetchPublishedJobs: fetchPublishedJobsMock,
   fetchRecommendations: rpcFetchMock,
   isConflictError: (error) => error instanceof MockApiError && error.status === 409,
   notifyError: toastErrorMock,
@@ -32,7 +41,9 @@ const dependencies: ResumePoolRecommendationsDependencies = {
 
 afterEach(() => {
   document.body.innerHTML = "";
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  fetchMatchResultMock.mockResolvedValue(null);
+  fetchPublishedJobsMock.mockResolvedValue([]);
 });
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -57,6 +68,12 @@ const readyResult = {
   resume: { id: "resume-1" },
   status: "ready",
 };
+
+// SAFETY: The panel only reads these list fields; the production dependency returns full records.
+const publishedJobs = [
+  { departmentName: "研发部", id: "jd-1", name: "前端工程师" },
+  { departmentName: "研发部", id: "jd-2", name: "全栈工程师" },
+] as JobDescriptionListRecord[];
 
 function renderPanel() {
   const container = document.createElement("div");
@@ -93,18 +110,163 @@ function findMatchButton() {
 }
 
 describe("ResumePoolRecommendationsPanel", () => {
-  it("renders nothing when the resume is already bound to a job description", async () => {
+  it("lists other published jobs when a bound resume has no persisted match run", async () => {
+    fetchPublishedJobsMock.mockResolvedValue(publishedJobs);
+    bindResumePoolItemMock.mockResolvedValue({ ...baseDetail, jobDescriptionId: "jd-2" });
     const { root } = await renderAndFlush({
       ...baseDetail,
       jobDescriptionId: "jd-1",
     });
 
     expect(rpcFetchMock).not.toHaveBeenCalled();
-    expect(document.body.textContent).toBe("");
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("全栈工程师");
+      expect(document.body.textContent).toContain("改绑到此岗位");
+    });
+    expect(document.body.textContent).not.toContain("前端工程师");
+    const rebindButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("改绑到此岗位"),
+    );
+    await act(async () => {
+      rebindButton?.click();
+      await Promise.resolve();
+    });
+    expect(bindResumePoolItemMock).toHaveBeenCalledWith("test-slug", "resume-1", "jd-2");
 
     act(() => {
       root.unmount();
     });
+  });
+
+  it("shows persisted AI candidates for a bound mail resume and allows HR to rebind", async () => {
+    fetchMatchResultMock.mockResolvedValueOnce({
+      candidates: [
+        {
+          aiRank: 1,
+          aiReason: "前端经验最匹配",
+          aiScore: 88,
+          available: true,
+          code: "FE00001",
+          departmentName: "研发部",
+          id: "jd-1",
+          isCurrent: true,
+          name: "前端工程师",
+          recallRank: 1,
+          vectorScore: 20,
+        },
+        {
+          aiRank: 2,
+          aiReason: "具备部分全栈经验",
+          aiScore: 76,
+          available: true,
+          code: "FS00001",
+          departmentName: "研发部",
+          id: "jd-2",
+          isCurrent: false,
+          name: "全栈工程师",
+          recallRank: 2,
+          vectorScore: 18,
+        },
+      ],
+      createdAt: "2026-08-20T00:00:00.000Z",
+      id: "run-1",
+      selectedJobDescriptionId: "jd-1",
+      selectionMethod: "ai_rerank",
+      status: "succeeded",
+    });
+    bindResumePoolItemMock.mockResolvedValue({ ...baseDetail, jobDescriptionId: "jd-2" });
+
+    const { root } = await renderAndFlush({ ...baseDetail, jobDescriptionId: "jd-1" });
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("当前关联岗位");
+      expect(document.body.textContent).toContain("改绑到此岗位");
+      expect(document.body.textContent).toContain("AI 分 88");
+      expect(document.body.textContent).toContain("向量分 20");
+    });
+    expect(fetchPublishedJobsMock).not.toHaveBeenCalled();
+    const rebindButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("改绑到此岗位"),
+    );
+    await act(async () => {
+      rebindButton?.click();
+      await Promise.resolve();
+    });
+    expect(bindResumePoolItemMock).toHaveBeenCalledWith("test-slug", "resume-1", "jd-2");
+
+    act(() => root.unmount());
+  });
+
+  it("falls back to published jobs when an exact match run only persisted the current job", async () => {
+    fetchMatchResultMock.mockResolvedValue({
+      candidates: [
+        {
+          aiRank: null,
+          aiReason: null,
+          aiScore: null,
+          available: true,
+          code: "FE00001",
+          departmentName: "研发部",
+          id: "jd-1",
+          isCurrent: true,
+          name: "前端工程师",
+          recallRank: 1,
+          vectorScore: null,
+        },
+      ],
+      createdAt: "2026-08-20T00:00:00.000Z",
+      id: "run-exact",
+      selectedJobDescriptionId: "jd-1",
+      selectionMethod: "filename_exact",
+      status: "succeeded",
+    });
+    fetchPublishedJobsMock.mockResolvedValue(publishedJobs);
+
+    const { root } = await renderAndFlush({ ...baseDetail, jobDescriptionId: "jd-1" });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("全栈工程师");
+      expect(document.body.textContent).toContain("改绑到此岗位");
+    });
+
+    act(() => root.unmount());
+  });
+
+  it("shows an explicit empty state when no other published job can be selected", async () => {
+    const [currentPublishedJob] = publishedJobs;
+    if (!currentPublishedJob) {
+      throw new Error("missing current published job fixture");
+    }
+    fetchPublishedJobsMock.mockResolvedValue([currentPublishedJob]);
+
+    const { root } = await renderAndFlush({ ...baseDetail, jobDescriptionId: "jd-1" });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("暂无其他发布岗位");
+    });
+
+    act(() => root.unmount());
+  });
+
+  it("falls back to published jobs when an unbound resume persisted no candidates", async () => {
+    fetchMatchResultMock.mockResolvedValue({
+      candidates: [],
+      createdAt: "2026-08-20T00:00:00.000Z",
+      id: "run-empty",
+      selectedJobDescriptionId: null,
+      selectionMethod: null,
+      status: "no_candidates",
+    });
+    fetchPublishedJobsMock.mockResolvedValue(publishedJobs);
+
+    const { root } = await renderAndFlush(baseDetail);
+
+    expect(rpcFetchMock).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("前端工程师");
+      expect(document.body.textContent).toContain("绑定到此岗位");
+    });
+
+    act(() => root.unmount());
   });
 
   it("renders the disabled hint when semantic indexing is disabled", async () => {

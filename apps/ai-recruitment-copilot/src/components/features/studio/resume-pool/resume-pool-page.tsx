@@ -81,6 +81,7 @@ export function ResumePoolPage() {
   const canCreateResumePool = useHasPermission("resumePool", "create");
   const canDeleteResumePool = useHasPermission("resumePool", "delete");
   const canImportResumePool = useHasPermission("resumePool", "import");
+  const canReadJobDescriptions = useHasPermission("jd", "read");
   const canPublishResumePool = useHasPermission("resumePool", "publish");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
@@ -110,6 +111,9 @@ export function ResumePoolPage() {
   } = useResumePoolPageState();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [recommendationTarget, setRecommendationTarget] = useState<ResumePoolListRecord | null>(
+    null,
+  );
 
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
   const fetcher = useMemo(
@@ -385,6 +389,7 @@ export function ResumePoolPage() {
             canDeletePoolRecords={canDeleteResumePool}
             canImportToLibrary={canImportToLibrary}
             canPublishToPool={canPublishResumePool}
+            canRecommend={canImportResumePool && canReadJobDescriptions}
             canRetryResumeParse={canRetryResumeParse}
             canUpload={canUploadResumePool}
             currentOrganizationId={currentOrganizationId}
@@ -398,6 +403,10 @@ export function ResumePoolPage() {
             onOpenDetail={setDetailRecord}
             onOpenPdf={setPreviewRecord}
             onPublish={publishMutation.mutate}
+            onRecommend={(record) => {
+              setDetailRecord(record);
+              setRecommendationTarget(record);
+            }}
             onRetryParse={retryParseMutation.mutate}
             onUpload={() => setUploadEntryOpen(true)}
             publishing={publishMutation.isPending}
@@ -486,10 +495,18 @@ export function ResumePoolPage() {
         onOpenChange={(open) => !open && setImportTarget(null)}
       />
       <ResumePoolDetailDialog
+        canRecommend={canImportResumePool && canReadJobDescriptions}
         currentUserId={currentUserId}
         onOpenDuplicateMatches={setDuplicateMatchRecord}
-        onOpenChange={(open) => !open && setDetailRecord(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailRecord(null);
+            setRecommendationTarget(null);
+          }
+        }}
+        onRecommendationsOpenChange={(open) => !open && setRecommendationTarget(null)}
         record={detailRecord}
+        recommendationTargetId={recommendationTarget?.id ?? null}
         slug={slug}
       />
       <ResumeDuplicateMatchesDialog

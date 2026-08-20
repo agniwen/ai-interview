@@ -166,6 +166,7 @@ export function ResumePoolListContent({
   canImportToLibrary,
   canResetFilters,
   canPublishToPool,
+  canRecommend,
   canRetryResumeParse,
   canUpload,
   currentOrganizationId,
@@ -179,6 +180,7 @@ export function ResumePoolListContent({
   onOpenDetail,
   onOpenPdf,
   onPublish,
+  onRecommend,
   onRetryParse,
   onUpload,
   publishing,
@@ -194,6 +196,7 @@ export function ResumePoolListContent({
   canDeletePoolRecords: boolean;
   canImportToLibrary: boolean;
   canPublishToPool: boolean;
+  canRecommend: boolean;
   canRetryResumeParse: boolean;
   canUpload: boolean;
   currentOrganizationId: string | null;
@@ -209,6 +212,7 @@ export function ResumePoolListContent({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRecommend: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onUpload: () => void;
@@ -233,6 +237,7 @@ export function ResumePoolListContent({
             canDelete={canDelete}
             canImport={canImportToLibrary && canManageRecord}
             canPublish={canPublishToPool && canManageRecord}
+            canRecommend={canRecommend && canManageRecord}
             canRetryParse={
               canRetryResumeParse && canManageRecord && !retriedRecordIds.has(record.id)
             }
@@ -244,6 +249,7 @@ export function ResumePoolListContent({
             onOpenDetail={onOpenDetail}
             onOpenPdf={onOpenPdf}
             onPublish={onPublish}
+            onRecommend={onRecommend}
             onRetryParse={onRetryParse}
             publishing={publishing}
             retrying={retryingRecordId === record.id}

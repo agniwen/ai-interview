@@ -16,6 +16,7 @@ import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
@@ -137,6 +138,8 @@ export function RecruitingCopilotContextProvider({
   > | null>(null);
   const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
   const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
+  const canImportResumePool = useHasPermission("resumePool", "import");
+  const canReadJobDescriptions = useHasPermission("jd", "read");
 
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
@@ -243,6 +246,7 @@ export function RecruitingCopilotContextProvider({
       {poolDetailTarget ? (
         <Suspense fallback={null}>
           <ResumePoolDetailDialog
+            canRecommend={canImportResumePool && canReadJobDescriptions}
             currentUserId={session?.user.id ?? null}
             onOpenChange={(open) => {
               if (!open) {

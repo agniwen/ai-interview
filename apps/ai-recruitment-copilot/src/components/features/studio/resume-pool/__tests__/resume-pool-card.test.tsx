@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
-import { ResumePoolCard } from "../resume-pool-details";
+import { canManageResumePoolJobBinding, ResumePoolCard } from "../resume-pool-details";
 import { uploaderMetaLabel } from "../resume-pool-page-model";
 
 const record = {
@@ -19,6 +19,7 @@ const record = {
   importedAt: null,
   importedRecords: [],
   importedResumeRecordId: null,
+  jobBindingMode: null,
   jobDescriptionId: null,
   jobDescriptionName: null,
   masteredSkills: Array.from({ length: 12 }, (_, index) => `技能 ${index + 1}`),
@@ -91,6 +92,7 @@ describe("ResumePoolCard", () => {
         canDelete={false}
         canImport={false}
         canPublish={false}
+        canRecommend={true}
         canRetryParse={false}
         deleting={false}
         onDelete={() => {}}
@@ -99,6 +101,7 @@ describe("ResumePoolCard", () => {
         onOpenDuplicateMatches={() => {}}
         onOpenPdf={() => {}}
         onPublish={() => {}}
+        onRecommend={() => {}}
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}
@@ -120,6 +123,7 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("2025.01-2025.05");
     expect(html).toContain("负责候选人数据分析与可视化。");
     expect(html).toContain("王敏 26年07月31日:08:00 上传");
+    expect(html).toContain("推荐岗位");
   });
 
   it("labels mail-ingested resumes as an email scan", () => {
@@ -132,12 +136,13 @@ describe("ResumePoolCard", () => {
     ).toBe("26年07月31日:08:00 扫描王敏邮箱录入");
   });
 
-  it("offers an enabled reimport action for an imported resume", () => {
+  it("shows text labels for the target role and bound job", () => {
     const html = renderCard(
       <ResumePoolCard
         canDelete={false}
-        canImport={true}
+        canImport={false}
         canPublish={false}
+        canRecommend={true}
         canRetryParse={false}
         deleting={false}
         onDelete={() => {}}
@@ -146,6 +151,46 @@ describe("ResumePoolCard", () => {
         onOpenDuplicateMatches={() => {}}
         onOpenPdf={() => {}}
         onPublish={() => {}}
+        onRecommend={() => {}}
+        onRetryParse={() => {}}
+        onSelectionChange={() => {}}
+        publishing={false}
+        record={{
+          ...record,
+          jobBindingMode: "automatic",
+          jobDescriptionId: "jd-commercial-operations",
+          targetRole: "内容运营",
+        }}
+        retrying={false}
+        scope="public"
+        selected={false}
+        selectionDisabled={false}
+      />,
+    );
+
+    expect(html).toContain("目标岗位：");
+    expect(html).toContain("内容运营");
+    expect(html).toContain("绑定岗位：");
+    expect(html).toContain("已绑定");
+    expect(html).toContain("自动");
+  });
+
+  it("offers an enabled reimport action for an imported resume", () => {
+    const html = renderCard(
+      <ResumePoolCard
+        canDelete={false}
+        canImport={true}
+        canPublish={false}
+        canRecommend={true}
+        canRetryParse={false}
+        deleting={false}
+        onDelete={() => {}}
+        onImport={() => {}}
+        onOpenDetail={() => {}}
+        onOpenDuplicateMatches={() => {}}
+        onOpenPdf={() => {}}
+        onPublish={() => {}}
+        onRecommend={() => {}}
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}
@@ -160,5 +205,25 @@ describe("ResumePoolCard", () => {
 
     expect(reimportButton).toBeDefined();
     expect(reimportButton).not.toMatch(/\sdisabled(?:=|\s|>)/u);
+  });
+
+  it("denies job recommendation actions without permission", () => {
+    expect(
+      canManageResumePoolJobBinding({
+        canRecommend: false,
+        currentUserId: "user-1",
+        detail: record,
+      }),
+    ).toBe(false);
+  });
+
+  it("denies job recommendation actions for another user's private resume", () => {
+    expect(
+      canManageResumePoolJobBinding({
+        canRecommend: true,
+        currentUserId: "user-2",
+        detail: { ...record, scope: "private" },
+      }),
+    ).toBe(false);
   });
 });

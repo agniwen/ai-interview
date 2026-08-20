@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- resume-pool detail and card views remain co-located in this feature module. */
 "use client";
 import type { TablerIcon } from "@tabler/icons-react";
 import {
@@ -17,6 +18,7 @@ import { Link } from "@tanstack/react-router";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type {
   ResumePoolDetail,
+  ResumePoolJobBindingMode,
   ResumePoolLatestExperienceDetail,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
@@ -74,6 +76,17 @@ function textOrDash(value: string | number | null | undefined) {
     return "—";
   }
   return String(value);
+}
+
+function JobBindingModeBadge({ mode }: { mode: ResumePoolJobBindingMode | null }) {
+  if (!mode) {
+    return null;
+  }
+  return (
+    <Badge variant={mode === "automatic" ? "secondary" : "outline"}>
+      {mode === "automatic" ? "自动" : "手动"}
+    </Badge>
+  );
 }
 
 function DetailSummaryItem({ children, label }: { label: string; children: ReactNode }) {
@@ -141,24 +154,42 @@ function ResumePoolDetailSummaryPanel({
 
       <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
-        <DetailSummaryItem label="关联岗位">
+        <DetailSummaryItem label="绑定岗位">
           {(() => {
             // 岗位名已按当前组织过滤：有名字=本组织可见的岗位，才做深链；
             // 有 jobDescriptionId 但无名字=岗位已不可见（删除/换岗等），仅提示不跳转。
             if (detail.jobDescriptionName) {
               return (
-                <Link
-                  className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-                  params={{ slug }}
-                  search={{ jobDescriptionId: detail.jobDescriptionId ?? undefined }}
-                  to="/w/$slug/studio/job-descriptions"
-                >
-                  {detail.jobDescriptionName}
-                </Link>
+                <span className="inline-flex items-center gap-2">
+                  <Link
+                    className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+                    params={{ slug }}
+                    search={{ jobDescriptionId: detail.jobDescriptionId ?? undefined }}
+                    to="/w/$slug/studio/job-descriptions"
+                  >
+                    {detail.jobDescriptionName}
+                  </Link>
+                  <JobBindingModeBadge mode={detail.jobBindingMode} />
+                  {onRequestRecommendations ? (
+                    <Button onClick={onRequestRecommendations} size="xs" variant="outline">
+                      更换
+                    </Button>
+                  ) : null}
+                </span>
               );
             }
             if (detail.jobDescriptionId) {
-              return <span className="text-muted-foreground/60">已关联岗位</span>;
+              return (
+                <span className="inline-flex items-center gap-2 text-muted-foreground/60">
+                  已绑定岗位
+                  <JobBindingModeBadge mode={detail.jobBindingMode} />
+                  {onRequestRecommendations ? (
+                    <Button onClick={onRequestRecommendations} size="xs" variant="outline">
+                      更换
+                    </Button>
+                  ) : null}
+                </span>
+              );
             }
             return onRequestRecommendations ? (
               <span className="inline-flex items-center gap-2">
@@ -386,19 +417,36 @@ function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }
   );
 }
 
+export function canManageResumePoolJobBinding(input: {
+  canRecommend: boolean;
+  currentUserId: string | null;
+  detail: ResumePoolDetailLike | null;
+}): boolean {
+  return (
+    input.canRecommend &&
+    (input.detail?.scope !== "private" || input.detail.createdBy === input.currentUserId)
+  );
+}
+
 export function ResumePoolDetailDialog({
+  canRecommend,
   currentUserId,
   onOpenDuplicateMatches,
   onOpenChange,
+  onRecommendationsOpenChange,
   record,
   recordId,
+  recommendationTargetId,
   slug,
 }: {
+  canRecommend: boolean;
   currentUserId: string | null;
   record: ResumePoolListRecord | null;
   recordId?: string | null;
+  recommendationTargetId?: string | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
+  onRecommendationsOpenChange?: (open: boolean) => void;
   onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
 }) {
   const itemId = record?.id ?? recordId ?? "";
@@ -413,23 +461,24 @@ export function ResumePoolDetailDialog({
     queryKey: ["resume-pool", "detail", slug, itemId],
   });
   const detail: ResumePoolDetail | ResumePoolListRecord | null = detailQuery.data ?? record;
-  const canManageDetail = detail?.scope !== "private" || detail.createdBy === currentUserId;
+  const canManageJobBinding = canManageResumePoolJobBinding({
+    canRecommend,
+    currentUserId,
+    detail,
+  });
   const resumeProfile = detailQuery.data?.resumeProfile ?? null;
   const [recommendationsOpen, setRecommendationsOpen] = useState(false);
-  const bound = Boolean(detailQuery.data?.jobDescriptionId);
   // 切换到另一份简历时关闭推荐弹窗，避免状态残留
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setRecommendationsOpen(false);
   }, [itemId]);
-  // 绑定成功后（简历变为已关联）自动关闭推荐弹窗，让用户看到更新后的「关联岗位」字段
   useEffect(() => {
-    if (recommendationsOpen && bound) {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setRecommendationsOpen(false);
+    if (canManageJobBinding && recommendationTargetId === itemId && itemId) {
+      // oxlint-disable-next-line react/set-state-in-effect -- The card action opens the existing recommendation dialog for its selected item.
+      setRecommendationsOpen(true);
     }
-  }, [recommendationsOpen, bound]);
-
+  }, [canManageJobBinding, itemId, recommendationTargetId]);
   return (
     <>
       <Modal
@@ -449,7 +498,7 @@ export function ResumePoolDetailDialog({
                 record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
               }
               onRequestRecommendations={
-                canManageDetail ? () => setRecommendationsOpen(true) : undefined
+                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
               }
               resumeProfile={resumeProfile}
               slug={slug}
@@ -463,8 +512,11 @@ export function ResumePoolDetailDialog({
         ) : null}
       </Modal>
       <Modal
-        onOpenChange={setRecommendationsOpen}
-        open={recommendationsOpen}
+        onOpenChange={(open) => {
+          setRecommendationsOpen(open);
+          onRecommendationsOpenChange?.(open);
+        }}
+        open={canManageJobBinding && recommendationsOpen}
         size="xl"
         title="推荐岗位"
       >
@@ -586,6 +638,7 @@ export function ResumePoolCard({
   canDelete,
   canImport,
   canPublish,
+  canRecommend,
   canRetryParse,
   deleting,
   onDelete,
@@ -594,6 +647,7 @@ export function ResumePoolCard({
   onOpenPdf,
   onImport,
   onPublish,
+  onRecommend,
   onRetryParse,
   onSelectionChange,
   publishing,
@@ -608,6 +662,7 @@ export function ResumePoolCard({
   canDelete: boolean;
   canImport: boolean;
   canPublish: boolean;
+  canRecommend: boolean;
   canRetryParse: boolean;
   publishing: boolean;
   retrying: boolean;
@@ -619,6 +674,7 @@ export function ResumePoolCard({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRecommend: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
@@ -706,29 +762,53 @@ export function ResumePoolCard({
       <CardContent className="flex flex-col gap-3 p-3 text-xs">
         <div className="flex flex-col gap-1.5 text-muted-foreground">
           <div className="flex min-w-0 items-center gap-1.5">
-            <IconBriefcase2 className="size-3.5 shrink-0" />
-            <span className="truncate">{record.targetRole || "未填写目标岗位"}</span>
+            <IconBriefcase2 aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="shrink-0 text-muted-foreground/70">目标岗位：</span>
+            <span className="truncate text-foreground/80">{record.targetRole || "未填写"}</span>
           </div>
           <div className="flex min-w-0 items-center gap-1.5">
-            <IconLink className="size-3.5 shrink-0" />
+            <IconLink aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="shrink-0 text-muted-foreground/70">绑定岗位：</span>
             {(() => {
               if (record.jobDescriptionName) {
                 return (
-                  <Link
-                    className="truncate underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-                    onClick={(event) => event.stopPropagation()}
-                    params={{ slug }}
-                    search={{ jobDescriptionId: record.jobDescriptionId ?? undefined }}
-                    title={record.jobDescriptionName}
-                    to="/w/$slug/studio/job-descriptions"
-                  >
-                    {record.jobDescriptionName}
-                  </Link>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Link
+                      className="truncate text-foreground/80 underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+                      onClick={(event) => event.stopPropagation()}
+                      params={{ slug }}
+                      search={{ jobDescriptionId: record.jobDescriptionId ?? undefined }}
+                      title={record.jobDescriptionName}
+                      to="/w/$slug/studio/job-descriptions"
+                    >
+                      {record.jobDescriptionName}
+                    </Link>
+                    <JobBindingModeBadge mode={record.jobBindingMode} />
+                  </span>
+                );
+              }
+              if (record.jobDescriptionId) {
+                return (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-muted-foreground/60">已绑定</span>
+                    <JobBindingModeBadge mode={record.jobBindingMode} />
+                  </span>
                 );
               }
               return (
-                <span className="truncate text-muted-foreground/60">
-                  {record.jobDescriptionId ? "已关联岗位" : "未关联岗位"}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-muted-foreground/60">未关联</span>
+                  {canRecommend ? (
+                    <Button
+                      aria-label="推荐岗位"
+                      className="shrink-0"
+                      onClick={() => onRecommend(record)}
+                      size="xs"
+                      variant="outline"
+                    >
+                      推荐
+                    </Button>
+                  ) : null}
                 </span>
               );
             })()}
