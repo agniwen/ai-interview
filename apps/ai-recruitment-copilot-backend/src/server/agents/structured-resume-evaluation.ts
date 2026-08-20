@@ -1,5 +1,6 @@
 /* oxlint-disable max-lines -- the evaluator keeps its schemas, Agent prompts, deterministic normalization, scoring, and artifact assembly in one versioned module. */
 import { z } from "zod";
+import type { JsonValue } from "@arc/db-schema/json";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
 import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
@@ -284,6 +285,59 @@ const STRUCTURED_DIMENSION_LABELS = {
   stability: "稳定",
 } as const;
 
+const EVIDENCE_CATALOG_CHUNK_LENGTH = 400;
+const EVIDENCE_CATALOG_MAX_TEXT_CHUNKS = 200;
+const evidenceCatalogScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
+const evidenceCatalogArraySchema = z.array(z.json());
+const evidenceCatalogObjectSchema = z.record(z.string(), z.json());
+
+function chunkEvidenceCatalogValue(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const chunks: string[] = [];
+  for (let offset = 0; offset < trimmed.length; offset += EVIDENCE_CATALOG_CHUNK_LENGTH) {
+    chunks.push(trimmed.slice(offset, offset + EVIDENCE_CATALOG_CHUNK_LENGTH));
+  }
+  return chunks;
+}
+
+function collectProfileEvidenceCatalog(value: JsonValue, output: string[]): void {
+  const scalar = evidenceCatalogScalarSchema.safeParse(value);
+  if (scalar.success) {
+    output.push(...chunkEvidenceCatalogValue(String(scalar.data)));
+    return;
+  }
+  const array = evidenceCatalogArraySchema.safeParse(value);
+  if (array.success) {
+    for (const item of array.data) {
+      collectProfileEvidenceCatalog(item, output);
+    }
+    return;
+  }
+  const object = evidenceCatalogObjectSchema.safeParse(value);
+  if (!object.success) {
+    return;
+  }
+  for (const item of Object.values(object.data)) {
+    collectProfileEvidenceCatalog(item, output);
+  }
+}
+
+function buildEvidenceQuoteCatalog(input: StructuredResumeWorkflowInput): string {
+  const profileValues: string[] = [];
+  collectProfileEvidenceCatalog(input.resumeInput.resumeProfile, profileValues);
+  const textValues = (input.resumeInput.resumeText ?? "")
+    .split(/\r?\n/u)
+    .flatMap(chunkEvidenceCatalogValue)
+    .slice(0, EVIDENCE_CATALOG_MAX_TEXT_CHUNKS);
+  return JSON.stringify({
+    resume_profile: [...new Set(profileValues)],
+    resume_text: [...new Set(textValues)],
+  });
+}
+
 const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   `扣分规则目录版本：${STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION}`,
   "只判断下列规则的事实状态；不得自行创造、合并或修改规则：",
@@ -302,6 +356,9 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "技能不得通过 ruleJudgments 返回。以岗位蓝图 coreSkills 和 auxiliarySkills 去重，core 优先；每个去重后的岗位技能必须且只能返回一个 skillFacts，status 只能是 applied、shallow、missing。",
   "同一技能不得同时返回 shallow 与 missing。applied 表示有实际运用证据；shallow 表示仅提及或浅层了解、无实操；missing 表示简历中没有该岗位技能。",
   "matched、applied、shallow 必须提供来源引文；missing、not_applicable 或证据确实不足时可以返回空 evidence，禁止编造不存在的引文。",
+  "生成 quote 前必须在对应来源中逐字查找并复制粘贴最短连续片段；禁止使用省略号（... 或 …），禁止拼接被其他文字隔开的片段。",
+  "resume_profile 的 quote 只能复制 JSON 中的字符串值；禁止把 JSON 字段名当作 quote，例如 projectExperiences、workExperiences。找不到逐字连续证据时返回空 evidence 和证据不足状态。",
+  "employmentEpisodes 的日期、公司、职位必须分别引用各自的字符串叶子值，使用多条 evidence 表达；禁止自行拼成简历摘要句。projects 同理，只引用项目名称或描述中的单个连续原文片段。",
   "每项最多 2 条证据，每条 quote 只引用能支持判断的最短原文片段；reason 保持简洁。",
   "employmentEpisodes 只输出源证据支持的月级事实，无法解析的日期保留 null。",
   "projects 只返回与岗位要求可能相关的项目；无相关项目时返回空数组，不要枚举明确无关的项目。",
@@ -317,9 +374,51 @@ function buildPrompt(
     ...(guidance ? [guidance] : []),
     "所有判断必须引用简历原文或结构化档案证据。",
     "quote 必须是声明来源中的逐字连续片段：resume_text 引用连续原文，resume_profile 引用单个字符串叶子值；不得跨字段拼接、改写或概括。",
+    `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${buildEvidenceQuoteCatalog(input)}`,
     "不得输出扣分、时长合计、维度分、综合分或等级。",
     JSON.stringify(input),
   ].join("\n");
+}
+
+const EVIDENCE_FRAGMENT_SEPARATOR = /[，。；：、,.!?！？:;（）()【】[\]/|]+/u;
+const EVIDENCE_TERMINAL_PUNCTUATION = /[，。；：、,.!?！？:;]+$/u;
+const MIN_AUDITABLE_EVIDENCE_FRAGMENT_LENGTH = 8;
+
+function auditableEvidenceFragments(quote: string): string[] {
+  const withoutTerminalPunctuation = quote.trim().replace(EVIDENCE_TERMINAL_PUNCTUATION, "");
+  return [...new Set([withoutTerminalPunctuation, ...quote.split(EVIDENCE_FRAGMENT_SEPARATOR)])]
+    .map((fragment) => fragment.trim())
+    .filter(
+      (fragment) =>
+        fragment.replaceAll(/\s+/g, "").length >= MIN_AUDITABLE_EVIDENCE_FRAGMENT_LENGTH &&
+        fragment !== quote,
+    )
+    .toSorted((left, right) => right.length - left.length);
+}
+
+function findAuditableEvidenceCorrection(
+  workflowInput: StructuredResumeWorkflowInput,
+  evidence: z.infer<typeof structuredResumeEvidenceSchema>,
+): z.infer<typeof structuredResumeEvidenceSchema> | null {
+  const sources = [
+    evidence.source,
+    evidence.source === "resume_text" ? "resume_profile" : "resume_text",
+  ] as const;
+  for (const quote of auditableEvidenceFragments(evidence.quote)) {
+    for (const source of sources) {
+      const corrected = { quote, source };
+      if (
+        areStructuredResumeEvidenceSourcesValid({
+          evidence: [corrected],
+          resumeProfile: workflowInput.resumeInput.resumeProfile,
+          resumeText: workflowInput.resumeInput.resumeText,
+        })
+      ) {
+        return corrected;
+      }
+    }
+  }
+  return null;
 }
 
 function validateEvidenceList(
@@ -346,6 +445,12 @@ function validateEvidenceList(
       })
     ) {
       item.source = correctedSource;
+      continue;
+    }
+    const correctedEvidence = findAuditableEvidenceCorrection(workflowInput, item);
+    if (correctedEvidence) {
+      item.quote = correctedEvidence.quote;
+      item.source = correctedEvidence.source;
       continue;
     }
     const quote = item.quote.replaceAll(/\s+/g, " ").slice(0, 120);
@@ -391,7 +496,23 @@ function validateGateAgentOutput(
   ];
   for (const requirement of numericExperienceRequirements) {
     const result = outputById.get(requirement.requirementId);
-    if (!result || result.experienceEpisodes === undefined) {
+    if (!result) {
+      const synthesized = {
+        aiStatus: "failed" as const,
+        evidence: [],
+        experienceEpisodes: [],
+        reason: "AI 未返回该数值经验要求的有效判断。",
+        requirementId: requirement.requirementId,
+      };
+      output.judgments.push(synthesized);
+      outputById.set(requirement.requirementId, synthesized);
+      continue;
+    }
+    if (result?.aiStatus === "failed" && result.experienceEpisodes === undefined) {
+      result.experienceEpisodes = [];
+      continue;
+    }
+    if (result.experienceEpisodes === undefined) {
       throw new Error(
         `STRUCTURED_RESUME_EXPERIENCE_EPISODES_REQUIRED：${requirement.sourceText} 必须返回 experienceEpisodes`,
       );
@@ -414,6 +535,7 @@ export function judgeStructuredHardGates(
         "needs_verification 仅用于简历已有相关证据但证据相互冲突、日期或含义无法可靠确定的情况。",
         "门槛写明数值范围时按闭区间精确判断；只出现高于上限或低于下限的证据不得视为命中，例如带过 8 人团队不等于带过 3-6 人团队。",
         "对每个包含明确年限的 work_experience 门槛，必须返回 experienceEpisodes：逐段列出满足该门槛特定口径的任职起止月份，不得计算总月份；完全没有相关经历时返回空数组。",
+        "上述数值经验要求的每个 judgment 都必须包含 experienceEpisodes 字段；即使判断为 failed 且没有相关经历，也必须显式返回空数组，禁止省略字段。",
         "对 blueprint.requiredRelevantExperiences 中的每个评分要求，也必须按 requirementId 返回独立判断和 experienceEpisodes；这些要求只用于经验缺年扣分，不会自动成为硬性门槛。",
         "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
       ].join("\n"),

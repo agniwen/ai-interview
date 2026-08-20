@@ -270,6 +270,13 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("projects 只返回与岗位要求可能相关的项目");
     expect(prompt).toContain("quote 必须是声明来源中的逐字连续片段");
     expect(prompt).toContain("不得跨字段拼接");
+    expect(prompt).toContain("禁止把 JSON 字段名当作 quote");
+    expect(prompt).toContain("禁止使用省略号");
+    expect(prompt).toContain("复制粘贴");
+    expect(prompt).toContain("日期、公司、职位必须分别引用各自的字符串叶子值");
+    expect(prompt).toContain("禁止自行拼成简历摘要句");
+    expect(prompt).toContain("证据引用白名单");
+    expect(prompt).toContain('"resume_profile":["候选人"]');
     expect(prompt).toContain('"normalizedSkill":"TypeScript"');
     expect(generatorCalls[0]?.maxOutputTokens).toBe(16_000);
     expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
@@ -311,6 +318,7 @@ describe("structured resume workflow contracts", () => {
     const prompt = generatorCalls[0]?.prompt ?? "";
     expect(prompt).toContain("简历没有写明或没有证据支持门槛要求时，判定 failed");
     expect(prompt).toContain("needs_verification 仅用于简历已有相关证据但证据相互冲突");
+    expect(prompt).toContain("即使判断为 failed 且没有相关经历，也必须显式返回空数组");
 
     const omittedGate = {
       category: "other" as const,
@@ -344,6 +352,48 @@ describe("structured resume workflow contracts", () => {
     });
   });
 
+  it("reduces a model-composed evidence sentence to a long exact source fragment", async () => {
+    const output = {
+      employmentEpisodes: [],
+      projects: [
+        {
+          current: true,
+          endMonth: null,
+          evidence: [
+            {
+              quote: "统筹应用商店分发与多渠道获客，策划并落地用户增长活动",
+              source: "resume_text",
+            },
+          ],
+          id: "project-1",
+          relevant: true,
+        },
+      ],
+      ruleJudgments: [],
+      skillFacts: [],
+    };
+    const validatingGenerator: StructuredResumeGenerator = (input) => {
+      const parsed = input.schema.parse(output);
+      input.validate?.(parsed);
+      return Promise.resolve(parsed);
+    };
+
+    const result = await judgeStructuredDimensionEvidence(
+      {
+        ...workflowInput,
+        resumeInput: {
+          ...workflowInput.resumeInput,
+          resumeText: "统筹应用商店分发与多渠道获客，端内预装及外部投放。",
+        },
+      },
+      validatingGenerator,
+    );
+
+    expect(result.projects[0]?.evidence).toEqual([
+      { quote: "统筹应用商店分发与多渠道获客", source: "resume_text" },
+    ]);
+  });
+
   it("requires qualifying episodes for every returned numeric experience gate", async () => {
     const experienceGate = {
       category: "work_experience" as const,
@@ -370,6 +420,7 @@ describe("structured resume workflow contracts", () => {
     if (!validate) {
       throw new Error("expected hard-gate output validator");
     }
+    expect(() => validate({ judgments: [] })).not.toThrow();
     expect(() =>
       validate({
         judgments: [
@@ -377,6 +428,18 @@ describe("structured resume workflow contracts", () => {
             aiStatus: "failed",
             evidence: [],
             reason: "管理经验不足",
+            requirementId: experienceGate.requirementId,
+          },
+        ],
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validate({
+        judgments: [
+          {
+            aiStatus: "passed",
+            evidence: [],
+            reason: "声称经验达标但未返回经历段",
             requirementId: experienceGate.requirementId,
           },
         ],

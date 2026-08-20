@@ -14,6 +14,7 @@
   },
   "scripts": {
     "backfill:job-evaluations": "tsx src/scripts/backfill-job-evaluations.ts",
+    "backfill:recent-resume-evaluations": "tsx src/scripts/backfill-recent-resume-evaluations.ts",
     "backfill:interview-snapshots": "tsx src/scripts/backfill-interview-snapshots.ts",
     "backfill:jd-semantic-index": "tsx src/scripts/backfill-jd-semantic-index.ts",
     "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
