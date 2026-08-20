@@ -28,5 +28,8 @@ export default defineConfig({
     // VITEST_VERBOSE=1 → list every test; default hides console from passed tests.
     reporters: verbose ? ["verbose"] : ["default"],
     silent: verbose ? false : "passed-only",
+    // Route and SSR tests import the full TanStack graph and can exceed Vitest's
+    // five-second default when the complete workspace suite runs concurrently.
+    testTimeout: 15_000,
   },
 });

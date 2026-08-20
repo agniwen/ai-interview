@@ -178,7 +178,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(document.querySelector('[data-slot="avatar"]')?.classList).toContain("size-4");
     expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
-      "荷叶 26/08/18 12:20 创建过了",
+      "荷叶 26/08/18 12:20已创建",
     );
   });
 
@@ -200,7 +200,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     roots.push(root);
 
     expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
-      "达里尔于 26/08/20 12:20 又创建了一份",
+      "达里尔于26/08/20 12:20再次创建",
     );
   });
 
@@ -222,7 +222,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     roots.push(root);
 
     expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
-      "未知创建人 26/08/18 12:20 创建过了",
+      "未知创建人 26/08/18 12:20已创建",
     );
   });
 

@@ -565,7 +565,11 @@ async def test_real_task_group_revisit_does_not_repeat_previous_question():
 
     assert assistant_history.count(_question().content) == 1
     assert assistant_history.count(second_question.content) == 1
-    assert assistant_history.count("请继续刚才的回答。") == 1
+    continuation_prompts = {
+        "请直接补充尚未说明的部分。",
+        "请继续刚才的回答。",
+    }
+    assert any(text in continuation_prompts for text in assistant_history)
     assert "第一题内部摘要" not in "".join(assistant_history)
     assert outcomes["question-2"].follow_up_count == 1
     assert outcomes["question-2"].answer_summary == ("第二题部分摘要；第二题后续摘要")

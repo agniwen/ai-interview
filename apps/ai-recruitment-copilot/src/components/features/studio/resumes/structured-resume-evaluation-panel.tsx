@@ -336,14 +336,14 @@ function StructuredGateJudgmentItem({
 
   return (
     <div className="space-y-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-structured-gate-heading>
         <Badge variant={statusVariant(effectiveStatus)}>{GATE_LABELS[effectiveStatus]}</Badge>
         {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
+        <p className="min-w-0 flex-1 text-sm leading-6">
+          <span className="font-medium">{categoryLabel}：</span>
+          {requirement?.sourceText ?? "当前评估未记录具体要求"}
+        </p>
       </div>
-      <p className="text-sm leading-6">
-        <span className="font-medium">{categoryLabel}：</span>
-        {requirement?.sourceText ?? "当前评估未记录具体要求"}
-      </p>
       <p className="text-muted-foreground text-sm leading-6">
         <span className="text-foreground">AI 判断：</span>
         {judgment.reason}
@@ -606,9 +606,9 @@ export function StructuredResumeEvaluationPanel({
           <FrameHeader>
             <FrameTitle>优先与排除条件</FrameTitle>
           </FrameHeader>
-          <FramePanel className="space-y-3">
+          <FramePanel className="divide-y p-0" data-structured-adjustment-list>
             {evaluation.adjustments.matches.map((match) => (
-              <div className="rounded-lg border p-3 text-sm" key={match.conditionId}>
+              <div className="p-4 text-sm" data-structured-adjustment-item key={match.conditionId}>
                 <div className="font-medium">{match.sourceText}</div>
                 <div className="mt-1 text-muted-foreground">
                   {match.matched ? `命中 · ${match.appliedPoints} 分` : "未命中"} · {match.reason}

@@ -39,7 +39,7 @@ function describeDuplicateMatchBadge(
       baseLabel,
       creatorImage: latestMatchedResume.creatorImage,
       creatorName,
-      fullLabel: `${creatorName} ${suffix}`,
+      fullLabel: `${creatorName}${suffix}`,
       suffix,
     };
   }
@@ -49,7 +49,7 @@ function describeDuplicateMatchBadge(
     baseLabel,
     creatorImage: latestMatchedResume.creatorImage,
     creatorName,
-    fullLabel: `${creatorName} ${suffix}`,
+    fullLabel: `${creatorName}${suffix}`,
     suffix,
   };
 }

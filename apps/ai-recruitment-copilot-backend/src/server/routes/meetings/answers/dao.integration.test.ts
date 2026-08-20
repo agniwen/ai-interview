@@ -201,6 +201,10 @@ describe("Meeting Answer persistence", () => {
         .from(meetingQuestionExchange)
         .where(eq(meetingQuestionExchange.threadId, thread.id)),
     ).resolves.toHaveLength(1);
+    await db
+      .update(meetingQuestionExchange)
+      .set({ status: "failed" })
+      .where(eq(meetingQuestionExchange.id, first.id));
   });
 
   it("keeps completed answers ordered by the reserved exchange sequence", async () => {

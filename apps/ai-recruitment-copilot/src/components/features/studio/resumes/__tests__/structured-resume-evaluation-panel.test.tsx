@@ -266,6 +266,9 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).not.toContain("门槛维度：");
     expect(content).not.toContain("required_skills");
     expect(content).not.toContain("work_experience");
+    const firstGateHeading = container.querySelector("[data-structured-gate-heading]");
+    expect(firstGateHeading?.textContent).toContain("未通过门槛");
+    expect(firstGateHeading?.textContent).toContain("其他：接受海外出差");
 
     act(() => root.unmount());
   });
@@ -339,6 +342,13 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).toContain("简历未体现 React");
     expect(content).toContain("主导支付系统重构");
     expect(container.querySelectorAll("[data-structured-skill-assessment]")).toHaveLength(4);
+    const adjustmentList = container.querySelector("[data-structured-adjustment-list]");
+    expect(adjustmentList?.classList.contains("divide-y")).toBe(true);
+    expect(adjustmentList?.classList.contains("p-0")).toBe(true);
+    const adjustmentItems = container.querySelectorAll("[data-structured-adjustment-item]");
+    expect(adjustmentItems).toHaveLength(1);
+    expect(adjustmentItems[0]?.classList.contains("rounded-lg")).toBe(false);
+    expect(adjustmentItems[0]?.classList.contains("border")).toBe(false);
     expect(
       Array.from(container.querySelectorAll("blockquote"), (node) => node.textContent),
     ).toEqual(expect.arrayContaining(["最高学历为大专", "拥有支付行业经验"]));

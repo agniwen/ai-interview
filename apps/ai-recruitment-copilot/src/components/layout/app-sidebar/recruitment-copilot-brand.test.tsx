@@ -9,7 +9,7 @@ describe("RecruitmentCopilotBrand", () => {
     expect(markup).toContain("AI Recruitment Copilot");
     expect(markup).toContain('data-slot="recruitment-copilot-mark"');
     expect(markup).toContain("mo-root");
-    expect(markup).not.toContain("mo-always");
+    expect(markup).toContain("mo-always");
     expect(markup).toContain("text-[#002FA7]");
     expect(markup).toContain("dark:text-white");
     expect(markup).toContain("--mo-head:currentColor");

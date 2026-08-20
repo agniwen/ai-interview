@@ -280,7 +280,9 @@ describe("Meeting transcription publication", () => {
     expect(machine).toBeTruthy();
     await db
       .update(meetingSession)
-      .set({ intelligenceStatus: "ready" })
+      // Keep this DAO fixture out of the worker's automatic-intelligence recovery scan.
+      // The test shares the local database with dev workers and only covers transcript revision.
+      .set({ intelligenceStatus: "ready", status: "processing" })
       .where(eq(meetingSession.id, MEETING_ID));
 
     const correction = {
@@ -360,7 +362,7 @@ describe("Meeting transcription publication", () => {
         attempt: 2,
         processingRunId: runId("run-correct-redelivery"),
       }),
-    ).resolves.toBe("already-ready");
+    ).resolves.toBe("not-eligible");
     await expect(
       db.query.meetingSession.findFirst({
         columns: {

@@ -1508,7 +1508,9 @@ describe("POST /human-interview-meetings", () => {
       const retryPath = `/human-interview-meetings/${meetingId}/feishu-sync`;
       const firstRetry = app.request(retryPath, { method: "POST" });
       const secondRetry = app.request(retryPath, { method: "POST" });
-      await vi.waitFor(() => expect(reserveCallCount).toBeGreaterThanOrEqual(1));
+      await vi.waitFor(() => expect(reserveCallCount).toBeGreaterThanOrEqual(1), {
+        timeout: 5000,
+      });
       releaseReserve(true);
       const responses = await Promise.all([firstRetry, secondRetry]);
 

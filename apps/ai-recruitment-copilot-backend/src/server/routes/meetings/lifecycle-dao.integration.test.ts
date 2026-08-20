@@ -50,6 +50,8 @@ const FINAL_RUN_ID = `meeting_lifecycle_final_run_${SUFFIX}`;
 const INTELLIGENCE_RUN_ID = `meeting_lifecycle_intelligence_run_${SUFFIX}`;
 const TRANSCRIPT_ID = `meeting_lifecycle_transcript_${SUFFIX}`;
 const INTELLIGENCE_ID = `meeting_lifecycle_intelligence_${SUFFIX}`;
+const TEST_EPOCH_MS = Date.now() + 24 * 60 * 60 * 1000;
+const testTime = (offsetMs = 0) => new Date(TEST_EPOCH_MS + offsetMs);
 
 async function clean() {
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
@@ -59,7 +61,7 @@ async function clean() {
 describe("Meeting lifecycle DAO", () => {
   beforeEach(async () => {
     await clean();
-    const now = new Date("2026-08-09T08:00:00.000Z");
+    const now = testTime();
     await db.insert(user).values(
       [OWNER_ID, EDITOR_ID].map((id) => ({
         createdAt: now,
@@ -272,7 +274,7 @@ describe("Meeting lifecycle DAO", () => {
 
   it("re-admits an uploading meeting before restoring it from trash", async () => {
     await withDatabaseAdvisoryTestLock("meeting-direct-capacity-integration", async () => {
-      const now = new Date("2026-08-09T09:00:00.000Z");
+      const now = testTime(60 * 60 * 1000);
       const blockerId = `meeting_lifecycle_blocker_${SUFFIX}`;
       await db
         .update(meetingSession)
@@ -347,7 +349,7 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("atomically hides a meeting, unlinks recruiting context and restores before the deadline", async () => {
-    const now = new Date("2026-08-09T09:00:00.000Z");
+    const now = testTime(60 * 60 * 1000);
     await expect(
       trashMeetingSession({
         actorId: EDITOR_ID,
@@ -414,7 +416,7 @@ describe("Meeting lifecycle DAO", () => {
       restoreMeetingSession({
         actorId: OWNER_ID,
         meetingId: MEETING_ID,
-        now: new Date("2026-08-10T09:00:00.000Z"),
+        now: testTime(25 * 60 * 60 * 1000),
         organizationId: ORGANIZATION_ID,
       }),
     ).resolves.toEqual({ state: "restored" });
@@ -428,7 +430,7 @@ describe("Meeting lifecycle DAO", () => {
 
   // oxlint-disable-next-line complexity -- one scenario verifies the complete two-phase purge graph and durable tombstone.
   it("purges the complete artifact graph and keeps the linked Candidate record", async () => {
-    const now = new Date("2026-08-09T09:00:00.000Z");
+    const now = testTime(60 * 60 * 1000);
     await db.insert(meetingStorageCleanupKey).values({
       meetingId: MEETING_ID,
       organizationId: ORGANIZATION_ID,
@@ -715,7 +717,7 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("refuses restore once the seven-day deadline has elapsed", async () => {
-    const now = new Date("2026-08-09T09:00:00.000Z");
+    const now = testTime(60 * 60 * 1000);
     await trashMeetingSession({
       actorId: OWNER_ID,
       meetingId: MEETING_ID,
@@ -726,7 +728,7 @@ describe("Meeting lifecycle DAO", () => {
       restoreMeetingSession({
         actorId: OWNER_ID,
         meetingId: MEETING_ID,
-        now: new Date("2026-08-16T09:00:00.000Z"),
+        now: testTime(8 * 24 * 60 * 60 * 1000),
         organizationId: ORGANIZATION_ID,
       }),
     ).resolves.toEqual({ state: "expired" });
@@ -736,7 +738,7 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("claims storage cleanup keys in bounded deterministic batches", async () => {
-    const requestedAt = new Date("2026-08-09T09:00:00.000Z");
+    const requestedAt = testTime(60 * 60 * 1000);
     await db.insert(meetingStorageCleanupKey).values(
       Array.from({ length: 101 }, (_, index) => ({
         meetingId: MEETING_ID,
@@ -786,7 +788,7 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("waits for an active playback writer lease before sweeping objects", async () => {
-    const requestedAt = new Date("2026-08-09T09:00:00.000Z");
+    const requestedAt = testTime(60 * 60 * 1000);
     const sweepAt = new Date(requestedAt.getTime() + 62 * 60 * 1000);
     const writerLeaseExpiresAt = new Date(sweepAt.getTime() + 60_000);
     await db.insert(meetingStorageCleanupKey).values({
@@ -815,7 +817,7 @@ describe("Meeting lifecycle DAO", () => {
   });
 
   it("claims provider artifacts in bounded batches", async () => {
-    const requestedAt = new Date("2026-08-09T09:00:00.000Z");
+    const requestedAt = testTime(60 * 60 * 1000);
     await db.insert(meetingProcessingRun).values(
       Array.from({ length: 21 }, (_, index) => ({
         attempt: 1,
