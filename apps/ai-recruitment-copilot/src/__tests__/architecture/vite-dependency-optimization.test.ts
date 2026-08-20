@@ -25,4 +25,18 @@ describe("Vite dependency optimization", () => {
     expect(packageJson.scripts["dev:fresh"]).toContain("rm -rf node_modules/.vite");
     expect(packageJson.scripts["dev:fresh"]).toContain("vite dev --force");
   });
+
+  it("uses the stable dev cache from the default workspace target", () => {
+    const makefile = readFileSync(path.join(appRoot, "../../Makefile"), "utf-8");
+
+    expect(makefile).toMatch(/web-dev:.*\n\tpnpm --filter @arc\/ai-recruitment-copilot dev\n/);
+  });
+
+  it("keeps the development build marker stable across restarts", () => {
+    const viteConfig = readFileSync(path.join(appRoot, "vite.config.ts"), "utf-8");
+
+    expect(viteConfig).toContain(
+      'const buildTime = process.env.NODE_ENV === "production" ? new Date().toISOString() : "development";',
+    );
+  });
 });

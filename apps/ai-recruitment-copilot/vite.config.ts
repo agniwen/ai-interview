@@ -13,7 +13,8 @@ const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
-const buildTime = new Date().toISOString();
+// Keep the dev config stable: Vite includes define values in its dependency cache key.
+const buildTime = process.env.NODE_ENV === "production" ? new Date().toISOString() : "development";
 export default defineConfig({
   define: {
     __ARC_BUILD_TIME__: JSON.stringify(buildTime),
