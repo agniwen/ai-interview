@@ -76,14 +76,15 @@ export interface ResumeUploadBatchProcessorDependencies extends ParsedResumeEnri
   updateParseResultByHash: typeof updateParseResultByHash;
 }
 
-const defaultResumeUploadBatchProcessorDependencies: ResumeUploadBatchProcessorDependencies = {
-  ...defaultParsedResumeEnrichmentDependencies,
-  findAttachmentByStorageKey,
-  getObjectStream,
-  parseResumeBytesToProfile,
-  projectAttachmentToResumeProfile,
-  updateParseResultByHash,
-};
+export const defaultResumeUploadBatchProcessorDependencies: ResumeUploadBatchProcessorDependencies =
+  {
+    ...defaultParsedResumeEnrichmentDependencies,
+    findAttachmentByStorageKey,
+    getObjectStream,
+    parseResumeBytesToProfile,
+    projectAttachmentToResumeProfile,
+    updateParseResultByHash,
+  };
 
 interface ProcessingOutcome {
   autoMatchJobDescription: boolean;

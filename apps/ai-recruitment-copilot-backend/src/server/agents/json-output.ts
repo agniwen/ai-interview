@@ -53,7 +53,11 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
   text: string,
   schema: TSchema,
   label: string,
-  options: { allowEmptyDefaults?: boolean } = {},
+  options: {
+    allowEmptyDefaults?: boolean;
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- raw JSON is normalized immediately before schema parsing.
+    normalizeInvalid?: (value: unknown) => unknown;
+  } = {},
 ): z.output<TSchema> {
   const trimmed = text.trim();
   if (options.allowEmptyDefaults && trimmed.length === 0) {
@@ -75,7 +79,7 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
     }
     try {
       const raw = JSON.parse(candidate);
-      const parsed = schema.safeParse(raw);
+      const parsed = schema.safeParse(options.normalizeInvalid?.(raw) ?? raw);
       if (parsed.success) {
         return parsed.data;
       }

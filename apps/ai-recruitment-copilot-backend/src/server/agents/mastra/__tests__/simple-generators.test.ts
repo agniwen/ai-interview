@@ -107,6 +107,27 @@ describe("simple Mastra generators", () => {
     expect(generate).toHaveBeenCalledTimes(1);
   });
 
+  it("normalizes recoverable model JSON before final schema validation", async () => {
+    const generate = vi.fn().mockResolvedValue({
+      object: { units: 0 },
+      text: '{"units":0}',
+    });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        normalizeInvalid: (value) => {
+          const parsed = z.object({ units: z.number() }).safeParse(value);
+          return parsed.success ? { units: Math.max(1, parsed.data.units) } : value;
+        },
+        prompt: "生成结构化对象",
+        schema: z.object({ units: z.number().int().min(1) }),
+      }),
+    ).resolves.toEqual({ units: 1 });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
   it("retries once with validation feedback after an invalid structured object", async () => {
     const generate = vi
       .fn()

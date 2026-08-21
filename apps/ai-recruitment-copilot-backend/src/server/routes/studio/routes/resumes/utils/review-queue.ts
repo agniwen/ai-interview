@@ -269,17 +269,18 @@ async function markQueueFailureWithDb(input: MarkQueueFailureInput) {
     .returning({ id: studioInterview.id });
 }
 
-const defaultDependencies: ResumeEvaluationSchedulingDependencies = {
-  enqueueReviewJobs: enqueueResumeReviewGenerationJobs,
-  isQueueConfigured: isResumeReviewGenerationQueueConfigured,
-  loadSchedulingContext: loadSchedulingContextWithDb,
-  markQueueFailure: markQueueFailureWithDb,
-  persistQueuedRun: persistQueuedRunWithDb,
-};
+export const defaultResumeEvaluationSchedulingDependencies: ResumeEvaluationSchedulingDependencies =
+  {
+    enqueueReviewJobs: enqueueResumeReviewGenerationJobs,
+    isQueueConfigured: isResumeReviewGenerationQueueConfigured,
+    loadSchedulingContext: loadSchedulingContextWithDb,
+    markQueueFailure: markQueueFailureWithDb,
+    persistQueuedRun: persistQueuedRunWithDb,
+  };
 
 export async function scheduleResumeEvaluationForRecord(
   input: ResumeRecordReviewSchedulingInput,
-  dependencies: ResumeEvaluationSchedulingDependencies = defaultDependencies,
+  dependencies: ResumeEvaluationSchedulingDependencies = defaultResumeEvaluationSchedulingDependencies,
 ): Promise<ResumeReviewSchedulingResult> {
   const context = await dependencies.loadSchedulingContext(input);
   if (!context?.record.resumeProfile) {
@@ -387,7 +388,7 @@ export async function enqueueResumeReassessmentForRecord(
     organizationId: string;
     resumeRecordId: string;
   },
-  dependencies: ResumeEvaluationSchedulingDependencies = defaultDependencies,
+  dependencies: ResumeEvaluationSchedulingDependencies = defaultResumeEvaluationSchedulingDependencies,
 ): Promise<"already_in_progress" | "enqueued" | "fallback_sync"> {
   const context = await dependencies.loadSchedulingContext(input);
   if (!context) {

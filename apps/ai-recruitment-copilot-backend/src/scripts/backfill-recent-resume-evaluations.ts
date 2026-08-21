@@ -215,7 +215,7 @@ function targetFingerprint(rows: RecentResumeRow[]): string {
     .digest("hex");
 }
 
-async function loadRecentRows(
+export async function loadRecentRows(
   limit: number,
   asOf?: string,
   date?: string,

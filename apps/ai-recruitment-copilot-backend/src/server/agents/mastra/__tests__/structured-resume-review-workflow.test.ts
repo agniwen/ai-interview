@@ -50,6 +50,13 @@ const generator: StructuredResumeGenerator = async (input) => {
   return output;
 };
 
+function createNormalizedGenerator(raw: JsonObject): StructuredResumeGenerator {
+  return async (request) => {
+    const generated = await Promise.resolve(raw);
+    return request.schema.parse(request.normalizeInvalid?.(generated) ?? generated);
+  };
+}
+
 const testWorkflow = createStructuredResumeReviewWorkflow({
   assemble: assembleStructuredResumeEvaluation,
   compute: computeStructuredResumeCalculation,
@@ -626,6 +633,51 @@ describe("structured resume workflow contracts", () => {
 
     expect(dimensions.success).toBe(false);
     expect(gates.success).toBe(false);
+  });
+
+  it("repairs only representational dimension output differences", async () => {
+    const representationalGenerator = createNormalizedGenerator({
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [
+        {
+          evidence: [],
+          reason: ["未找到", "可审计证据"],
+          skill: "TypeScript",
+          status: "missing",
+        },
+      ],
+    });
+
+    const output = await judgeStructuredDimensionEvidence(workflowInput, representationalGenerator);
+
+    expect(output.skillFacts[0]).toMatchObject({
+      normalizedSkill: "TypeScript",
+      reason: "未找到；可审计证据",
+      status: "missing",
+    });
+  });
+
+  it("does not turn semantic omissions into valid dimension judgments", async () => {
+    const semanticallyInvalidGenerator = createNormalizedGenerator({
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [
+        {
+          evidence: [],
+          reason: "模型声称命中，但没有返回必需的层级差。",
+          ruleId: "education.below_tier",
+          status: "matched",
+          units: 0,
+        },
+      ],
+      skillFacts: [],
+    });
+
+    await expect(
+      judgeStructuredDimensionEvidence(workflowInput, semanticallyInvalidGenerator),
+    ).rejects.toThrow();
   });
 
   it("documents missing candidate evidence and enables plain JSON fallback", async () => {

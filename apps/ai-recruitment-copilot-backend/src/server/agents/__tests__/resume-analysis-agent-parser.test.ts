@@ -73,6 +73,8 @@ describe("resume parsing agent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    vi.stubEnv("RESUME_PARSE_DISABLE_CACHE", "false");
+    vi.stubEnv("RESUME_PARSE_PROVIDER", "ocr-llm");
     mocks.runWorkflow.mockResolvedValue({
       fileHash: "hash-1",
       pageCount: 1,

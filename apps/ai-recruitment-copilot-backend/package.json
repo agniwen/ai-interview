@@ -32,6 +32,7 @@
     "eval:resume-reviews:synthetic": "tsx src/scripts/resume-review-synthetic-eval.ts",
     "eval:structured-resumes": "tsx src/scripts/structured-resume-eval.ts",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
+    "rerun:latest-workspace-resumes": "tsx src/scripts/rerun-latest-workspace-resumes.ts",
     "rebuild:jd-semantic-index": "tsx src/scripts/rebuild-jd-semantic-index.ts",
     "repair:resume-pool-job-associations": "tsx src/scripts/repair-resume-pool-job-associations.ts",
     "start": "tsx src/index.ts",

@@ -551,6 +551,7 @@ export async function generateResumeStructured(
     // Long resumes can legitimately produce large work/project evidence snapshots.
     // Keep thinking disabled at the agent model and reserve 32K for the final JSON.
     maxOutputTokens: 32_768,
+    observabilityLabel: "resume-structure",
     prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     retryOnInvalid: true,
     retryOnTransient: true,

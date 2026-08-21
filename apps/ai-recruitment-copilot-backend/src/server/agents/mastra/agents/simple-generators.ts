@@ -450,6 +450,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   allowEmptyDefaults,
   fallbackToTextGeneration,
   maxOutputTokens,
+  normalizeInvalid,
   observabilityLabel,
   prompt,
   retryOnInvalid,
@@ -463,6 +464,8 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   allowEmptyDefaults?: boolean;
   fallbackToTextGeneration?: boolean;
   maxOutputTokens?: number;
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- raw provider output is normalized before schema parsing.
+  normalizeInvalid?: (value: unknown) => unknown;
   observabilityLabel?: string;
   prompt: string;
   retryOnInvalid?: boolean;
@@ -554,7 +557,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       }
       lastError = new StructuredOutputValidationError(lastError.message);
     } else {
-      const parsed = schema.safeParse(result.object);
+      const parsed = schema.safeParse(normalizeInvalid?.(result.object) ?? result.object);
       if (parsed.success) {
         try {
           validate?.(parsed.data);
@@ -572,6 +575,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
           try {
             const fallback = parseJsonOutput(result.text, schema, "structured-output-fallback", {
               allowEmptyDefaults,
+              normalizeInvalid,
             });
             validate?.(fallback);
             return fallback;
@@ -617,13 +621,16 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     if (fallbackResult.error) {
       throw fallbackResult.error;
     }
-    const fallbackObject = schema.safeParse(fallbackResult.object);
+    const fallbackObject = schema.safeParse(
+      normalizeInvalid?.(fallbackResult.object) ?? fallbackResult.object,
+    );
     if (fallbackObject.success) {
       validate?.(fallbackObject.data);
       return fallbackObject.data;
     }
     const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback", {
       allowEmptyDefaults,
+      normalizeInvalid,
     });
     validate?.(fallback);
     return fallback;
