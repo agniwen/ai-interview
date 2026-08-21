@@ -428,25 +428,83 @@ export function canManageResumePoolJobBinding(input: {
   );
 }
 
+export function ResumePoolRecommendationsDialog({
+  canRecommend,
+  currentUserId,
+  onOpenChange,
+  open,
+  record,
+  recordId,
+  slug,
+}: {
+  canRecommend: boolean;
+  currentUserId: string | null;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  record: ResumePoolDetail | ResumePoolListRecord | null;
+  recordId?: string | null;
+  slug: string;
+}) {
+  const itemId = record?.id ?? recordId ?? "";
+  const detailQuery = useQuery({
+    enabled: Boolean(itemId) && open,
+    queryFn: async () => {
+      if (!itemId) {
+        return null;
+      }
+      return await fetchResumePoolItem(slug, itemId);
+    },
+    queryKey: ["resume-pool", "detail", slug, itemId],
+  });
+  const detail = detailQuery.data ?? record;
+  const canManageJobBinding = canManageResumePoolJobBinding({
+    canRecommend,
+    currentUserId,
+    detail,
+  });
+
+  return (
+    <Modal
+      onOpenChange={onOpenChange}
+      open={open && canManageJobBinding}
+      size="xl"
+      title="推荐岗位"
+    >
+      {detailQuery.isLoading && (
+        <div className="flex items-center gap-2 py-8 text-muted-foreground text-sm">
+          <IconLoader2 className="size-4 animate-spin" />
+          正在加载人才信息…
+        </div>
+      )}
+      {!detailQuery.isLoading && detailQuery.isError && (
+        <p className="py-8 text-destructive text-sm">加载人才信息失败，请关闭后重试。</p>
+      )}
+      {!detailQuery.isLoading && !detailQuery.isError && detailQuery.data && (
+        <ResumePoolRecommendationsPanel
+          detail={detailQuery.data}
+          onBound={() => onOpenChange(false)}
+          slug={slug}
+        />
+      )}
+    </Modal>
+  );
+}
+
 export function ResumePoolDetailDialog({
   canRecommend,
   currentUserId,
   onOpenDuplicateMatches,
   onOpenChange,
-  onRecommendationsOpenChange,
   record,
   recordId,
-  recommendationTargetId,
   slug,
 }: {
   canRecommend: boolean;
   currentUserId: string | null;
   record: ResumePoolListRecord | null;
   recordId?: string | null;
-  recommendationTargetId?: string | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
-  onRecommendationsOpenChange?: (open: boolean) => void;
   onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
 }) {
   const itemId = record?.id ?? recordId ?? "";
@@ -473,12 +531,6 @@ export function ResumePoolDetailDialog({
     // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
     setRecommendationsOpen(false);
   }, [itemId]);
-  useEffect(() => {
-    if (canManageJobBinding && recommendationTargetId === itemId && itemId) {
-      // oxlint-disable-next-line react/set-state-in-effect -- The card action opens the existing recommendation dialog for its selected item.
-      setRecommendationsOpen(true);
-    }
-  }, [canManageJobBinding, itemId, recommendationTargetId]);
   return (
     <>
       <Modal
@@ -511,23 +563,15 @@ export function ResumePoolDetailDialog({
           </div>
         ) : null}
       </Modal>
-      <Modal
-        onOpenChange={(open) => {
-          setRecommendationsOpen(open);
-          onRecommendationsOpenChange?.(open);
-        }}
+      <ResumePoolRecommendationsDialog
+        canRecommend={canRecommend}
+        currentUserId={currentUserId}
+        onOpenChange={setRecommendationsOpen}
         open={canManageJobBinding && recommendationsOpen}
-        size="xl"
-        title="推荐岗位"
-      >
-        {detailQuery.data ? (
-          <ResumePoolRecommendationsPanel
-            detail={detailQuery.data}
-            onBound={() => setRecommendationsOpen(false)}
-            slug={slug}
-          />
-        ) : null}
-      </Modal>
+        record={detailQuery.data ?? null}
+        recordId={itemId}
+        slug={slug}
+      />
     </>
   );
 }

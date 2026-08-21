@@ -59,7 +59,10 @@ import {
 import type { ResumePoolFilters } from "@/components/features/studio/resume-pool/resume-pool-page-model";
 import { useResumePoolPageState } from "@/components/features/studio/resume-pool/use-resume-pool-page-state";
 import { ImportResumePoolDialog } from "@/components/features/studio/resume-pool/resume-pool-dialogs";
-import { ResumePoolDetailDialog } from "@/components/features/studio/resume-pool/resume-pool-details";
+import {
+  ResumePoolDetailDialog,
+  ResumePoolRecommendationsDialog,
+} from "@/components/features/studio/resume-pool/resume-pool-details";
 import {
   ResumePoolListContent,
   ResumePoolToolbarActions,
@@ -404,7 +407,6 @@ export function ResumePoolPage() {
             onOpenPdf={setPreviewRecord}
             onPublish={publishMutation.mutate}
             onRecommend={(record) => {
-              setDetailRecord(record);
               setRecommendationTarget(record);
             }}
             onRetryParse={retryParseMutation.mutate}
@@ -501,12 +503,17 @@ export function ResumePoolPage() {
         onOpenChange={(open) => {
           if (!open) {
             setDetailRecord(null);
-            setRecommendationTarget(null);
           }
         }}
-        onRecommendationsOpenChange={(open) => !open && setRecommendationTarget(null)}
         record={detailRecord}
-        recommendationTargetId={recommendationTarget?.id ?? null}
+        slug={slug}
+      />
+      <ResumePoolRecommendationsDialog
+        canRecommend={canImportResumePool && canReadJobDescriptions}
+        currentUserId={currentUserId}
+        onOpenChange={(open) => !open && setRecommendationTarget(null)}
+        open={recommendationTarget !== null}
+        record={recommendationTarget}
         slug={slug}
       />
       <ResumeDuplicateMatchesDialog
