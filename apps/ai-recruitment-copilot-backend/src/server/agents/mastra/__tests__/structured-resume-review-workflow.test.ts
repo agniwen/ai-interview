@@ -24,6 +24,7 @@ import {
 import type { StructuredResumeWorkflowLogContext } from "../workflows/structured-resume-review-workflow";
 
 interface RecordedGeneratorCall {
+  fallbackToTextGeneration?: boolean;
   maxOutputTokens?: number;
   prompt: string;
   timeoutMs?: number;
@@ -34,6 +35,7 @@ const generatorCall = vi.fn<() => Promise<JsonObject>>();
 const generatorCalls: RecordedGeneratorCall[] = [];
 const generator: StructuredResumeGenerator = async (input) => {
   const recordedCall: RecordedGeneratorCall = {
+    fallbackToTextGeneration: input.fallbackToTextGeneration,
     maxOutputTokens: input.maxOutputTokens,
     prompt: input.prompt,
     timeoutMs: input.timeoutMs,
@@ -182,6 +184,49 @@ describe("structured resume workflow contracts", () => {
         skillFacts: [],
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts omitted dates when a candidate resume has no date evidence", () => {
+    const result = structuredDimensionAgentOutputSchema.safeParse({
+      employmentEpisodes: [
+        {
+          current: false,
+          endMonth: undefined,
+          evidence: [],
+          gapExplanation: undefined,
+          id: "episode-1",
+          primaryStatus: "unresolved",
+          relevance: "insufficient_evidence",
+          relevanceReason: "简历没有提供足够的任职日期信息。",
+          startMonth: undefined,
+        },
+      ],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.employmentEpisodes[0]).toMatchObject({
+        endMonth: null,
+        gapExplanation: null,
+        startMonth: null,
+      });
+    }
+  });
+
+  it("documents missing candidate evidence and enables plain JSON fallback", async () => {
+    generatorCall.mockResolvedValue({ judgments: [] });
+
+    await judgeStructuredHardGates(workflowInput, generator);
+
+    expect(generatorCalls[0]?.fallbackToTextGeneration).toBe(true);
+    expect(generatorCalls[0]?.prompt).toContain("JSON 不支持 undefined");
+    expect(generatorCalls[0]?.prompt).toContain("规则判断使用 insufficient_evidence");
+    expect(generatorCalls[0]?.prompt).toContain("技能事实使用 missing");
+    expect(generatorCalls[0]?.prompt).toContain('"judgments"');
+    expect(generatorCalls[0]?.prompt).toContain('"experienceEpisodes":[]');
   });
 
   it("rejects model-owned skill deductions and requires matched education units", () => {

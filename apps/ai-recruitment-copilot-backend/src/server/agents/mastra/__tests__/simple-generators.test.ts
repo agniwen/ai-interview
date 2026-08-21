@@ -120,8 +120,8 @@ describe("simple Mastra generators", () => {
   it("can fall back to schema-validated plain JSON generation", async () => {
     const generate = vi
       .fn()
-      .mockResolvedValueOnce({ object: undefined, text: "无法生成" })
-      .mockResolvedValueOnce({ object: undefined, text: "仍然无法生成" })
+      .mockResolvedValueOnce({ object: undefined, text: "" })
+      .mockResolvedValueOnce({ object: undefined, text: "" })
       .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
 
     await expect(

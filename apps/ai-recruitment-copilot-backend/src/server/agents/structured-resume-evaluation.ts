@@ -79,12 +79,14 @@ const gateExperienceEpisodeSchema = z
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable(),
+      .nullable()
+      .default(null),
     evidence: z.array(structuredResumeEvidenceSchema),
     startMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable(),
+      .nullable()
+      .default(null),
   })
   .strict();
 
@@ -152,9 +154,10 @@ const timelineEpisodeSchema = z
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable(),
+      .nullable()
+      .default(null),
     evidence: z.array(structuredResumeEvidenceSchema),
-    gapExplanation: z.string().trim().min(1).nullable(),
+    gapExplanation: z.string().trim().min(1).nullable().default(null),
     id: z.string().trim().min(1),
     primaryStatus: z.enum(["concurrent", "primary", "unresolved"]),
     relevance: z.enum(["insufficient_evidence", "not_relevant", "relevant"]),
@@ -162,7 +165,8 @@ const timelineEpisodeSchema = z
     startMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable(),
+      .nullable()
+      .default(null),
   })
   .strict();
 
@@ -172,7 +176,8 @@ const projectFactSchema = z
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable(),
+      .nullable()
+      .default(null),
     evidence: z.array(structuredResumeEvidenceSchema),
     id: z.string().trim().min(1),
     relevant: z.boolean(),
@@ -392,19 +397,82 @@ type StructuredResumePromptPayload =
   | DimensionPromptPayload
   | HardGatePromptPayload;
 
+const STRUCTURED_RESUME_MISSING_DATA_GUIDANCE = [
+  "候选人简历可能没有教育、工作、项目、技能或日期信息；没有证据时不得编造。",
+  "JSON 不支持 undefined：数组没有内容时返回 []，无法确认的日期或说明字段返回 null；可选字段也可以直接省略。",
+  "候选人没有某类经历不等于结构错误：规则判断使用 insufficient_evidence / not_applicable / not_matched，技能事实使用 missing / shallow；都必须保留对应字段。",
+].join("\n");
+
+const STRUCTURED_GATE_OUTPUT_EXAMPLE = JSON.stringify({
+  judgments: [
+    {
+      aiStatus: "failed",
+      evidence: [],
+      experienceEpisodes: [],
+      reason: "简历未提供该门槛的相关证据。",
+      requirementId: "requirement-id",
+    },
+  ],
+});
+
+const STRUCTURED_DIMENSION_OUTPUT_EXAMPLE = JSON.stringify({
+  employmentEpisodes: [],
+  projects: [],
+  ruleJudgments: [],
+  skillFacts: [],
+});
+
+const STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE = JSON.stringify({
+  judgments: [
+    {
+      conditionId: "condition-id",
+      evidence: [],
+      matched: false,
+      reason: "简历未提供该条件的相关证据。",
+    },
+  ],
+});
+
+const STRUCTURED_NARRATIVE_OUTPUT_EXAMPLE = JSON.stringify({
+  dimensionComments: {
+    educationBackground: "简历未提供足够的学历信息，无法确认该维度的更多细节。",
+    experienceRelevance: "简历未提供足够的相关经验信息。",
+    potential: "简历未提供足够的成长信息。",
+    projectMatch: "简历未提供相关项目证据。",
+    skillMatch: "简历未提供足够的技能应用证据。",
+    stability: "简历未提供足够的任职连续性信息。",
+  },
+  levelRecommendation: {
+    level: "待确认",
+    rationale: "简历信息不足，无法可靠判断级别。",
+  },
+  overallComment: "简历信息有限，建议在后续环节补充核实。",
+  recommendation: "待确认",
+  summary: "候选人简历信息有限。",
+  teamPositioning: {
+    rationale: "当前简历信息不足以确定团队职责方向。",
+    suggestion: "待面试确认",
+  },
+});
+
 function buildPrompt(
   title: string,
   input: StructuredResumeWorkflowInput,
   guidance?: string,
   payload?: StructuredResumePromptPayload,
+  outputExample?: string,
 ): string {
   return [
     title,
     ...(guidance ? [guidance] : []),
+    STRUCTURED_RESUME_MISSING_DATA_GUIDANCE,
     "所有判断必须引用简历原文或结构化档案证据。",
     "quote 必须是声明来源中的逐字连续片段：resume_text 引用连续原文，resume_profile 引用单个字符串叶子值；不得跨字段拼接、改写或概括。",
     `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${buildEvidenceQuoteCatalog(input)}`,
     "不得输出扣分、时长合计、维度分、综合分或等级。",
+    ...(outputExample
+      ? [`输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${outputExample}`]
+      : []),
     JSON.stringify(payload ?? input),
   ].join("\n");
 }
@@ -562,6 +630,7 @@ export function judgeStructuredHardGates(
 ) {
   return generate({
     agent: structuredResumeGateAgent,
+    fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
       "逐项判断冻结门槛，并为每个数值经验评分要求提取对应经历；只返回 passed / failed / needs_verification。",
@@ -580,6 +649,7 @@ export function judgeStructuredHardGates(
         hardGateRequirements: input.jobSnapshot.blueprint.hardGateRequirements,
         requiredRelevantExperiences: input.jobSnapshot.blueprint.requiredRelevantExperiences,
       },
+      STRUCTURED_GATE_OUTPUT_EXAMPLE,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -596,6 +666,7 @@ export function judgeStructuredDimensionEvidence(
 ) {
   return generate({
     agent: structuredResumeDimensionAgent,
+    fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
       "提取月级工作时间线、主职/并发关系、窄口径相关性和非时间类规则语义。不要计算月份或时间窗口。",
@@ -613,6 +684,7 @@ export function judgeStructuredDimensionEvidence(
           educationExpectation: input.jobSnapshot.blueprint.educationExpectation,
         },
       },
+      STRUCTURED_DIMENSION_OUTPUT_EXAMPLE,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -639,6 +711,7 @@ export function judgeStructuredAdjustments(
     : "没有可用的硬性门槛判断上下文。";
   return generate({
     agent: structuredResumeAdjustmentAgent,
+    fallbackToTextGeneration: true,
     prompt: buildPrompt(
       "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",
       input,
@@ -654,6 +727,7 @@ export function judgeStructuredAdjustments(
         exclusionConditions: input.jobSnapshot.blueprint.exclusionConditions,
         priorityConditions: input.jobSnapshot.blueprint.priorityConditions,
       },
+      STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -1664,6 +1738,7 @@ export function generateStructuredNarrative(
   );
   return generate({
     agent: structuredResumeNarrativeAgent,
+    fallbackToTextGeneration: true,
     prompt: [
       "只解释已完成的计算，不得重算或修改结果。",
       "未命中的优先条件 appliedPoints=0，不加分也不扣分；未命中的排除条件同样不产生分数变化。",
@@ -1673,7 +1748,9 @@ export function generateStructuredNarrative(
       "overallComment 用 2-4 句话形成整体评语：基于简历事实说明最重要的岗位适配优势和主要风险。不得复述综合分、等级、门槛状态或推荐结论，不得重复 summary，不得创造新事实或改分。",
       "dimensionComments 必须覆盖六个维度。每个维度用 1-2 句话，只概括候选人在该维度的整体表现、主要优势和总体短板；不要输出规则名称、规则编号或逐项规则状态，不要枚举未扣分项和证据不足项，也不要重复分数、权重或扣分数值。实际扣分原因由代码单独展示，不要在评语中逐条复述。units=1 时只能表述为一项，不得写成多项、较多或大批缺失；没有 units 时不得自行推断数量。",
       "teamPositioning.suggestion 给出可执行的团队角色或职责方向，rationale 说明简历事实和岗位依据；不得把建议写成候选人已经具备的事实。",
-      "levelRecommendation.level 使用“初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家”或岗位已有的 P 级，rationale 说明经验、职责范围、项目复杂度和管理证据；不得仅按工作年限判断。",
+      "levelRecommendation.level 使用“初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家”或岗位已有的 P 级；证据不足时可以返回“待确认”。rationale 说明经验、职责范围、项目复杂度和管理证据；不得仅按工作年限判断。",
+      STRUCTURED_RESUME_MISSING_DATA_GUIDANCE,
+      `输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${STRUCTURED_NARRATIVE_OUTPUT_EXAMPLE}`,
       JSON.stringify({
         adjustments: calculation.adjustments,
         compositeScore: calculation.compositeScore,
