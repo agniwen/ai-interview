@@ -83,9 +83,9 @@ function JobBindingModeBadge({ mode }: { mode: ResumePoolJobBindingMode | null }
     return null;
   }
   return (
-    <Badge variant={mode === "automatic" ? "secondary" : "outline"}>
-      {mode === "automatic" ? "自动" : "手动"}
-    </Badge>
+    <span className="shrink-0 text-[10px] text-muted-foreground/70 leading-4">
+      {mode === "automatic" ? "自动匹配" : "手动绑定"}
+    </span>
   );
 }
 
@@ -760,13 +760,20 @@ export function ResumePoolCard({
         ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 p-3 text-xs">
-        <div className="flex flex-col gap-1.5 text-muted-foreground">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex flex-col gap-0.5 text-muted-foreground">
+          <div className="flex min-h-7 min-w-0 items-center gap-1.5">
             <IconBriefcase2 aria-hidden="true" className="size-3.5 shrink-0" />
             <span className="shrink-0 text-muted-foreground/70">目标岗位：</span>
             <span className="truncate text-foreground/80">{record.targetRole || "未填写"}</span>
+            <span aria-hidden="true" className="text-muted-foreground/50">
+              ·
+            </span>
+            <span className="shrink-0 text-muted-foreground/70">工作年限：</span>
+            <span className="shrink-0 text-foreground/80">
+              {record.workYears === null ? "未填写" : `${record.workYears} 年`}
+            </span>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-h-7 min-w-0 items-center gap-1.5">
             <IconLink aria-hidden="true" className="size-3.5 shrink-0" />
             <span className="shrink-0 text-muted-foreground/70">绑定岗位：</span>
             {(() => {
@@ -784,6 +791,17 @@ export function ResumePoolCard({
                       {record.jobDescriptionName}
                     </Link>
                     <JobBindingModeBadge mode={record.jobBindingMode} />
+                    {canRecommend ? (
+                      <Button
+                        aria-label="更换绑定岗位"
+                        className="h-5 shrink-0 px-1.5 text-xs"
+                        onClick={() => onRecommend(record)}
+                        size="xs"
+                        variant="outline"
+                      >
+                        更换
+                      </Button>
+                    ) : null}
                   </span>
                 );
               }
@@ -792,6 +810,17 @@ export function ResumePoolCard({
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-muted-foreground/60">已绑定</span>
                     <JobBindingModeBadge mode={record.jobBindingMode} />
+                    {canRecommend ? (
+                      <Button
+                        aria-label="更换绑定岗位"
+                        className="h-5 shrink-0 px-1.5 text-xs"
+                        onClick={() => onRecommend(record)}
+                        size="xs"
+                        variant="outline"
+                      >
+                        更换
+                      </Button>
+                    ) : null}
                   </span>
                 );
               }
@@ -801,19 +830,20 @@ export function ResumePoolCard({
                   {canRecommend ? (
                     <Button
                       aria-label="推荐岗位"
-                      className="shrink-0"
+                      className="h-5 shrink-0 px-1.5 text-xs"
                       onClick={() => onRecommend(record)}
                       size="xs"
-                      variant="outline"
                     >
-                      推荐
+                      推荐岗位
                     </Button>
                   ) : null}
                 </span>
               );
             })()}
           </div>
-          <ResumePoolCardUploaderMeta record={record} />
+          <div className="flex min-h-7 items-center">
+            <ResumePoolCardUploaderMeta record={record} />
+          </div>
         </div>
 
         <ResumePoolCardHighlights record={record} />

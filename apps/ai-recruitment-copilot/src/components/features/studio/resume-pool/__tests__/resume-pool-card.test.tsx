@@ -160,6 +160,7 @@ describe("ResumePoolCard", () => {
           jobBindingMode: "automatic",
           jobDescriptionId: "jd-commercial-operations",
           targetRole: "内容运营",
+          workYears: 7,
         }}
         retrying={false}
         scope="public"
@@ -170,9 +171,13 @@ describe("ResumePoolCard", () => {
 
     expect(html).toContain("目标岗位：");
     expect(html).toContain("内容运营");
+    expect(html).toContain("工作年限：");
+    expect(html).toContain("7 年");
     expect(html).toContain("绑定岗位：");
     expect(html).toContain("已绑定");
-    expect(html).toContain("自动");
+    expect(html).toContain("自动匹配");
+    expect(html).toContain("更换");
+    expect(html.indexOf("目标岗位：")).toBeLessThan(html.indexOf("绑定岗位："));
   });
 
   it("offers an enabled reimport action for an imported resume", () => {
