@@ -1,17 +1,18 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 
-export interface CreateAlibabaProviderOptions {
-  enableThinking?: boolean;
-}
-
 function getAlibabaBaseURL(): string {
   return getRequiredEnv("ALIBABA_BASE_URL");
 }
 
-export function createAlibabaProvider({
-  enableThinking = true,
-}: CreateAlibabaProviderOptions = {}) {
+export function disableAlibabaThinking<TBody extends object>(body: TBody) {
+  return {
+    ...body,
+    enable_thinking: false,
+  };
+}
+
+export function createAlibabaProvider() {
   const apiKey = process.env.ALIBABA_API_KEY;
 
   if (!apiKey) {
@@ -22,11 +23,6 @@ export function createAlibabaProvider({
     apiKey,
     baseURL: getAlibabaBaseURL(),
     name: "alibaba",
-    ...(!enableThinking && {
-      transformRequestBody: (body) => ({
-        ...body,
-        enable_thinking: false,
-      }),
-    }),
+    transformRequestBody: disableAlibabaThinking,
   });
 }

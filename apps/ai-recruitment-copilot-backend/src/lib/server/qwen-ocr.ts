@@ -28,10 +28,15 @@ export function isQwenOcrConfigured(): boolean {
   return Boolean(process.env.ALIBABA_API_KEY);
 }
 
-export async function qwenVlOcr(imageBytes: Buffer, mediaType = "image/png"): Promise<string> {
-  const client = getClient();
+export function buildQwenOcrRequest(
+  imageBytes: Buffer,
+  mediaType: string,
+): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
+  enable_thinking: false;
+} {
   const base64 = imageBytes.toString("base64");
-  const response = await client.chat.completions.create({
+  return {
+    enable_thinking: false,
     max_tokens: 4096,
     messages: [
       {
@@ -44,6 +49,11 @@ export async function qwenVlOcr(imageBytes: Buffer, mediaType = "image/png"): Pr
     ],
     model: getRequiredEnv("QWEN_OCR_MODEL"),
     temperature: 0,
-  });
+  };
+}
+
+export async function qwenVlOcr(imageBytes: Buffer, mediaType = "image/png"): Promise<string> {
+  const client = getClient();
+  const response = await client.chat.completions.create(buildQwenOcrRequest(imageBytes, mediaType));
   return response.choices[0]?.message?.content ?? "";
 }

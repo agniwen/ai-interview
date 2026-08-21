@@ -1,24 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { Agent } from "@mastra/core/agent";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_CHAT_MODEL,
   getMastraModelIdentifier,
   getMastraModelConfig,
-  getAlibabaCodingPlanApiKey,
   getMastraModelApiKey,
-  toAlibabaCodingPlanModelId,
+  withThinkingDisabled,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
 
 describe("Mastra model configuration", () => {
-  it("uses Alibaba Coding Plan model ids directly when already qualified", () => {
-    expect(toAlibabaCodingPlanModelId("alibaba-coding-plan/qwen3.7-plus")).toBe(
-      "alibaba-coding-plan/qwen3.7-plus",
-    );
-  });
-
-  it("maps legacy Alibaba model names to Mastra provider model ids", () => {
-    expect(toAlibabaCodingPlanModelId(" deepseek-v4-pro ")).toBe(
-      "alibaba-coding-plan/deepseek-v4-pro",
-    );
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("uses ALIBABA_BASE_URL as an OpenAI-compatible provider config", () => {
@@ -60,38 +52,42 @@ describe("Mastra model configuration", () => {
       MASTRA_CHAT_MODEL: "alibaba-coding-plan/chat",
     });
 
-    expect(config.chatModel).toBe("alibaba-coding-plan/chat");
-    expect(config.fastModel).toBe("alibaba-coding-plan/legacy-fast");
-    expect(config.longContextModel).toBe("alibaba-coding-plan/legacy-chat");
-    expect(config.structuredModel).toBe("alibaba-coding-plan/legacy-structured");
-    expect(config.scorerModel).toBe("alibaba-coding-plan/legacy-fast");
+    expect(config.chatModel).toEqual({
+      modelId: "chat",
+      providerId: "alibaba",
+      url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    });
+    expect(config.fastModel).toEqual({
+      modelId: "legacy-fast",
+      providerId: "alibaba",
+      url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    });
+    expect(config.longContextModel).toEqual({
+      modelId: "legacy-chat",
+      providerId: "alibaba",
+      url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    });
+    expect(config.structuredModel).toEqual({
+      modelId: "legacy-structured",
+      providerId: "alibaba",
+      url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    });
+    expect(config.scorerModel).toEqual(config.fastModel);
   });
 
   it("falls back to documented defaults when env is empty", () => {
     const config = getMastraModelConfig({});
 
-    expect(config.chatModel).toBe(DEFAULT_CHAT_MODEL);
-    expect(config.fastModel).toBe(DEFAULT_CHAT_MODEL);
-    expect(config.longContextModel).toBe(DEFAULT_CHAT_MODEL);
-    expect(config.structuredModel).toBe(DEFAULT_CHAT_MODEL);
-    expect(config.scorerModel).toBe(DEFAULT_CHAT_MODEL);
-  });
-
-  it("prefers ALIBABA_CODING_PLAN_API_KEY over legacy ALIBABA_API_KEY", () => {
-    expect(
-      getAlibabaCodingPlanApiKey({
-        ALIBABA_API_KEY: "legacy-key",
-        ALIBABA_CODING_PLAN_API_KEY: " coding-plan-key ",
-      }),
-    ).toBe("coding-plan-key");
-  });
-
-  it("falls back to legacy ALIBABA_API_KEY during migration", () => {
-    expect(
-      getAlibabaCodingPlanApiKey({
-        ALIBABA_API_KEY: " legacy-key ",
-      }),
-    ).toBe("legacy-key");
+    const expected = {
+      modelId: DEFAULT_CHAT_MODEL,
+      providerId: "alibaba",
+      url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    };
+    expect(config.chatModel).toEqual(expected);
+    expect(config.fastModel).toEqual(expected);
+    expect(config.longContextModel).toEqual(expected);
+    expect(config.structuredModel).toEqual(expected);
+    expect(config.scorerModel).toEqual(expected);
   });
 
   it("uses ALIBABA_API_KEY for ALIBABA_BASE_URL provider mode", () => {
@@ -102,6 +98,12 @@ describe("Mastra model configuration", () => {
         ALIBABA_CODING_PLAN_API_KEY: "coding-plan-key",
       }),
     ).toBe("alibaba-key");
+  });
+
+  it("does not send a Coding Plan key to the standard compatible endpoint", () => {
+    expect(
+      getMastraModelApiKey({ ALIBABA_CODING_PLAN_API_KEY: "coding-plan-key" }),
+    ).toBeUndefined();
   });
 
   it("derives a stable identifier from the actual structured model config", () => {
@@ -116,5 +118,64 @@ describe("Mastra model configuration", () => {
         url: "https://example.com/v1",
       }),
     ).toBe("alibaba/qwen-plus");
+  });
+
+  it("disables reasoning for every Mastra agent model call", () => {
+    const model = {
+      modelId: "deepseek-v4-flash-0731",
+      providerId: "alibaba",
+      url: "https://example.com/v1",
+    } as const;
+
+    expect(withThinkingDisabled(model)).toEqual([
+      {
+        model,
+        modelSettings: { reasoning: "none" },
+        providerOptions: {
+          alibaba: { enable_thinking: false },
+        },
+      },
+    ]);
+  });
+
+  it("sends enable_thinking false through the default outbound model request", async () => {
+    const requestBodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+        requestBodies.push(String(init?.body));
+        return Promise.resolve(
+          Response.json({
+            choices: [
+              {
+                finish_reason: "stop",
+                index: 0,
+                message: { content: "ok", role: "assistant" },
+              },
+            ],
+            created: 1,
+            id: "mock-completion",
+            model: DEFAULT_CHAT_MODEL,
+            object: "chat.completion",
+            usage: { completion_tokens: 1, prompt_tokens: 1, total_tokens: 2 },
+          }),
+        );
+      }),
+    );
+    const config = getMastraModelConfig({ ALIBABA_API_KEY: "test-key" });
+    const agent = new Agent({
+      id: "thinking-disabled-probe",
+      instructions: "test",
+      model: withThinkingDisabled(config.chatModel),
+      name: "ThinkingDisabledProbe",
+    });
+
+    await agent.generate("hello");
+
+    expect(requestBodies).toHaveLength(1);
+    expect(JSON.parse(requestBodies[0] ?? "{}")).toMatchObject({
+      enable_thinking: false,
+      model: DEFAULT_CHAT_MODEL,
+    });
   });
 });

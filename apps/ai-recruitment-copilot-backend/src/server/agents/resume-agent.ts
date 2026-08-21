@@ -22,7 +22,6 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet, OUTPUT = string
   instructions: string;
   tools?: TOOLS;
   modelId?: string;
-  enableThinking?: boolean;
   stopWhen?: StopCondition<TOOLS> | StopCondition<TOOLS>[];
   temperature?: number;
   maxRetries?: number;
@@ -35,7 +34,6 @@ export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
   instructions,
   tools,
   modelId = getRequiredEnv("ALIBABA_MODEL"),
-  enableThinking = true,
   stopWhen = stepCountIs(1),
   temperature,
   maxRetries = DEFAULT_STEP_MAX_RETRIES,
@@ -43,7 +41,7 @@ export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
   prepareStep,
   output,
 }: CreateResumeAgentOptions<TOOLS, OUTPUT>) {
-  const provider = createAlibabaProvider({ enableThinking });
+  const provider = createAlibabaProvider();
 
   const settings = {
     instructions,

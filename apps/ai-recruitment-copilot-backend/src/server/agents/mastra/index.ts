@@ -20,12 +20,9 @@ import {
   structuredResumeNarrativeAgent,
   titleAgent,
 } from "./agents/simple-generators";
-import { configureAlibabaCodingPlanApiKey } from "./models";
 import { recruitmentScorers } from "./scorers";
 import { storage } from "./storage";
 import { recruitmentWorkflows } from "./workflows";
-
-configureAlibabaCodingPlanApiKey();
 
 export const recruitmentAgents = {
   formQuestionAgent,

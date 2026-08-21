@@ -1,12 +1,14 @@
 import type { MastraModelConfig as CoreMastraModelConfig } from "@mastra/core/llm";
+import type { ModelWithRetries } from "@mastra/core/agent";
 import { z } from "zod";
 
 const ALIBABA_CODING_PLAN_PREFIX = "alibaba-coding-plan/";
 const ALIBABA_PROVIDER_ID = "alibaba";
+const DEFAULT_ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-flash-0731";
 const DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL = "deepseek-v4-flash-0731";
 
-export const DEFAULT_CHAT_MODEL = `${ALIBABA_CODING_PLAN_PREFIX}MiniMax-M2.5`;
+export const DEFAULT_CHAT_MODEL = DEFAULT_ALIBABA_COMPATIBLE_MODEL;
 
 export interface MastraModelConfig {
   chatModel: CoreMastraModelConfig;
@@ -35,17 +37,6 @@ const mastraModelIdentifierSchemas = {
 function readEnv(env: EnvLike, name: string): string | undefined {
   const value = env[name]?.trim();
   return value || undefined;
-}
-
-export function toAlibabaCodingPlanModelId(modelId: string | undefined): string {
-  const trimmed = modelId?.trim();
-  if (!trimmed) {
-    return DEFAULT_CHAT_MODEL;
-  }
-  if (trimmed.startsWith(ALIBABA_CODING_PLAN_PREFIX)) {
-    return trimmed;
-  }
-  return `${ALIBABA_CODING_PLAN_PREFIX}${trimmed}`;
 }
 
 function toAlibabaCompatibleModelId(modelId: string): string {
@@ -105,18 +96,11 @@ function createAlibabaCompatibleModelConfig({
 }
 
 export function getAlibabaCompatibleApiKey(env: EnvLike = process.env): string | undefined {
-  return readEnv(env, "ALIBABA_API_KEY") ?? readEnv(env, "ALIBABA_CODING_PLAN_API_KEY");
-}
-
-export function getAlibabaCodingPlanApiKey(env: EnvLike = process.env): string | undefined {
-  return readEnv(env, "ALIBABA_CODING_PLAN_API_KEY") ?? readEnv(env, "ALIBABA_API_KEY");
+  return readEnv(env, "ALIBABA_API_KEY");
 }
 
 export function getMastraModelApiKey(env: EnvLike = process.env): string | undefined {
-  if (readEnv(env, "ALIBABA_BASE_URL")) {
-    return getAlibabaCompatibleApiKey(env);
-  }
-  return getAlibabaCodingPlanApiKey(env);
+  return getAlibabaCompatibleApiKey(env);
 }
 
 export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
@@ -139,74 +123,54 @@ export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
   throw new Error("Unable to derive Mastra model identifier.");
 }
 
-export function getMastraModelConfig(env: EnvLike = process.env): MastraModelConfig {
-  const alibabaBaseURL = readEnv(env, "ALIBABA_BASE_URL");
-  if (alibabaBaseURL) {
-    const modelNames = getModelNames(
-      env,
-      DEFAULT_ALIBABA_COMPATIBLE_MODEL,
-      DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL,
-    );
-    const apiKey = getAlibabaCompatibleApiKey(env);
-
-    return {
-      chatModel: createAlibabaCompatibleModelConfig({
-        apiKey,
-        baseURL: alibabaBaseURL,
-        modelId: modelNames.chatModel,
-      }),
-      fastModel: createAlibabaCompatibleModelConfig({
-        apiKey,
-        baseURL: alibabaBaseURL,
-        modelId: modelNames.fastModel,
-      }),
-      longContextModel: createAlibabaCompatibleModelConfig({
-        apiKey,
-        baseURL: alibabaBaseURL,
-        modelId: modelNames.longContextModel,
-      }),
-      scorerModel: createAlibabaCompatibleModelConfig({
-        apiKey,
-        baseURL: alibabaBaseURL,
-        modelId: modelNames.scorerModel,
-      }),
-      structuredModel: createAlibabaCompatibleModelConfig({
-        apiKey,
-        baseURL: alibabaBaseURL,
-        modelId: modelNames.structuredModel,
-      }),
-    };
-  }
-
-  const modelNames = getModelNames(env, DEFAULT_CHAT_MODEL);
-  const chatModel = toAlibabaCodingPlanModelId(modelNames.chatModel);
-  const fastModel = toAlibabaCodingPlanModelId(modelNames.fastModel);
-  const longContextModel = toAlibabaCodingPlanModelId(modelNames.longContextModel);
-  const scorerModel = toAlibabaCodingPlanModelId(modelNames.scorerModel);
-  const structuredModel = toAlibabaCodingPlanModelId(modelNames.structuredModel);
-
-  return {
-    chatModel,
-    fastModel,
-    longContextModel,
-    scorerModel,
-    structuredModel,
-  };
+export function withThinkingDisabled(model: CoreMastraModelConfig): ModelWithRetries[] {
+  return [
+    {
+      model,
+      modelSettings: { reasoning: "none" },
+      providerOptions: {
+        alibaba: { enable_thinking: false },
+      },
+    },
+  ];
 }
 
-export function configureAlibabaCodingPlanApiKey(env: NodeJS.ProcessEnv = process.env): void {
-  if (readEnv(env, "ALIBABA_BASE_URL")) {
-    return;
-  }
+export function getMastraModelConfig(env: EnvLike = process.env): MastraModelConfig {
+  const alibabaBaseURL = readEnv(env, "ALIBABA_BASE_URL") ?? DEFAULT_ALIBABA_BASE_URL;
+  const modelNames = getModelNames(
+    env,
+    DEFAULT_ALIBABA_COMPATIBLE_MODEL,
+    DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL,
+  );
+  const apiKey = getAlibabaCompatibleApiKey(env);
 
-  if (readEnv(env, "ALIBABA_CODING_PLAN_API_KEY")) {
-    return;
-  }
-
-  const legacyApiKey = readEnv(env, "ALIBABA_API_KEY");
-  if (legacyApiKey) {
-    env.ALIBABA_CODING_PLAN_API_KEY = legacyApiKey;
-  }
+  return {
+    chatModel: createAlibabaCompatibleModelConfig({
+      apiKey,
+      baseURL: alibabaBaseURL,
+      modelId: modelNames.chatModel,
+    }),
+    fastModel: createAlibabaCompatibleModelConfig({
+      apiKey,
+      baseURL: alibabaBaseURL,
+      modelId: modelNames.fastModel,
+    }),
+    longContextModel: createAlibabaCompatibleModelConfig({
+      apiKey,
+      baseURL: alibabaBaseURL,
+      modelId: modelNames.longContextModel,
+    }),
+    scorerModel: createAlibabaCompatibleModelConfig({
+      apiKey,
+      baseURL: alibabaBaseURL,
+      modelId: modelNames.scorerModel,
+    }),
+    structuredModel: createAlibabaCompatibleModelConfig({
+      apiKey,
+      baseURL: alibabaBaseURL,
+      modelId: modelNames.structuredModel,
+    }),
+  };
 }
 
 export const mastraModels = getMastraModelConfig();

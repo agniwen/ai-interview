@@ -16,8 +16,7 @@ export const titleRouter = factory
     if (!getMastraModelApiKey()) {
       return c.json(
         {
-          error:
-            "Missing ALIBABA_API_KEY or ALIBABA_CODING_PLAN_API_KEY. Please configure your environment variables.",
+          error: "Missing ALIBABA_API_KEY. Please configure your environment variables.",
         },
         500,
       );
