@@ -520,7 +520,10 @@ export async function generateResumeStructured(
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
+    observabilityLabel: "resume-structure",
     prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    retryOnInvalid: true,
+    retryOnTransient: true,
     schema: resumeParserGenerationSchema,
     temperature: 0,
   });

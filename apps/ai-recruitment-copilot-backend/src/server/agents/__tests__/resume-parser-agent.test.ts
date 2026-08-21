@@ -3,6 +3,7 @@
 // `projectAttachmentToResumeProfile` 把 chat_attachment 行的 superset
 // 投影到 ResumeProfile 子集，形状不符时返回 null。
 import { describe, expect, it } from "vitest";
+import { resumeParserGenerationSchema } from "@arc/db-schema/resume-parser-schema";
 import {
   projectAttachmentToResumeProfile,
   toResumeProfile,
@@ -46,6 +47,33 @@ const MINIMAL_STRUCTURED = {
 };
 
 describe("projectAttachmentToResumeProfile", () => {
+  it("accepts a core resume when optional scoring facts or work years are malformed", () => {
+    const parsed = resumeParserGenerationSchema.safeParse({
+      ...MINIMAL_STRUCTURED,
+      scoringFacts: {
+        additionalEvidence: [],
+        employmentEpisodes: [],
+        projects: [],
+        skillFacts: [{ evidence: [], evidenceLevel: "使用过", normalizedSkill: "TypeScript" }],
+        version: 1,
+      },
+      workYears: undefined,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      return;
+    }
+    expect(parsed.data.scoringFacts).toEqual({
+      additionalEvidence: [],
+      employmentEpisodes: [],
+      projects: [],
+      skillFacts: [],
+      version: 1,
+    });
+    expect(parsed.data.workYears).toBeNull();
+  });
+
   it("returns null when input is null", () => {
     expect(projectAttachmentToResumeProfile(null)).toBeNull();
   });

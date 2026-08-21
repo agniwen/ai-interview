@@ -666,6 +666,9 @@ describe("generateResumeStructured", () => {
       expect.objectContaining({
         agent: mocks.resumeStructuredAgent,
         maxOutputTokens: 16_384,
+        observabilityLabel: "resume-structure",
+        retryOnInvalid: true,
+        retryOnTransient: true,
         schema: expect.any(Object),
         temperature: 0,
       }),

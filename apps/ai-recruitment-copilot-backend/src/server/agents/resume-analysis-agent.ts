@@ -200,6 +200,8 @@ export class ResumeAnalysisError extends Error {
   }
 }
 
+const errorMessageSchema = z.object({ message: z.string().trim().min(1) }).passthrough();
+
 function uniqueStrings(values: string[]) {
   return uniq(values.map((value) => value.trim()).filter(Boolean));
 }
@@ -623,8 +625,9 @@ async function generateInterviewQuestionsWithDependencies(
     if (error instanceof ResumeAnalysisError) {
       throw error;
     }
+    const parsedError = errorMessageSchema.safeParse(error);
     throw new ResumeAnalysisError(
-      error instanceof Error ? error.message : "Failed to generate interview questions.",
+      parsedError.success ? parsedError.data.message : "Failed to generate interview questions.",
       "question-generation",
       resumeProfile,
     );
@@ -708,8 +711,9 @@ export async function parseResumeBytesToProfile(
     if (error instanceof ResumeAnalysisError) {
       throw error;
     }
+    const parsedError = errorMessageSchema.safeParse(error);
     throw new ResumeAnalysisError(
-      error instanceof Error ? error.message : "Failed to extract resume information.",
+      parsedError.success ? parsedError.data.message : "Failed to extract resume information.",
       "resume-parsing",
     );
   }

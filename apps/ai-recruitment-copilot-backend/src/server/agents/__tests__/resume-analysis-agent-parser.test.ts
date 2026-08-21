@@ -150,6 +150,26 @@ describe("resume parsing agent", () => {
     expect(result.resumeProfile.skills).toEqual(["TypeScript", "Vue", "Kubernetes"]);
   });
 
+  it("preserves a serialized workflow error message instead of replacing it with a generic failure", async () => {
+    mocks.runWorkflow.mockRejectedValue({
+      message: "Structured output validation failed: workYears is missing",
+    });
+
+    await expect(
+      parseResumeBytesToProfile(
+        {
+          bytes: new Uint8Array([1, 2, 3]),
+          fileName: "resume.pdf",
+          mediaType: "application/pdf",
+        },
+        dependencies,
+      ),
+    ).rejects.toMatchObject({
+      message: "Structured output validation failed: workYears is missing",
+      stage: "resume-parsing",
+    });
+  });
+
   it("uses the resume parse workflow for the streaming parse endpoint", async () => {
     mocks.hashBytes.mockResolvedValue("hash-1");
     mocks.findCachedAttachment.mockResolvedValue(null);

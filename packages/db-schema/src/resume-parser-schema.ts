@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { resumeScoringFactsSchema } from "./resume-scoring-facts";
 
+const emptyResumeScoringFacts = {
+  additionalEvidence: [],
+  employmentEpisodes: [],
+  projects: [],
+  skillFacts: [],
+  version: 1 as const,
+};
+
 const workExperienceSchema = z.object({
   company: z.string().nullable(),
   period: z.string().nullable(),
@@ -51,17 +59,15 @@ export const structuredSchema = z.object({
     riskSignals: z.array(z.string()),
   }),
   workExperiences: z.array(workExperienceSchema),
-  workYears: z.number().nullable(),
+  // oxlint-disable-next-line promise/prefer-await-to-then -- Zod catch supplies a synchronous schema fallback.
+  workYears: z.number().nullable().catch(null),
 });
 
 export const resumeParserGenerationSchema = structuredSchema.extend({
-  scoringFacts: resumeScoringFactsSchema.default({
-    additionalEvidence: [],
-    employmentEpisodes: [],
-    projects: [],
-    skillFacts: [],
-    version: 1,
-  }),
+  // 评分事实是解析后的增强信息，不应因为模型漏填枚举或索引而丢弃整份简历。
+  // 下游 normalizeResumeScoringFacts 会基于核心简历字段补齐这些默认值。
+  // oxlint-disable-next-line promise/prefer-await-to-then -- Zod catch supplies a synchronous schema fallback.
+  scoringFacts: resumeScoringFactsSchema.catch(emptyResumeScoringFacts),
 });
 
 export type ResumeParserStructured = z.infer<typeof structuredSchema>;
