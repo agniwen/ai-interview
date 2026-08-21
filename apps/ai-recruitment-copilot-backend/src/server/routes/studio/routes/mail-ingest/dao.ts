@@ -603,6 +603,8 @@ export async function mailIngestAccountExistsInOrg({
 
 function buildAccountUpdateValues(input: UpdateAccountInput) {
   const updateValues: Partial<typeof mailIngestAccount.$inferInsert> = {
+    lastError: null,
+    pollingStartedAt: null,
     updatedAt: new Date(),
   };
   for (const key of [
@@ -717,7 +719,7 @@ export async function listEnabledMailIngestAccounts(
   return rows.map(toWorkerMailIngestAccount);
 }
 
-export async function claimMailIngestAccount(accountId: string): Promise<boolean> {
+export async function claimMailIngestAccount(accountId: string): Promise<Date | null> {
   const now = new Date();
   const staleBefore = new Date(now.getTime() - MAIL_INGEST_ACCOUNT_LEASE_MS);
   const rows = await db
@@ -733,14 +735,15 @@ export async function claimMailIngestAccount(accountId: string): Promise<boolean
         ),
       ),
     )
-    .returning({ id: mailIngestAccount.id });
-  return rows.length > 0;
+    .returning({ pollingStartedAt: mailIngestAccount.pollingStartedAt });
+  return rows[0]?.pollingStartedAt ?? null;
 }
 
 export async function finishMailIngestAccountRun(
   accountId: string,
   opts?: {
     error?: unknown;
+    pollingStartedAt?: Date;
     counts?: {
       received: number;
       subjectSkipped: number;
@@ -766,5 +769,12 @@ export async function finishMailIngestAccountRun(
       lastRunSubjectSkipped: opts.counts.subjectSkipped,
     });
   }
-  await db.update(mailIngestAccount).set(updateValues).where(eq(mailIngestAccount.id, accountId));
+  const filters = [eq(mailIngestAccount.id, accountId)];
+  if (opts?.pollingStartedAt) {
+    filters.push(eq(mailIngestAccount.pollingStartedAt, opts.pollingStartedAt));
+  }
+  await db
+    .update(mailIngestAccount)
+    .set(updateValues)
+    .where(and(...filters));
 }

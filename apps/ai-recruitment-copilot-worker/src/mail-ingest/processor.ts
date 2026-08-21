@@ -52,7 +52,7 @@ export type ImapClient = Pick<
 
 export interface MailIngestDependencies {
   buildAttachmentKeyByHash: typeof buildAttachmentKeyByHash;
-  claimMailIngestAccount: (accountId: string) => Promise<boolean>;
+  claimMailIngestAccount: (accountId: string) => Promise<Date | null>;
   claimMailIngestMessageForProcessing: typeof claimMailIngestMessageForProcessing;
   createImapClient: (options: ImapFlowOptions) => ImapClient;
   enqueueResumeParseJobs: typeof enqueueResumeParseJobs;
@@ -386,15 +386,20 @@ async function finishAccounts(
   accounts: WorkerMailIngestAccount[],
   tallies: Map<string, MailAccountTally>,
   dependencies: MailIngestDependencies,
+  pollingStartedAtByAccountId: ReadonlyMap<string, Date>,
   error?: Error,
 ): Promise<void> {
   await Promise.all(
     accounts.map(({ id }) => {
       const t = tallies.get(id) ?? zeroMailAccountTally();
+      const pollingStartedAt = pollingStartedAtByAccountId.get(id);
+      if (!pollingStartedAt) {
+        return null;
+      }
       return dependencies.finishMailIngestAccountRun(
         id,
         error
-          ? { error }
+          ? { error, pollingStartedAt }
           : {
               counts: {
                 failed: t.failed,
@@ -403,6 +408,7 @@ async function finishAccounts(
                 received: t.received,
                 subjectSkipped: t.subjectSkipped,
               },
+              pollingStartedAt,
             },
       );
     }),
@@ -416,13 +422,15 @@ async function runMailIngestOnceWithDependencies(
   const result = { accounts: 0, messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
   const accounts = await dependencies.listEnabledMailIngestAccounts(config.maxAccountsPerRun);
   const claimedAccounts: WorkerMailIngestAccount[] = [];
+  const pollingStartedAtByAccountId = new Map<string, Date>();
   for (const account of accounts) {
-    const claimed = await dependencies.claimMailIngestAccount(account.id);
-    if (!claimed) {
+    const pollingStartedAt = await dependencies.claimMailIngestAccount(account.id);
+    if (!pollingStartedAt) {
       continue;
     }
     result.accounts += 1;
     claimedAccounts.push(account);
+    pollingStartedAtByAccountId.set(account.id, pollingStartedAt);
   }
   for (const group of groupMailIngestAccounts(claimedAccounts)) {
     try {
@@ -434,11 +442,17 @@ async function runMailIngestOnceWithDependencies(
       result.messagesFailed += groupResult.messagesFailed;
       result.messagesQueued += groupResult.messagesQueued;
       result.messagesSkipped += groupResult.messagesSkipped;
-      await finishAccounts(group.accounts, tallies, dependencies);
+      await finishAccounts(group.accounts, tallies, dependencies, pollingStartedAtByAccountId);
     } catch (error) {
       result.messagesFailed += 1;
       const accountError = error instanceof Error ? error : new Error("Mail ingest failed");
-      await finishAccounts(group.accounts, new Map(), dependencies, accountError);
+      await finishAccounts(
+        group.accounts,
+        new Map(),
+        dependencies,
+        pollingStartedAtByAccountId,
+        accountError,
+      );
       console.error("[mail-ingest] account poll failed", {
         accountIds: group.accounts.map((account) => account.id),
         error,

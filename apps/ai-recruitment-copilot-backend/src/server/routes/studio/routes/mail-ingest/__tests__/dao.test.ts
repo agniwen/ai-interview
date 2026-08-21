@@ -20,6 +20,7 @@ import {
   queryPaginatedPlatformMailIngestAccounts,
   queryPaginatedWorkspaceMailIngestAccounts,
   updateMailIngestMessageResult,
+  updateMailIngestAccount,
 } from "../dao";
 
 const ORG = "test_mail_ingest_org";
@@ -282,6 +283,37 @@ describe("mail ingest workspace administration dao", () => {
     expect(row?.lastError).toContain("Command failed");
     expect(row?.lastError).toContain("NO");
     expect(row?.lastError).toContain("Too many simultaneous connections");
+  }, 30_000);
+
+  it("clears saved account errors and ignores a stale poll completion", async () => {
+    const pollingStartedAt = new Date("2026-06-18T10:01:00.000Z");
+    await db
+      .update(mailIngestAccount)
+      .set({ lastError: "old poll error", pollingStartedAt })
+      .where(eq(mailIngestAccount.id, "mail_ingest_owner_account"));
+
+    await updateMailIngestAccount({
+      id: "mail_ingest_owner_account",
+      input: { enabled: true },
+      organizationId: ORG,
+      userId: OWNER,
+    });
+    await finishMailIngestAccountRun("mail_ingest_owner_account", {
+      error: new Error("stale LOGIN failed"),
+      pollingStartedAt,
+    });
+
+    const [row] = await db
+      .select({
+        lastError: mailIngestAccount.lastError,
+        pollingStartedAt: mailIngestAccount.pollingStartedAt,
+      })
+      .from(mailIngestAccount)
+      .where(eq(mailIngestAccount.id, "mail_ingest_owner_account"))
+      .limit(1);
+
+    expect(row?.lastError).toBeNull();
+    expect(row?.pollingStartedAt).toBeNull();
   }, 30_000);
 
   it("getMailIngestAccountLoginConfig rejects an account owned by a different user in the same org", async () => {

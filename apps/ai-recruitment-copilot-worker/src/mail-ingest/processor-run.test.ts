@@ -37,6 +37,8 @@ const mocks = {
   updateMailIngestMessageResult: vi.fn(),
 };
 
+const POLLING_STARTED_AT = new Date("2026-06-18T10:00:01.000Z");
+
 function parsedMail(input: Partial<ParsedMail>): ParsedMail {
   return {
     attachments: [],
@@ -146,7 +148,7 @@ describe("runMailIngestOnce", () => {
     mocks.errorListenerCount = 0;
     mocks.connect.mockRejectedValue(new Error("IMAP login failed"));
     mocks.listEnabledMailIngestAccounts.mockResolvedValue([account()]);
-    mocks.claimMailIngestAccount.mockResolvedValue(true);
+    mocks.claimMailIngestAccount.mockResolvedValue(POLLING_STARTED_AT);
     mocks.finishMailIngestAccountRun.mockImplementation(() => Promise.resolve());
     mocks.fetchOne.mockResolvedValue(null);
     mocks.getMailboxLock.mockResolvedValue({ release: vi.fn() });
@@ -180,7 +182,10 @@ describe("runMailIngestOnce", () => {
     expect(result).toMatchObject({ accounts: 1, messagesFailed: 1 });
     expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith(
       "account_1",
-      expect.objectContaining({ error: expect.any(Error) }),
+      expect.objectContaining({
+        error: expect.any(Error),
+        pollingStartedAt: POLLING_STARTED_AT,
+      }),
     );
   });
 
