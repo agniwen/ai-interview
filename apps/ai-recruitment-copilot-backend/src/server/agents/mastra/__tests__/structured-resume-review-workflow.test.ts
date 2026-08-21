@@ -221,6 +221,171 @@ describe("structured resume workflow contracts", () => {
     }
   });
 
+  it("derives deterministic timeline and project fields instead of requiring repeated model JSON", () => {
+    const result = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [
+        {
+          evidence: [],
+          id: "work-0",
+          relevance: "relevant",
+          relevanceReason: "岗位职责相关。",
+        },
+      ],
+      projects: [{ evidence: [], id: "project-0", relevant: true }],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+    const gates = structuredGateAgentOutputSchema.parse({
+      judgments: [
+        {
+          aiStatus: "passed",
+          evidence: [],
+          experienceEpisodes: [{ evidence: [], id: "work-0" }],
+          reason: "满足要求。",
+          requirementId: "gate-0",
+        },
+      ],
+    });
+
+    expect(result.employmentEpisodes[0]).toMatchObject({
+      current: false,
+      endMonth: null,
+      gapExplanation: null,
+      primaryStatus: "unresolved",
+      startMonth: null,
+    });
+    expect(result.projects[0]).toMatchObject({ current: false, endMonth: null });
+    expect(gates.judgments[0]?.experienceEpisodes?.[0]).toMatchObject({
+      current: false,
+      endMonth: null,
+      startMonth: null,
+    });
+  });
+
+  it("hydrates compact model judgments from scoring facts before assembling the artifact", async () => {
+    const experienceGate = {
+      category: "work_experience" as const,
+      normalizedRequirement: "3年以上相关经验",
+      requirementId: "gate-experience",
+      sourceRef: { kind: "hard_gate" as const, path: "hardGates.workExperience" },
+      sourceText: "3年以上相关经验",
+    };
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: { ...blueprint, hardGateRequirements: [experienceGate] },
+      },
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          projectExperiences: [
+            {
+              name: "支付平台",
+              period: "2024.01-至今",
+              role: "负责人",
+              summary: null,
+              techStack: [],
+            },
+          ],
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [
+              {
+                currentStatus: "current" as const,
+                endMonth: null,
+                evidence: [],
+                gapExplanation: "内部转岗",
+                primaryStatus: "primary" as const,
+                sourceIndex: 0,
+                startMonth: "2022-03",
+              },
+            ],
+            projects: [
+              {
+                currentStatus: "current" as const,
+                endMonth: null,
+                evidence: [],
+                sourceIndex: 0,
+                startMonth: "2024-01",
+              },
+            ],
+            skillFacts: [],
+            version: 1 as const,
+          },
+          workExperiences: [
+            { company: "示例公司", period: "2022.03-至今", role: "工程师", summary: null },
+          ],
+        },
+      },
+    };
+    generatorCall
+      .mockResolvedValueOnce({
+        judgments: [
+          {
+            aiStatus: "passed",
+            evidence: [],
+            experienceEpisodes: [{ evidence: [], id: "work-0" }],
+            reason: "相关经历满足要求。",
+            requirementId: experienceGate.requirementId,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        employmentEpisodes: [
+          {
+            evidence: [],
+            id: "work-0",
+            relevance: "relevant",
+            relevanceReason: "岗位职责相关。",
+          },
+        ],
+        projects: [{ evidence: [], id: "project-0", relevant: true }],
+        ruleJudgments: [],
+        skillFacts: [],
+      });
+    const hydratingGenerator: StructuredResumeGenerator = async (request) => {
+      const output = request.schema.parse(await generatorCall());
+      request.validate?.(output);
+      return output;
+    };
+
+    const gateOutput = await judgeStructuredHardGates(input, hydratingGenerator);
+    const dimensionOutput = await judgeStructuredDimensionEvidence(input, hydratingGenerator);
+
+    expect(gateOutput.judgments[0]?.experienceEpisodes?.[0]).toMatchObject({
+      current: true,
+      endMonth: null,
+      startMonth: "2022-03",
+    });
+    expect(dimensionOutput.employmentEpisodes[0]).toMatchObject({
+      current: true,
+      gapExplanation: "内部转岗",
+      primaryStatus: "primary",
+      startMonth: "2022-03",
+    });
+    expect(dimensionOutput.projects[0]).toMatchObject({ current: true, endMonth: null });
+
+    const calculationResult = computeStructuredResumeCalculation({
+      adjustmentOutput: { judgments: [] },
+      dimensionOutput,
+      gateOutput,
+      workflowInput: input,
+    });
+    const artifact = assembleStructuredResumeEvaluation({
+      calculationResult,
+      narrative: narrativeOutput,
+      workflowInput: input,
+    });
+    expect(structuredResumeEvaluationV1Schema.safeParse(artifact).success).toBe(true);
+    expect(artifact.timeline.employmentEpisodes[0]).toMatchObject({
+      current: true,
+      primaryStatus: "primary",
+      startMonth: "2022-03",
+    });
+  });
+
   it("accepts omitted candidate fact collections and non-semantic evidence metadata", () => {
     const result = structuredDimensionAgentOutputSchema.safeParse({
       employmentEpisodes: [
@@ -337,7 +502,7 @@ describe("structured resume workflow contracts", () => {
     }
   });
 
-  it("keeps structured skills but excludes legacy period strings from the scoring prompt", async () => {
+  it("keeps one canonical copy of structured skills and excludes legacy period strings", async () => {
     const input = {
       ...workflowInput,
       resumeInput: {
@@ -361,8 +526,10 @@ describe("structured resume workflow contracts", () => {
 
     await judgeStructuredHardGates(input, generator);
 
-    expect(generatorCalls[0]?.prompt).toContain("SKILL-049");
-    expect(generatorCalls[0]?.prompt).not.toContain("PERIOD-014");
+    const prompt = generatorCalls[0]?.prompt ?? "";
+    expect(prompt.match(/SKILL-049/gu)).toHaveLength(1);
+    expect(prompt).not.toContain("PERIOD-014");
+    expect(prompt).not.toContain("证据引用白名单如下");
   });
 
   it("reuses parsed timeline facts and fills missing model classifications without failing", () => {
@@ -490,6 +657,25 @@ describe("structured resume workflow contracts", () => {
     ).toBe(false);
   });
 
+  it("derives a semantic rule dimension from ruleId when the model emits a bad enum", () => {
+    const result = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [
+        {
+          evidence: [],
+          reason: { conclusion: "简历没有相关项目", scope: "当前岗位" },
+          ruleId: "project.no_relevant_project",
+          status: "matched",
+        },
+      ],
+      skillFacts: [],
+    });
+
+    expect(result.ruleJudgments[0]?.dimension).toBe("projectMatch");
+    expect(result.ruleJudgments[0]?.reason).toBe("简历没有相关项目；当前岗位");
+  });
+
   it("sends the versioned rule definitions and frozen skill expectations to the dimension Agent", async () => {
     generatorCall.mockResolvedValue({
       employmentEpisodes: [],
@@ -531,14 +717,14 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("禁止把 JSON 字段名当作 quote");
     expect(prompt).toContain("禁止使用省略号");
     expect(prompt).toContain("复制粘贴");
-    expect(prompt).toContain("日期、公司、职位必须分别引用各自的字符串叶子值");
-    expect(prompt).toContain("禁止自行拼成简历摘要句");
-    expect(prompt).toContain("证据引用白名单");
-    expect(prompt).toContain('"resume_profile":["候选人"');
+    expect(prompt).toContain("岗位相关性证据只能引用公司、职位或职责中的字符串叶子值");
+    expect(prompt).toContain("不得重复返回日期、在职状态、主职/并发关系或空档说明");
+    expect(prompt).toContain("resumeProfile JSON 的某一个字符串叶子值");
+    expect(prompt).not.toContain('"resume_profile":["候选人"');
     expect(prompt).toContain('"normalizedSkill":"TypeScript"');
     expect(prompt).not.toContain('"hardGateRequirements"');
     expect(prompt).not.toContain('"publishedConfig"');
-    expect(generatorCalls[0]?.maxOutputTokens).toBe(16_000);
+    expect(generatorCalls[0]?.maxOutputTokens).toBe(32_000);
     expect(generatorCalls[0]?.timeoutMs).toBe(240_000);
     const validate = generatorCalls[0]?.validate;
     expect(validate).toEqual(expect.any(Function));

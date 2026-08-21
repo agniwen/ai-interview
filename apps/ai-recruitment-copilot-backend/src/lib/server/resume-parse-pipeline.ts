@@ -1,6 +1,7 @@
 // End-to-end deterministic resume parsing pipeline.
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
 // candidate info via a schema-constrained Mastra agent call.
+/* oxlint-disable max-lines -- Document formats and their shared OCR pipeline stay together. */
 
 import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
@@ -33,6 +34,7 @@ const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 const DEFAULT_OCR_ATTEMPTS = 3;
 const DEFAULT_OCR_PAGE_CONCURRENCY = 4;
+const DEFAULT_OCR_RENDER_SCALE = 4;
 const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
@@ -115,6 +117,17 @@ function normalizeExtractedText(text: string): string {
       .filter(Boolean)
       .join("\n"),
   );
+}
+
+function validateOcrTextQuality(text: string): void {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const coordinateLines = lines.filter((line) => /^\d+(?:,\d+){4,}$/u.test(line)).length;
+  if (coordinateLines >= 10 && coordinateLines / lines.length >= 0.6) {
+    throw new Error("OCR output is a coordinate dump instead of readable resume text.");
+  }
 }
 
 function emitResumeParseProgress(
@@ -494,6 +507,7 @@ async function extractImageText(
   if (text.trim().length === 0) {
     throw new Error("Qwen OCR returned empty text for the image resume.");
   }
+  validateOcrTextQuality(text);
 
   emitResumeParseProgress(input.onProgress, {
     outputChars: text.length,
@@ -502,6 +516,25 @@ async function extractImageText(
     type: "ocr.completed",
   });
   return { pageCount: 1, text, textSource: "qwen-ocr" };
+}
+
+function validateGeneratedResumeStructured(output: ResumeParserStructured): void {
+  const missingValuePlaceholders = new Set(["不详", "未发现信息", "未提供", "未知", "无"]);
+  if (output.name && missingValuePlaceholders.has(output.name.trim())) {
+    throw new Error("name 不得使用缺失占位值，缺失时应返回 null");
+  }
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const skill of output.skills) {
+    const normalized = skill.trim().replaceAll(/\s+/g, " ").toLocaleLowerCase("en-US");
+    if (seen.has(normalized)) {
+      duplicates.add(skill.trim());
+    }
+    seen.add(normalized);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(`skills 包含重复项：${[...duplicates].join("、")}`);
+  }
 }
 
 export async function generateResumeStructured(
@@ -514,18 +547,16 @@ export async function generateResumeStructured(
   });
   const output = await dependencies.generateStructuredWithMastraAgent({
     agent: dependencies.resumeStructuredAgent,
-    // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
-    // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
-    // Chinese resumes use ~1 token per character; with verbose project / work
-    // experience summaries the output can be very long, so allow 16384 to leave
-    // headroom and avoid truncating mid-string.
-    maxOutputTokens: 16_384,
-    observabilityLabel: "resume-structure",
+    fallbackToTextGeneration: true,
+    // Long resumes can legitimately produce large work/project evidence snapshots.
+    // Keep thinking disabled at the agent model and reserve 32K for the final JSON.
+    maxOutputTokens: 32_768,
     prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     retryOnInvalid: true,
     retryOnTransient: true,
     schema: resumeParserGenerationSchema,
     temperature: 0,
+    validate: validateGeneratedResumeStructured,
   });
   devOcrLog("structured completed", {
     duration: formatDuration(startedAt),
@@ -552,7 +583,11 @@ export async function parseResumeOcrOnly(
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
-  devOcrLog("start", { bytes: bytes.byteLength, maxPages: 6, scale: 2 });
+  devOcrLog("start", {
+    bytes: bytes.byteLength,
+    maxPages: 6,
+    scale: DEFAULT_OCR_RENDER_SCALE,
+  });
   const ocrStartedAt = nowMs();
   const pageConcurrency = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
@@ -578,7 +613,7 @@ export async function parseResumeOcrOnly(
           type: "document.pages.ready",
         });
       },
-      scale: 2,
+      scale: DEFAULT_OCR_RENDER_SCALE,
     },
     async (png, index) => {
       const pageStartedAt = nowMs();
@@ -627,6 +662,7 @@ export async function parseResumeOcrOnly(
   if (text.trim().length === 0) {
     throw new Error("Qwen OCR returned empty text for every page.");
   }
+  validateOcrTextQuality(text);
 
   devOcrLog("completed", {
     duration: formatDuration(totalStartedAt),

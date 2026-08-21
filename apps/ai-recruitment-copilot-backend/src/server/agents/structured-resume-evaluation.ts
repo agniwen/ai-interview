@@ -79,21 +79,19 @@ export const structuredResumeWorkflowInputSchema = z
 
 const gateExperienceEpisodeSchema = z
   .object({
-    current: z.boolean().default(false),
-    endMonth: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable()
-      .default(null),
     evidence: z.array(agentEvidenceSchema).default([]),
     id: z.string().trim().min(1).optional(),
-    startMonth: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable()
-      .default(null),
   })
-  .strip();
+  .strip()
+  .transform(
+    (
+      item,
+    ): typeof item & {
+      current: boolean;
+      endMonth: string | null;
+      startMonth: string | null;
+    } => ({ ...item, current: false, endMonth: null, startMonth: null }),
+  );
 
 const gateJudgmentSchema = z
   .object({
@@ -122,73 +120,116 @@ const semanticRuleIds = [
   "project.scale_low",
   "stability.frequent_unrelated_industries",
 ] as const;
-
-const semanticRuleJudgmentSchema = z
+const semanticRuleIdSchema = z.enum(semanticRuleIds);
+const generatedReasonSchema = z.union([
+  z.string(),
+  z.array(z.string()),
+  z.record(z.string(), z.string()),
+]);
+type GeneratedReason = z.infer<typeof generatedReasonSchema>;
+const generatedSemanticRuleIdentitySchema = z
   .object({
-    dimension: z.enum(STRUCTURED_RESUME_DIMENSIONS),
-    evidence: z.array(agentEvidenceSchema).default([]),
-    reason: z.string().trim().min(1),
-    ruleId: z.enum(semanticRuleIds),
-    status: structuredResumeRuleStatusSchema,
-    units: z.number().int().min(1).max(3).optional(),
+    reason: z.unknown(),
+    ruleId: semanticRuleIdSchema,
   })
-  .strip()
-  .superRefine((item, context) => {
-    if (item.dimension !== STRUCTURED_RESUME_DEDUCTION_CATALOG[item.ruleId].dimension) {
-      context.addIssue({
-        code: "custom",
-        message: "规则与维度不一致",
-        path: ["dimension"],
-      });
+  .passthrough();
+
+function normalizeGeneratedReason(value: GeneratedReason): string {
+  const scalar = z.string().safeParse(value);
+  if (scalar.success) {
+    return scalar.data;
+  }
+  const array = z.array(z.string()).safeParse(value);
+  if (array.success) {
+    return array.data.filter((part) => part.trim().length > 0).join("；");
+  }
+  return Object.values(z.record(z.string(), z.string()).parse(value))
+    .filter((part) => part.trim().length > 0)
+    .join("；");
+}
+
+const semanticRuleJudgmentSchema = z.preprocess(
+  (value) => {
+    const parsedRecord = generatedSemanticRuleIdentitySchema.safeParse(value);
+    if (!parsedRecord.success) {
+      return value;
     }
-    if (
-      item.ruleId === "education.below_tier" &&
-      item.status === "matched" &&
-      item.units === undefined
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "学历层级扣分必须返回层级差",
-        path: ["units"],
-      });
-    }
-  });
+    const parsedReason = generatedReasonSchema.safeParse(parsedRecord.data.reason);
+    return {
+      ...parsedRecord.data,
+      dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[parsedRecord.data.ruleId].dimension,
+      reason: parsedReason.success
+        ? normalizeGeneratedReason(parsedReason.data)
+        : parsedRecord.data.reason,
+    };
+  },
+  z
+    .object({
+      evidence: z.array(agentEvidenceSchema).default([]),
+      reason: z.string().trim().min(1),
+      ruleId: semanticRuleIdSchema,
+      status: structuredResumeRuleStatusSchema,
+      units: z.number().int().min(1).max(3).optional(),
+    })
+    .strip()
+    .transform((item) => ({
+      ...item,
+      dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[item.ruleId].dimension,
+    }))
+    .superRefine((item, context) => {
+      if (
+        item.ruleId === "education.below_tier" &&
+        item.status === "matched" &&
+        item.units === undefined
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "学历层级扣分必须返回层级差",
+          path: ["units"],
+        });
+      }
+    }),
+);
 
 const timelineEpisodeSchema = z
   .object({
-    current: z.boolean().default(false),
-    endMonth: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable()
-      .default(null),
     evidence: z.array(agentEvidenceSchema).default([]),
-    gapExplanation: z.string().trim().min(1).nullable().default(null),
     id: z.string().trim().min(1),
-    primaryStatus: z.enum(["concurrent", "primary", "unresolved"]),
     relevance: z.enum(["insufficient_evidence", "not_relevant", "relevant"]),
     relevanceReason: z.string().trim().min(1),
-    startMonth: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable()
-      .default(null),
   })
-  .strip();
+  .strip()
+  .transform(
+    (
+      item,
+    ): typeof item & {
+      current: boolean;
+      endMonth: string | null;
+      gapExplanation: string | null;
+      primaryStatus: "concurrent" | "primary" | "unresolved";
+      startMonth: string | null;
+    } => ({
+      ...item,
+      current: false,
+      endMonth: null,
+      gapExplanation: null,
+      primaryStatus: "unresolved",
+      startMonth: null,
+    }),
+  );
 
 const projectFactSchema = z
   .object({
-    current: z.boolean().default(false),
-    endMonth: z
-      .string()
-      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-      .nullable()
-      .default(null),
     evidence: z.array(agentEvidenceSchema).default([]),
     id: z.string().trim().min(1),
     relevant: z.boolean(),
   })
-  .strip();
+  .strip()
+  .transform((item): typeof item & { current: boolean; endMonth: string | null } => ({
+    ...item,
+    current: false,
+    endMonth: null,
+  }));
 
 const skillFactSchema = z
   .object({
@@ -298,45 +339,6 @@ const STRUCTURED_DIMENSION_LABELS = {
   stability: "稳定",
 } as const;
 
-const EVIDENCE_CATALOG_CHUNK_LENGTH = 400;
-const evidenceCatalogScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
-const evidenceCatalogArraySchema = z.array(z.json());
-const evidenceCatalogObjectSchema = z.record(z.string(), z.json());
-
-function chunkEvidenceCatalogValue(value: string): string[] {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return [];
-  }
-  const chunks: string[] = [];
-  for (let offset = 0; offset < trimmed.length; offset += EVIDENCE_CATALOG_CHUNK_LENGTH) {
-    chunks.push(trimmed.slice(offset, offset + EVIDENCE_CATALOG_CHUNK_LENGTH));
-  }
-  return chunks;
-}
-
-function collectProfileEvidenceCatalog(value: JsonValue, output: string[]): void {
-  const scalar = evidenceCatalogScalarSchema.safeParse(value);
-  if (scalar.success) {
-    output.push(...chunkEvidenceCatalogValue(String(scalar.data)));
-    return;
-  }
-  const array = evidenceCatalogArraySchema.safeParse(value);
-  if (array.success) {
-    for (const item of array.data) {
-      collectProfileEvidenceCatalog(item, output);
-    }
-    return;
-  }
-  const object = evidenceCatalogObjectSchema.safeParse(value);
-  if (!object.success) {
-    return;
-  }
-  for (const item of Object.values(object.data)) {
-    collectProfileEvidenceCatalog(item, output);
-  }
-}
-
 function compactPromptString(value: string | null, maxCharacters = 400): string | null {
   return value === null ? null : value.slice(0, maxCharacters);
 }
@@ -365,7 +367,6 @@ function buildCompactResumeProfile(input: StructuredResumeWorkflowInput): JsonVa
       school: compactPromptString(item.school, 160),
       summary: compactPromptString(item.summary),
     })),
-    name: profile.name.slice(0, 100),
     personalStrengths: profile.personalStrengths.map((item) => item.slice(0, 300)),
     projectExperiences: profile.projectExperiences.map((item) => ({
       name: compactPromptString(item.name, 160),
@@ -375,7 +376,6 @@ function buildCompactResumeProfile(input: StructuredResumeWorkflowInput): JsonVa
     })),
     schools: profile.schools.map((item) => item.slice(0, 160)),
     scoringFacts,
-    skills: profile.skills.map((item) => item.slice(0, 120)),
     targetRoles: profile.targetRoles.map((item) => item.slice(0, 160)),
     workExperiences: profile.workExperiences.map((item) => ({
       company: compactPromptString(item.company, 160),
@@ -386,18 +386,9 @@ function buildCompactResumeProfile(input: StructuredResumeWorkflowInput): JsonVa
   };
 }
 
-function buildEvidenceQuoteCatalog(compactResumeProfile: JsonValue): string {
-  const profileValues: string[] = [];
-  collectProfileEvidenceCatalog(compactResumeProfile, profileValues);
-  return JSON.stringify({
-    resume_profile: [...new Set(profileValues)],
-  });
-}
-
 export const structuredResumePromptContextSchema = z
   .object({
     compactResumeProfile: z.json(),
-    evidenceQuoteCatalog: z.string().trim().min(1),
   })
   .strict();
 export type StructuredResumePromptContext = z.infer<typeof structuredResumePromptContextSchema>;
@@ -406,10 +397,7 @@ export function createStructuredResumePromptContext(
   input: StructuredResumeWorkflowInput,
 ): StructuredResumePromptContext {
   const compactResumeProfile = z.json().parse(buildCompactResumeProfile(input));
-  return {
-    compactResumeProfile,
-    evidenceQuoteCatalog: buildEvidenceQuoteCatalog(compactResumeProfile),
-  };
+  return { compactResumeProfile };
 }
 
 const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
@@ -432,11 +420,10 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "matched、applied、shallow 必须提供来源引文；missing、not_applicable 或证据确实不足时可以返回空 evidence，禁止编造不存在的引文。",
   "生成 quote 前必须在对应来源中逐字查找并复制粘贴最短连续片段；禁止使用省略号（... 或 …），禁止拼接被其他文字隔开的片段。",
   "resume_profile 的 quote 只能复制 JSON 中的字符串值；禁止把 JSON 字段名当作 quote，例如 projectExperiences、workExperiences。找不到逐字连续证据时返回空 evidence 和证据不足状态。",
-  "employmentEpisodes 的日期、公司、职位必须分别引用各自的字符串叶子值，使用多条 evidence 表达；禁止自行拼成简历摘要句。projects 同理，只引用项目名称或描述中的单个连续原文片段。",
+  "employmentEpisodes 的岗位相关性证据只能引用公司、职位或职责中的字符串叶子值，使用多条 evidence 表达；projects 同理，只引用项目名称或描述中的单个连续原文片段。",
   "每项最多 2 条证据，每条 quote 只引用能支持判断的最短原文片段；reason 保持简洁。",
-  "employmentEpisodes 只输出源证据支持的月级事实，无法解析的日期保留 null。",
-  "employmentEpisodes 必须覆盖 resumeProfile.scoringFacts.employmentEpisodes 的每一项；id 使用 work-{sourceIndex}。日期、在职状态、主职/并发关系和空档说明必须逐项复制；禁止重新解析 workExperiences.period 或自行改写这些事实。只判断岗位相关性。",
-  "projects 的 id 使用 project-{sourceIndex}，日期和在研状态必须逐项复制 resumeProfile.scoringFacts.projects；禁止重新解析 projectExperiences.period。只判断岗位相关性。",
+  "employmentEpisodes 必须覆盖 resumeProfile.scoringFacts.employmentEpisodes 的每一项；id 使用 work-{sourceIndex}。只返回 id、岗位相关性、原因和证据；不得重复返回日期、在职状态、主职/并发关系或空档说明，这些字段由代码从评分事实补齐。",
+  "projects 的 id 使用 project-{sourceIndex}；只返回 id、岗位相关性和证据，不得重复返回日期或在研状态，这些字段由代码从评分事实补齐。",
   "技能的 applied / shallow 判断必须优先复用 resumeProfile.scoringFacts.skillFacts 的 evidenceLevel 和 evidence；岗位技能未出现在这些事实中时才返回 missing。",
   "projects 只返回与岗位要求可能相关的项目；无相关项目时返回空数组，不要枚举明确无关的项目。",
 ].join("\n");
@@ -533,7 +520,6 @@ function buildPrompt(
   guidance?: string,
   payload?: StructuredResumePromptPayload,
   outputExample?: string,
-  promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ): string {
   return [
     title,
@@ -541,7 +527,7 @@ function buildPrompt(
     STRUCTURED_RESUME_MISSING_DATA_GUIDANCE,
     "所有判断只能引用本次输入的结构化简历档案；不得要求、读取或重新解析简历原文。",
     "quote 必须是声明来源中的逐字连续片段；本流程只允许使用 resume_profile，并复制其中的单个字符串叶子值，不得跨字段拼接、改写或概括。",
-    `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${promptContext.evidenceQuoteCatalog}`,
+    "每个 quote 必须从下方 resumeProfile JSON 的某一个字符串叶子值中直接复制，或复制其中的连续子串；不在该 JSON 中的文本不得作为 quote。",
     "不得输出扣分、时长合计、维度分、综合分或等级。",
     ...(outputExample
       ? [`输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${outputExample}`]
@@ -776,7 +762,7 @@ export function judgeStructuredHardGates(
     agent: structuredResumeGateAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
-    maxOutputTokens: 16_000,
+    maxOutputTokens: 32_000,
     observabilityLabel: "structured-resume-hard-gates",
     prompt: buildPrompt(
       "逐项判断冻结门槛，并为每个数值经验评分要求选择已有的结构化经历事实；只返回 passed / failed / needs_verification。",
@@ -785,7 +771,7 @@ export function judgeStructuredHardGates(
         "简历没有写明或没有证据支持门槛要求时，判定 failed，不得仅因候选人可能补充信息而判定 needs_verification。",
         "needs_verification 仅用于简历已有相关证据但证据相互冲突、日期或含义无法可靠确定的情况。",
         "门槛写明数值范围时按闭区间精确判断；只出现高于上限或低于下限的证据不得视为命中，例如带过 8 人团队不等于带过 3-6 人团队。",
-        "对每个包含明确年限的 work_experience 门槛，必须返回 experienceEpisodes：只能从 resumeProfile.scoringFacts.employmentEpisodes 选择满足该门槛特定口径的已有任职事实；id 使用 work-{sourceIndex}，其余字段逐项复制，不得重新解析 period、修改日期或计算总月份；完全没有相关经历时返回空数组。",
+        "对每个包含明确年限的 work_experience 门槛，必须返回 experienceEpisodes：只能从 resumeProfile.scoringFacts.employmentEpisodes 选择满足该门槛特定口径的已有任职事实；每项只返回 id=work-{sourceIndex} 和 evidence，不得重复日期或状态字段；完全没有相关经历时返回空数组。",
         "上述数值经验要求的每个 judgment 都必须包含 experienceEpisodes 字段；即使判断为 failed 且没有相关经历，也必须显式返回空数组，禁止省略字段。",
         "对 blueprint.requiredRelevantExperiences 中的每个评分要求，也必须按 requirementId 返回独立判断和 experienceEpisodes；这些要求只用于经验缺年扣分，不会自动成为硬性门槛。",
         "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
@@ -796,7 +782,6 @@ export function judgeStructuredHardGates(
         requiredRelevantExperiences: input.jobSnapshot.blueprint.requiredRelevantExperiences,
       },
       STRUCTURED_GATE_OUTPUT_EXAMPLE,
-      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -816,7 +801,7 @@ export function judgeStructuredDimensionEvidence(
     agent: structuredResumeDimensionAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
-    maxOutputTokens: 16_000,
+    maxOutputTokens: 32_000,
     observabilityLabel: "structured-resume-dimension-evidence",
     prompt: buildPrompt(
       "复用已有月级工作时间线、主职/并发关系，只判断窄口径岗位相关性和非时间类规则语义。不要重新解析日期，也不要计算月份或时间窗口。",
@@ -835,7 +820,6 @@ export function judgeStructuredDimensionEvidence(
         },
       },
       STRUCTURED_DIMENSION_OUTPUT_EXAMPLE,
-      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -884,7 +868,6 @@ export function judgeStructuredAdjustments(
         priorityConditions: input.jobSnapshot.blueprint.priorityConditions,
       },
       STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE,
-      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,

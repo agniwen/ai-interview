@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+/* oxlint-disable max-lines -- This existing end-to-end pipeline suite intentionally keeps all document variants together. */
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createResumeParsePipeline } from "../resume-parse-pipeline";
@@ -395,6 +396,28 @@ describe("extractResumeDocumentText", () => {
       textSource: "qwen-ocr",
     });
     expect(mocks.processPdfPagesWithMeta).toHaveBeenCalledTimes(1);
+    expect(mocks.processPdfPagesWithMeta).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({ scale: 4 }),
+      expect.any(Function),
+    );
+  });
+
+  it("rejects OCR coordinate dumps instead of treating them as resume text", async () => {
+    mocks.qwenVlOcr.mockResolvedValue(
+      [
+        "opaque-image-token",
+        ...Array.from({ length: 20 }, (_, index) => `${index * 10},44,19,57,90`),
+      ].join("\n"),
+    );
+
+    await expect(
+      extractResumeDocumentText({
+        bytes: new Uint8Array([1, 2, 3]),
+        fileName: "resume.pdf",
+        mediaType: "application/pdf",
+      }),
+    ).rejects.toThrow("OCR output is a coordinate dump");
   });
 
   it("runs OCR directly for image resumes without PDF rasterization", async () => {
@@ -665,12 +688,12 @@ describe("generateResumeStructured", () => {
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: mocks.resumeStructuredAgent,
-        maxOutputTokens: 16_384,
-        observabilityLabel: "resume-structure",
+        fallbackToTextGeneration: true,
+        maxOutputTokens: 32_768,
         retryOnInvalid: true,
-        retryOnTransient: true,
         schema: expect.any(Object),
         temperature: 0,
+        validate: expect.any(Function),
       }),
     );
   });
@@ -682,7 +705,36 @@ describe("generateResumeStructured", () => {
     expect(prompt).toContain("skills 是候选人掌握技能的全集");
     expect(prompt).toContain("项目经历");
     expect(prompt).toContain("工作经历");
+    expect(prompt).toContain("规范化后严格去重");
+    expect(prompt).toContain("禁止联想技术生态");
     expect(prompt).not.toContain("skills 最多 18 项");
+  });
+
+  it("rejects repeated skills from a runaway structured response", async () => {
+    mocks.generateStructuredWithMastraAgent.mockImplementation((input) => {
+      const runaway = {
+        ...STRUCTURED_RESUME,
+        skills: ["Go", "Python", "Go", "Python"],
+      };
+      input.validate?.(runaway);
+      return Promise.resolve(runaway);
+    });
+
+    await expect(generateResumeStructured("候选人明确使用 Go 和 Python")).rejects.toThrow(
+      "skills 包含重复项",
+    );
+  });
+
+  it("rejects placeholder candidate names instead of persisting them as facts", async () => {
+    mocks.generateStructuredWithMastraAgent.mockImplementation((input) => {
+      const placeholder = { ...STRUCTURED_RESUME, name: "未发现信息" };
+      input.validate?.(placeholder);
+      return Promise.resolve(placeholder);
+    });
+
+    await expect(generateResumeStructured("候选人简历文本")).rejects.toThrow(
+      "name 不得使用缺失占位值",
+    );
   });
 });
 

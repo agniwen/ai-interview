@@ -51,8 +51,10 @@ export const RESUME_STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。
 ## 输出约束
 - 只输出 JSON 本身，不要任何额外解释文字，不要使用 Markdown 代码块。
 - 无法从简历中确认的字段返回 null 或空数组，禁止编造。
+- 缺失字段必须使用 null 或空数组，不得输出“未发现信息”“未知”“不详”“未提供”等占位文字。
 - personalStrengths 必须有简历依据。
 - skills 是候选人掌握技能的全集，必须汇总简历中所有有依据的技能来源：技能/专业技能栏、项目经历、工作经历、项目 techStack、职责描述、工具平台、框架语言、数据库、中间件、云服务、设计/办公/协作工具等；不要因为数量多而截断 skills。
+- skills 只能包含简历原文明确出现且有依据的技能，规范化后严格去重，每项只出现一次；禁止联想技术生态、枚举同类产品或补充原文未出现的技能。
 - links / schools / targetRoles / personalStrengths 去重且最多 6 项。
 - educationExperiences 按简历原文顺序输出所有教育经历；每段尽量提取 school / degree / major / period / graduationYear / educationLevel / summary。
 - 如果教育经历只有学校名，也要输出一条记录，其余无法确认字段为 null。
