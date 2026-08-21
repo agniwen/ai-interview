@@ -53,9 +53,10 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
   text: string,
   schema: TSchema,
   label: string,
+  options: { allowEmptyDefaults?: boolean } = {},
 ): z.output<TSchema> {
   const trimmed = text.trim();
-  if (trimmed.length === 0) {
+  if (options.allowEmptyDefaults && trimmed.length === 0) {
     const empty = schema.safeParse({});
     if (empty.success) {
       console.warn(`[${label}] Empty model response; using schema-defined empty defaults.`);

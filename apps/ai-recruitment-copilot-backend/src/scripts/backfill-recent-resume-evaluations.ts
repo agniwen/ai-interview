@@ -640,12 +640,6 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
         resumeNotReady: summary.resumeNotReady,
         unbound: summary.unbound,
       },
-      targets: summary.eligible.map(({ row }) => ({
-        candidate: row.candidateName,
-        createdAt: row.createdAt.toISOString(),
-        id: row.id,
-        job: row.jobDescriptionName,
-      })),
       timeZone: options.date ? TARGET_TIME_ZONE : null,
       unsupportedJobs: [...unsupportedJobs.values()].toSorted(
         (left, right) => right.count - left.count,

@@ -103,7 +103,12 @@ describe("parseJsonOutput", () => {
       })
       .strict();
 
-    expect(parseJsonOutput("", emptyFactsSchema, LABEL)).toEqual({ judgments: [] });
+    expect(parseJsonOutput("", emptyFactsSchema, LABEL, { allowEmptyDefaults: true })).toEqual({
+      judgments: [],
+    });
+    expect(() => parseJsonOutput("", emptyFactsSchema, LABEL)).toThrow(
+      /Failed to parse structured output/,
+    );
   });
 
   it("logs schema-validation issues with the label prefix", () => {

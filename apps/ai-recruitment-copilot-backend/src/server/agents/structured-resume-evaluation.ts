@@ -635,6 +635,7 @@ export function judgeStructuredHardGates(
 ) {
   return generate({
     agent: structuredResumeGateAgent,
+    allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
@@ -671,6 +672,7 @@ export function judgeStructuredDimensionEvidence(
 ) {
   return generate({
     agent: structuredResumeDimensionAgent,
+    allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
@@ -716,6 +718,7 @@ export function judgeStructuredAdjustments(
     : "没有可用的硬性门槛判断上下文。";
   return generate({
     agent: structuredResumeAdjustmentAgent,
+    allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     prompt: buildPrompt(
       "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",

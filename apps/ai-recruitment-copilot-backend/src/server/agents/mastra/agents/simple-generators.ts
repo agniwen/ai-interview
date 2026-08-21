@@ -371,6 +371,7 @@ export async function* streamTextWithMastraAgent({
 // oxlint-disable-next-line complexity -- retries, schema fallback, and semantic validation share one generation attempt loop.
 export async function generateStructuredWithMastraAgent<TSchema extends z.ZodType>({
   agent,
+  allowEmptyDefaults,
   fallbackToTextGeneration,
   maxOutputTokens,
   prompt,
@@ -382,6 +383,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   validate,
 }: {
   agent: MastraGeneratorLike;
+  allowEmptyDefaults?: boolean;
   fallbackToTextGeneration?: boolean;
   maxOutputTokens?: number;
   prompt: string;
@@ -453,7 +455,9 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
         );
         if (result.text.trim()) {
           try {
-            const fallback = parseJsonOutput(result.text, schema, "structured-output-fallback");
+            const fallback = parseJsonOutput(result.text, schema, "structured-output-fallback", {
+              allowEmptyDefaults,
+            });
             validate?.(fallback);
             return fallback;
           } catch (error) {
@@ -490,7 +494,9 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       validate?.(fallbackObject.data);
       return fallbackObject.data;
     }
-    const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback");
+    const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback", {
+      allowEmptyDefaults,
+    });
     validate?.(fallback);
     return fallback;
   }
