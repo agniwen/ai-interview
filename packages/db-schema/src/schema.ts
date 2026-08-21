@@ -2425,7 +2425,13 @@ export interface ResumeJobMatchJobSnapshot {
 }
 
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview" | "job_description";
-export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
+export type ResumeSemanticIndexStatus =
+  | "deleted"
+  | "failed"
+  | "indexed"
+  | "pending"
+  | "skipped"
+  | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
 export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
 

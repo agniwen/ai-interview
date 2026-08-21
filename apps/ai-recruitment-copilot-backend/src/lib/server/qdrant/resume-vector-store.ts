@@ -264,6 +264,7 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
     const must = [
       mustMatch("sourceType", input.sourceType),
       mustMatch("sourceId", input.sourceId),
+      ...(input.organizationId ? [mustMatch("organizationId", input.organizationId)] : []),
       ...(input.embeddingVersion ? [mustMatch("embeddingVersion", input.embeddingVersion)] : []),
     ];
     await this.client.delete(this.collectionName, {

@@ -235,6 +235,33 @@ describe("job-descriptions route index hooks", () => {
     expect(hookCalls.enqueue).toHaveLength(0);
   });
 
+  it("PATCH /:id/operational delegates department changes to semantic indexing", async () => {
+    await db.insert(jobDescription).values({
+      allowCrossDepartmentInterviewers: true,
+      createdAt: NOW,
+      createdBy: USER_ID,
+      departmentId: DEPARTMENT_ID,
+      id: EXISTING_JD_ID,
+      name: "后端工程师",
+      organizationId: ORG_ID,
+      prompt: "负责后端服务开发。",
+      updatedAt: NOW,
+    });
+
+    const res = await client["job-descriptions"][":id"].operational.$patch({
+      json: {
+        allowCrossDepartmentInterviewers: true,
+        departmentId: DEPARTMENT_ID,
+        interviewerIds: [INTERVIEWER_ID],
+      },
+      param: { id: EXISTING_JD_ID },
+    });
+    expect(res.status).toBe(200);
+    expect(hookCalls.enqueue).toEqual([
+      { jobDescriptionId: EXISTING_JD_ID, organizationId: ORG_ID },
+    ]);
+  });
+
   it("DELETE /:id purges the JD semantic index", async () => {
     await db.insert(jobDescription).values({
       allowCrossDepartmentInterviewers: true,

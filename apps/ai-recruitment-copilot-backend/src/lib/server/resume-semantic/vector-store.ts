@@ -58,6 +58,7 @@ export interface ResumeVectorSearchResult {
 
 export interface ResumeEmbeddingDeleteInput {
   embeddingVersion?: string;
+  organizationId?: string;
   sourceId: string;
   sourceType: ResumeSemanticSourceType;
 }

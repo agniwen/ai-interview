@@ -1,6 +1,4 @@
-import { and, eq } from "drizzle-orm";
 import { isResumeSemanticIndexEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
-import { resumeSemanticIndex } from "@arc/db-schema/schema";
 
 interface JobDescriptionSemanticIndexJob {
   organizationId: string;
@@ -16,15 +14,20 @@ interface JobDescriptionSemanticIndexConfig {
 }
 
 interface JobDescriptionSemanticIndexStore {
-  deleteResumeEmbeddings(input: { sourceId: string; sourceType: "job_description" }): Promise<void>;
+  deleteResumeEmbeddings(input: {
+    organizationId: string;
+    sourceId: string;
+    sourceType: "job_description";
+  }): Promise<void>;
 }
 
 export interface JobDescriptionSemanticIndexDependencies {
   createStore(config: JobDescriptionSemanticIndexConfig): Promise<JobDescriptionSemanticIndexStore>;
-  deleteState(input: { jobDescriptionId: string; organizationId: string }): Promise<void>;
+  markDeleted(input: { jobDescriptionId: string; organizationId: string }): Promise<void>;
   enqueueJobs(jobs: JobDescriptionSemanticIndexJob[]): Promise<void>;
   getConfig(): Promise<JobDescriptionSemanticIndexConfig>;
   isEnabled(): boolean;
+  markStale(input: { jobDescriptionId: string; organizationId: string }): Promise<void>;
   prepareJob(job: JobDescriptionSemanticIndexJob): Promise<boolean>;
 }
 
@@ -39,18 +42,6 @@ const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
       url: config.qdrantUrl,
     });
   },
-  async deleteState(input) {
-    const { db } = await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
-    await db
-      .delete(resumeSemanticIndex)
-      .where(
-        and(
-          eq(resumeSemanticIndex.sourceType, "job_description"),
-          eq(resumeSemanticIndex.sourceId, input.jobDescriptionId),
-          eq(resumeSemanticIndex.organizationId, input.organizationId),
-        ),
-      );
-  },
   async enqueueJobs(jobs) {
     const { enqueueResumeSemanticIndexJobs } =
       await import("@arc/resume-parse-queue/resume-semantic-index");
@@ -62,6 +53,38 @@ const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
     return getResumeSemanticIndexConfig();
   },
   isEnabled: isResumeSemanticIndexEnabled,
+  async markDeleted(input) {
+    const { getResumeSemanticIndexConfig, upsertResumeSemanticIndexState } =
+      await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
+    const config = getResumeSemanticIndexConfig();
+    await upsertResumeSemanticIndexState({
+      contentHash: null,
+      embeddingModel: config.model,
+      embeddingVersion: config.embeddingVersion,
+      errorMessage: "job description deleted; vector cleanup completed",
+      organizationId: input.organizationId,
+      profileHash: "deleted",
+      sourceId: input.jobDescriptionId,
+      sourceType: "job_description",
+      status: "deleted",
+    });
+  },
+  async markStale(input) {
+    const { getResumeSemanticIndexConfig, upsertResumeSemanticIndexState } =
+      await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
+    const config = getResumeSemanticIndexConfig();
+    await upsertResumeSemanticIndexState({
+      contentHash: null,
+      embeddingModel: config.model,
+      embeddingVersion: config.embeddingVersion,
+      errorMessage: "job description deleted; vector cleanup pending",
+      organizationId: input.organizationId,
+      profileHash: "stale",
+      sourceId: input.jobDescriptionId,
+      sourceType: "job_description",
+      status: "stale",
+    });
+  },
   async prepareJob(job) {
     const { prepareJdSemanticIndexJob } = await import("./indexer");
     return await prepareJdSemanticIndexJob(job);
@@ -104,16 +127,18 @@ export async function deleteJobDescriptionSemanticIndexBestEffort(
   dependencies: JobDescriptionSemanticIndexDependencies = defaultDependencies,
 ): Promise<void> {
   try {
+    await dependencies.markStale(input);
     const cfg = await dependencies.getConfig();
     if (!cfg.qdrantUrl) {
       return;
     }
     const store = await dependencies.createStore(cfg);
     await store.deleteResumeEmbeddings({
+      organizationId: input.organizationId,
       sourceId: input.jobDescriptionId,
       sourceType: "job_description",
     });
-    await dependencies.deleteState(input);
+    await dependencies.markDeleted(input);
   } catch (error) {
     console.warn("[jd-semantic-index] delete failed", {
       jobDescriptionId: input.jobDescriptionId,

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -162,7 +162,13 @@ export async function listRecoverableResumeSemanticIndexJobs(
     .where(
       and(
         eq(resumeSemanticIndex.embeddingVersion, config.embeddingVersion),
-        inArray(resumeSemanticIndex.status, ["pending", "failed"]),
+        or(
+          inArray(resumeSemanticIndex.status, ["pending", "failed"]),
+          and(
+            eq(resumeSemanticIndex.sourceType, "job_description"),
+            eq(resumeSemanticIndex.status, "stale"),
+          ),
+        ),
       ),
     )
     .limit(limit);
@@ -356,7 +362,7 @@ export async function upsertResumeSemanticIndexState(input: {
   profileHash: string;
   sourceId: string;
   sourceType: ResumeSemanticIndexJobData["sourceType"];
-  status: "failed" | "indexed" | "pending" | "skipped";
+  status: "deleted" | "failed" | "indexed" | "pending" | "skipped" | "stale";
 }): Promise<void> {
   const now = new Date();
   await db

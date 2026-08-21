@@ -27,9 +27,9 @@ const baseDeps = (): JdIndexerDeps => ({
   ),
   getConfig: () => config,
   loadSource: vi.fn(() => Promise.resolve(jd)),
+  markDeleted: vi.fn(() => Promise.resolve()),
   markFailed: vi.fn(() => Promise.resolve()),
   markIndexed: vi.fn(() => Promise.resolve()),
-  markSkipped: vi.fn(() => Promise.resolve()),
   readIndexState: vi.fn(() => Promise.resolve(null)),
   vectorStore: {
     deleteResumeEmbeddings: vi.fn(() => Promise.resolve()),
@@ -61,12 +61,53 @@ describe("runJdSemanticIndexJob", () => {
     expect(deps.markIndexed).not.toHaveBeenCalled();
   });
 
-  it("source 缺失 → markSkipped，不 upsert", async () => {
+  it("source 缺失 → 清除可能残留的向量和状态，不 upsert", async () => {
     const deps = baseDeps();
     deps.loadSource = vi.fn(() => Promise.resolve(null));
     await runJdSemanticIndexJob(job, deps);
-    expect(deps.markSkipped).toHaveBeenCalled();
+    expect(deps.vectorStore.deleteResumeEmbeddings).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      sourceId: "jd-1",
+      sourceType: "job_description",
+    });
+    expect(deps.markDeleted).toHaveBeenCalledWith({
+      jobDescriptionId: "jd-1",
+      organizationId: "org-1",
+    });
     expect(deps.vectorStore.upsertResumeEmbeddings).not.toHaveBeenCalled();
+  });
+
+  it("embedding 期间岗位被删除 → 不允许向量复活", async () => {
+    const deps = baseDeps();
+    deps.loadSource = vi.fn().mockResolvedValueOnce(jd).mockResolvedValueOnce(null);
+
+    await runJdSemanticIndexJob(job, deps);
+
+    expect(deps.vectorStore.upsertResumeEmbeddings).not.toHaveBeenCalled();
+    expect(deps.vectorStore.deleteResumeEmbeddings).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      sourceId: "jd-1",
+      sourceType: "job_description",
+    });
+    expect(deps.markDeleted).toHaveBeenCalled();
+  });
+
+  it("删除墓碑阻止状态写入时 → 回滚刚写入的向量", async () => {
+    const deps = baseDeps();
+    deps.markIndexed = vi.fn(() => Promise.resolve(false));
+
+    await runJdSemanticIndexJob(job, deps);
+
+    expect(deps.vectorStore.upsertResumeEmbeddings).toHaveBeenCalled();
+    expect(deps.vectorStore.deleteResumeEmbeddings).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      sourceId: "jd-1",
+      sourceType: "job_description",
+    });
+    expect(deps.markDeleted).toHaveBeenCalledWith({
+      jobDescriptionId: "jd-1",
+      organizationId: "org-1",
+    });
   });
 
   it("embed 抛错 → markFailed 并 rethrow", async () => {

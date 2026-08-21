@@ -8,19 +8,21 @@ import type { JobDescriptionSemanticIndexDependencies } from "./enqueue";
 const mocks = {
   createStore: vi.fn(),
   deleteResumeEmbeddings: vi.fn(),
-  deleteState: vi.fn(),
   enqueueJobs: vi.fn(),
   getConfig: vi.fn(),
   isEnabled: vi.fn(() => false),
+  markDeleted: vi.fn(),
+  markStale: vi.fn(),
   prepareJob: vi.fn(),
 };
 
 const dependencies: JobDescriptionSemanticIndexDependencies = {
   createStore: mocks.createStore,
-  deleteState: mocks.deleteState,
   enqueueJobs: mocks.enqueueJobs,
   getConfig: mocks.getConfig,
   isEnabled: mocks.isEnabled,
+  markDeleted: mocks.markDeleted,
+  markStale: mocks.markStale,
   prepareJob: mocks.prepareJob,
 };
 
@@ -56,7 +58,7 @@ describe("deleteJobDescriptionSemanticIndexBestEffort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.createStore.mockResolvedValue({ deleteResumeEmbeddings: mocks.deleteResumeEmbeddings });
-    mocks.deleteState.mockImplementation(() => Promise.resolve());
+    mocks.markDeleted.mockImplementation(() => Promise.resolve());
   });
 
   it("有 qdrantUrl → 删向量 + 删状态行", async () => {
@@ -77,14 +79,19 @@ describe("deleteJobDescriptionSemanticIndexBestEffort", () => {
       ),
     ).resolves.toBeUndefined();
 
+    expect(mocks.markStale).toHaveBeenCalledWith({
+      jobDescriptionId: "jd-1",
+      organizationId: "org-1",
+    });
     expect(mocks.deleteResumeEmbeddings).toHaveBeenCalledWith({
+      organizationId: "org-1",
       sourceId: "jd-1",
       sourceType: "job_description",
     });
-    expect(mocks.deleteState).toHaveBeenCalledTimes(1);
+    expect(mocks.markDeleted).toHaveBeenCalledTimes(1);
   });
 
-  it("无 qdrantUrl → 直接返回不抛，不删向量也不删状态行", async () => {
+  it("无 qdrantUrl → 保留 stale 状态等待 Worker 恢复", async () => {
     mocks.getConfig.mockReturnValue({
       dimensions: 8,
       qdrantApiKey: null,
@@ -102,7 +109,8 @@ describe("deleteJobDescriptionSemanticIndexBestEffort", () => {
     ).resolves.toBeUndefined();
 
     expect(mocks.deleteResumeEmbeddings).not.toHaveBeenCalled();
-    expect(mocks.deleteState).not.toHaveBeenCalled();
+    expect(mocks.markDeleted).not.toHaveBeenCalled();
+    expect(mocks.markStale).toHaveBeenCalledTimes(1);
   });
 
   it("store 抛错 → 被吞掉，console.warn 记录结构化日志", async () => {

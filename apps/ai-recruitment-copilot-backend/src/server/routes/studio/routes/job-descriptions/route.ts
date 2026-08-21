@@ -619,6 +619,10 @@ export function createJobDescriptionsRouter(
         });
         safeUpdateTag(`job-descriptions:${activeOrg.id}`);
         safeUpdateTag(`interviewers:${activeOrg.id}`);
+        await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+          jobDescriptionId: id,
+          organizationId: activeOrg.id,
+        });
         return c.json(await loadJobDescriptionById(activeOrg.id, id), 200);
       },
     )

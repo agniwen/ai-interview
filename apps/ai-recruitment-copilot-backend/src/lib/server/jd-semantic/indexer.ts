@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { QdrantResumeVectorStore } from "@arc/ai-recruitment-copilot-backend/lib/server/qdrant/resume-vector-store";
 import { embedResumeSemanticTexts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
@@ -37,13 +37,6 @@ interface ExistingIndexState {
   status: string;
 }
 
-interface MarkSkippedInput extends JdSemanticIndexJob {
-  embeddingModel: string;
-  embeddingVersion: string;
-  profileHash: string;
-  reason: string;
-}
-
 interface MarkFailedInput extends JdSemanticIndexJob {
   contentHash: string | null;
   embeddingModel: string;
@@ -59,9 +52,12 @@ interface MarkIndexedInput extends JdSemanticIndexJob {
   profileHash: string;
 }
 
-// deps 接口镜像 resume-semantic/indexer.ts 的 ResumeSemanticIndexerDeps（getConfig/loadSource/
-// embed/vectorStore/readIndexState/markIndexed/markFailed/markSkipped）。
+// deps 接口镜像 resume-semantic/indexer.ts 的 ResumeSemanticIndexerDeps，并补充 JD 删除清理状态。
 export interface JdIndexerDeps {
+  markDeleted: (input: {
+    jobDescriptionId: string;
+    organizationId: string;
+  }) => Promise<void> | void;
   embed: (input: {
     apiKey: string;
     baseUrl: string;
@@ -71,9 +67,8 @@ export interface JdIndexerDeps {
   }) => Promise<ResumeEmbeddingChunk[]>;
   getConfig: () => JdSemanticIndexConfig;
   loadSource: (job: JdSemanticIndexJob) => Promise<JobDescriptionSemanticInput | null>;
-  markFailed: (input: MarkFailedInput) => Promise<void> | void;
-  markIndexed: (input: MarkIndexedInput) => Promise<void> | void;
-  markSkipped: (input: MarkSkippedInput) => Promise<void> | void;
+  markFailed: (input: MarkFailedInput) => Promise<boolean | undefined> | boolean | undefined;
+  markIndexed: (input: MarkIndexedInput) => Promise<boolean | undefined> | boolean | undefined;
   readIndexState: (input: {
     embeddingVersion: string;
     profileHash: string;
@@ -99,8 +94,6 @@ interface PrepareJdIndexerDeps {
   }) => Promise<void> | void;
   readIndexState: JdIndexerDeps["readIndexState"];
 }
-
-const SKIPPED_PROFILE_HASH = "skipped";
 
 async function loadJdSource(job: JdSemanticIndexJob): Promise<JobDescriptionSemanticInput | null> {
   const [row] = await db
@@ -149,25 +142,41 @@ async function readJdSemanticIndexState(input: {
   return row ?? null;
 }
 
-function markJdSemanticIndexIndexed(input: MarkIndexedInput): Promise<void> {
-  return upsertResumeSemanticIndexState({ ...input, errorMessage: null, status: "indexed" });
+async function updateJdSemanticIndexStateUnlessDeleted(
+  input: MarkFailedInput | MarkIndexedInput,
+  status: "failed" | "indexed",
+): Promise<boolean> {
+  const now = new Date();
+  const [updated] = await db
+    .update(resumeSemanticIndex)
+    .set({
+      contentHash: input.contentHash,
+      embeddingModel: input.embeddingModel,
+      errorMessage: status === "failed" && "errorMessage" in input ? input.errorMessage : null,
+      lastIndexedAt: status === "indexed" ? now : null,
+      profileHash: input.profileHash,
+      status,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(resumeSemanticIndex.sourceType, "job_description"),
+        eq(resumeSemanticIndex.sourceId, input.sourceId),
+        eq(resumeSemanticIndex.organizationId, input.organizationId),
+        eq(resumeSemanticIndex.embeddingVersion, input.embeddingVersion),
+        notInArray(resumeSemanticIndex.status, ["stale", "deleted"]),
+      ),
+    )
+    .returning({ id: resumeSemanticIndex.id });
+  return Boolean(updated);
 }
 
-function markJdSemanticIndexFailed(input: MarkFailedInput): Promise<void> {
-  return upsertResumeSemanticIndexState({
-    ...input,
-    errorMessage: input.errorMessage,
-    status: "failed",
-  });
+function markJdSemanticIndexIndexed(input: MarkIndexedInput): Promise<boolean> {
+  return updateJdSemanticIndexStateUnlessDeleted(input, "indexed");
 }
 
-function markJdSemanticIndexSkipped(input: MarkSkippedInput): Promise<void> {
-  return upsertResumeSemanticIndexState({
-    ...input,
-    contentHash: null,
-    errorMessage: input.reason,
-    status: "skipped",
-  });
+function markJdSemanticIndexFailed(input: MarkFailedInput): Promise<boolean> {
+  return updateJdSemanticIndexStateUnlessDeleted(input, "failed");
 }
 
 export function createDefaultJdIndexerDeps(): JdIndexerDeps {
@@ -179,9 +188,21 @@ export function createDefaultJdIndexerDeps(): JdIndexerDeps {
     embed: embedResumeSemanticTexts,
     getConfig: () => config,
     loadSource: loadJdSource,
+    async markDeleted(input) {
+      await upsertResumeSemanticIndexState({
+        contentHash: null,
+        embeddingModel: config.model,
+        embeddingVersion: config.embeddingVersion,
+        errorMessage: "job description deleted; vector cleanup completed",
+        organizationId: input.organizationId,
+        profileHash: "deleted",
+        sourceId: input.jobDescriptionId,
+        sourceType: "job_description",
+        status: "deleted",
+      });
+    },
     markFailed: markJdSemanticIndexFailed,
     markIndexed: markJdSemanticIndexIndexed,
-    markSkipped: markJdSemanticIndexSkipped,
     readIndexState: readJdSemanticIndexState,
     vectorStore: new QdrantResumeVectorStore({
       apiKey: config.qdrantApiKey,
@@ -199,13 +220,12 @@ export async function runJdSemanticIndexJob(
   const config = deps.getConfig();
   const source = await deps.loadSource(job);
   if (!source) {
-    await deps.markSkipped({
-      ...job,
-      embeddingModel: config.model,
-      embeddingVersion: config.embeddingVersion,
-      profileHash: SKIPPED_PROFILE_HASH,
-      reason: "job description not found",
+    await deps.vectorStore.deleteResumeEmbeddings({
+      organizationId: job.organizationId,
+      sourceId: job.sourceId,
+      sourceType: job.sourceType,
     });
+    await deps.markDeleted({ jobDescriptionId: job.sourceId, organizationId: job.organizationId });
     return;
   }
 
@@ -232,6 +252,19 @@ export async function runJdSemanticIndexJob(
       dimensions: config.dimensions,
       model: config.model,
     });
+    // 删除可发生在 embedding 调用期间；写入前重新读取，避免已删除岗位的向量复活。
+    if (!(await deps.loadSource(job))) {
+      await deps.vectorStore.deleteResumeEmbeddings({
+        organizationId: job.organizationId,
+        sourceId: job.sourceId,
+        sourceType: job.sourceType,
+      });
+      await deps.markDeleted({
+        jobDescriptionId: job.sourceId,
+        organizationId: job.organizationId,
+      });
+      return;
+    }
     await deps.vectorStore.ensureCollection();
     // profileHash 列复用了 resume_semantic_index 表的既有列名——JD 侧存的是 JD 内容 hash
     // （hashJobDescriptionForSemanticIndex 的结果），不是 resume profile hash，避免维护者误解。
@@ -246,13 +279,24 @@ export async function runJdSemanticIndexJob(
       sourceType: job.sourceType,
       status: "active",
     });
-    await deps.markIndexed({
+    const markedIndexed = await deps.markIndexed({
       ...job,
       contentHash: null,
       embeddingModel: config.model,
       embeddingVersion: config.embeddingVersion,
       profileHash,
     });
+    if (markedIndexed === false) {
+      await deps.vectorStore.deleteResumeEmbeddings({
+        organizationId: job.organizationId,
+        sourceId: job.sourceId,
+        sourceType: job.sourceType,
+      });
+      await deps.markDeleted({
+        jobDescriptionId: job.sourceId,
+        organizationId: job.organizationId,
+      });
+    }
   } catch (error) {
     await deps.markFailed({
       ...job,
