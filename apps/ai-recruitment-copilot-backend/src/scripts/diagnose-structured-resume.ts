@@ -9,6 +9,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
+import type { MastraGeneratorLike } from "../server/agents/mastra/agents/simple-generators";
 import type { StructuredResumeWorkflowLogContext } from "../server/agents/mastra/workflows/structured-resume-review-workflow";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -76,6 +77,7 @@ interface DiagnosticReport {
   error?: SerializedError;
   job: { id: string; name: string | null };
   mode: "diagnostic-dry-run";
+  modelAttempts?: TimedRecord[];
   modelCalls?: TimedRecord[];
   modelPromptContainsFullResumeText?: boolean;
   models: { actualFastModel: string; actualStructuredModel: string; requested: string };
@@ -221,6 +223,7 @@ function createModelRecorder(
   stage: string,
   modelId: string,
   records: TimedRecord[],
+  attemptRecords: TimedRecord[],
   generate: StructuredResumeGenerator,
 ): StructuredResumeGenerator {
   return async (input) => {
@@ -242,8 +245,45 @@ function createModelRecorder(
     };
     records.push(record);
     const startedAt = performance.now();
+    let attempt = 0;
+    const instrumentedAgent: MastraGeneratorLike = {
+      generate: async (prompt, options) => {
+        attempt += 1;
+        const attemptRecord: TimedRecord = {
+          input: snapshot({
+            maxOutputTokens: options?.modelSettings?.maxOutputTokens,
+            modelId,
+            prompt,
+            structuredOutput: Boolean(options?.structuredOutput),
+            temperature: options?.modelSettings?.temperature,
+          }),
+          stage: `${stage}:attempt-${attempt}`,
+          startedAt: new Date().toISOString(),
+        };
+        attemptRecords.push(attemptRecord);
+        const attemptStartedAt = performance.now();
+        try {
+          const result = await input.agent.generate(prompt, options);
+          attemptRecord.output = snapshot({
+            error: result.error ? serializeError(result.error) : undefined,
+            object: result.object,
+            text: result.text,
+            usage: result.usage,
+          });
+          return result;
+        } catch (error) {
+          attemptRecord.error = serializeError(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+          throw error;
+        } finally {
+          attemptRecord.completedAt = new Date().toISOString();
+          attemptRecord.durationMs = Math.round(performance.now() - attemptStartedAt);
+        }
+      },
+    };
     try {
-      const output = await generate(input);
+      const output = await generate({ ...input, agent: instrumentedAgent });
       record.output = snapshot(output);
       return output;
     } catch (error) {
@@ -371,6 +411,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     },
   };
   const modelCalls: TimedRecord[] = [];
+  const modelAttempts: TimedRecord[] = [];
   const stages: TimedRecord[] = [];
   recordSyncStage("validate-structured-input", workflowInput, stages, () => {
     evaluation.validateStructuredResumeInput(workflowInput);
@@ -395,6 +436,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
             "generate-structured-narrative",
             actualFastModel,
             modelCalls,
+            modelAttempts,
             baseGenerate,
           ),
         ),
@@ -412,6 +454,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
               "judge-adjustments",
               actualStructuredModel,
               modelCalls,
+              modelAttempts,
               baseGenerate,
             ),
             promptContext,
@@ -429,6 +472,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
               "judge-dimension-evidence",
               actualStructuredModel,
               modelCalls,
+              modelAttempts,
               baseGenerate,
             ),
             promptContext,
@@ -438,7 +482,13 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
       recordAsyncStage("judge-hard-gates", { promptContext, workflowInput: input }, stages, () =>
         evaluation.judgeStructuredHardGates(
           input,
-          createModelRecorder("judge-hard-gates", actualStructuredModel, modelCalls, baseGenerate),
+          createModelRecorder(
+            "judge-hard-gates",
+            actualStructuredModel,
+            modelCalls,
+            modelAttempts,
+            baseGenerate,
+          ),
           promptContext,
         ),
       ),
@@ -488,6 +538,7 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
   } finally {
     report.completedAt = new Date().toISOString();
     report.totalDurationMs = Math.round(performance.now() - startedAt);
+    report.modelAttempts = modelAttempts;
     report.modelCalls = modelCalls;
     report.stages = stages;
     report.workflowLogs = workflowLogs;
