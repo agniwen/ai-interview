@@ -43,6 +43,53 @@ describe("simple Mastra generators", () => {
     });
   });
 
+  it("records prompt size and provider token usage for an observed structured call", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const generate = vi.fn().mockResolvedValue({
+      object: { title: "前端工程师" },
+      text: "",
+      usage: { inputTokens: 321, outputTokens: 45, totalTokens: 366 },
+    });
+
+    await generateStructuredWithMastraAgent({
+      agent: { generate },
+      observabilityLabel: "structured-resume-hard-gates",
+      prompt: "生成结构化对象",
+      schema: z.object({ title: z.string().min(1) }),
+    });
+
+    expect(info).toHaveBeenCalledWith("[mastra-structured-generation] model call completed", {
+      attempt: 1,
+      inputTokens: 321,
+      label: "structured-resume-hard-gates",
+      mode: "structured-output",
+      outputTokens: 45,
+      promptCharacters: 7,
+      totalTokens: 366,
+    });
+  });
+
+  it("records prompt size before an observed structured call fails", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const generate = vi.fn().mockRejectedValue(new Error("provider unavailable"));
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        observabilityLabel: "structured-resume-hard-gates",
+        prompt: "生成结构化对象",
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).rejects.toThrow("provider unavailable");
+
+    expect(info).toHaveBeenCalledWith("[mastra-structured-generation] model call started", {
+      attempt: 1,
+      label: "structured-resume-hard-gates",
+      mode: "structured-output",
+      promptCharacters: 7,
+    });
+  });
+
   it("recovers a valid structured object from fenced model text", async () => {
     const generate = vi.fn().mockResolvedValue({
       object: undefined,

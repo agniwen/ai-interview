@@ -10,6 +10,7 @@ import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-str
 import {
   assembleStructuredResumeEvaluation,
   computeStructuredResumeCalculation,
+  createStructuredResumePromptContext,
   generateStructuredNarrative,
   judgeStructuredAdjustments,
   judgeStructuredDimensionEvidence,
@@ -18,10 +19,14 @@ import {
   structuredDimensionAgentOutputSchema,
   structuredGateAgentOutputSchema,
   structuredNarrativeAgentOutputSchema,
+  structuredResumePromptContextSchema,
   structuredResumeWorkflowInputSchema,
   validateStructuredResumeInput,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
-import type { StructuredResumeWorkflowInput } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
+import type {
+  StructuredResumeWorkflowInput,
+  StructuredResumePromptContext,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 
@@ -35,20 +40,26 @@ const STEP_LABELS = {
   "validate-structured-input": "校验岗位评估快照",
 } as const;
 
-const gateOutputSchema = structuredResumeWorkflowInputSchema.extend({
+const validatedInputOutputSchema = z
+  .object({
+    promptContext: structuredResumePromptContextSchema,
+    validated: z.literal(true),
+  })
+  .strict();
+const gateOutputSchema = z.object({
   gateOutput: structuredGateAgentOutputSchema,
 });
-const dimensionEvidenceOutputSchema = structuredResumeWorkflowInputSchema.extend({
+const dimensionEvidenceOutputSchema = z.object({
   dimensionOutput: structuredDimensionAgentOutputSchema,
 });
 const parallelJudgmentOutputSchema = z.object({
   "judge-dimension-evidence": dimensionEvidenceOutputSchema,
   "judge-hard-gates": gateOutputSchema,
 });
-const dimensionOutputSchema = gateOutputSchema.extend({
+const judgmentOutputSchema = gateOutputSchema.extend({
   dimensionOutput: structuredDimensionAgentOutputSchema,
 });
-const adjustmentOutputSchema = dimensionOutputSchema.extend({
+const adjustmentOutputSchema = judgmentOutputSchema.extend({
   adjustmentOutput: structuredAdjustmentAgentOutputSchema,
 });
 const structuredRuleJudgmentSchema = z
@@ -120,20 +131,12 @@ const structuredCalculationResultSchema = z
     skillAssessments: structuredResumeEvaluationV1Schema.shape.skillAssessments,
   })
   .strict();
-const calculationOutputSchema = adjustmentOutputSchema.extend({
+const calculationOutputSchema = z.object({
   calculationResult: structuredCalculationResultSchema,
 });
 const narrativeOutputSchema = calculationOutputSchema.extend({
   narrative: structuredNarrativeAgentOutputSchema,
 });
-
-function workflowInputFrom(input: StructuredResumeWorkflowInput): StructuredResumeWorkflowInput {
-  return {
-    engine: input.engine,
-    jobSnapshot: input.jobSnapshot,
-    resumeInput: input.resumeInput,
-  };
-}
 
 export interface StructuredResumeWorkflowLogContext {
   durationMs?: number;
@@ -148,9 +151,19 @@ export function createStructuredResumeReviewWorkflow(deps: {
   assemble: typeof assembleStructuredResumeEvaluation;
   compute: typeof computeStructuredResumeCalculation;
   generateNarrative: typeof generateStructuredNarrative;
-  judgeAdjustments: typeof judgeStructuredAdjustments;
-  judgeDimensionEvidence: typeof judgeStructuredDimensionEvidence;
-  judgeHardGates: typeof judgeStructuredHardGates;
+  judgeAdjustments: (
+    input: StructuredResumeWorkflowInput,
+    gateOutput: Parameters<typeof judgeStructuredAdjustments>[1],
+    promptContext: StructuredResumePromptContext,
+  ) => ReturnType<typeof judgeStructuredAdjustments>;
+  judgeDimensionEvidence: (
+    input: StructuredResumeWorkflowInput,
+    promptContext: StructuredResumePromptContext,
+  ) => ReturnType<typeof judgeStructuredDimensionEvidence>;
+  judgeHardGates: (
+    input: StructuredResumeWorkflowInput,
+    promptContext: StructuredResumePromptContext,
+  ) => ReturnType<typeof judgeStructuredHardGates>;
   logger?: {
     error: (message: string, context: StructuredResumeWorkflowLogContext) => void;
     info: (message: string, context: StructuredResumeWorkflowLogContext) => void;
@@ -191,43 +204,55 @@ export function createStructuredResumeReviewWorkflow(deps: {
 
   const validateInput = createStep({
     execute: ({ inputData }) =>
-      runStep("validate-structured-input", inputData, () => deps.validate(inputData)),
+      runStep("validate-structured-input", inputData, () => {
+        deps.validate(inputData);
+        return {
+          promptContext: createStructuredResumePromptContext(inputData),
+          validated: true as const,
+        };
+      }),
     id: "validate-structured-input",
     inputSchema: structuredResumeWorkflowInputSchema,
-    outputSchema: structuredResumeWorkflowInputSchema,
+    outputSchema: validatedInputOutputSchema,
   });
   const judgeHardGates = createStep({
-    execute: async ({ inputData }) => ({
-      ...inputData,
-      gateOutput: await runStep("judge-hard-gates", inputData, () =>
-        deps.judgeHardGates(workflowInputFrom(inputData)),
-      ),
-    }),
+    execute: async ({ getInitData, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      return {
+        gateOutput: await runStep("judge-hard-gates", workflowInput, () =>
+          deps.judgeHardGates(workflowInput, inputData.promptContext),
+        ),
+      };
+    },
     id: "judge-hard-gates",
-    inputSchema: structuredResumeWorkflowInputSchema,
+    inputSchema: validatedInputOutputSchema,
     outputSchema: gateOutputSchema,
   });
   const judgeDimensionEvidence = createStep({
-    execute: async ({ inputData }) => ({
-      ...inputData,
-      dimensionOutput: await runStep("judge-dimension-evidence", inputData, () =>
-        deps.judgeDimensionEvidence(workflowInputFrom(inputData)),
-      ),
-    }),
+    execute: async ({ getInitData, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      return {
+        dimensionOutput: await runStep("judge-dimension-evidence", workflowInput, () =>
+          deps.judgeDimensionEvidence(workflowInput, inputData.promptContext),
+        ),
+      };
+    },
     id: "judge-dimension-evidence",
-    inputSchema: structuredResumeWorkflowInputSchema,
+    inputSchema: validatedInputOutputSchema,
     outputSchema: dimensionEvidenceOutputSchema,
   });
   const judgeAdjustments = createStep({
-    execute: async ({ inputData }) => {
+    execute: async ({ getInitData, getStepResult, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      const { promptContext } = getStepResult(validateInput);
       const gateResult = inputData["judge-hard-gates"];
       const dimensionResult = inputData["judge-dimension-evidence"];
       return {
-        ...gateResult,
-        adjustmentOutput: await runStep("judge-adjustments", gateResult, () =>
-          deps.judgeAdjustments(workflowInputFrom(gateResult), gateResult.gateOutput),
+        adjustmentOutput: await runStep("judge-adjustments", workflowInput, () =>
+          deps.judgeAdjustments(workflowInput, gateResult.gateOutput, promptContext),
         ),
         dimensionOutput: dimensionResult.dimensionOutput,
+        gateOutput: gateResult.gateOutput,
       };
     },
     id: "judge-adjustments",
@@ -235,43 +260,49 @@ export function createStructuredResumeReviewWorkflow(deps: {
     outputSchema: adjustmentOutputSchema,
   });
   const computeScore = createStep({
-    execute: ({ inputData }) =>
-      runStep("compute-structured-score", inputData, () => ({
-        ...inputData,
+    execute: ({ getInitData, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      return runStep("compute-structured-score", workflowInput, () => ({
         calculationResult: deps.compute({
           adjustmentOutput: inputData.adjustmentOutput,
           dimensionOutput: inputData.dimensionOutput,
           gateOutput: inputData.gateOutput,
-          workflowInput: workflowInputFrom(inputData),
+          workflowInput,
         }),
-      })),
+      }));
+    },
     id: "compute-structured-score",
     inputSchema: adjustmentOutputSchema,
     outputSchema: calculationOutputSchema,
   });
   const generateNarrative = createStep({
-    execute: async ({ inputData }) => ({
-      ...inputData,
-      narrative: await runStep("generate-structured-narrative", inputData, () =>
-        deps.generateNarrative({
-          calculationResult: inputData.calculationResult,
-          workflowInput: workflowInputFrom(inputData),
-        }),
-      ),
-    }),
+    execute: async ({ getInitData, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      return {
+        calculationResult: inputData.calculationResult,
+        narrative: await runStep("generate-structured-narrative", workflowInput, () =>
+          deps.generateNarrative({
+            calculationResult: inputData.calculationResult,
+            workflowInput,
+          }),
+        ),
+      };
+    },
     id: "generate-structured-narrative",
     inputSchema: calculationOutputSchema,
     outputSchema: narrativeOutputSchema,
   });
   const assemble = createStep({
-    execute: ({ inputData }) =>
-      runStep("assemble-structured-evaluation", inputData, () =>
+    execute: ({ getInitData, inputData }) => {
+      const workflowInput = getInitData<StructuredResumeWorkflowInput>();
+      return runStep("assemble-structured-evaluation", workflowInput, () =>
         deps.assemble({
           calculationResult: inputData.calculationResult,
           narrative: inputData.narrative,
-          workflowInput: workflowInputFrom(inputData),
+          workflowInput,
         }),
-      ),
+      );
+    },
     id: "assemble-structured-evaluation",
     inputSchema: narrativeOutputSchema,
     outputSchema: structuredResumeEvaluationV1Schema,
@@ -303,9 +334,12 @@ export const structuredResumeReviewWorkflow = createStructuredResumeReviewWorkfl
   assemble: assembleStructuredResumeEvaluation,
   compute: computeStructuredResumeCalculation,
   generateNarrative: generateStructuredNarrative,
-  judgeAdjustments: judgeStructuredAdjustments,
-  judgeDimensionEvidence: judgeStructuredDimensionEvidence,
-  judgeHardGates: judgeStructuredHardGates,
+  judgeAdjustments: (input, gateOutput, promptContext) =>
+    judgeStructuredAdjustments(input, gateOutput, undefined, promptContext),
+  judgeDimensionEvidence: (input, promptContext) =>
+    judgeStructuredDimensionEvidence(input, undefined, promptContext),
+  judgeHardGates: (input, promptContext) =>
+    judgeStructuredHardGates(input, undefined, promptContext),
   logger: console,
   validate: validateStructuredResumeInput,
 });

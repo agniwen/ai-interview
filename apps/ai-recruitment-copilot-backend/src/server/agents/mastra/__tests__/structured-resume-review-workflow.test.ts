@@ -53,9 +53,12 @@ const testWorkflow = createStructuredResumeReviewWorkflow({
   assemble: assembleStructuredResumeEvaluation,
   compute: computeStructuredResumeCalculation,
   generateNarrative: (input) => generateStructuredNarrative(input, generator),
-  judgeAdjustments: (input, gateOutput) => judgeStructuredAdjustments(input, gateOutput, generator),
-  judgeDimensionEvidence: (input) => judgeStructuredDimensionEvidence(input, generator),
-  judgeHardGates: (input) => judgeStructuredHardGates(input, generator),
+  judgeAdjustments: (input, gateOutput, promptContext) =>
+    judgeStructuredAdjustments(input, gateOutput, generator, promptContext),
+  judgeDimensionEvidence: (input, promptContext) =>
+    judgeStructuredDimensionEvidence(input, generator, promptContext),
+  judgeHardGates: (input, promptContext) =>
+    judgeStructuredHardGates(input, generator, promptContext),
   validate: validateStructuredResumeInput,
 });
 
@@ -299,6 +302,65 @@ describe("structured resume workflow contracts", () => {
     expect(generatorCalls[0]?.prompt).toContain("技能事实使用 missing");
     expect(generatorCalls[0]?.prompt).toContain('"judgments"');
     expect(generatorCalls[0]?.prompt).toContain('"experienceEpisodes":[]');
+  });
+
+  it("keeps long OCR evidence prompts within a fixed budget while sampling the whole resume", async () => {
+    const resumeLines = Array.from(
+      { length: 250 },
+      (_, index) => `OCR-CHUNK-${String(index).padStart(3, "0")}-${"候选人经历".repeat(55)}`,
+    );
+    const input = {
+      ...workflowInput,
+      resumeInput: { ...workflowInput.resumeInput, resumeText: resumeLines.join("\n") },
+    };
+    generatorCall
+      .mockResolvedValueOnce({ judgments: [] })
+      .mockResolvedValueOnce({
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      })
+      .mockResolvedValueOnce({ judgments: [] });
+
+    await judgeStructuredHardGates(input, generator);
+    await judgeStructuredDimensionEvidence(input, generator);
+    await judgeStructuredAdjustments(input, undefined, generator);
+
+    expect(generatorCalls).toHaveLength(3);
+    for (const { prompt } of generatorCalls) {
+      expect(prompt.length).toBeLessThanOrEqual(55_000);
+      expect(prompt).toContain("OCR-CHUNK-000");
+      expect(prompt).toContain("OCR-CHUNK-249");
+    }
+  });
+
+  it("keeps every structured experience date and skill in the scoring prompt", async () => {
+    const input = {
+      ...workflowInput,
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          skills: Array.from(
+            { length: 50 },
+            (_, index) => `SKILL-${String(index).padStart(3, "0")}`,
+          ),
+          workExperiences: Array.from({ length: 15 }, (_, index) => ({
+            company: `COMPANY-${String(index).padStart(3, "0")}`,
+            period: `PERIOD-${String(index).padStart(3, "0")}`,
+            role: `ROLE-${String(index).padStart(3, "0")}`,
+            summary: "工作内容",
+          })),
+        },
+      },
+    };
+    generatorCall.mockResolvedValue({ judgments: [] });
+
+    await judgeStructuredHardGates(input, generator);
+
+    expect(generatorCalls[0]?.prompt).toContain("SKILL-049");
+    expect(generatorCalls[0]?.prompt).toContain("PERIOD-014");
   });
 
   it("rejects model-owned skill deductions and requires matched education units", () => {
@@ -1849,6 +1911,45 @@ describe("structured resume workflow contracts", () => {
         teamPositioning: narrativeOutput.teamPositioning,
       },
     });
+  });
+
+  it("keeps the full resume only in the workflow input instead of every step payload", async () => {
+    const resumeSentinel = "LONG_RESUME_SENTINEL";
+    const longResumeText = `${resumeSentinel}\n${"候选人经历".repeat(1000)}`;
+    generatorCall
+      .mockResolvedValueOnce({ judgments: [] })
+      .mockResolvedValueOnce({
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      })
+      .mockResolvedValueOnce({ judgments: [] })
+      .mockResolvedValueOnce(narrativeOutput);
+    const run = await testWorkflow.createRun();
+
+    const inputData = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+      },
+      resumeInput: { ...workflowInput.resumeInput, resumeText: longResumeText },
+    };
+    const result = await run.start({ inputData });
+
+    expect(result.status).toBe("success");
+    expect(JSON.stringify(result.input)).toContain(resumeSentinel);
+    for (const stepResult of Object.values(result.steps)) {
+      const serializedStep = JSON.stringify({
+        output: "output" in stepResult ? stepResult.output : null,
+        payload: stepResult.payload,
+      });
+      expect(serializedStep).not.toContain(longResumeText);
+    }
+    expect(generatorCalls.slice(0, 3).every(({ prompt }) => prompt.includes(resumeSentinel))).toBe(
+      true,
+    );
   });
 
   it("starts hard-gate and dimension judgments concurrently before adjustments", async () => {

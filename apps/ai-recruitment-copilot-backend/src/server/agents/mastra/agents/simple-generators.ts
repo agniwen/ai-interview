@@ -24,6 +24,11 @@ export interface MastraGenerateResult {
   error?: Error;
   object?: unknown;
   text: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 export interface MastraGeneratorLike {
@@ -36,6 +41,44 @@ export interface MastraStreamResult {
 
 export interface MastraStreamingGeneratorLike extends MastraGeneratorLike {
   stream(messages: string, options?: MastraGenerateOptions): Promise<MastraStreamResult>;
+}
+
+function recordStructuredGenerationMetrics(input: {
+  attempt: number;
+  label?: string;
+  mode: "structured-output" | "text-fallback";
+  prompt: string;
+  result: MastraGenerateResult;
+}): void {
+  if (!input.label) {
+    return;
+  }
+  console.info("[mastra-structured-generation] model call completed", {
+    attempt: input.attempt,
+    inputTokens: input.result.usage?.inputTokens,
+    label: input.label,
+    mode: input.mode,
+    outputTokens: input.result.usage?.outputTokens,
+    promptCharacters: input.prompt.length,
+    totalTokens: input.result.usage?.totalTokens,
+  });
+}
+
+function recordStructuredGenerationStart(input: {
+  attempt: number;
+  label?: string;
+  mode: "structured-output" | "text-fallback";
+  prompt: string;
+}): void {
+  if (!input.label) {
+    return;
+  }
+  console.info("[mastra-structured-generation] model call started", {
+    attempt: input.attempt,
+    label: input.label,
+    mode: input.mode,
+    promptCharacters: input.prompt.length,
+  });
 }
 
 export const titleAgent = new Agent({
@@ -374,6 +417,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   allowEmptyDefaults,
   fallbackToTextGeneration,
   maxOutputTokens,
+  observabilityLabel,
   prompt,
   retryOnInvalid,
   retryOnTransient,
@@ -386,6 +430,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   allowEmptyDefaults?: boolean;
   fallbackToTextGeneration?: boolean;
   maxOutputTokens?: number;
+  observabilityLabel?: string;
   prompt: string;
   retryOnInvalid?: boolean;
   retryOnTransient?: boolean;
@@ -407,7 +452,20 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       if (timeoutMs !== undefined) {
         generateOptions.abortSignal = AbortSignal.timeout(timeoutMs);
       }
+      recordStructuredGenerationStart({
+        attempt: attempt + 1,
+        label: observabilityLabel,
+        mode: "structured-output",
+        prompt: attemptPrompt,
+      });
       result = await withTimeout(agent.generate(attemptPrompt, generateOptions), timeoutMs);
+      recordStructuredGenerationMetrics({
+        attempt: attempt + 1,
+        label: observabilityLabel,
+        mode: "structured-output",
+        prompt: attemptPrompt,
+        result,
+      });
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (retryOnTransient && isRetryableTransientGenerationError(lastError)) {
@@ -482,10 +540,23 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     if (timeoutMs !== undefined) {
       fallbackOptions.abortSignal = AbortSignal.timeout(timeoutMs);
     }
+    recordStructuredGenerationStart({
+      attempt: maxAttempts + 1,
+      label: observabilityLabel,
+      mode: "text-fallback",
+      prompt: fallbackPrompt,
+    });
     const fallbackResult = await withTimeout(
       agent.generate(fallbackPrompt, fallbackOptions),
       timeoutMs,
     );
+    recordStructuredGenerationMetrics({
+      attempt: maxAttempts + 1,
+      label: observabilityLabel,
+      mode: "text-fallback",
+      prompt: fallbackPrompt,
+      result: fallbackResult,
+    });
     if (fallbackResult.error) {
       throw fallbackResult.error;
     }

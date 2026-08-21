@@ -296,7 +296,7 @@ const STRUCTURED_DIMENSION_LABELS = {
 } as const;
 
 const EVIDENCE_CATALOG_CHUNK_LENGTH = 400;
-const EVIDENCE_CATALOG_MAX_TEXT_CHUNKS = 200;
+const EVIDENCE_CATALOG_MAX_TEXT_CHUNKS = 40;
 const evidenceCatalogScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
 const evidenceCatalogArraySchema = z.array(z.json());
 const evidenceCatalogObjectSchema = z.record(z.string(), z.json());
@@ -335,17 +335,88 @@ function collectProfileEvidenceCatalog(value: JsonValue, output: string[]): void
   }
 }
 
-function buildEvidenceQuoteCatalog(input: StructuredResumeWorkflowInput): string {
+function sampleEvidenceChunks(values: string[], maxChunks: number): string[] {
+  const unique = [...new Set(values)];
+  if (unique.length <= maxChunks) {
+    return unique;
+  }
+  return Array.from({ length: maxChunks }, (_, index) => {
+    const sourceIndex = Math.round((index * (unique.length - 1)) / (maxChunks - 1));
+    return unique[sourceIndex] ?? "";
+  }).filter(Boolean);
+}
+
+function compactPromptString(value: string | null, maxCharacters = 400): string | null {
+  return value === null ? null : value.slice(0, maxCharacters);
+}
+
+function buildCompactResumeProfile(input: StructuredResumeWorkflowInput): JsonValue {
+  const profile = input.resumeInput.resumeProfile;
+  return {
+    age: profile.age,
+    educationExperiences: (profile.educationExperiences ?? []).map((item) => ({
+      degree: compactPromptString(item.degree, 100),
+      educationLevel: compactPromptString(item.educationLevel, 100),
+      graduationYear: compactPromptString(item.graduationYear, 100),
+      major: compactPromptString(item.major, 160),
+      period: compactPromptString(item.period, 100),
+      school: compactPromptString(item.school, 160),
+      summary: compactPromptString(item.summary),
+    })),
+    name: profile.name.slice(0, 100),
+    personalStrengths: profile.personalStrengths.map((item) => item.slice(0, 300)),
+    projectExperiences: profile.projectExperiences.map((item) => ({
+      name: compactPromptString(item.name, 160),
+      period: compactPromptString(item.period, 100),
+      role: compactPromptString(item.role, 160),
+      summary: compactPromptString(item.summary),
+      techStack: item.techStack.map((value) => value.slice(0, 100)),
+    })),
+    schools: profile.schools.map((item) => item.slice(0, 160)),
+    skills: profile.skills.map((item) => item.slice(0, 120)),
+    targetRoles: profile.targetRoles.map((item) => item.slice(0, 160)),
+    workExperiences: profile.workExperiences.map((item) => ({
+      company: compactPromptString(item.company, 160),
+      period: compactPromptString(item.period, 100),
+      role: compactPromptString(item.role, 160),
+      summary: compactPromptString(item.summary),
+    })),
+    workYears: profile.workYears,
+  };
+}
+
+function buildEvidenceQuoteCatalog(
+  compactResumeProfile: JsonValue,
+  resumeText: string | null,
+): string {
   const profileValues: string[] = [];
-  collectProfileEvidenceCatalog(input.resumeInput.resumeProfile, profileValues);
-  const textValues = (input.resumeInput.resumeText ?? "")
-    .split(/\r?\n/u)
-    .flatMap(chunkEvidenceCatalogValue)
-    .slice(0, EVIDENCE_CATALOG_MAX_TEXT_CHUNKS);
+  collectProfileEvidenceCatalog(compactResumeProfile, profileValues);
+  const textValues = (resumeText ?? "").split(/\r?\n/u).flatMap(chunkEvidenceCatalogValue);
   return JSON.stringify({
     resume_profile: [...new Set(profileValues)],
-    resume_text: [...new Set(textValues)],
+    resume_text: sampleEvidenceChunks(textValues, EVIDENCE_CATALOG_MAX_TEXT_CHUNKS),
   });
+}
+
+export const structuredResumePromptContextSchema = z
+  .object({
+    compactResumeProfile: z.json(),
+    evidenceQuoteCatalog: z.string().trim().min(1),
+  })
+  .strict();
+export type StructuredResumePromptContext = z.infer<typeof structuredResumePromptContextSchema>;
+
+export function createStructuredResumePromptContext(
+  input: StructuredResumeWorkflowInput,
+): StructuredResumePromptContext {
+  const compactResumeProfile = z.json().parse(buildCompactResumeProfile(input));
+  return {
+    compactResumeProfile,
+    evidenceQuoteCatalog: buildEvidenceQuoteCatalog(
+      compactResumeProfile,
+      input.resumeInput.resumeText,
+    ),
+  };
 }
 
 const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
@@ -376,7 +447,7 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
 
 interface StructuredResumePromptBase {
   evaluationAsOf: string;
-  resumeProfile: StructuredResumeWorkflowInput["resumeInput"]["resumeProfile"];
+  resumeProfile: JsonValue;
 }
 
 interface HardGatePromptPayload extends StructuredResumePromptBase {
@@ -466,6 +537,7 @@ function buildPrompt(
   guidance?: string,
   payload?: StructuredResumePromptPayload,
   outputExample?: string,
+  promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ): string {
   return [
     title,
@@ -473,7 +545,7 @@ function buildPrompt(
     STRUCTURED_RESUME_MISSING_DATA_GUIDANCE,
     "所有判断必须引用简历原文或结构化档案证据。",
     "quote 必须是声明来源中的逐字连续片段：resume_text 引用连续原文，resume_profile 引用单个字符串叶子值；不得跨字段拼接、改写或概括。",
-    `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${buildEvidenceQuoteCatalog(input)}`,
+    `证据引用白名单如下。每个 quote 必须从对应 source 的某一个字符串中直接复制，或复制其中的连续子串；不在白名单中的文本不得作为 quote：${promptContext.evidenceQuoteCatalog}`,
     "不得输出扣分、时长合计、维度分、综合分或等级。",
     ...(outputExample
       ? [`输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${outputExample}`]
@@ -482,10 +554,13 @@ function buildPrompt(
   ].join("\n");
 }
 
-function structuredResumeContext(input: StructuredResumeWorkflowInput) {
+function structuredResumeContext(
+  input: StructuredResumeWorkflowInput,
+  promptContext: StructuredResumePromptContext,
+) {
   return {
     evaluationAsOf: input.resumeInput.evaluationAsOf,
-    resumeProfile: input.resumeInput.resumeProfile,
+    resumeProfile: promptContext.compactResumeProfile,
   };
 }
 
@@ -632,12 +707,14 @@ function validateGateAgentOutput(
 export function judgeStructuredHardGates(
   input: StructuredResumeWorkflowInput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+  promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ) {
   return generate({
     agent: structuredResumeGateAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
+    observabilityLabel: "structured-resume-hard-gates",
     prompt: buildPrompt(
       "逐项判断冻结门槛，并为每个数值经验评分要求提取对应经历；只返回 passed / failed / needs_verification。",
       input,
@@ -651,11 +728,12 @@ export function judgeStructuredHardGates(
         "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
       ].join("\n"),
       {
-        ...structuredResumeContext(input),
+        ...structuredResumeContext(input, promptContext),
         hardGateRequirements: input.jobSnapshot.blueprint.hardGateRequirements,
         requiredRelevantExperiences: input.jobSnapshot.blueprint.requiredRelevantExperiences,
       },
       STRUCTURED_GATE_OUTPUT_EXAMPLE,
+      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -669,18 +747,20 @@ export function judgeStructuredHardGates(
 export function judgeStructuredDimensionEvidence(
   input: StructuredResumeWorkflowInput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+  promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ) {
   return generate({
     agent: structuredResumeDimensionAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     maxOutputTokens: 16_000,
+    observabilityLabel: "structured-resume-dimension-evidence",
     prompt: buildPrompt(
       "提取月级工作时间线、主职/并发关系、窄口径相关性和非时间类规则语义。不要计算月份或时间窗口。",
       input,
       STRUCTURED_DIMENSION_RULE_GUIDANCE,
       {
-        ...structuredResumeContext(input),
+        ...structuredResumeContext(input, promptContext),
         enabledRuleIds: Object.entries(input.jobSnapshot.publishedConfig.deductionRules)
           .filter(([, rule]) => rule.enabled)
           .map(([ruleId]) => ruleId),
@@ -692,6 +772,7 @@ export function judgeStructuredDimensionEvidence(
         },
       },
       STRUCTURED_DIMENSION_OUTPUT_EXAMPLE,
+      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -712,6 +793,7 @@ export function judgeStructuredAdjustments(
   input: StructuredResumeWorkflowInput,
   gateOutput?: GateAgentOutput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
+  promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ) {
   const gateContext = gateOutput
     ? `已完成的硬性门槛判断如下；遇到同义或重叠条件时必须保持事实一致：${JSON.stringify(gateOutput)}`
@@ -720,6 +802,7 @@ export function judgeStructuredAdjustments(
     agent: structuredResumeAdjustmentAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
+    observabilityLabel: "structured-resume-adjustments",
     prompt: buildPrompt(
       "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",
       input,
@@ -731,11 +814,12 @@ export function judgeStructuredAdjustments(
         gateContext,
       ].join("\n"),
       {
-        ...structuredResumeContext(input),
+        ...structuredResumeContext(input, promptContext),
         exclusionConditions: input.jobSnapshot.blueprint.exclusionConditions,
         priorityConditions: input.jobSnapshot.blueprint.priorityConditions,
       },
       STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE,
+      promptContext,
     ),
     retryOnInvalid: true,
     retryOnTransient: true,
@@ -1747,6 +1831,7 @@ export function generateStructuredNarrative(
   return generate({
     agent: structuredResumeNarrativeAgent,
     fallbackToTextGeneration: true,
+    observabilityLabel: "structured-resume-narrative",
     prompt: [
       "只解释已完成的计算，不得重算或修改结果。",
       "未命中的优先条件 appliedPoints=0，不加分也不扣分；未命中的排除条件同样不产生分数变化。",
@@ -1761,12 +1846,16 @@ export function generateStructuredNarrative(
       `输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${STRUCTURED_NARRATIVE_OUTPUT_EXAMPLE}`,
       JSON.stringify({
         adjustments: calculation.adjustments,
+        candidateFacts: {
+          employmentEpisodes: input.calculationResult.normalizedDimensionOutput.employmentEpisodes,
+          projects: input.calculationResult.normalizedDimensionOutput.projects,
+          skillAssessments: input.calculationResult.skillAssessments,
+        },
         compositeScore: calculation.compositeScore,
         dimensions: narrativeDimensions,
         gates: calculation.gates,
         grade: calculation.grade,
         jobExpectations: input.workflowInput.jobSnapshot.blueprint.dimensionExpectations,
-        resumeProfile: input.workflowInput.resumeInput.resumeProfile,
       }),
     ].join("\n"),
     retryOnInvalid: true,
