@@ -7,6 +7,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
+import { getMastraModelIdentifier, mastraModels } from "../server/agents/mastra/models";
 import type { GeneratedResumeAssessment } from "../server/routes/studio/routes/resumes/utils/review-lifecycle";
 
 export const TARGET_WORKSPACE_ID = "org_default";
@@ -14,6 +15,7 @@ export const TARGET_WORKSPACE_NAME = "极光/幻游";
 export const DEFAULT_LIMIT = 500;
 export const BATCH_SIZE = 12;
 export const TARGET_TIME_ZONE = "Asia/Shanghai";
+const TARGET_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
 const CAMPAIGN_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 
@@ -40,10 +42,12 @@ export interface RecentResumeRow {
   jobDescriptionName: string | null;
   lifecycleStatus: "draft" | "published" | null;
   resumeParseStatus: string;
+  resumeContentHash: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReviewQueuedAt: Date | null;
   resumeReviewRunId: string | null;
   resumeReviewStatus: string;
+  resumeText: string | null;
   structuredConfig: unknown;
   structuredResumeEvaluation: unknown;
 }
@@ -139,11 +143,21 @@ export function parseBackfillRecentResumeOptions(argv: string[]): BackfillRecent
 }
 
 function completedByCampaign(row: RecentResumeRow, campaign: string): boolean {
+  if (!row.resumeProfile) {
+    return false;
+  }
   const parsed = structuredResumeEvaluationV1Schema.safeParse(row.structuredResumeEvaluation);
   return (
     parsed.success &&
     parsed.data.runId.startsWith(`${campaign}:`) &&
-    parsed.data.blueprintHash === row.evaluationBlueprintHash
+    parsed.data.blueprintHash === row.evaluationBlueprintHash &&
+    parsed.data.engine.modelId === TARGET_MODEL_ID &&
+    parsed.data.inputHash ===
+      computeResumeEvaluationInputHash({
+        resumeContentHash: row.resumeContentHash,
+        resumeProfile: row.resumeProfile,
+        resumeText: row.resumeText,
+      })
   );
 }
 
@@ -227,11 +241,13 @@ async function loadRecentRows(
       jobDescriptionId: studioInterview.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
       lifecycleStatus: jobDescription.lifecycleStatus,
+      resumeContentHash: studioInterview.resumeContentHash,
       resumeParseStatus: studioInterview.resumeParseStatus,
       resumeProfile: studioInterview.resumeProfile,
       resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
       resumeReviewRunId: studioInterview.resumeReviewRunId,
       resumeReviewStatus: studioInterview.resumeReviewStatus,
+      resumeText: studioInterview.resumeText,
       structuredConfig: jobDescription.structuredConfig,
       structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
     })

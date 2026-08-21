@@ -20,6 +20,7 @@ function row(overrides: Partial<RecentResumeRow> = {}): RecentResumeRow {
     jobDescriptionId: "job-1",
     jobDescriptionName: "岗位",
     lifecycleStatus: "published" as const,
+    resumeContentHash: "resume-content-hash",
     resumeParseStatus: "ready",
     resumeProfile: {
       age: null,
@@ -38,6 +39,7 @@ function row(overrides: Partial<RecentResumeRow> = {}): RecentResumeRow {
     resumeReviewQueuedAt: null,
     resumeReviewRunId: null,
     resumeReviewStatus: "ready",
+    resumeText: "候选人简历正文",
     structuredConfig: {},
     structuredResumeEvaluation: null,
     ...overrides,
