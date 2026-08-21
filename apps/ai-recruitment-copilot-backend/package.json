@@ -22,6 +22,7 @@
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
     "benchmark:resume-parse": "tsx src/scripts/resume-parse-benchmark.ts",
+    "diagnose:structured-resume": "tsx src/scripts/diagnose-structured-resume.ts",
     "dev:standalone": "tsx watch src/index.ts",
     "eval:jd-match:synthetic": "tsx src/scripts/jd-match-synthetic-eval.ts",
     "eval:meeting-transcription": "tsx src/scripts/meeting-transcription-eval/cli.ts",
