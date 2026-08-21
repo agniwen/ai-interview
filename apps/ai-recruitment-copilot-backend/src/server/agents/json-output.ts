@@ -55,6 +55,13 @@ export function parseJsonOutput<TSchema extends z.ZodType>(
   label: string,
 ): z.output<TSchema> {
   const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    const empty = schema.safeParse({});
+    if (empty.success) {
+      console.warn(`[${label}] Empty model response; using schema-defined empty defaults.`);
+      return empty.data;
+    }
+  }
 
   const blockMatch = JSON_BLOCK_RE.exec(trimmed);
   const sources = blockMatch ? [blockMatch[1], trimmed] : [trimmed];

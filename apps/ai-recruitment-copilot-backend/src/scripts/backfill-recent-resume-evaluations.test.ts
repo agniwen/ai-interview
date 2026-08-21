@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BATCH_SIZE,
+  buildChinaDateWindow,
   chunkResumeTargets,
   classifyRecentResumeTarget,
   parseBackfillRecentResumeOptions,
@@ -47,6 +48,7 @@ describe("recent resume evaluation backfill", () => {
   it("defaults to a 500-row dry run and validates options", () => {
     const parsed = parseBackfillRecentResumeOptions([]);
     expect(parsed.apply).toBe(false);
+    expect(parsed.concurrency).toBe(12);
     expect(parsed.limit).toBe(500);
     expect(parsed.campaign).toMatch(/^recent-resume-rescore-\d{8}$/);
     expect(
@@ -54,6 +56,7 @@ describe("recent resume evaluation backfill", () => {
         "--apply",
         "--as-of=2026-08-19T09:38:20.978Z",
         "--campaign=job-upgrade-rescore-20260820",
+        "--concurrency=3",
         "--job-id=job-1",
         "--limit=12",
         "--resume-id=resume-1",
@@ -62,13 +65,26 @@ describe("recent resume evaluation backfill", () => {
       apply: true,
       asOf: "2026-08-19T09:38:20.978Z",
       campaign: "job-upgrade-rescore-20260820",
+      concurrency: 3,
       jobId: "job-1",
       limit: 12,
       resumeId: "resume-1",
     });
     expect(() => parseBackfillRecentResumeOptions(["--limit=501"])).toThrow("1 到 500");
+    expect(() => parseBackfillRecentResumeOptions(["--concurrency=25"])).toThrow("1 到 24");
     expect(() => parseBackfillRecentResumeOptions(["--campaign=不合法"])).toThrow("--campaign");
     expect(() => parseBackfillRecentResumeOptions(["--as-of=not-a-date"])).toThrow("--as-of");
+    expect(parseBackfillRecentResumeOptions(["--date=2026-08-20"]).date).toBe("2026-08-20");
+    expect(() => parseBackfillRecentResumeOptions(["--date=2026-02-30"])).toThrow("--date");
+    expect(() =>
+      parseBackfillRecentResumeOptions(["--date=2026-08-20", "--as-of=2026-08-20T00:00:00.000Z"]),
+    ).toThrow("不能同时使用");
+  });
+
+  it("uses the exact Beijing calendar-day boundary", () => {
+    const window = buildChinaDateWindow("2026-08-21");
+    expect(window.from.toISOString()).toBe("2026-08-20T16:00:00.000Z");
+    expect(window.to.toISOString()).toBe("2026-08-21T16:00:00.000Z");
   });
 
   it("chunks targets into batches of twelve", () => {

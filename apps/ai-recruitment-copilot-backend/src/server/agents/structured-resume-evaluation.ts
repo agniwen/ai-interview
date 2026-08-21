@@ -42,6 +42,8 @@ export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v2";
 const STRUCTURED_RESUME_AGENT_TIMEOUT_MS = 240_000;
 export const STRUCTURED_RESUME_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
+const agentEvidenceSchema = structuredResumeEvidenceSchema.strip();
+
 export const structuredResumeWorkflowInputSchema = z
   .object({
     engine: z
@@ -75,33 +77,34 @@ export const structuredResumeWorkflowInputSchema = z
 
 const gateExperienceEpisodeSchema = z
   .object({
-    current: z.boolean(),
+    current: z.boolean().default(false),
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .nullable()
       .default(null),
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     startMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .nullable()
       .default(null),
   })
-  .strict();
+  .strip();
 
 const gateJudgmentSchema = z
   .object({
     aiStatus: structuredResumeGateStatusSchema,
-    evidence: z.array(structuredResumeEvidenceSchema),
-    experienceEpisodes: z.array(gateExperienceEpisodeSchema).optional(),
+    evidence: z.array(agentEvidenceSchema).default([]),
+    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
+    experienceEpisodes: z.array(gateExperienceEpisodeSchema).catch([]).optional(),
     reason: z.string().trim().min(1),
     requirementId: z.string().trim().min(1),
   })
-  .strict();
+  .strip();
 
 export const structuredGateAgentOutputSchema = z.object({
-  judgments: z.array(gateJudgmentSchema),
+  judgments: z.array(gateJudgmentSchema).default([]),
 });
 
 const semanticRuleIds = [
@@ -120,13 +123,13 @@ const semanticRuleIds = [
 const semanticRuleJudgmentSchema = z
   .object({
     dimension: z.enum(STRUCTURED_RESUME_DIMENSIONS),
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     reason: z.string().trim().min(1),
     ruleId: z.enum(semanticRuleIds),
     status: structuredResumeRuleStatusSchema,
     units: z.number().int().min(1).max(3).optional(),
   })
-  .strict()
+  .strip()
   .superRefine((item, context) => {
     if (item.dimension !== STRUCTURED_RESUME_DEDUCTION_CATALOG[item.ruleId].dimension) {
       context.addIssue({
@@ -150,13 +153,13 @@ const semanticRuleJudgmentSchema = z
 
 const timelineEpisodeSchema = z
   .object({
-    current: z.boolean(),
+    current: z.boolean().default(false),
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .nullable()
       .default(null),
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     gapExplanation: z.string().trim().min(1).nullable().default(null),
     id: z.string().trim().min(1),
     primaryStatus: z.enum(["concurrent", "primary", "unresolved"]),
@@ -168,30 +171,30 @@ const timelineEpisodeSchema = z
       .nullable()
       .default(null),
   })
-  .strict();
+  .strip();
 
 const projectFactSchema = z
   .object({
-    current: z.boolean(),
+    current: z.boolean().default(false),
     endMonth: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
       .nullable()
       .default(null),
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     id: z.string().trim().min(1),
     relevant: z.boolean(),
   })
-  .strict();
+  .strip();
 
 const skillFactSchema = z
   .object({
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     normalizedSkill: z.string().trim().min(1),
     reason: z.string().trim().min(1),
     status: z.enum(["applied", "missing", "shallow"]),
   })
-  .strict()
+  .strip()
   .superRefine((item, context) => {
     if (item.status !== "missing" && item.evidence.length === 0) {
       context.addIssue({
@@ -204,24 +207,26 @@ const skillFactSchema = z
 
 export const structuredDimensionAgentOutputSchema = z
   .object({
-    employmentEpisodes: z.array(timelineEpisodeSchema),
-    projects: z.array(projectFactSchema),
-    ruleJudgments: z.array(semanticRuleJudgmentSchema),
-    skillFacts: z.array(skillFactSchema),
+    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
+    employmentEpisodes: z.array(timelineEpisodeSchema).catch([]).default([]),
+    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
+    projects: z.array(projectFactSchema).catch([]).default([]),
+    ruleJudgments: z.array(semanticRuleJudgmentSchema).default([]),
+    skillFacts: z.array(skillFactSchema).default([]),
   })
   .strict();
 
 const adjustmentJudgmentSchema = z
   .object({
     conditionId: z.string().trim().min(1),
-    evidence: z.array(structuredResumeEvidenceSchema),
+    evidence: z.array(agentEvidenceSchema).default([]),
     matched: z.boolean(),
     reason: z.string().trim().min(1),
   })
   .strict();
 
 export const structuredAdjustmentAgentOutputSchema = z.object({
-  judgments: z.array(adjustmentJudgmentSchema),
+  judgments: z.array(adjustmentJudgmentSchema).default([]),
 });
 
 export const structuredNarrativeAgentOutputSchema = z

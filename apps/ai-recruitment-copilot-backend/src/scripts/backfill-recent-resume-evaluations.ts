@@ -13,6 +13,7 @@ export const TARGET_WORKSPACE_ID = "org_default";
 export const TARGET_WORKSPACE_NAME = "极光/幻游";
 export const DEFAULT_LIMIT = 500;
 export const BATCH_SIZE = 12;
+export const TARGET_TIME_ZONE = "Asia/Shanghai";
 
 const CAMPAIGN_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 
@@ -20,6 +21,8 @@ export interface BackfillRecentResumeOptions {
   apply: boolean;
   asOf?: string;
   campaign: string;
+  concurrency: number;
+  date?: string;
   jobId?: string;
   limit: number;
   resumeId?: string;
@@ -58,40 +61,79 @@ function defaultCampaign(): string {
   return `recent-resume-rescore-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}`;
 }
 
+export function buildChinaDateWindow(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("--date 必须是 YYYY-MM-DD 格式的有效日期。");
+  }
+  const from = new Date(`${date}T00:00:00+08:00`);
+  const normalized = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: TARGET_TIME_ZONE,
+    year: "numeric",
+  }).format(from);
+  if (Number.isNaN(from.getTime()) || normalized !== date) {
+    throw new Error("--date 必须是 YYYY-MM-DD 格式的有效日期。");
+  }
+  return { from, to: new Date(from.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+function applyArgument(options: BackfillRecentResumeOptions, argument: string): void {
+  if (argument === "--apply") {
+    options.apply = true;
+    return;
+  }
+  const [key, value] = argument.split("=", 2);
+  if (key === "--campaign" && value) {
+    options.campaign = value;
+  } else if (key === "--concurrency" && value) {
+    options.concurrency = Number.parseInt(value, 10);
+  } else if (key === "--as-of" && value) {
+    options.asOf = value;
+  } else if (key === "--date" && value) {
+    options.date = value;
+  } else if (key === "--job-id" && value) {
+    options.jobId = value;
+  } else if (key === "--resume-id" && value) {
+    options.resumeId = value;
+  } else if (key === "--limit" && value) {
+    options.limit = Number.parseInt(value, 10);
+  } else {
+    throw new Error(`未知参数：${argument}`);
+  }
+}
+
 export function parseBackfillRecentResumeOptions(argv: string[]): BackfillRecentResumeOptions {
   const options: BackfillRecentResumeOptions = {
     apply: false,
     campaign: defaultCampaign(),
+    concurrency: BATCH_SIZE,
     limit: DEFAULT_LIMIT,
   };
   for (const argument of argv) {
-    if (argument === "--apply") {
-      options.apply = true;
-      continue;
-    }
-    const [key, value] = argument.split("=", 2);
-    if (key === "--campaign" && value) {
-      options.campaign = value;
-    } else if (key === "--as-of" && value) {
-      options.asOf = value;
-    } else if (key === "--job-id" && value) {
-      options.jobId = value;
-    } else if (key === "--resume-id" && value) {
-      options.resumeId = value;
-    } else if (key === "--limit" && value) {
-      options.limit = Number.parseInt(value, 10);
-    } else {
-      throw new Error(`未知参数：${argument}`);
-    }
+    applyArgument(options, argument);
   }
   if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > DEFAULT_LIMIT) {
     throw new Error(`--limit 必须是 1 到 ${DEFAULT_LIMIT} 之间的整数。`);
+  }
+  if (
+    !Number.isInteger(options.concurrency) ||
+    options.concurrency < 1 ||
+    options.concurrency > 24
+  ) {
+    throw new Error("--concurrency 必须是 1 到 24 之间的整数。");
   }
   if (!CAMPAIGN_PATTERN.test(options.campaign)) {
     throw new Error("--campaign 只能包含 3 到 64 位小写字母、数字、下划线或连字符。");
   }
   if (options.asOf !== undefined && Number.isNaN(Date.parse(options.asOf))) {
     throw new Error("--as-of 必须是有效的 ISO 时间。");
+  }
+  if (options.date !== undefined) {
+    buildChinaDateWindow(options.date);
+  }
+  if (options.asOf && options.date) {
+    throw new Error("--as-of 和 --date 不能同时使用。");
   }
   return options;
 }
@@ -162,14 +204,17 @@ function targetFingerprint(rows: RecentResumeRow[]): string {
 async function loadRecentRows(
   limit: number,
   asOf?: string,
+  date?: string,
   jobId?: string,
   resumeId?: string,
 ): Promise<RecentResumeRow[]> {
-  const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, lte }] = await Promise.all([
-    import("../lib/server/db"),
-    import("@arc/db-schema/schema"),
-    import("drizzle-orm"),
-  ]);
+  const [{ db }, { jobDescription, studioInterview }, { and, desc, eq, gte, lt, lte }] =
+    await Promise.all([
+      import("../lib/server/db"),
+      import("@arc/db-schema/schema"),
+      import("drizzle-orm"),
+    ]);
+  const dateWindow = date ? buildChinaDateWindow(date) : null;
   return db
     .select({
       candidateName: studioInterview.candidateName,
@@ -202,6 +247,8 @@ async function loadRecentRows(
       and(
         eq(studioInterview.organizationId, TARGET_WORKSPACE_ID),
         asOf ? lte(studioInterview.createdAt, new Date(asOf)) : undefined,
+        dateWindow ? gte(studioInterview.createdAt, dateWindow.from) : undefined,
+        dateWindow ? lt(studioInterview.createdAt, dateWindow.to) : undefined,
         jobId ? eq(studioInterview.jobDescriptionId, jobId) : undefined,
         resumeId ? eq(studioInterview.id, resumeId) : undefined,
       ),
@@ -454,15 +501,21 @@ async function markFailed(
 }
 
 async function processTarget(row: RecentResumeRow, campaign: string) {
+  const startedAt = Date.now();
   const claim = await claimTarget(row, campaign);
   if (!claim) {
-    return { reason: "claim_rejected" as const, status: "skipped" as const };
+    return {
+      reason: "claim_rejected" as const,
+      status: "skipped" as const,
+      totalDurationMs: Date.now() - startedAt,
+    };
   }
   try {
     const [{ generateResumeAssessment }, { default: pRetry }] = await Promise.all([
       import("../server/routes/studio/routes/resumes/utils/review-generation"),
       import("p-retry"),
     ]);
+    const aiStartedAt = Date.now();
     const assessment = await pRetry(
       () =>
         generateResumeAssessment({
@@ -477,14 +530,33 @@ async function processTarget(row: RecentResumeRow, campaign: string) {
         }),
       { minTimeout: 5000, retries: 1 },
     );
+    const aiDurationMs = Date.now() - aiStartedAt;
+    const commitStartedAt = Date.now();
     const committed = await commitAssessment(row, claim, assessment);
+    const commitDurationMs = Date.now() - commitStartedAt;
     return committed
-      ? { runId: claim.runId, status: "ready" as const }
-      : { reason: "superseded" as const, status: "skipped" as const };
+      ? {
+          aiDurationMs,
+          commitDurationMs,
+          runId: claim.runId,
+          status: "ready" as const,
+          totalDurationMs: Date.now() - startedAt,
+        }
+      : {
+          aiDurationMs,
+          commitDurationMs,
+          reason: "superseded" as const,
+          status: "skipped" as const,
+          totalDurationMs: Date.now() - startedAt,
+        };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await markFailed(row, claim.runId, errorMessage);
-    return { error: errorMessage.slice(0, 1000), status: "failed" as const };
+    return {
+      error: errorMessage.slice(0, 1000),
+      status: "failed" as const,
+      totalDurationMs: Date.now() - startedAt,
+    };
   }
 }
 
@@ -507,9 +579,28 @@ function summarizeRows(rows: RecentResumeRow[], campaign: string) {
   };
 }
 
+function summarizeDurations(durations: number[]) {
+  if (durations.length === 0) {
+    return { average: 0, max: 0, min: 0, total: 0 };
+  }
+  const total = durations.reduce((sum, duration) => sum + duration, 0);
+  return {
+    average: Math.round(total / durations.length),
+    max: Math.max(...durations),
+    min: Math.min(...durations),
+    total,
+  };
+}
+
 async function run(options: BackfillRecentResumeOptions): Promise<void> {
   await assertTargetWorkspace();
-  const rows = await loadRecentRows(options.limit, options.asOf, options.jobId, options.resumeId);
+  const rows = await loadRecentRows(
+    options.limit,
+    options.asOf,
+    options.date,
+    options.jobId,
+    options.resumeId,
+  );
   const summary = summarizeRows(rows, options.campaign);
   const unsupportedJobs = new Map<string, { count: number; id: string; name: string }>();
   for (const { classification, row } of rows.map((current) => ({
@@ -531,8 +622,9 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
   console.log(
     JSON.stringify({
       asOf: options.asOf ?? null,
-      batchSize: BATCH_SIZE,
       campaign: options.campaign,
+      concurrency: options.concurrency,
+      date: options.date ?? null,
       eligible: summary.eligible.length,
       event: "preflight",
       fingerprint: targetFingerprint(rows),
@@ -548,6 +640,13 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
         resumeNotReady: summary.resumeNotReady,
         unbound: summary.unbound,
       },
+      targets: summary.eligible.map(({ row }) => ({
+        candidate: row.candidateName,
+        createdAt: row.createdAt.toISOString(),
+        id: row.id,
+        job: row.jobDescriptionName,
+      })),
+      timeZone: options.date ? TARGET_TIME_ZONE : null,
       unsupportedJobs: [...unsupportedJobs.values()].toSorted(
         (left, right) => right.count - left.count,
       ),
@@ -561,9 +660,11 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
   let completed = 0;
   let finished = 0;
   let runtimeSkipped = 0;
+  const completedDurations: { aiDurationMs: number; totalDurationMs: number }[] = [];
   const { default: pLimit } = await import("p-limit");
-  const limit = pLimit(BATCH_SIZE);
-  const progressWindows = Math.ceil(summary.eligible.length / BATCH_SIZE);
+  const limit = pLimit(options.concurrency);
+  const progressWindows = Math.ceil(summary.eligible.length / options.concurrency);
+  const wallStartedAt = Date.now();
   await Promise.all(
     summary.eligible.map(({ row }) =>
       limit(async () => {
@@ -571,6 +672,10 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
         finished += 1;
         if (result.status === "ready") {
           completed += 1;
+          completedDurations.push({
+            aiDurationMs: result.aiDurationMs,
+            totalDurationMs: result.totalDurationMs,
+          });
         } else if (result.status === "failed") {
           failures.push({ error: result.error, id: row.id, name: row.candidateName });
         } else {
@@ -583,19 +688,19 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
             event: result.status,
             finished,
             id: row.id,
-            progressWindow: Math.ceil(finished / BATCH_SIZE),
+            progressWindow: Math.ceil(finished / options.concurrency),
             progressWindows,
             result,
           }),
         );
-        if (finished % BATCH_SIZE === 0 || finished === summary.eligible.length) {
+        if (finished % options.concurrency === 0 || finished === summary.eligible.length) {
           console.log(
             JSON.stringify({
               completed,
               event: "progress",
               failed: failures.length,
               finished,
-              progressWindow: Math.ceil(finished / BATCH_SIZE),
+              progressWindow: Math.ceil(finished / options.concurrency),
               progressWindows,
               runtimeSkipped,
             }),
@@ -606,6 +711,7 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
   );
   console.log(
     JSON.stringify({
+      aiDurationMs: summarizeDurations(completedDurations.map(({ aiDurationMs }) => aiDurationMs)),
       campaign: options.campaign,
       completed,
       event: "summary",
@@ -613,6 +719,10 @@ async function run(options: BackfillRecentResumeOptions): Promise<void> {
       failures,
       runtimeSkipped,
       targetCount: summary.eligible.length,
+      totalDurationMs: summarizeDurations(
+        completedDurations.map(({ totalDurationMs }) => totalDurationMs),
+      ),
+      wallClockDurationMs: Date.now() - wallStartedAt,
     }),
   );
   if (failures.length > 0 || runtimeSkipped > 0) {

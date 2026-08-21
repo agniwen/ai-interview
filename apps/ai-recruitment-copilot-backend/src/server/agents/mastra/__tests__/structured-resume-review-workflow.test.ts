@@ -13,6 +13,7 @@ import {
   judgeStructuredDimensionEvidence,
   judgeStructuredHardGates,
   structuredDimensionAgentOutputSchema,
+  structuredGateAgentOutputSchema,
   validateStructuredResumeInput,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
 import type { StructuredResumeGenerator } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
@@ -214,6 +215,77 @@ describe("structured resume workflow contracts", () => {
         startMonth: null,
       });
     }
+  });
+
+  it("accepts omitted candidate fact collections and non-semantic evidence metadata", () => {
+    const result = structuredDimensionAgentOutputSchema.safeParse({
+      employmentEpisodes: [
+        {
+          endMonth: undefined,
+          evidence: [
+            {
+              field: "company",
+              quote: "示例公司",
+              source: "resume_profile",
+            },
+          ],
+          gapExplanation: undefined,
+          id: "episode-1",
+          primaryStatus: "unresolved",
+          relevance: "insufficient_evidence",
+          relevanceReason: "简历没有提供是否仍在职的信息。",
+          startMonth: undefined,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      });
+      expect(result.data.employmentEpisodes[0]?.current).toBe(false);
+      expect(result.data.employmentEpisodes[0]?.evidence[0]).toEqual({
+        quote: "示例公司",
+        source: "resume_profile",
+      });
+    }
+  });
+
+  it("degrades malformed optional fact collections to empty facts", () => {
+    const dimensions = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [
+        {
+          current: false,
+          evidence: [],
+          relevanceReason: "缺少结构字段",
+        },
+      ],
+      projects: null,
+      ruleJudgments: [],
+      skillFacts: undefined,
+    });
+    const gates = structuredGateAgentOutputSchema.parse({
+      judgments: [
+        {
+          aiStatus: "failed",
+          evidence: [],
+          experienceEpisodes: ["没有可解析的经历"],
+          reason: "简历没有相关经历证据。",
+          requirementId: "gate-1",
+        },
+      ],
+    });
+
+    expect(dimensions).toMatchObject({
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+    expect(gates.judgments[0]?.experienceEpisodes).toEqual([]);
   });
 
   it("documents missing candidate evidence and enables plain JSON fallback", async () => {

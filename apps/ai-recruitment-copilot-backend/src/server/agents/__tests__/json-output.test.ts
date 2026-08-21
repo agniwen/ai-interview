@@ -96,6 +96,16 @@ describe("parseJsonOutput", () => {
     expect(() => parseJsonOutput("", SCHEMA, LABEL)).toThrow(/Failed to parse structured output/);
   });
 
+  it("uses schema-defined empty defaults for empty input", () => {
+    const emptyFactsSchema = z
+      .object({
+        judgments: z.array(z.string()).default([]),
+      })
+      .strict();
+
+    expect(parseJsonOutput("", emptyFactsSchema, LABEL)).toEqual({ judgments: [] });
+  });
+
   it("logs schema-validation issues with the label prefix", () => {
     const errorSpy = vi.spyOn(console, "error");
     expect(() => parseJsonOutput('{"name":"x"}', SCHEMA, "my-label")).toThrow();
