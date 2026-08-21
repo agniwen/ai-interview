@@ -5,6 +5,7 @@ import type {
 } from "@arc/db-schema/interview/types";
 import { uniq } from "lodash-es";
 import { z } from "zod";
+import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
 import {
   generatedInterviewQuestionSchema,
   generatedInterviewQuestionsSchema,
@@ -227,6 +228,7 @@ function normalizeEducationExperiences(
 }
 
 export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
+  const skills = uniqueStrings(profile.skills);
   return {
     age: normalizeNumber(profile.age),
     educationExperiences: normalizeEducationExperiences(profile.educationExperiences),
@@ -243,7 +245,13 @@ export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
       techStack: uniqueStrings(experience.techStack),
     })),
     schools: uniqueStrings(profile.schools),
-    skills: uniqueStrings(profile.skills),
+    scoringFacts: normalizeResumeScoringFacts({
+      facts: profile.scoringFacts,
+      projectExperienceCount: profile.projectExperiences.length,
+      skills,
+      workExperienceCount: profile.workExperiences.length,
+    }),
+    skills,
     targetRoles: uniqueStrings(profile.targetRoles),
     workExperiences: profile.workExperiences.map((experience) => ({
       company: trimToNull(experience.company),

@@ -7,7 +7,7 @@ import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
 import pRetry from "p-retry";
 import { z } from "zod";
-import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import { resumeParserGenerationSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
@@ -521,7 +521,7 @@ export async function generateResumeStructured(
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
     prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
-    schema: structuredSchema,
+    schema: resumeParserGenerationSchema,
     temperature: 0,
   });
   devOcrLog("structured completed", {

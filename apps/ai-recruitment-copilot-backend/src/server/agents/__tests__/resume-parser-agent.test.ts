@@ -85,6 +85,73 @@ describe("projectAttachmentToResumeProfile", () => {
 
     expect(result).not.toBeNull();
     expect(result?.educationExperiences).toEqual([]);
+    expect(result?.scoringFacts).toEqual({
+      additionalEvidence: [],
+      employmentEpisodes: [],
+      projects: [],
+      skillFacts: [
+        {
+          evidence: [],
+          evidenceLevel: "unknown",
+          normalizedSkill: "TypeScript",
+        },
+      ],
+      version: 1,
+    });
+  });
+
+  it("preserves reusable scoring facts from the initial resume parse", () => {
+    const result = projectAttachmentToResumeProfile({
+      ...MINIMAL_STRUCTURED,
+      scoringFacts: {
+        additionalEvidence: ["PMP 认证"],
+        employmentEpisodes: [
+          {
+            currentStatus: "current",
+            endMonth: null,
+            evidence: ["2021.06-至今"],
+            gapExplanation: null,
+            primaryStatus: "primary",
+            sourceIndex: 0,
+            startMonth: "2021-06",
+          },
+        ],
+        projects: [],
+        skillFacts: [
+          {
+            evidence: ["使用 TypeScript 开发"],
+            evidenceLevel: "applied",
+            normalizedSkill: "TypeScript",
+          },
+        ],
+        version: 1,
+      },
+      workExperiences: [
+        {
+          company: "示例公司",
+          period: "2021.06-至今",
+          role: "前端工程师",
+          summary: "使用 TypeScript 开发",
+        },
+      ],
+    });
+
+    expect(result?.scoringFacts).toMatchObject({
+      additionalEvidence: ["PMP 认证"],
+      employmentEpisodes: [
+        {
+          currentStatus: "current",
+          sourceIndex: 0,
+          startMonth: "2021-06",
+        },
+      ],
+      skillFacts: [
+        {
+          evidenceLevel: "applied",
+          normalizedSkill: "TypeScript",
+        },
+      ],
+    });
   });
 
   it("normalizes empty name to '未发现信息'", () => {

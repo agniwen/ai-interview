@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resumeScoringFactsSchema } from "./resume-scoring-facts";
 
 const workExperienceSchema = z.object({
   company: z.string().nullable(),
@@ -40,6 +41,7 @@ export const structuredSchema = z.object({
   phone: z.string().nullable(),
   projectExperiences: z.array(projectExperienceSchema),
   schools: z.array(z.string()),
+  scoringFacts: resumeScoringFactsSchema.optional(),
   skills: z.array(z.string()),
   targetRoles: z.array(z.string()),
   timelineSummary: z.object({
@@ -50,6 +52,16 @@ export const structuredSchema = z.object({
   }),
   workExperiences: z.array(workExperienceSchema),
   workYears: z.number().nullable(),
+});
+
+export const resumeParserGenerationSchema = structuredSchema.extend({
+  scoringFacts: resumeScoringFactsSchema.default({
+    additionalEvidence: [],
+    employmentEpisodes: [],
+    projects: [],
+    skillFacts: [],
+    version: 1,
+  }),
 });
 
 export type ResumeParserStructured = z.infer<typeof structuredSchema>;

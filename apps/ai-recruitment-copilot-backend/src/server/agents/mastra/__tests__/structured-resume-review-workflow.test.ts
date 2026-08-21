@@ -12,6 +12,7 @@ import {
   judgeStructuredAdjustments,
   judgeStructuredDimensionEvidence,
   judgeStructuredHardGates,
+  normalizeDimensionOutputWithReusableFacts,
   structuredDimensionAgentOutputSchema,
   structuredGateAgentOutputSchema,
   validateStructuredResumeInput,
@@ -304,7 +305,7 @@ describe("structured resume workflow contracts", () => {
     expect(generatorCalls[0]?.prompt).toContain('"experienceEpisodes":[]');
   });
 
-  it("keeps long OCR evidence prompts within a fixed budget while sampling the whole resume", async () => {
+  it("does not send long OCR text back to any scoring agent", async () => {
     const resumeLines = Array.from(
       { length: 250 },
       (_, index) => `OCR-CHUNK-${String(index).padStart(3, "0")}-${"候选人经历".repeat(55)}`,
@@ -330,12 +331,13 @@ describe("structured resume workflow contracts", () => {
     expect(generatorCalls).toHaveLength(3);
     for (const { prompt } of generatorCalls) {
       expect(prompt.length).toBeLessThanOrEqual(55_000);
-      expect(prompt).toContain("OCR-CHUNK-000");
-      expect(prompt).toContain("OCR-CHUNK-249");
+      expect(prompt).not.toContain("OCR-CHUNK-000");
+      expect(prompt).not.toContain("OCR-CHUNK-249");
+      expect(prompt).not.toContain("resume_text");
     }
   });
 
-  it("keeps every structured experience date and skill in the scoring prompt", async () => {
+  it("keeps structured skills but excludes legacy period strings from the scoring prompt", async () => {
     const input = {
       ...workflowInput,
       resumeInput: {
@@ -360,7 +362,66 @@ describe("structured resume workflow contracts", () => {
     await judgeStructuredHardGates(input, generator);
 
     expect(generatorCalls[0]?.prompt).toContain("SKILL-049");
-    expect(generatorCalls[0]?.prompt).toContain("PERIOD-014");
+    expect(generatorCalls[0]?.prompt).not.toContain("PERIOD-014");
+  });
+
+  it("reuses parsed timeline facts and fills missing model classifications without failing", () => {
+    const input = {
+      ...workflowInput,
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [
+              {
+                currentStatus: "current" as const,
+                endMonth: null,
+                evidence: [],
+                gapExplanation: null,
+                primaryStatus: "primary" as const,
+                sourceIndex: 0,
+                startMonth: "2022-03",
+              },
+            ],
+            projects: [],
+            skillFacts: [],
+            version: 1 as const,
+          },
+          workExperiences: [
+            {
+              company: "示例公司",
+              period: "2022.03-至今",
+              role: "工程师",
+              summary: null,
+            },
+          ],
+        },
+      },
+    };
+    const output = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+
+    normalizeDimensionOutputWithReusableFacts(input, output);
+
+    expect(output.employmentEpisodes).toEqual([
+      {
+        current: true,
+        endMonth: null,
+        evidence: [],
+        gapExplanation: null,
+        id: "work-0",
+        primaryStatus: "primary",
+        relevance: "insufficient_evidence",
+        relevanceReason: "评分事实存在，但岗位相关性证据不足。",
+        startMonth: "2022-03",
+      },
+    ]);
   });
 
   it("rejects model-owned skill deductions and requires matched education units", () => {
@@ -473,7 +534,7 @@ describe("structured resume workflow contracts", () => {
     expect(prompt).toContain("日期、公司、职位必须分别引用各自的字符串叶子值");
     expect(prompt).toContain("禁止自行拼成简历摘要句");
     expect(prompt).toContain("证据引用白名单");
-    expect(prompt).toContain('"resume_profile":["候选人"]');
+    expect(prompt).toContain('"resume_profile":["候选人"');
     expect(prompt).toContain('"normalizedSkill":"TypeScript"');
     expect(prompt).not.toContain('"hardGateRequirements"');
     expect(prompt).not.toContain('"publishedConfig"');
@@ -553,7 +614,7 @@ describe("structured resume workflow contracts", () => {
     });
   });
 
-  it("reduces a model-composed evidence sentence to a long exact source fragment", async () => {
+  it("rejects raw resume evidence from a scoring agent even when the raw text contains it", () => {
     const output = {
       employmentEpisodes: [],
       projects: [
@@ -566,7 +627,7 @@ describe("structured resume workflow contracts", () => {
               source: "resume_text",
             },
           ],
-          id: "project-1",
+          id: "project-0",
           relevant: true,
         },
       ],
@@ -579,23 +640,27 @@ describe("structured resume workflow contracts", () => {
       return Promise.resolve(parsed);
     };
 
-    const result = await judgeStructuredDimensionEvidence(
-      {
-        ...workflowInput,
-        resumeInput: {
-          ...workflowInput.resumeInput,
-          resumeText: "统筹应用商店分发与多渠道获客，端内预装及外部投放。",
+    expect(() =>
+      judgeStructuredDimensionEvidence(
+        {
+          ...workflowInput,
+          resumeInput: {
+            ...workflowInput.resumeInput,
+            resumeProfile: {
+              ...workflowInput.resumeInput.resumeProfile,
+              projectExperiences: [
+                { name: "增长项目", period: null, role: null, summary: null, techStack: [] },
+              ],
+            },
+            resumeText: "统筹应用商店分发与多渠道获客，端内预装及外部投放。",
+          },
         },
-      },
-      validatingGenerator,
-    );
-
-    expect(result.projects[0]?.evidence).toEqual([
-      { quote: "统筹应用商店分发与多渠道获客", source: "resume_text" },
-    ]);
+        validatingGenerator,
+      ),
+    ).toThrow("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
   });
 
-  it("reduces a date-prefixed evidence quote to an exact company fragment", async () => {
+  it("does not repair a scoring-agent quote from raw resume text", () => {
     const output = {
       employmentEpisodes: [],
       projects: [
@@ -608,7 +673,7 @@ describe("structured resume workflow contracts", () => {
               source: "resume_text",
             },
           ],
-          id: "project-1",
+          id: "project-0",
           relevant: true,
         },
       ],
@@ -621,20 +686,24 @@ describe("structured resume workflow contracts", () => {
       return Promise.resolve(parsed);
     };
 
-    const result = await judgeStructuredDimensionEvidence(
-      {
-        ...workflowInput,
-        resumeInput: {
-          ...workflowInput.resumeInput,
-          resumeText: "北京钱来钱往网络科技有限公司",
+    expect(() =>
+      judgeStructuredDimensionEvidence(
+        {
+          ...workflowInput,
+          resumeInput: {
+            ...workflowInput.resumeInput,
+            resumeProfile: {
+              ...workflowInput.resumeInput.resumeProfile,
+              projectExperiences: [
+                { name: "历史项目", period: null, role: null, summary: null, techStack: [] },
+              ],
+            },
+            resumeText: "北京钱来钱往网络科技有限公司",
+          },
         },
-      },
-      validatingGenerator,
-    );
-
-    expect(result.projects[0]?.evidence).toEqual([
-      { quote: "北京钱来钱往网络科技有限公司", source: "resume_text" },
-    ]);
+        validatingGenerator,
+      ),
+    ).toThrow("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
   });
 
   it("requires qualifying episodes for every returned numeric experience gate", async () => {
@@ -1947,9 +2016,7 @@ describe("structured resume workflow contracts", () => {
       });
       expect(serializedStep).not.toContain(longResumeText);
     }
-    expect(generatorCalls.slice(0, 3).every(({ prompt }) => prompt.includes(resumeSentinel))).toBe(
-      true,
-    );
+    expect(generatorCalls.every(({ prompt }) => !prompt.includes(resumeSentinel))).toBe(true);
   });
 
   it("starts hard-gate and dimension judgments concurrently before adjustments", async () => {

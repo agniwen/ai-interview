@@ -1,5 +1,5 @@
 import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
-import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import { resumeParserGenerationSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { runAliyunResumeExtraction } from "./aliyun-docmining";
 import { ALIYUN_RESUME_EXTRACTION_PROMPT } from "./aliyun-resume-prompt";
@@ -45,7 +45,7 @@ export function createResumeParseWithAliyun(
       try {
         const structured = parseJsonOutput(
           result.content,
-          structuredSchema,
+          resumeParserGenerationSchema,
           "aliyun-resume-extraction",
         );
         return {

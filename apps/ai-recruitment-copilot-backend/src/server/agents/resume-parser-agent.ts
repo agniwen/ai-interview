@@ -3,6 +3,7 @@ import type { JsonValue } from "@arc/db-schema/json";
 import { readPdfBytes } from "@arc/shared/resume-pdf";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
 
 export type { ResumeParserStructured };
 export { structuredSchema };
@@ -35,6 +36,7 @@ function collectProfileSkills(structured: ResumeParserStructured): string[] {
  * callers that need them should consume `structured` directly.
  */
 export function toResumeProfile(structured: ResumeParserStructured): ResumeProfile {
+  const skills = collectProfileSkills(structured);
   return {
     age: structured.age,
     educationExperiences: structured.educationExperiences ?? [],
@@ -45,7 +47,13 @@ export function toResumeProfile(structured: ResumeParserStructured): ResumeProfi
     phone: structured.phone,
     projectExperiences: structured.projectExperiences,
     schools: structured.schools,
-    skills: collectProfileSkills(structured),
+    scoringFacts: normalizeResumeScoringFacts({
+      facts: structured.scoringFacts,
+      projectExperienceCount: structured.projectExperiences.length,
+      skills,
+      workExperienceCount: structured.workExperiences.length,
+    }),
+    skills,
     targetRoles: structured.targetRoles,
     workExperiences: structured.workExperiences,
     workYears: structured.workYears,

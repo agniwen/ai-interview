@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { resumeScoringFactsSchema } from "../resume-scoring-facts";
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const nullableStringSchema = z.string().trim().nullable();
@@ -82,6 +83,9 @@ export const resumeProfileSchema = z.object({
     .array(resumeProjectExperienceSchema)
     .describe("项目经历列表，没有则返回空数组"),
   schools: z.array(nonEmptyStringSchema).describe("毕业院校列表，可能为多个，未知时返回空数组"),
+  scoringFacts: resumeScoringFactsSchema
+    .optional()
+    .describe("首次解析生成的岗位无关评分事实；历史简历可能没有该字段"),
   skills: z.array(nonEmptyStringSchema).describe("掌握技能列表，未知时返回空数组"),
   targetRoles: z.array(nonEmptyStringSchema).describe("求职岗位列表，可能为多个，未知时返回空数组"),
   workExperiences: z.array(resumeWorkExperienceSchema).describe("工作经历列表，没有则返回空数组"),

@@ -45,6 +45,19 @@ export const ALIYUN_RESUME_EXTRACTION_PROMPT = `你是一名专业、严谨的�
       "techStack": string[]
     }
   ],
+  "scoringFacts": {
+    "version": 1,
+    "employmentEpisodes": [
+      { "sourceIndex": number, "startMonth": "YYYY-MM" | null, "endMonth": "YYYY-MM" | null, "currentStatus": "current" | "ended" | "unknown", "primaryStatus": "primary" | "concurrent" | "unresolved", "gapExplanation": string | null, "evidence": string[] }
+    ],
+    "projects": [
+      { "sourceIndex": number, "startMonth": "YYYY-MM" | null, "endMonth": "YYYY-MM" | null, "currentStatus": "current" | "ended" | "unknown", "evidence": string[] }
+    ],
+    "skillFacts": [
+      { "normalizedSkill": string, "evidenceLevel": "applied" | "mentioned" | "unknown", "evidence": string[] }
+    ],
+    "additionalEvidence": string[]
+  },
   "links": string[],
   "timelineSummary": {
     "currentStatus": string | null,
@@ -131,9 +144,18 @@ export const ALIYUN_RESUME_EXTRACTION_PROMPT = `你是一名专业、严谨的�
     - 如果没有明确异常，riskSignals 必须返回 []。
     - 不要把正常的教育与实习重叠、项目与工作重叠自动判断为风险。
 
-11. 数组内容需要去重，但工作经历、项目经历和教育经历不得因为公司名、学校名或项目名相似而错误合并。
+11. 可复用评分事实：
+    - scoringFacts 必须在本次解析中一次生成，供后续岗位评分直接复用；不得省略整个对象。
+    - employmentEpisodes 与 workExperiences 一一对应，sourceIndex 是从 0 开始的数组下标；projects 同理对应 projectExperiences。简历缺少日期时仍保留对应项，日期返回 null，状态返回 unknown / unresolved。
+    - 日期仅在简历明确时规范为 YYYY-MM；只知道年份或表达含糊时返回 null。明确“至今/在职”为 current，明确已结束为 ended，否则为 unknown。
+    - primaryStatus 只标记明确主职或明确并发兼职/实习，无法确认时为 unresolved；gapExplanation 只有简历明确解释空档时填写。
+    - skillFacts 覆盖 skills 中每项技能：工作或项目实际使用为 applied，仅技能栏提及为 mentioned，无法判断为 unknown。不要生成简历中没有的技能。
+    - evidence 必须逐字复制简历中的最短连续原文，禁止改写、概括或跨段拼接；没有可靠引文返回 []。
+    - additionalEvidence 只保存证书、语言、地点、管理规模等可能供岗位自定义条件复用的明确原文，没有则返回 []。
 
-12. 最终输出必须能够被标准 JSON.parse 直接解析：
+12. 数组内容需要去重，但工作经历、项目经历和教育经历不得因为公司名、学校名或项目名相似而错误合并。
+
+13. 最终输出必须能够被标准 JSON.parse 直接解析：
     - 使用双引号；
     - 不允许尾随逗号；
     - 不允许 undefined、NaN 或 Infinity；

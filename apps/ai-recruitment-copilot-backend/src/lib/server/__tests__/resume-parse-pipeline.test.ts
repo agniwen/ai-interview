@@ -128,6 +128,42 @@ const STRUCTURED_RESUME = {
     },
   ],
   schools: ["浙江大学"],
+  scoringFacts: {
+    additionalEvidence: [],
+    employmentEpisodes: [
+      {
+        currentStatus: "current" as const,
+        endMonth: null,
+        evidence: ["2019-至今"],
+        gapExplanation: null,
+        primaryStatus: "primary" as const,
+        sourceIndex: 0,
+        startMonth: "2019-01",
+      },
+    ],
+    projects: [
+      {
+        currentStatus: "ended" as const,
+        endMonth: "2023-12",
+        evidence: ["2021-2023"],
+        sourceIndex: 0,
+        startMonth: "2021-01",
+      },
+    ],
+    skillFacts: [
+      {
+        evidence: ["负责 React 前端架构"],
+        evidenceLevel: "applied" as const,
+        normalizedSkill: "React",
+      },
+      {
+        evidence: ["TypeScript"],
+        evidenceLevel: "applied" as const,
+        normalizedSkill: "TypeScript",
+      },
+    ],
+    version: 1 as const,
+  },
   skills: ["React", "TypeScript"],
   targetRoles: ["前端工程师"],
   timelineSummary: {
