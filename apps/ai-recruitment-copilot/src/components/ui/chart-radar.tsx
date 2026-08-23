@@ -11,6 +11,7 @@ import {
   radialGrid,
   radialLine,
 } from "@tanstack/charts/polar";
+import type { ChartTooltipBodyRenderContext } from "@tanstack/charts/react/tooltip";
 import { scaleLinear, scalePoint } from "d3-scale";
 import { curveLinearClosed } from "d3-shape";
 import { cn } from "@arc/shared/utils";
@@ -209,7 +210,7 @@ export function DimensionRadarChart({
         height={height}
         {...(tooltipBody
           ? {
-              renderTooltipBody: ({ points }) => {
+              renderTooltipBody: ({ points }: ChartTooltipBodyRenderContext) => {
                 const point = points[0]?.datum as RadarDimensionPoint | undefined;
                 if (!point) {
                   return null;

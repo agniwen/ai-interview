@@ -20,8 +20,8 @@ import {
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { candidateOutcomeSchema, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
 
-// Dashboard activity still uses a 30-day window; the resume-library calendar
-// heatmap uses a full year for the GitHub-style contribution grid.
+// Dashboard activity uses 30 days; resume-library uploader rankings keep a
+// full-year daily window so all supported client-side ranges share one payload.
 const DASHBOARD_LOOKBACK_DAYS = 30;
 const DAILY_ADDED_LOOKBACK_DAYS = 365;
 
@@ -74,9 +74,8 @@ async function loadDailyAdded(
   organizationId: string,
   createdByUserId?: string,
 ): Promise<ResumeLibraryMetrics["dailyAdded"]> {
-  // Truncate created_at to day; window is the last 365 days for the GitHub-style
-  // year calendar. Group by day + uploader so tooltips can list per-user counts.
-  // Only non-zero days are returned; the client zero-fills the full grid.
+  // Truncate created_at to day and group by day + uploader. The client combines
+  // these rows into today / yesterday / current-week / current-month rankings.
   const since = startOfBeijingDay(
     new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
   );
@@ -88,6 +87,7 @@ async function loadDailyAdded(
       count: count(),
       day: dayExpr,
       userId: studioInterview.createdBy,
+      userImage: user.image,
       userName: user.name,
     })
     .from(studioInterview)
@@ -98,7 +98,7 @@ async function loadDailyAdded(
         gte(studioInterview.createdAt, since),
       ),
     )
-    .groupBy(dayExpr, studioInterview.createdBy, user.name)
+    .groupBy(dayExpr, studioInterview.createdBy, user.image, user.name)
     .orderBy(dayExpr);
 
   const byDay = new Map<
@@ -112,6 +112,7 @@ async function loadDailyAdded(
     existing.byUser.push({
       count: row.count,
       userId: row.userId ?? "unknown",
+      userImage: row.userImage,
       userName: row.userName?.trim() || "未知用户",
     });
     byDay.set(row.day, existing);

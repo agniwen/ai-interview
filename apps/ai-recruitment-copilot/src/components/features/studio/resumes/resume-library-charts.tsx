@@ -1,22 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useRef } from "react";
-import type { EventListeners } from "overlayscrollbars";
-import { barX, cell, defineChart, stack } from "@tanstack/charts";
-import { scaleBand, scaleLinear, scaleOrdinal } from "d3-scale";
-import { utcDay, utcSunday } from "d3-time";
+import { useMemo, useState } from "react";
+import { barX, defineChart, stack } from "@tanstack/charts";
+import { scaleBand, scaleLinear } from "d3-scale";
 import { z } from "zod";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { defineDonutChart } from "@/lib/client/charts/donut";
-import { withHorizontalWheelScroll } from "@/lib/client/charts/horizontal-wheel-scroll";
-import { toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
+import { toBeijingDayKey } from "@arc/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
 
 type PipelineBucket =
   | "screening"
@@ -57,45 +55,17 @@ const pipelineTooltipDatumSchema = z.object({
   label: z.string(),
   value: z.number(),
 });
-const calendarTooltipDatumSchema = z.object({
-  byUser: z.array(
-    z.object({
-      count: z.number(),
-      userName: z.string(),
-    }),
-  ),
-  count: z.number(),
-  day: z.string(),
-  inRange: z.boolean(),
-});
-
-type CalendarTooltipDatum = z.infer<typeof calendarTooltipDatumSchema>;
-
-/** Full-year window for the GitHub-style contribution calendar (~53 weeks). */
-const DAILY_LOOKBACK_DAYS = 365;
-/** Sunday-first rows; all seven labels are shown on the axis. */
-const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"] as const;
-/** Discrete contribution levels 0–4 (empty → high). */
-const LEVEL_COLORS = [
-  "color-mix(in oklab, var(--muted-foreground) 14%, var(--background))",
-  "#9be9a8",
-  "#40c463",
-  "#30a14e",
-  "#216e39",
-] as const;
-/** Square cell size (GitHub-like). */
-const CELL_PX = 12;
-/** Visual gap between cells — applied only via band padding (not cell inset). */
-const CELL_GAP_PX = 2;
-const CELL_PITCH = CELL_PX + CELL_GAP_PX;
-/** Band padding ratios so cell gaps stay even on both axes. */
-const BAND_PADDING_INNER = CELL_GAP_PX / CELL_PITCH;
-/** Small outer pad so the grid sits slightly off the axis labels. */
-const BAND_PADDING_OUTER = CELL_GAP_PX / (2 * CELL_PITCH);
-/** Plot margins: bottom keeps month labels; left stays tight without weekday labels. */
-const CHART_MARGIN = { bottom: 20, left: 6, right: 6, top: 6 } as const;
 const CONVERSION_PURPLE = "oklch(0.55 0.18 295)";
 const CONVERSION_PURPLE_LIGHT = "oklch(0.82 0.07 295)";
+
+const RANKING_PERIODS = [
+  { label: "今日", value: "today" },
+  { label: "昨日", value: "yesterday" },
+  { label: "本周", value: "week" },
+  { label: "本月", value: "month" },
+] as const;
+
+export type RankingPeriod = (typeof RANKING_PERIODS)[number]["value"];
 
 function EmptyHint({ message }: { message: string }) {
   return (
@@ -130,8 +100,8 @@ function ChartCardShell({
 }) {
   return (
     <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
-      <div className="grid border-b sm:h-22 sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
-        <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
+      <div className="grid grid-cols-2 border-b 2xl:h-22 2xl:grid-cols-[minmax(0,1fr)_repeat(2,6rem)]">
+        <CardHeader className="col-span-2 min-w-0 gap-1 border-b p-4 2xl:col-span-1 2xl:border-b-0 2xl:p-5">
           <CardTitle className="truncate text-base">{title}</CardTitle>
           {description ? (
             <CardDescription className="truncate">{description}</CardDescription>
@@ -139,7 +109,7 @@ function ChartCardShell({
         </CardHeader>
         {metrics.map((metric) => (
           <div
-            className="flex flex-col justify-center border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5"
+            className="flex min-w-0 flex-col justify-center px-4 py-3 last:border-l 2xl:border-l 2xl:px-3"
             key={metric.label}
           >
             <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
@@ -154,129 +124,76 @@ function ChartCardShell({
           </div>
         ))}
       </div>
-      <CardContent className="p-4">{children}</CardContent>
+      <CardContent className="p-0">
+        <ScrollArea className="h-[260px]" scrollFade scrollbars="scroll">
+          <div className="p-4">{children}</div>
+        </ScrollArea>
+      </CardContent>
     </Card>
   );
 }
 
-interface CalendarDayCell {
-  byUser: ResumeLibraryMetrics["dailyAdded"][number]["byUser"];
-  count: number;
-  date: Date;
-  day: string;
-  /** Whether the day falls inside the lookback window (week-edge padding). */
-  inRange: boolean;
-  level: 0 | 1 | 2 | 3 | 4;
-  week: number;
-  weekday: (typeof WEEKDAY_LABELS)[number];
-}
-
-function formatUtcDay(date: Date): string {
+function formatUtcDay(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Map raw counts onto GitHub-like 0–4 intensity levels. */
-function countToLevel(count: number, max: number): 0 | 1 | 2 | 3 | 4 {
-  if (count <= 0 || max <= 0) {
-    return 0;
-  }
-  if (max <= 4) {
-    if (count === 1) {
-      return 1;
-    }
-    if (count === 2) {
-      return 2;
-    }
-    if (count === 3) {
-      return 3;
-    }
-    return 4;
-  }
-  const ratio = count / max;
-  if (ratio <= 0.25) {
-    return 1;
-  }
-  if (ratio <= 0.5) {
-    return 2;
-  }
-  if (ratio <= 0.75) {
-    return 3;
-  }
-  return 4;
+function offsetDay(day: string, days: number) {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatUtcDay(date);
 }
 
-/**
- * Build a full Sunday-aligned week grid covering the last year (GitHub style).
- * Leading/trailing days outside the lookback window still fill each week column
- * but are marked `inRange: false`.
- */
-function buildCalendarDays(rows: ResumeLibraryMetrics["dailyAdded"]): CalendarDayCell[] {
-  const byDay = new Map(rows.map((row) => [row.day, row]));
-  const end = toBeijingCalendarDate();
-  const start = utcDay.offset(end, -(DAILY_LOOKBACK_DAYS - 1));
-  const gridStart = utcSunday.floor(start);
-  const gridEnd = utcDay.offset(utcSunday.ceil(utcDay.offset(end, 1)), -1);
-
-  let max = 0;
-  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = utcDay.offset(cursor, 1)) {
-    max = Math.max(max, byDay.get(formatUtcDay(cursor))?.count ?? 0);
+function rankingRange(period: RankingPeriod, today: string) {
+  if (period === "today") {
+    return { end: today, start: today };
   }
-
-  const cells: CalendarDayCell[] = [];
-  for (
-    let cursor = gridStart;
-    cursor.getTime() <= gridEnd.getTime();
-    cursor = utcDay.offset(cursor, 1)
-  ) {
-    const day = formatUtcDay(cursor);
-    const inRange = cursor.getTime() >= start.getTime() && cursor.getTime() <= end.getTime();
-    const row = byDay.get(day);
-    const count = inRange ? (row?.count ?? 0) : 0;
-    cells.push({
-      byUser: inRange ? (row?.byUser ?? []) : [],
-      count,
-      date: cursor,
-      day,
-      inRange,
-      level: inRange ? countToLevel(count, max) : 0,
-      week: utcSunday.count(gridStart, cursor),
-      weekday: WEEKDAY_LABELS[cursor.getUTCDay()] ?? "日",
-    });
+  if (period === "yesterday") {
+    const yesterday = offsetDay(today, -1);
+    return { end: yesterday, start: yesterday };
   }
-  return cells;
+  if (period === "month") {
+    return { end: today, start: `${today.slice(0, 7)}-01` };
+  }
+  const weekday = new Date(`${today}T00:00:00.000Z`).getUTCDay();
+  return { end: today, start: offsetDay(today, -((weekday + 6) % 7)) };
 }
 
-function formatDailyTooltip(row: CalendarTooltipDatum): string {
-  if (!row.inRange) {
-    return `${row.day}\n不在统计范围内`;
-  }
-  const header = `${row.day} · 共 ${row.count} 份`;
-  if (row.count === 0 || row.byUser.length === 0) {
-    return `${header}\n暂无上传`;
-  }
-  const lines = row.byUser.map((user) => `${user.userName}：${user.count} 份`);
-  return [header, ...lines].join("\n");
-}
+export function buildUploaderRanking(
+  rows: ResumeLibraryMetrics["dailyAdded"],
+  period: RankingPeriod,
+  today = toBeijingDayKey(),
+) {
+  const range = rankingRange(period, today);
+  const totals = new Map<
+    string,
+    { count: number; userId: string; userImage: string | null; userName: string }
+  >();
 
-/** One tick per calendar month that appears in-range (first day of that month). */
-function monthLabelTicks(cells: CalendarDayCell[]): { label: string; week: number }[] {
-  const ticks: { label: string; week: number }[] = [];
-  let previousMonth = -1;
-  for (const item of cells) {
-    if (!item.inRange) {
+  for (const day of rows) {
+    if (day.day < range.start || day.day > range.end) {
       continue;
     }
-    const month = item.date.getUTCMonth();
-    if (month === previousMonth) {
-      continue;
+    for (const user of day.byUser) {
+      const current = totals.get(user.userId);
+      totals.set(user.userId, {
+        count: (current?.count ?? 0) + user.count,
+        userId: user.userId,
+        userImage: user.userImage,
+        userName: user.userName,
+      });
     }
-    previousMonth = month;
-    ticks.push({
-      label: `${month + 1}月`,
-      week: item.week,
-    });
   }
-  return ticks;
+
+  const rankedRows = [...totals.values()].toSorted(
+    (left, right) =>
+      right.count - left.count || left.userName.localeCompare(right.userName, "zh-CN"),
+  );
+
+  return {
+    participantCount: rankedRows.length,
+    rows: rankedRows.slice(0, 5),
+    total: rankedRows.reduce((sum, row) => sum + row.count, 0),
+  };
 }
 
 function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): PipelineBucket | null {
@@ -341,10 +258,6 @@ for (const bucket of BUCKET_ORDER) {
   };
 }
 
-const dailyChartConfig: ChartConfig = {
-  count: { color: LEVEL_COLORS[3], label: "新增简历" },
-};
-
 const conversionChartConfig: ChartConfig = {
   withInterview: { color: CONVERSION_PURPLE, label: "已发起 AI 面试" },
   withoutInterview: { color: CONVERSION_PURPLE_LIGHT, label: "仅入库" },
@@ -380,14 +293,8 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
           return result.success ? `${result.data.label}: ${result.data.value}` : "数据不可用";
         },
       },
-      x: {
-        axis: false,
-        scale: scaleLinear,
-      },
-      y: {
-        axis: false,
-        scale: () => scaleBand().padding(0.2),
-      },
+      x: { axis: false, scale: scaleLinear },
+      y: { axis: false, scale: () => scaleBand().padding(0.2) },
     });
   }, [hasData, stackRows]);
 
@@ -400,214 +307,112 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
       ]}
       title="面试流程分布"
     >
-      {hasData && definition ? (
-        <div className="flex flex-col gap-3">
-          <ChartContainer className="aspect-auto h-16 w-full" config={statusChartConfig}>
-            <Chart
-              ariaLabel="面试流程分布"
-              className="h-16 w-full"
-              definition={definition}
-              height={64}
-            />
-          </ChartContainer>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
-            {BUCKET_ORDER.map((bucket) => (
-              <li className="flex items-center gap-2" key={bucket}>
-                <span
-                  aria-hidden
-                  className="size-2.5 rounded-sm"
-                  style={{ backgroundColor: BUCKET_COLORS[bucket] }}
-                />
-                <span className="flex-1 truncate">{BUCKET_LABEL[bucket]}</span>
-                <span className="tabular-nums">{counts[bucket]}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <EmptyHint message="还没有任何候选人" />
-      )}
+      <div className="flex min-h-[228px] items-center">
+        {hasData && definition ? (
+          <div className="flex w-full flex-col justify-center gap-3">
+            <ChartContainer className="aspect-auto h-18 w-full" config={statusChartConfig}>
+              <Chart
+                ariaLabel="面试流程分布"
+                className="h-18 w-full"
+                definition={definition}
+                height={72}
+              />
+            </ChartContainer>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
+              {BUCKET_ORDER.map((bucket) => (
+                <li className="flex items-center gap-2" key={bucket}>
+                  <span
+                    aria-hidden
+                    className="size-2.5 rounded-sm"
+                    style={{ backgroundColor: BUCKET_COLORS[bucket] }}
+                  />
+                  <span className="flex-1 truncate">{BUCKET_LABEL[bucket]}</span>
+                  <span className="tabular-nums">{counts[bucket]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <EmptyHint message="还没有任何候选人" />
+        )}
+      </div>
     </ChartCardShell>
   );
 }
 
-function sumCount(rows: { count: number }[]) {
-  return rows.reduce((sum, row) => sum + row.count, 0);
+function isRankingPeriod(value: string): value is RankingPeriod {
+  return RANKING_PERIODS.some((period) => period.value === value);
 }
 
-function scrollViewportToEnd(viewport: HTMLElement) {
-  viewport.scrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-}
-
-function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dailyAdded"] }) {
-  const cells = useMemo(() => buildCalendarDays(dailyAdded), [dailyAdded]);
-  const inRangeCells = useMemo(() => cells.filter((row) => row.inRange), [cells]);
-  const total = useMemo(() => sumCount(inRangeCells), [inRangeCells]);
-  const peak = useMemo(() => Math.max(0, ...inRangeCells.map((row) => row.count)), [inRangeCells]);
-  const hasData = total > 0;
-  const weekDomain = useMemo(
-    () => [...new Set(cells.map((row) => row.week))].toSorted((a, b) => a - b),
-    [cells],
-  );
-  const monthTicks = useMemo(() => monthLabelTicks(cells), [cells]);
-  const chartWidth = CHART_MARGIN.left + weekDomain.length * CELL_PITCH + CHART_MARGIN.right;
-  const chartHeight = CHART_MARGIN.top + 7 * CELL_PITCH + CHART_MARGIN.bottom;
-  // Scroll once to the newest weeks after the first layout that actually overflows.
-  const didScrollToEndRef = useRef(false);
-  const calendarScrollEvents = useMemo<EventListeners>(
-    () =>
-      // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
-      withHorizontalWheelScroll({
-        initialized: (instance) => {
-          didScrollToEndRef.current = false;
-          const { viewport } = instance.elements();
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (viewport.scrollWidth <= viewport.clientWidth) {
-                return;
-              }
-              scrollViewportToEnd(viewport);
-              didScrollToEndRef.current = true;
-            });
-          });
-        },
-        updated: (instance) => {
-          if (didScrollToEndRef.current) {
-            return;
-          }
-          const { viewport } = instance.elements();
-          if (viewport.scrollWidth <= viewport.clientWidth) {
-            return;
-          }
-          scrollViewportToEnd(viewport);
-          didScrollToEndRef.current = true;
-        },
-      }),
-    [],
-  );
-
-  const definition = useMemo(() => {
-    if (!hasData || cells.length === 0) {
-      return null;
-    }
-    const monthLabelByWeek = new Map(monthTicks.map((tick) => [tick.week, tick.label]));
-    const monthWeekValues = monthTicks.map((tick) => tick.week);
-
-    return defineChart({
-      color: {
-        domain: [0, 1, 2, 3, 4],
-        range: [...LEVEL_COLORS],
-        scale: () =>
-          scaleOrdinal<number, string>()
-            .domain([0, 1, 2, 3, 4])
-            .range([...LEVEL_COLORS]),
-      },
-      margin: { ...CHART_MARGIN },
-      marks: [
-        cell(cells, {
-          color: "level",
-          // Gap comes from band padding only — avoid double spacing via inset.
-          inset: 0,
-          key: "day",
-          radius: 2,
-          x: "week",
-          y: "weekday",
-        }),
-      ],
-      tooltip: {
-        ...chartTooltip,
-        format: (point) => {
-          const result = calendarTooltipDatumSchema.safeParse(point.datum);
-          return result.success ? formatDailyTooltip(result.data) : "数据不可用";
-        },
-      },
-      x: {
-        axis: {
-          // Keep month text only — no axis baseline / tick stubs.
-          line: false,
-          tickLabels: { thin: false },
-          ticks: {
-            format: (value: number) => monthLabelByWeek.get(value) ?? "",
-            padding: 6,
-            size: 0,
-            values: monthWeekValues,
-          },
-        },
-        scale: () =>
-          scaleBand<number>()
-            .domain(weekDomain)
-            .paddingInner(BAND_PADDING_INNER)
-            .paddingOuter(BAND_PADDING_OUTER),
-      },
-      y: {
-        // Weekday rows stay in the scale for layout; hide the entire y-axis chrome.
-        axis: false,
-        scale: () =>
-          scaleBand<string>()
-            .domain([...WEEKDAY_LABELS])
-            .paddingInner(BAND_PADDING_INNER)
-            .paddingOuter(BAND_PADDING_OUTER),
-      },
-    });
-  }, [cells, hasData, monthTicks, weekDomain]);
+function UploaderRankingCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dailyAdded"] }) {
+  const [period, setPeriod] = useState<RankingPeriod>("month");
+  const ranking = useMemo(() => buildUploaderRanking(dailyAdded, period), [dailyAdded, period]);
+  const [leader] = ranking.rows;
+  const maximum = leader?.count ?? 1;
 
   return (
     <ChartCardShell
+      description="按候选人入库成员统计"
       metrics={[
-        { label: "一年新增", value: formatCompact(total) },
-        { label: "单日峰值", value: formatCompact(peak) },
+        { label: "周期入库", value: formatCompact(ranking.total) },
+        { label: "参与成员", value: formatCompact(ranking.participantCount) },
       ]}
-      title="入库日历"
+      title="入库排行榜"
     >
-      {hasData && definition ? (
-        <div className="flex flex-col gap-2">
-          {/* Project-themed OverlayScrollbars (os-theme-app); start at newest weeks. */}
-          <ScrollArea
-            className="w-full"
-            events={calendarScrollEvents}
-            options={{
-              overflow: { x: "scroll", y: "hidden" },
-              scrollbars: {
-                autoHide: "leave",
-                autoHideDelay: 600,
-                theme: "os-theme-app",
-              },
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-end">
+          <ToggleGroup
+            aria-label="排行榜统计周期"
+            onValueChange={(value) => {
+              const [nextPeriod] = value;
+              if (nextPeriod && isRankingPeriod(nextPeriod)) {
+                setPeriod(nextPeriod);
+              }
             }}
+            size="sm"
+            value={[period]}
+            variant="outline"
           >
-            <ChartContainer
-              className="aspect-auto"
-              config={dailyChartConfig}
-              style={{ height: chartHeight, width: chartWidth }}
-            >
-              <Chart
-                ariaLabel="近一年简历入库贡献日历"
-                className="h-full w-full"
-                definition={definition}
-                height={chartHeight}
-                width={chartWidth}
-              />
-            </ChartContainer>
-          </ScrollArea>
-          <div className="flex items-center justify-end gap-1.5 text-muted-foreground text-[10px]">
-            <span>少</span>
-            {LEVEL_COLORS.map((color) => (
-              <span
-                aria-hidden
-                className={cn("inline-block rounded-[2px]")}
-                key={color}
-                style={{
-                  backgroundColor: color,
-                  height: CELL_PX,
-                  width: CELL_PX,
-                }}
-              />
+            {RANKING_PERIODS.map((item) => (
+              <ToggleGroupItem className="h-7 px-2.5 text-xs" key={item.value} value={item.value}>
+                {item.label}
+              </ToggleGroupItem>
             ))}
-            <span>多</span>
-          </div>
+          </ToggleGroup>
         </div>
-      ) : (
-        <EmptyHint message="过去一年没有新简历入库" />
-      )}
+        {ranking.rows.length > 0 ? (
+          <ol className="flex flex-col gap-2.5" data-period={period}>
+            {ranking.rows.map((row, index) => (
+              <li
+                className="grid grid-cols-[1rem_1.5rem_minmax(0,1fr)_3.25rem] items-center gap-2"
+                key={row.userId}
+              >
+                <span className="text-center font-mono text-muted-foreground text-xs tabular-nums">
+                  {index + 1}
+                </span>
+                <Avatar label={row.userName} seed={row.userId} size="sm">
+                  {row.userImage ? <AvatarImage alt={row.userName} src={row.userImage} /> : null}
+                  <AvatarFallback>{row.userName.slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-xs">{row.userName}</div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full min-w-1.5 rounded-full bg-primary"
+                      style={{ width: `${(row.count / maximum) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-right font-mono font-semibold text-xs tabular-nums">
+                  {row.count} 份
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <EmptyHint message="这个时间范围内还没有新的候选人入库" />
+        )}
+      </div>
     </ChartCardShell>
   );
 }
@@ -649,49 +454,51 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
       ]}
       title="AI 面试转化"
     >
-      {hasData && definition ? (
-        <div className="grid min-h-36 grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
-          <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
-            <li className="flex min-w-0 items-center gap-2">
-              <span
-                aria-hidden
-                className="size-2.5 shrink-0 rounded-sm"
-                style={{ backgroundColor: CONVERSION_PURPLE }}
-              />
-              <span className="flex-1 truncate">已发起 AI 面试</span>
-              <span className="tabular-nums">{conversion.withInterview}</span>
-            </li>
-            <li className="flex min-w-0 items-center gap-2">
-              <span
-                aria-hidden
-                className="size-2.5 shrink-0 rounded-sm"
-                style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
-              />
-              <span className="flex-1 truncate">仅入库</span>
-              <span className="tabular-nums">{conversion.withoutInterview}</span>
-            </li>
-          </ul>
-          <div className="relative size-36">
-            <ChartContainer
-              className="absolute inset-0 aspect-square size-full"
-              config={conversionChartConfig}
-            >
-              <Chart
-                ariaLabel="AI 面试转化"
-                className="size-full"
-                definition={definition}
-                height={144}
-              />
-            </ChartContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-mono font-semibold text-2xl tabular-nums">{percent}%</span>
-              <span className="text-muted-foreground text-[10px]">转化率</span>
+      <div className="flex min-h-[228px] items-center">
+        {hasData && definition ? (
+          <div className="grid w-full grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
+            <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
+              <li className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: CONVERSION_PURPLE }}
+                />
+                <span className="flex-1 truncate">已发起 AI 面试</span>
+                <span className="tabular-nums">{conversion.withInterview}</span>
+              </li>
+              <li className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
+                />
+                <span className="flex-1 truncate">仅入库</span>
+                <span className="tabular-nums">{conversion.withoutInterview}</span>
+              </li>
+            </ul>
+            <div className="relative size-36">
+              <ChartContainer
+                className="absolute inset-0 aspect-square size-full"
+                config={conversionChartConfig}
+              >
+                <Chart
+                  ariaLabel="AI 面试转化"
+                  className="size-full"
+                  definition={definition}
+                  height={144}
+                />
+              </ChartContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-mono font-semibold text-2xl tabular-nums">{percent}%</span>
+                <span className="text-muted-foreground text-[10px]">转化率</span>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <EmptyHint message="还没有任何候选人" />
-      )}
+        ) : (
+          <EmptyHint message="还没有任何候选人" />
+        )}
+      </div>
     </ChartCardShell>
   );
 }
@@ -700,7 +507,7 @@ export function ResumeLibraryCharts({ metrics }: { metrics: ResumeLibraryMetrics
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <StatusCard byPipeline={metrics.byPipeline} />
-      <DailyAddedCard dailyAdded={metrics.dailyAdded} />
+      <UploaderRankingCard dailyAdded={metrics.dailyAdded} />
       <ConversionCard conversion={metrics.conversion} />
     </div>
   );

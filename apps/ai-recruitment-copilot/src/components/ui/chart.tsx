@@ -2,8 +2,8 @@
 "use client";
 
 import * as React from "react";
-import { Chart as TanStackChart } from "@tanstack/react-charts";
-import { Chart as TanStackTooltipChart } from "@tanstack/react-charts/tooltip";
+import { Chart as TanStackChart } from "@tanstack/charts/react";
+import { Chart as TanStackTooltipChart } from "@tanstack/charts/react/tooltip";
 import { tooltip as tanstackTooltip } from "@tanstack/charts/tooltip";
 import { cn } from "@arc/shared/utils";
 

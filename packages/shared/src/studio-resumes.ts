@@ -587,22 +587,22 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 /**
  * 招聘台页头部 chart 的聚合数据。
  * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
- * - dailyAdded：近一年（365 天）每日新增；服务端只返回有数据的日期，零填充由客户端补。
- *   每日附带 byUser 拆分，供 GitHub 风格日历热力图 hover 展示各上传者数量。
+ * - dailyAdded：近一年（365 天）每日新增；每日附带 byUser 拆分，供客户端聚合
+ *   今日、昨日、本周和本月的入库成员排行。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。
  *
  * Aggregations for the charts shown above the resume-library table.
  * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
  *   outcomes are excluded so the funnel reflects the live pool.
- * - dailyAdded: daily new rows over the last 365 days; only non-empty days are
- *   returned, the client zero-fills the year calendar grid. Each day may include
- *   byUser for contribution-style tooltips (who uploaded how many that day).
+ * - dailyAdded: daily new rows over the last 365 days. Each day includes a
+ *   byUser split so the client can aggregate uploader rankings by date range.
  * - conversion: how many candidates have already launched an AI interview
  *   round vs not (archived excluded).
  */
 export interface ResumeLibraryDailyAddedUserCount {
   count: number;
   userId: string;
+  userImage: string | null;
   userName: string;
 }
 
