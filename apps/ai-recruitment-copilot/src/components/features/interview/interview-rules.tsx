@@ -18,31 +18,31 @@ export function InterviewRules({
   return (
     <ul className={cn("divide-y divide-border/60", className)}>
       <RuleItem
-        description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
+        description="建议佩戴耳机，并选择安静、网络稳定的环境。若暂时不便语音，您可以选择「静音开始」，以文字方式交流。"
         icon={IconVolume2}
-        title="保持安静的环境"
+        title="选择合适的环境"
       />
       <RuleItem
-        description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
+        description="请在面试官提问结束后作答。您可以围绕问题，结合真实项目与经历，按自己的节奏说明。"
         icon={IconMessage2}
-        title="一次只答一题"
+        title="按自己的节奏作答"
       />
       <RuleItem
-        description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
+        description="如有暂时无法确认的问题，您可以如实说明。清晰、真实的表达更有助于双方相互了解。"
         icon={IconUserCheck}
-        title="认真作答"
+        title="保持真实、清晰"
       />
       {recordingEnabled ? (
         <RuleItem
-          description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
+          description="本轮面试将进行录像。面试期间请保持摄像头开启，以保证记录完整；如有疑问，可先联系招聘负责人。"
           icon={IconVideo}
-          title="保持摄像头录制"
+          title="关于面试录像"
         />
       ) : null}
       <RuleItem
-        description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话。"
+        description="建议在面试期间保持本页面开启。如遇网络中断，请在 3 分钟内返回本页面，我们会尽力恢复之前的对话。"
         icon={IconAlertTriangle}
-        title="保持稳定连接"
+        title="遇到连接中断时"
       />
     </ul>
   );

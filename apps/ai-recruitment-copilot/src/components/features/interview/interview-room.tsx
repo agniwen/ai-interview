@@ -33,6 +33,7 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import { ApiError, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
+import { InterviewBackground } from "./interview-background";
 import { InterviewTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
@@ -101,7 +102,7 @@ function resolveTitle(isRoundCompleted: boolean, candidateName: string) {
     return "面试已结束";
   }
   if (candidateName) {
-    return `你好，${candidateName}`;
+    return `您好，${candidateName}`;
   }
   return "欢迎参加面试";
 }
@@ -124,7 +125,7 @@ function buildSubheading({
   }
   const prefix = parts.join(" · ");
   const countText = questionCount > 0 ? `共 ${questionCount} 题，` : "";
-  const trailing = "预计 30 分钟内完成。";
+  const trailing = "预计可在 30 分钟内完成。";
   return prefix ? `${prefix} · ${countText}${trailing}` : `${countText}${trailing}`;
 }
 
@@ -142,10 +143,10 @@ function resolveSubheading({
   targetRole: string | null;
 }) {
   if (isRoundCompleted) {
-    return "本轮面试已结束，如需重新面试请联系管理员。";
+    return "感谢您完成本轮面试。如需了解后续安排，请联系招聘负责人。";
   }
   if (isRecovering) {
-    return "正在为你重新接入刚才的对话，请稍候...";
+    return "正在为您恢复刚才的对话，请稍候。";
   }
   return buildSubheading({ questionCount, roundLabel, targetRole });
 }
@@ -183,8 +184,8 @@ function InterviewNoticeDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>面试注意事项</DialogTitle>
-          <DialogDescription>开始后请按以下规则完成本轮 AI 面试。</DialogDescription>
+          <DialogTitle>开始前的提示</DialogTitle>
+          <DialogDescription>为保证交流顺畅，请您确认以下事项。</DialogDescription>
         </DialogHeader>
         <InterviewRules className="border-border border-y" recordingEnabled={recordingEnabled} />
         <div className="flex items-center gap-2 text-sm">
@@ -194,7 +195,7 @@ function InterviewNoticeDialog({
             onCheckedChange={(checked) => onAcknowledgedChange(checked === true)}
           />
           <label className="cursor-pointer" htmlFor={acknowledgementId}>
-            我已清楚并同意按上述注意事项完成面试
+            我已阅读并了解以上事项
           </label>
         </div>
         <DialogFooter>
@@ -278,14 +279,7 @@ function WaitingView({
 
   return (
     <>
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
-      />
+      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -395,14 +389,16 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     await runAsyncAction({
       cleanup: () => setIsLoadingStatus(false),
       onError: (error) =>
-        setEntryLoadError(error instanceof Error ? error.message : "加载面试信息失败"),
+        setEntryLoadError(
+          error instanceof Error ? error.message : "暂时未能加载面试信息，请稍后重试。",
+        ),
       operation: async () => {
         const [data, nextFormsPayload] = await Promise.all([
           rpcFetch<CandidateInterviewView>(
             rpc.api.interview[":id"][":roundId"].$get({
               param: { id: interviewId, roundId },
             }),
-            "面试信息不存在或已失效，请联系招聘负责人。",
+            "当前面试链接暂不可用，请联系招聘负责人确认。",
           ),
           fetchPreInterviewForms(interviewId, roundId),
         ]);
@@ -463,7 +459,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           if (response.status === 403 || response.status === 410) {
             setRoundStatus("completed");
           } else if (response.status === 409) {
-            toast.error(errorMessage ?? "面试已在另一个窗口进行中。");
+            toast.error(
+              errorMessage ??
+                "检测到本轮面试已在其他窗口打开。如非本人操作，请稍后重试或联系招聘负责人。",
+            );
           }
           throw new Error(errorMessage ?? `livekit-token 请求失败（${response.status}）`);
         }
@@ -619,7 +618,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         // returned 403/410, network failure. Clear the latch so the WaitingView
         // exits "recovering" state and shows the retry button.
         setAutoRejoinTriggered(false);
-        const message = error instanceof Error ? error.message : "连接失败，请重试";
+        const message = error instanceof Error ? error.message : "暂时未能连接，请检查网络后重试。";
         // eslint-disable-next-line no-console
         console.error("[interview] session.start failed:", error);
         toast.error(message);
@@ -765,12 +764,14 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           onCameraDisableAttempt={
             interviewRecordingEnabled
               ? () => {
-                  toast.warning("面试过程中需要保持摄像头录制，请勿关闭摄像头。");
+                  toast.warning(
+                    "为保证本轮录像完整，面试期间请保持摄像头开启。如遇设备问题，可以通过反馈入口告知我们。",
+                  );
                 }
               : undefined
           }
           onDisconnect={handleEndInterview}
-          preConnectMessage="正在连线面试官，请稍等..."
+          preConnectMessage="正在为您连接面试官，请稍候。"
         />
       </main>
       <StartAudioButton label="开始通话" />

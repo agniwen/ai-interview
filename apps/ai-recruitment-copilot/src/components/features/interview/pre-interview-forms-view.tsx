@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InterviewBackground } from "./interview-background";
 import { withCleanup } from "@/lib/client/async-control";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { FormCard } from "./pre-interview-forms/form-card";
@@ -139,7 +140,7 @@ export function PreInterviewFormsView({
         }
         setErrorsByTemplate(nextErrors);
         if (firstInvalidTitle) {
-          toast.error(`「${firstInvalidTitle}」有未完成的题目，请检查标红的内容`);
+          toast.error(`「${firstInvalidTitle}」还有内容需要补充，请查看页面提示。`);
           return;
         }
         for (const template of pendingTemplates) {
@@ -157,7 +158,7 @@ export function PreInterviewFormsView({
           }
           setSubmittedIds((prev) => new Set([...prev, template.templateId]));
         }
-        toast.success("面试表单已提交");
+        toast.success("信息已保存，感谢您的配合。");
       },
       () => setSubmitting(false),
     );
@@ -169,14 +170,7 @@ export function PreInterviewFormsView({
 
   return (
     <>
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
-      />
+      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>
@@ -188,9 +182,11 @@ export function PreInterviewFormsView({
                 <IconClipboardList data-icon="inline-start" />
                 开始前的面试表单
               </Badge>
-              <h1 className="text-2xl tracking-tight sm:text-3xl">开始前请先填写面试表单</h1>
+              <h1 className="text-2xl tracking-tight sm:text-3xl">
+                开始前，请补充本次面试所需信息
+              </h1>
               <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                完成全部面试表单后进入面试。
+                这些信息将用于本轮面试。填写完成后，您可以继续进入面试。
               </p>
             </section>
 
@@ -221,7 +217,7 @@ export function PreInterviewFormsView({
             size="sm"
           >
             {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-            提交并继续
+            保存并继续
           </Button>
         }
         currentStep="forms"

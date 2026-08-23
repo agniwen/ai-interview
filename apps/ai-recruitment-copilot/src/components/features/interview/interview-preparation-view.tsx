@@ -7,7 +7,7 @@ import { LocalDateTimeText } from "@/components/features/display/local-date-time
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CandidateAiReviewSection } from "./candidate-ai-review-section";
+import { InterviewBackground } from "./interview-background";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 
 function ContextSection({
@@ -22,14 +22,19 @@ function ContextSection({
   title: string;
 }) {
   return (
-    <section className={cn("min-w-0 py-8 sm:py-10 lg:py-12", className)}>
+    <section
+      className={cn(
+        "grid min-w-0 gap-4 py-8 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-8 sm:py-10 lg:grid-cols-[10rem_minmax(0,1fr)] lg:gap-12",
+        className,
+      )}
+    >
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">
           {index}
         </span>
         <h2 className="font-medium text-base tracking-tight sm:text-lg">{title}</h2>
       </div>
-      <div className="mt-4 min-w-0 text-foreground/70 text-sm leading-7 sm:pl-8">{children}</div>
+      <div className="min-w-0 text-foreground/72 text-sm leading-7">{children}</div>
     </section>
   );
 }
@@ -57,14 +62,7 @@ export function InterviewPreparationView({
 
   return (
     <>
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
-      />
+      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -76,17 +74,20 @@ export function InterviewPreparationView({
               <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-16">
                 <h1 className="max-w-3xl text-balance text-3xl leading-tight tracking-[-0.03em] sm:text-5xl sm:leading-[1.1]">
                   {interviewView.candidateName
-                    ? `${interviewView.candidateName}，开始前先了解这次面试`
-                    : "开始前先了解这次面试"}
+                    ? `${interviewView.candidateName}，感谢您参加本次面试`
+                    : "感谢您参加本次面试"}
                 </h1>
               </div>
+              <p className="mt-5 max-w-2xl text-foreground/64 text-sm leading-7 sm:text-base">
+                开始前，您可以先了解面试安排、公司与岗位信息。准备好后，请按自己的节奏继续。
+              </p>
 
               <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-[repeat(3,minmax(0,1fr))] sm:divide-x sm:divide-foreground/15">
                 <ScheduleItem
                   label="面试时间"
                   value={
                     <LocalDateTimeText
-                      fallback="请以邀请通知为准"
+                      fallback="具体时间请以邀请通知为准"
                       format="long-zh"
                       value={interviewView.currentRoundTime}
                     />
@@ -105,36 +106,34 @@ export function InterviewPreparationView({
               </dl>
             </header>
 
-            <div className="grid border-foreground/15 border-b lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:divide-x lg:divide-foreground/15">
-              <ContextSection className="lg:pr-10" index="01" title="关于公司">
+            <div
+              className="divide-y divide-foreground/15 border-foreground/15 border-b"
+              data-layout="stacked-context"
+            >
+              <ContextSection index="01" title="关于公司">
                 <p className="whitespace-pre-wrap">
                   {interviewView.companyContext?.trim() ||
-                    "公司介绍暂未补充，您可以先从岗位要求了解。"}
+                    "暂未提供公司介绍。如需进一步了解，您可以联系招聘负责人。"}
                 </p>
               </ContextSection>
-              <ContextSection
-                className="border-foreground/15 border-t lg:border-t-0 lg:pl-10"
-                index="02"
-                title={roleName}
-              >
+              <ContextSection index="02" title="关于岗位">
+                <p className="mb-3 font-medium text-foreground text-base">{roleName}</p>
                 <MarkdownView
                   className="text-foreground/70 text-sm [&_li]:leading-7 [&_p]:leading-7"
                   content={
                     interviewView.jobDescriptionDescription?.trim() ||
-                    "岗位说明暂未补充，不影响您继续准备。"
+                    "暂未提供岗位介绍。如需进一步了解，您可以联系招聘负责人。"
                   }
                 />
               </ContextSection>
             </div>
-
-            <CandidateAiReviewSection review={interviewView.aiReview} />
           </div>
         </ScrollArea>
       </main>
       <InterviewFlowFloatingBar
         actions={
           <Button onClick={onContinue} size="sm">
-            {hasForms ? "下一步，填写信息" : "准备好了，开始面试"}
+            {hasForms ? "继续填写信息" : "准备就绪，开始面试"}
           </Button>
         }
         currentStep="preparation"

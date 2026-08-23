@@ -4,6 +4,7 @@ import { IconLoader2, IconRefresh } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { InterviewBackground } from "./interview-background";
 import { InterviewPreparationView } from "./interview-preparation-view";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
@@ -19,14 +20,7 @@ function InterviewEntryState({
 }) {
   return (
     <>
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
-      />
+      <InterviewBackground />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -34,15 +28,15 @@ function InterviewEntryState({
         <div className="flex max-w-sm flex-col items-center text-center">
           {loading ? <IconLoader2 className="size-5 animate-spin text-muted-foreground" /> : null}
           <h1 className="mt-4 font-medium text-lg">
-            {loading ? "正在准备面试信息" : "暂时无法加载面试信息"}
+            {loading ? "正在准备面试信息" : "暂时未能载入面试信息"}
           </h1>
           <p className="mt-2 text-muted-foreground text-sm leading-6">
-            {loading ? "请稍候，我们正在确认本轮流程与所需信息。" : error}
+            {loading ? "请稍候，我们正在核对本轮安排与必要信息。" : error}
           </p>
           {loading ? null : (
             <Button className="mt-5 gap-2" onClick={onRetry} type="button" variant="outline">
               <IconRefresh className="size-4" />
-              重新加载
+              再试一次
             </Button>
           )}
         </div>

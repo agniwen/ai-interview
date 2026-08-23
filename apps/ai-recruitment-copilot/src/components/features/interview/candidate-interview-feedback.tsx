@@ -99,8 +99,8 @@ export function CandidateInterviewFeedbackPanel({
             <IconCircleCheck className="size-5 text-muted-foreground" />
           </ItemMedia>
           <ItemContent>
-            <ItemTitle>感谢你的反馈</ItemTitle>
-            <ItemDescription>本轮反馈已提交，内容无法修改。</ItemDescription>
+            <ItemTitle>感谢您的反馈</ItemTitle>
+            <ItemDescription>本轮反馈已为您记录，感谢您的说明。</ItemDescription>
             <div className="mt-3">
               <CandidateInterviewFeedbackContent feedback={feedback} />
             </div>
@@ -247,7 +247,7 @@ export function CandidateInterviewFeedbackPanel({
                   setDetail(event.target.value);
                   setError(null);
                 }}
-                placeholder="请描述问题发生的时间、表现，以及是否影响你继续面试……"
+                placeholder="请描述问题发生的时间、表现，以及是否影响您继续面试……"
                 rows={6}
                 value={detail}
               />
@@ -271,7 +271,7 @@ export function CandidateInterviewFeedbackPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>确认提交反馈？</AlertDialogTitle>
             <AlertDialogDescription>
-              每轮 AI 面试只能提交一次，提交后任何人都无法编辑。
+              每轮 AI 面试只能提交一次，提交后无法修改。请确认内容无误后继续。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -25,7 +25,7 @@ export function buildInterviewFlowSteps(hasForms: boolean): InterviewFlowStep[] 
         ]
       : []),
     {
-      description: "与 AI面试官实时交流",
+      description: "与 AI 面试官实时交流",
       id: "interview",
       label: "AI 面试",
     },

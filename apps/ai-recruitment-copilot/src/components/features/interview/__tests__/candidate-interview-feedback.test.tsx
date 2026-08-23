@@ -50,7 +50,7 @@ describe("CandidateInterviewFeedbackPanel", () => {
       />,
     );
 
-    expect(html).toContain("本轮反馈已提交");
+    expect(html).toContain("本轮反馈已为您记录");
     expect(html).toContain("音频");
     expect(html).toContain("网络连接");
     expect(html).toContain("面试过程中声音断断续续，并且发生过一次网络重连。");

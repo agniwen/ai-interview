@@ -116,7 +116,7 @@ export function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: bo
     if (!navigator.mediaDevices?.getUserMedia) {
       setResult({
         camera: "failed",
-        message: "当前浏览器不支持媒体设备检测，请换用新版 Chrome、Edge 或 Safari。",
+        message: "当前浏览器暂不支持设备检测，建议使用最新版 Chrome、Edge 或 Safari。",
         microphone: "failed",
         network: navigator.onLine ? "passed" : "failed",
       });
@@ -136,15 +136,15 @@ export function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: bo
     const networkStatus = navigator.onLine ? "passed" : "failed";
     const message = (() => {
       if (!microphone.ok) {
-        return `麦克风不可用：${microphone.reason}。可以先检查权限，或使用「静音开始」进入文字沟通。`;
+        return `麦克风暂不可用：${microphone.reason}。您可以检查浏览器权限，或选择「静音开始」进行文字交流。`;
       }
       if (recordingEnabled && !camera.ok) {
-        return `摄像头暂不可用：${camera.reason}。面试仍可继续，但录像可能只有音频。`;
+        return `摄像头暂不可用：${camera.reason}。您可以检查设备与浏览器权限后再次检测。`;
       }
       if (networkStatus === "failed") {
-        return "浏览器报告当前离线，请恢复网络后再开始。";
+        return "当前网络似乎尚未连接。网络恢复后，您可以再次检测。";
       }
-      return "设备检测通过，可以开始面试。";
+      return "设备状态正常，您可以开始面试。";
     })();
 
     let cameraStatus: DeviceCheckStatus = "idle";
@@ -187,21 +187,21 @@ export function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: bo
         }
       >
         <DeviceCheckItem
-          detail="确认浏览器可采集你的声音。"
+          detail="确认浏览器能够正常采集您的声音。"
           icon={IconMicrophone}
           status={result.microphone}
           title="麦克风"
         />
         {recordingEnabled ? (
           <DeviceCheckItem
-            detail="确认摄像头可用于面试录像。"
+            detail="确认摄像头能够正常用于面试录像。"
             icon={IconVideo}
             status={result.camera}
             title="摄像头"
           />
         ) : null}
         <DeviceCheckItem
-          detail="读取浏览器当前联网状态。"
+          detail="确认当前网络连接状态。"
           icon={IconWifi}
           status={result.network}
           title="网络"
