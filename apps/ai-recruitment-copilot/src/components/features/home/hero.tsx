@@ -56,7 +56,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             AI Recruitment Copilot
           </m.span>
         )}
-        <SplitText text="更快看清。谁更合适。" />
+        <SplitText text="更快看清，谁更合适。" />
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>

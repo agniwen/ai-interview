@@ -46,7 +46,7 @@ describe("Hero", () => {
     expect(eyebrow?.className).toContain("dark:bg-primary/25!");
     expect(eyebrow?.className).toContain("dark:text-chart-4!");
     expect(description?.className).toContain("dark:text-white/80");
-    expect(heading?.textContent).toContain("更快看清。谁更合适。");
+    expect(heading?.textContent).toContain("更快看清，谁更合适。");
     expect(description?.textContent).toContain("AI 帮你筛简历、问重点、整理证据");
     expect(description?.textContent).toContain("再交给团队判断");
     expect(buttons[0]?.textContent).toContain("开始筛选简历");
