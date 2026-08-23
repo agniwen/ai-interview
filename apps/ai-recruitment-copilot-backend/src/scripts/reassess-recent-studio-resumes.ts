@@ -11,7 +11,7 @@ import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const TARGET_WORKSPACE_ID = "org_default";
 const TARGET_WORKSPACE_NAME = "极光/幻游";
-const TARGET_LIMIT = 20;
+const DEFAULT_TARGET_LIMIT = 20;
 const CONCURRENCY = 4;
 const NON_OCR_MODEL = "deepseek-v4-flash-0731";
 const MODEL_ENV_NAMES = [
@@ -82,13 +82,25 @@ function forceModels(): void {
   }
 }
 
-function outputPath(selectedCount: number): string {
+function outputPath(selectedCount: number, targetLimit: number): string {
   const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
   return resolve(
     REPO_ROOT,
     ".eval/structured-resume-diagnostics",
-    `极光-幻游-招聘台最近20条-4-agent-${selectedCount === TARGET_LIMIT ? "full" : `retry-${selectedCount}`}-${timestamp}.json`,
+    `极光-幻游-招聘台最近${targetLimit}条-4-agent-${selectedCount === targetLimit ? "full" : `retry-${selectedCount}`}-${timestamp}.json`,
   );
+}
+
+function selectedLimit(): number {
+  const argument = process.argv.find((value) => value.startsWith("--limit="));
+  if (!argument) {
+    return DEFAULT_TARGET_LIMIT;
+  }
+  const limit = Number(argument.slice("--limit=".length));
+  if (!(Number.isInteger(limit) && limit > 0 && limit <= 100)) {
+    throw new Error("--limit 必须是 1-100 的整数。");
+  }
+  return limit;
 }
 
 function selectedResumeIds(): Set<string> | null {
@@ -163,6 +175,7 @@ async function main(): Promise<void> {
   // This script executes the persisted lifecycle locally so one run owns timing and completion.
   // Queue workers are intentionally bypassed; the same scheduling and guarded writeback remain.
   process.env.REDIS_URL = "";
+  const targetLimit = selectedLimit();
 
   const [
     { db },
@@ -228,9 +241,9 @@ async function main(): Promise<void> {
     )
     .where(eq(studioInterview.organizationId, TARGET_WORKSPACE_ID))
     .orderBy(desc(studioInterview.createdAt), desc(studioInterview.id))
-    .limit(TARGET_LIMIT)) as TargetRecord[];
-  if (recentTargets.length !== TARGET_LIMIT) {
-    throw new Error(`招聘台记录不足 ${TARGET_LIMIT} 条，实际 ${recentTargets.length} 条。`);
+    .limit(targetLimit)) as TargetRecord[];
+  if (recentTargets.length !== targetLimit) {
+    throw new Error(`招聘台记录不足 ${targetLimit} 条，实际 ${recentTargets.length} 条。`);
   }
   const requestedIds = selectedResumeIds();
   const targets = requestedIds
@@ -238,7 +251,7 @@ async function main(): Promise<void> {
     : recentTargets;
   if (requestedIds && targets.length !== requestedIds.size) {
     throw new Error(
-      `指定重评记录不完全属于招聘台最近 ${TARGET_LIMIT} 条：请求 ${requestedIds.size} 条，命中 ${targets.length} 条。`,
+      `指定重评记录不完全属于招聘台最近 ${targetLimit} 条：请求 ${requestedIds.size} 条，命中 ${targets.length} 条。`,
     );
   }
 
@@ -434,7 +447,7 @@ async function main(): Promise<void> {
       concurrency: CONCURRENCY,
       durationMs: Math.round(performance.now() - started),
       requested: targets.length,
-      scopeRequested: TARGET_LIMIT,
+      scopeRequested: targetLimit,
       selectedOrder: "studio_interview.created_at DESC, studio_interview.id DESC",
       startedAt: batchStartedAt.toISOString(),
       totals: { completed: completed.length, failed: failed.length, skipped: skipped.length },
@@ -450,7 +463,7 @@ async function main(): Promise<void> {
     },
     workspace,
   };
-  const path = outputPath(targets.length);
+  const path = outputPath(targets.length, targetLimit);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf-8", mode: 0o600 });
   originalInfo(`批量重评报告：${path}`);

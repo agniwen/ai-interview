@@ -183,6 +183,16 @@ function createDeferred<T>() {
   };
 }
 
+function skillRequirement(normalizedSkill: string) {
+  return {
+    normalizedSkill,
+    requirementGroupId: `skill-group-${normalizedSkill}`,
+    satisfactionMode: "all" as const,
+    sourceRef: { kind: "job_description" as const, path: "description" },
+    sourceText: `熟练掌握 ${normalizedSkill}`,
+  };
+}
+
 describe("structured resume workflow contracts", () => {
   beforeEach(() => {
     generatorCall.mockReset();
@@ -797,6 +807,213 @@ describe("structured resume workflow contracts", () => {
         startMonth: "2022-03",
       },
     ]);
+  });
+
+  it("restores auditable parsed skill evidence instead of turning invalid model quotes into missing skills", () => {
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: {
+          ...blueprint,
+          coreSkills: [
+            skillRequirement("Ahrefs"),
+            skillRequirement("Google Search Console"),
+            skillRequirement("社交媒体营销"),
+          ],
+        },
+      },
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [],
+            projects: [],
+            skillFacts: [
+              {
+                evidence: ["Ahrefs"],
+                evidenceLevel: "applied" as const,
+                normalizedSkill: "Ahrefs",
+              },
+              {
+                evidence: ["Reddit 营销"],
+                evidenceLevel: "applied" as const,
+                normalizedSkill: "Reddit 营销",
+              },
+            ],
+            version: 1 as const,
+          },
+          skills: ["Ahrefs", "Reddit 营销"],
+          workExperiences: [
+            {
+              company: "示例公司",
+              period: "2024.01-至今",
+              role: "SEO",
+              summary: "GSC 点击超过 5W，并持续运营 Reddit 营销渠道。",
+            },
+          ],
+        },
+      },
+    };
+    const output = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      experienceRequirements: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: ["Ahrefs", "Google Search Console", "社交媒体营销"].map((normalizedSkill) => ({
+        evidence: [],
+        normalizedSkill,
+        reason: "模型引用的技能证据无法在简历结构化字段中核验。",
+        status: "missing" as const,
+      })),
+    });
+
+    const normalized = normalizeDimensionOutputWithReusableFacts(input, output);
+
+    expect(normalized.skillFacts).toEqual([
+      expect.objectContaining({
+        evidence: [{ quote: "Ahrefs", source: "resume_profile" }],
+        normalizedSkill: "Ahrefs",
+        status: "applied",
+      }),
+      expect.objectContaining({
+        evidence: [
+          {
+            quote: "GSC 点击超过 5W，并持续运营 Reddit 营销渠道。",
+            source: "resume_profile",
+          },
+        ],
+        normalizedSkill: "Google Search Console",
+        status: "applied",
+      }),
+      expect.objectContaining({
+        evidence: [{ quote: "Reddit 营销", source: "resume_profile" }],
+        normalizedSkill: "社交媒体营销",
+        status: "applied",
+      }),
+    ]);
+  });
+
+  it("does not mistake an acronym substring for skill evidence or downgrade valid applied evidence", () => {
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: {
+          ...blueprint,
+          coreSkills: [skillRequirement("Machine Learning"), skillRequirement("TypeScript")],
+        },
+      },
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [],
+            projects: [],
+            skillFacts: [
+              {
+                evidence: ["TypeScript"],
+                evidenceLevel: "mentioned" as const,
+                normalizedSkill: "TypeScript",
+              },
+            ],
+            version: 1 as const,
+          },
+          skills: ["TypeScript"],
+          workExperiences: [
+            {
+              company: "示例公司",
+              period: "2024.01-至今",
+              role: "前端工程师",
+              summary: "负责 HTML 页面并在项目中使用 TypeScript。",
+            },
+          ],
+        },
+      },
+    };
+    const output = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      experienceRequirements: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [
+        {
+          evidence: [],
+          normalizedSkill: "Machine Learning",
+          reason: "简历未体现 Machine Learning。",
+          status: "missing",
+        },
+        {
+          evidence: [{ quote: "在项目中使用 TypeScript", source: "resume_profile" }],
+          normalizedSkill: "TypeScript",
+          reason: "项目经历明确体现实际使用。",
+          status: "applied",
+        },
+      ],
+    });
+
+    const normalized = normalizeDimensionOutputWithReusableFacts(input, output);
+
+    expect(normalized.skillFacts).toEqual([
+      expect.objectContaining({ normalizedSkill: "Machine Learning", status: "missing" }),
+      expect.objectContaining({ normalizedSkill: "TypeScript", status: "applied" }),
+    ]);
+  });
+
+  it("prefers applied channel evidence when normalizing a broad social-media skill", () => {
+    const input = {
+      ...workflowInput,
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [],
+            projects: [],
+            skillFacts: [
+              {
+                evidence: ["Quora 营销"],
+                evidenceLevel: "mentioned" as const,
+                normalizedSkill: "Quora 营销",
+              },
+              {
+                evidence: ["Reddit 营销"],
+                evidenceLevel: "applied" as const,
+                normalizedSkill: "Reddit 营销",
+              },
+            ],
+            version: 1 as const,
+          },
+          skills: ["Quora 营销", "Reddit 营销"],
+        },
+      },
+    };
+    const output = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      experienceRequirements: [],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [
+        {
+          evidence: [],
+          normalizedSkill: "社交媒体营销",
+          reason: "模型未给出可核验证据。",
+          status: "missing",
+        },
+      ],
+    });
+
+    const normalized = normalizeDimensionOutputWithReusableFacts(input, output);
+
+    expect(normalized.skillFacts[0]).toMatchObject({
+      evidence: [{ quote: "Reddit 营销", source: "resume_profile" }],
+      status: "applied",
+    });
   });
 
   it("rejects model-owned skill deductions and ignores invalid model-owned education units", () => {
@@ -2535,6 +2752,54 @@ describe("structured resume workflow contracts", () => {
     expect(artifact.narrative.summary).not.toContain("7项门槛中3项未通过");
   });
 
+  it("removes unsupported quantitative claims from narrative fields", () => {
+    const input = {
+      ...workflowInput,
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          workExperiences: [
+            {
+              company: "示例公司",
+              period: "2024.01-至今",
+              role: "运营",
+              summary: "将页面下载转化率提升 60%。",
+            },
+          ],
+        },
+      },
+    };
+    const calculationResult = computeStructuredResumeCalculation({
+      adjustmentOutput: { judgments: [] },
+      dimensionOutput: {
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      },
+      gateOutput: { judgments: [] },
+      workflowInput: input,
+    });
+
+    const artifact = assembleStructuredResumeEvaluation({
+      calculationResult,
+      narrative: {
+        ...narrativeOutput,
+        dimensionComments: {
+          ...narrativeOutput.dimensionComments,
+          experienceRelevance: "相关项目将页面下载转化率提升 70%。",
+        },
+        overallComment: "候选人通过优化将页面下载转化率提升 70%。",
+      },
+      workflowInput: input,
+    });
+
+    expect(artifact.narrative.overallComment).not.toContain("70%");
+    expect(artifact.narrative.dimensionComments?.experienceRelevance ?? "").not.toContain("70%");
+    expect(JSON.stringify(artifact.narrative)).not.toContain("提升 70%");
+  });
+
   it("rejects narrative contributions that treat stored hundredths as display points", () => {
     const calculationResult = computeStructuredResumeCalculation({
       adjustmentOutput: { judgments: [] },
@@ -2746,6 +3011,171 @@ describe("structured resume workflow contracts", () => {
     ).toMatchObject({
       status: "not_applicable",
     });
+  });
+
+  it("keeps an SEO project relevant even when it does not fully meet a high-bar project expectation", () => {
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: {
+          ...blueprint,
+          dimensionExpectations: {
+            ...blueprint.dimensionExpectations,
+            projectMatch: [
+              {
+                expectation: "主导搜索引擎营销项目并提供 ROI 提升数据",
+                sourceRef: { kind: "job_description" as const, path: "prompt" },
+                sourceText: "需提供过往主导项目的 ROI 提升数据案例",
+              },
+            ],
+          },
+        },
+      },
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          projectExperiences: [
+            {
+              name: "AI Voice Changer 流量增长计划",
+              period: "2024.12-2025.12",
+              role: null,
+              summary: "通过 SEO 页面优化将流量从0提升到百万。",
+              techStack: [],
+            },
+          ],
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [],
+            projects: [
+              {
+                currentStatus: "ended" as const,
+                endMonth: "2025-12",
+                evidence: ["2024.12-2025.12"],
+                sourceIndex: 0,
+                startMonth: "2024-12",
+              },
+            ],
+            skillFacts: [],
+            version: 1 as const,
+          },
+        },
+      },
+    };
+    const output = structuredDimensionAgentOutputSchema.parse({
+      employmentEpisodes: [],
+      experienceRequirements: [],
+      projects: [
+        {
+          id: "project-0",
+          requirementJudgments: [
+            {
+              evidence: [],
+              reason: "项目没有直接提供 ROI 数据。",
+              requirementId: "project-expectation-0",
+              status: "not_matched",
+            },
+          ],
+          roleRelevance: {
+            evidence: [
+              {
+                quote: "AI Voice Changer 流量增长计划",
+                source: "resume_profile",
+              },
+            ],
+            reason: "项目属于 SEO 流量增长场景，与目标岗位直接相关。",
+            status: "matched",
+          },
+        },
+      ],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+
+    const normalized = normalizeDimensionOutputWithReusableFacts(input, output);
+    expect(normalized.projects[0]).toMatchObject({
+      matchedRequirementIds: [],
+      relevant: true,
+    });
+    const judgments = deriveStructuredRuleJudgments(input, normalized);
+    expect(
+      judgments.projectMatch.find((item) => item.ruleId === "project.no_relevant_project"),
+    ).toMatchObject({ status: "not_matched" });
+  });
+
+  it("does not cap potential when a recent dated project has substantive growth evidence", () => {
+    const input = {
+      ...workflowInput,
+      resumeInput: {
+        ...workflowInput.resumeInput,
+        evaluationAsOf: "2026-08-23",
+        resumeProfile: {
+          ...workflowInput.resumeInput.resumeProfile,
+          projectExperiences: [
+            {
+              name: "AI 引荐流量提升探索",
+              period: "2025.4-2026.8",
+              role: null,
+              summary: "两个站点的 AI 引荐流量在四个月内增长80%。",
+              techStack: [],
+            },
+          ],
+          scoringFacts: {
+            additionalEvidence: [],
+            employmentEpisodes: [],
+            projects: [
+              {
+                currentStatus: "current" as const,
+                endMonth: "2026-08",
+                evidence: ["2025.4-2026.8"],
+                sourceIndex: 0,
+                startMonth: "2025-04",
+              },
+            ],
+            skillFacts: [],
+            version: 1 as const,
+          },
+        },
+      },
+    };
+    const judgments = deriveStructuredRuleJudgments(input, {
+      employmentEpisodes: [],
+      projects: [
+        {
+          current: true,
+          endMonth: "2026-08",
+          evidence: [
+            {
+              quote: "AI 引荐流量提升探索",
+              source: "resume_profile" as const,
+            },
+          ],
+          id: "project-0",
+          matchedRequirementIds: [],
+          relevant: true,
+        },
+      ],
+      ruleJudgments: [
+        {
+          dimension: "potential",
+          evidence: [
+            {
+              quote: "AI 引荐流量提升探索",
+              source: "resume_profile" as const,
+            },
+          ],
+          reason: "候选人近两年有明确的成长项目记录。",
+          ruleId: "potential.no_growth_two_years",
+          status: "matched",
+        },
+      ],
+      skillFacts: [],
+    });
+
+    expect(
+      judgments.potential.find((item) => item.ruleId === "potential.no_growth_two_years"),
+    ).toMatchObject({ status: "not_matched" });
   });
 
   it("does not deduct project freshness when an undated relevant project could change the outcome", () => {
@@ -3879,6 +4309,87 @@ describe("structured resume workflow contracts", () => {
         (judgment) => judgment.ruleId === "experience.missing_year",
       ),
     ).toMatchObject({ status: "not_matched" });
+  });
+
+  it("does not treat a missing primary experience timeline as proof that every required year is missing", () => {
+    const primaryRequirement = {
+      relevanceScope: "capability" as const,
+      requirementId: "experience-backend-8",
+      scopeDescription: "后端开发经验",
+      sourceRef: { kind: "job_description" as const, path: "prompt" },
+      sourceText: "8年以上后端开发经验",
+      years: 8,
+    };
+    const managementRequirement = {
+      relevanceScope: "role" as const,
+      requirementId: "experience-management-3",
+      scopeDescription: "技术管理经验",
+      sourceRef: { kind: "job_description" as const, path: "prompt" },
+      sourceText: "3年以上技术管理经验",
+      years: 3,
+    };
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: {
+          ...blueprint,
+          hardGateRequirements: [
+            {
+              category: "work_experience" as const,
+              normalizedRequirement: primaryRequirement.sourceText,
+              requirementId: "gate-backend-8",
+              sourceRef: { kind: "hard_gate" as const, path: "hardGates.workExperience" },
+              sourceText: primaryRequirement.sourceText,
+            },
+          ],
+          requiredRelevantExperience: primaryRequirement,
+          requiredRelevantExperiences: [primaryRequirement, managementRequirement],
+        },
+      },
+    };
+    const judgments = deriveStructuredRuleJudgments(input, {
+      employmentEpisodes: [
+        {
+          current: false,
+          endMonth: null,
+          evidence: [{ quote: "高级后端开发工程师", source: "resume_profile" as const }],
+          gapExplanation: null,
+          id: "work-0",
+          primaryStatus: "unresolved" as const,
+          relevance: "relevant" as const,
+          relevanceReason: "职责属于后端开发。",
+          startMonth: null,
+        },
+      ],
+      experienceRequirements: [
+        {
+          episodeIds: [],
+          evidence: [],
+          reason: "模型遗漏了已经判定为相关的后端任职。",
+          requirementId: primaryRequirement.requirementId,
+          status: "not_matched" as const,
+        },
+        {
+          episodeIds: [],
+          evidence: [],
+          reason: "没有技术管理任职。",
+          requirementId: managementRequirement.requirementId,
+          status: "not_matched" as const,
+        },
+      ],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [],
+    });
+
+    expect(
+      judgments.experienceRelevance.find((item) => item.ruleId === "experience.missing_year"),
+    ).toMatchObject({
+      reason: expect.stringContaining("已有相关任职，但时间线不完整"),
+      status: "matched",
+      units: 3,
+    });
   });
 
   it("requires every conjunctive adjustment clause even when the Agent marks the whole condition", () => {

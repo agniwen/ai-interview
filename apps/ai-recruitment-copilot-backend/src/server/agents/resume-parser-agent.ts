@@ -74,7 +74,7 @@ export function projectAttachmentToResumeProfile(
     return null;
   }
   const parsed = structuredSchema.safeParse(parsedStructured);
-  if (!parsed.success) {
+  if (!parsed.success || !parsed.data.scoringFacts) {
     return null;
   }
   return toResumeProfile(parsed.data);

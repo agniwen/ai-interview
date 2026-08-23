@@ -40,7 +40,7 @@ import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-bac
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
-export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v4";
+export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v5";
 const STRUCTURED_RESUME_AGENT_TIMEOUT_MS = 240_000;
 export const STRUCTURED_RESUME_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
@@ -419,10 +419,50 @@ const projectRequirementJudgmentAgentSchema = z.preprocess(
     }),
 );
 
+const projectRoleRelevanceAgentSchema = z.preprocess(
+  (value) => {
+    const parsed = looseRecordSchema.safeParse(value);
+    if (!parsed.success) {
+      return value;
+    }
+    const relevance = parsed.data;
+    const parsedEvidence = z.array(z.unknown()).safeParse(relevance.evidence);
+    const evidence = parsedEvidence.success ? parsedEvidence.data : [];
+    const status =
+      relevance.status === "matched" && evidence.length === 0
+        ? "insufficient_evidence"
+        : relevance.status;
+    const missingInputs =
+      status === "insufficient_evidence" &&
+      !(Array.isArray(relevance.missingInputs) && relevance.missingInputs.length > 0)
+        ? ["需补充能够判断项目是否属于目标岗位业务领域的项目名称、职责或描述。"]
+        : relevance.missingInputs;
+    return { ...relevance, evidence, missingInputs, status };
+  },
+  z
+    .object({
+      evidence: z.array(agentEvidenceSchema).default([]),
+      missingInputs: z.array(z.string().trim().min(1)).default([]),
+      reason: z.string().trim().min(1).max(120),
+      status: z.enum(["insufficient_evidence", "matched", "not_matched"]),
+    })
+    .strip()
+    .superRefine((item, context) => {
+      if (item.status === "matched" && item.evidence.length === 0) {
+        context.addIssue({
+          code: "custom",
+          message: "项目与目标岗位相关时必须提供简历证据",
+          path: ["evidence"],
+        });
+      }
+    }),
+);
+
 const matrixProjectFactAgentSchema = z
   .object({
     id: z.string().trim().min(1),
     requirementJudgments: z.array(projectRequirementJudgmentAgentSchema),
+    roleRelevance: projectRoleRelevanceAgentSchema.optional(),
   })
   .strip();
 
@@ -507,6 +547,7 @@ const projectFactOutputSchema = z
     evidence: z.array(agentEvidenceSchema),
     id: z.string().trim().min(1),
     matchedRequirementIds: z.array(z.string().trim().min(1)),
+    relevanceStatus: z.enum(["insufficient_evidence", "not_relevant", "relevant"]).optional(),
     relevant: z.boolean(),
     unresolvedRequirementIds: z.array(z.string().trim().min(1)),
   })
@@ -729,6 +770,8 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "employmentEpisodes 必须覆盖 resumeProfile.scoringFacts.employmentEpisodes 的每一项；id 使用 work-{sourceIndex}。只返回 id、岗位相关性、原因和证据；不得重复返回日期、在职状态、主职/并发关系或空档说明，这些字段由代码从评分事实补齐。",
   "experienceRequirements 必须覆盖输入中的每条 experienceRequirements；对每条要求从 employmentEpisodes 中选择真正满足该独立口径的 episodeIds，不得计算年限。status=matched 时 episodeIds 非空；没有相关经历时 status=not_matched 且 episodeIds=[]；字段缺失导致无法判断时才返回 insufficient_evidence 和非空 missingInputs。",
   "projects 的 id 使用 project-{sourceIndex}；每个项目必须逐项判断 projectRequirements，并在 requirementJudgments 中覆盖全部 requirementId；不得返回总 relevant 布尔值，项目相关性由代码从逐项判断归纳。",
+  "每个项目还必须返回 roleRelevance，独立判断项目是否属于目标岗位的业务领域；这与是否完整命中某条高阶 projectRequirement 是两个概念。SEO 流量增长项目即使没有完整 ROI 数据，仍可与 SEO 岗位相关。",
+  "roleRelevance.status=matched 表示业务领域直接相关，必须给出项目名称、职责或描述证据；not_matched 仅用于项目明确属于无关领域；无法判断时返回 insufficient_evidence 和非空 missingInputs。",
   "项目判断必须以项目名称、职责、summary 和 techStack 为准，不得仅因候选人公司行业标签不同而判不相关；直播、音视频协议、内容互动等直接落地证据必须与视频/内容平台要求逐项比较。",
   "项目要求 status=matched 时必须给出支持该要求的最短引文；status=insufficient_evidence 时必须给出非空 missingInputs；事实足以判断未命中时返回 not_matched。每个项目要求无论状态都必须给出具体 reason，禁止整批无理由返回 not_matched。",
   "技术治理项目必须逐项对照项目原文：服务拆分、缓存、消息队列削峰、分库分表、慢查询优化、千万级或 TB 级数据处理等证据可支持复杂技术治理要求，不得因业务行业不同而一律判为不匹配。",
@@ -891,6 +934,12 @@ const STRUCTURED_DIMENSION_OUTPUT_EXAMPLE = JSON.stringify({
           status: "not_matched",
         },
       ],
+      roleRelevance: {
+        evidence: [{ quote: "SEO 流量增长项目", source: "resume_profile" }],
+        missingInputs: [],
+        reason: "项目属于目标岗位的业务领域。",
+        status: "matched",
+      },
     },
   ],
   ruleJudgments: [],
@@ -1268,11 +1317,60 @@ function normalizeGateOutputWithReusableFacts(
   return structuredGateOutputSchema.parse(normalized);
 }
 
+function normalizedSkill(value: string): string {
+  return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
+}
+
+const SOCIAL_MEDIA_MARKETING_CHANNEL_PATTERN =
+  /(?:Reddit|Quora|Facebook|Instagram|LinkedIn|TikTok|YouTube|小红书|微博|微信|知乎)\s*(?:营销|运营)/iu;
+
+function findRelatedReusableSkillFact(
+  expectedSkill: string,
+  scoringFacts: ResumeScoringFacts,
+): ResumeScoringFacts["skillFacts"][number] | undefined {
+  if (!normalizedSkill(expectedSkill).includes("社交媒体营销")) {
+    return undefined;
+  }
+  const relatedFacts = scoringFacts.skillFacts.filter((fact) =>
+    SOCIAL_MEDIA_MARKETING_CHANNEL_PATTERN.test(fact.normalizedSkill),
+  );
+  return (
+    relatedFacts.find((fact) => fact.evidenceLevel === "applied") ??
+    relatedFacts.find((fact) => fact.evidenceLevel === "mentioned")
+  );
+}
+
+function findProfileSkillApplicationEvidence(
+  input: StructuredResumeWorkflowInput,
+  expectedSkill: string,
+): StructuredResumeSkillAssessment["evidence"] {
+  const words = expectedSkill.normalize("NFKC").match(/[A-Za-z][A-Za-z0-9]*/gu) ?? [];
+  if (words.length < 2) {
+    return [];
+  }
+  const acronym = words.map((word) => word[0]).join("");
+  if (acronym.length < 2) {
+    return [];
+  }
+  const acronymPattern = new RegExp(`(?:^|[^A-Z0-9])${acronym}(?:$|[^A-Z0-9])`, "u");
+  const summaries = [
+    ...input.resumeInput.resumeProfile.workExperiences.map((item) => item.summary),
+    ...input.resumeInput.resumeProfile.projectExperiences.map((item) => item.summary),
+  ];
+  const matchingSummary = summaries.find((summary) =>
+    acronymPattern.test(summary?.normalize("NFKC").toLocaleUpperCase("en-US") ?? ""),
+  );
+  return matchingSummary ? [{ quote: matchingSummary, source: "resume_profile" }] : [];
+}
+
 export function normalizeDimensionOutputWithReusableFacts(
   input: StructuredResumeWorkflowInput,
   output: DimensionAgentOutput,
 ): ParsedDimensionFacts {
   const scoringFacts = getReusableScoringFacts(input);
+  const reusableSkillFacts = new Map(
+    scoringFacts.skillFacts.map((fact) => [normalizedSkill(fact.normalizedSkill), fact]),
+  );
   const projectRequirements = buildProjectMatchRequirements(input);
   const projectRequirementIds = new Set(
     projectRequirements.map((requirement) => requirement.requirementId),
@@ -1390,18 +1488,32 @@ export function normalizeDimensionOutputWithReusableFacts(
         const unresolved = normalizedRequirementJudgments.filter(
           (requirementJudgment) => requirementJudgment.status === "insufficient_evidence",
         );
+        const { roleRelevance } = project;
+        const relevant = roleRelevance?.status === "matched" || matched.length > 0;
+        let relevanceStatus: "insufficient_evidence" | "not_relevant" | "relevant";
+        if (relevant) {
+          relevanceStatus = "relevant";
+        } else if (roleRelevance?.status === "not_matched") {
+          relevanceStatus = "not_relevant";
+        } else {
+          relevanceStatus = "insufficient_evidence";
+        }
         return {
           current: fact.currentStatus === "current",
           endMonth: fact.endMonth,
           evaluatedRequirementIds: normalizedRequirementJudgments.map(
             (requirementJudgment) => requirementJudgment.requirementId,
           ),
-          evidence: matched.flatMap((requirementJudgment) => requirementJudgment.evidence),
+          evidence: [
+            ...(roleRelevance?.status === "matched" ? roleRelevance.evidence : []),
+            ...matched.flatMap((requirementJudgment) => requirementJudgment.evidence),
+          ],
           id,
           matchedRequirementIds: matched.map(
             (requirementJudgment) => requirementJudgment.requirementId,
           ),
-          relevant: matched.length > 0,
+          relevanceStatus,
+          relevant,
           unresolvedRequirementIds: unresolved.map(
             (requirementJudgment) => requirementJudgment.requirementId,
           ),
@@ -1419,16 +1531,84 @@ export function normalizeDimensionOutputWithReusableFacts(
         evidence: project.evidence,
         id,
         matchedRequirementIds: [],
+        relevanceStatus: project.relevant ? "relevant" : "not_relevant",
         relevant: project.relevant,
         unresolvedRequirementIds: [],
       };
     }),
     ruleJudgments: output.ruleJudgments,
-    skillFacts: output.skillFacts.map((skill) => ({
-      ...skill,
-      evidence: skill.status === "missing" ? [] : skill.evidence,
-    })),
+    skillFacts: output.skillFacts.map((skill) => {
+      const exactFact = reusableSkillFacts.get(normalizedSkill(skill.normalizedSkill));
+      const relatedFact =
+        exactFact ?? findRelatedReusableSkillFact(skill.normalizedSkill, scoringFacts);
+      const reusableEvidence = retainAuditableProfileEvidence(
+        input,
+        (relatedFact?.evidence ?? []).map((quote) => ({ quote, source: "resume_profile" })),
+      );
+      if (relatedFact?.evidenceLevel === "applied" && reusableEvidence.length > 0) {
+        return {
+          ...skill,
+          evidence: reusableEvidence,
+          reason: "复用简历解析阶段已核验的技能实操事实。",
+          status: "applied" as const,
+        };
+      }
+      if (
+        relatedFact?.evidenceLevel === "mentioned" &&
+        reusableEvidence.length > 0 &&
+        skill.status === "missing"
+      ) {
+        return {
+          ...skill,
+          evidence: reusableEvidence,
+          reason: "复用简历解析阶段已核验的技能提及事实。",
+          status: "shallow" as const,
+        };
+      }
+      const profileApplicationEvidence = findProfileSkillApplicationEvidence(
+        input,
+        skill.normalizedSkill,
+      );
+      if (profileApplicationEvidence.length > 0) {
+        return {
+          ...skill,
+          evidence: profileApplicationEvidence,
+          reason: "简历经历字段包含可逐字核验的技能应用证据。",
+          status: "applied" as const,
+        };
+      }
+      return {
+        ...skill,
+        evidence: skill.status === "missing" ? [] : skill.evidence,
+      };
+    }),
   });
+}
+
+const RECENT_PROJECT_GROWTH_PATTERN =
+  /(?:\bAI\b|\bGEO\b|\bLLM\b|从\s*0\s*到\s*1|增长|提升|突破|升级|重构|优化|自动化|新技术|新技能)/iu;
+
+function recentProjectGrowthEvidence(
+  input: StructuredResumeWorkflowInput,
+): StructuredResumeRuleJudgment["evidence"] {
+  const evaluationMonth = input.resumeInput.evaluationAsOf.slice(0, 7);
+  const [evaluationYear, evaluationMonthNumber] = evaluationMonth.split("-").map(Number);
+  const cutoffMonth = `${evaluationYear - 2}-${String(evaluationMonthNumber).padStart(2, "0")}`;
+  const scoringFacts = getReusableScoringFacts(input);
+  for (const fact of scoringFacts.projects) {
+    const latestKnownMonth = fact.currentStatus === "current" ? evaluationMonth : fact.endMonth;
+    if (!latestKnownMonth || latestKnownMonth < cutoffMonth) {
+      continue;
+    }
+    const project = input.resumeInput.resumeProfile.projectExperiences[fact.sourceIndex];
+    const growthEvidence = [project?.name, project?.summary].find((value): value is string =>
+      Boolean(value && RECENT_PROJECT_GROWTH_PATTERN.test(value)),
+    );
+    if (growthEvidence) {
+      return [{ quote: growthEvidence, source: "resume_profile" }];
+    }
+  }
+  return [];
 }
 
 function sanitizeDimensionProfileEvidence(
@@ -1448,6 +1628,23 @@ function sanitizeDimensionProfileEvidence(
   }
   for (const project of output.projects) {
     if ("requirementJudgments" in project) {
+      if (project.roleRelevance) {
+        const previousLength = project.roleRelevance.evidence.length;
+        project.roleRelevance.evidence = retainAuditableProfileEvidence(
+          input,
+          project.roleRelevance.evidence,
+        );
+        if (
+          project.roleRelevance.status === "matched" &&
+          project.roleRelevance.evidence.length < previousLength
+        ) {
+          project.roleRelevance.status = "insufficient_evidence";
+          project.roleRelevance.missingInputs = [
+            "需补充可在简历结构化字段中核验的项目领域相关性证据。",
+          ];
+          project.roleRelevance.reason = "模型引用的项目领域证据无法在简历结构化字段中核验。";
+        }
+      }
       for (const requirement of project.requirementJudgments) {
         const previousLength = requirement.evidence.length;
         requirement.evidence = retainAuditableProfileEvidence(input, requirement.evidence);
@@ -1577,9 +1774,12 @@ export async function judgeStructuredDimensionEvidence(
         ...normalized.skillFacts.flatMap((skill) => skill.evidence),
         ...sanitized.projects.flatMap((project) =>
           "requirementJudgments" in project
-            ? project.requirementJudgments.flatMap(
-                (requirementJudgment) => requirementJudgment.evidence,
-              )
+            ? [
+                ...(project.roleRelevance?.evidence ?? []),
+                ...project.requirementJudgments.flatMap(
+                  (requirementJudgment) => requirementJudgment.evidence,
+                ),
+              ]
             : [],
         ),
       ]);
@@ -1770,9 +1970,10 @@ function judgment(
   status: StructuredResumeRuleJudgment["status"],
   reason: string,
   units?: number,
+  evidence: StructuredResumeRuleJudgment["evidence"] = [],
 ): StructuredResumeRuleJudgment {
   const result: StructuredResumeRuleJudgment = {
-    evidence: [],
+    evidence,
     reason,
     ruleId,
     status,
@@ -1781,10 +1982,6 @@ function judgment(
     result.units = units;
   }
   return result;
-}
-
-function normalizedSkill(value: string): string {
-  return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
 }
 
 function semanticRuleIsApplicable(
@@ -2181,7 +2378,10 @@ function deriveMissingExperienceYearsJudgment(
       years: requirement.years,
     }),
   );
-  const requirements = [...hardGateRequirements, ...scoringRequirements].filter(
+  // Keep the scoring requirement when the same experience threshold is also a hard gate.
+  // Gate remains independently evaluated, while the dimension score must retain its
+  // canonical requirementId so it can reuse the normalized experience facts.
+  const requirements = [...scoringRequirements, ...hardGateRequirements].filter(
     (item, index, all) =>
       all.findIndex(
         (candidate) =>
@@ -2233,6 +2433,38 @@ function deriveMissingExperienceYearsJudgment(
         canonicalExperience.status === "not_matched" ||
         canonicalExperience.episodeIds.length === 0
       ) {
+        const isPrimaryRequirement =
+          primary !== null &&
+          normalizedExperienceRequirementKey(requirement.sourceText, years) ===
+            normalizedExperienceRequirementKey(primary.sourceText, primary.years);
+        const primaryRelevantEpisodes = isPrimaryRequirement
+          ? facts.employmentEpisodes.filter((episode) => episode.relevance === "relevant")
+          : [];
+        if (primaryRelevantEpisodes.length > 0) {
+          evidence.push(...primaryRelevantEpisodes.flatMap((episode) => episode.evidence));
+          const relevant = computeRelevantExperience({
+            episodes: primaryRelevantEpisodes.map((episode) => ({
+              endMonth:
+                episode.endMonth ??
+                (episode.current ? input.resumeInput.evaluationAsOf.slice(0, 7) : null),
+              relevance: "relevant" as const,
+              startMonth: episode.startMonth,
+            })),
+            profileWorkYears: undefined,
+            relevanceScope,
+            requiredYears: years,
+          });
+          if (relevant.status === "insufficient_evidence") {
+            hasInsufficientEvidence = true;
+            reasons.push(`${requirement.sourceText}：已有相关任职，但时间线不完整`);
+          } else {
+            missingYearUnits += relevant.missingYearUnits;
+            reasons.push(
+              `${requirement.sourceText}：${relevant.missingYearUnits > 0 ? `缺少 ${relevant.missingYearUnits} 年` : "已达到"}`,
+            );
+          }
+          continue;
+        }
         missingYearUnits += Math.ceil(years);
         reasons.push(`${requirement.sourceText}：统一事实层未发现相关经历`);
         continue;
@@ -2340,7 +2572,7 @@ function deriveMissingExperienceYearsJudgment(
     );
   }
 
-  if (hasInsufficientEvidence) {
+  if (hasInsufficientEvidence && missingYearUnits === 0) {
     return {
       evidence,
       reason: reasons.join("；"),
@@ -2388,6 +2620,10 @@ export function deriveStructuredRuleJudgments(
   const projectBenchmark =
     input.jobSnapshot.blueprint.dimensionExpectations.projectMatch.length > 0;
   const hasRelevantProject = facts.projects.some((project) => project.relevant);
+  const hasUnresolvedProjectRelevance = facts.projects.some(
+    (project) => project.relevanceStatus === "insufficient_evidence",
+  );
+  const recentGrowthEvidence = recentProjectGrowthEvidence(input);
   const temporal = deriveTimelineFacts({
     employmentEpisodes: facts.employmentEpisodes,
     evaluationAsOf: input.resumeInput.evaluationAsOf,
@@ -2437,12 +2673,24 @@ export function deriveStructuredRuleJudgments(
     ) {
       normalized = judgment(ruleId, "insufficient_evidence", "学历层级未决，无法判断专业匹配。");
     } else if (ruleId === "project.no_relevant_project" && applicable) {
+      if (hasRelevantProject) {
+        normalized = judgment(ruleId, "not_matched", "归一化项目事实中至少包含一个相关项目。");
+      } else if (hasUnresolvedProjectRelevance) {
+        normalized = judgment(
+          ruleId,
+          "insufficient_evidence",
+          "项目领域相关性证据不足，不能据此认定完全没有相关项目。",
+        );
+      } else {
+        normalized = judgment(ruleId, "matched", "归一化项目事实中没有相关项目。");
+      }
+    } else if (ruleId === "potential.no_growth_two_years" && recentGrowthEvidence.length > 0) {
       normalized = judgment(
         ruleId,
-        hasRelevantProject ? "not_matched" : "matched",
-        hasRelevantProject
-          ? "归一化项目事实中至少包含一个相关项目。"
-          : "归一化项目事实中没有相关项目。",
+        "not_matched",
+        "最近两年存在带日期且包含明确成长或提升结果的项目记录。",
+        undefined,
+        recentGrowthEvidence,
       );
     } else if (
       (ruleId === "project.edge_participation" || ruleId === "project.scale_low") &&
@@ -3215,6 +3463,65 @@ function buildDeterministicNarrativeSummary(input: {
   ].join("");
 }
 
+const NARRATIVE_QUANTITATIVE_CLAIM_PATTERN =
+  /\d+(?:\.\d+)?\s*(?:%|％|百万|万|亿|[WK](?![A-Za-z]))/giu;
+
+function hasUnsupportedNarrativeQuantity(value: string, allowedCandidateFacts: string): boolean {
+  return [...value.matchAll(NARRATIVE_QUANTITATIVE_CLAIM_PATTERN)].some((match) => {
+    const claim = match[0].normalize("NFKC").replaceAll(/\s+/g, "").toLocaleUpperCase("en-US");
+    return !allowedCandidateFacts.includes(claim);
+  });
+}
+
+function reconcileNarrativeQuantities(
+  narrative: z.infer<typeof structuredNarrativeAgentOutputSchema>,
+  calculationResult: StructuredResumeCalculation,
+  workflowInput: StructuredResumeWorkflowInput,
+): z.infer<typeof structuredNarrativeAgentOutputSchema> {
+  const allowedCandidateFacts = JSON.stringify({
+    gates: calculationResult.calculation.gates,
+    resumeProfile: workflowInput.resumeInput.resumeProfile,
+  })
+    .normalize("NFKC")
+    .replaceAll(/\s+/g, "")
+    .toLocaleUpperCase("en-US");
+  const retainOrFallback = (value: string, fallback: string) =>
+    hasUnsupportedNarrativeQuantity(value, allowedCandidateFacts) ? fallback : value;
+  // SAFETY: every STRUCTURED_RESUME_DIMENSIONS key is emitted exactly once with a string value.
+  const dimensionComments = Object.fromEntries(
+    STRUCTURED_RESUME_DIMENSIONS.map((dimension) => [
+      dimension,
+      retainOrFallback(
+        narrative.dimensionComments[dimension],
+        `${STRUCTURED_DIMENSION_LABELS[dimension]}结论以结构化证据和扣分明细为准。`,
+      ),
+    ]),
+  ) as typeof narrative.dimensionComments;
+  return {
+    ...narrative,
+    dimensionComments,
+    levelRecommendation: {
+      ...narrative.levelRecommendation,
+      rationale: retainOrFallback(
+        narrative.levelRecommendation.rationale,
+        "职级建议以结构化经历、职责范围、项目复杂度和管理证据为准。",
+      ),
+    },
+    overallComment: retainOrFallback(
+      narrative.overallComment,
+      "候选人的岗位适配优势与主要风险以结构化证据、门槛和六维扣分结果为准。",
+    ),
+    summary: retainOrFallback(narrative.summary, "具体结论以结构化评分结果为准。"),
+    teamPositioning: {
+      ...narrative.teamPositioning,
+      rationale: retainOrFallback(
+        narrative.teamPositioning.rationale,
+        "团队定位依据结构化岗位要求与候选人经历证据生成。",
+      ),
+    },
+  };
+}
+
 function reconcileNarrativeFacts(
   narrative: z.infer<typeof structuredNarrativeAgentOutputSchema>,
   calculationResult: StructuredResumeCalculation,
@@ -3265,7 +3572,7 @@ function reconcileNarrativeFacts(
   )
     ? "候选人已有命中岗位项目要求的结构化项目证据，团队职责边界仍需结合面试进一步确认。"
     : narrative.teamPositioning.rationale;
-  return {
+  const factReconciled = {
     ...narrative,
     dimensionComments: {
       ...narrative.dimensionComments,
@@ -3279,6 +3586,7 @@ function reconcileNarrativeFacts(
       rationale: teamPositioningRationale,
     },
   };
+  return reconcileNarrativeQuantities(factReconciled, calculationResult, workflowInput);
 }
 
 export function assembleStructuredResumeEvaluation(input: {

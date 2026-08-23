@@ -34,6 +34,19 @@ const MINIMAL_STRUCTURED = {
   phone: null,
   projectExperiences: [],
   schools: ["清华大学"],
+  scoringFacts: {
+    additionalEvidence: [],
+    employmentEpisodes: [],
+    projects: [],
+    skillFacts: [
+      {
+        evidence: ["TypeScript"],
+        evidenceLevel: "mentioned" as const,
+        normalizedSkill: "TypeScript",
+      },
+    ],
+    version: 1 as const,
+  },
   skills: ["TypeScript"],
   targetRoles: ["前端工程师"],
   timelineSummary: {
@@ -82,6 +95,12 @@ describe("projectAttachmentToResumeProfile", () => {
     expect(projectAttachmentToResumeProfile({ random: "shape" })).toBeNull();
   });
 
+  it("rejects a legacy cache entry that has no reusable scoring facts", () => {
+    const { scoringFacts: _scoringFacts, ...legacyStructured } = MINIMAL_STRUCTURED;
+
+    expect(projectAttachmentToResumeProfile(legacyStructured)).toBeNull();
+  });
+
   it("projects a valid superset down to ResumeProfile", () => {
     const result = projectAttachmentToResumeProfile(MINIMAL_STRUCTURED);
     expect(result).not.toBeNull();
@@ -119,8 +138,8 @@ describe("projectAttachmentToResumeProfile", () => {
       projects: [],
       skillFacts: [
         {
-          evidence: [],
-          evidenceLevel: "unknown",
+          evidence: ["TypeScript"],
+          evidenceLevel: "mentioned",
           normalizedSkill: "TypeScript",
         },
       ],
