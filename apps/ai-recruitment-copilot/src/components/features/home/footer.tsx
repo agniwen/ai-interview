@@ -7,8 +7,8 @@ const COPYRIGHT_YEAR = 2026;
 
 export function HomeFooter() {
   return (
-    <footer className="mx-auto w-full max-w-7xl px-5 pb-12 sm:px-8">
-      <Separator className="mb-8 bg-border/60" />
+    <footer className="mx-auto w-full max-w-360 px-5 pb-12 sm:px-8">
+      <Separator className="mb-12 bg-border/60" />
       <div className="flex flex-col items-center justify-between gap-4 text-foreground/70 text-xs sm:flex-row sm:text-sm">
         <p>© {COPYRIGHT_YEAR} AI Recruitment Copilot</p>
         <nav className="flex items-center gap-5">

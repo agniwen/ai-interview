@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@arc/shared/utils";
+import { ModernArtwork } from "./modern-artwork";
 import { Section, SectionLead, SectionTitle } from "./section";
 
 interface Step {
@@ -497,26 +498,20 @@ export function ProcessTabs() {
             id="process-demo-panel"
             role="tabpanel"
           >
-            {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no next/image runtime; this below-fold local asset is lazy loaded with fixed dimensions. */}
-            <img
-              alt=""
+            <ModernArtwork
+              assetPath="/landing/optimized/process-scenes/recruitment-workflow-v2-light"
               className="absolute inset-0 size-full object-cover contrast-[0.96] saturate-[0.84] dark:hidden"
-              data-process-artwork="light"
-              decoding="async"
+              dataAttributes={{ "data-process-artwork": "light" }}
+              fallbackPath="/landing/process-scenes/recruitment-workflow-v2-light.jpg"
               height={1171}
-              loading="lazy"
-              src="/landing/process-scenes/recruitment-workflow-v2-light.jpg"
               width={1343}
             />
-            {/* oxlint-disable-next-line next/no-img-element -- Dedicated dark-theme artwork avoids runtime image processing and keeps the composition aligned. */}
-            <img
-              alt=""
+            <ModernArtwork
+              assetPath="/landing/optimized/process-scenes/recruitment-workflow-v2-dark"
               className="absolute inset-0 hidden size-full object-cover contrast-[0.98] saturate-[0.88] dark:block"
-              data-process-artwork="dark"
-              decoding="async"
+              dataAttributes={{ "data-process-artwork": "dark" }}
+              fallbackPath="/landing/process-scenes/recruitment-workflow-v2-dark.jpg"
               height={1171}
-              loading="lazy"
-              src="/landing/process-scenes/recruitment-workflow-v2-dark.jpg"
               width={1343}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/[0.04] dark:to-black/15" />

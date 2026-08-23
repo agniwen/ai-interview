@@ -54,6 +54,15 @@ describe("ProcessTabs", () => {
     expect(container.querySelector('[data-process-artwork="dark"]')?.getAttribute("src")).toBe(
       "/landing/process-scenes/recruitment-workflow-v2-dark.jpg",
     );
+    expect(container.querySelector('source[type="image/avif"]')?.getAttribute("srcset")).toBe(
+      "/landing/optimized/process-scenes/recruitment-workflow-v2-light.avif",
+    );
+    expect(
+      container.querySelector('[data-process-artwork="light"]')?.getAttribute("srcset"),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-process-artwork="light"]')?.getAttribute("sizes"),
+    ).toBeNull();
     expect(container.querySelector("[data-process-ui-block]")?.textContent).toContain("岗位标尺");
     expect(container.querySelectorAll("[data-process-progress]")).toHaveLength(1);
     expect(container.querySelector('[data-slot="screen-frame"]')).toBeNull();

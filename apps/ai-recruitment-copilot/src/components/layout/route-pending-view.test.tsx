@@ -7,8 +7,10 @@ describe("RoutePendingView", () => {
     const markup = renderToStaticMarkup(<RoutePendingContent pathname="/" />);
 
     expect(markup).toContain('data-slot="home-route-pending"');
-    expect(markup).toContain("mixed-media-k-talent-city-4k-light.jpg");
-    expect(markup).toContain("mixed-media-k-talent-city-4k-dark.jpg");
+    expect(markup).toContain("home-hero-artwork-light");
+    expect(markup).toContain("home-hero-artwork-dark");
+    expect(markup).toContain('data-theme="light"');
+    expect(markup).toContain('data-theme="dark"');
     expect(markup).not.toContain("正在加载");
   });
 

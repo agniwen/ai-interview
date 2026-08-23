@@ -12,8 +12,14 @@ export function BackgroundLayersView({ fadeToBackground = false }: BackgroundLay
       className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden"
     >
       <div
-        className="absolute inset-0 bg-[url('/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg')] bg-center bg-cover bg-no-repeat dark:bg-[url('/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg')]"
+        className="home-hero-artwork-light absolute inset-0 bg-center bg-cover bg-no-repeat dark:hidden"
         data-slot="home-hero-artwork"
+        data-theme="light"
+      />
+      <div
+        className="home-hero-artwork-dark absolute inset-0 hidden bg-center bg-cover bg-no-repeat dark:block"
+        data-slot="home-hero-artwork"
+        data-theme="dark"
       />
       <div
         className="absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,oklch(0.985_0.012_90/0.3),transparent_52%)] dark:bg-[radial-gradient(circle_at_50%_22%,oklch(0.2_0.045_260/0.18),transparent_54%)]"

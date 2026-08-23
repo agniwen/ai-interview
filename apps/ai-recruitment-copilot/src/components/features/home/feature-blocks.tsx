@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
+import { ModernArtwork } from "./modern-artwork";
 import { Section, SectionLead, SectionTitle } from "./section";
 
 interface Story {
@@ -18,6 +19,8 @@ interface Story {
   id: "calibration" | "evidence" | "interview";
   image: string;
   imagePosition: string;
+  optimizedDarkImage: string;
+  optimizedImage: string;
   points: [string, string];
   title: string;
   visual: ReactNode;
@@ -75,7 +78,6 @@ const STORY_SCENE_HEIGHTS = {
   evidence: "min-h-[24rem] sm:min-h-[32rem]",
   interview: "min-h-[28rem] sm:min-h-[34rem]",
 } satisfies Record<Story["id"], string>;
-
 function CandidateScoreCard() {
   return (
     <Card
@@ -264,6 +266,8 @@ const stories: Story[] = [
     id: "evidence",
     image: "/landing/feature-scenes/evidence-review-v2.jpg",
     imagePosition: "object-center",
+    optimizedDarkImage: "/landing/optimized/feature-scenes/evidence-review-dark-v2",
+    optimizedImage: "/landing/optimized/feature-scenes/evidence-review-v2",
     points: ["逐条连接简历原文", "同时呈现亮点与风险"],
     title: "先看证据。再做判断。",
     visual: <CandidateScoreCard />,
@@ -276,6 +280,8 @@ const stories: Story[] = [
     id: "interview",
     image: "/landing/feature-scenes/interview-conversation.jpg",
     imagePosition: "object-center",
+    optimizedDarkImage: "/landing/optimized/feature-scenes/interview-conversation-dark",
+    optimizedImage: "/landing/optimized/feature-scenes/interview-conversation",
     points: ["自然语言追问候选人细节", "回答回到简历与面试证据"],
     title: "像聊天一样，把关键问题问清楚。",
     visual: <CandidateAgentChat />,
@@ -288,6 +294,8 @@ const stories: Story[] = [
     id: "calibration",
     image: "/landing/feature-scenes/team-calibration.jpg",
     imagePosition: "object-center",
+    optimizedDarkImage: "/landing/optimized/feature-scenes/team-calibration-dark",
+    optimizedImage: "/landing/optimized/feature-scenes/team-calibration",
     points: ["统一评分口径与证据", "保留团队判断过程"],
     title: "同一份证据，团队一起校准。",
     visual: <TeamCalibrationCard />,
@@ -341,32 +349,26 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
         )}
         data-mobile-height={story.id === "interview" ? "default" : "compact"}
       >
-        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no next/image runtime; fixed dimensions and lazy loading keep these below-fold local assets efficient. */}
-        <img
-          alt=""
+        <ModernArtwork
+          assetPath={story.optimizedImage}
           className={cn(
             "absolute inset-0 size-full object-cover contrast-[0.94] saturate-[0.82] dark:hidden",
             story.imagePosition,
           )}
-          data-artwork-theme="light"
-          decoding="async"
+          dataAttributes={{ "data-artwork-theme": "light" }}
+          fallbackPath={story.image}
           height={941}
-          loading="lazy"
-          src={story.image}
           width={1672}
         />
-        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no next/image runtime; the dedicated dark artwork remains lazy loaded below the fold. */}
-        <img
-          alt=""
+        <ModernArtwork
+          assetPath={story.optimizedDarkImage}
           className={cn(
             "absolute inset-0 hidden size-full object-cover contrast-[0.96] saturate-[0.88] dark:block",
             story.imagePosition,
           )}
-          data-artwork-theme="dark"
-          decoding="async"
+          dataAttributes={{ "data-artwork-theme": "dark" }}
+          fallbackPath={story.darkImage}
           height={941}
-          loading="lazy"
-          src={story.darkImage}
           width={1672}
         />
         <div

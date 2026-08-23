@@ -5,6 +5,29 @@
 @import "shadcn/tailwind.css";
 @import "./typeset.css";
 
+.home-hero-artwork-light {
+  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg");
+  background-image: image-set(
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.avif")
+      type("image/avif"),
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
+      type("image/webp"),
+    url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
+      type("image/jpeg")
+  );
+}
+
+.home-hero-artwork-dark {
+  background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg");
+  background-image: image-set(
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.avif")
+      type("image/avif"),
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
+      type("image/webp"),
+    url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg") type("image/jpeg")
+  );
+}
+
 @source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));

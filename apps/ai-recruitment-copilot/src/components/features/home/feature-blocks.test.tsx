@@ -24,6 +24,11 @@ describe("FeatureBlocks", () => {
     expect(markup).toContain("/landing/feature-scenes/interview-conversation-dark.jpg");
     expect(markup).toContain("/landing/feature-scenes/team-calibration.jpg");
     expect(markup).toContain("/landing/feature-scenes/team-calibration-dark.jpg");
+    expect(markup.match(/type="image\/avif"/g)).toHaveLength(6);
+    expect(markup.match(/type="image\/webp"/g)).toHaveLength(6);
+    expect(markup).toContain("/landing/optimized/feature-scenes/evidence-review-v2.avif");
+    expect(markup).not.toContain("sizes=");
+    expect(markup).not.toContain(" 960w");
     expect(markup.match(/loading="lazy"/g)).toHaveLength(6);
     expect(markup.match(/data-artwork-theme="light"/g)).toHaveLength(3);
     expect(markup.match(/data-artwork-theme="dark"/g)).toHaveLength(3);

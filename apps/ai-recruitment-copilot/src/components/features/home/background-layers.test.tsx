@@ -19,11 +19,13 @@ describe("BackgroundLayers", () => {
       await Promise.resolve();
     });
 
-    const artwork = container.querySelector<HTMLElement>('[data-slot="home-hero-artwork"]');
-    const artworkFrame = artwork?.parentElement;
-    expect(artwork?.className).toContain("mixed-media-k-talent-city-4k-light.jpg");
-    expect(artwork?.className).toContain("mixed-media-k-talent-city-4k-dark.jpg");
-    expect(artwork?.className).toContain("bg-cover");
+    const artworks = container.querySelectorAll<HTMLElement>('[data-slot="home-hero-artwork"]');
+    const artworkFrame = artworks[0]?.parentElement;
+    expect(artworks).toHaveLength(2);
+    expect(artworks[0]?.className).toContain("home-hero-artwork-light");
+    expect(artworks[0]?.className).toContain("bg-cover");
+    expect(artworks[1]?.className).toContain("home-hero-artwork-dark");
+    expect(artworks[1]?.className).toContain("dark:block");
     expect(artworkFrame?.className).toContain("h-screen");
     expect(container.querySelector("canvas")).toBeNull();
     expect(container.querySelector('[data-slot="home-hero-copy-veil"]')).not.toBeNull();
