@@ -16,8 +16,8 @@ import {
   judgeStructuredDimensionEvidence,
   judgeStructuredHardGates,
   structuredAdjustmentAgentOutputSchema,
-  structuredDimensionAgentOutputSchema,
-  structuredGateAgentOutputSchema,
+  structuredDimensionOutputSchema,
+  structuredGateOutputSchema,
   structuredNarrativeAgentOutputSchema,
   structuredResumePromptContextSchema,
   structuredResumeWorkflowInputSchema,
@@ -47,17 +47,17 @@ const validatedInputOutputSchema = z
   })
   .strict();
 const gateOutputSchema = z.object({
-  gateOutput: structuredGateAgentOutputSchema,
+  gateOutput: structuredGateOutputSchema,
 });
 const dimensionEvidenceOutputSchema = z.object({
-  dimensionOutput: structuredDimensionAgentOutputSchema,
+  dimensionOutput: structuredDimensionOutputSchema,
 });
 const parallelJudgmentOutputSchema = z.object({
   "judge-dimension-evidence": dimensionEvidenceOutputSchema,
   "judge-hard-gates": gateOutputSchema,
 });
 const judgmentOutputSchema = gateOutputSchema.extend({
-  dimensionOutput: structuredDimensionAgentOutputSchema,
+  dimensionOutput: structuredDimensionOutputSchema,
 });
 const adjustmentOutputSchema = judgmentOutputSchema.extend({
   adjustmentOutput: structuredAdjustmentAgentOutputSchema,
@@ -127,7 +127,7 @@ const structuredCalculationResultSchema = z
   .object({
     calculation: structuredCalculationSchema,
     dimensionRuleJudgments: dimensionRuleJudgmentsSchema,
-    normalizedDimensionOutput: structuredDimensionAgentOutputSchema,
+    normalizedDimensionOutput: structuredDimensionOutputSchema,
     skillAssessments: structuredResumeEvaluationV1Schema.shape.skillAssessments,
   })
   .strict();
@@ -155,6 +155,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
     input: StructuredResumeWorkflowInput,
     gateOutput: Parameters<typeof judgeStructuredAdjustments>[1],
     promptContext: StructuredResumePromptContext,
+    dimensionOutput: Parameters<typeof judgeStructuredAdjustments>[4],
   ) => ReturnType<typeof judgeStructuredAdjustments>;
   judgeDimensionEvidence: (
     input: StructuredResumeWorkflowInput,
@@ -249,7 +250,12 @@ export function createStructuredResumeReviewWorkflow(deps: {
       const dimensionResult = inputData["judge-dimension-evidence"];
       return {
         adjustmentOutput: await runStep("judge-adjustments", workflowInput, () =>
-          deps.judgeAdjustments(workflowInput, gateResult.gateOutput, promptContext),
+          deps.judgeAdjustments(
+            workflowInput,
+            gateResult.gateOutput,
+            promptContext,
+            dimensionResult.dimensionOutput,
+          ),
         ),
         dimensionOutput: dimensionResult.dimensionOutput,
         gateOutput: gateResult.gateOutput,
@@ -334,8 +340,8 @@ export const structuredResumeReviewWorkflow = createStructuredResumeReviewWorkfl
   assemble: assembleStructuredResumeEvaluation,
   compute: computeStructuredResumeCalculation,
   generateNarrative: generateStructuredNarrative,
-  judgeAdjustments: (input, gateOutput, promptContext) =>
-    judgeStructuredAdjustments(input, gateOutput, undefined, promptContext),
+  judgeAdjustments: (input, gateOutput, promptContext, dimensionOutput) =>
+    judgeStructuredAdjustments(input, gateOutput, undefined, promptContext, dimensionOutput),
   judgeDimensionEvidence: (input, promptContext) =>
     judgeStructuredDimensionEvidence(input, undefined, promptContext),
   judgeHardGates: (input, promptContext) =>

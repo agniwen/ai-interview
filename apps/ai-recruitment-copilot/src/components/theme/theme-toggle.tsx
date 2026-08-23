@@ -29,13 +29,7 @@ export function ThemeToggle({
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
 
   return (
-    // modal={false}: theme picker is a small non-modal menu and should not lock body scroll.
-    // 首页"打开菜单时滚动条往上跳"的真正根因是 GSAP ScrollSmoother 的 onFocusIn
-    // 自动 scroll-into-view —— 已在 src/components/features/home/smooth-scroll.tsx 修掉。
-    // modal={false}: small non-modal theme picker doesn't need Radix's scroll lock
-    // or focus trap. The homepage "scrollbar jumps up on open" root cause was
-    // GSAP ScrollSmoother's onFocusIn auto-scroll-into-view — fixed in
-    // src/components/features/home/smooth-scroll.tsx.
+    // Small non-modal theme picker: no body scroll lock or focus trap needed.
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         render={

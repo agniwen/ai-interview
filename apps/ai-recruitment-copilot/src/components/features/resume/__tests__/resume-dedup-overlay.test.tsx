@@ -176,7 +176,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(creator?.className).toContain("max-w-20");
     expect(creator?.className).toContain("truncate");
     expect(document.querySelector('[data-slot="avatar"]')?.classList).toContain("size-4");
-    expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeNull();
+    expect(document.querySelector("[data-generated-avatar]")).not.toBeNull();
     expect(document.querySelector('[data-slot="badge"]')?.getAttribute("title")).toBe(
       "荷叶 26/08/18 12:20已创建",
     );

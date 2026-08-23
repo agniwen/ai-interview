@@ -132,7 +132,11 @@ export function SidebarUserSection({
               type="button"
               variant="ghost"
             >
-              <Avatar size="sm">
+              <Avatar
+                label={`${userName}的头像`}
+                seed={`user:${userEmail || session.user.id}`}
+                size="sm"
+              >
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
@@ -170,7 +174,11 @@ export function SidebarUserSection({
               type="button"
               variant="ghost"
             >
-              <Avatar size="sm">
+              <Avatar
+                label={`${userName}的头像`}
+                seed={`user:${userEmail || session.user.id}`}
+                size="sm"
+              >
                 <AvatarImage alt={userName} src={session.user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>

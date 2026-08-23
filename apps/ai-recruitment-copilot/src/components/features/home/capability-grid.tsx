@@ -15,7 +15,7 @@ import { FadeContent } from "@/components/react-bits/fade-content";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
-import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionLead, SectionTitle } from "./section";
 
 type TileLayout = "stacked" | "split";
 
@@ -41,7 +41,7 @@ function BentoTile({
   const head = (
     <div>
       <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
-      <h3 className="mt-6 font-medium text-foreground text-lg leading-tight tracking-tight">
+      <h3 className="mt-6 text-balance font-medium text-foreground text-lg leading-tight tracking-tight">
         {title}
       </h3>
       <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
@@ -55,7 +55,7 @@ function BentoTile({
       className={cn(
         // 与 FeatureBlocks SceneCard 同款边距与材质：p-5 sm:p-6 / 同款圆角、淡边、轻投影、毛玻璃
         // Match FeatureBlocks SceneCard padding & material: p-5 sm:p-6, same rounded / faint border / soft drop / blur
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
         className,
       )}
     >
@@ -337,8 +337,7 @@ export function CapabilityGrid() {
   return (
     <Section width="wide">
       <div className="max-w-3xl">
-        <Eyebrow>Capabilities</Eyebrow>
-        <SectionTitle>招聘需要的，都在一条链路里。</SectionTitle>
+        <SectionTitle className="mt-0">招聘需要的，都在一条链路里。</SectionTitle>
         <SectionLead>不是替你做决定。是把每个决定需要的证据，提前整理好。</SectionLead>
       </div>
 

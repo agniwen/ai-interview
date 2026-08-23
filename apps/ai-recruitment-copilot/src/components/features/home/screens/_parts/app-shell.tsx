@@ -22,13 +22,15 @@ import {
 } from "@tabler/icons-react";
 // 用途：复刻真实 Studio 壳（shadcn Sidebar variant="inset"）。所有尺寸严格按真实组件：
 // --sidebar-width 18rem (288px) · --header-height 3rem (48px) · SidebarMenuButton h-8
-// SidebarGroup p-2 · SidebarGroupLabel h-8 px-2 text-xs/70 · TabsList h-9 p-[3px] bg-muted。
+// SidebarGroup p-2 · SidebarGroupLabel h-8 px-2 text-xs/70 · TabsList p-0.5 + shared indicator。
 // Purpose: 1:1 mirror of the real Studio sidebar+inset layout. Width / heights /
 // classes match the actual shadcn primitives the production app uses.
 
 import type { ReactNode } from "react";
 import { RecruitmentCopilotBrand } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@arc/shared/utils";
 
 interface NavItem {
@@ -87,25 +89,15 @@ interface SidebarTabsProps {
 }
 
 function SidebarTabs({ active }: SidebarTabsProps) {
+  const value = active === "studio" ? "studio" : "agent";
+
   return (
-    // 对齐 Tabs default variant：bg-muted + h-9 + p-[3px] + rounded-lg + 子项 shadow-sm
-    // Matches Tabs default variant: bg-muted h-9 p-[3px] rounded-lg; active gets shadow-sm
-    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-sidebar-accent p-[3px] text-muted-foreground dark:bg-black/15">
-      {(["agent", "studio"] as const).map((value) => {
-        const isActive = value === active;
-        return (
-          <span
-            className={cn(
-              "inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 font-medium text-sm transition-all",
-              isActive ? "bg-background text-foreground shadow-sm" : "text-foreground/60",
-            )}
-            key={value}
-          >
-            {value === "agent" ? "Agent" : "Studio"}
-          </span>
-        );
-      })}
-    </div>
+    <Tabs activationMode="manual" className="w-full" value={value}>
+      <TabsList className="w-full select-none bg-sidebar-accent dark:bg-black/15">
+        <TabsTrigger value="agent">Agent</TabsTrigger>
+        <TabsTrigger value="studio">Studio</TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -222,9 +214,9 @@ function SidebarUserSection() {
   return (
     <div className="border-border border-t px-2 py-2">
       <div className="flex h-9 w-full items-center gap-2 rounded-lg px-2">
-        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/15 font-medium text-[12px] text-primary/75">
-          GJ
-        </div>
+        <Avatar generatedSize={32} label="郭靖的头像" seed="recruiter:郭靖">
+          <AvatarFallback>郭</AvatarFallback>
+        </Avatar>
         <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">郭靖</p>
       </div>
     </div>

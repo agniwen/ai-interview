@@ -54,6 +54,13 @@ describe("TanStack Start architecture invariants", () => {
     expect(router).toContain('defaultPreload: "intent"');
   });
 
+  it("bridges body scrollbar initialization without flashing native scrollbars", () => {
+    const rootRoute = readSource("src/routes/__root.tsx");
+
+    expect(rootRoute).toMatch(/<html\s+data-overlayscrollbars-initialize/u);
+    expect(rootRoute).toMatch(/<body\s+data-overlayscrollbars-initialize/u);
+  });
+
   it("keeps Vite envPrefix for legacy NEXT_PUBLIC_* client vars", () => {
     const viteConfig = readSource("vite.config.ts");
 

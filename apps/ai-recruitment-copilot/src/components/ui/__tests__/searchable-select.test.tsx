@@ -37,8 +37,8 @@ describe("SearchableSelect", () => {
     );
 
     expect(html).toContain('data-slot="avatar"');
-    expect(html).toContain('data-slot="avatar-fallback"');
-    expect(html).toContain("张");
+    expect(html).toContain('data-generated-avatar=""');
+    expect(html).toContain('aria-label="张三的头像"');
   });
 
   it("does not clear a required selection", async () => {

@@ -36,7 +36,7 @@ export function ScreenFrame({ children, className, chrome = true }: ScreenFrameP
     <div
       data-slot="screen-frame"
       className={cn(
-        "relative pointer-events-none overflow-hidden rounded-xl bg-background/75 p-1 select-none backdrop-blur-xl",
+        "relative pointer-events-none overflow-hidden rounded-xl bg-background/75 p-1 select-none backdrop-blur-sm",
         className,
       )}
     >

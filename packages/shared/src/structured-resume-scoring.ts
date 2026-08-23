@@ -351,30 +351,37 @@ function calculateDimension(
     }
   }
   const selected = selectedMatchedJudgments(judgments, deductionRules);
-  const appliedDeductions = selected.map((judgment) => ({
-    ...judgment,
-    appliedPoints: deductionRules[judgment.ruleId].points * (judgment.units ?? 1),
-  }));
-  const deductionTotal = appliedDeductions.reduce(
-    (total, deduction) => total + deduction.appliedPoints,
-    0,
-  );
-  const hasDirectZero = selected.some(
+  const directZeroJudgment = selected.find(
     (judgment) => STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].directZero,
   );
-  const insufficientEvidenceRuleIds = judgments
-    .filter(
-      (judgment) =>
-        judgment.status === "insufficient_evidence" && deductionRules[judgment.ruleId].enabled,
-    )
-    .map((judgment) => judgment.ruleId);
-  let rawScore = Math.max(100 - deductionTotal, 0);
-  if (insufficientEvidenceRuleIds.length > 0 && EVIDENCE_CAPPED_DIMENSIONS.has(dimension)) {
-    rawScore = Math.min(rawScore, 50);
+  const appliedJudgments = directZeroJudgment ? [directZeroJudgment] : selected;
+  const appliedDeductions: AppliedDeduction[] = [];
+  let remainingScore = 100;
+  for (const judgment of appliedJudgments) {
+    const requestedPoints = STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].directZero
+      ? 100
+      : deductionRules[judgment.ruleId].points * (judgment.units ?? 1);
+    const appliedPoints = Math.min(requestedPoints, remainingScore);
+    if (appliedPoints > 0) {
+      appliedDeductions.push({ ...judgment, appliedPoints });
+      remainingScore -= appliedPoints;
+    }
   }
-  if (hasDirectZero) {
-    rawScore = 0;
+  const insufficientEvidenceJudgments = judgments.filter(
+    (judgment) =>
+      judgment.status === "insufficient_evidence" && deductionRules[judgment.ruleId].enabled,
+  );
+  const insufficientEvidenceRuleIds = insufficientEvidenceJudgments.map(
+    (judgment) => judgment.ruleId,
+  );
+  const [evidenceCapOwner] = insufficientEvidenceJudgments;
+  if (evidenceCapOwner && remainingScore > 50 && EVIDENCE_CAPPED_DIMENSIONS.has(dimension)) {
+    const appliedPoints = remainingScore - 50;
+    appliedDeductions.push({ ...evidenceCapOwner, appliedPoints });
+    remainingScore = 50;
   }
+  const deductionTotal = 100 - remainingScore;
+  const rawScore = remainingScore;
   return {
     appliedDeductions,
     deductionTotal,

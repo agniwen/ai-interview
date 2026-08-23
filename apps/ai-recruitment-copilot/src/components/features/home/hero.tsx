@@ -21,7 +21,7 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-blue-100 sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-chart-4 sm:mb-4 sm:text-base lg:text-lg";
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
@@ -31,7 +31,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <Badge className="dark:border-primary/45! dark:bg-primary/25! dark:text-blue-100!">
+        <Badge className="dark:border-primary/45! dark:bg-primary/25! dark:text-chart-4!">
           <IconSparkles aria-hidden="true" data-icon="inline-start" />
           招聘 AI 协同工作台
         </Badge>

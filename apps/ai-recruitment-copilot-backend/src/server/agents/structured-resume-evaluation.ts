@@ -40,7 +40,7 @@ import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-bac
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
-export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v2";
+export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v4";
 const STRUCTURED_RESUME_AGENT_TIMEOUT_MS = 240_000;
 export const STRUCTURED_RESUME_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
@@ -77,35 +77,47 @@ export const structuredResumeWorkflowInputSchema = z
   })
   .strict();
 
-const gateExperienceEpisodeSchema = z
+const gateExperienceEpisodeAgentSchema = z
   .object({
     evidence: z.array(agentEvidenceSchema).default([]),
-    id: z.string().trim().min(1).optional(),
+    id: z.string().trim().min(1),
   })
-  .strip()
-  .transform(
-    (
-      item,
-    ): typeof item & {
-      current: boolean;
-      endMonth: string | null;
-      startMonth: string | null;
-    } => ({ ...item, current: false, endMonth: null, startMonth: null }),
-  );
+  .strip();
 
-const gateJudgmentSchema = z
+const gateJudgmentAgentSchema = z
   .object({
     aiStatus: structuredResumeGateStatusSchema,
     evidence: z.array(agentEvidenceSchema).default([]),
-    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
-    experienceEpisodes: z.array(gateExperienceEpisodeSchema).catch([]).optional(),
+    experienceEpisodes: z.array(gateExperienceEpisodeAgentSchema).optional(),
     reason: z.string().trim().min(1),
     requirementId: z.string().trim().min(1),
   })
   .strip();
 
 export const structuredGateAgentOutputSchema = z.object({
-  judgments: z.array(gateJudgmentSchema).default([]),
+  judgments: z.array(gateJudgmentAgentSchema).default([]),
+});
+
+const gateExperienceEpisodeOutputSchema = gateExperienceEpisodeAgentSchema
+  .extend({
+    current: z.boolean(),
+    endMonth: z
+      .string()
+      .regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u)
+      .nullable(),
+    startMonth: z
+      .string()
+      .regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u)
+      .nullable(),
+  })
+  .strict();
+const gateJudgmentOutputSchema = gateJudgmentAgentSchema
+  .extend({
+    experienceEpisodes: z.array(gateExperienceEpisodeOutputSchema).optional(),
+  })
+  .strip();
+export const structuredGateOutputSchema = z.object({
+  judgments: z.array(gateJudgmentOutputSchema).default([]),
 });
 
 const semanticRuleIds = [
@@ -127,12 +139,8 @@ const generatedReasonSchema = z.union([
   z.record(z.string(), z.string()),
 ]);
 type GeneratedReason = z.infer<typeof generatedReasonSchema>;
-const generatedSemanticRuleIdentitySchema = z
-  .object({
-    reason: z.unknown(),
-    ruleId: semanticRuleIdSchema,
-  })
-  .passthrough();
+const looseRecordSchema = z.record(z.string(), z.unknown());
+const nonEmptyGeneratedStringSchema = z.string().trim().min(1);
 
 function normalizeGeneratedReason(value: GeneratedReason): string {
   const scalar = z.string().safeParse(value);
@@ -148,120 +156,385 @@ function normalizeGeneratedReason(value: GeneratedReason): string {
     .join("；");
 }
 
-const semanticRuleJudgmentSchema = z.preprocess(
+function fallbackSemanticRuleReason(
+  status: z.infer<typeof structuredResumeRuleStatusSchema>,
+): string {
+  if (status === "matched") {
+    return "模型判断该规则命中，但未提供详细原因。";
+  }
+  if (status === "not_matched") {
+    return "模型判断该规则未命中，但未提供详细原因。";
+  }
+  if (status === "not_applicable") {
+    return "模型判断该规则不适用，但未提供详细原因。";
+  }
+  return "模型未提供足够信息完成该规则判断。";
+}
+
+const semanticRuleJudgmentAgentSchema = z.preprocess(
   (value) => {
-    const parsedRecord = generatedSemanticRuleIdentitySchema.safeParse(value);
+    const parsedRecord = looseRecordSchema.safeParse(value);
     if (!parsedRecord.success) {
       return value;
     }
+    const parsedRuleId = semanticRuleIdSchema.safeParse(
+      parsedRecord.data.ruleId ?? parsedRecord.data.requirementId,
+    );
+    if (!parsedRuleId.success) {
+      return value;
+    }
     const parsedReason = generatedReasonSchema.safeParse(parsedRecord.data.reason);
-    return {
-      ...parsedRecord.data,
-      dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[parsedRecord.data.ruleId].dimension,
-      reason: parsedReason.success
-        ? normalizeGeneratedReason(parsedReason.data)
-        : parsedRecord.data.reason,
+    const parsedStatus = structuredResumeRuleStatusSchema.safeParse(parsedRecord.data.status);
+    const status = parsedStatus.success ? parsedStatus.data : "insufficient_evidence";
+    const fallbackReason = fallbackSemanticRuleReason(status);
+    let { missingInputs } = parsedRecord.data;
+    if (
+      status === "insufficient_evidence" &&
+      (!Array.isArray(missingInputs) || missingInputs.length === 0)
+    ) {
+      missingInputs = ["需补充能够确认该规则的候选信息。"];
+    }
+    const parsedUnits = z.number().int().min(1).max(3).safeParse(parsedRecord.data.units);
+    let units: number | undefined;
+    if (
+      parsedRuleId.data === "education.below_tier" &&
+      status === "matched" &&
+      parsedUnits.success
+    ) {
+      units = parsedUnits.data;
+    }
+    const { units: _modelOwnedUnits, ...recordWithoutUnits } = parsedRecord.data;
+    const normalizedJudgment = {
+      ...recordWithoutUnits,
+      dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[parsedRuleId.data].dimension,
+      missingInputs,
+      reason: parsedReason.success ? normalizeGeneratedReason(parsedReason.data) : fallbackReason,
+      ruleId: parsedRuleId.data,
+      status,
     };
+    if (units === undefined) {
+      return normalizedJudgment;
+    }
+    return { ...normalizedJudgment, units };
   },
   z
     .object({
       evidence: z.array(agentEvidenceSchema).default([]),
+      missingInputs: z.array(z.string().trim().min(1)).default([]),
       reason: z.string().trim().min(1),
       ruleId: semanticRuleIdSchema,
       status: structuredResumeRuleStatusSchema,
       units: z.number().int().min(1).max(3).optional(),
     })
     .strip()
+    .superRefine((item, context) => {
+      if (item.status === "insufficient_evidence" && item.missingInputs.length === 0) {
+        context.addIssue({
+          code: "custom",
+          message: "证据不足状态必须列出缺失输入",
+          path: ["missingInputs"],
+        });
+      }
+    })
     .transform((item) => ({
       ...item,
       dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[item.ruleId].dimension,
-    }))
-    .superRefine((item, context) => {
-      if (
-        item.ruleId === "education.below_tier" &&
-        item.status === "matched" &&
-        item.units === undefined
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "学历层级扣分必须返回层级差",
-          path: ["units"],
-        });
-      }
-    }),
+    })),
 );
 
-const timelineEpisodeSchema = z
+const semanticRuleJudgmentOutputSchema = z
+  .object({
+    evidence: z.array(agentEvidenceSchema).default([]),
+    reason: z.string().trim().min(1),
+    ruleId: semanticRuleIdSchema,
+    status: structuredResumeRuleStatusSchema,
+    units: z.number().int().min(1).max(3).optional(),
+  })
+  .strip()
+  .transform((item) => ({
+    ...item,
+    dimension: STRUCTURED_RESUME_DEDUCTION_CATALOG[item.ruleId].dimension,
+  }));
+
+const timelineEpisodeBaseSchema = z
   .object({
     evidence: z.array(agentEvidenceSchema).default([]),
     id: z.string().trim().min(1),
     relevance: z.enum(["insufficient_evidence", "not_relevant", "relevant"]),
     relevanceReason: z.string().trim().min(1),
   })
-  .strip()
-  .transform(
-    (
-      item,
-    ): typeof item & {
-      current: boolean;
-      endMonth: string | null;
-      gapExplanation: string | null;
-      primaryStatus: "concurrent" | "primary" | "unresolved";
-      startMonth: string | null;
-    } => ({
-      ...item,
-      current: false,
-      endMonth: null,
-      gapExplanation: null,
-      primaryStatus: "unresolved",
-      startMonth: null,
-    }),
-  );
+  .strip();
 
-const projectFactSchema = z
+const rawTimelineRelevanceSchema = z.union([z.boolean(), z.string(), z.null(), z.undefined()]);
+
+function normalizeTimelineRelevance(
+  value: z.infer<typeof rawTimelineRelevanceSchema>,
+): "insufficient_evidence" | "not_relevant" | "relevant" {
+  if (value === true || value === "matched" || value === "related" || value === "relevant") {
+    return "relevant";
+  }
+  if (
+    value === false ||
+    value === "irrelevant" ||
+    value === "not_matched" ||
+    value === "not_relevant" ||
+    value === "unrelated"
+  ) {
+    return "not_relevant";
+  }
+  return "insufficient_evidence";
+}
+
+const timelineEpisodeAgentSchema = z.preprocess((value) => {
+  const parsedEpisode = looseRecordSchema.safeParse(value);
+  if (!parsedEpisode.success) {
+    return value;
+  }
+  const episode = parsedEpisode.data;
+  const parsedRelevance = rawTimelineRelevanceSchema.safeParse(episode.relevance);
+  const relevance = parsedRelevance.success
+    ? normalizeTimelineRelevance(parsedRelevance.data)
+    : episode.relevance;
+  const parsedReason = nonEmptyGeneratedStringSchema.safeParse(episode.relevanceReason);
+  let relevanceReason = "模型未提供足够信息判断该任职的岗位相关性。";
+  if (relevance === "relevant") {
+    relevanceReason = "模型判断该任职与岗位相关。";
+  } else if (relevance === "not_relevant") {
+    relevanceReason = "模型判断该任职与岗位不相关。";
+  }
+  if (parsedReason.success) {
+    relevanceReason = parsedReason.data;
+  }
+  return { ...episode, relevance, relevanceReason };
+}, timelineEpisodeBaseSchema);
+
+const experienceRequirementAgentSchema = z.preprocess(
+  (value) => {
+    const parsedRequirement = looseRecordSchema.safeParse(value);
+    if (!parsedRequirement.success) {
+      return value;
+    }
+    const requirement = parsedRequirement.data;
+    if (
+      requirement.status !== "insufficient_evidence" ||
+      (Array.isArray(requirement.missingInputs) && requirement.missingInputs.length > 0)
+    ) {
+      return requirement;
+    }
+    return {
+      ...requirement,
+      missingInputs: ["需补充能够确认该经验口径或年限的候选信息。"],
+    };
+  },
+  z
+    .object({
+      episodeIds: z.array(z.string().trim().min(1)).default([]),
+      evidence: z.array(agentEvidenceSchema).default([]),
+      missingInputs: z.array(z.string().trim().min(1)).default([]),
+      reason: z.string().trim().min(1),
+      requirementId: z.string().trim().min(1),
+      status: z.enum(["insufficient_evidence", "matched", "not_matched"]),
+    })
+    .strip()
+    .superRefine((item, context) => {
+      if (item.status === "matched" && item.episodeIds.length === 0) {
+        context.addIssue({
+          code: "custom",
+          message: "经验要求命中时必须选择任职事实",
+          path: ["episodeIds"],
+        });
+      }
+    }),
+);
+
+const experienceRequirementOutputSchema = experienceRequirementAgentSchema.transform((item) => ({
+  episodeIds: item.episodeIds,
+  evidence: item.evidence,
+  reason: item.reason,
+  requirementId: item.requirementId,
+  status: item.status,
+}));
+
+const legacyProjectFactAgentSchema = z
   .object({
     evidence: z.array(agentEvidenceSchema).default([]),
     id: z.string().trim().min(1),
     relevant: z.boolean(),
   })
-  .strip()
-  .transform((item): typeof item & { current: boolean; endMonth: string | null } => ({
-    ...item,
-    current: false,
-    endMonth: null,
-  }));
+  .strip();
 
-const skillFactSchema = z
-  .object({
-    evidence: z.array(agentEvidenceSchema).default([]),
-    normalizedSkill: z.string().trim().min(1),
-    reason: z.string().trim().min(1),
-    status: z.enum(["applied", "missing", "shallow"]),
-  })
-  .strip()
-  .superRefine((item, context) => {
-    if (item.status !== "missing" && item.evidence.length === 0) {
-      context.addIssue({
-        code: "custom",
-        message: "applied 或 shallow 技能事实必须提供简历证据",
-        path: ["evidence"],
-      });
+const projectRequirementJudgmentAgentSchema = z.preprocess(
+  (value) => {
+    const parsedJudgment = looseRecordSchema.safeParse(value);
+    if (!parsedJudgment.success) {
+      return value;
     }
-  });
+    const projectJudgment = parsedJudgment.data;
+    const parsedEvidence = z.array(z.unknown()).safeParse(projectJudgment.evidence);
+    const evidence = parsedEvidence.success ? parsedEvidence.data : [];
+    const status =
+      projectJudgment.status === "matched" && evidence.length === 0
+        ? "insufficient_evidence"
+        : projectJudgment.status;
+    const parsedReason = nonEmptyGeneratedStringSchema.safeParse(projectJudgment.reason);
+    let reason = "模型未提供足够证据判断该项目要求。";
+    if (status === "matched") {
+      reason = "模型判断该项目要求命中，但未提供详细原因。";
+    } else if (status === "not_matched") {
+      reason = "模型判断该项目要求未命中，但未提供详细原因。";
+    }
+    if (parsedReason.success) {
+      reason = parsedReason.data;
+    }
+    if (
+      status !== "insufficient_evidence" ||
+      (Array.isArray(projectJudgment.missingInputs) && projectJudgment.missingInputs.length > 0)
+    ) {
+      return { ...projectJudgment, reason, status };
+    }
+    return {
+      ...projectJudgment,
+      missingInputs: ["需补充能够确认该项目要求的项目职责、实施细节或结果指标。"],
+      reason,
+      status,
+    };
+  },
+  z
+    .object({
+      evidence: z.array(agentEvidenceSchema).default([]),
+      missingInputs: z.array(z.string().trim().min(1)).default([]),
+      reason: z.string().trim().min(1).max(120),
+      requirementId: z.string().trim().min(1),
+      status: z.enum(["insufficient_evidence", "matched", "not_matched"]),
+    })
+    .strip()
+    .superRefine((item, context) => {
+      if (item.status === "matched" && item.evidence.length === 0) {
+        context.addIssue({
+          code: "custom",
+          message: "项目要求命中时必须提供简历证据",
+          path: ["evidence"],
+        });
+      }
+    }),
+);
+
+const matrixProjectFactAgentSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    requirementJudgments: z.array(projectRequirementJudgmentAgentSchema),
+  })
+  .strip();
+
+const projectFactAgentSchema = z.union([
+  matrixProjectFactAgentSchema,
+  legacyProjectFactAgentSchema,
+]);
+
+const skillFactSchema = z.preprocess(
+  (value) => {
+    const parsedSkill = looseRecordSchema.safeParse(value);
+    if (!parsedSkill.success) {
+      return value;
+    }
+    const skill = parsedSkill.data;
+    const parsedReason = nonEmptyGeneratedStringSchema.safeParse(skill.reason);
+    let reason = "模型返回了该技能判断，但未提供详细原因。";
+    if (skill.status === "missing") {
+      reason = "模型判断简历未体现该技能，但未提供详细原因。";
+    }
+    if (parsedReason.success) {
+      reason = parsedReason.data;
+    }
+    return {
+      ...skill,
+      normalizedSkill: skill.normalizedSkill ?? skill.skill,
+      reason,
+    };
+  },
+  z
+    .object({
+      evidence: z.array(agentEvidenceSchema).default([]),
+      normalizedSkill: z.string().trim().min(1),
+      reason: z.string().trim().min(1),
+      status: z.enum(["applied", "missing", "shallow"]),
+    })
+    .strip()
+    .superRefine((item, context) => {
+      if (item.status !== "missing" && item.evidence.length === 0) {
+        context.addIssue({
+          code: "custom",
+          message: "applied 或 shallow 技能事实必须提供简历证据",
+          path: ["evidence"],
+        });
+      }
+    }),
+);
 
 export const structuredDimensionAgentOutputSchema = z
   .object({
-    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
-    employmentEpisodes: z.array(timelineEpisodeSchema).catch([]).default([]),
-    // oxlint-disable-next-line promise/prefer-await-to-then -- This is Zod's parse fallback, not Promise.catch.
-    projects: z.array(projectFactSchema).catch([]).default([]),
-    ruleJudgments: z.array(semanticRuleJudgmentSchema).default([]),
+    employmentEpisodes: z.array(timelineEpisodeAgentSchema).default([]),
+    experienceRequirements: z.array(experienceRequirementAgentSchema).default([]),
+    projects: z.array(projectFactAgentSchema).default([]),
+    ruleJudgments: z.array(semanticRuleJudgmentAgentSchema).default([]),
+    skillFacts: z.array(skillFactSchema).default([]),
+  })
+  .strict();
+
+const timelineEpisodeOutputSchema = timelineEpisodeBaseSchema
+  .extend({
+    current: z.boolean(),
+    endMonth: z
+      .string()
+      .regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u)
+      .nullable(),
+    gapExplanation: z.string().nullable(),
+    primaryStatus: z.enum(["concurrent", "primary", "unresolved"]),
+    startMonth: z
+      .string()
+      .regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u)
+      .nullable(),
+  })
+  .strict();
+const projectFactOutputSchema = z
+  .object({
+    current: z.boolean(),
+    endMonth: z
+      .string()
+      .regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u)
+      .nullable(),
+    evaluatedRequirementIds: z.array(z.string().trim().min(1)),
+    evidence: z.array(agentEvidenceSchema),
+    id: z.string().trim().min(1),
+    matchedRequirementIds: z.array(z.string().trim().min(1)),
+    relevant: z.boolean(),
+    unresolvedRequirementIds: z.array(z.string().trim().min(1)),
+  })
+  .strict();
+export const structuredDimensionOutputSchema = z
+  .object({
+    employmentEpisodes: z.array(timelineEpisodeOutputSchema).default([]),
+    experienceRequirements: z.array(experienceRequirementOutputSchema).default([]),
+    projects: z.array(projectFactOutputSchema).default([]),
+    ruleJudgments: z.array(semanticRuleJudgmentOutputSchema).default([]),
     skillFacts: z.array(skillFactSchema).default([]),
   })
   .strict();
 
 const adjustmentJudgmentSchema = z
   .object({
+    clauseJudgments: z
+      .array(
+        z
+          .object({
+            clauseIndex: z.number().int().nonnegative(),
+            evidence: z.array(agentEvidenceSchema).default([]),
+            matched: z.boolean(),
+            reason: z.string().trim().min(1),
+          })
+          .strict(),
+      )
+      .default([]),
     conditionId: z.string().trim().min(1),
     evidence: z.array(agentEvidenceSchema).default([]),
     matched: z.boolean(),
@@ -304,8 +577,24 @@ export const structuredNarrativeAgentOutputSchema = z
   .strict();
 
 export type StructuredResumeWorkflowInput = z.infer<typeof structuredResumeWorkflowInputSchema>;
-type DimensionFacts = z.infer<typeof structuredDimensionAgentOutputSchema>;
-type GateAgentOutput = z.infer<typeof structuredGateAgentOutputSchema>;
+type DimensionAgentOutput = z.infer<typeof structuredDimensionAgentOutputSchema>;
+type ParsedDimensionFacts = z.infer<typeof structuredDimensionOutputSchema>;
+type ParsedProjectFact = ParsedDimensionFacts["projects"][number];
+type DimensionFacts = Omit<ParsedDimensionFacts, "experienceRequirements" | "projects"> & {
+  experienceRequirements?: ParsedDimensionFacts["experienceRequirements"];
+  projects: (Omit<
+    ParsedProjectFact,
+    "evaluatedRequirementIds" | "matchedRequirementIds" | "unresolvedRequirementIds"
+  > &
+    Partial<
+      Pick<
+        ParsedProjectFact,
+        "evaluatedRequirementIds" | "matchedRequirementIds" | "unresolvedRequirementIds"
+      >
+    >)[];
+};
+type GateAgentRawOutput = z.infer<typeof structuredGateAgentOutputSchema>;
+type GateAgentOutput = z.infer<typeof structuredGateOutputSchema>;
 type AdjustmentAgentOutput = z.infer<typeof structuredAdjustmentAgentOutputSchema>;
 export type StructuredResumeCalculation = ReturnType<typeof computeStructuredResumeCalculation>;
 
@@ -400,6 +689,19 @@ export function createStructuredResumePromptContext(
   return { compactResumeProfile };
 }
 
+function buildProjectMatchRequirements(
+  input: StructuredResumeWorkflowInput,
+): ProjectMatchRequirement[] {
+  return input.jobSnapshot.blueprint.dimensionExpectations.projectMatch.map(
+    (expectation, index) => ({
+      expectation: expectation.expectation,
+      kind: "project_expectation" as const,
+      requirementId: `project-expectation-${index}`,
+      sourceText: expectation.sourceText,
+    }),
+  );
+}
+
 const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   `扣分规则目录版本：${STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION}`,
   "只判断下列规则的事实状态；不得自行创造、合并或修改规则：",
@@ -415,6 +717,8 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "potential.illogical_switches：判断是否存在无逻辑的频繁跨行、职业方向混乱。",
   "stability.frequent_unrelated_industries：判断是否频繁切换完全无关行业。",
   "每条语义规则最多返回一次。规则适用但候选侧证据不足时返回 insufficient_evidence；岗位侧基准缺失时返回 not_applicable。",
+  "ruleJudgments 必须覆盖 requiredSemanticRuleIds 的每一项且不得重复；即使不适用也必须显式返回 not_applicable，禁止省略后依赖代码补默认值。",
+  "status=insufficient_evidence 时必须返回非空 missingInputs，逐项说明缺少哪个候选字段；如果现有事实足以判断风险没有发生，必须返回 not_matched，不能用 insufficient_evidence 表达‘未观察到’、‘未达到’或‘切换尚可’。",
   "技能不得通过 ruleJudgments 返回。以岗位蓝图 coreSkills 和 auxiliarySkills 去重，core 优先；每个去重后的岗位技能必须且只能返回一个 skillFacts，status 只能是 applied、shallow、missing。",
   "同一技能不得同时返回 shallow 与 missing。applied 表示有实际运用证据；shallow 表示仅提及或浅层了解、无实操；missing 表示简历中没有该岗位技能。",
   "matched、applied、shallow 必须提供来源引文；missing、not_applicable 或证据确实不足时可以返回空 evidence，禁止编造不存在的引文。",
@@ -423,9 +727,13 @@ const STRUCTURED_DIMENSION_RULE_GUIDANCE = [
   "employmentEpisodes 的岗位相关性证据只能引用公司、职位或职责中的字符串叶子值，使用多条 evidence 表达；projects 同理，只引用项目名称或描述中的单个连续原文片段。",
   "每项最多 2 条证据，每条 quote 只引用能支持判断的最短原文片段；reason 保持简洁。",
   "employmentEpisodes 必须覆盖 resumeProfile.scoringFacts.employmentEpisodes 的每一项；id 使用 work-{sourceIndex}。只返回 id、岗位相关性、原因和证据；不得重复返回日期、在职状态、主职/并发关系或空档说明，这些字段由代码从评分事实补齐。",
-  "projects 的 id 使用 project-{sourceIndex}；只返回 id、岗位相关性和证据，不得重复返回日期或在研状态，这些字段由代码从评分事实补齐。",
-  "技能的 applied / shallow 判断必须优先复用 resumeProfile.scoringFacts.skillFacts 的 evidenceLevel 和 evidence；岗位技能未出现在这些事实中时才返回 missing。",
-  "projects 只返回与岗位要求可能相关的项目；无相关项目时返回空数组，不要枚举明确无关的项目。",
+  "experienceRequirements 必须覆盖输入中的每条 experienceRequirements；对每条要求从 employmentEpisodes 中选择真正满足该独立口径的 episodeIds，不得计算年限。status=matched 时 episodeIds 非空；没有相关经历时 status=not_matched 且 episodeIds=[]；字段缺失导致无法判断时才返回 insufficient_evidence 和非空 missingInputs。",
+  "projects 的 id 使用 project-{sourceIndex}；每个项目必须逐项判断 projectRequirements，并在 requirementJudgments 中覆盖全部 requirementId；不得返回总 relevant 布尔值，项目相关性由代码从逐项判断归纳。",
+  "项目判断必须以项目名称、职责、summary 和 techStack 为准，不得仅因候选人公司行业标签不同而判不相关；直播、音视频协议、内容互动等直接落地证据必须与视频/内容平台要求逐项比较。",
+  "项目要求 status=matched 时必须给出支持该要求的最短引文；status=insufficient_evidence 时必须给出非空 missingInputs；事实足以判断未命中时返回 not_matched。每个项目要求无论状态都必须给出具体 reason，禁止整批无理由返回 not_matched。",
+  "技术治理项目必须逐项对照项目原文：服务拆分、缓存、消息队列削峰、分库分表、慢查询优化、千万级或 TB 级数据处理等证据可支持复杂技术治理要求，不得因业务行业不同而一律判为不匹配。",
+  "技能的 applied / shallow 判断先复用 resumeProfile.scoringFacts.skillFacts 的 evidenceLevel 和 evidence，但 mentioned 只是最低证据等级而非上限；语言对应的框架或生态有明确项目实操证据时，可以升级为 applied，例如 Spring Boot/Spring Cloud 可支持 Java 实操。岗位技能未出现在这些事实中时才返回 missing。",
+  "projects 必须覆盖 resumeProfile.scoringFacts.projects 的每一项且每个 id 只能出现一次；每个项目内 requirementJudgments 必须覆盖全部 projectRequirements 且每个 requirementId 只能出现一次，禁止省略不匹配项。",
 ].join("\n");
 
 interface StructuredResumePromptBase {
@@ -435,20 +743,100 @@ interface StructuredResumePromptBase {
 
 interface HardGatePromptPayload extends StructuredResumePromptBase {
   hardGateRequirements: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["hardGateRequirements"];
-  requiredRelevantExperiences: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["requiredRelevantExperiences"];
 }
 
 interface DimensionPromptPayload extends StructuredResumePromptBase {
   enabledRuleIds: string[];
+  experienceRequirements: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["requiredRelevantExperiences"];
   jobExpectations: Pick<
     StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"],
     "auxiliarySkills" | "coreSkills" | "dimensionExpectations" | "educationExpectation"
   >;
+  projectRequirements: ProjectMatchRequirement[];
+  requiredSemanticRuleIds: readonly (typeof semanticRuleIds)[number][];
+}
+
+interface ProjectMatchRequirement {
+  expectation: string;
+  kind: "project_expectation";
+  requirementId: string;
+  sourceText: string;
+}
+
+const TECHNICAL_PROJECT_REQUIREMENT_PATTERN =
+  /(?:高并发|大流量|服务拆分|缓存|限流|熔断|数据库优化|慢查询|技术治理|高可用)/u;
+const BUSINESS_PROJECT_REQUIREMENT_PATTERN =
+  /(?:内容分发|用户体系|活动任务|互动玩法|会员|广告|商业化|拉新|留存|内容推荐|用户分层)/u;
+const TECHNICAL_PROJECT_EVIDENCE_PATTERNS = [
+  /(?:Redis|缓存)/iu,
+  /(?:Kafka|RabbitMQ|消息队列|削峰)/iu,
+  /(?:分库分表|数据库优化|查询瓶颈|亿级)/u,
+  /(?:千万级|TB\s*级|高并发|吞吐|性能提升|降低数据库压力|横向扩展)/iu,
+  /(?:微服务|分布式事务|多数据源)/u,
+] as const;
+
+function projectEvidenceFragment(value: string, pattern: RegExp): string | null {
+  const match = value.match(
+    new RegExp(`[^。；\\n]{0,24}(?:${pattern.source})[^。；\\n]{0,56}`, pattern.flags),
+  );
+  return match?.[0]?.trim() || null;
+}
+
+function deterministicTechnicalProjectEvidence(
+  input: StructuredResumeWorkflowInput,
+  projectId: string,
+  requirement: ProjectMatchRequirement,
+): z.infer<typeof structuredResumeEvidenceSchema>[] {
+  if (
+    !TECHNICAL_PROJECT_REQUIREMENT_PATTERN.test(
+      `${requirement.expectation}${requirement.sourceText}`,
+    ) ||
+    BUSINESS_PROJECT_REQUIREMENT_PATTERN.test(`${requirement.expectation}${requirement.sourceText}`)
+  ) {
+    return [];
+  }
+  const sourceIndex = Number(projectId.replace(/^project-/u, ""));
+  const project = input.resumeInput.resumeProfile.projectExperiences[sourceIndex];
+  if (!project) {
+    return [];
+  }
+  const values = [project.name, project.role, project.summary, ...project.techStack].filter(
+    (value): value is string => Boolean(value),
+  );
+  const matchesByCategory = TECHNICAL_PROJECT_EVIDENCE_PATTERNS.map((pattern) => {
+    for (const value of values) {
+      const fragment = projectEvidenceFragment(value, pattern);
+      if (fragment) {
+        return fragment;
+      }
+    }
+    return null;
+  });
+  const matchedFragments = matchesByCategory.filter((fragment): fragment is string =>
+    Boolean(fragment),
+  );
+  const strongGovernanceFragments = matchesByCategory
+    .slice(2)
+    .filter((fragment): fragment is string => Boolean(fragment));
+  if (matchedFragments.length < 2 || strongGovernanceFragments.length === 0) {
+    return [];
+  }
+  const selectedFragments = [
+    strongGovernanceFragments[0],
+    ...matchedFragments.filter((fragment) => fragment !== strongGovernanceFragments[0]),
+  ];
+  return [...new Set(selectedFragments)].slice(0, 2).map((quote) => ({
+    quote,
+    source: "resume_profile" as const,
+  }));
 }
 
 interface AdjustmentPromptPayload extends StructuredResumePromptBase {
-  exclusionConditions: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["exclusionConditions"];
-  priorityConditions: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["priorityConditions"];
+  canonicalDimensionFacts?: ParsedDimensionFacts;
+  conditionClauses: { clauses: string[]; conditionId: string }[];
+  exclusionConditions: StructuredResumeWorkflowInput["jobSnapshot"]["publishedConfig"]["exclusionConditions"];
+  preservedJudgments?: AdjustmentAgentOutput["judgments"];
+  priorityConditions: StructuredResumeWorkflowInput["jobSnapshot"]["publishedConfig"]["priorityConditions"];
 }
 
 type StructuredResumePromptPayload =
@@ -465,10 +853,15 @@ const STRUCTURED_RESUME_MISSING_DATA_GUIDANCE = [
 const STRUCTURED_GATE_OUTPUT_EXAMPLE = JSON.stringify({
   judgments: [
     {
-      aiStatus: "failed",
+      aiStatus: "passed",
       evidence: [],
-      experienceEpisodes: [],
-      reason: "简历未提供该门槛的相关证据。",
+      experienceEpisodes: [
+        {
+          evidence: [{ quote: "2022.5-至今", source: "resume_profile" }],
+          id: "work-0",
+        },
+      ],
+      reason: "结构化任职事实满足该经验门槛。",
       requirementId: "requirement-id",
     },
   ],
@@ -476,7 +869,30 @@ const STRUCTURED_GATE_OUTPUT_EXAMPLE = JSON.stringify({
 
 const STRUCTURED_DIMENSION_OUTPUT_EXAMPLE = JSON.stringify({
   employmentEpisodes: [],
-  projects: [],
+  experienceRequirements: [
+    {
+      episodeIds: ["work-0"],
+      evidence: [{ quote: "后端开发工程师", source: "resume_profile" }],
+      missingInputs: [],
+      reason: "该任职属于要求的经验口径。",
+      requirementId: "experience-requirement-id",
+      status: "matched",
+    },
+  ],
+  projects: [
+    {
+      id: "project-0",
+      requirementJudgments: [
+        {
+          evidence: [],
+          missingInputs: [],
+          reason: "项目事实未体现该项岗位要求。",
+          requirementId: "project-expectation-0",
+          status: "not_matched",
+        },
+      ],
+    },
+  ],
   ruleJudgments: [],
   skillFacts: [],
 });
@@ -484,6 +900,14 @@ const STRUCTURED_DIMENSION_OUTPUT_EXAMPLE = JSON.stringify({
 const STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE = JSON.stringify({
   judgments: [
     {
+      clauseJudgments: [
+        {
+          clauseIndex: 0,
+          evidence: [],
+          matched: false,
+          reason: "简历未提供该子条件的证据。",
+        },
+      ],
       conditionId: "condition-id",
       evidence: [],
       matched: false,
@@ -491,6 +915,76 @@ const STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE = JSON.stringify({
     },
   ],
 });
+
+function buildAdjustmentConditionClauses(condition: string): string[] {
+  if (/(?:任一|任意|或者|或|等)/u.test(condition)) {
+    return [condition.trim()];
+  }
+  const clauses = condition
+    .split(/(?:、|，|,|；|;|并且|同时|且)/u)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0);
+  return clauses.length > 0 ? clauses : [condition.trim()];
+}
+
+function validateAdjustmentClauseCoverage(
+  input: StructuredResumeWorkflowInput,
+  output: AdjustmentAgentOutput,
+): void {
+  const conditions = [
+    ...input.jobSnapshot.publishedConfig.priorityConditions,
+    ...input.jobSnapshot.publishedConfig.exclusionConditions,
+  ];
+  const judgmentsById = new Map(
+    output.judgments.map((adjustmentJudgment) => [
+      adjustmentJudgment.conditionId,
+      adjustmentJudgment,
+    ]),
+  );
+  if (
+    judgmentsById.size !== output.judgments.length ||
+    judgmentsById.size !== conditions.length ||
+    conditions.some((condition) => !judgmentsById.has(condition.id))
+  ) {
+    throw new Error(
+      `STRUCTURED_RESUME_ADJUSTMENT_COVERAGE_MISMATCH：预期 ${conditions.length} 项，实际 ${judgmentsById.size} 项`,
+    );
+  }
+  for (const condition of conditions) {
+    const adjustmentResult = judgmentsById.get(condition.id);
+    if (!adjustmentResult) {
+      throw new Error(`STRUCTURED_RESUME_ADJUSTMENT_COVERAGE_MISMATCH：缺少 ${condition.id}`);
+    }
+    const clauses = buildAdjustmentConditionClauses(condition.condition);
+    const clauseIndexes = new Set(
+      adjustmentResult.clauseJudgments.map((clauseJudgment) => clauseJudgment.clauseIndex),
+    );
+    if (
+      clauseIndexes.size !== adjustmentResult.clauseJudgments.length ||
+      clauseIndexes.size !== clauses.length ||
+      [...clauseIndexes].some((clauseIndex) => clauseIndex >= clauses.length)
+    ) {
+      throw new Error(
+        `STRUCTURED_RESUME_ADJUSTMENT_CLAUSE_COVERAGE_MISMATCH：${condition.id} 预期 ${clauses.length} 项，实际 ${clauseIndexes.size} 项`,
+      );
+    }
+  }
+}
+
+function validateSemanticRuleCoverage(output: DimensionAgentOutput): void {
+  const returnedRuleIds = new Set(
+    output.ruleJudgments.map((semanticJudgment) => semanticJudgment.ruleId),
+  );
+  if (
+    returnedRuleIds.size !== output.ruleJudgments.length ||
+    returnedRuleIds.size !== semanticRuleIds.length ||
+    semanticRuleIds.some((ruleId) => !returnedRuleIds.has(ruleId))
+  ) {
+    throw new Error(
+      `STRUCTURED_RESUME_SEMANTIC_RULE_COVERAGE_MISMATCH：预期 ${semanticRuleIds.length} 项，实际 ${returnedRuleIds.size} 项`,
+    );
+  }
+}
 
 const STRUCTURED_NARRATIVE_OUTPUT_EXAMPLE = JSON.stringify({
   dimensionComments: {
@@ -631,6 +1125,34 @@ function validateEvidenceList(
   }
 }
 
+function retainAuditableEvidence(
+  workflowInput: StructuredResumeWorkflowInput,
+  evidence: z.infer<typeof structuredResumeEvidenceSchema>[],
+): z.infer<typeof structuredResumeEvidenceSchema>[] {
+  return evidence.flatMap((item) => {
+    if (
+      areStructuredResumeEvidenceSourcesValid({
+        evidence: [item],
+        resumeProfile: workflowInput.resumeInput.resumeProfile,
+        resumeText: null,
+      })
+    ) {
+      return [item];
+    }
+    const corrected = findAuditableEvidenceCorrection(workflowInput, item, false);
+    return corrected ? [corrected] : [];
+  });
+}
+
+function retainAuditableProfileEvidence(
+  workflowInput: StructuredResumeWorkflowInput,
+  evidence: z.infer<typeof structuredResumeEvidenceSchema>[],
+): z.infer<typeof structuredResumeEvidenceSchema>[] {
+  return evidence.flatMap((item) =>
+    item.source === "resume_profile" ? retainAuditableEvidence(workflowInput, [item]) : [item],
+  );
+}
+
 function parseRequiredExperienceYears(value: string): number | null {
   const match = value.normalize("NFKC").match(/(\d+(?:\.\d+)?)\s*年/u);
   if (!match) {
@@ -640,52 +1162,85 @@ function parseRequiredExperienceYears(value: string): number | null {
   return Number.isFinite(years) && years > 0 ? years : null;
 }
 
-function validateGateAgentOutput(
+function parseAtomicRequiredExperienceYears(value: string): number | null {
+  const normalized = value.normalize("NFKC");
+  const yearThresholds = [...normalized.matchAll(/\d+(?:\.\d+)?\s*年/gu)];
+  const hasTeamSizeRange = /\d+\s*(?:-|~|～|—|–|至|到)\s*\d+\s*人/u.test(normalized);
+  if (yearThresholds.length !== 1 || hasTeamSizeRange) {
+    return null;
+  }
+  return parseRequiredExperienceYears(normalized);
+}
+
+function normalizeGateOutputWithReusableFacts(
   input: StructuredResumeWorkflowInput,
-  output: GateAgentOutput,
-): void {
-  const reusableEpisodes = getReusableScoringFacts(input).employmentEpisodes;
-  for (const gateResult of output.judgments) {
-    if (!gateResult.experienceEpisodes) {
-      continue;
-    }
-    gateResult.experienceEpisodes = gateResult.experienceEpisodes.flatMap((episode) => {
-      const fact = reusableEpisodes.find(
-        (candidate) => episode.id === `work-${candidate.sourceIndex}`,
-      );
-      if (!fact) {
-        return [];
-      }
-      return [
-        {
+  output: GateAgentRawOutput,
+): GateAgentOutput {
+  const reusableEpisodes = new Map(
+    getReusableScoringFacts(input).employmentEpisodes.map((episode) => [
+      `work-${episode.sourceIndex}`,
+      episode,
+    ]),
+  );
+  const normalized = structuredGateOutputSchema.parse({
+    judgments: output.judgments.map((gateResult) => {
+      const evidence = retainAuditableProfileEvidence(input, gateResult.evidence);
+      const experienceEpisodes = gateResult.experienceEpisodes?.map((episode) => {
+        const fact = reusableEpisodes.get(episode.id);
+        if (!fact) {
+          throw new Error(`STRUCTURED_RESUME_UNKNOWN_EXPERIENCE_EPISODE：${episode.id}`);
+        }
+        return {
           ...episode,
           current: fact.currentStatus === "current",
           endMonth: fact.endMonth,
+          evidence: retainAuditableProfileEvidence(input, episode.evidence),
           startMonth: fact.startMonth,
-        },
-      ];
-    });
-  }
+        };
+      });
+      const lostEvidence =
+        evidence.length < gateResult.evidence.length ||
+        (gateResult.experienceEpisodes ?? []).some(
+          (episode, index) =>
+            episode.evidence.length > (experienceEpisodes?.[index]?.evidence.length ?? 0),
+        );
+      const hasEvidence =
+        evidence.length > 0 ||
+        (experienceEpisodes ?? []).some((episode) => episode.evidence.length > 0);
+      return {
+        ...gateResult,
+        aiStatus:
+          gateResult.aiStatus === "passed" && lostEvidence && !hasEvidence
+            ? "failed"
+            : gateResult.aiStatus,
+        evidence,
+        experienceEpisodes,
+        reason:
+          gateResult.aiStatus === "passed" && lostEvidence && !hasEvidence
+            ? "模型引用的证据无法在简历结构化字段中核验，按无证据未通过处理。"
+            : gateResult.reason,
+      };
+    }),
+  });
   validateEvidenceList(
     input,
-    output.judgments.flatMap((gateJudgment) => [
+    normalized.judgments.flatMap((gateJudgment) => [
       ...gateJudgment.evidence,
       ...(gateJudgment.experienceEpisodes ?? []).flatMap((episode) => episode.evidence),
     ]),
   );
-  const outputById = new Map(output.judgments.map((item) => [item.requirementId, item]));
-  const numericExperienceRequirements = [
-    ...input.jobSnapshot.blueprint.hardGateRequirements.flatMap((requirement) => {
+  const outputById = new Map(normalized.judgments.map((item) => [item.requirementId, item]));
+  const numericExperienceRequirements = input.jobSnapshot.blueprint.hardGateRequirements.flatMap(
+    (requirement) => {
       if (
         requirement.category !== "work_experience" ||
-        parseRequiredExperienceYears(requirement.normalizedRequirement) === null
+        parseAtomicRequiredExperienceYears(requirement.normalizedRequirement) === null
       ) {
         return [];
       }
       return [requirement];
-    }),
-    ...(input.jobSnapshot.blueprint.requiredRelevantExperiences ?? []),
-  ];
+    },
+  );
   for (const requirement of numericExperienceRequirements) {
     const result = outputById.get(requirement.requirementId);
     if (!result) {
@@ -696,7 +1251,7 @@ function validateGateAgentOutput(
         reason: "AI 未返回该数值经验要求的有效判断。",
         requirementId: requirement.requirementId,
       };
-      output.judgments.push(synthesized);
+      normalized.judgments.push(synthesized);
       outputById.set(requirement.requirementId, synthesized);
       continue;
     }
@@ -710,62 +1265,242 @@ function validateGateAgentOutput(
       );
     }
   }
+  return structuredGateOutputSchema.parse(normalized);
 }
 
 export function normalizeDimensionOutputWithReusableFacts(
   input: StructuredResumeWorkflowInput,
-  output: DimensionFacts,
-): void {
+  output: DimensionAgentOutput,
+): ParsedDimensionFacts {
   const scoringFacts = getReusableScoringFacts(input);
+  const projectRequirements = buildProjectMatchRequirements(input);
+  const projectRequirementIds = new Set(
+    projectRequirements.map((requirement) => requirement.requirementId),
+  );
+  const experienceRequirementIds = new Set(
+    (input.jobSnapshot.blueprint.requiredRelevantExperiences ?? []).map(
+      (requirement) => requirement.requirementId,
+    ),
+  );
   const employmentById = new Map(output.employmentEpisodes.map((item) => [item.id, item]));
-  output.employmentEpisodes = scoringFacts.employmentEpisodes.map((fact) => {
-    const id = `work-${fact.sourceIndex}`;
-    const employmentJudgment = employmentById.get(id);
-    return {
-      current: fact.currentStatus === "current",
-      endMonth: fact.endMonth,
-      evidence: employmentJudgment?.evidence ?? [],
-      gapExplanation: fact.gapExplanation,
-      id,
-      primaryStatus: fact.primaryStatus,
-      relevance: employmentJudgment?.relevance ?? "insufficient_evidence",
-      relevanceReason:
-        employmentJudgment?.relevanceReason ?? "评分事实存在，但岗位相关性证据不足。",
-      startMonth: fact.startMonth,
-    };
-  });
-
+  const reusableEmploymentIds = new Set(
+    scoringFacts.employmentEpisodes.map((fact) => `work-${fact.sourceIndex}`),
+  );
+  const experienceRequirementsById = new Map(
+    output.experienceRequirements.map((requirement) => [requirement.requirementId, requirement]),
+  );
+  if (
+    experienceRequirementsById.size !== output.experienceRequirements.length ||
+    experienceRequirementsById.size !== experienceRequirementIds.size ||
+    [...experienceRequirementIds].some(
+      (requirementId) => !experienceRequirementsById.has(requirementId),
+    ) ||
+    [...experienceRequirementsById].some(
+      ([requirementId, requirement]) =>
+        !experienceRequirementIds.has(requirementId) ||
+        requirement.episodeIds.some((episodeId) => !reusableEmploymentIds.has(episodeId)),
+    )
+  ) {
+    throw new Error(
+      `STRUCTURED_RESUME_EXPERIENCE_REQUIREMENT_COVERAGE_MISMATCH：预期 ${experienceRequirementIds.size} 项，实际 ${experienceRequirementsById.size} 项`,
+    );
+  }
   const projectFactsById = new Map(
     scoringFacts.projects.map((fact) => [`project-${fact.sourceIndex}`, fact]),
   );
-  output.projects = output.projects.flatMap((project) => {
-    const fact = projectFactsById.get(project.id);
-    if (!fact) {
-      return [];
-    }
-    return [
-      {
-        ...project,
+  const projectJudgmentsById = new Map(output.projects.map((project) => [project.id, project]));
+  if (
+    projectJudgmentsById.size !== output.projects.length ||
+    projectJudgmentsById.size !== projectFactsById.size ||
+    [...projectFactsById.keys()].some((id) => !projectJudgmentsById.has(id)) ||
+    [...projectJudgmentsById.keys()].some((id) => !projectFactsById.has(id))
+  ) {
+    throw new Error(
+      `STRUCTURED_RESUME_PROJECT_COVERAGE_MISMATCH：预期 ${projectFactsById.size} 项，实际 ${projectJudgmentsById.size} 项`,
+    );
+  }
+  return structuredDimensionOutputSchema.parse({
+    employmentEpisodes: scoringFacts.employmentEpisodes.map((fact) => {
+      const id = `work-${fact.sourceIndex}`;
+      const employmentJudgment = employmentById.get(id);
+      return {
         current: fact.currentStatus === "current",
         endMonth: fact.endMonth,
-      },
-    ];
+        evidence: employmentJudgment?.evidence ?? [],
+        gapExplanation: fact.gapExplanation,
+        id,
+        primaryStatus: fact.primaryStatus,
+        relevance: employmentJudgment?.relevance ?? "insufficient_evidence",
+        relevanceReason:
+          employmentJudgment?.relevanceReason ?? "评分事实存在，但岗位相关性证据不足。",
+        startMonth: fact.startMonth,
+      };
+    }),
+    experienceRequirements: output.experienceRequirements.map((requirement) => ({
+      ...requirement,
+      // The selected episode IDs own the deterministic experience calculation. An invalid
+      // supplemental quote should not discard an otherwise complete Dimension judgment.
+      evidence: retainAuditableEvidence(input, requirement.evidence),
+    })),
+    projects: [...projectFactsById].map(([id, fact]) => {
+      const project = projectJudgmentsById.get(id);
+      if (!project) {
+        throw new Error(`STRUCTURED_RESUME_PROJECT_COVERAGE_MISMATCH：缺少 ${id}`);
+      }
+      if ("requirementJudgments" in project) {
+        const normalizedRequirementJudgments = project.requirementJudgments.map(
+          (projectJudgment) => {
+            const requirement = projectRequirements.find(
+              (candidate) => candidate.requirementId === projectJudgment.requirementId,
+            );
+            const deterministicEvidence = requirement
+              ? deterministicTechnicalProjectEvidence(input, id, requirement)
+              : [];
+            return projectJudgment.status !== "matched" && deterministicEvidence.length > 0
+              ? {
+                  ...projectJudgment,
+                  evidence: deterministicEvidence,
+                  missingInputs: [],
+                  reason:
+                    "结构化项目事实同时命中至少两类复杂技术治理证据，按该技术治理要求归一化为命中。",
+                  status: "matched" as const,
+                }
+              : projectJudgment;
+          },
+        );
+        const judgmentsById = new Map(
+          normalizedRequirementJudgments.map((requirementJudgment) => [
+            requirementJudgment.requirementId,
+            requirementJudgment,
+          ]),
+        );
+        if (
+          judgmentsById.size !== normalizedRequirementJudgments.length ||
+          judgmentsById.size !== projectRequirementIds.size ||
+          [...projectRequirementIds].some((requirementId) => !judgmentsById.has(requirementId)) ||
+          [...judgmentsById].some(([requirementId]) => !projectRequirementIds.has(requirementId))
+        ) {
+          throw new Error(
+            `STRUCTURED_RESUME_PROJECT_REQUIREMENT_COVERAGE_MISMATCH：${id} 预期 ${projectRequirementIds.size} 项，实际 ${judgmentsById.size} 项`,
+          );
+        }
+        const matched = normalizedRequirementJudgments.filter(
+          (requirementJudgment) => requirementJudgment.status === "matched",
+        );
+        const unresolved = normalizedRequirementJudgments.filter(
+          (requirementJudgment) => requirementJudgment.status === "insufficient_evidence",
+        );
+        return {
+          current: fact.currentStatus === "current",
+          endMonth: fact.endMonth,
+          evaluatedRequirementIds: normalizedRequirementJudgments.map(
+            (requirementJudgment) => requirementJudgment.requirementId,
+          ),
+          evidence: matched.flatMap((requirementJudgment) => requirementJudgment.evidence),
+          id,
+          matchedRequirementIds: matched.map(
+            (requirementJudgment) => requirementJudgment.requirementId,
+          ),
+          relevant: matched.length > 0,
+          unresolvedRequirementIds: unresolved.map(
+            (requirementJudgment) => requirementJudgment.requirementId,
+          ),
+        };
+      }
+      if (projectRequirementIds.size > 0) {
+        throw new Error(
+          `STRUCTURED_RESUME_PROJECT_REQUIREMENT_COVERAGE_MISMATCH：${id} 未返回逐项要求判断`,
+        );
+      }
+      return {
+        current: fact.currentStatus === "current",
+        endMonth: fact.endMonth,
+        evaluatedRequirementIds: [],
+        evidence: project.evidence,
+        id,
+        matchedRequirementIds: [],
+        relevant: project.relevant,
+        unresolvedRequirementIds: [],
+      };
+    }),
+    ruleJudgments: output.ruleJudgments,
+    skillFacts: output.skillFacts.map((skill) => ({
+      ...skill,
+      evidence: skill.status === "missing" ? [] : skill.evidence,
+    })),
   });
 }
 
-export function judgeStructuredHardGates(
+function sanitizeDimensionProfileEvidence(
+  input: StructuredResumeWorkflowInput,
+  output: DimensionAgentOutput,
+): DimensionAgentOutput {
+  for (const episode of output.employmentEpisodes) {
+    const previousLength = episode.evidence.length;
+    episode.evidence = retainAuditableProfileEvidence(input, episode.evidence);
+    if (episode.evidence.length < previousLength) {
+      episode.relevance = "insufficient_evidence";
+      episode.relevanceReason = "模型引用的相关性证据无法在简历结构化字段中核验。";
+    }
+  }
+  for (const requirement of output.experienceRequirements) {
+    requirement.evidence = retainAuditableProfileEvidence(input, requirement.evidence);
+  }
+  for (const project of output.projects) {
+    if ("requirementJudgments" in project) {
+      for (const requirement of project.requirementJudgments) {
+        const previousLength = requirement.evidence.length;
+        requirement.evidence = retainAuditableProfileEvidence(input, requirement.evidence);
+        if (requirement.status === "matched" && requirement.evidence.length < previousLength) {
+          requirement.status = "insufficient_evidence";
+          requirement.missingInputs = ["需补充可在简历结构化字段中核验的项目证据。"];
+          requirement.reason = "模型引用的项目证据无法在简历结构化字段中核验。";
+        }
+      }
+    } else {
+      const previousLength = project.evidence.length;
+      project.evidence = retainAuditableProfileEvidence(input, project.evidence);
+      if (project.relevant && project.evidence.length < previousLength) {
+        project.relevant = false;
+      }
+    }
+  }
+  for (const ruleJudgment of output.ruleJudgments) {
+    const previousLength = ruleJudgment.evidence.length;
+    ruleJudgment.evidence = retainAuditableProfileEvidence(input, ruleJudgment.evidence);
+    if (ruleJudgment.status === "matched" && ruleJudgment.evidence.length < previousLength) {
+      ruleJudgment.status = "insufficient_evidence";
+      ruleJudgment.missingInputs = ["需补充可在简历结构化字段中核验的规则证据。"];
+      ruleJudgment.reason = "模型引用的规则证据无法在简历结构化字段中核验。";
+    }
+  }
+  for (const skill of output.skillFacts) {
+    const previousLength = skill.evidence.length;
+    skill.evidence = retainAuditableProfileEvidence(input, skill.evidence);
+    if (skill.status !== "missing" && skill.evidence.length < previousLength) {
+      skill.status = "missing";
+      skill.reason = "模型引用的技能证据无法在简历结构化字段中核验。";
+    }
+  }
+  return output;
+}
+
+export async function judgeStructuredHardGates(
   input: StructuredResumeWorkflowInput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
   promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ) {
-  return generate({
+  const gateOwnedRequirements = input.jobSnapshot.blueprint.hardGateRequirements.filter(
+    (requirement) => requirement.category !== "required_skills",
+  );
+  const output = await generate({
     agent: structuredResumeGateAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
     maxOutputTokens: 32_000,
     observabilityLabel: "structured-resume-hard-gates",
     prompt: buildPrompt(
-      "逐项判断冻结门槛，并为每个数值经验评分要求选择已有的结构化经历事实；只返回 passed / failed / needs_verification。",
+      "逐项判断 Gate 负责的冻结门槛；只返回 passed / failed / needs_verification。",
       input,
       [
         "简历没有写明或没有证据支持门槛要求时，判定 failed，不得仅因候选人可能补充信息而判定 needs_verification。",
@@ -773,13 +1508,12 @@ export function judgeStructuredHardGates(
         "门槛写明数值范围时按闭区间精确判断；只出现高于上限或低于下限的证据不得视为命中，例如带过 8 人团队不等于带过 3-6 人团队。",
         "对每个包含明确年限的 work_experience 门槛，必须返回 experienceEpisodes：只能从 resumeProfile.scoringFacts.employmentEpisodes 选择满足该门槛特定口径的已有任职事实；每项只返回 id=work-{sourceIndex} 和 evidence，不得重复日期或状态字段；完全没有相关经历时返回空数组。",
         "上述数值经验要求的每个 judgment 都必须包含 experienceEpisodes 字段；即使判断为 failed 且没有相关经历，也必须显式返回空数组，禁止省略字段。",
-        "对 blueprint.requiredRelevantExperiences 中的每个评分要求，也必须按 requirementId 返回独立判断和 experienceEpisodes；这些要求只用于经验缺年扣分，不会自动成为硬性门槛。",
-        "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
+        "required_skills 由统一技能事实层裁决，requiredRelevantExperiences 由 Dimension 裁决；不要返回这两类判断。",
+        "能力类复合门槛必须逐项检索 projectExperiences：架构设计、分库分表、缓存、消息队列削峰、性能提升、吞吐指标和负责人角色都属于可用证据，不得在这些事实存在时笼统声称简历未提及。",
       ].join("\n"),
       {
         ...structuredResumeContext(input, promptContext),
-        hardGateRequirements: input.jobSnapshot.blueprint.hardGateRequirements,
-        requiredRelevantExperiences: input.jobSnapshot.blueprint.requiredRelevantExperiences,
+        hardGateRequirements: gateOwnedRequirements,
       },
       STRUCTURED_GATE_OUTPUT_EXAMPLE,
     ),
@@ -788,16 +1522,19 @@ export function judgeStructuredHardGates(
     schema: structuredGateAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
-    validate: (output) => validateGateAgentOutput(input, output),
+    validate: (candidate) => {
+      normalizeGateOutputWithReusableFacts(input, candidate);
+    },
   });
+  return normalizeGateOutputWithReusableFacts(input, output);
 }
 
-export function judgeStructuredDimensionEvidence(
+export async function judgeStructuredDimensionEvidence(
   input: StructuredResumeWorkflowInput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
   promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
 ) {
-  return generate({
+  const output = await generate({
     agent: structuredResumeDimensionAgent,
     allowEmptyDefaults: true,
     fallbackToTextGeneration: true,
@@ -812,12 +1549,15 @@ export function judgeStructuredDimensionEvidence(
         enabledRuleIds: Object.entries(input.jobSnapshot.publishedConfig.deductionRules)
           .filter(([, rule]) => rule.enabled)
           .map(([ruleId]) => ruleId),
+        experienceRequirements: input.jobSnapshot.blueprint.requiredRelevantExperiences,
         jobExpectations: {
           auxiliarySkills: input.jobSnapshot.blueprint.auxiliarySkills,
           coreSkills: input.jobSnapshot.blueprint.coreSkills,
           dimensionExpectations: input.jobSnapshot.blueprint.dimensionExpectations,
           educationExpectation: input.jobSnapshot.blueprint.educationExpectation,
         },
+        projectRequirements: buildProjectMatchRequirements(input),
+        requiredSemanticRuleIds: semanticRuleIds,
       },
       STRUCTURED_DIMENSION_OUTPUT_EXAMPLE,
     ),
@@ -826,60 +1566,203 @@ export function judgeStructuredDimensionEvidence(
     schema: structuredDimensionAgentOutputSchema,
     temperature: 0,
     timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
-    validate: (output) => {
-      normalizeDimensionOutputWithReusableFacts(input, output);
+    validate: (candidate) => {
+      const sanitized = sanitizeDimensionProfileEvidence(input, candidate);
+      const normalized = normalizeDimensionOutputWithReusableFacts(input, sanitized);
       validateEvidenceList(input, [
-        ...output.employmentEpisodes.flatMap((episode) => episode.evidence),
-        ...output.projects.flatMap((project) => project.evidence),
-        ...output.ruleJudgments.flatMap((semanticJudgment) => semanticJudgment.evidence),
-        ...output.skillFacts.flatMap((skill) => skill.evidence),
+        ...normalized.employmentEpisodes.flatMap((episode) => episode.evidence),
+        ...normalized.experienceRequirements.flatMap((requirement) => requirement.evidence),
+        ...normalized.projects.flatMap((project) => project.evidence),
+        ...normalized.ruleJudgments.flatMap((semanticJudgment) => semanticJudgment.evidence),
+        ...normalized.skillFacts.flatMap((skill) => skill.evidence),
+        ...sanitized.projects.flatMap((project) =>
+          "requirementJudgments" in project
+            ? project.requirementJudgments.flatMap(
+                (requirementJudgment) => requirementJudgment.evidence,
+              )
+            : [],
+        ),
       ]);
+      validateSemanticRuleCoverage(sanitized);
     },
   });
+  return normalizeDimensionOutputWithReusableFacts(
+    input,
+    sanitizeDimensionProfileEvidence(input, output),
+  );
 }
 
-export function judgeStructuredAdjustments(
+type AdjustmentCondition =
+  StructuredResumeWorkflowInput["jobSnapshot"]["publishedConfig"]["priorityConditions"][number];
+
+function validAdjustmentJudgmentsByCondition(
+  input: StructuredResumeWorkflowInput,
+  conditions: AdjustmentCondition[],
+  output: AdjustmentAgentOutput,
+): Map<string, AdjustmentAgentOutput["judgments"][number]> {
+  const grouped = new Map<string, AdjustmentAgentOutput["judgments"]>();
+  for (const adjustmentJudgment of output.judgments) {
+    const current = grouped.get(adjustmentJudgment.conditionId) ?? [];
+    current.push(adjustmentJudgment);
+    grouped.set(adjustmentJudgment.conditionId, current);
+  }
+  const valid = new Map<string, AdjustmentAgentOutput["judgments"][number]>();
+  for (const condition of conditions) {
+    const candidates = grouped.get(condition.id) ?? [];
+    const [candidate] = candidates;
+    if (!candidate || candidates.length !== 1) {
+      continue;
+    }
+    const expectedClauseCount = buildAdjustmentConditionClauses(condition.condition).length;
+    const clauseIndexes = new Set(
+      candidate.clauseJudgments.map((clauseJudgment) => clauseJudgment.clauseIndex),
+    );
+    if (
+      clauseIndexes.size !== candidate.clauseJudgments.length ||
+      clauseIndexes.size !== expectedClauseCount ||
+      [...clauseIndexes].some((clauseIndex) => clauseIndex >= expectedClauseCount)
+    ) {
+      continue;
+    }
+    try {
+      validateEvidenceList(input, [
+        ...candidate.evidence,
+        ...candidate.clauseJudgments.flatMap((clauseJudgment) => clauseJudgment.evidence),
+      ]);
+      valid.set(condition.id, candidate);
+    } catch {
+      // Evidence-invalid items are repaired together with missing/incomplete conditions.
+    }
+  }
+  return valid;
+}
+
+function createConservativeUnmatchedAdjustmentJudgment(condition: AdjustmentCondition) {
+  return {
+    clauseJudgments: buildAdjustmentConditionClauses(condition.condition).map(
+      (_clause, clauseIndex) => ({
+        clauseIndex,
+        evidence: [],
+        matched: false,
+        reason: "AI 未返回该子条件的有效判断，按无证据未命中处理。",
+      }),
+    ),
+    conditionId: condition.id,
+    evidence: [],
+    matched: false,
+    reason: "AI 修复输出仍不完整，按无证据未命中处理。",
+  };
+}
+
+export async function judgeStructuredAdjustments(
   input: StructuredResumeWorkflowInput,
   gateOutput?: GateAgentOutput,
   generate: StructuredResumeGenerator = generateStructuredWithMastraAgent,
   promptContext: StructuredResumePromptContext = createStructuredResumePromptContext(input),
+  dimensionOutput?: ParsedDimensionFacts,
 ) {
-  const gateContext = gateOutput
-    ? `已完成的硬性门槛判断如下；遇到同义或重叠条件时必须保持事实一致：${JSON.stringify(gateOutput)}`
+  const normalizedDimensionOutput = dimensionOutput
+    ? structuredDimensionOutputSchema.parse(dimensionOutput)
+    : undefined;
+  const canonicalGateOutput =
+    gateOutput && normalizedDimensionOutput
+      ? {
+          // Function declarations are intentionally defined with the deterministic scoring
+          // implementation below; they are initialized before this function can execute.
+          // oxlint-disable-next-line no-use-before-define
+          judgments: buildGateJudgments(
+            input,
+            gateOutput,
+            normalizedDimensionOutput,
+            // oxlint-disable-next-line no-use-before-define
+            deriveStructuredSkillAssessments(input, normalizedDimensionOutput),
+          ),
+        }
+      : gateOutput;
+  const gateContext = canonicalGateOutput
+    ? `已完成的归一化硬性门槛判断如下；遇到同义或重叠条件时必须保持事实一致：${JSON.stringify(canonicalGateOutput)}`
     : "没有可用的硬性门槛判断上下文。";
-  return generate({
-    agent: structuredResumeAdjustmentAgent,
-    allowEmptyDefaults: true,
-    fallbackToTextGeneration: true,
-    observabilityLabel: "structured-resume-adjustments",
-    prompt: buildPrompt(
-      "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",
-      input,
-      [
-        "必须判断完整条件，不得只命中其中一部分。",
-        "逗号、分号、且、并、同时连接的子条件默认按 AND；只有所有 AND 子条件均有明确证据时 matched=true。只有原文明确使用“或”“任一”等表达时才按 OR。",
-        "“等”表示列举项是同类示例而非穷举；有明确证据属于同一类别时，不得仅因名称未逐字列出而判定未命中。",
-        "硬性门槛中的 failed 或 needs_verification 事实，不得在同义或重叠的优先/排除条件中无新证据地改判为已命中。",
-        gateContext,
-      ].join("\n"),
-      {
-        ...structuredResumeContext(input, promptContext),
-        exclusionConditions: input.jobSnapshot.blueprint.exclusionConditions,
-        priorityConditions: input.jobSnapshot.blueprint.priorityConditions,
-      },
-      STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE,
-    ),
-    retryOnInvalid: true,
-    retryOnTransient: true,
-    schema: structuredAdjustmentAgentOutputSchema,
-    temperature: 0,
-    timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
-    validate: (output) =>
-      validateEvidenceList(
+  const allConditions = [
+    ...input.jobSnapshot.publishedConfig.priorityConditions,
+    ...input.jobSnapshot.publishedConfig.exclusionConditions,
+  ];
+  const generateConditions = (
+    conditions: AdjustmentCondition[],
+    preservedJudgments: AdjustmentAgentOutput["judgments"] = [],
+    isRepair = false,
+  ) => {
+    const conditionIds = new Set(conditions.map((condition) => condition.id));
+    return generate({
+      agent: structuredResumeAdjustmentAgent,
+      allowEmptyDefaults: true,
+      fallbackToTextGeneration: !isRepair,
+      observabilityLabel: isRepair
+        ? "structured-resume-adjustments-repair"
+        : "structured-resume-adjustments",
+      prompt: buildPrompt(
+        isRepair
+          ? "只补判下列缺失或无效的优先/排除条件。不得重判或修改 preservedJudgments。"
+          : "逐项判断冻结的优先/排除条件。缺少证据必须 matched=false。",
         input,
-        output.judgments.flatMap((adjustmentJudgment) => adjustmentJudgment.evidence),
+        [
+          "必须判断完整条件，不得只命中其中一部分。",
+          "逗号、分号、且、并、同时连接的子条件默认按 AND；只有所有 AND 子条件均有明确证据时 matched=true。只有原文明确使用“或”“任一”等表达时才按 OR。",
+          "conditionClauses 是代码拆分后的原子条件。每个条件的 clauseJudgments 必须按 clauseIndex 从 0 开始完整覆盖且不得重复；每个子条件独立判断并引用证据。",
+          "完整条件是否命中由代码根据 clauseJudgments 计算：所有子条件 matched=true 且各自有证据时才命中。顶层 matched 仅作解释，不能覆盖未命中的子条件。",
+          "“等”表示列举项是同类示例而非穷举；有明确证据属于同一类别时，不得仅因名称未逐字列出而判定未命中。",
+          "硬性门槛中的 failed 或 needs_verification 事实，不得在同义或重叠的优先/排除条件中无新证据地改判为已命中。",
+          gateContext,
+        ].join("\n"),
+        {
+          ...structuredResumeContext(input, promptContext),
+          canonicalDimensionFacts: normalizedDimensionOutput,
+          conditionClauses: conditions.map((condition) => ({
+            clauses: buildAdjustmentConditionClauses(condition.condition),
+            conditionId: condition.id,
+          })),
+          exclusionConditions: input.jobSnapshot.publishedConfig.exclusionConditions.filter(
+            (condition) => conditionIds.has(condition.id),
+          ),
+          preservedJudgments: isRepair ? preservedJudgments : undefined,
+          priorityConditions: input.jobSnapshot.publishedConfig.priorityConditions.filter(
+            (condition) => conditionIds.has(condition.id),
+          ),
+        },
+        STRUCTURED_ADJUSTMENT_OUTPUT_EXAMPLE,
       ),
+      retryOnInvalid: !isRepair,
+      retryOnTransient: true,
+      schema: structuredAdjustmentAgentOutputSchema,
+      temperature: 0,
+      timeoutMs: STRUCTURED_RESUME_AGENT_TIMEOUT_MS,
+    });
+  };
+
+  const initialOutput = await generateConditions(allConditions);
+  const preservedById = validAdjustmentJudgmentsByCondition(input, allConditions, initialOutput);
+  const repairConditions = allConditions.filter((condition) => !preservedById.has(condition.id));
+  if (repairConditions.length > 0) {
+    const repairOutput = await generateConditions(
+      repairConditions,
+      [...preservedById.values()],
+      true,
+    );
+    const repairedById = validAdjustmentJudgmentsByCondition(input, repairConditions, repairOutput);
+    for (const condition of repairConditions) {
+      const repaired = repairedById.get(condition.id);
+      if (repaired) {
+        preservedById.set(condition.id, repaired);
+      }
+    }
+  }
+  const mergedOutput = structuredAdjustmentAgentOutputSchema.parse({
+    judgments: allConditions.map((condition) => {
+      const adjustmentJudgment = preservedById.get(condition.id);
+      return adjustmentJudgment ?? createConservativeUnmatchedAdjustmentJudgment(condition);
+    }),
   });
+  validateAdjustmentClauseCoverage(input, mergedOutput);
+  return mergedOutput;
 }
 
 function judgment(
@@ -1013,7 +1896,6 @@ function deriveEducationLevelJudgment(
 export function deriveStructuredSkillAssessments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
-  gateOutput?: GateAgentOutput,
 ): StructuredResumeSkillAssessment[] {
   const expectations = new Map<
     string,
@@ -1057,56 +1939,9 @@ export function deriveStructuredSkillAssessments(
       factBySkill.set(key, fact);
     }
   }
-  const gateOutputById = new Map(
-    (gateOutput?.judgments ?? []).map((gateJudgment) => [gateJudgment.requirementId, gateJudgment]),
-  );
-  const requiredSkillGateBySource = new Map(
-    input.jobSnapshot.blueprint.hardGateRequirements
-      .filter((requirement) => requirement.category === "required_skills")
-      .map((requirement) => [normalizedSkill(requirement.sourceText), requirement]),
-  );
   const classified = [...expectations].map(([key, expectation]) => ({
     expectation,
-    fact: (() => {
-      if (
-        expectation.expectationType !== "core" ||
-        expectation.sourceRef.kind !== "hard_gate" ||
-        expectation.sourceRef.path !== "hardGates.requiredSkills"
-      ) {
-        return factBySkill.get(key);
-      }
-      const requirement = requiredSkillGateBySource.get(normalizedSkill(expectation.sourceText));
-      const gateJudgment = requirement ? gateOutputById.get(requirement.requirementId) : undefined;
-      if (!gateJudgment) {
-        return {
-          evidence: [],
-          normalizedSkill: key,
-          reason: requirement
-            ? "硬性门槛模型未返回该必备技能，按未命中处理。"
-            : "已发布蓝图缺少该必备技能对应的原子门槛，按未命中处理。",
-          status: "missing" as const,
-        };
-      }
-      let status: StructuredResumeSkillAssessment["status"];
-      if (gateJudgment.aiStatus === "failed") {
-        status = "missing";
-      } else if (gateJudgment.evidence.length === 0) {
-        status = "insufficient_evidence";
-      } else if (gateJudgment.aiStatus === "needs_verification") {
-        status = "shallow";
-      } else {
-        status = "applied";
-      }
-      return {
-        evidence: gateJudgment.evidence,
-        normalizedSkill: key,
-        reason:
-          status === "insufficient_evidence"
-            ? `硬性门槛判断为通过，但没有可审计的简历证据：${gateJudgment.reason}`
-            : `沿用同一必备技能的门槛判断：${gateJudgment.reason}`,
-        status,
-      };
-    })(),
+    fact: factBySkill.get(key),
   }));
   return classified.map(({ expectation, fact }) => ({
     evidence: fact?.evidence ?? [],
@@ -1306,16 +2141,20 @@ function deriveMissingExperienceYearsJudgment(
   const gateOutputById = new Map(
     (gateOutput?.judgments ?? []).map((item) => [item.requirementId, item]),
   );
+  const canonicalExperienceById = new Map(
+    (facts.experienceRequirements ?? []).map((item) => [item.requirementId, item]),
+  );
+  const employmentById = new Map(facts.employmentEpisodes.map((episode) => [episode.id, episode]));
   const normalizedGateById = new Map(
     gateOutput
       ? // oxlint-disable-next-line no-use-before-define -- the shared gate normalizer is declared below the rule reducer.
-        buildGateJudgments(input, gateOutput).map((item) => [item.requirementId, item])
+        buildBaseGateJudgments(input, gateOutput).map((item) => [item.requirementId, item])
       : [],
   );
   const hardGateRequirements = input.jobSnapshot.blueprint.hardGateRequirements
     .filter((requirement) => requirement.category === "work_experience")
     .flatMap((requirement) => {
-      const years = parseRequiredExperienceYears(requirement.normalizedRequirement);
+      const years = parseAtomicRequiredExperienceYears(requirement.normalizedRequirement);
       return years === null ? [] : [{ requirement, years }];
     })
     .filter(
@@ -1329,9 +2168,18 @@ function deriveMissingExperienceYearsJudgment(
             normalizedExperienceRequirementKey(item.requirement.normalizedRequirement, item.years),
         ) === index,
     )
-    .map((item) => ({ ...item, source: "hard_gate" as const }));
+    .map((item) => ({
+      ...item,
+      relevanceScope: "capability" as const,
+      source: "hard_gate" as const,
+    }));
   const scoringRequirements = (input.jobSnapshot.blueprint.requiredRelevantExperiences ?? []).map(
-    (requirement) => ({ requirement, source: "scoring" as const, years: requirement.years }),
+    (requirement) => ({
+      relevanceScope: requirement.relevanceScope,
+      requirement,
+      source: "scoring" as const,
+      years: requirement.years,
+    }),
   );
   const requirements = [...hardGateRequirements, ...scoringRequirements].filter(
     (item, index, all) =>
@@ -1371,7 +2219,56 @@ function deriveMissingExperienceYearsJudgment(
   let missingYearUnits = 0;
   const reasons: string[] = [];
   const evidence: z.infer<typeof structuredResumeEvidenceSchema>[] = [];
-  for (const { requirement, source, years } of requirements) {
+  for (const { relevanceScope, requirement, source, years } of requirements) {
+    const canonicalExperience =
+      source === "scoring" ? canonicalExperienceById.get(requirement.requirementId) : undefined;
+    if (canonicalExperience) {
+      evidence.push(...canonicalExperience.evidence);
+      if (canonicalExperience.status === "insufficient_evidence") {
+        hasInsufficientEvidence = true;
+        reasons.push(`${requirement.sourceText}：统一事实层仍缺少必要输入`);
+        continue;
+      }
+      if (
+        canonicalExperience.status === "not_matched" ||
+        canonicalExperience.episodeIds.length === 0
+      ) {
+        missingYearUnits += Math.ceil(years);
+        reasons.push(`${requirement.sourceText}：统一事实层未发现相关经历`);
+        continue;
+      }
+      const selectedEpisodes = canonicalExperience.episodeIds.flatMap((episodeId) => {
+        const episode = employmentById.get(episodeId);
+        return episode ? [episode] : [];
+      });
+      if (selectedEpisodes.length !== canonicalExperience.episodeIds.length) {
+        hasInsufficientEvidence = true;
+        reasons.push(`${requirement.sourceText}：统一事实层引用了未知任职事实`);
+        continue;
+      }
+      const relevant = computeRelevantExperience({
+        episodes: selectedEpisodes.map((episode) => ({
+          endMonth:
+            episode.endMonth ??
+            (episode.current ? input.resumeInput.evaluationAsOf.slice(0, 7) : null),
+          relevance: "relevant" as const,
+          startMonth: episode.startMonth,
+        })),
+        profileWorkYears: undefined,
+        relevanceScope,
+        requiredYears: years,
+      });
+      if (relevant.status === "insufficient_evidence") {
+        hasInsufficientEvidence = true;
+        reasons.push(`${requirement.sourceText}：统一事实层的相关经历时间线不完整`);
+        continue;
+      }
+      missingYearUnits += relevant.missingYearUnits;
+      reasons.push(
+        `${requirement.sourceText}：${relevant.missingYearUnits > 0 ? `缺少 ${relevant.missingYearUnits} 年` : "已达到"}`,
+      );
+      continue;
+    }
     const output = gateOutputById.get(requirement.requirementId);
     const linkedQualifiers =
       source === "hard_gate"
@@ -1468,7 +2365,7 @@ export function deriveStructuredRuleJudgments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
   gateOutput?: GateAgentOutput,
-  skillAssessments = deriveStructuredSkillAssessments(input, facts, gateOutput),
+  skillAssessments = deriveStructuredSkillAssessments(input, facts),
 ): StructuredRuleJudgments {
   const judgments: StructuredRuleJudgments = {
     educationBackground: [],
@@ -1491,6 +2388,33 @@ export function deriveStructuredRuleJudgments(
   const projectBenchmark =
     input.jobSnapshot.blueprint.dimensionExpectations.projectMatch.length > 0;
   const hasRelevantProject = facts.projects.some((project) => project.relevant);
+  const temporal = deriveTimelineFacts({
+    employmentEpisodes: facts.employmentEpisodes,
+    evaluationAsOf: input.resumeInput.evaluationAsOf,
+    projects: facts.projects,
+  });
+  const relevantProjectIds = new Set(
+    facts.projects.filter((project) => project.relevant).map((project) => project.id),
+  );
+  const hasCoreRelevantProjectRole = input.resumeInput.resumeProfile.projectExperiences.some(
+    (project, index) =>
+      relevantProjectIds.has(`project-${index}`) &&
+      /(?:负责人|经理|组长|主程|\bPM\b)/iu.test(project.role ?? ""),
+  );
+  const technicalProjectRequirementIds = new Set(
+    buildProjectMatchRequirements(input)
+      .filter((requirement) =>
+        /(?:高并发|大流量|服务拆分|缓存|限流|熔断|数据库优化|性能|技术治理|高可用)/u.test(
+          `${requirement.expectation}${requirement.sourceText}`,
+        ),
+      )
+      .map((requirement) => requirement.requirementId),
+  );
+  const hasMatchedTechnicalProject = facts.projects.some((project) =>
+    (project.matchedRequirementIds ?? []).some((requirementId) =>
+      technicalProjectRequirementIds.has(requirementId),
+    ),
+  );
   for (const ruleId of semanticRuleIds) {
     const item = semanticByRuleId.get(ruleId);
     const { dimension } = STRUCTURED_RESUME_DEDUCTION_CATALOG[ruleId];
@@ -1533,6 +2457,47 @@ export function deriveStructuredRuleJudgments(
         ruleId,
         status: item.status,
       };
+      if (item.status === "not_applicable") {
+        if (
+          ruleId === "experience.fragmented" &&
+          !temporal.hasUnresolvedPrimaryTimeline &&
+          temporal.unexplainedGapMonths.length === 0
+        ) {
+          normalized = judgment(
+            ruleId,
+            "not_matched",
+            "岗位存在相关经验基准；结构化主职时间线完整且没有未解释空档。",
+          );
+        } else if (
+          ruleId === "experience.industry_unrelated" &&
+          facts.employmentEpisodes.length > 0 &&
+          facts.employmentEpisodes.every((episode) => episode.relevance === "relevant")
+        ) {
+          normalized = judgment(
+            ruleId,
+            "not_matched",
+            "岗位存在相关性基准；逐段任职事实均已判定为相关。",
+          );
+        } else if (ruleId === "project.edge_participation" && hasCoreRelevantProjectRole) {
+          normalized = judgment(
+            ruleId,
+            "not_matched",
+            "相关项目中存在负责人、经理、组长、主程或 PM 等核心角色。",
+          );
+        } else if (ruleId === "project.scale_low" && hasMatchedTechnicalProject) {
+          normalized = judgment(
+            ruleId,
+            "not_matched",
+            "至少一个项目已命中复杂技术治理或高并发、高可用要求。",
+          );
+        } else {
+          normalized = judgment(
+            ruleId,
+            "insufficient_evidence",
+            "岗位已存在该规则所需基准，但模型未按基准完成有效判断。",
+          );
+        }
+      }
     } else if (!applicable) {
       normalized = judgment(ruleId, "not_applicable", "岗位蓝图未包含该规则所需的来源基准。");
     }
@@ -1544,11 +2509,6 @@ export function deriveStructuredRuleJudgments(
     deriveMissingExperienceYearsJudgment(input, facts, gateOutput),
   );
 
-  const temporal = deriveTimelineFacts({
-    employmentEpisodes: facts.employmentEpisodes,
-    evaluationAsOf: input.resumeInput.evaluationAsOf,
-    projects: facts.projects,
-  });
   if (temporal.hasUnresolvedPrimaryTimeline) {
     judgments.stability.push(
       judgment(
@@ -1683,7 +2643,7 @@ export function validateStructuredResumeInput(rawInput: StructuredResumeWorkflow
   return input;
 }
 
-function buildGateJudgments(
+function buildBaseGateJudgments(
   input: StructuredResumeWorkflowInput,
   output: GateAgentOutput,
 ): StructuredResumeGateJudgment[] {
@@ -1717,7 +2677,7 @@ function buildGateJudgments(
     }
     const requiredExperienceYears =
       requirement.category === "work_experience"
-        ? parseRequiredExperienceYears(normalizedRequirement)
+        ? parseAtomicRequiredExperienceYears(normalizedRequirement)
         : null;
     if (requiredExperienceYears !== null && result?.experienceEpisodes !== undefined) {
       const experienceEvidence = [
@@ -1793,12 +2753,170 @@ function buildGateJudgments(
         requirementId: requirement.requirementId,
       };
     }
+    const passedReasonAdmitsUnmetClause =
+      result?.aiStatus === "passed" &&
+      /(?:未达(?:到)?|未满足|不满足|不符合|缺少|无证据)/u.test(result.reason) &&
+      !/(?:未发现|不存在|没有)[^。；]{0,12}(?:不满足|不符合)/u.test(result.reason);
+    if (passedReasonAdmitsUnmetClause) {
+      return {
+        aiStatus: "failed",
+        category: requirement.category,
+        evidence: result.evidence,
+        reason: `模型解释明确存在未满足子条件：${result.reason}`,
+        requirementId: requirement.requirementId,
+      };
+    }
     return {
       aiStatus: result?.aiStatus ?? "failed",
       category: requirement.category,
       evidence: result?.evidence ?? [],
       reason: result?.reason ?? "AI 未返回该门槛的有效判断，按简历未命中处理。",
       requirementId: requirement.requirementId,
+    };
+  });
+}
+
+function linkedRequiredSkillAssessments(
+  requirement: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["hardGateRequirements"][number],
+  assessments: StructuredResumeSkillAssessment[],
+): StructuredResumeSkillAssessment[] {
+  if (requirement.category !== "required_skills") {
+    return [];
+  }
+  const requirementText = normalizedSkill(requirement.normalizedRequirement);
+  return assessments.filter((assessment) => {
+    if (assessment.expectationType !== "core") {
+      return false;
+    }
+    const skill = normalizedSkill(assessment.normalizedSkill);
+    const source = normalizedSkill(assessment.sourceText);
+    return (
+      requirementText.includes(skill) || (source.length > 1 && requirementText.includes(source))
+    );
+  });
+}
+
+function expectedRequiredSkillGateStatus(
+  requirement: StructuredResumeWorkflowInput["jobSnapshot"]["blueprint"]["hardGateRequirements"][number],
+  assessments: StructuredResumeSkillAssessment[],
+): StructuredResumeGateJudgment["aiStatus"] | null {
+  const linked = linkedRequiredSkillAssessments(requirement, assessments);
+  if (linked.length === 0) {
+    return null;
+  }
+  const groups = new Map<string, StructuredResumeSkillAssessment[]>();
+  for (const assessment of linked) {
+    const group = groups.get(assessment.requirementGroupId) ?? [];
+    group.push(assessment);
+    groups.set(assessment.requirementGroupId, group);
+  }
+  const groupStatuses = [...groups.values()].map((group) => {
+    const [first] = group;
+    if (!first) {
+      return "needs_verification" as const;
+    }
+    if (first.satisfactionMode === "any") {
+      if (group.some((assessment) => assessment.status === "applied")) {
+        return "passed" as const;
+      }
+      if (
+        group.some(
+          (assessment) =>
+            assessment.status === "shallow" || assessment.status === "insufficient_evidence",
+        )
+      ) {
+        return "needs_verification" as const;
+      }
+      return "failed" as const;
+    }
+    if (group.every((assessment) => assessment.status === "applied")) {
+      return "passed" as const;
+    }
+    if (group.some((assessment) => assessment.status === "missing")) {
+      return "failed" as const;
+    }
+    return "needs_verification" as const;
+  });
+  if (groupStatuses.some((status) => status === "failed")) {
+    return "failed";
+  }
+  return groupStatuses.some((status) => status === "needs_verification")
+    ? "needs_verification"
+    : "passed";
+}
+
+function findVideoProjectEvidence(
+  input: StructuredResumeWorkflowInput,
+): z.infer<typeof structuredResumeEvidenceSchema> | null {
+  const evidencePatterns = [
+    /[^。；\n]{0,20}(?:直播|RTMP|HLS|HTTP-FLV|CDN)[^。；\n]{0,60}/iu,
+    /[^。；\n]{0,20}视频[^。；\n]{0,60}/u,
+  ] as const;
+  for (const pattern of evidencePatterns) {
+    for (const project of input.resumeInput.resumeProfile.projectExperiences) {
+      const values = [project.name, project.role, project.summary, ...project.techStack];
+      for (const value of values) {
+        if (!value) {
+          continue;
+        }
+        const match = value.match(pattern);
+        if (match?.[0]) {
+          return { quote: match[0].trim(), source: "resume_profile" };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function buildGateJudgments(
+  input: StructuredResumeWorkflowInput,
+  output: GateAgentOutput,
+  _facts: DimensionFacts,
+  skillAssessments: StructuredResumeSkillAssessment[],
+): StructuredResumeGateJudgment[] {
+  const requirementById = new Map(
+    input.jobSnapshot.blueprint.hardGateRequirements.map((requirement) => [
+      requirement.requirementId,
+      requirement,
+    ]),
+  );
+  return buildBaseGateJudgments(input, output).map((gateJudgment) => {
+    const requirement = requirementById.get(gateJudgment.requirementId);
+    if (!requirement) {
+      return gateJudgment;
+    }
+    if (requirement.category !== "required_skills") {
+      const videoEvidence = findVideoProjectEvidence(input);
+      if (
+        gateJudgment.aiStatus === "failed" &&
+        videoEvidence &&
+        /(?:视频|内容平台)/u.test(requirement.normalizedRequirement) &&
+        /(?:没有(?:任何)?|无(?:任何)?|完全没有|未提及|未涉及)[^。；]{0,30}(?:视频|内容平台|相关证据)/u.test(
+          gateJudgment.reason,
+        )
+      ) {
+        return {
+          ...gateJudgment,
+          evidence: [...gateJudgment.evidence, videoEvidence],
+          reason:
+            "简历存在视频或直播相关片段，但不足以同时证明该复合门槛要求的内容平台、增长、活动体系及广告或会员商业化落地经验。",
+        };
+      }
+      return gateJudgment;
+    }
+    const linkedAssessments = linkedRequiredSkillAssessments(requirement, skillAssessments);
+    const expectedStatus =
+      expectedRequiredSkillGateStatus(requirement, linkedAssessments) ?? "needs_verification";
+    const canonicalEvidence = linkedAssessments.flatMap((assessment) => assessment.evidence);
+    return {
+      ...gateJudgment,
+      aiStatus: expectedStatus,
+      evidence: canonicalEvidence,
+      reason:
+        linkedAssessments.length > 0
+          ? `由统一技能事实层按 ${linkedAssessments.length} 项冻结技能要求归纳为 ${expectedStatus}。`
+          : "统一技能事实层未找到与该门槛关联的冻结技能要求，需人工核实。",
     };
   });
 }
@@ -1819,14 +2937,31 @@ function buildAdjustmentMatches(
     })),
   ].map(({ condition, kind }) => {
     const result = byId.get(condition.id);
-    const matched = result?.matched === true && (result.evidence.length ?? 0) > 0;
+    const clauses = buildAdjustmentConditionClauses(condition.condition);
+    const clauseByIndex = new Map(
+      result?.clauseJudgments.map((clauseJudgment) => [clauseJudgment.clauseIndex, clauseJudgment]),
+    );
+    const hasCompleteClauseCoverage =
+      clauseByIndex.size === clauses.length &&
+      clauses.every((_, clauseIndex) => clauseByIndex.has(clauseIndex));
+    const matched =
+      hasCompleteClauseCoverage &&
+      clauses.every((_, clauseIndex) => {
+        const clauseJudgment = clauseByIndex.get(clauseIndex);
+        return clauseJudgment?.matched === true && clauseJudgment.evidence.length > 0;
+      });
+    const unmatchedReasons = [...clauseByIndex.values()]
+      .filter((clauseJudgment) => !clauseJudgment.matched)
+      .map((clauseJudgment) => clauseJudgment.reason);
     return {
       conditionId: condition.id,
-      evidence: matched ? (result?.evidence ?? []) : [],
+      evidence: matched
+        ? [...clauseByIndex.values()].flatMap((clauseJudgment) => clauseJudgment.evidence)
+        : [],
       kind,
       matched,
       points: condition.points,
-      reason: result?.reason ?? "简历中没有命中该条件的证据。",
+      reason: unmatchedReasons.join("；") || result?.reason || "简历中没有命中该条件的证据。",
       sourceText: condition.condition,
     };
   });
@@ -1844,10 +2979,14 @@ function validateEvidenceSources(input: {
       (item.experienceEpisodes ?? []).map((episode) => episode.evidence),
     ),
     ...input.dimensionOutput.employmentEpisodes.map((item) => item.evidence),
+    ...(input.dimensionOutput.experienceRequirements ?? []).map((item) => item.evidence),
     ...input.dimensionOutput.projects.map((item) => item.evidence),
     ...input.dimensionOutput.ruleJudgments.map((item) => item.evidence),
     ...input.dimensionOutput.skillFacts.map((item) => item.evidence),
     ...input.adjustmentOutput.judgments.map((item) => item.evidence),
+    ...input.adjustmentOutput.judgments.flatMap((item) =>
+      item.clauseJudgments.map((clauseJudgment) => clauseJudgment.evidence),
+    ),
   ];
   validateEvidenceList(input.workflowInput, evidenceLists.flat(), true);
 }
@@ -1890,12 +3029,26 @@ export function generateStructuredNarrative(
       "dimensionComments 必须覆盖六个维度。每个维度用 1-2 句话，只概括候选人在该维度的整体表现、主要优势和总体短板；不要输出规则名称、规则编号或逐项规则状态，不要枚举未扣分项和证据不足项，也不要重复分数、权重或扣分数值。实际扣分原因由代码单独展示，不要在评语中逐条复述。units=1 时只能表述为一项，不得写成多项、较多或大批缺失；没有 units 时不得自行推断数量。",
       "teamPositioning.suggestion 给出可执行的团队角色或职责方向，rationale 说明简历事实和岗位依据；不得把建议写成候选人已经具备的事实。",
       "levelRecommendation.level 使用“初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家”或岗位已有的 P 级；证据不足时可以返回“待确认”。rationale 说明经验、职责范围、项目复杂度和管理证据；不得仅按工作年限判断。",
+      "candidateFacts.dataPresence 是代码生成的事实存在性标记：hasEducation=true 时禁止声称简历未提供学历；hasProjects=true 时禁止声称简历没有项目。",
+      "candidateFacts.projects.matchedRequirementIds 是统一事实层已经命中的项目要求；不得在任何评语字段中声称这些要求对应的项目、业务或经验缺失、不相关或不匹配。requirement 定义见 candidateFacts.projectRequirements。",
       STRUCTURED_RESUME_MISSING_DATA_GUIDANCE,
       `输出结构示例（仅示意字段和缺失信息的表达方式，不要照抄示例业务内容）：${STRUCTURED_NARRATIVE_OUTPUT_EXAMPLE}`,
       JSON.stringify({
         adjustments: calculation.adjustments,
         candidateFacts: {
+          dataPresence: {
+            hasEducation:
+              (input.workflowInput.resumeInput.resumeProfile.educationExperiences ?? []).length > 0,
+            hasProjects:
+              input.workflowInput.resumeInput.resumeProfile.projectExperiences.length > 0,
+            hasWorkExperiences:
+              input.workflowInput.resumeInput.resumeProfile.workExperiences.length > 0,
+          },
+          educationExperiences:
+            input.workflowInput.resumeInput.resumeProfile.educationExperiences ?? [],
           employmentEpisodes: input.calculationResult.normalizedDimensionOutput.employmentEpisodes,
+          projectExperiences: input.workflowInput.resumeInput.resumeProfile.projectExperiences,
+          projectRequirements: buildProjectMatchRequirements(input.workflowInput),
           projects: input.calculationResult.normalizedDimensionOutput.projects,
           skillAssessments: input.calculationResult.skillAssessments,
         },
@@ -1922,23 +3075,37 @@ export function computeStructuredResumeCalculation(input: {
 }) {
   const { adjustmentOutput, dimensionOutput, gateOutput, workflowInput } = input;
   validateEvidenceSources(input);
+  const completeDimensionOutput = structuredDimensionOutputSchema.parse({
+    ...dimensionOutput,
+    experienceRequirements: dimensionOutput.experienceRequirements ?? [],
+    projects: dimensionOutput.projects.map((project) => ({
+      ...project,
+      evaluatedRequirementIds: project.evaluatedRequirementIds ?? [],
+      matchedRequirementIds: project.matchedRequirementIds ?? [],
+      unresolvedRequirementIds: project.unresolvedRequirementIds ?? [],
+    })),
+  });
   const normalizedDimensionOutput =
     workflowInput.jobSnapshot.blueprint.requiredRelevantExperience?.relevanceScope ===
     "total_employment"
       ? {
-          ...dimensionOutput,
-          employmentEpisodes: dimensionOutput.employmentEpisodes.map((episode) => ({
+          ...completeDimensionOutput,
+          employmentEpisodes: completeDimensionOutput.employmentEpisodes.map((episode) => ({
             ...episode,
             relevance: "relevant" as const,
             relevanceReason: "岗位采用总工作经验口径，代码将已解析任职统一计为相关经验。",
           })),
         }
-      : dimensionOutput;
-  const gateJudgments = buildGateJudgments(workflowInput, gateOutput);
+      : completeDimensionOutput;
   const skillAssessments = deriveStructuredSkillAssessments(
     workflowInput,
     normalizedDimensionOutput,
+  );
+  const gateJudgments = buildGateJudgments(
+    workflowInput,
     gateOutput,
+    normalizedDimensionOutput,
+    skillAssessments,
   );
   const dimensionRuleJudgments = deriveStructuredRuleJudgments(
     workflowInput,
@@ -2048,6 +3215,72 @@ function buildDeterministicNarrativeSummary(input: {
   ].join("");
 }
 
+function reconcileNarrativeFacts(
+  narrative: z.infer<typeof structuredNarrativeAgentOutputSchema>,
+  calculationResult: StructuredResumeCalculation,
+  workflowInput: StructuredResumeWorkflowInput,
+): z.infer<typeof structuredNarrativeAgentOutputSchema> {
+  const educationCount = (workflowInput.resumeInput.resumeProfile.educationExperiences ?? [])
+    .length;
+  const relevantProjectCount = calculationResult.normalizedDimensionOutput.projects.filter(
+    (project) => project.relevant,
+  ).length;
+  const matchedProjectRequirementIds = new Set(
+    calculationResult.normalizedDimensionOutput.projects.flatMap(
+      (project) => project.matchedRequirementIds ?? [],
+    ),
+  );
+  const matchedVideoRequirements = buildProjectMatchRequirements(workflowInput).filter(
+    (requirement) =>
+      matchedProjectRequirementIds.has(requirement.requirementId) &&
+      /(?:视频|内容平台)/u.test(requirement.expectation),
+  );
+  const deniesMatchedVideoRequirement = (value: string) =>
+    matchedVideoRequirements.length > 0 &&
+    /(?:(?:缺少|缺乏|没有|无)[^。；\n]{0,40}(?:视频|内容平台)|(?:视频|内容平台)[^。；\n]{0,30}(?:不匹配|不相关|未匹配))/u.test(
+      value,
+    );
+  const educationBackground =
+    educationCount > 0 &&
+    /(?:未提供|没有|无)\s*(?:任何)?学历/u.test(narrative.dimensionComments.educationBackground)
+      ? `简历包含 ${educationCount} 段教育经历；学历维度以结构化学历事实和岗位要求为准。`
+      : narrative.dimensionComments.educationBackground;
+  let { projectMatch } = narrative.dimensionComments;
+  if (deniesMatchedVideoRequirement(projectMatch)) {
+    projectMatch = `结构化项目事实已命中“${matchedVideoRequirements.map((requirement) => requirement.sourceText).join("、")}”；其他项目要求仍以逐项证据为准。`;
+  } else if (
+    relevantProjectCount > 0 &&
+    /(?:所有项目.*(?:无关|不相关)|没有相关项目|项目匹配度为零)/u.test(projectMatch)
+  ) {
+    projectMatch = `结构化事实中包含 ${relevantProjectCount} 个相关项目；具体匹配程度以项目规则和证据为准。`;
+  }
+  const overallComment = deniesMatchedVideoRequirement(narrative.overallComment)
+    ? "候选人存在与岗位项目要求直接匹配的项目证据；其他适配优势与风险应结合门槛和六维规则继续核实。"
+    : narrative.overallComment;
+  const summary = deniesMatchedVideoRequirement(narrative.summary)
+    ? "候选人存在与岗位项目要求直接匹配的项目证据，具体适配结论以门槛和六维规则为准。"
+    : narrative.summary;
+  const teamPositioningRationale = deniesMatchedVideoRequirement(
+    narrative.teamPositioning.rationale,
+  )
+    ? "候选人已有命中岗位项目要求的结构化项目证据，团队职责边界仍需结合面试进一步确认。"
+    : narrative.teamPositioning.rationale;
+  return {
+    ...narrative,
+    dimensionComments: {
+      ...narrative.dimensionComments,
+      educationBackground,
+      projectMatch,
+    },
+    overallComment,
+    summary,
+    teamPositioning: {
+      ...narrative.teamPositioning,
+      rationale: teamPositioningRationale,
+    },
+  };
+}
+
 export function assembleStructuredResumeEvaluation(input: {
   calculationResult: StructuredResumeCalculation;
   narrative: z.infer<typeof structuredNarrativeAgentOutputSchema>;
@@ -2055,8 +3288,12 @@ export function assembleStructuredResumeEvaluation(input: {
 }) {
   const { calculationResult, narrative, workflowInput } = input;
   const { calculation, dimensionRuleJudgments, normalizedDimensionOutput } = calculationResult;
-  const narrativeSummary = isStructuredNarrativeFactuallyConsistent(narrative.summary, calculation)
-    ? `综合评分${calculation.compositeScore}分，等级为${STRUCTURED_GRADE_LABELS[calculation.grade]}；硬性门槛${STRUCTURED_GATE_LABELS[calculation.gates.effectiveStatus]}。${narrative.summary}`
+  const reconciledNarrative = reconcileNarrativeFacts(narrative, calculationResult, workflowInput);
+  const narrativeSummary = isStructuredNarrativeFactuallyConsistent(
+    reconciledNarrative.summary,
+    calculation,
+  )
+    ? `综合评分${calculation.compositeScore}分，等级为${STRUCTURED_GRADE_LABELS[calculation.grade]}；硬性门槛${STRUCTURED_GATE_LABELS[calculation.gates.effectiveStatus]}。${reconciledNarrative.summary}`
     : buildDeterministicNarrativeSummary({ calculation, workflowInput });
   const required = workflowInput.jobSnapshot.blueprint.requiredRelevantExperience;
   const relevant = required
@@ -2112,7 +3349,7 @@ export function assembleStructuredResumeEvaluation(input: {
     jobConfigHash: computeJobEvaluationPayloadHash(workflowInput.jobSnapshot.publishedConfig),
     jobId: workflowInput.jobSnapshot.jobId,
     narrative: {
-      ...narrative,
+      ...reconciledNarrative,
       recommendation: STRUCTURED_GRADE_LABELS[calculation.grade],
       summary: narrativeSummary,
     },

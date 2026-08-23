@@ -5,7 +5,7 @@ import { IconBriefcase, IconMicrophone, IconUsers } from "@tabler/icons-react";
 // Purpose: Three-persona section, Notion-style colorful cards.
 import type { ComponentType, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
-import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionLead, SectionTitle } from "./section";
 
 interface Persona {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -38,8 +38,7 @@ const personas: Persona[] = [
 export function Personas() {
   return (
     <Section width="wide">
-      <Eyebrow>For Every Role</Eyebrow>
-      <SectionTitle>每个人，看到自己该看的。</SectionTitle>
+      <SectionTitle className="mt-0">每个人，看到自己该看的。</SectionTitle>
       <SectionLead>
         招聘负责人推进流程，用人经理判断能力，候选人专注表达。信息在同一处流动，角色不被混在一起。
       </SectionLead>
@@ -52,7 +51,7 @@ export function Personas() {
               <p className="mt-6 font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">
                 {role}
               </p>
-              <h3 className="mt-2 min-h-[2lh] font-medium text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
+              <h3 className="mt-2 min-h-[2lh] text-balance font-medium text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
                 {title}
               </h3>
               <p className="mt-3 text-foreground/75 text-sm leading-normal dark:text-white/80 sm:text-[15px]">

@@ -145,6 +145,24 @@ describe("simple Mastra generators", () => {
     expect(generate).toHaveBeenCalledTimes(2);
   });
 
+  it("recovers the raw value attached to a provider schema error without another model call", async () => {
+    const providerError = Object.assign(new Error("STRUCTURED_OUTPUT_SCHEMA_VALIDATION_FAILED"), {
+      details: { value: '{"title":"前端工程师"}' },
+    });
+    const generate = vi.fn().mockResolvedValue({ error: providerError, text: "" });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
   it("retries once when the structured provider throws a validation error", async () => {
     const generate = vi
       .fn()

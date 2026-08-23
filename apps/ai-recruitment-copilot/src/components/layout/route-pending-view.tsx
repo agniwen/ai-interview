@@ -1,4 +1,19 @@
-export function RoutePendingView() {
+import { useRouterState } from "@tanstack/react-router";
+import { BackgroundLayersView } from "@/components/features/home/background-layers";
+
+export function RoutePendingContent({ pathname }: { pathname: string }) {
+  if (pathname === "/") {
+    return (
+      <output
+        aria-label="首页正在准备"
+        className="relative isolate block h-screen w-full overflow-hidden bg-background"
+        data-slot="home-route-pending"
+      >
+        <BackgroundLayersView />
+      </output>
+    );
+  }
+
   return (
     <output
       aria-live="polite"
@@ -10,4 +25,10 @@ export function RoutePendingView() {
       <p className="text-muted-foreground text-sm">正在加载</p>
     </output>
   );
+}
+
+export function RoutePendingView() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  return <RoutePendingContent pathname={pathname} />;
 }

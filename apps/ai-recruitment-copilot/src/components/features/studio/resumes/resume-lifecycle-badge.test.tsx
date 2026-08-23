@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ResumeLifecycleBadge } from "./resume-lifecycle-badge";
 
 describe("ResumeLifecycleBadge", () => {
-  it("uses the Klein-blue theme palette for informational lifecycle stages", () => {
+  it("uses the active brand palette for informational lifecycle stages", () => {
     const markup = renderToStaticMarkup(
       <ResumeLifecycleBadge
         detailLabel="1/1 待进场"

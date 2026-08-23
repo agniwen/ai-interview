@@ -146,6 +146,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
+      '@outpacelabs/avatars':
+        specifier: ^0.4.1
+        version: 0.4.1(react@19.2.7)
       '@paper-design/shaders-react':
         specifier: 0.0.77
         version: 0.0.77(@types/react@19.2.17)(react@19.2.7)
@@ -230,9 +233,6 @@ importers:
       ai:
         specifier: 'catalog:'
         version: 6.0.219(zod@4.4.3)
-      avvvatars-react:
-        specifier: ^0.4.2
-        version: 0.4.2(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       better-auth:
         specifier: ^1.6.10
         version: 1.6.11(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.168.27(crossws@0.4.9(srvx@0.11.17))(esbuild@0.28.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.4)(rollup@4.62.2)(vite@8.1.3(@types/node@24.11.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))(drizzle-kit@1.0.0-rc.1)(drizzle-orm@1.0.0-rc.1(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(zod@4.4.3))(next@16.1.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.21.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.15.0(@types/node@24.11.2)(typescript@7.0.2))(vite@8.1.3(@types/node@24.11.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))
@@ -3044,6 +3044,11 @@ packages:
     peerDependenciesMeta:
       '@opentelemetry/api':
         optional: true
+
+  '@outpacelabs/avatars@0.4.1':
+    resolution: {integrity: sha512-22vZeWZBaZWM9eKUU1BRVjhIomevCJG707pnqhggHANFAyOcb6f9pz4zYkliZcS1ZURMcZFOUYs3ywShoy7kEw==}
+    peerDependencies:
+      react: 19.2.7
 
   '@oxc-project/types@0.134.0':
     resolution: {integrity: sha512-T0xuRRKrQFmocH8y+jGfpmSkGcheaJExY9lEihmR1Gm2aH+75B8CzgU2rABRQSzzDxLjZ15Sc0bRVLj5lVeNXQ==}
@@ -13155,6 +13160,10 @@ snapshots:
       type-fest: 5.8.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
+
+  '@outpacelabs/avatars@0.4.1(react@19.2.7)':
+    dependencies:
+      react: 19.2.7
 
   '@oxc-project/types@0.134.0': {}
 

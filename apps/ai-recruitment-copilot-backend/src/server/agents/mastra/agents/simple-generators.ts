@@ -369,6 +369,41 @@ export class StructuredOutputValidationError extends Error {
   }
 }
 
+interface StructuredOutputRecovery<TData> {
+  data?: TData;
+  error?: Error;
+}
+
+const providerStructuredOutputErrorSchema = z
+  .object({ details: z.object({ value: z.string().min(1) }).passthrough() })
+  .passthrough();
+
+function recoverStructuredOutputFromProviderError<TSchema extends z.ZodType>(
+  error: Error,
+  schema: TSchema,
+  allowEmptyDefaults: boolean | undefined,
+  validate: ((value: z.infer<TSchema>) => void) | undefined,
+): StructuredOutputRecovery<z.infer<TSchema>> {
+  const errorDetails = providerStructuredOutputErrorSchema.safeParse(error);
+  if (!errorDetails.success) {
+    return {};
+  }
+  try {
+    const candidate = parseJsonOutput(
+      errorDetails.data.details.value,
+      schema,
+      "structured-provider-error-recovery",
+      { allowEmptyDefaults },
+    );
+    validate?.(candidate);
+    return { data: candidate };
+  } catch (recoveryError) {
+    return {
+      error: recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError)),
+    };
+  }
+}
+
 async function throwAfterTimeout(timeoutMs: number, signal: AbortSignal): Promise<never> {
   await delay(timeoutMs, undefined, { signal });
   const error = new Error(`AI generation timed out after ${timeoutMs}ms`);
@@ -475,6 +510,18 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
       }
+      const recovered = recoverStructuredOutputFromProviderError(
+        lastError,
+        schema,
+        allowEmptyDefaults,
+        validate,
+      );
+      if (recovered.data !== undefined) {
+        return recovered.data;
+      }
+      if (recovered.error) {
+        lastError = recovered.error;
+      }
       lastError = new StructuredOutputValidationError(lastError.message);
       if (retryOnInvalid && attempt + 1 < maxAttempts) {
         attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
@@ -492,6 +539,18 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       }
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
+      }
+      const recovered = recoverStructuredOutputFromProviderError(
+        result.error,
+        schema,
+        allowEmptyDefaults,
+        validate,
+      );
+      if (recovered.data !== undefined) {
+        return recovered.data;
+      }
+      if (recovered.error) {
+        lastError = recovered.error;
       }
       lastError = new StructuredOutputValidationError(lastError.message);
     } else {

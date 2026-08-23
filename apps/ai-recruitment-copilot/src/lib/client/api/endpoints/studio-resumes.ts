@@ -8,7 +8,7 @@
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
@@ -340,17 +340,16 @@ export function fetchResumeDedup(
 }
 
 /**
- * 从招聘台「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
- * 并创建一条默认排期。返回新建轮次的详情，供调用方直接打开面试详情弹窗。
+ * 从招聘台「发起 AI 面试」：创建一条默认排期。候选人定制题仅供真人
+ * 面试官参考，不会写进 AI 面试上下文。
  *
- * Launch an AI interview from a resume library row — writes the questions
- * onto the existing row and creates a default schedule entry. Returns the
+ * Launch an AI interview from a resume library row and create a default
+ * schedule entry. Candidate-specific questions stay out of AI context. Returns the
  * fresh round detail so callers can immediately open the detail dialog.
  */
 export function launchInterviewFromResume(
   slug: string,
   id: string,
-  interviewQuestions: InterviewQuestion[],
   structuredEvaluationConfirmation?: {
     gateStatus: StructuredResumeGateStatus;
     grade: StructuredResumeGrade;
@@ -359,7 +358,7 @@ export function launchInterviewFromResume(
 ): Promise<StudioInterviewRoundDetail> {
   return rpcFetch<StudioInterviewRoundDetail>(
     rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
-      json: { interviewQuestions, structuredEvaluationConfirmation },
+      json: { structuredEvaluationConfirmation },
       param: { id, slug },
     }),
     "发起 AI 面试失败",

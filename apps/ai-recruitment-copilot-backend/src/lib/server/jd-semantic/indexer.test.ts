@@ -28,8 +28,8 @@ const baseDeps = (): JdIndexerDeps => ({
   getConfig: () => config,
   loadSource: vi.fn(() => Promise.resolve(jd)),
   markDeleted: vi.fn(() => Promise.resolve()),
-  markFailed: vi.fn(() => Promise.resolve()),
-  markIndexed: vi.fn(() => Promise.resolve()),
+  markFailed: vi.fn(() => Promise.resolve(true)),
+  markIndexed: vi.fn(() => Promise.resolve(true)),
   readIndexState: vi.fn(() => Promise.resolve(null)),
   vectorStore: {
     deleteResumeEmbeddings: vi.fn(() => Promise.resolve()),

@@ -27,33 +27,39 @@ export default function HomeShell() {
 
   return (
     <>
-      <BackgroundLayers />
-
       <div className="fixed top-4 right-4 z-10">
         <ThemeToggle />
       </div>
 
       <HomeSmoothScroll>
-        <main className="relative flex w-full flex-col items-stretch" id="main-content">
-          {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
-              Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
-          <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
-            <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
+        <main
+          className="relative flex w-full flex-col items-stretch bg-background"
+          id="main-content"
+        >
+          <div className="relative isolate overflow-hidden">
+            <BackgroundLayers fadeToBackground />
+            {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
+                Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
+            <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
+              <Hero onResumeFiltering={onResumeFiltering} onWorkbench={onWorkbench} />
+            </div>
+            <ProductShot />
           </div>
-          <ProductShot />
-          {/* <TrustStrip /> */}
-          <FeatureBlocks />
-          <CapabilityGrid />
-          <Personas />
-          <DecisionPrinciples />
-          <ProcessTabs />
-          <Faq />
-          {/* <CtaSection
-            isPending={isPending}
-            onResumeFiltering={onResumeFiltering}
-            onWorkbench={onWorkbench}
-          /> */}
-          <HomeFooter />
+          <div className="relative bg-background">
+            {/* <TrustStrip /> */}
+            <FeatureBlocks />
+            <CapabilityGrid />
+            <Personas />
+            <DecisionPrinciples />
+            <ProcessTabs />
+            <Faq />
+            {/* <CtaSection
+              isPending={isPending}
+              onResumeFiltering={onResumeFiltering}
+              onWorkbench={onWorkbench}
+            /> */}
+            <HomeFooter />
+          </div>
         </main>
       </HomeSmoothScroll>
     </>

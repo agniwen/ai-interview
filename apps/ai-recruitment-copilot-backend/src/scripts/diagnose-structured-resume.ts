@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
 import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -11,9 +12,18 @@ import { z } from "zod";
 import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
 import type { MastraGeneratorLike } from "../server/agents/mastra/agents/simple-generators";
 import type { StructuredResumeWorkflowLogContext } from "../server/agents/mastra/workflows/structured-resume-review-workflow";
+import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
+import type { ArtifactAudit } from "./diagnose-structured-resume-audit";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
-const DEFAULT_MODEL = "deepseek-v4-flash-0731";
+const DIAGNOSTIC_NON_OCR_MODEL = "deepseek-v4-flash-0731";
+const DIAGNOSTIC_MODEL_ENV_NAMES = [
+  "MASTRA_CHAT_MODEL",
+  "MASTRA_FAST_MODEL",
+  "MASTRA_LONG_CONTEXT_MODEL",
+  "MASTRA_SCORER_MODEL",
+  "MASTRA_STRUCTURED_MODEL",
+] as const;
 const TARGET_CANDIDATE_NAME = "金文辉";
 const TARGET_WORKSPACE_ID = "org_default";
 const TARGET_WORKSPACE_NAME = "极光/幻游";
@@ -36,8 +46,10 @@ interface DiagnosticTarget {
   jobDescriptionName: string | null;
   lifecycleStatus: "draft" | "published" | null;
   resumeContentHash: string | null;
+  resumeFileName: string | null;
   resumeParseStatus: string;
   resumeProfile: ResumeProfile | null;
+  resumeStorageKey: string | null;
   resumeText: string | null;
   structuredConfig: unknown;
 }
@@ -71,8 +83,22 @@ interface WorkflowLogRecord {
   message: string;
 }
 
+interface ParseSummary {
+  configuredProvider: string;
+  contentHashMatchesStored: boolean;
+  fileName: string;
+  fileSizeBytes: number;
+  freshProfileMatchesStored: boolean;
+  freshTextMatchesStored: boolean;
+  pageCount: number;
+  progressEvents: unknown[];
+  textChars: number;
+  textSource: string;
+}
+
 interface DiagnosticReport {
   candidate: { candidateName: string; createdAt: string; resumeId: string };
+  audit?: ArtifactAudit;
   completedAt?: string;
   error?: SerializedError;
   job: { id: string; name: string | null };
@@ -80,7 +106,13 @@ interface DiagnosticReport {
   modelAttempts?: TimedRecord[];
   modelCalls?: TimedRecord[];
   modelPromptContainsFullResumeText?: boolean;
-  models: { actualFastModel: string; actualStructuredModel: string; requested: string };
+  models: {
+    actualFastModel: string;
+    actualStructuredModel: string;
+    ocrModel: string;
+    parseStructuredModel: string;
+  };
+  parse?: ParseSummary;
   result?: object;
   runId: string;
   stages?: TimedRecord[];
@@ -123,6 +155,12 @@ export function parseDiagnosticOptions(argv: string[]): DiagnosticOptions {
     options.resumeId = value.trim();
   }
   return options;
+}
+
+export function forceDiagnosticNonOcrModels(env: Record<string, string | undefined>): void {
+  for (const name of DIAGNOSTIC_MODEL_ENV_NAMES) {
+    env[name] = DIAGNOSTIC_NON_OCR_MODEL;
+  }
 }
 
 function isEligible(row: DiagnosticTarget): boolean {
@@ -195,8 +233,10 @@ async function loadTargets(options: DiagnosticOptions): Promise<DiagnosticTarget
       jobDescriptionName: jobDescription.name,
       lifecycleStatus: jobDescription.lifecycleStatus,
       resumeContentHash: studioInterview.resumeContentHash,
+      resumeFileName: studioInterview.resumeFileName,
       resumeParseStatus: studioInterview.resumeParseStatus,
       resumeProfile: studioInterview.resumeProfile,
+      resumeStorageKey: studioInterview.resumeStorageKey,
       resumeText: studioInterview.resumeText,
       structuredConfig: jobDescription.structuredConfig,
     })
@@ -353,8 +393,8 @@ function recordSyncStage<TInput extends DiagnosticPayload, TOutput extends Diagn
 
 async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
   loadEnv({ path: resolve(REPO_ROOT, "apps/ai-recruitment-copilot/.env"), quiet: true });
-  process.env.MASTRA_STRUCTURED_MODEL = DEFAULT_MODEL;
-  process.env.MASTRA_FAST_MODEL = DEFAULT_MODEL;
+  loadEnv({ path: resolve(REPO_ROOT, "apps/ai-recruitment-copilot-backend/.env"), quiet: true });
+  forceDiagnosticNonOcrModels(process.env);
 
   const rows = await loadTargets(options);
   const target = selectDiagnosticTarget(rows);
@@ -365,146 +405,62 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
       target.jobDescriptionId &&
       target.evaluationBlueprintHash &&
       target.deductionRuleSetVersion &&
-      target.resumeProfile
+      target.resumeFileName &&
+      target.resumeProfile &&
+      target.resumeStorageKey
     )
   ) {
-    throw new Error("所选简历缺少已发布岗位评分快照。");
+    throw new Error("所选简历缺少原始文件或已发布岗位评分快照。");
   }
-  const { resumeProfile } = target;
+  const { resumeFileName } = target;
+  const { resumeStorageKey } = target;
 
-  const [evaluation, workflowModule, generatorModule, modelModule, hashModule] = await Promise.all([
+  const [
+    evaluation,
+    workflowModule,
+    generatorModule,
+    modelModule,
+    hashModule,
+    parsePipeline,
+    parseDependenciesModule,
+    parseProviderModule,
+    resumeAnalysisModule,
+    resumeParserModule,
+    s3Module,
+    fileHashModule,
+  ] = await Promise.all([
     import("../server/agents/structured-resume-evaluation"),
     import("../server/agents/mastra/workflows/structured-resume-review-workflow"),
     import("../server/agents/mastra/agents/simple-generators"),
     import("../server/agents/mastra/models"),
     import("../lib/server/resume-evaluation-input-hash"),
+    import("../lib/server/resume-parse-pipeline"),
+    import("../lib/server/resume-parse-pipeline-dependencies"),
+    import("../lib/server/resume-parse-provider"),
+    import("../server/agents/resume-analysis-agent"),
+    import("../server/agents/resume-parser-agent"),
+    import("../lib/server/s3"),
+    import("@arc/shared/file-hash"),
   ]);
   const actualStructuredModel = modelModule.getMastraModelIdentifier(
     modelModule.mastraModels.structuredModel,
   );
   const actualFastModel = modelModule.getMastraModelIdentifier(modelModule.mastraModels.fastModel);
+  const parseModel = modelModule.mastraModels.structuredModel;
+  const parseStructuredModel = modelModule.getMastraModelIdentifier(parseModel);
+  const { Agent } = await import("@mastra/core/agent");
+  const diagnosticResumeStructuredAgent = new Agent({
+    id: "resume-structured-agent",
+    instructions: "你是简历解析助手，负责把简历原文抽取成严格的候选人结构化档案。",
+    maxRetries: 1,
+    model: modelModule.withThinkingDisabled(parseModel),
+    name: "DiagnosticResumeStructuredAgent",
+  });
   const runId = `diagnostic:${randomUUID()}`;
-  const workflowInput = {
-    engine: {
-      modelId: actualStructuredModel,
-      promptVersion: evaluation.STRUCTURED_RESUME_PROMPT_VERSION,
-      version: evaluation.STRUCTURED_RESUME_ENGINE_VERSION,
-    },
-    jobSnapshot: {
-      blueprint,
-      blueprintHash: target.evaluationBlueprintHash,
-      deductionRuleSetVersion: target.deductionRuleSetVersion,
-      evaluationMode: "structured" as const,
-      jobId: target.jobDescriptionId,
-      publishedConfig,
-    },
-    resumeInput: {
-      evaluationAsOf: new Date().toISOString().slice(0, 10),
-      resumeInputHash: hashModule.computeResumeEvaluationInputHash({
-        resumeContentHash: target.resumeContentHash,
-        resumeProfile,
-        resumeText: target.resumeText,
-      }),
-      resumeProfile,
-      resumeText: target.resumeText,
-      runId,
-    },
-  };
   const modelCalls: TimedRecord[] = [];
   const modelAttempts: TimedRecord[] = [];
   const stages: TimedRecord[] = [];
-  recordSyncStage("validate-structured-input", workflowInput, stages, () => {
-    evaluation.validateStructuredResumeInput(workflowInput);
-    return { validated: true };
-  });
   const workflowLogs: WorkflowLogRecord[] = [];
-  const baseGenerate = generatorModule.generateStructuredWithMastraAgent;
-  const workflow = workflowModule.createStructuredResumeReviewWorkflow({
-    assemble: (input) =>
-      recordSyncStage("assemble-structured-evaluation", input, stages, () =>
-        evaluation.assembleStructuredResumeEvaluation(input),
-      ),
-    compute: (input) =>
-      recordSyncStage("compute-structured-score", input, stages, () =>
-        evaluation.computeStructuredResumeCalculation(input),
-      ),
-    generateNarrative: (input) =>
-      recordAsyncStage("generate-structured-narrative", input, stages, () =>
-        evaluation.generateStructuredNarrative(
-          input,
-          createModelRecorder(
-            "generate-structured-narrative",
-            actualFastModel,
-            modelCalls,
-            modelAttempts,
-            baseGenerate,
-          ),
-        ),
-      ),
-    judgeAdjustments: (input, gateOutput, promptContext) =>
-      recordAsyncStage(
-        "judge-adjustments",
-        { gateOutput, promptContext, workflowInput: input },
-        stages,
-        () =>
-          evaluation.judgeStructuredAdjustments(
-            input,
-            gateOutput,
-            createModelRecorder(
-              "judge-adjustments",
-              actualStructuredModel,
-              modelCalls,
-              modelAttempts,
-              baseGenerate,
-            ),
-            promptContext,
-          ),
-      ),
-    judgeDimensionEvidence: (input, promptContext) =>
-      recordAsyncStage(
-        "judge-dimension-evidence",
-        { promptContext, workflowInput: input },
-        stages,
-        () =>
-          evaluation.judgeStructuredDimensionEvidence(
-            input,
-            createModelRecorder(
-              "judge-dimension-evidence",
-              actualStructuredModel,
-              modelCalls,
-              modelAttempts,
-              baseGenerate,
-            ),
-            promptContext,
-          ),
-      ),
-    judgeHardGates: (input, promptContext) =>
-      recordAsyncStage("judge-hard-gates", { promptContext, workflowInput: input }, stages, () =>
-        evaluation.judgeStructuredHardGates(
-          input,
-          createModelRecorder(
-            "judge-hard-gates",
-            actualStructuredModel,
-            modelCalls,
-            modelAttempts,
-            baseGenerate,
-          ),
-          promptContext,
-        ),
-      ),
-    logger: {
-      error: (message, context) => {
-        workflowLogs.push(snapshot({ context, level: "error", message }));
-        console.error(message, context.step, context.durationMs ?? "");
-      },
-      info: (message, context) => {
-        workflowLogs.push(snapshot({ context, level: "info", message }));
-        console.log(message, context.step, context.durationMs ?? "");
-      },
-    },
-    validate: evaluation.validateStructuredResumeInput,
-  });
-
   const outputPath = defaultOutputPath(options.candidateName);
   const startedAt = performance.now();
   const report: DiagnosticReport = {
@@ -518,20 +474,264 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     models: {
       actualFastModel,
       actualStructuredModel,
-      requested: DEFAULT_MODEL,
+      ocrModel: process.env.QWEN_OCR_MODEL?.trim() || "unconfigured",
+      parseStructuredModel,
     },
     runId,
     startedAt: new Date().toISOString(),
     targetMatchCount: rows.length,
-    workflowInput: snapshot(workflowInput),
+    workflowInput: { status: "pending-fresh-parse" },
     workspace: { id: TARGET_WORKSPACE_ID, name: TARGET_WORKSPACE_NAME },
   };
   console.log(
-    `开始诊断：${target.candidateName} / ${target.jobDescriptionName} / ${actualStructuredModel}`,
+    `开始诊断：${target.candidateName} / ${target.jobDescriptionName} / parse=${parseStructuredModel} / score=${actualStructuredModel}`,
   );
+  let freshResumeText: string | null = null;
   try {
+    const downloadRecord: TimedRecord = {
+      input: { storageKey: resumeStorageKey },
+      stage: "download-resume-object",
+      startedAt: new Date().toISOString(),
+    };
+    stages.push(downloadRecord);
+    const downloadStartedAt = performance.now();
+    let resumeBytes: Uint8Array;
+    let mediaType = "application/octet-stream";
+    try {
+      const object = await s3Module.getObjectStream(resumeStorageKey);
+      if (!object) {
+        throw new Error("原始简历对象不存在。");
+      }
+      resumeBytes = new Uint8Array(await new Response(object.body).arrayBuffer());
+      mediaType = object.contentType ?? mediaType;
+      downloadRecord.output = {
+        contentLength: object.contentLength ?? resumeBytes.byteLength,
+        contentType: mediaType,
+      };
+    } catch (error) {
+      downloadRecord.error = serializeError(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      throw error;
+    } finally {
+      downloadRecord.completedAt = new Date().toISOString();
+      downloadRecord.durationMs = Math.round(performance.now() - downloadStartedAt);
+    }
+
+    const hashResult = await recordAsyncStage(
+      "hash-resume",
+      { fileName: resumeFileName, fileSizeBytes: resumeBytes.byteLength },
+      stages,
+      async () => ({ contentHash: await fileHashModule.sha256HexOfBytes(resumeBytes) }),
+    );
+    const parseProgressEvents: unknown[] = [];
+    let ocrPage = 0;
+    const baseGenerate = generatorModule.generateStructuredWithMastraAgent;
+    const baseParseDependencies = parseDependenciesModule.defaultResumeParsePipelineDependencies;
+    const parseDependencies = {
+      ...baseParseDependencies,
+      generateStructuredWithMastraAgent: createModelRecorder(
+        "structure-resume-model",
+        parseStructuredModel,
+        modelCalls,
+        modelAttempts,
+        baseGenerate,
+      ),
+      qwenVlOcr: (imageBytes: Buffer, imageMediaType?: string) => {
+        ocrPage += 1;
+        return recordAsyncStage(
+          `ocr-page-${ocrPage}`,
+          {
+            imageBytes: imageBytes.byteLength,
+            mediaType: imageMediaType ?? "image/png",
+            page: ocrPage,
+          },
+          stages,
+          () => baseParseDependencies.qwenVlOcr(imageBytes, imageMediaType),
+        );
+      },
+      resumeStructuredAgent: diagnosticResumeStructuredAgent,
+    };
+    const parsedDocument = await recordAsyncStage(
+      "extract-resume-document",
+      {
+        configuredProvider: parseProviderModule.getResumeParseProvider(),
+        fileName: resumeFileName,
+        fileSizeBytes: resumeBytes.byteLength,
+        mediaType,
+      },
+      stages,
+      () =>
+        parsePipeline.parseResumeDocument(
+          {
+            bytes: resumeBytes,
+            fileName: resumeFileName,
+            mediaType,
+            onProgress: (event) => parseProgressEvents.push(snapshot(event)),
+          },
+          parseDependencies,
+        ),
+    );
+    const parsedStructured =
+      "structured" in parsedDocument
+        ? recordSyncStage(
+            "structure-resume-provider-output",
+            { textSource: parsedDocument.textSource },
+            stages,
+            () => parsedDocument.structured,
+          )
+        : await recordAsyncStage("structure-resume", { text: parsedDocument.text }, stages, () =>
+            parsePipeline.generateResumeStructured(parsedDocument.text, parseDependencies),
+          );
+    const freshResumeProfile = recordSyncStage(
+      "normalize-resume-profile",
+      parsedStructured,
+      stages,
+      () =>
+        resumeAnalysisModule.normalizeResumeProfile(
+          resumeParserModule.toResumeProfile(parsedStructured),
+        ),
+    );
+    freshResumeText = parsedDocument.text;
+    report.parse = {
+      configuredProvider: parseProviderModule.getResumeParseProvider(),
+      contentHashMatchesStored: hashResult.contentHash === target.resumeContentHash,
+      fileName: resumeFileName,
+      fileSizeBytes: resumeBytes.byteLength,
+      freshProfileMatchesStored: isDeepStrictEqual(freshResumeProfile, target.resumeProfile),
+      freshTextMatchesStored: freshResumeText === target.resumeText,
+      pageCount: parsedDocument.pageCount,
+      progressEvents: parseProgressEvents,
+      textChars: freshResumeText.length,
+      textSource: parsedDocument.textSource,
+    };
+
+    const resumeInputHash = hashModule.computeResumeEvaluationInputHash({
+      resumeContentHash: hashResult.contentHash,
+      resumeProfile: freshResumeProfile,
+      resumeText: freshResumeText,
+    });
+    const workflowInput = {
+      engine: {
+        modelId: actualStructuredModel,
+        promptVersion: evaluation.STRUCTURED_RESUME_PROMPT_VERSION,
+        version: evaluation.STRUCTURED_RESUME_ENGINE_VERSION,
+      },
+      jobSnapshot: {
+        blueprint,
+        blueprintHash: target.evaluationBlueprintHash,
+        deductionRuleSetVersion: target.deductionRuleSetVersion,
+        evaluationMode: "structured" as const,
+        jobId: target.jobDescriptionId,
+        publishedConfig,
+      },
+      resumeInput: {
+        evaluationAsOf: new Date().toISOString().slice(0, 10),
+        resumeInputHash,
+        resumeProfile: freshResumeProfile,
+        resumeText: freshResumeText,
+        runId,
+      },
+    };
+    report.workflowInput = snapshot(workflowInput);
+    recordSyncStage("validate-structured-input", workflowInput, stages, () => {
+      evaluation.validateStructuredResumeInput(workflowInput);
+      return { validated: true };
+    });
+    const workflow = workflowModule.createStructuredResumeReviewWorkflow({
+      assemble: (input) =>
+        recordSyncStage("assemble-structured-evaluation", input, stages, () =>
+          evaluation.assembleStructuredResumeEvaluation(input),
+        ),
+      compute: (input) =>
+        recordSyncStage("compute-structured-score", input, stages, () =>
+          evaluation.computeStructuredResumeCalculation(input),
+        ),
+      generateNarrative: (input) =>
+        recordAsyncStage("generate-structured-narrative", input, stages, () =>
+          evaluation.generateStructuredNarrative(
+            input,
+            createModelRecorder(
+              "generate-structured-narrative",
+              actualFastModel,
+              modelCalls,
+              modelAttempts,
+              baseGenerate,
+            ),
+          ),
+        ),
+      judgeAdjustments: (input, gateOutput, promptContext, dimensionOutput) =>
+        recordAsyncStage(
+          "judge-adjustments",
+          { dimensionOutput, gateOutput, promptContext, workflowInput: input },
+          stages,
+          () =>
+            evaluation.judgeStructuredAdjustments(
+              input,
+              gateOutput,
+              createModelRecorder(
+                "judge-adjustments",
+                actualStructuredModel,
+                modelCalls,
+                modelAttempts,
+                baseGenerate,
+              ),
+              promptContext,
+              dimensionOutput,
+            ),
+        ),
+      judgeDimensionEvidence: (input, promptContext) =>
+        recordAsyncStage(
+          "judge-dimension-evidence",
+          { promptContext, workflowInput: input },
+          stages,
+          () =>
+            evaluation.judgeStructuredDimensionEvidence(
+              input,
+              createModelRecorder(
+                "judge-dimension-evidence",
+                actualStructuredModel,
+                modelCalls,
+                modelAttempts,
+                baseGenerate,
+              ),
+              promptContext,
+            ),
+        ),
+      judgeHardGates: (input, promptContext) =>
+        recordAsyncStage("judge-hard-gates", { promptContext, workflowInput: input }, stages, () =>
+          evaluation.judgeStructuredHardGates(
+            input,
+            createModelRecorder(
+              "judge-hard-gates",
+              actualStructuredModel,
+              modelCalls,
+              modelAttempts,
+              baseGenerate,
+            ),
+            promptContext,
+          ),
+        ),
+      logger: {
+        error: (message, context) => {
+          workflowLogs.push(snapshot({ context, level: "error", message }));
+          console.error(message, context.step, context.durationMs ?? "");
+        },
+        info: (message, context) => {
+          workflowLogs.push(snapshot({ context, level: "info", message }));
+          console.log(message, context.step, context.durationMs ?? "");
+        },
+      },
+      validate: evaluation.validateStructuredResumeInput,
+    });
     const result = await workflowModule.runStructuredResumeReviewWorkflow(workflowInput, workflow);
     report.result = snapshot(result);
+    report.audit = auditStructuredArtifact(result, {
+      expectedBlueprintHash: target.evaluationBlueprintHash,
+      expectedInputHash: resumeInputHash,
+      resumeProfile: freshResumeProfile,
+      resumeText: freshResumeText,
+    });
   } catch (error) {
     report.error = serializeError(error instanceof Error ? error : new Error(String(error)));
     throw error;
@@ -543,10 +743,13 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
     report.stages = stages;
     report.workflowLogs = workflowLogs;
     report.modelPromptContainsFullResumeText = Boolean(
-      target.resumeText &&
+      freshResumeText &&
       modelCalls.some((record) => {
+        if (record.stage === "structure-resume-model") {
+          return false;
+        }
         const parsed = modelCallInputSchema.safeParse(record.input);
-        return parsed.success && parsed.data.prompt.includes(target.resumeText ?? "");
+        return parsed.success && parsed.data.prompt.includes(freshResumeText ?? "");
       }),
     );
     await mkdir(dirname(outputPath), { recursive: true });

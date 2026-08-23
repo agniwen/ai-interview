@@ -42,9 +42,9 @@ describe("Hero", () => {
     const buttons = container.querySelectorAll("button");
 
     expect(heading?.className).toContain("dark:text-white");
-    expect(brand?.className).toContain("dark:text-blue-100");
+    expect(brand?.className).toContain("dark:text-chart-4");
     expect(eyebrow?.className).toContain("dark:bg-primary/25!");
-    expect(eyebrow?.className).toContain("dark:text-blue-100!");
+    expect(eyebrow?.className).toContain("dark:text-chart-4!");
     expect(description?.className).toContain("dark:text-white/80");
     expect(heading?.textContent).toContain("更快看清。谁更合适。");
     expect(description?.textContent).toContain("AI 帮你筛简历、问重点、整理证据");

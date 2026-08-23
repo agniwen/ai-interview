@@ -406,7 +406,13 @@ function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }
   const displayName = uploaderUserLabel(record);
   return (
     <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
-      <Avatar className="size-4" size="default">
+      <Avatar
+        className="size-4"
+        generatedSize={16}
+        label={`${displayName}的头像`}
+        seed={`uploader:${record.uploaderEmail || record.uploaderName || record.id}`}
+        size="default"
+      >
         {record.uploaderImage ? <AvatarImage alt={displayName} src={record.uploaderImage} /> : null}
         <AvatarFallback className="text-[8px]">
           {getMemberInitials(record.uploaderName, record.uploaderEmail)}

@@ -105,7 +105,12 @@ function MemberList({ data }: { data: OrgDetail }) {
       {members.records.map((m) => (
         <Card className="gap-0 rounded-lg py-0" key={m.id}>
           <CardContent className="flex items-center gap-3 p-3">
-            <Avatar className="size-9">
+            <Avatar
+              className="size-9"
+              generatedSize={36}
+              label={`${m.userName}的头像`}
+              seed={`member:${m.userEmail || m.id}`}
+            >
               <AvatarImage alt={m.userName} src={m.userImage ?? undefined} />
               <AvatarFallback>{getInitials(m.userName, m.userEmail)}</AvatarFallback>
             </Avatar>

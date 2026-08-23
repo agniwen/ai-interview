@@ -32,30 +32,39 @@ function compositeHex(foreground: string, background: string, alpha: number) {
   return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
-describe("dark theme palette", () => {
-  it("uses a lighter Klein blue as the light-mode action color", () => {
+describe("theme palette", () => {
+  it("uses forest green only for light-mode brand tokens", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/ai-recruitment-copilot/src/styles/globals.css"),
       "utf-8",
     );
     const lightTheme = globalStyles.match(/:root \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
 
-    expect(lightTheme).toContain("--primary: #1d4ed8");
+    expect(lightTheme).toContain("--primary: #2d6a4f");
     expect(lightTheme).toContain("--primary-foreground: #ffffff");
-    expect(lightTheme).toContain("--ring: #3b68e4");
-    expect(lightTheme).toContain("--chart-1: #1d4ed8");
+    expect(lightTheme).toContain("--ring: #2d7a59");
+    expect(lightTheme).toContain("--chart-1: #2d6a4f");
+    expect(lightTheme).toContain("--secondary: #f5f5f5");
+    expect(lightTheme).toContain("--muted: #f5f5f5");
+    expect(lightTheme).toContain("--accent: #f5f5f5");
+    expect(lightTheme).toContain("--border: #eeeeed");
+    expect(lightTheme).toContain("--sidebar: #f7f7f7");
+    expect(lightTheme).toContain("--sidebar-primary: oklch(0.3 0 0)");
+    expect(lightTheme).toContain("--sidebar-ring: oklch(0.55 0 0)");
   });
 
-  it("uses Klein blue and its paired blues for dark-mode brand colors", () => {
+  it("keeps the original Klein-blue dark theme", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/ai-recruitment-copilot/src/styles/globals.css"),
       "utf-8",
     );
     const darkTheme = globalStyles.match(/\.dark \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
 
+    expect(darkTheme).toContain("--background: oklch(0.215 0.018 254)");
     expect(darkTheme).toContain("--primary: #1d4ed8");
     expect(darkTheme).toContain("--primary-foreground: #ffffff");
     expect(darkTheme).toContain("--ring: #4f70d2");
+    expect(darkTheme).toContain("--sidebar: #0e151e");
     expect(darkTheme).toContain("--sidebar-primary: #1d4ed8");
     expect(darkTheme).toContain("--sidebar-primary-foreground: #ffffff");
     expect(darkTheme).toContain("--sidebar-ring: #4f70d2");
@@ -66,10 +75,59 @@ describe("dark theme palette", () => {
     expect(darkTheme).toContain("--chart-5: #7da1f3");
   });
 
+  it("keeps the shared radar green in light mode and blue in dark mode", () => {
+    const radarSource = readFileSync(
+      path.join(repoRoot, "apps/ai-recruitment-copilot/src/components/ui/chart-radar.tsx"),
+      "utf-8",
+    );
+
+    expect(radarSource).toContain('dark: "#7699ef"');
+    expect(radarSource).toContain('light: "#2d6a4f"');
+  });
+
+  it("uses the warm pipeline palette in both the real chart and homepage mock", () => {
+    const globalStyles = readFileSync(
+      path.join(repoRoot, "apps/ai-recruitment-copilot/src/styles/globals.css"),
+      "utf-8",
+    );
+    const realChart = readFileSync(
+      path.join(
+        repoRoot,
+        "apps/ai-recruitment-copilot/src/components/features/studio/resumes/resume-library-charts.tsx",
+      ),
+      "utf-8",
+    );
+    const homepageMock = readFileSync(
+      path.join(
+        repoRoot,
+        "apps/ai-recruitment-copilot/src/components/features/home/screens/resumes-screen.tsx",
+      ),
+      "utf-8",
+    );
+    const lightTheme = globalStyles.match(/:root \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
+    const darkTheme = globalStyles.match(/\.dark \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
+    const pipelineColors = [
+      ["screening", "#c6b4a2"],
+      ["ai-interview", "#d6c2b1"],
+      ["human-interview", "#decdbc"],
+      ["offer", "#ded4c2"],
+      ["closed-hired", "#8dc096"],
+      ["closed-rejected", "#dc8ebb"],
+    ] as const;
+
+    for (const [token, lightColor] of pipelineColors) {
+      expect(lightTheme).toContain(`--pipeline-${token}: ${lightColor}`);
+      expect(darkTheme).toContain(`--pipeline-${token}: color-mix(in oklch, ${lightColor}`);
+      expect(realChart).toContain(`var(--pipeline-${token})`);
+      expect(homepageMock).toContain(`var(--pipeline-${token})`);
+    }
+  });
+
   it("keeps branded controls and chart labels legible", () => {
     const charts = ["#7699ef", "#86a9f4", "#9ebaf6", "#c7d8fa", "#7da1f3"];
     const chartForeground = "#07173e";
 
+    expect(contrastRatio("#2d6a4f", "#ffffff")).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio("#1d4ed8", "#ffffff")).toBeGreaterThanOrEqual(4.5);
     for (const chart of charts) {
       expect(contrastRatio(chart, chartForeground)).toBeGreaterThanOrEqual(4.5);
@@ -86,9 +144,9 @@ describe("dark theme palette", () => {
     );
 
     expect(globalStyles).toContain(
-      ".dark body {\n    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent)",
+      "-webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent)",
     );
-    expect(globalStyles).toContain("-webkit-tap-highlight-color: rgb(29 78 216 / 0.14)");
+    expect(globalStyles).toContain("background: color-mix(in oklab, var(--primary) 22%, white)");
     expect(globalStyles).toContain(".dark ::selection");
   });
 });

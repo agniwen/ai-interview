@@ -240,7 +240,11 @@ export function ImportResumePoolDialog({
                             <TimeDisplay as="span" value={record.importedAt} />
                           </span>
                           <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs font-normal">
-                            <Avatar size="sm">
+                            <Avatar
+                              label={`${creatorName}的头像`}
+                              seed={`creator:${record.creatorName || record.resumeRecordId}`}
+                              size="sm"
+                            >
                               {record.creatorImage ? (
                                 <AvatarImage alt={creatorName} src={record.creatorImage} />
                               ) : null}

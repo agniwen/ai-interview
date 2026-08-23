@@ -1,42 +1,42 @@
 import {
-  IconArrowsSort,
   IconBriefcase,
   IconChevronDown,
   IconDots,
   IconEdit,
   IconFileText,
   IconFilterX,
+  IconInfoCircle,
   IconPlus,
   IconRefresh,
   IconSearch,
   IconSparkles,
   IconUpload,
 } from "@tabler/icons-react";
-import Avvvatars from "avvvatars-react";
 // 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
-// - PageHeader: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
+// - PageHeader: <h1 class="text-2xl"> + view switch / refresh actions
 // - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
 // - ResumeLibraryCardList: Toolbar + 当前候选人卡片结构
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardPanel,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
 const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘台" }];
-
-// ─────────────────── shared mini Card ───────────────────
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={`flex flex-col gap-0 overflow-hidden rounded-2xl border border-input bg-card py-0 ${className ?? ""}`}
-    >
-      {children}
-    </div>
-  );
-}
 
 interface MetricItem {
   label: string;
@@ -50,19 +50,24 @@ function ChartCardShell({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   metrics: [MetricItem, MetricItem];
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <div className="grid border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
-        <div className="min-w-0 p-4 sm:p-5">
-          <div className="truncate font-semibold text-base leading-none">{title}</div>
-          <div className="mt-1 truncate text-muted-foreground text-xs">{description}</div>
-        </div>
+    <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
+      <div className="grid border-b sm:h-22 sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
+        <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
+          <CardTitle className="truncate text-base">{title}</CardTitle>
+          {description ? (
+            <CardDescription className="truncate">{description}</CardDescription>
+          ) : null}
+        </CardHeader>
         {metrics.map((metric) => (
-          <div className="border-l px-5 py-3" key={metric.label}>
+          <div
+            className="flex flex-col justify-center border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5"
+            key={metric.label}
+          >
             <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
             <div className="mt-1 font-mono font-semibold text-2xl leading-none tabular-nums">
               {metric.value}
@@ -70,7 +75,7 @@ function ChartCardShell({
           </div>
         ))}
       </div>
-      <div className="p-4">{children}</div>
+      <CardContent className="p-4">{children}</CardContent>
     </Card>
   );
 }
@@ -106,12 +111,12 @@ const PIPELINE_COUNT = {
   screening: 28,
 } satisfies Record<(typeof PIPELINE_ORDER)[number], number>;
 const PIPELINE_COLOR = {
-  ai_interview: "color-mix(in oklch, var(--chart-2) 40%, var(--background))",
-  closed_hired: "oklch(0.76 0.08 150)",
-  closed_rejected: "oklch(0.74 0.11 345)",
-  human_interview: "color-mix(in oklch, var(--chart-3) 42%, var(--background))",
-  offer: "color-mix(in oklch, var(--chart-4) 52%, var(--background))",
-  screening: "color-mix(in oklch, var(--chart-1) 42%, var(--background))",
+  ai_interview: "var(--pipeline-ai-interview)",
+  closed_hired: "var(--pipeline-closed-hired)",
+  closed_rejected: "var(--pipeline-closed-rejected)",
+  human_interview: "var(--pipeline-human-interview)",
+  offer: "var(--pipeline-offer)",
+  screening: "var(--pipeline-screening)",
 } satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
 
 function StatusCard() {
@@ -198,7 +203,6 @@ const CALENDAR_LEVELS = Array.from({ length: 27 * 7 }, (_, index) => {
 function DailyAddedCard() {
   return (
     <ChartCardShell
-      description="近一年每日入库热力，悬停可看各成员上传量"
       metrics={[
         { label: "一年新增", value: "188" },
         { label: "单日峰值", value: "12" },
@@ -338,43 +342,49 @@ function ChartsRow() {
 }
 
 // ─────────────────── PageHeader ───────────────────
-function PageHeader({ title, description }: { title: string; description: string }) {
-  // 对齐 components/features/studio/page-header.tsx: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
+function PageHeader({ title }: { title: string }) {
   return (
-    <header className="flex flex-col gap-2">
-      <h1 className="text-2xl">{title}</h1>
-      <p className="text-muted-foreground text-sm">{description}</p>
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0 w-full">
+        <h1 className="min-w-0 text-2xl tracking-tight">{title}</h1>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button className="opacity-80" size="xs" type="button" variant="ghost">
+          切换个人维度
+        </Button>
+        <Button aria-label="刷新招聘指标" size="icon-xs" type="button" variant="ghost">
+          <IconRefresh />
+        </Button>
+      </div>
     </header>
   );
 }
 
 // ─────────────────── Pipeline stage tabs ───────────────────
 const PIPELINE_TABS = [
-  { active: true, helper: "全部候选人", label: "全部" },
-  { active: false, helper: "简历筛选中", label: "简历筛选" },
-  { active: false, helper: "AI 面试阶段", label: "AI 面试" },
-  { active: false, helper: "等候真人复面", label: "真人复面" },
-  { active: false, helper: "Offer 协商中", label: "Offer" },
-  { active: false, helper: "已结案候选人", label: "已结案" },
-];
+  { label: "全部", value: "all" },
+  { label: "简历筛选", value: "screening" },
+  { label: "AI 面试", value: "ai_interview" },
+  { label: "真人复面", value: "human_interview" },
+  { label: "Offer", value: "offer" },
+  { label: "已结案", value: "closed" },
+] as const;
 
 function PipelineStageTabs() {
   return (
-    <div className="inline-flex h-auto w-fit flex-wrap items-stretch rounded-lg bg-muted p-[3px] text-muted-foreground">
-      {PIPELINE_TABS.map((tab) => (
-        <span
-          className={`relative inline-flex h-auto min-w-[8.5rem] flex-col items-start justify-center gap-0.5 rounded-md border border-transparent px-8 py-1.5 font-medium transition-all ${
-            tab.active ? "bg-background text-foreground shadow-sm" : "text-foreground/60"
-          }`}
-          key={tab.label}
-        >
-          <span className="text-sm leading-tight">{tab.label}</span>
-          <span className="text-[11px] font-normal leading-tight text-muted-foreground">
-            {tab.helper}
-          </span>
-        </span>
-      ))}
-    </div>
+    <Tabs value="all">
+      <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
+        {PIPELINE_TABS.map((tab) => (
+          <TabsTrigger
+            className="h-10! w-full px-3 sm:w-auto sm:px-8"
+            key={tab.value}
+            value={tab.value}
+          >
+            <span className="text-sm leading-tight">{tab.label}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -398,15 +408,16 @@ function ToolbarIconButton({
   label: string;
 }) {
   return (
-    <span
+    <Button
       aria-label={label}
-      aria-disabled={disabled}
-      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground ${
-        disabled ? "opacity-45" : ""
-      }`}
+      className="shrink-0"
+      disabled={disabled}
+      size="icon"
+      type="button"
+      variant="outline"
     >
       {children}
-    </span>
+    </Button>
   );
 }
 
@@ -427,27 +438,15 @@ function ResumeToolbar() {
       </div>
       <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
         <ToolbarIconButton label="刷新">
-          <IconRefresh className="size-4" />
+          <IconRefresh />
         </ToolbarIconButton>
         <ToolbarIconButton disabled label="重置筛选">
-          <IconFilterX className="size-4" />
+          <IconFilterX />
         </ToolbarIconButton>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 font-medium text-sm"
-            type="button"
-          >
-            <IconArrowsSort className="size-4" />
-            综合分排序
-          </button>
-          <button
-            className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm"
-            type="button"
-          >
-            <IconPlus className="size-4" />
-            创建招聘记录
-          </button>
-        </div>
+        <Button type="button">
+          <IconPlus />
+          创建招聘记录
+        </Button>
       </div>
     </div>
   );
@@ -455,6 +454,7 @@ function ResumeToolbar() {
 
 // ─────────────────── Current card list ───────────────────
 interface ResumeCardData {
+  canLaunchInterview: boolean;
   createdAt: string;
   creator: string;
   education: ProfileSnapshotLineData[];
@@ -479,6 +479,7 @@ interface ProfileSnapshotLineData {
 
 const RESUMES: ResumeCardData[] = [
   {
+    canLaunchInterview: false,
     createdAt: "2025-05-12 14:32",
     creator: "张三",
     education: [{ period: "2013–2017", primary: "浙江大学", secondary: "计算机科学" }],
@@ -498,6 +499,7 @@ const RESUMES: ResumeCardData[] = [
     ],
   },
   {
+    canLaunchInterview: false,
     createdAt: "2025-05-11 09:18",
     creator: "李四",
     education: [{ period: "2012–2016", primary: "武汉大学", secondary: "工商管理" }],
@@ -517,6 +519,7 @@ const RESUMES: ResumeCardData[] = [
     ],
   },
   {
+    canLaunchInterview: true,
     createdAt: "2025-05-10 16:05",
     creator: "王五",
     education: [{ period: "2009–2013", primary: "华中科技大学", secondary: "软件工程" }],
@@ -538,15 +541,17 @@ const RESUMES: ResumeCardData[] = [
 ];
 
 function CandidateAvatar({ record }: { record: ResumeCardData }) {
+  const seed = [record.name, record.email].filter(Boolean).join(" ") || record.id;
+
   return (
-    <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
-      <Avvvatars
-        radius={48}
-        size={48}
-        style="shape"
-        value={[record.name, record.email].filter(Boolean).join(" ") || record.id}
-      />
-    </div>
+    <Avatar
+      className="mt-0.5 size-12"
+      generatedSize={48}
+      label={`${record.name}的头像`}
+      seed={`candidate:${seed}`}
+    >
+      <AvatarFallback>{record.name.slice(0, 1)}</AvatarFallback>
+    </Avatar>
   );
 }
 
@@ -570,6 +575,25 @@ function ResumeCardMetaItem({
   );
 }
 
+function ResumeCardCreatorMeta({ name }: { name: string }) {
+  return (
+    <span className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <IconUpload aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/70" />
+      <span className="shrink-0">上传人</span>
+      <Avatar
+        className="size-4! shrink-0"
+        generatedSize={16}
+        label={`${name}的头像`}
+        seed={`recruiter:${name}`}
+        size="sm"
+      >
+        <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 truncate">{name}</span>
+    </span>
+  );
+}
+
 function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLineData }) {
   return (
     <p
@@ -586,8 +610,8 @@ function ProfileSnapshotLine({ line }: { line: ProfileSnapshotLineData }) {
 
 function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
   return (
-    <div className="min-w-0 xl:border-border/60 xl:border-l xl:border-dashed xl:pl-8">
-      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
+    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 2xl:block">
+      <div className="grid min-w-0 content-start gap-1 text-sm 2xl:max-w-sm">
         {record.work.map((line) => (
           <ProfileSnapshotLine key={`${line.period}-${line.primary}`} line={line} />
         ))}
@@ -603,15 +627,18 @@ function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
 const CARD_ACTIONS = [
   { icon: IconFileText, label: "简历" },
   { icon: IconEdit, label: "编辑" },
-  { icon: IconSparkles, label: "AI面" },
   { icon: IconDots, label: "更多" },
 ] as const;
 
-function ResumeCardActions() {
+function ResumeCardActions({ record }: { record: ResumeCardData }) {
+  const actions = record.canLaunchInterview
+    ? [CARD_ACTIONS[0], CARD_ACTIONS[1], { icon: IconSparkles, label: "AI面" }, CARD_ACTIONS[2]]
+    : CARD_ACTIONS;
+
   return (
     <div className="flex justify-end self-center">
       <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
-        {CARD_ACTIONS.map(({ icon: Icon, label }) => (
+        {actions.map(({ icon: Icon, label }) => (
           <span
             className="inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-xs"
             key={label}
@@ -629,18 +656,19 @@ function ResumeCardList() {
   return (
     <div className="grid gap-3">
       {RESUMES.map((record) => (
-        <article
-          className="overflow-hidden rounded-2xl border border-input bg-card dark:bg-background"
+        <Card
+          className="h-full overflow-hidden rounded-xl dark:bg-background"
           key={record.id}
+          render={<article />}
         >
-          <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
             <div className="flex min-w-0 gap-3">
-              <span className="relative z-20 mt-3 inline-block size-4 shrink-0 rounded-[3px] border border-foreground/30" />
+              <Checkbox aria-label={`选择 ${record.name}`} className="relative z-20 mt-3" />
               <CandidateAvatar record={record} />
               <div className="min-w-0 flex-1">
-                <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
+                <div className="grid min-w-0 gap-x-4 gap-y-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] 2xl:gap-x-8">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
-                    <span className="min-w-0 truncate font-semibold text-base">
+                    <span className="min-w-0 truncate font-semibold text-base underline decoration-transparent underline-offset-4">
                       {record.name}{" "}
                       <span className="font-normal text-muted-foreground/60 text-xs">
                         ({record.id})
@@ -655,49 +683,46 @@ function ResumeCardList() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
                       <ResumeCardMetaItem
                         icon={<IconBriefcase className="size-3.5" />}
                         label="关联岗位"
                       >
-                        <span className="text-foreground">{record.job}</span>
-                      </ResumeCardMetaItem>
-                      <ResumeCardMetaItem icon={<IconUpload className="size-3.5" />} label="上传人">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[9px] text-foreground">
-                            {record.creator.slice(0, 1)}
-                          </span>
-                          <span className="truncate">上传人 {record.creator}</span>
+                        <span className="text-foreground underline decoration-transparent underline-offset-2">
+                          {record.job}
                         </span>
                       </ResumeCardMetaItem>
+                      <ResumeCardCreatorMeta name={record.creator} />
                       <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs tabular-nums">
                         {record.createdAt}
                       </span>
-                      <ResumeCardMetaItem
-                        icon={
-                          <IconSparkles
-                            className={`size-3.5 ${
-                              record.scoreTone === "success"
-                                ? "text-emerald-700 dark:text-emerald-300"
-                                : "text-amber-700 dark:text-amber-300"
-                            }`}
-                          />
-                        }
-                        label="AI评分"
-                      >
-                        <span
-                          className={`font-medium ${
-                            record.scoreTone === "success"
-                              ? "text-emerald-700 dark:text-emerald-300"
-                              : "text-amber-700 dark:text-amber-300"
-                          }`}
-                        >
-                          {record.score}
-                        </span>
-                      </ResumeCardMetaItem>
+                      <span className="inline-flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs 2xl:hidden">
+                        <IconInfoCircle
+                          aria-hidden="true"
+                          className="size-3.5 shrink-0 text-muted-foreground/70"
+                        />
+                        更多
+                      </span>
                     </div>
 
                     <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
+                      <IconSparkles
+                        aria-hidden="true"
+                        className={`mr-1 inline size-3.5 align-[-2px] ${
+                          record.scoreTone === "success"
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-amber-700 dark:text-amber-300"
+                        }`}
+                      />
+                      <span
+                        className={`font-medium ${
+                          record.scoreTone === "success"
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-amber-700 dark:text-amber-300"
+                        }`}
+                      >
+                        {record.score}
+                      </span>{" "}
                       {record.summary}
                     </p>
                     <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
@@ -713,9 +738,9 @@ function ResumeCardList() {
                 </div>
               </div>
             </div>
-            <ResumeCardActions />
-          </div>
-        </article>
+            <ResumeCardActions record={record} />
+          </CardPanel>
+        </Card>
       ))}
     </div>
   );
@@ -726,13 +751,10 @@ function ResumesContent() {
   // 真实 ResumeLibraryPage: <div className="space-y-6"> 包 PageHeader + Charts + DataGrid
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
-      <PageHeader
-        description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
-        title="招聘台"
-      />
+      <PageHeader title="招聘台" />
       <ChartsRow />
       <PipelineStageTabs />
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <ResumeToolbar />
         <ResumeCardList />
       </div>

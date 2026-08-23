@@ -1,666 +1,404 @@
-// 用途：苹果官网风格的 pinned 滚动叙事——三段差异化排版，内部元素随滚动渐进揭示
-// Purpose: Apple-style pinned scroll storytelling — 3 distinct layouts, inner content reveals progressively as user scrolls (fully revealed by ~70% of each scene).
-"use client";
+// 用途：以近景插画和单一焦点 UI 讲清招聘链路中的三个关键动作。
+// Purpose: explains three recruiting actions with close-up editorial scenes and focused UI.
 
-import { useGSAP } from "@gsap/react";
-import { gsap } from "gsap";
-import { ScrollSmoother } from "gsap/ScrollSmoother";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useCallback, useRef } from "react";
-import { ChatScreen, InterviewScreen, JobsScreen } from "@/components/features/home/screens";
-import { Badge } from "@/components/ui/badge";
+import { IconBriefcase, IconSparkles } from "@tabler/icons-react";
+import { RESUME_REVIEW_DIMENSIONS } from "@arc/shared/resume-review";
 import { cn } from "@arc/shared/utils";
-import { CenterCarousel } from "./center-carousel";
-import { Eyebrow, Section } from "./section";
+import type { ReactNode } from "react";
+import { Message, MessageContent } from "@/components/ai-elements/message";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
+import { Section, SectionLead, SectionTitle } from "./section";
 
-gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
-
-interface Block {
-  bullets: string[];
-  eyebrow: string;
-  lead: string;
-  // 该场景对应的简化 UI 屏组件（替代之前的截图 src）
-  // Screen component used for this scene (replaces the previous png src pair)
-  Screen: (props: { className?: string }) => React.ReactElement;
+interface Story {
+  darkImage: string;
+  description: string;
+  id: "calibration" | "evidence" | "interview";
+  image: string;
+  imagePosition: string;
+  points: [string, string];
   title: string;
+  visual: ReactNode;
+  visualPosition: "bottom-left" | "bottom-right" | "top-right";
 }
 
-const blocks: Block[] = [
+const CANDIDATE_REVIEW_SCORE = 87;
+const CANDIDATE_REVIEW_VALUES = {
+  educationBackground: 80,
+  experienceRelevance: 88,
+  potential: 82,
+  projectMatch: 86,
+  skillMatch: 92,
+  stability: 78,
+} as const;
+const CANDIDATE_RADAR_LABELS = {
+  educationBackground: "学历",
+  experienceRelevance: "经验",
+  potential: "潜力",
+  projectMatch: "项目",
+  skillMatch: "技能",
+  stability: "稳定",
+} as const;
+const CANDIDATE_REVIEW_DIMENSIONS = RESUME_REVIEW_DIMENSIONS.map(({ key, label, weight }) => ({
+  key,
+  label,
+  score: CANDIDATE_REVIEW_VALUES[key],
+  weight: Math.round(weight * 100),
+}));
+const CANDIDATE_RADAR_DIMENSIONS = CANDIDATE_REVIEW_DIMENSIONS.map((dimension) => ({
+  ...dimension,
+  label: CANDIDATE_RADAR_LABELS[dimension.key],
+}));
+const CANDIDATE_AGENT_MESSAGES = [
   {
-    Screen: ChatScreen,
-    bullets: [
-      "一次上传多份 PDF 简历",
-      "对照岗位要求梳理亮点、风险与缺口",
-      "每项判断都能回到简历原文",
-    ],
-    eyebrow: "Resume Screening",
-    lead: "上传简历，直接问 AI：经历是否匹配，优势在哪里，还有什么需要确认。结论不只被说出来，也能回到原文。",
-    title: "先看证据。再做判断。",
+    content: "李晗在复杂前端项目里，具体负责过什么？",
+    role: "user",
   },
   {
-    Screen: JobsScreen,
-    bullets: [
-      "统一维护岗位、JD 与面试重点",
-      "面试官设定与问题模板持续复用",
-      "同一份语境贯穿筛选与面试",
-    ],
-    eyebrow: "Workspace",
-    lead: "职责、要求、面试重点和问题模板，都从同一份岗位语境出发。设置一次，之后的筛选与面试自然保持一致。",
-    title: "岗位语境。只需要讲清一次。",
+    content:
+      "她主导了设计系统迁移，覆盖 4 条产品线，并将平均交付周期缩短 30%。证据来自简历第 2 页和面试回答 12:36。",
+    role: "assistant",
   },
   {
-    Screen: InterviewScreen,
-    bullets: ["候选人打开链接即可开始", "根据回答实时追问关键细节", "同步沉淀对话记录与结构化评估"],
-    eyebrow: "Voice Interview",
-    lead: "把链接发给候选人，AI 会沿着简历、岗位和当下的回答继续追问。面试结束，过程与判断一起留下。",
-    title: "候选人开口。AI 接着问。",
+    content: "她本人承担了哪些关键决策？",
+    role: "user",
   },
-];
+  {
+    content: "她负责划定迁移范围、确定分阶段发布与回滚标准，并协调产品和研发统一优先级。",
+    role: "assistant",
+  },
+] as const;
+const STORY_SCENE_HEIGHTS = {
+  calibration: "min-h-[22rem] sm:min-h-[30rem]",
+  evidence: "min-h-[24rem] sm:min-h-[32rem]",
+  interview: "min-h-[28rem] sm:min-h-[34rem]",
+} satisfies Record<Story["id"], string>;
 
-// 三段不同的视觉语调：聊天 → 工作台 → 语音
-// Three visual tones: chat asymmetric / workspace centered / interview mirrored-with-waveform
-type Layout = "chat" | "workspace" | "interview";
-const LAYOUTS: Layout[] = ["chat", "workspace", "interview"];
-
-interface SceneProps {
-  block: Block;
-}
-
-// 共用样式：标题 / 描述（统一尺寸节奏，避免三段视觉权重失衡）
-// Shared rhythm — same title scale across all scenes keeps vertical alignment coherent
-const titleClass =
-  "font-medium text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
-const leadClass =
-  "text-base text-muted-foreground leading-normal dark:text-white/80 sm:text-[1.0625rem] lg:text-[1.0625rem]";
-
-// 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
-// Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
-const bulletCardClass =
-  "flex items-start gap-3 rounded-xl   ring-1 ring-foreground/5 bg-background/60 p-3.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur";
-// 序号与正文用同字号 / 行高，items-start 后首行自然对齐
-// Index & body share text-sm + leading-normal so first lines align without manual offsets
-const bulletIndexClass =
-  "shrink-0 font-mono font-medium text-primary text-sm leading-normal tabular-nums";
-const bulletBodyClass = "text-foreground/85 text-sm leading-normal";
-
-// 场景 A：聊天式 — 左文右图，文案竖排带编号卡片，截图浮一个 Live 徽标
-// Scene A: chat — text-left/image-right, numbered cards, floating Live badge
-function SceneChat({ block }: SceneProps) {
+function CandidateScoreCard() {
   return (
-    <div className="grid h-full grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
-      <div className="space-y-4">
-        <div className="space-y-4 text-center lg:text-left">
-          <div data-reveal="eyebrow">
-            <Eyebrow>{block.eyebrow}</Eyebrow>
+    <Card
+      className="w-[min(96%,32rem)] overflow-hidden rounded-xl border-border/70 bg-background/95 shadow-[0_22px_56px_-34px_rgba(15,23,42,0.55)]"
+      data-density="compact"
+      data-slot="candidate-score-card"
+    >
+      <CardHeader className="grid grid-rows-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0 px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Avatar generatedSize={36} label="李晗的头像" seed="candidate:李晗">
+            <AvatarFallback>李</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h4 className="truncate font-semibold text-sm">李晗</h4>
+              <Badge variant="success">建议面试</Badge>
+            </div>
+            <p className="flex min-w-0 items-center gap-1.5 truncate text-muted-foreground text-[11px]">
+              <IconBriefcase aria-hidden className="size-3.5 shrink-0" />
+              高级前端工程师 · 8 年经验
+            </p>
           </div>
-          <h2 className={cn(titleClass, "mx-auto max-w-xl lg:mx-0")} data-reveal="title">
-            {block.title}
-          </h2>
-          <p className={cn(leadClass, "mx-auto max-w-lg lg:mx-0")} data-reveal="lead">
-            {block.lead}
+        </div>
+        <div className="flex flex-col items-end gap-1 text-right">
+          <p className="font-semibold text-2xl tabular-nums leading-none">
+            {CANDIDATE_REVIEW_SCORE}
           </p>
+          <p className="text-[10px] text-muted-foreground">综合评分</p>
         </div>
-        <ul className="mx-auto max-w-md space-y-2 pt-1 text-left lg:mx-0 lg:max-w-none">
-          {block.bullets.map((bullet, i) => (
-            <li className={bulletCardClass} data-reveal="bullet" key={bullet}>
-              <span className={bulletIndexClass}>0{i + 1}</span>
-              <span className={bulletBodyClass}>{bullet}</span>
-            </li>
+      </CardHeader>
+
+      <CardPanel
+        className=" mx-auto grid min-h-16! w-full max-w-116 min-w-0 content-center gap-2 px-2.5 py-2.5 min-[360px]:grid-cols-[8.75rem_minmax(0,1fr)] min-[360px]:items-center sm:grid-cols-[9.75rem_minmax(0,1fr)] sm:px-3"
+        data-alignment="centered"
+        data-mobile-layout="radar-scores"
+      >
+        <div className="min-w-0" data-slot="candidate-score-radar">
+          <DimensionRadarChart
+            ariaLabel="李晗的六维简历评分"
+            className="h-[9.75rem] min-h-[9.75rem] max-w-[8.75rem] sm:max-w-[9.75rem]"
+            compact
+            dimensions={CANDIDATE_RADAR_DIMENSIONS}
+            height={156}
+          />
+        </div>
+        <div className="grid min-w-0 grid-cols-2 gap-x-2 sm:gap-x-3">
+          {CANDIDATE_REVIEW_DIMENSIONS.map((dimension) => (
+            <div
+              className="flex min-w-0 items-baseline justify-between gap-2 border-b py-1.5"
+              data-score-dimension={dimension.key}
+              key={dimension.key}
+            >
+              <span className="truncate text-muted-foreground text-[11px]">{dimension.label}</span>
+              <span className="shrink-0 font-medium text-xs tabular-nums">{dimension.score}</span>
+            </div>
           ))}
-        </ul>
-      </div>
-      <div className="relative" data-reveal="image">
-        <div className="transform-gpu">
-          {/* 入场放大缩到位的目标层：与 pin 时间轴解耦的独立 ScrollTrigger 控制 scale 1.25 → 1 */}
-          {/* Entry-scale target — driven by a separate ScrollTrigger from 1.25 → 1 before the pin engages */}
-          <div className="origin-center will-change-transform" data-entry-scale>
-            <block.Screen className="w-full" />
-          </div>
         </div>
-        <Badge className="-top-3 -left-3 absolute" data-reveal="badge" variant="outline">
-          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-          LIVE CHAT
-        </Badge>
-      </div>
-    </div>
-  );
-}
+      </CardPanel>
 
-// 场景 B：工作台 — 镜像左右结构（左图 / 右文），与 Chat 形成方向对称
-// Scene B: workspace — mirrored side-by-side (image-left / text-right), reflecting Chat's direction.
-// 文本在源中放前面，mobile 先读文案；lg+ 用 order 让图回到左侧
-// Text first in DOM so mobile reads text → image; lg+ reorder puts image on the left.
-function SceneWorkspace({ block }: SceneProps) {
-  return (
-    <div className="grid h-full grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-14">
-      <div className="space-y-4 lg:order-2">
-        <div className="space-y-4 text-center lg:text-left">
-          <div data-reveal="eyebrow">
-            <Eyebrow>{block.eyebrow}</Eyebrow>
-          </div>
-          <h2 className={cn(titleClass, "mx-auto max-w-xl lg:mx-0")} data-reveal="title">
-            {block.title}
-          </h2>
-          <p className={cn(leadClass, "mx-auto max-w-lg lg:mx-0")} data-reveal="lead">
-            {block.lead}
-          </p>
-        </div>
-        <ul className="mx-auto max-w-md space-y-2 pt-1 text-left lg:mx-0 lg:max-w-none">
-          {block.bullets.map((bullet, i) => (
-            <li className={bulletCardClass} data-reveal="bullet" key={bullet}>
-              <span className={bulletIndexClass}>0{i + 1}</span>
-              <span className={bulletBodyClass}>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="relative lg:order-1" data-reveal="image">
-        <div className="transform-gpu">
-          <block.Screen className="w-full" />
-        </div>
-        {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
-        {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
-        <Badge className="-top-3 -right-3 absolute" data-reveal="badge" variant="outline">
-          <span className="size-1.5 rounded-full bg-emerald-500" />
-          JD READY
-        </Badge>
-      </div>
-    </div>
-  );
-}
-
-// 场景 C：语音 — 左图右文（镜像），截图轻微倾斜 + 波形 REC 徽标，bullets 用迷你波形指示
-// Scene C: interview — image-left/text-right, slight tilt + waveform REC badge, bullets use mini waveform markers
-function SceneInterview({ block }: SceneProps) {
-  return (
-    <div className="grid h-full grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-14">
-      {/* 文本在源顺序中放前面，便于 mobile 先读文案；lg+ 用 order 让图回到左侧 */}
-      {/* Text first in DOM so mobile reads text → image; lg+ uses order to put image on the left */}
-      <div className="space-y-4 lg:order-2">
-        <div className="space-y-4 text-center lg:text-left">
-          <div data-reveal="eyebrow">
-            <Eyebrow>{block.eyebrow}</Eyebrow>
-          </div>
-          <h2 className={cn(titleClass, "mx-auto max-w-xl lg:mx-0")} data-reveal="title">
-            {block.title}
-          </h2>
-          <p className={cn(leadClass, "mx-auto max-w-lg lg:mx-0")} data-reveal="lead">
-            {block.lead}
-          </p>
-        </div>
-        <ul className="mx-auto max-w-md space-y-2 pt-1 text-left lg:mx-0 lg:max-w-none">
-          {block.bullets.map((bullet, i) => (
-            <li className={bulletCardClass} data-reveal="bullet" key={bullet}>
-              <span className={bulletIndexClass}>0{i + 1}</span>
-              <span className={bulletBodyClass}>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="relative lg:order-1" data-reveal="image">
-        <div className="transform-gpu">
-          <block.Screen className="w-full" />
-        </div>
-        <Badge className="-right-3 -bottom-3 absolute" data-reveal="badge" variant="outline">
-          <span className="flex h-3.5 items-end gap-[2px]">
-            {[3, 5, 2, 6, 4, 3, 5].map((h, i) => (
-              <span
-                className="w-[2px] animate-pulse rounded-full bg-primary"
-                // biome-ignore lint/suspicious/noArrayIndexKey: static decorative bars
-                key={i}
-                style={{ animationDelay: `${i * 90}ms`, height: `${h * 2}px` }}
-              />
-            ))}
-          </span>
-          <span>REC</span>
-        </Badge>
-      </div>
-    </div>
-  );
-}
-
-function SceneByLayout({ block, layout }: { block: Block; layout: Layout }) {
-  if (layout === "chat") {
-    return <SceneChat block={block} />;
-  }
-  if (layout === "workspace") {
-    return <SceneWorkspace block={block} />;
-  }
-  return <SceneInterview block={block} />;
-}
-// 每个场景内部需要"渐进揭示"的子元素（排除作为视觉锚点 / 单独控制的 image / badge）
-// Inner reveal targets per scene — everything except image (visual anchor) and badge (revealed last separately)
-const getTextReveals = (sceneEl: HTMLElement) => [
-  ...sceneEl.querySelectorAll<HTMLElement>(
-    '[data-reveal]:not([data-reveal="image"]):not([data-reveal="badge"])',
-  ),
-];
-const getImage = (sceneEl: HTMLElement) =>
-  sceneEl.querySelector<HTMLElement>('[data-reveal="image"]');
-const getBadge = (sceneEl: HTMLElement) =>
-  sceneEl.querySelector<HTMLElement>('[data-reveal="badge"]');
-
-// 移动端 carousel 卡片：把每段叙事压成统一节奏的 article 卡——eyebrow / title / lead / 截图 / 编号 bullet
-// Mobile carousel card — compresses each scene into a uniform article: eyebrow → title → lead → screenshot → numbered bullets
-function SceneCard({ block }: { block: Block }) {
-  return (
-    <article className="flex h-full w-full flex-col gap-4 overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur sm:gap-5 sm:p-6">
-      <div className="space-y-2">
-        <Eyebrow>{block.eyebrow}</Eyebrow>
-        <h3 className="font-medium text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">
-          {block.title}
-        </h3>
-        <p className="text-foreground/70 text-sm leading-normal dark:text-white/80 sm:text-[0.95rem]">
-          {block.lead}
+      <CardFooter className="gap-2 border-t px-3 py-2 text-[11px] leading-relaxed">
+        <IconSparkles aria-hidden className="size-3.5 shrink-0 text-primary" />
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground">整体匹配。</span>
+          核心技能与项目复杂度均有直接经历支撑。
         </p>
-      </div>
-      <block.Screen className="w-full" />
-      <ul className="mt-auto space-y-2">
-        {block.bullets.map((bullet, i) => (
-          <li className="flex items-start gap-3" key={bullet}>
-            <span className="shrink-0 font-mono font-medium text-primary text-sm leading-normal tabular-nums">
-              0{i + 1}
-            </span>
-            <span className="text-foreground/85 text-sm leading-normal">{bullet}</span>
-          </li>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-medium text-foreground text-base tabular-nums leading-none">{value}</p>
+      <p className="mt-1 truncate text-[10px] text-foreground/45">{label}</p>
+    </div>
+  );
+}
+
+function CandidateAgentChat() {
+  return (
+    <div className="flex w-full max-w-[31rem] flex-col gap-2.5">
+      <div className="flex flex-col gap-2" data-slot="interview-messages">
+        {CANDIDATE_AGENT_MESSAGES.map((message, index) => (
+          <Message
+            className="gap-0"
+            data-message-role={message.role}
+            from={message.role}
+            key={`${message.role}-${index}`}
+          >
+            <MessageContent
+              className={cn(
+                "max-w-[88%] rounded-md px-3 py-2 text-[11px] leading-relaxed shadow-[0_12px_36px_-26px_rgba(15,23,42,0.7)]",
+                message.role === "assistant" && "bg-background/82 text-foreground/80",
+              )}
+            >
+              {message.role === "assistant" ? (
+                <div className="flex items-start gap-2">
+                  <IconSparkles aria-hidden className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-[10px] text-primary leading-none">Agent</p>
+                    <p className="mt-1">{message.content}</p>
+                  </div>
+                </div>
+              ) : (
+                message.content
+              )}
+            </MessageContent>
+          </Message>
         ))}
-      </ul>
+      </div>
+      <div
+        className="w-full rounded-lg bg-background/95 p-2 shadow-[0_18px_48px_-32px_rgba(15,23,42,0.5)]"
+        data-density="compact"
+        data-slot="interview-composer"
+      >
+        <div className="rounded-md bg-muted/70 px-3 py-2.5">
+          <p className="min-h-8 text-[12px] text-foreground/45 leading-relaxed">
+            继续询问李晗的项目经历、能力证据或风险…
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="font-mono text-[10px] text-foreground/45">发送给 Agent</span>
+            <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
+              <svg aria-hidden="true" fill="none" height="12" viewBox="0 0 12 12" width="12">
+                <path
+                  d="M6 9.5V2.5M3.25 5.25 6 2.5l2.75 2.75"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.4"
+                />
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamCalibrationCard() {
+  return (
+    <div className="flex w-full max-w-[36rem] flex-col">
+      <div
+        className="rounded-lg bg-background/95 p-3 shadow-[0_18px_48px_-32px_rgba(15,23,42,0.5)] dark:bg-background/92"
+        data-density="compact"
+        data-layout="horizontal"
+        data-slot="team-calibration-card"
+      >
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 sm:grid-cols-[minmax(10rem,1.15fr)_minmax(11rem,1.35fr)_auto] sm:gap-x-5">
+          <div className="order-1 min-w-0">
+            <p className="font-medium text-foreground text-sm">李晗 · 综合评估</p>
+            <p className="mt-0.5 text-foreground/50 text-xs">3 位面试官已完成校准</p>
+          </div>
+          <Badge className="order-2 justify-self-end sm:order-3" variant="success">
+            建议复试
+          </Badge>
+          <div
+            className="order-3 col-span-2 grid grid-cols-3 gap-3 sm:order-2 sm:col-span-1 sm:gap-4"
+            data-slot="team-calibration-metrics"
+          >
+            <Metric label="能力匹配" value="88" />
+            <Metric label="证据完整" value="84" />
+            <Metric label="风险" value="低" />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
+          <Avatar generatedSize={24} label="郭老师的头像" seed="interviewer:郭" size="sm">
+            <AvatarFallback>郭</AvatarFallback>
+          </Avatar>
+          <p className="text-[11px] text-foreground/70 leading-relaxed">
+            风险项已经在追问中确认，建议下一轮重点验证带队规模。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const stories: Story[] = [
+  {
+    darkImage: "/landing/feature-scenes/evidence-review-dark-v2.jpg",
+    description:
+      "AI 不只给出一个分数。亮点、风险和岗位匹配，都能回到简历中的具体经历，让筛选从一开始就有依据。",
+    id: "evidence",
+    image: "/landing/feature-scenes/evidence-review-v2.jpg",
+    imagePosition: "object-center",
+    points: ["逐条连接简历原文", "同时呈现亮点与风险"],
+    title: "先看证据。再做判断。",
+    visual: <CandidateScoreCard />,
+    visualPosition: "top-right",
+  },
+  {
+    darkImage: "/landing/feature-scenes/interview-conversation-dark.jpg",
+    description:
+      "直接询问某位候选人的项目经历、能力证据或风险。Agent 汇总简历、面试记录和团队备注，给出有出处的回答。",
+    id: "interview",
+    image: "/landing/feature-scenes/interview-conversation.jpg",
+    imagePosition: "object-center",
+    points: ["自然语言追问候选人细节", "回答回到简历与面试证据"],
+    title: "像聊天一样，把关键问题问清楚。",
+    visual: <CandidateAgentChat />,
+    visualPosition: "bottom-right",
+  },
+  {
+    darkImage: "/landing/feature-scenes/team-calibration-dark.jpg",
+    description:
+      "面试结束后，评分、风险、回答证据和团队备注留在同一个视图里。每个人讨论的是同一份事实，而不是各自的印象。",
+    id: "calibration",
+    image: "/landing/feature-scenes/team-calibration.jpg",
+    imagePosition: "object-center",
+    points: ["统一评分口径与证据", "保留团队判断过程"],
+    title: "同一份证据，团队一起校准。",
+    visual: <TeamCalibrationCard />,
+    visualPosition: "bottom-left",
+  },
+];
+
+function StoryCard({ story, index }: { index: number; story: Story }) {
+  const isMirrored = index % 2 === 1;
+
+  return (
+    <article
+      className={cn(
+        "grid bg-transparent lg:gap-16",
+        isMirrored
+          ? "lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.72fr)]"
+          : "lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.55fr)]",
+      )}
+      data-feature-story={story.id}
+      data-layout={isMirrored ? "visual-copy" : "copy-visual"}
+    >
+      <div
+        className={cn(
+          "flex flex-col justify-center py-14 sm:py-16 lg:min-h-[38rem] lg:py-20",
+          isMirrored ? "lg:order-2 lg:pr-4 xl:pr-8" : "lg:pl-4 xl:pl-8",
+        )}
+      >
+        <h3 className="max-w-md text-balance font-medium text-3xl text-foreground leading-[1.16] tracking-tight sm:text-4xl">
+          {story.title}
+        </h3>
+        <p className="mt-5 max-w-md text-base text-foreground/62 leading-relaxed dark:text-white/70">
+          {story.description}
+        </p>
+        <ul className="mt-10 space-y-3">
+          {story.points.map((point, pointIndex) => (
+            <li className="flex items-center gap-3 text-foreground/70 text-sm" key={point}>
+              <span className="font-mono text-[10px] text-primary tabular-nums">
+                0{index * 2 + pointIndex + 1}
+              </span>
+              <span>{point}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div
+        className={cn(
+          "relative overflow-hidden bg-transparent lg:my-12 lg:min-h-0",
+          STORY_SCENE_HEIGHTS[story.id],
+          isMirrored && "lg:order-1",
+        )}
+        data-mobile-height={story.id === "interview" ? "default" : "compact"}
+      >
+        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no next/image runtime; fixed dimensions and lazy loading keep these below-fold local assets efficient. */}
+        <img
+          alt=""
+          className={cn(
+            "absolute inset-0 size-full object-cover contrast-[0.94] saturate-[0.82] dark:hidden",
+            story.imagePosition,
+          )}
+          data-artwork-theme="light"
+          decoding="async"
+          height={941}
+          loading="lazy"
+          src={story.image}
+          width={1672}
+        />
+        {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no next/image runtime; the dedicated dark artwork remains lazy loaded below the fold. */}
+        <img
+          alt=""
+          className={cn(
+            "absolute inset-0 hidden size-full object-cover contrast-[0.96] saturate-[0.88] dark:block",
+            story.imagePosition,
+          )}
+          data-artwork-theme="dark"
+          decoding="async"
+          height={941}
+          loading="lazy"
+          src={story.darkImage}
+          width={1672}
+        />
+        <div
+          className={cn(
+            "absolute inset-0 flex",
+            story.id === "evidence" ? "p-3 sm:p-4" : "p-[6px]",
+            story.visualPosition === "top-right" ? "items-start" : "items-end",
+            story.visualPosition === "bottom-left" ? "justify-start" : "justify-end",
+          )}
+          data-visual-inset={story.id === "evidence" ? "relaxed" : "edge"}
+          data-visual-position={story.visualPosition}
+        >
+          {story.visual}
+        </div>
+      </div>
     </article>
   );
 }
 
-// 各场景在 ScrollTrigger 进度（0~1）上的目标停留位置——选每段 dwell 的中点
-// Target progress per scene — mid of each dwell phase (visually settled, no transition)
-// 时间轴：opening dwell 0..0.6（0..15%），0→1 转场 0.6..1.6（15..40%），mid dwell 1.6..2.2（40..55%），1→2 转场 2.2..3.2（55..80%），closing dwell 3.2..4（80..100%）
-const SCENE_TARGET_PROGRESS = [0.13, 0.52, 0.93] as const;
-
 export function FeatureBlocks() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const fillRef = useRef<HTMLSpanElement>(null);
-  const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const triggerRef = useRef<ScrollTrigger | null>(null);
-
-  // 点击进度条标签：跳转到该场景的中点位置。
-  // 优先用 ScrollSmoother.scrollTo —— 它会原生跟 smoother 的 lerp 协调，避免再起一个
-  // 跟 smoother 抢 scroll 控制权的并行 tween。降级回 window.scrollTo 兼容 reduced-motion。
-  // Click on progress bar label: jump to that scene's settled mid-point.
-  // Use ScrollSmoother.scrollTo when available — it coordinates with the smoother's lerp
-  // natively. Falls back to window.scrollTo when smoother is disabled (reduced-motion).
-  const handleSeek = useCallback((sceneIndex: number) => {
-    const trigger = triggerRef.current;
-    if (!trigger) {
-      return;
-    }
-    const targetProgress = SCENE_TARGET_PROGRESS[sceneIndex] ?? 0;
-    const targetScroll = trigger.start + targetProgress * (trigger.end - trigger.start);
-
-    const smoother = ScrollSmoother.get();
-    if (smoother) {
-      smoother.scrollTo(targetScroll, true);
-    } else {
-      window.scrollTo({ behavior: "smooth", top: targetScroll });
-    }
-  }, []);
-
-  useGSAP(
-    () => {
-      const browserWindow = globalThis.window;
-      if (!browserWindow) {
-        return;
-      }
-      // reduced-motion 直接退出，让浏览器原生滚动接管，pinned 叙事降级为静态版式。
-      // Bail for reduced-motion users — keep native scrolling, pinned story degrades to static.
-      if (browserWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        return;
-      }
-
-      // ScrollSmoother + ScrollTrigger 是同源整合，**不要**手动 scrollerProxy 也不要传
-      // scroller —— 那是给第三方 smooth scroller（Locomotive、Smooth Scrollbar 等）用的。
-      // ScrollTrigger 也会在 viewport resize 时自动 refresh，所以**不要**自己挂 resize
-      // listener。pinType 在 ScrollSmoother active 时默认 "transform"，**不要**手动强制。
-      // 任何形式的手动 refresh / refresh(true) 链都会跟 ScrollSmoother 打架，造成 pin
-      // 跟 smoother 失同步的视觉漂移。
-      // ScrollSmoother + ScrollTrigger are first-party — don't add scrollerProxy and don't
-      // pass `scroller`; those are for third-party smooth scrollers (Locomotive, Smooth
-      // Scrollbar, etc). ScrollTrigger also auto-refreshes on viewport resize, so don't
-      // attach manual resize listeners. pinType defaults to "transform" when ScrollSmoother
-      // is active, no need to force it. Any manual refresh chain fights the smoother and
-      // causes visible pin/scroll desync.
-
-      const mm = gsap.matchMedia();
-
-      mm.add("(min-width: 1024px)", () => {
-        const scenes = sceneRefs.current.filter((el): el is HTMLDivElement => el !== null);
-        const labels = labelRefs.current.filter((el): el is HTMLButtonElement => el !== null);
-        const fill = fillRef.current;
-        if (scenes.length < 3) {
-          return;
-        }
-
-        const scene0Text = getTextReveals(scenes[0]);
-        const scene1Text = getTextReveals(scenes[1]);
-        const scene2Text = getTextReveals(scenes[2]);
-        const scene1Image = getImage(scenes[1]);
-        const scene2Image = getImage(scenes[2]);
-        const scene0EntryScale = scenes[0].querySelector<HTMLElement>("[data-entry-scale]");
-        const scene0Badge = getBadge(scenes[0]);
-        const scene1Badge = getBadge(scenes[1]);
-        const scene2Badge = getBadge(scenes[2]);
-
-        // 场景容器：0 在场，1/2 待入场（带轻微缩放与 y 偏移）
-        // Scene containers — 0 in view, 1/2 staged
-        gsap.set(scenes[0], { autoAlpha: 1, scale: 1, y: 0 });
-        gsap.set([scenes[1], scenes[2]], { autoAlpha: 0, scale: 1.04, y: 24 });
-
-        // 内部文本元素：所有场景初始都隐藏 + y 偏移（截图保持可见，作为视觉锚点）
-        // Text/bullet inner elements — hidden initially across ALL scenes; image stays visible as anchor
-        gsap.set([...scene0Text, ...scene1Text, ...scene2Text], {
-          autoAlpha: 0,
-          y: 18,
-        });
-        // 场景 1/2 的截图额外做一个轻微入场过渡（透明度由 scene 容器控制；这里只控位移）
-        // Scenes 1/2 images get a subtle additional entry y-shift; alpha rides scene container
-        if (scene1Image) {
-          gsap.set(scene1Image, { y: 12 });
-        }
-        if (scene2Image) {
-          gsap.set(scene2Image, { y: 12 });
-        }
-
-        if (fill) {
-          gsap.set(fill, { scaleX: 0, transformOrigin: "0% 50%" });
-        }
-
-        // 三幕徽标统一初始隐藏 + 缩放 + y 偏移，在各自 dwell 末尾"压轴"出场
-        // All three badges share the same hidden initial state, revealed last in each scene's dwell
-        const allBadges = [scene0Badge, scene1Badge, scene2Badge].filter(
-          (el): el is HTMLElement => el !== null,
-        );
-        if (allBadges.length > 0) {
-          gsap.set(allBadges, { autoAlpha: 0, scale: 0.85, y: -8 });
-        }
-
-        // 入场缩放 + 透明度：scene 0 的截图在用户从首屏向下滚的过程中，
-        // 从 (scale 1.25, opacity 0) 缩到 (scale 1, opacity 1)，恰好在 pin 启动时落位
-        // start "top bottom" = section 上沿到达视口下沿（图刚刚开始入场）
-        // end   "top top"    = section 上沿到达视口顶（pin 启动那一刻刚好 scale 1 / opacity 1）
-        // Entry scale + fade — chat screenshot transitions from (1.25, 0) → (1, 1) as the section
-        // enters the viewport, landing exactly at scale 1 + fully visible right when the pin engages.
-        if (scene0EntryScale) {
-          gsap.fromTo(
-            scene0EntryScale,
-            { autoAlpha: 0, scale: 1.25 },
-            {
-              autoAlpha: 1,
-              ease: "none",
-              scale: 1,
-              scrollTrigger: {
-                end: "top top",
-                invalidateOnRefresh: true,
-                scrub: true,
-                start: "top bottom",
-                trigger: sectionRef.current,
-              },
-            },
-          );
-        }
-
-        const tl = gsap.timeline({
-          defaults: { ease: "power2.inOut" },
-          scrollTrigger: {
-            anticipatePin: 1,
-            end: () => `+=${window.innerHeight * 4}`,
-            invalidateOnRefresh: true,
-            onUpdate: (self) => {
-              const p = self.progress;
-              if (fill) {
-                fill.style.transform = `scaleX(${p})`;
-              }
-              if (labels.length === 3) {
-                let sceneIndex = 0;
-                if (p >= 0.675) {
-                  sceneIndex = 2;
-                } else if (p >= 0.275) {
-                  sceneIndex = 1;
-                }
-                for (let i = 0; i < labels.length; i += 1) {
-                  const isActive = i === sceneIndex;
-                  labels[i].style.color = isActive
-                    ? "var(--color-foreground)"
-                    : "color-mix(in srgb, var(--color-foreground) 40%, transparent)";
-                  labels[i].style.opacity = isActive ? "1" : "0.55";
-                }
-              }
-            },
-            pin: true,
-            pinSpacing: true,
-            // ScrollSmoother active 时 ScrollTrigger 会自动选 pinType: "transform"，无需手动指定。
-            // ScrollTrigger picks pinType: "transform" automatically when ScrollSmoother is active.
-            scrub: 0.4,
-            start: "top top",
-            trigger: sectionRef.current,
-          },
-        });
-
-        triggerRef.current = tl.scrollTrigger ?? null;
-
-        // 时间轴节奏（总长 4 单位 = 100% 进度）
-        // 0..0.6  开场停留 + 场景 0 文本渐进揭示（在 0..0.42 内完成 ≈ 70% 处）
-        // 0.6..1.6  场景 0 → 1 转场（图先入场）
-        // 1.6..2.2 中段停留 + 场景 1 文本渐进揭示（在 1.6..2.02 完成 ≈ 70%）
-        // 2.2..3.2 场景 1 → 2 转场
-        // 3.2..4   结尾停留 + 场景 2 文本渐进揭示（在 3.2..3.76 完成 ≈ 70%）
-
-        // ── 开场：场景 0 文本逐项揭示 ──
-        // Opening dwell — stagger reveal scene 0 inner text/bullets
-        const TEXT_REVEAL_DURATION = 0.18;
-        const TEXT_REVEAL_STAGGER = 0.06;
-
-        tl.to(
-          scene0Text,
-          {
-            autoAlpha: 1,
-            duration: TEXT_REVEAL_DURATION,
-            ease: "power2.out",
-            stagger: TEXT_REVEAL_STAGGER,
-            y: 0,
-          },
-          0,
-        );
-        // LIVE CHAT 徽标压轴：在所有正文揭示完成后再弹出，带 back ease 增加节奏感
-        // Badge "punctuation" — appears after all text reveals, with a back ease for a snappy entrance
-        if (scene0Badge) {
-          tl.to(
-            scene0Badge,
-            {
-              autoAlpha: 1,
-              duration: 0.18,
-              ease: "back.out(1.6)",
-              scale: 1,
-              y: 0,
-            },
-            0.46,
-          );
-        }
-        // 占位至 0.6 完成开场停留
-        tl.to({}, { duration: 0.6 }, 0);
-
-        // ── 场景 0 → 1 转场 ──
-        tl.to(scenes[0], { autoAlpha: 0, duration: 1, scale: 0.94, y: -30 }, 0.6).to(
-          scenes[1],
-          { autoAlpha: 1, duration: 1, scale: 1, y: 0 },
-          "<",
-        );
-        // 场景 1 截图同步轻微推入
-        if (scene1Image) {
-          tl.to(scene1Image, { duration: 1, ease: "power2.out", y: 0 }, 0.6);
-        }
-
-        // ── 中段：场景 1 文本逐项揭示 ──
-        // Mid dwell — scene 1 text reveal
-        tl.to(
-          scene1Text,
-          {
-            autoAlpha: 1,
-            duration: TEXT_REVEAL_DURATION,
-            ease: "power2.out",
-            stagger: TEXT_REVEAL_STAGGER,
-            y: 0,
-          },
-          1.6,
-        );
-        // 场景 1 徽标压轴 / Scene 1 badge punctuation
-        if (scene1Badge) {
-          tl.to(
-            scene1Badge,
-            {
-              autoAlpha: 1,
-              duration: 0.14,
-              ease: "back.out(1.6)",
-              scale: 1,
-              y: 0,
-            },
-            2.04,
-          );
-        }
-        tl.to({}, { duration: 0.6 }, 1.6);
-
-        // ── 场景 1 → 2 转场 ──
-        tl.to(scenes[1], { autoAlpha: 0, duration: 1, scale: 0.94, y: -30 }, 2.2).to(
-          scenes[2],
-          { autoAlpha: 1, duration: 1, scale: 1, y: 0 },
-          "<",
-        );
-        if (scene2Image) {
-          tl.to(scene2Image, { duration: 1, ease: "power2.out", y: 0 }, 2.2);
-        }
-
-        // ── 结尾：场景 2 文本逐项揭示 ──
-        // Closing dwell — scene 2 text reveal
-        tl.to(
-          scene2Text,
-          {
-            autoAlpha: 1,
-            duration: TEXT_REVEAL_DURATION,
-            ease: "power2.out",
-            stagger: TEXT_REVEAL_STAGGER,
-            y: 0,
-          },
-          3.2,
-        );
-        // 场景 2 徽标压轴 / Scene 2 badge punctuation
-        if (scene2Badge) {
-          tl.to(
-            scene2Badge,
-            {
-              autoAlpha: 1,
-              duration: 0.18,
-              ease: "back.out(1.6)",
-              scale: 1,
-              y: 0,
-            },
-            3.66,
-          );
-        }
-        tl.to({}, { duration: 0.8 }, 3.2);
-
-        // mm.add 自带 cleanup —— matchMedia revert 时 gsap 会把这个回调里所有 gsap.set /
-        // 时间轴 / ScrollTrigger 自动 revert，pin spacer 也会被销毁，无需手动 refresh。
-        // mm.add cleans up automatically — when matchMedia reverts, gsap reverts every
-        // gsap.set / timeline / ScrollTrigger created here and removes the pin spacer.
-        // No manual refresh chain needed; ScrollTrigger handles resize via its own
-        // built-in resize listener.
-      });
-    },
-    { scope: sectionRef },
-  );
-
   return (
-    <div className="relative" ref={sectionRef}>
-      {/* lg+: pinned 舞台，三幕叠加 */}
-      <div className="hidden lg:block">
-        <div
-          className="relative mx-auto flex h-screen w-full max-w-7xl items-center px-5 py-14 sm:px-8"
-          ref={stageRef}
-        >
-          <div className="relative h-full w-full">
-            {blocks.map((block, i) => (
-              <div
-                className="absolute inset-0 flex items-center"
-                data-home-scene={i}
-                key={block.title}
-                ref={(el) => {
-                  sceneRefs.current[i] = el;
-                }}
-                style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
-              >
-                <SceneByLayout block={block} layout={LAYOUTS[i]} />
-              </div>
-            ))}
-          </div>
+    <Section className="pt-10 sm:pt-14 lg:pt-20" width="wide">
+      <SectionTitle className="mt-0">把复杂的招聘工作，收进几个清楚的动作。</SectionTitle>
+      <SectionLead>
+        不用在一整套后台里寻找重点。每一步只呈现当前真正需要判断的信息，再把证据带到下一步。
+      </SectionLead>
 
-          {/* 进度条：横向条形 + 标尺刻度 + 三段标签 */}
-          <div className="-translate-x-1/2 absolute bottom-6 left-1/2 flex w-[min(560px,80vw)] flex-col items-center gap-3">
-            <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-foreground/10">
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-foreground/85"
-                ref={fillRef}
-                style={{ transform: "scaleX(0)" }}
-              />
-              <span
-                aria-hidden="true"
-                className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 size-1 rounded-full bg-foreground/30"
-                style={{ left: "33.33%" }}
-              />
-              <span
-                aria-hidden="true"
-                className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 size-1 rounded-full bg-foreground/30"
-                style={{ left: "66.66%" }}
-              />
-            </div>
-            <div className="grid w-full grid-cols-3 font-medium text-[10px] text-foreground/55 uppercase tracking-[0.16em]">
-              {blocks.map((block, i) => {
-                let align = "text-center";
-                if (i === 0) {
-                  align = "text-left";
-                } else if (i === 2) {
-                  align = "text-right";
-                }
-                return (
-                  <button
-                    className={cn(
-                      "cursor-pointer rounded-sm py-1 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-foreground/40 focus-visible:outline-offset-2",
-                      align,
-                    )}
-                    key={block.title}
-                    onClick={() => handleSeek(i)}
-                    ref={(el) => {
-                      labelRefs.current[i] = el;
-                    }}
-                    type="button"
-                  >
-                    {block.eyebrow}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+      <div className="mt-12 space-y-20 sm:mt-16 sm:space-y-28 lg:space-y-32">
+        {stories.map((story, index) => (
+          <StoryCard index={index} key={story.id} story={story} />
+        ))}
       </div>
-
-      {/* mobile: 居中循环 carousel，与 Capabilities 同款节奏 / Mobile: same center-aligned looping carousel as Capabilities */}
-      <Section className="lg:hidden" width="wide">
-        <CenterCarousel
-          items={blocks.map((block) => ({
-            key: block.title,
-            label: block.title,
-            node: <SceneCard block={block} />,
-          }))}
-        />
-      </Section>
-    </div>
+    </Section>
   );
 }

@@ -22,7 +22,7 @@ export function CreatorCell({
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Avatar size="sm">
+      <Avatar label={`${name}的头像`} seed={`creator:${name}`} size="sm">
         {image ? <AvatarImage alt={name} src={image} /> : null}
         <AvatarFallback>{initial}</AvatarFallback>
       </Avatar>

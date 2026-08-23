@@ -10,6 +10,7 @@
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -430,18 +431,20 @@ export async function resetInterviewRound({
 }
 
 export async function advancePipelineStage({
+  interviewQuestions,
   queryClient,
   recordId,
   slug,
   target,
 }: {
+  interviewQuestions?: InterviewQuestion[];
   queryClient: QueryClient;
   recordId: string;
   slug: string;
   target: PipelineStage;
 }): Promise<string | null> {
   try {
-    await transitionInterviewRecord(slug, recordId, { pipelineStage: target });
+    await transitionInterviewRecord(slug, recordId, { interviewQuestions, pipelineStage: target });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
       queryClient.invalidateQueries({

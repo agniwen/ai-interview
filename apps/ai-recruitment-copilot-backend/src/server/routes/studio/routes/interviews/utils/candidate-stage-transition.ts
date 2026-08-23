@@ -7,6 +7,7 @@ import {
   loadHumanInterviewRoundReadiness,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
+import type { JsonObject } from "@arc/db-schema/json";
 import {
   getCandidateReactivationError,
   getCandidateStageTransitionError,
@@ -136,6 +137,9 @@ export async function transitionCandidateStage(
       input: command.input,
       now,
     });
+    if (command.input.interviewQuestions !== undefined) {
+      transition.patch.interviewQuestions = command.input.interviewQuestions;
+    }
     await tx
       .update(studioInterview)
       .set(transition.patch)
@@ -148,13 +152,17 @@ export async function transitionCandidateStage(
             source: "workspace_recruiting_copilot" as const,
           }
         : {};
+    const auditDetail: JsonObject = {
+      ...transition.auditDetail,
+      ...provenanceDetail,
+    };
+    if (command.input.interviewQuestions !== undefined) {
+      auditDetail.interviewerReferenceQuestionCount = command.input.interviewQuestions.length;
+    }
     await tx.insert(interviewAuditLog).values({
       action: "candidate_transition",
       createdAt: now,
-      detail: {
-        ...transition.auditDetail,
-        ...provenanceDetail,
-      },
+      detail: auditDetail,
       id: crypto.randomUUID(),
       interviewRecordId: command.candidateId,
       operatorId: command.operatorId,

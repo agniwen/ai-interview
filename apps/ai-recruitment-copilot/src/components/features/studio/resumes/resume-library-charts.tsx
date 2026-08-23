@@ -45,12 +45,12 @@ const BUCKET_LABEL = {
 } as const satisfies Record<PipelineBucket, string>;
 
 const BUCKET_COLORS = {
-  ai_interview: "var(--chart-2)",
-  closed_hired: "oklch(0.65 0.16 150)",
-  closed_rejected: "oklch(0.64 0.2 345)",
-  human_interview: "var(--chart-3)",
-  offer: "var(--chart-4)",
-  screening: "var(--chart-1)",
+  ai_interview: "var(--pipeline-ai-interview)",
+  closed_hired: "var(--pipeline-closed-hired)",
+  closed_rejected: "var(--pipeline-closed-rejected)",
+  human_interview: "var(--pipeline-human-interview)",
+  offer: "var(--pipeline-offer)",
+  screening: "var(--pipeline-screening)",
 } as const satisfies Record<PipelineBucket, string>;
 
 const pipelineTooltipDatumSchema = z.object({

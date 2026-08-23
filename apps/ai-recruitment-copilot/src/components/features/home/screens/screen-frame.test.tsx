@@ -29,7 +29,8 @@ describe("ScreenFrame", () => {
     expect(frame).not.toContain("ring-");
     expect(frame).toContain("bg-background/75");
     expect(frame).toContain("p-1");
-    expect(frame).toContain("backdrop-blur-xl");
+    expect(frame).toContain("backdrop-blur-sm");
+    expect(frame).not.toContain("backdrop-blur-xl");
     expect(content).toContain("rounded-lg");
     expect(content).not.toContain("border");
   });

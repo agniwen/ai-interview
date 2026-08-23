@@ -182,7 +182,7 @@ export function SearchableMultiSelect({
             {(option: SearchableSelectOption) => (
               <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
                 {option.avatarUrl !== undefined ? (
-                  <Avatar size="sm">
+                  <Avatar label={`${option.label}的头像`} seed={`option:${option.value}`} size="sm">
                     {option.avatarUrl ? (
                       <AvatarImage alt={option.label} src={option.avatarUrl} />
                     ) : null}

@@ -4,7 +4,7 @@
 
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Marquee } from "@/components/spell-ui/marquee";
-import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
+import { Section, SectionLead, SectionTitle } from "./section";
 
 interface HiringPrinciple {
   description: string;
@@ -82,7 +82,7 @@ function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
     <div className="mr-6 flex h-full w-[320px] flex-col rounded-2xl bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] ring-1 ring-foreground/5 backdrop-blur sm:w-[360px] sm:p-6">
       <p className="font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">{label}</p>
-      <h3 className="mt-4 font-medium text-foreground text-xl leading-tight tracking-tight">
+      <h3 className="mt-4 text-balance font-medium text-foreground text-xl leading-tight tracking-tight">
         {title}
       </h3>
       <p className="mt-3 text-foreground/75 text-sm leading-normal dark:text-white/80 sm:text-[15px]">
@@ -95,8 +95,7 @@ function PrincipleCard({ description, label, title }: HiringPrinciple) {
 export function DecisionPrinciples() {
   return (
     <Section width="wide">
-      <Eyebrow>Built for Better Decisions</Eyebrow>
-      <SectionTitle>不是替你决定。是让决定更有依据。</SectionTitle>
+      <SectionTitle className="mt-0">不是替你决定。是让决定更有依据。</SectionTitle>
       <SectionLead>
         把招聘中最容易丢失的上下文，变成每个人都看得见的事实。每一步，都能回到证据。
       </SectionLead>

@@ -14,7 +14,7 @@
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -361,6 +361,7 @@ export function updateStudioInterviewRound(
  */
 export interface TransitionInterviewInput {
   pipelineStage: PipelineStage;
+  interviewQuestions?: InterviewQuestion[];
   outcome?: CandidateOutcome;
   closedReason?: string | null;
   // closedMeta partial：仅在 pipelineStage='closed' 时允许传；previousStage 由服务端写。

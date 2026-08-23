@@ -8,7 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Eyebrow, Section, SectionTitle } from "./section";
+import { Section, SectionTitle } from "./section";
 
 const faqs = [
   {
@@ -37,28 +37,16 @@ const faqs = [
   },
 ];
 
+const defaultExpandedFaqs = faqs.map((_, index) => `faq-${index}`);
+
 export function Faq() {
   return (
     <Section width="wide">
-      <Eyebrow>FAQ</Eyebrow>
-      <SectionTitle>开始之前，先讲清楚。</SectionTitle>
-      <Accordion
-        className="mt-10 w-full"
-        defaultValue={["faq-0", "faq-1", "faq-2", "faq-3", "faq-4"]}
-        multiple
-      >
+      <SectionTitle className="mt-0">开始之前，先讲清楚。</SectionTitle>
+      <Accordion className="mt-10 w-full" defaultValue={defaultExpandedFaqs} multiple>
         {faqs.map((item, index) => (
-          <AccordionItem
-            key={item.question}
-            value={`faq-${index}`}
-            // FAQ 在首页 grainient 背景之上，默认 border-border 灰会显得脏；
-            // 亮色模式改用纯白分界线，深色保持默认 token。
-            // FAQ sits on the light-mode grainient background; the default gray
-            // border looks dirty against it. Force white in light mode, keep
-            // default token in dark mode.
-            className="border-white/20 dark:border-border"
-          >
-            <AccordionTrigger className="text-left text-base sm:text-lg">
+          <AccordionItem className="border-border/60" key={item.question} value={`faq-${index}`}>
+            <AccordionTrigger className="text-balance text-left text-base sm:text-lg">
               {item.question}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground text-sm leading-normal dark:text-white/80 sm:text-base">

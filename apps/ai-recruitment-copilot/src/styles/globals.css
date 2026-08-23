@@ -82,9 +82,9 @@
   --card-foreground: oklch(0.28 0.04 254);
   --popover: #fafafa;
   --popover-foreground: oklch(0.28 0.04 254);
-  /* 提亮后的克莱因蓝为两种模式共用的品牌主色；白字在 #1D4ED8 上达到 AA 对比度。
-     A lighter Klein-blue keeps white text at AA contrast in both themes. */
-  --primary: #1d4ed8;
+  /* The forest green is taken from the illustration palette and Laper's
+     mid-green range. White text keeps a 6.39:1 contrast ratio on it. */
+  --primary: #2d6a4f;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
   --secondary-foreground: oklch(0.36 0.05 254);
@@ -95,12 +95,18 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: #eeeeed;
   --input: #eeeeed;
-  --ring: #3b68e4;
-  --chart-1: #1d4ed8;
-  --chart-2: #3e68df;
-  --chart-3: #6288e7;
-  --chart-4: #90aaef;
-  --chart-5: #c0cef5;
+  --ring: #2d7a59;
+  --chart-1: #2d6a4f;
+  --chart-2: #478565;
+  --chart-3: #6ba185;
+  --chart-4: #94bba5;
+  --chart-5: #c1d5c8;
+  --pipeline-screening: #c6b4a2;
+  --pipeline-ai-interview: #d6c2b1;
+  --pipeline-human-interview: #decdbc;
+  --pipeline-offer: #ded4c2;
+  --pipeline-closed-hired: #8dc096;
+  --pipeline-closed-rejected: #dc8ebb;
   --job-weight-skill: oklch(0.68 0.16 254);
   --job-weight-experience: oklch(0.68 0.13 200);
   --job-weight-project: oklch(0.74 0.13 78);
@@ -149,6 +155,12 @@
   --chart-3: #9ebaf6;
   --chart-4: #c7d8fa;
   --chart-5: #7da1f3;
+  --pipeline-screening: color-mix(in oklch, #c6b4a2 72%, var(--background));
+  --pipeline-ai-interview: color-mix(in oklch, #d6c2b1 74%, var(--background));
+  --pipeline-human-interview: color-mix(in oklch, #decdbc 76%, var(--background));
+  --pipeline-offer: color-mix(in oklch, #ded4c2 76%, var(--background));
+  --pipeline-closed-hired: color-mix(in oklch, #8dc096 78%, var(--background));
+  --pipeline-closed-rejected: color-mix(in oklch, #dc8ebb 80%, var(--background));
   --job-weight-skill: oklch(0.52 0.08 254);
   --job-weight-experience: oklch(0.52 0.06 200);
   --job-weight-project: oklch(0.54 0.06 78);
@@ -191,15 +203,11 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgb(29 78 216 / 0.14);
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
     /* kami: 段落孤儿/寡妇行最少 3 行，避免页底/段尾零散单行。
        kami: minimum 3 lines for widows and orphans — no stranded single lines. */
     widows: 3;
     orphans: 3;
-  }
-
-  .dark body {
-    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
   }
 
   [data-sidebar="sidebar"] [data-sidebar="menu-button"],
@@ -246,8 +254,8 @@
   }
 
   ::selection {
-    background: oklch(0.86 0.09 254);
-    color: oklch(0.32 0.1 254);
+    background: color-mix(in oklab, var(--primary) 22%, white);
+    color: #173e2c;
   }
 
   .dark ::selection {
@@ -334,21 +342,6 @@
   }
 }
 
-@keyframes home-product-shot-enter {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.home-product-shot-enter {
-  animation: home-product-shot-enter 550ms cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-
 @keyframes text-shimmer {
   from {
     background-position: 100% center;
@@ -380,10 +373,6 @@
   .ai-text-shimmer {
     animation: none !important;
     background-position: 0% center;
-  }
-
-  .home-product-shot-enter {
-    animation: none !important;
   }
 }
 

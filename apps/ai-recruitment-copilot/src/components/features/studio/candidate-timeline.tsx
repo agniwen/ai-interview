@@ -178,7 +178,13 @@ function ActivityAvatar({ actor }: { actor: ActivityActor }) {
   }
 
   return (
-    <Avatar className="size-5 bg-muted text-muted-foreground" size="sm">
+    <Avatar
+      className="size-5 bg-muted text-muted-foreground"
+      generatedSize={20}
+      label={`${actor.name}的头像`}
+      seed={`actor:${actor.icon ?? "user"}:${actor.name}`}
+      size="sm"
+    >
       {actor.image ? <AvatarImage alt={actor.name} src={actor.image} /> : null}
       <AvatarFallback>{fallbackContent}</AvatarFallback>
     </Avatar>

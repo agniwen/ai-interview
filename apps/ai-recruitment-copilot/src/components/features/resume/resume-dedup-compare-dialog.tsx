@@ -355,6 +355,55 @@ function ResumeComparisonContent({
   );
 }
 
+function ComparisonColumnContent({
+  detail,
+  isError,
+  isLoading,
+  mode,
+  onScrollViewportChange,
+  slug,
+}: {
+  detail: ResumeComparisonDetail | null | undefined;
+  isError: boolean;
+  isLoading: boolean;
+  mode: ResumeDedupCompareMode;
+  onScrollViewportChange: (element: HTMLElement | null) => void;
+  slug: string;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center gap-2 text-muted-foreground text-sm">
+        <IconLoader2 className="size-4 animate-spin" />
+        正在加载
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="flex h-full items-center justify-center text-destructive text-sm">
+        简历加载失败
+      </div>
+    );
+  }
+  if (!detail) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        未找到该简历
+      </div>
+    );
+  }
+  if (mode === "detail") {
+    return <DetailComparisonContent detail={detail} />;
+  }
+  return (
+    <ResumeComparisonContent
+      detail={detail}
+      onScrollViewportChange={onScrollViewportChange}
+      slug={slug}
+    />
+  );
+}
+
 function ComparisonColumn({
   candidate,
   detail,
@@ -392,38 +441,6 @@ function ComparisonColumn({
     return () => onScrollViewportChange(null);
   }, [onScrollViewportChange, outerViewport, viewerViewport]);
 
-  let content: React.ReactNode;
-  if (isLoading) {
-    content = (
-      <div className="flex h-full items-center justify-center gap-2 text-muted-foreground text-sm">
-        <IconLoader2 className="size-4 animate-spin" />
-        正在加载
-      </div>
-    );
-  } else if (isError) {
-    content = (
-      <div className="flex h-full items-center justify-center text-destructive text-sm">
-        简历加载失败
-      </div>
-    );
-  } else if (!detail) {
-    content = (
-      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-        未找到该简历
-      </div>
-    );
-  } else if (mode === "detail") {
-    content = <DetailComparisonContent detail={detail} />;
-  } else {
-    content = (
-      <ResumeComparisonContent
-        detail={detail}
-        onScrollViewportChange={setViewerViewport}
-        slug={slug}
-      />
-    );
-  }
-
   return (
     <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)]">
       <header className="flex min-w-0 items-center justify-between gap-3 border-border/70 border-b bg-background px-5 py-3">
@@ -438,7 +455,12 @@ function ComparisonColumn({
           {detail ? (
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
               <span className="flex min-w-0 items-center gap-1.5">
-                <Avatar className="size-5">
+                <Avatar
+                  className="size-5"
+                  generatedSize={20}
+                  label={`${detail.uploaderName ?? "上传人"}的头像`}
+                  seed={`uploader:${detail.uploaderName ?? candidate.id}`}
+                >
                   {detail.uploaderImage ? (
                     <AvatarImage alt={detail.uploaderName ?? "上传人"} src={detail.uploaderImage} />
                   ) : null}
@@ -480,7 +502,14 @@ function ComparisonColumn({
         data-resume-compare-scroll-container={label === "当前简历" ? "current" : "match"}
         ref={setOuterViewport}
       >
-        {content}
+        <ComparisonColumnContent
+          detail={detail}
+          isError={isError}
+          isLoading={isLoading}
+          mode={mode}
+          onScrollViewportChange={setViewerViewport}
+          slug={slug}
+        />
       </div>
     </section>
   );

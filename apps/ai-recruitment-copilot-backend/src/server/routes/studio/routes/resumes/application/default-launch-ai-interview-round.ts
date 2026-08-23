@@ -25,7 +25,6 @@ export function persistLaunchAiInterviewRound(
     const {
       actorId,
       decisionAuditLogId,
-      interviewQuestions,
       interviewRecordId,
       launchAuditLogId,
       now,
@@ -143,7 +142,6 @@ export function persistLaunchAiInterviewRound(
     await tx
       .update(studioInterview)
       .set({
-        interviewQuestions,
         pipelineStage: "ai_interview",
         updatedAt: now,
       })
@@ -159,6 +157,7 @@ export function persistLaunchAiInterviewRound(
       createdAt: now,
       createdBy: actorId,
       interviewRecordId,
+      personalizedQuestions: [],
       reason: "create",
       scheduleEntryId: schedule.id,
     });
@@ -169,7 +168,7 @@ export function persistLaunchAiInterviewRound(
       action: "ai_interview_launched",
       createdAt: now,
       detail: {
-        personalizedQuestionCount: interviewQuestions.length,
+        personalizedQuestionCount: 0,
         questionCount: requiredQuestionCount,
         roundId: schedule.id,
         roundLabel: schedule.roundLabel,

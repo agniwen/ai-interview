@@ -55,13 +55,6 @@ function launchInput(
   return {
     actorId: USER_ID,
     decisionAuditLogId,
-    interviewQuestions: [
-      {
-        difficulty: "easy" as const,
-        order: 1,
-        question: "请介绍最近负责的项目。",
-      },
-    ],
     interviewRecordId,
     launchAuditLogId,
     now: NOW,
@@ -133,6 +126,13 @@ beforeAll(async () => {
       createdAt: NOW,
       createdBy: USER_ID,
       id: CONCURRENT_CANDIDATE_ID,
+      interviewQuestions: [
+        {
+          difficulty: "easy",
+          order: 1,
+          question: "请介绍最近负责的项目。",
+        },
+      ],
       jobDescriptionId: JOB_ID,
       organizationId: ORG_ID,
       resumeEvaluationStatus: "fail",
@@ -226,7 +226,7 @@ describe("atomic AI interview launch persistence", () => {
       .from(interviewAuditLog)
       .where(eq(interviewAuditLog.id, "atomic_launch_structured_audit"));
     expect(launchAudit?.detail).toMatchObject({
-      personalizedQuestionCount: 1,
+      personalizedQuestionCount: 0,
       questionCount: 0,
     });
   });
@@ -348,6 +348,6 @@ describe("atomic AI interview launch persistence", () => {
       );
     expect(snapshots).toHaveLength(1);
     expect(snapshots[0]?.scheduleEntryId).toMatch(/^atomic_launch_concurrent_round_[ab]$/);
-    expect(snapshots[0]?.payload.personalizedQuestions).toEqual(candidate?.interviewQuestions);
+    expect(snapshots[0]?.payload.personalizedQuestions).toEqual([]);
   });
 });

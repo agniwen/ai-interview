@@ -4,6 +4,7 @@ import type {
   PipelineStage,
   ResumeEvaluationStatus,
 } from "@arc/db-schema/studio-interviews";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import {
   canApplyCandidatePipelineEvent,
   getCandidatePipelineEventForTargetStage,
@@ -18,6 +19,7 @@ export interface CandidateTransitionExisting {
 export interface CandidateTransitionInput {
   closedMeta?: Omit<Partial<ClosedMeta>, "previousStage">;
   closedReason?: string | null;
+  interviewQuestions?: InterviewQuestion[];
   outcome?: CandidateOutcome;
   pipelineStage: PipelineStage;
   reactivationReason?: string;
@@ -29,6 +31,7 @@ export interface CandidateTransitionPatch {
   closedMeta?: ClosedMeta | null;
   humanInterviewScheduledAt?: Date | null;
   humanInterviewerId?: string | null;
+  interviewQuestions?: InterviewQuestion[];
   offerAcceptedAt?: Date | null;
   offerSentAt?: Date | null;
   outcome: CandidateOutcome;

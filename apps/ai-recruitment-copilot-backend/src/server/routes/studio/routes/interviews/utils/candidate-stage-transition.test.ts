@@ -32,6 +32,7 @@ function createTransaction(existing: {
 }) {
   const insertedValues = vi.fn(async (_value: TransactionValue) => {});
   const updatedWhere = vi.fn(async (_value: TransactionValue) => {});
+  const updatedValues = vi.fn((_value: TransactionValue) => ({ where: updatedWhere }));
   const tx = {
     insert: vi.fn(() => ({ values: insertedValues })),
     select: vi.fn(() => ({
@@ -42,10 +43,10 @@ function createTransaction(existing: {
       })),
     })),
     update: vi.fn(() => ({
-      set: vi.fn(() => ({ where: updatedWhere })),
+      set: updatedValues,
     })),
   };
-  return { insertedValues, tx, updatedWhere };
+  return { insertedValues, tx, updatedValues, updatedWhere };
 }
 
 describe("transitionCandidateStage", () => {
@@ -169,5 +170,38 @@ describe("transitionCandidateStage", () => {
     const audit = insertedValues.mock.calls[0]?.[0] as { detail?: AuditDetail };
     expect(audit.detail).not.toHaveProperty("source");
     expect(audit.detail).not.toHaveProperty("copilotActionProposalId");
+  });
+
+  it("atomically saves interviewer reference questions when entering human interview", async () => {
+    const { insertedValues, tx, updatedValues } = createTransaction({
+      closedMeta: null,
+      jobDescriptionId: "jd-a",
+      outcome: "in_pipeline",
+      pipelineStage: "screening",
+    });
+    mocks.transaction.mockImplementation(async (callback) => await callback(tx));
+    const interviewQuestions = [
+      { difficulty: "medium" as const, order: 1, question: "请讲一次关键技术决策。" },
+    ];
+
+    await expect(
+      transition({
+        authorize: vi.fn().mockResolvedValue(true),
+        candidateId: "candidate-a",
+        input: { interviewQuestions, pipelineStage: "human_interview" },
+        operatorId: "user-a",
+        organizationId: "org-a",
+        provenance: { kind: "manual" },
+      }),
+    ).resolves.toEqual({ kind: "ok" });
+
+    expect(updatedValues).toHaveBeenCalledWith(
+      expect.objectContaining({ interviewQuestions, pipelineStage: "human_interview" }),
+    );
+    expect(insertedValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.objectContaining({ interviewerReferenceQuestionCount: 1 }),
+      }),
+    );
   });
 });

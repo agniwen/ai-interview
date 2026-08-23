@@ -1,5 +1,4 @@
 import { IconBriefcase, IconInfoCircle, IconSparkles, IconUpload } from "@tabler/icons-react";
-import Avvvatars from "avvvatars-react";
 import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -145,6 +144,13 @@ const REVIEW_ACTION_TONE_CLASS = {
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-700 dark:text-amber-300",
 } satisfies Record<ResumeReviewActionTone, string>;
+
+const AI_INTERVIEW_BADGE_CLASS =
+  "border-violet-500/30 bg-violet-500/10 text-violet-700 hover:ring-violet-500/10 dark:border-violet-400/40 dark:bg-violet-400/15 dark:text-violet-300";
+
+function getLifecycleBadgeStageClass(stage: ResumeLibraryListRecord["pipelineStage"]) {
+  return stage === "ai_interview" ? AI_INTERVIEW_BADGE_CLASS : undefined;
+}
 
 function isResumeCardInteractiveClick(event: ReactMouseEvent<HTMLElement>) {
   const { target } = event;
@@ -306,7 +312,13 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
     <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
       <IconUpload aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
       <span className="shrink-0">上传人</span>
-      <Avatar size="sm" className="size-4! shrink-0">
+      <Avatar
+        className="size-4! shrink-0"
+        generatedSize={16}
+        label={`${displayName}的头像`}
+        seed={`recruiter:${displayName}`}
+        size="sm"
+      >
         {image ? <AvatarImage alt={displayName} src={image} /> : null}
         <AvatarFallback>{getCreatorInitial(name)}</AvatarFallback>
       </Avatar>
@@ -588,9 +600,14 @@ function ResumeLibraryCardComponent({
             }}
             onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
           />
-          <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
-            <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
-          </div>
+          <Avatar
+            className="mt-0.5 size-12"
+            generatedSize={48}
+            label={`${record.candidateName}的头像`}
+            seed={`candidate:${getResumeAvatarValue(record)}`}
+          >
+            <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
+          </Avatar>
 
           <div className="min-w-0 flex-1">
             <div className="grid min-w-0 gap-x-4 gap-y-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] 2xl:gap-x-8">
@@ -606,7 +623,7 @@ function ResumeLibraryCardComponent({
                   </span>
                 </button>
                 <ResumeLifecycleBadge
-                  className="max-w-full"
+                  className={cn("max-w-full", getLifecycleBadgeStageClass(record.pipelineStage))}
                   detailLabel={lifecycle.detailLabel}
                   fullLabel={lifecycle.fullLabel}
                   onClick={(event) => {

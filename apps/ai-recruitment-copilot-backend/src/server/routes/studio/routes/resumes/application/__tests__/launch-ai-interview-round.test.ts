@@ -17,7 +17,6 @@ const deps = {
 
 const command = {
   actorId: "user_1",
-  interviewQuestions: [],
   interviewRecordId: "record_1",
   organizationId: "org_1",
   visibilityScope: { kind: "all" } as const,

@@ -294,7 +294,7 @@ function QueueUserCell({ user }: { user: QueueJobRecord["triggeredBy"] }) {
   const displayName = user.name || user.email || user.id;
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Avatar size="sm">
+      <Avatar label={`${displayName}的头像`} seed={`queue-user:${user.email || user.id}`} size="sm">
         {user.image ? <AvatarImage alt={displayName} src={user.image} /> : null}
         <AvatarFallback>{getInitials(user.name, user.email)}</AvatarFallback>
       </Avatar>

@@ -2,6 +2,7 @@
 "use client";
 
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -81,6 +82,7 @@ export function useStudioPersonDetailController({
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
+  const [humanInterviewQuestionDialogOpen, setHumanInterviewQuestionDialogOpen] = useState(false);
   const tabContentRootRef = useRef<HTMLDivElement>(null);
   const {
     pendingResetSubmissionId,
@@ -97,6 +99,7 @@ export function useStudioPersonDetailController({
     setActiveTab(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
+    setHumanInterviewQuestionDialogOpen(false);
     setSelectedResultConversationId(null);
   }, [defaultTab, mode, recordId, roundId]);
 
@@ -251,6 +254,19 @@ export function useStudioPersonDetailController({
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
 
   const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
+  async function requestPipelineStageAdvance(target: PipelineStage): Promise<void> {
+    if (target === "human_interview") {
+      setHumanInterviewQuestionDialogOpen(true);
+      return;
+    }
+    await handleAdvancePipelineStage(target);
+  }
+
+  function confirmHumanInterviewQuestions(
+    interviewQuestions: InterviewQuestion[],
+  ): Promise<boolean> {
+    return handleAdvancePipelineStage("human_interview", interviewQuestions);
+  }
   const header = buildStudioPersonDetailHeader({
     actionBarPipelineStage,
     activeTab,
@@ -268,7 +284,7 @@ export function useStudioPersonDetailController({
     isRoundsLoading,
     layoutMode,
     mode,
-    onAdvancePipelineStage: handleAdvancePipelineStage,
+    onAdvancePipelineStage: requestPipelineStageAdvance,
     onClose,
     onLaunchInterview,
     onNavigateToInterviews: () => {
@@ -325,6 +341,7 @@ export function useStudioPersonDetailController({
     handleResetRound,
     handleToggleAllowTextInput,
     headerExtra: header.headerExtra,
+    humanInterviewQuestionDialogOpen,
     isFormSubmissionsLoading,
     isLatestResultReportSelected,
     isLoading,
@@ -339,6 +356,8 @@ export function useStudioPersonDetailController({
     isTimelineLoading,
     metadataReport,
     mode,
+    onConfirmHumanInterviewQuestions: confirmHumanInterviewQuestions,
+    onHumanInterviewQuestionDialogOpenChange: setHumanInterviewQuestionDialogOpen,
     onRequestClose,
     onResumeIdentityUpdated: () => {
       void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });

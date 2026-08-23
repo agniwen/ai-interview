@@ -2,6 +2,7 @@
 
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Dispatch } from "react";
@@ -159,11 +160,15 @@ export function useStudioPersonDetailMutations({
     dispatchUi({ id: null, type: "resettingRoundChanged" });
   }
 
-  async function handleAdvancePipelineStage(target: PipelineStage) {
+  async function handleAdvancePipelineStage(
+    target: PipelineStage,
+    interviewQuestions?: InterviewQuestion[],
+  ): Promise<boolean> {
     if (!record) {
-      return;
+      return false;
     }
     const error = await advancePipelineStage({
+      interviewQuestions,
       queryClient,
       recordId: record.id,
       slug,
@@ -171,12 +176,13 @@ export function useStudioPersonDetailMutations({
     });
     if (error) {
       toast.error(error);
-      return;
+      return false;
     }
     toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
     setOptimisticPipelineStage(target);
     setActiveTab(tabForPipelineStage(target));
     onUpdated?.();
+    return true;
   }
 
   return {

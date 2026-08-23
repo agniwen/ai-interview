@@ -23,7 +23,6 @@ import {
 import { submitResumeEvaluationOnce } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 import { listOrgSkillSuggestions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
-import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
 import {
   structuredResumeGateStatusSchema,
   structuredResumeGradeSchema,
@@ -52,13 +51,11 @@ const dedupCheckInputSchema = z.object({
   resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
 
-// 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
-// 面试题落库，并新建一条默认排期。零长度数组允许，方便日后扩展。
-// "Launch interview" payload — the candidate row already exists, so we just
-// persist the (possibly edited) questions and add a default schedule entry.
-// Zero-length is allowed.
+// 「发起 AI 面试」只创建默认排期；候选人定制题保留给真人面试官参考，
+// 不再写入 AI 沟通上下文。
+// Launching AI only creates the default round. Candidate-specific questions
+// remain human-interviewer reference material and stay out of the AI context.
 const launchInterviewSchema = z.object({
-  interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),
   structuredEvaluationConfirmation: z
     .object({
       gateStatus: structuredResumeGateStatusSchema,
@@ -519,12 +516,11 @@ export const resumeLibraryReadRouter = factory
       const { member, organization, user } = getWorkspaceRequestContext(c);
       const id = c.req.param("id");
       const visibilityScope = await loadVisibilityScope(organization.id, member.role, user.id);
-      const { interviewQuestions, structuredEvaluationConfirmation } = c.req.valid("json");
+      const { structuredEvaluationConfirmation } = c.req.valid("json");
       let result;
       try {
         result = await launchAiInterviewRound({
           actorId: user.id,
-          interviewQuestions,
           interviewRecordId: id,
           organizationId: organization.id,
           structuredEvaluationConfirmation,

@@ -26,11 +26,11 @@ const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString(
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html data-overlayscrollbars-initialize="" lang="zh-CN" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-dvh antialiased">
+      <body data-overlayscrollbars-initialize="" className="min-h-dvh antialiased">
         <OverlayScrollbarsBody />
         {children}
         <Scripts />

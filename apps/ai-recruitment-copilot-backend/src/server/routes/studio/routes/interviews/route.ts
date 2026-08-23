@@ -17,6 +17,7 @@ import {
   candidateOutcomeSchema,
   closedMetaSchema,
   pipelineStageSchema,
+  studioInterviewQuestionClientSchema,
 } from "@arc/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { refreshInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
@@ -55,6 +56,7 @@ const transitionInputSchema = z
     closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
     // @deprecated 旧字段，HR 端逐步迁移到 closedMeta.internalNotes；保留以兼容。
     closedReason: z.string().trim().max(500, "结案原因不能超过 500 字").optional().nullable(),
+    interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
     outcome: candidateOutcomeSchema.optional(),
     pipelineStage: pipelineStageSchema,
     reactivationReason: z.string().trim().max(500, "重新激活原因不能超过 500 字").optional(),
@@ -83,6 +85,10 @@ const transitionInputSchema = z
   .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
     message: "reactivationReason 仅在重新激活时允许。",
     path: ["reactivationReason"],
+  })
+  .refine((v) => v.pipelineStage === "human_interview" || !v.interviewQuestions, {
+    message: "interviewQuestions 仅在安排真人面试时允许。",
+    path: ["interviewQuestions"],
   });
 
 // 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。

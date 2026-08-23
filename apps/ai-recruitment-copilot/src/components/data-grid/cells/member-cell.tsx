@@ -45,7 +45,12 @@ export function MemberCell({
 
   return (
     <div className={cn("flex min-w-0 items-center gap-3", className)}>
-      <Avatar className={avatarClassName} size={avatarSize}>
+      <Avatar
+        className={avatarClassName}
+        label={`${displayName}的头像`}
+        seed={`member:${displayEmail || displayName}`}
+        size={avatarSize}
+      >
         {image ? <AvatarImage alt={displayName} src={image} /> : null}
         <AvatarFallback className={avatarFallbackClassName}>
           {getMemberInitials(name, email)}

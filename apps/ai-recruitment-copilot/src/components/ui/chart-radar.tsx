@@ -33,14 +33,15 @@ export interface RadarDimensionPoint {
 }
 
 /**
- * Klein-blue radar colors tuned for contrast on the two theme surfaces.
+ * The light theme follows the illustration green; dark mode keeps the original
+ * Klein-blue radar color.
  */
 const DEFAULT_CONFIG: ChartConfig = {
   score: {
     label: "评分",
     theme: {
       dark: "#7699ef",
-      light: "#1d4ed8",
+      light: "#2d6a4f",
     },
   },
 };
@@ -55,6 +56,7 @@ export function DimensionRadarChart({
   config = DEFAULT_CONFIG,
   ariaLabel = "维度评分雷达图",
   fillOpacity = 0.16,
+  height: heightProp,
   empty,
   tooltipBody,
 }: {
@@ -64,6 +66,8 @@ export function DimensionRadarChart({
   config?: ChartConfig;
   ariaLabel?: string;
   fillOpacity?: number;
+  /** Keep the renderer height aligned with a caller-provided compact host height. */
+  height?: number;
   empty?: ReactNode;
   tooltipBody?: (point: RadarDimensionPoint) => ReactNode;
 }) {
@@ -185,7 +189,7 @@ export function DimensionRadarChart({
     );
   }
 
-  const height = compact ? 192 : 272;
+  const height = heightProp ?? (compact ? 192 : 272);
   const ChartComponent = tooltipBody ? TooltipChart : Chart;
 
   return (

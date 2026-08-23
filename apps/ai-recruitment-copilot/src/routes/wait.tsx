@@ -54,7 +54,12 @@ function WaitRoute() {
         </div>
 
         <div className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left">
-          <Avatar className="size-10 shrink-0">
+          <Avatar
+            className="size-10 shrink-0"
+            generatedSize={40}
+            label={`${userName}的头像`}
+            seed={`user:${state.user.email}`}
+          >
             <AvatarFallback className="bg-muted font-medium text-foreground text-sm">
               {initials}
             </AvatarFallback>

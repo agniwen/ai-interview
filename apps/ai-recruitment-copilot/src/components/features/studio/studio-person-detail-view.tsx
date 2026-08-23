@@ -32,6 +32,7 @@ import type { StudioPersonDetailSlots, StudioPersonDetailTab } from "./studio-pe
 import { InterviewReportMetadataDialog } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
 import { StudioPersonDetailBody } from "./studio-person-detail-body";
+import { HumanInterviewQuestionDialog } from "./resumes/launch-interview-dialog";
 
 const DETAIL_TABS = {
   "ai-analysis": true,
@@ -58,10 +59,13 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     dispatchUi,
     floatingActionBar,
     headerExtra,
+    humanInterviewQuestionDialogOpen,
     isLoading,
     isPublic,
     metadataReport,
     mode,
+    onConfirmHumanInterviewQuestions,
+    onHumanInterviewQuestionDialogOpenChange,
     pendingResetSubmissionId,
     recordId,
     reduceMotion,
@@ -139,6 +143,15 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
             }
           }}
           report={metadataReport}
+        />
+      ) : null}
+      {mode === "resume" ? (
+        <HumanInterviewQuestionDialog
+          candidateName={model.record?.candidateName ?? null}
+          onConfirmed={onConfirmHumanInterviewQuestions}
+          onOpenChange={onHumanInterviewQuestionDialogOpenChange}
+          open={humanInterviewQuestionDialogOpen}
+          recordId={model.record?.id ?? null}
         />
       ) : null}
       {mode === "interview" && !isPublic ? (

@@ -95,7 +95,13 @@ function ProfileHero({
 
   return (
     <div className="flex flex-col items-center gap-3 py-2 text-center">
-      <Avatar className="size-20 ring-1 ring-border" size="lg">
+      <Avatar
+        className="size-20 ring-1 ring-border"
+        generatedSize={80}
+        label={`${displayName}的头像`}
+        seed={`user:${email || displayName}`}
+        size="lg"
+      >
         <AvatarImage alt={displayName} src={image ?? undefined} />
         <AvatarFallback className="text-lg">{getInitials(name, email)}</AvatarFallback>
       </Avatar>

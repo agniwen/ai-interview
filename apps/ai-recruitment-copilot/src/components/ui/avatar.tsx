@@ -1,27 +1,62 @@
 "use client";
 
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
+import { generatePalette, GradientAvatar } from "@outpacelabs/avatars";
 import * as React from "react";
 
 import { cn } from "@arc/shared/utils";
 
 function Avatar({
   className,
+  children,
+  generatedSize,
+  label,
+  seed,
   size = "default",
+  style,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
+  generatedSize?: number;
+  label?: string;
+  seed?: number | string;
   size?: "default" | "sm" | "lg";
 }) {
+  const fallbackColor = seed === undefined ? undefined : generatePalette(seed).colors[0];
+  const renderSize = generatedSize ?? { default: 32, lg: 40, sm: 24 }[size];
+  const isDecorative = props["aria-hidden"] === true;
+  const visibleChildren =
+    seed === undefined
+      ? children
+      : React.Children.map(children, (child) =>
+          React.isValidElement(child) && child.type === AvatarFallback ? null : child,
+        );
+
   return (
     <AvatarPrimitive.Root
+      aria-label={seed !== undefined && !isDecorative ? (label ?? "用户头像") : undefined}
       data-slot="avatar"
       data-size={size}
+      data-generated-avatar={seed === undefined ? undefined : ""}
       className={cn(
         "group/avatar relative flex size-8 shrink-0 overflow-hidden rounded-full select-none data-[size=lg]:size-10 data-[size=sm]:size-6",
         className,
       )}
+      role={seed !== undefined && !isDecorative ? "img" : undefined}
+      style={{ backgroundColor: fallbackColor, ...style }}
       {...props}
-    />
+    >
+      {seed === undefined ? null : (
+        <GradientAvatar
+          aria-hidden="true"
+          className="absolute inset-0 size-full"
+          radius="inherit"
+          seed={seed}
+          size={renderSize}
+          style={{ height: "100%", width: "100%" }}
+        />
+      )}
+      {visibleChildren}
+    </AvatarPrimitive.Root>
   );
 }
 
@@ -29,7 +64,7 @@ function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
-      className={cn("aspect-square size-full object-cover", className)}
+      className={cn("relative z-[1] aspect-square size-full object-cover", className)}
       {...props}
     />
   );

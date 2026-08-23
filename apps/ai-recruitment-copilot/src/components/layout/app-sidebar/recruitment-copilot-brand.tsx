@@ -6,7 +6,7 @@ import "blobatar/motion.css";
 
 const BRAND_BLOBATAR_PALETTE = {
   eye: "#ffffff",
-  head: "#002FA7",
+  head: "#000000",
 };
 type BrandBlobatarStyle = CSSProperties & {
   "--mo-eye": string;
@@ -27,7 +27,7 @@ export function RecruitmentCopilotMark({ className }: { className?: string }) {
   return (
     <Blobatar
       animate="always"
-      className={cn("shrink-0 text-[#002FA7] dark:text-white", className)}
+      className={cn("shrink-0 text-black dark:text-white", className)}
       data-slot="recruitment-copilot-mark"
       name="allen"
       palette={BRAND_BLOBATAR_PALETTE}

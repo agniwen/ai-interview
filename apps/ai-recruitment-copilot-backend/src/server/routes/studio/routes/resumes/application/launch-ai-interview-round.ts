@@ -1,4 +1,3 @@
-import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
 import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
@@ -18,7 +17,6 @@ export interface StructuredEvaluationConfirmation {
 
 export interface LaunchAiInterviewRoundCommand {
   actorId: string;
-  interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
   interviewRecordId: string;
   organizationId: string;
   structuredEvaluationConfirmation?: StructuredEvaluationConfirmation | null;

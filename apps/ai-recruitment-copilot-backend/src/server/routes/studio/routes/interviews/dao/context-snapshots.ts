@@ -5,6 +5,7 @@ import type {
   InterviewContextSnapshotReason,
   InterviewSnapshotStatus,
 } from "@arc/db-schema/interview-snapshots";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
 import {
   jsonValueSchema,
@@ -58,6 +59,7 @@ export interface CreateInterviewContextSnapshotOptions {
   createdAt?: Date;
   createdBy: string | null;
   interviewRecordId: string;
+  personalizedQuestions?: InterviewQuestion[];
   reason: InterviewContextSnapshotReason;
   scheduleEntryId: string | null;
 }
@@ -285,7 +287,7 @@ async function buildSnapshotPayloadFromDatabase(
           prompt: jd.prompt,
         }
       : null,
-    personalizedQuestions: candidate.interviewQuestions,
+    personalizedQuestions: options.personalizedQuestions ?? candidate.interviewQuestions,
     questionTemplates: questionRows.map((row) => ({
       bindingId: row.bindingId,
       disabledByUser: row.disabledByUser,
