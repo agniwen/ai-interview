@@ -4,7 +4,9 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@arc/shared/utils";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { Spinner } from "@/components/ui/spinner";
+import * as m from "@/paraglide/messages";
 import { BackgroundLayers } from "./background-layers";
 import { CapabilityGrid } from "./capability-grid";
 import { Faq } from "./faq";
@@ -21,7 +23,7 @@ function HomeBackgroundLoading({ visible }: { visible: boolean }) {
   return (
     <output
       aria-hidden={!visible}
-      aria-label="首页动态背景正在加载"
+      aria-label={m.home_loading_aria()}
       aria-live="polite"
       className={cn(
         "fixed inset-0 z-20 flex items-center justify-center bg-background px-6 transition-opacity duration-300",
@@ -35,7 +37,7 @@ function HomeBackgroundLoading({ visible }: { visible: boolean }) {
         </span>
         <span className="flex items-center gap-2 text-muted-foreground text-sm">
           <Spinner />
-          投递接收中，请坐和放宽。
+          {m.home_loading_message()}
         </span>
       </div>
     </output>
@@ -66,7 +68,8 @@ export default function HomeShell() {
     <div aria-busy={!backgroundReady} className={cn(!backgroundReady && "h-dvh overflow-hidden")}>
       <HomeBackgroundLoading visible={!backgroundReady} />
       {hasEntered ? (
-        <div className="fixed top-4 right-4 z-10">
+        <div className="fixed top-4 right-4 z-10 flex items-center gap-1">
+          <LanguageToggle />
           <ThemeToggle />
         </div>
       ) : null}

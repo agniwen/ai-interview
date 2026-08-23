@@ -19,6 +19,7 @@ import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
 import { env } from "@/env/client";
 import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
+import { getLocale, getTextDirection } from "@/paraglide/runtime";
 
 const ROOT_DESCRIPTION =
   "面向招聘团队的 AI 协同工作台，覆盖简历筛选、AI 面试、真人复面与候选人决策全流程。AI Recruitment Copilot — one connected hiring workflow.";
@@ -26,7 +27,12 @@ const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString(
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html data-overlayscrollbars-initialize="" lang="zh-CN" suppressHydrationWarning>
+    <html
+      data-overlayscrollbars-initialize=""
+      dir={getTextDirection()}
+      lang={getLocale()}
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
       </head>

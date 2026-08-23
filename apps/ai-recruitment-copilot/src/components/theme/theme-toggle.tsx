@@ -10,11 +10,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
+import * as m from "@/paraglide/messages";
 
 const THEME_OPTIONS = [
-  { icon: IconSun, label: "浅色", value: "light" },
-  { icon: IconMoon, label: "深色", value: "dark" },
-  { icon: IconDeviceDesktop, label: "跟随系统", value: "system" },
+  { icon: IconSun, label: m.theme_light, value: "light" },
+  { icon: IconMoon, label: m.theme_dark, value: "dark" },
+  { icon: IconDeviceDesktop, label: m.theme_system, value: "system" },
 ] as const;
 
 export function ThemeToggle({
@@ -34,7 +35,7 @@ export function ThemeToggle({
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label="切换主题"
+            aria-label={m.theme_switcher_label()}
             className={className}
             size={size}
             type="button"
@@ -52,7 +53,7 @@ export function ThemeToggle({
             return (
               <DropdownMenuRadioItem key={option.value} value={option.value}>
                 <Icon className=" size-4" />
-                {option.label}
+                {option.label()}
               </DropdownMenuRadioItem>
             );
           })}

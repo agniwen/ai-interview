@@ -8,41 +8,23 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import * as m from "@/paraglide/messages";
 import { Section, SectionTitle } from "./section";
 
-const faqs = [
-  {
-    answer:
-      "简历、面试记录与评估结果保存在对应工作区，用于支持筛选、面试和团队评审。访问受工作区权限控制，有权限的成员可以管理相关记录。",
-    question: "简历和面试记录会保存在哪里？",
-  },
-  {
-    answer:
-      "不会。AI 负责整理证据、持续追问并给出结构化参考，是否进入真人复面、录用或结束流程，仍由招聘团队决定。",
-    question: "AI 会替招聘团队做最终决定吗？",
-  },
-  {
-    answer:
-      "可以按岗位配置职责、能力要求、面试重点与问题模板。岗位语境越清楚，简历筛选和 AI 追问就越贴近团队的真实标准。",
-    question: "不同岗位可以使用不同的筛选和面试标准吗？",
-  },
-  {
-    answer: "招聘团队登录后在工作台推进流程；候选人无需注册，通过专属链接即可进入 AI 面试。",
-    question: "招聘方和候选人的接入方式是怎样的？",
-  },
-  {
-    answer:
-      "建议使用现代浏览器（Chrome / Edge / Safari）与稳定网络，佩戴耳机以获得更好的语音体验。系统会在面试开始前检测麦克风。",
-    question: "候选人参加语音面试有什么设备或网络要求？",
-  },
-];
-
-const defaultExpandedFaqs = faqs.map((_, index) => `faq-${index}`);
+const defaultExpandedFaqs = Array.from({ length: 5 }, (_, index) => `faq-${index}`);
 
 export function Faq() {
+  const faqs = [
+    { answer: m.home_faq_a1(), question: m.home_faq_q1() },
+    { answer: m.home_faq_a2(), question: m.home_faq_q2() },
+    { answer: m.home_faq_a3(), question: m.home_faq_q3() },
+    { answer: m.home_faq_a4(), question: m.home_faq_q4() },
+    { answer: m.home_faq_a5(), question: m.home_faq_q5() },
+  ];
+
   return (
     <Section width="wide">
-      <SectionTitle className="mt-0">开始之前，先讲清楚。</SectionTitle>
+      <SectionTitle className="mt-0">{m.home_faq_title()}</SectionTitle>
       <Accordion className="mt-10 w-full" defaultValue={defaultExpandedFaqs} multiple>
         {faqs.map((item, index) => (
           <AccordionItem className="border-border/60" key={item.question} value={`faq-${index}`}>

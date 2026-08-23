@@ -13,6 +13,7 @@ import {
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Badge } from "@/components/ui/badge";
+import * as messages from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Section, SectionLead, SectionTitle } from "./section";
@@ -80,32 +81,32 @@ function ChatBubblesVisual() {
   return (
     <div className="flex flex-col gap-2.5">
       <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
-        这位候选人有 SaaS 出海经验吗？
+        {messages.home_chat_question_one()}
       </div>
       <div className="max-w-[88%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
-        近 3 年在新加坡与马来负责 B2B 出海，主导过 2 次定价策略调整。
+        {messages.home_chat_answer_one()}
         <span className="mt-1 block text-foreground/55 text-xs">
-          ↳ 追问：定价调整带来的留存影响？
+          {messages.home_chat_followup()}
         </span>
       </div>
       <div className="ml-auto max-w-[82%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
-        他和上一位候选人，在出海经验上的差异？
+        {messages.home_chat_question_two()}
       </div>
       <div className="max-w-[90%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
-        <span className="block">他更偏战略与定价；上一位偏渠道执行。</span>
+        <span className="block">{messages.home_chat_answer_two()}</span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
-          <Badge variant="success">亮点 · 跨区定价</Badge>
-          <Badge variant="warning">风险 · 团队规模较小</Badge>
+          <Badge variant="success">{messages.home_chat_strength()}</Badge>
+          <Badge variant="warning">{messages.home_chat_risk()}</Badge>
         </span>
       </div>
       <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
-        把他加入复试名单
+        {messages.home_chat_shortlist()}
       </div>
       <div className="inline-flex items-center gap-1 self-start text-foreground/45 text-xs">
         <span className="size-1 animate-pulse rounded-full bg-foreground/40" />
         <span className="size-1 animate-pulse rounded-full bg-foreground/40 [animation-delay:120ms]" />
         <span className="size-1 animate-pulse rounded-full bg-foreground/40 [animation-delay:240ms]" />
-        <span className="ml-1.5">AI 正在整理候选人摘要…</span>
+        <span className="ml-1.5">{messages.home_chat_thinking()}</span>
       </div>
     </div>
   );
@@ -113,10 +114,10 @@ function ChatBubblesVisual() {
 
 // 工作台配置：mock 岗位列表，每行带题数与状态
 function WorkbenchVisual() {
-  const positions: { count: number; name: string; status: string }[] = [
-    { count: 12, name: "高级前端工程师", status: "已发布" },
-    { count: 8, name: "产品经理", status: "已发布" },
-    { count: 6, name: "数据分析师", status: "草稿" },
+  const positions = [
+    { count: 12, draft: false, name: messages.home_position_frontend() },
+    { count: 8, draft: false, name: messages.home_position_product() },
+    { count: 6, draft: true, name: messages.home_position_data() },
   ];
   return (
     <ul className="flex flex-col divide-y divide-foreground/[0.06] overflow-hidden rounded-xl ring-1 ring-foreground/5 bg-background/70 shadow-sm">
@@ -127,8 +128,12 @@ function WorkbenchVisual() {
         >
           <span className="truncate font-medium text-foreground/85">{p.name}</span>
           <span className="flex shrink-0 items-center gap-2">
-            <span className="font-mono text-[11px] text-foreground/55">{p.count} 题</span>
-            <Badge variant={p.status === "草稿" ? "secondary" : "success"}>{p.status}</Badge>
+            <span className="font-mono text-[11px] text-foreground/55">
+              {messages.home_question_count({ count: p.count })}
+            </span>
+            <Badge variant={p.draft ? "secondary" : "success"}>
+              {p.draft ? messages.home_status_draft() : messages.home_status_published()}
+            </Badge>
           </span>
         </li>
       ))}
@@ -141,13 +146,13 @@ function FollowUpVisual() {
   return (
     <div className="flex flex-col gap-1.5 font-mono text-[12px]">
       <div className="rounded-md ring-1 ring-foreground/5 bg-background/80 px-2.5 py-1.5 text-foreground/80 shadow-sm">
-        Q · 状态管理选型？
+        {messages.home_followup_state()}
       </div>
       <div className="ml-3 rounded-md ring-1 ring-foreground/5 bg-background/60 px-2.5 py-1.5 text-foreground/65 shadow-sm">
-        ↳ 选 Zustand 的考量？
+        {messages.home_followup_zustand()}
       </div>
       <div className="ml-6 rounded-md ring-1 ring-foreground/5 bg-background/40 px-2.5 py-1.5 text-foreground/55 shadow-sm">
-        ↳ 团队迁移成本？
+        {messages.home_followup_migration()}
       </div>
     </div>
   );
@@ -180,7 +185,7 @@ function LiveVoiceVisual() {
         ))}
       </div>
       <p className="truncate rounded-md ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/70 shadow-sm">
-        “…让我介绍最近主导的项目”
+        {messages.home_live_transcript()}
       </p>
       <style>{`
         @keyframes bento-pulse {
@@ -195,9 +200,9 @@ function LiveVoiceVisual() {
 // 结构化评估：评估维度 + 进度条
 function ScoreVisual() {
   const rows = [
-    { label: "亮点", tone: "emerald", value: 0.8 },
-    { label: "风险", tone: "amber", value: 0.25 },
-    { label: "推荐度", tone: "foreground", value: 0.84 },
+    { label: messages.home_score_strength(), tone: "emerald", value: 0.8 },
+    { label: messages.home_score_risk(), tone: "amber", value: 0.25 },
+    { label: messages.home_score_recommendation(), tone: "foreground", value: 0.84 },
   ] as const;
   const toneClass = {
     amber: "bg-amber-500/70 dark:bg-amber-400/70",
@@ -226,7 +231,11 @@ function ScoreVisual() {
 
 // 数据边界：权限与记录清单 + 勾选
 function PrivacyVisual() {
-  const items = ["工作区权限控制", "过程记录可追溯", "历史数据可管理"];
+  const items = [
+    messages.home_privacy_permissions(),
+    messages.home_privacy_traceable(),
+    messages.home_privacy_manageable(),
+  ];
   return (
     <ul className="flex flex-col gap-1.5">
       {items.map((t) => (
@@ -257,56 +266,59 @@ interface BentoConfig extends Omit<BentoTileProps, "className"> {
   span: string;
 }
 
-const tiles: BentoConfig[] = [
-  {
-    Icon: IconMessage2,
-    description: "对照岗位要求梳理候选人的经历、亮点与风险，并保留判断来自哪段简历。",
-    span: "lg:col-span-2 lg:row-span-2",
-    title: "有依据的筛选",
-    visual: <ChatBubblesVisual />,
-  },
-  {
-    Icon: IconClipboardList,
-    description: "岗位要求、筛选重点、面试官设定与问题模板，一次配置，全程复用。",
-    layout: "split",
-    span: "lg:col-span-2",
-    title: "统一的岗位语境",
-    visual: <WorkbenchVisual />,
-  },
-  {
-    Icon: IconSparkles,
-    description: "不照着题单机械提问。AI 会根据回答继续追问，把关键细节问清楚。",
-    span: "lg:col-span-1",
-    title: "会继续问的 AI",
-    visual: <FollowUpVisual />,
-  },
-  {
-    Icon: IconRadio,
-    description: "链接发给候选人即可开始，过程实时记录，第一轮面试不再反复协调时间。",
-    span: "lg:col-span-1",
-    title: "随时可开始的 AI 面试",
-    visual: <LiveVoiceVisual />,
-  },
-  {
-    Icon: IconGauge,
-    description: "把亮点、风险、回答证据和建议放在一起，团队看到的是同一份事实。",
-    layout: "split",
-    span: "lg:col-span-2",
-    title: "可复盘的评估",
-    visual: <ScoreVisual />,
-  },
-  {
-    Icon: IconShieldCheck,
-    description: "简历、面试记录与评估统一留在工作区，权限、过程和数据流转清晰可见。",
-    layout: "split",
-    span: "lg:col-span-2",
-    title: "清晰的数据边界",
-    visual: <PrivacyVisual />,
-  },
-];
+function getTiles(): BentoConfig[] {
+  return [
+    {
+      Icon: IconMessage2,
+      description: messages.home_capability_evidence_description(),
+      span: "lg:col-span-2 lg:row-span-2",
+      title: messages.home_capability_evidence_title(),
+      visual: <ChatBubblesVisual />,
+    },
+    {
+      Icon: IconClipboardList,
+      description: messages.home_capability_context_description(),
+      layout: "split",
+      span: "lg:col-span-2",
+      title: messages.home_capability_context_title(),
+      visual: <WorkbenchVisual />,
+    },
+    {
+      Icon: IconSparkles,
+      description: messages.home_capability_followup_description(),
+      span: "lg:col-span-1",
+      title: messages.home_capability_followup_title(),
+      visual: <FollowUpVisual />,
+    },
+    {
+      Icon: IconRadio,
+      description: messages.home_capability_interview_description(),
+      span: "lg:col-span-1",
+      title: messages.home_capability_interview_title(),
+      visual: <LiveVoiceVisual />,
+    },
+    {
+      Icon: IconGauge,
+      description: messages.home_capability_review_description(),
+      layout: "split",
+      span: "lg:col-span-2",
+      title: messages.home_capability_review_title(),
+      visual: <ScoreVisual />,
+    },
+    {
+      Icon: IconShieldCheck,
+      description: messages.home_capability_privacy_description(),
+      layout: "split",
+      span: "lg:col-span-2",
+      title: messages.home_capability_privacy_title(),
+      visual: <PrivacyVisual />,
+    },
+  ];
+}
 
 // PC（lg+）：原 Bento 网格 / Desktop bento grid
 function CapabilityBento() {
+  const tiles = getTiles();
   return (
     <div className="mt-12 hidden gap-4 sm:gap-5 lg:grid lg:auto-rows-[minmax(180px,auto)] lg:grid-cols-4">
       {tiles.map(({ span, ...tile }, index) => (
@@ -321,6 +333,7 @@ function CapabilityBento() {
 // 移动端（< lg）：循环自动播放的 carousel，主卡居中、左右露出邻卡
 // Mobile: looping autoplay carousel with center alignment, neighbors peek on both sides
 function CapabilityCarousel() {
+  const tiles = getTiles();
   return (
     <CenterCarousel
       className="mt-10 lg:hidden"
@@ -337,8 +350,8 @@ export function CapabilityGrid() {
   return (
     <Section width="wide">
       <div className="max-w-3xl">
-        <SectionTitle className="mt-0">招聘需要的，都在一条链路里。</SectionTitle>
-        <SectionLead>不是替你做决定。是把每个决定需要的证据，提前整理好。</SectionLead>
+        <SectionTitle className="mt-0">{messages.home_capability_title()}</SectionTitle>
+        <SectionLead>{messages.home_capability_lead()}</SectionLead>
       </div>
 
       <CapabilityBento />

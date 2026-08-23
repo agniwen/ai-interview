@@ -5,13 +5,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getBannedAuthMessage } from "@/components/features/auth/auth-error";
 import { authClient } from "@/lib/client/auth-client";
+import * as m from "@/paraglide/messages";
 
 interface LoginErrorToastProps {
   errorCode: string;
   errorDescription?: string | undefined;
 }
-
-const DEFAULT_GENERIC_MESSAGE = "登录过程中发生错误，请稍后再试。";
 
 /**
  * 客户端组件：在 OAuth 回调失败（例如账号被封禁）后，把错误信息以 toast 的形式
@@ -37,8 +36,8 @@ export function LoginErrorToast({ errorCode, errorDescription }: LoginErrorToast
 
     const isBanned = errorCode === "banned";
     const message = isBanned
-      ? getBannedAuthMessage(errorDescription)
-      : errorDescription?.trim() || DEFAULT_GENERIC_MESSAGE;
+      ? getBannedAuthMessage(errorDescription, m.login_banned())
+      : errorDescription?.trim() || m.login_generic_error();
 
     toast.error(message, { duration: isBanned ? 8000 : 6000 });
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
 import { withCleanup } from "@/lib/client/async-control";
+import * as m from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
 import { GoogleIcon } from "./google-icon";
 
@@ -60,7 +61,7 @@ export function GoogleSignInButton({ callbackURL, className }: GoogleSignInButto
       variant="outline"
     >
       <GoogleIcon className="size-4" />
-      {isSubmitting ? "跳转中..." : "使用 Google 账号登录"}
+      {isSubmitting ? m.login_redirecting() : m.login_google_button()}
     </Button>
   );
 }

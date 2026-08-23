@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { env } from "@/env/client";
+import * as messages from "@/paraglide/messages";
 import { EmailPasswordSignInForm } from "./email-password-sign-in-form";
 import { FeishuSignInButton } from "./feishu-sign-in-button";
 import { GoogleSignInButton } from "./google-sign-in-button";
@@ -84,7 +85,7 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
       <TabsContent className="mt-4 space-y-3" value="feishu">
         <FeishuSignInButton
           callbackURL={callbackURL}
-          label="极光 HR 飞书登录"
+          label={messages.login_jiguang_hr_feishu()}
           providerId="feishu-jiguang-hr"
           variant="default"
         />
@@ -97,11 +98,11 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
     <Tabs className="w-full" onValueChange={handleValueChange} value={activeTab}>
       <TabsList className="grid w-full grid-cols-2">
         {SHOW_GOOGLE_LOGIN ? (
-          <TabsTrigger value="oauth">Google 登录</TabsTrigger>
+          <TabsTrigger value="oauth">{messages.login_google_tab()}</TabsTrigger>
         ) : (
-          <TabsTrigger value="feishu">飞书登录</TabsTrigger>
+          <TabsTrigger value="feishu">{messages.login_feishu_tab()}</TabsTrigger>
         )}
-        <TabsTrigger value="password">账号密码登录</TabsTrigger>
+        <TabsTrigger value="password">{messages.login_password_tab()}</TabsTrigger>
       </TabsList>
       <AnimatedHeight animateOnMobile>
         <div className="relative">

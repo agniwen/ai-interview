@@ -2,6 +2,7 @@
 // Purpose: Minimal footer.
 import { Link } from "@tanstack/react-router";
 import { Separator } from "@/components/ui/separator";
+import * as m from "@/paraglide/messages";
 
 const COPYRIGHT_YEAR = 2026;
 
@@ -13,10 +14,10 @@ export function HomeFooter() {
         <p>© {COPYRIGHT_YEAR} AI Recruitment Copilot</p>
         <nav className="flex items-center gap-5">
           <Link className="transition-colors hover:text-foreground" to="/">
-            产品
+            {m.home_footer_product()}
           </Link>
           <Link className="transition-colors hover:text-foreground" to="/login">
-            登录
+            {m.home_footer_login()}
           </Link>
         </nav>
       </div>

@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- The landing-only recruiting desk keeps its chart and localized candidate fixtures in one noninteractive screen. */
 import {
   IconBriefcase,
   IconChevronDown,
@@ -32,11 +33,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
+import * as m from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
-
-const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘台" }];
 
 interface MetricItem {
   label: string;
@@ -94,14 +95,6 @@ const PIPELINE_ORDER = [
   "closed_hired",
   "closed_rejected",
 ] as const;
-const PIPELINE_LABEL = {
-  ai_interview: "AI 面试",
-  closed_hired: "已录用",
-  closed_rejected: "已淘汰 / 撤回",
-  human_interview: "真人复面",
-  offer: "Offer",
-  screening: "简历筛选",
-} satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
 const PIPELINE_COUNT = {
   ai_interview: 18,
   closed_hired: 4,
@@ -120,6 +113,14 @@ const PIPELINE_COLOR = {
 } satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
 
 function StatusCard() {
+  const pipelineLabel = {
+    ai_interview: m.home_frame_nav_ai_interview(),
+    closed_hired: m.home_frame_stage_hired(),
+    closed_rejected: m.home_frame_stage_rejected(),
+    human_interview: m.home_frame_stage_human(),
+    offer: "Offer",
+    screening: m.home_frame_stage_screening(),
+  } satisfies Record<(typeof PIPELINE_ORDER)[number], string>;
   const total = PIPELINE_ORDER.reduce((acc, s) => acc + PIPELINE_COUNT[s], 0);
   const active =
     PIPELINE_COUNT.screening +
@@ -128,12 +129,12 @@ function StatusCard() {
     PIPELINE_COUNT.offer;
   return (
     <ChartCardShell
-      description="不含归档候选人"
+      description={m.home_frame_excludes_archived()}
       metrics={[
-        { label: "总候选", value: String(total) },
-        { label: "推进中", value: String(active) },
+        { label: m.home_frame_total_candidates(), value: String(total) },
+        { label: m.home_frame_in_progress(), value: String(active) },
       ]}
-      title="面试流程分布"
+      title={m.home_frame_pipeline_title()}
     >
       <div className="flex flex-col gap-3">
         <div className="flex h-16 items-center">
@@ -166,7 +167,7 @@ function StatusCard() {
                 className="size-2.5 rounded-sm"
                 style={{ backgroundColor: PIPELINE_COLOR[s] }}
               />
-              <span className="flex-1 truncate">{PIPELINE_LABEL[s]}</span>
+              <span className="flex-1 truncate">{pipelineLabel[s]}</span>
               <span className="tabular-nums">{PIPELINE_COUNT[s]}</span>
             </li>
           ))}
@@ -201,13 +202,19 @@ const CALENDAR_LEVELS = Array.from({ length: 27 * 7 }, (_, index) => {
 });
 
 function DailyAddedCard() {
+  const monthLabels = Array.from({ length: 6 }, (_, index) =>
+    new Intl.DateTimeFormat(getLocale(), { month: "short" }).format(
+      new Date(Date.UTC(2026, index + 2, 1)),
+    ),
+  );
+
   return (
     <ChartCardShell
       metrics={[
-        { label: "一年新增", value: "188" },
-        { label: "单日峰值", value: "12" },
+        { label: m.home_frame_added_year(), value: "188" },
+        { label: m.home_frame_daily_peak(), value: "12" },
       ]}
-      title="入库日历"
+      title={m.home_frame_calendar_title()}
     >
       <div className="flex h-36 flex-col gap-2 overflow-hidden">
         <div className="flex-1 overflow-hidden">
@@ -231,16 +238,13 @@ function DailyAddedCard() {
             ))}
           </div>
           <div className="mt-2 flex justify-between px-1 text-muted-foreground text-[10px]">
-            <span>3月</span>
-            <span>4月</span>
-            <span>5月</span>
-            <span>6月</span>
-            <span>7月</span>
-            <span>8月</span>
+            {monthLabels.map((month) => (
+              <span key={month}>{month}</span>
+            ))}
           </div>
         </div>
         <div className="flex items-center justify-end gap-1.5 text-muted-foreground text-[10px]">
-          <span>少</span>
+          <span>{m.home_frame_less()}</span>
           {CALENDAR_LEVEL_COLORS.map((color) => (
             <span
               aria-hidden="true"
@@ -249,7 +253,7 @@ function DailyAddedCard() {
               style={{ backgroundColor: color }}
             />
           ))}
-          <span>多</span>
+          <span>{m.home_frame_more()}</span>
         </div>
       </div>
     </ChartCardShell>
@@ -270,12 +274,12 @@ function ConversionCard() {
 
   return (
     <ChartCardShell
-      description="已发起 AI 面试 / 入库候选人"
+      description={m.home_frame_conversion_description()}
       metrics={[
-        { label: "转化率", value: `${percent}%` },
-        { label: "已发起", value: String(withCount) },
+        { label: m.home_frame_conversion_rate(), value: `${percent}%` },
+        { label: m.home_frame_launched(), value: String(withCount) },
       ]}
-      title="AI 面试转化"
+      title={m.home_frame_conversion_title()}
     >
       <div className="grid min-h-36 grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
         <ul className="flex flex-1 flex-col gap-2 text-muted-foreground text-xs">
@@ -285,7 +289,7 @@ function ConversionCard() {
               className="size-2.5 rounded-sm"
               style={{ backgroundColor: CONVERSION_PURPLE }}
             />
-            <span className="flex-1 truncate">已发起 AI 面试</span>
+            <span className="flex-1 truncate">{m.home_frame_launched_interview()}</span>
             <span className="tabular-nums">{withCount}</span>
           </li>
           <li className="flex items-center gap-2">
@@ -294,7 +298,7 @@ function ConversionCard() {
               className="size-2.5 rounded-sm"
               style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
             />
-            <span className="flex-1 truncate">仅入库</span>
+            <span className="flex-1 truncate">{m.home_frame_stored_only()}</span>
             <span className="tabular-nums">{totalCount - withCount}</span>
           </li>
         </ul>
@@ -322,7 +326,9 @@ function ConversionCard() {
           </svg>
           <div className="absolute flex flex-col items-center justify-center">
             <span className="font-mono font-semibold text-2xl tabular-nums">{percent}%</span>
-            <span className="text-muted-foreground text-[10px]">转化率</span>
+            <span className="text-muted-foreground text-[10px]">
+              {m.home_frame_conversion_rate()}
+            </span>
           </div>
         </div>
       </div>
@@ -350,9 +356,14 @@ function PageHeader({ title }: { title: string }) {
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button className="opacity-80" size="xs" type="button" variant="ghost">
-          切换个人维度
+          {m.home_frame_personal_view()}
         </Button>
-        <Button aria-label="刷新招聘指标" size="icon-xs" type="button" variant="ghost">
+        <Button
+          aria-label={m.home_frame_refresh_metrics()}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
           <IconRefresh />
         </Button>
       </div>
@@ -361,20 +372,20 @@ function PageHeader({ title }: { title: string }) {
 }
 
 // ─────────────────── Pipeline stage tabs ───────────────────
-const PIPELINE_TABS = [
-  { label: "全部", value: "all" },
-  { label: "简历筛选", value: "screening" },
-  { label: "AI 面试", value: "ai_interview" },
-  { label: "真人复面", value: "human_interview" },
-  { label: "Offer", value: "offer" },
-  { label: "已结案", value: "closed" },
-] as const;
-
 function PipelineStageTabs() {
+  const pipelineTabs = [
+    { label: m.home_frame_tab_all(), value: "all" },
+    { label: m.home_frame_stage_screening(), value: "screening" },
+    { label: m.home_frame_nav_ai_interview(), value: "ai_interview" },
+    { label: m.home_frame_stage_human(), value: "human_interview" },
+    { label: "Offer", value: "offer" },
+    { label: m.home_frame_tab_closed(), value: "closed" },
+  ];
+
   return (
     <Tabs value="all">
       <TabsList className="grid h-auto w-full grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-nowrap">
-        {PIPELINE_TABS.map((tab) => (
+        {pipelineTabs.map((tab) => (
           <TabsTrigger
             className="h-10! w-full px-3 sm:w-auto sm:px-8"
             key={tab.value}
@@ -430,22 +441,22 @@ function ResumeToolbar() {
         <div className="relative min-w-[15rem]">
           <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-background pr-9 pl-9 text-muted-foreground text-sm">
-            搜索候选人、邮箱、电话、简历名或目标岗位
+            {m.home_frame_search_placeholder()}
           </div>
         </div>
-        <FilterSelectChip label="按技能筛选（需同时具备）" />
-        <FilterSelectChip label="按关联岗位筛选" />
+        <FilterSelectChip label={m.home_frame_skill_filter()} />
+        <FilterSelectChip label={m.home_frame_job_filter()} />
       </div>
       <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-        <ToolbarIconButton label="刷新">
+        <ToolbarIconButton label={m.home_frame_refresh()}>
           <IconRefresh />
         </ToolbarIconButton>
-        <ToolbarIconButton disabled label="重置筛选">
+        <ToolbarIconButton disabled label={m.home_frame_reset_filters()}>
           <IconFilterX />
         </ToolbarIconButton>
         <Button type="button">
           <IconPlus />
-          创建招聘记录
+          {m.home_frame_create_record()}
         </Button>
       </div>
     </div>
@@ -460,6 +471,7 @@ interface ResumeCardData {
   education: ProfileSnapshotLineData[];
   email: string;
   id: string;
+  isScreening: boolean;
   job: string;
   lifecycleDetail: string;
   lifecycleStage: string;
@@ -485,6 +497,7 @@ const RESUMES: ResumeCardData[] = [
     education: [{ period: "2013–2017", primary: "浙江大学", secondary: "计算机科学" }],
     email: "li.ming@example.com",
     id: "01842",
+    isScreening: false,
     job: "技术部 / 资深前端工程师",
     lifecycleDetail: "1/2 待下轮",
     lifecycleStage: "AI 面试",
@@ -505,6 +518,7 @@ const RESUMES: ResumeCardData[] = [
     education: [{ period: "2012–2016", primary: "武汉大学", secondary: "工商管理" }],
     email: "wang.xin@example.com",
     id: "01831",
+    isScreening: false,
     job: "产品部 / 增长产品经理",
     lifecycleDetail: "1/2 已安排",
     lifecycleStage: "真人复面",
@@ -525,6 +539,7 @@ const RESUMES: ResumeCardData[] = [
     education: [{ period: "2009–2013", primary: "华中科技大学", secondary: "软件工程" }],
     email: "zhao.an@example.com",
     id: "01819",
+    isScreening: true,
     job: "技术部 / 后端架构师",
     lifecycleDetail: "待处理",
     lifecycleStage: "简历筛选",
@@ -540,6 +555,193 @@ const RESUMES: ResumeCardData[] = [
   },
 ];
 
+type LocalizedResumeFields = Pick<
+  ResumeCardData,
+  | "creator"
+  | "education"
+  | "job"
+  | "lifecycleDetail"
+  | "lifecycleStage"
+  | "name"
+  | "score"
+  | "skills"
+  | "summary"
+  | "work"
+>;
+
+const RESUME_TRANSLATIONS = {
+  en: [
+    {
+      creator: "Zhang San",
+      education: [
+        { period: "2013–2017", primary: "Zhejiang University", secondary: "Computer Science" },
+      ],
+      job: "Engineering / Senior Frontend Engineer",
+      lifecycleDetail: "1/2 Next round pending",
+      lifecycleStage: "AI Interview",
+      name: "Li Ming",
+      score: "Recommended · 86",
+      skills: ["React", "TypeScript", "Micro-frontends", "Performance"],
+      summary:
+        "Eight years in frontend engineering with major architecture upgrades; strong alignment with the role's core requirements.",
+      work: [
+        { period: "2021–Present", primary: "ByteDance", secondary: "Senior Frontend Engineer" },
+        { period: "2017–2021", primary: "NetEase", secondary: "Frontend Engineer" },
+      ],
+    },
+    {
+      creator: "Li Si",
+      education: [
+        { period: "2012–2016", primary: "Wuhan University", secondary: "Business Administration" },
+      ],
+      job: "Product / Growth Product Manager",
+      lifecycleDetail: "1/2 Scheduled",
+      lifecycleStage: "Human Interview",
+      name: "Wang Xin",
+      score: "Recommended · 81",
+      skills: ["Growth Experiments", "Monetization", "Data Analysis"],
+      summary:
+        "End-to-end growth experience and strong experiment design; team management scope needs further confirmation.",
+      work: [
+        { period: "2020–Present", primary: "RED", secondary: "Growth Product Lead" },
+        { period: "2016–2020", primary: "Meituan", secondary: "Product Manager" },
+      ],
+    },
+    {
+      creator: "Wang Wu",
+      education: [{ period: "2009–2013", primary: "HUST", secondary: "Software Engineering" }],
+      job: "Engineering / Backend Architect",
+      lifecycleDetail: "Pending",
+      lifecycleStage: "Resume Screening",
+      name: "Zhao An",
+      score: "Match · 72",
+      skills: ["Java", "Distributed Systems", "PostgreSQL"],
+      summary:
+        "Solid infrastructure experience, but the resume lacks evidence of large-team collaboration and key reliability metrics.",
+      work: [
+        { period: "2019–Present", primary: "Trip.com", secondary: "Backend Architect" },
+        { period: "2013–2019", primary: "Alibaba Cloud", secondary: "Senior Engineer" },
+      ],
+    },
+  ],
+  ja: [
+    {
+      creator: "張 三",
+      education: [
+        { period: "2013–2017", primary: "浙江大学", secondary: "コンピューターサイエンス" },
+      ],
+      job: "技術部 / シニアフロントエンドエンジニア",
+      lifecycleDetail: "1/2 次回待ち",
+      lifecycleStage: "AI 面接",
+      name: "李 銘",
+      score: "推奨 · 86 点",
+      skills: ["React", "TypeScript", "マイクロフロントエンド", "性能改善"],
+      summary:
+        "フロントエンド経験 8 年。中〜大規模のアーキテクチャ刷新を主導し、職務の中核要件と高く一致しています。",
+      work: [
+        { period: "2021–現在", primary: "ByteDance", secondary: "シニアフロントエンドエンジニア" },
+        { period: "2017–2021", primary: "NetEase", secondary: "フロントエンドエンジニア" },
+      ],
+    },
+    {
+      creator: "李 四",
+      education: [{ period: "2012–2016", primary: "武漢大学", secondary: "経営管理" }],
+      job: "プロダクト部 / グロースプロダクトマネージャー",
+      lifecycleDetail: "1/2 日程確定",
+      lifecycleStage: "対人面接",
+      name: "王 欣",
+      score: "推奨 · 81 点",
+      skills: ["グロース実験", "収益化", "データ分析"],
+      summary:
+        "一貫したグロース経験と優れた実験設計力があります。チーム管理範囲は追加確認が必要です。",
+      work: [
+        { period: "2020–現在", primary: "RED", secondary: "グロースプロダクト責任者" },
+        { period: "2016–2020", primary: "Meituan", secondary: "プロダクトマネージャー" },
+      ],
+    },
+    {
+      creator: "王 五",
+      education: [{ period: "2009–2013", primary: "華中科技大学", secondary: "ソフトウェア工学" }],
+      job: "技術部 / バックエンドアーキテクト",
+      lifecycleDetail: "未処理",
+      lifecycleStage: "書類選考",
+      name: "趙 安",
+      score: "適合 · 72 点",
+      skills: ["Java", "分散システム", "PostgreSQL"],
+      summary:
+        "基盤設計の経験は堅実ですが、大規模チーム連携と主要な安定性指標の根拠が履歴書に不足しています。",
+      work: [
+        { period: "2019–現在", primary: "Trip.com", secondary: "バックエンドアーキテクト" },
+        { period: "2013–2019", primary: "Alibaba Cloud", secondary: "シニアエンジニア" },
+      ],
+    },
+  ],
+  ko: [
+    {
+      creator: "장산",
+      education: [{ period: "2013–2017", primary: "저장대학교", secondary: "컴퓨터과학" }],
+      job: "기술 부문 / 시니어 프런트엔드 엔지니어",
+      lifecycleDetail: "1/2 다음 면접 대기",
+      lifecycleStage: "AI 면접",
+      name: "리밍",
+      score: "추천 · 86점",
+      skills: ["React", "TypeScript", "마이크로 프런트엔드", "성능 최적화"],
+      summary:
+        "프런트엔드 경력 8년으로 중대형 아키텍처 개편을 주도했으며 직무의 핵심 요건과 높은 적합도를 보입니다.",
+      work: [
+        { period: "2021–현재", primary: "ByteDance", secondary: "시니어 프런트엔드 엔지니어" },
+        { period: "2017–2021", primary: "NetEase", secondary: "프런트엔드 엔지니어" },
+      ],
+    },
+    {
+      creator: "리쓰",
+      education: [{ period: "2012–2016", primary: "우한대학교", secondary: "경영학" }],
+      job: "제품 부문 / 그로스 프로덕트 매니저",
+      lifecycleDetail: "1/2 일정 확정",
+      lifecycleStage: "대면 면접",
+      name: "왕신",
+      score: "추천 · 81점",
+      skills: ["그로스 실험", "수익화", "데이터 분석"],
+      summary:
+        "완결된 그로스 경험과 뛰어난 실험 설계 역량을 갖췄습니다. 팀 관리 범위는 추가 확인이 필요합니다.",
+      work: [
+        { period: "2020–현재", primary: "RED", secondary: "그로스 제품 책임자" },
+        { period: "2016–2020", primary: "Meituan", secondary: "프로덕트 매니저" },
+      ],
+    },
+    {
+      creator: "왕우",
+      education: [
+        { period: "2009–2013", primary: "화중과학기술대학교", secondary: "소프트웨어공학" },
+      ],
+      job: "기술 부문 / 백엔드 아키텍트",
+      lifecycleDetail: "처리 대기",
+      lifecycleStage: "이력서 심사",
+      name: "자오안",
+      score: "적합 · 72점",
+      skills: ["Java", "분산 시스템", "PostgreSQL"],
+      summary:
+        "인프라 설계 경험은 탄탄하지만 이력서에 대규모 팀 협업과 핵심 안정성 지표의 근거가 부족합니다.",
+      work: [
+        { period: "2019–현재", primary: "Trip.com", secondary: "백엔드 아키텍트" },
+        { period: "2013–2019", primary: "Alibaba Cloud", secondary: "시니어 엔지니어" },
+      ],
+    },
+  ],
+} satisfies Record<"en" | "ja" | "ko", LocalizedResumeFields[]>;
+
+function getLocalizedResumes(): ResumeCardData[] {
+  const locale = getLocale();
+  if (locale === "zh-CN") {
+    return RESUMES;
+  }
+  const translations = RESUME_TRANSLATIONS[locale];
+  return RESUMES.map((resume, index) => {
+    const translation = translations[index];
+    return translation ? { ...resume, ...translation } : resume;
+  });
+}
+
 function CandidateAvatar({ record }: { record: ResumeCardData }) {
   const seed = [record.name, record.email].filter(Boolean).join(" ") || record.id;
 
@@ -547,7 +749,7 @@ function CandidateAvatar({ record }: { record: ResumeCardData }) {
     <Avatar
       className="mt-0.5 size-12"
       generatedSize={48}
-      label={`${record.name}的头像`}
+      label={m.home_frame_candidate_avatar({ name: record.name })}
       seed={`candidate:${seed}`}
     >
       <AvatarFallback>{record.name.slice(0, 1)}</AvatarFallback>
@@ -579,11 +781,11 @@ function ResumeCardCreatorMeta({ name }: { name: string }) {
   return (
     <span className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
       <IconUpload aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/70" />
-      <span className="shrink-0">上传人</span>
+      <span className="shrink-0">{m.home_frame_uploader()}</span>
       <Avatar
         className="size-4! shrink-0"
         generatedSize={16}
-        label={`${name}的头像`}
+        label={m.home_frame_candidate_avatar({ name })}
         seed={`recruiter:${name}`}
         size="sm"
       >
@@ -624,16 +826,20 @@ function ResumeCardProfileSnapshot({ record }: { record: ResumeCardData }) {
   );
 }
 
-const CARD_ACTIONS = [
-  { icon: IconFileText, label: "简历" },
-  { icon: IconEdit, label: "编辑" },
-  { icon: IconDots, label: "更多" },
-] as const;
-
 function ResumeCardActions({ record }: { record: ResumeCardData }) {
+  const cardActions = [
+    { icon: IconFileText, label: m.home_frame_resume() },
+    { icon: IconEdit, label: m.home_frame_edit() },
+    { icon: IconDots, label: m.home_frame_candidate_more() },
+  ] as const;
   const actions = record.canLaunchInterview
-    ? [CARD_ACTIONS[0], CARD_ACTIONS[1], { icon: IconSparkles, label: "AI面" }, CARD_ACTIONS[2]]
-    : CARD_ACTIONS;
+    ? [
+        cardActions[0],
+        cardActions[1],
+        { icon: IconSparkles, label: m.home_frame_ai_round() },
+        cardActions[2],
+      ]
+    : cardActions;
 
   return (
     <div className="flex justify-end self-center">
@@ -653,9 +859,11 @@ function ResumeCardActions({ record }: { record: ResumeCardData }) {
 }
 
 function ResumeCardList() {
+  const resumes = getLocalizedResumes();
+
   return (
     <div className="grid gap-3">
-      {RESUMES.map((record) => (
+      {resumes.map((record) => (
         <Card
           className="h-full overflow-hidden rounded-xl dark:bg-background"
           key={record.id}
@@ -663,7 +871,10 @@ function ResumeCardList() {
         >
           <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
             <div className="flex min-w-0 gap-3">
-              <Checkbox aria-label={`选择 ${record.name}`} className="relative z-20 mt-3" />
+              <Checkbox
+                aria-label={m.home_frame_select_candidate({ name: record.name })}
+                className="relative z-20 mt-3"
+              />
               <CandidateAvatar record={record} />
               <div className="min-w-0 flex-1">
                 <div className="grid min-w-0 gap-x-4 gap-y-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] 2xl:gap-x-8">
@@ -678,7 +889,7 @@ function ResumeCardList() {
                       detailLabel={record.lifecycleDetail}
                       fullLabel={`${record.lifecycleStage} · ${record.lifecycleDetail}`}
                       stageLabel={record.lifecycleStage}
-                      tone={record.lifecycleStage === "简历筛选" ? "outline" : "info"}
+                      tone={record.isScreening ? "outline" : "info"}
                     />
                   </div>
 
@@ -686,7 +897,7 @@ function ResumeCardList() {
                     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
                       <ResumeCardMetaItem
                         icon={<IconBriefcase className="size-3.5" />}
-                        label="关联岗位"
+                        label={m.home_frame_related_job()}
                       >
                         <span className="text-foreground underline decoration-transparent underline-offset-2">
                           {record.job}
@@ -701,7 +912,7 @@ function ResumeCardList() {
                           aria-hidden="true"
                           className="size-3.5 shrink-0 text-muted-foreground/70"
                         />
-                        更多
+                        {m.home_frame_candidate_more()}
                       </span>
                     </div>
 
@@ -751,7 +962,7 @@ function ResumesContent() {
   // 真实 ResumeLibraryPage: <div className="space-y-6"> 包 PageHeader + Charts + DataGrid
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
-      <PageHeader title="招聘台" />
+      <PageHeader title={m.home_frame_recruitment_desk()} />
       <ChartsRow />
       <PipelineStageTabs />
       <div className="flex flex-col gap-4">
@@ -763,9 +974,18 @@ function ResumesContent() {
 }
 
 export function ResumesScreen({ className }: { className?: string }) {
+  const breadcrumb: BreadcrumbCrumb[] = [
+    { label: "Studio" },
+    { current: true, label: m.home_frame_recruitment_desk() },
+  ];
+
   return (
     <ScreenFrame className={className}>
-      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="招聘" />} tab="studio">
+      <AppShell
+        breadcrumb={breadcrumb}
+        sidebar={<StudioNav activeLabel={m.home_frame_nav_recruitment()} />}
+        tab="studio"
+      >
         <ResumesContent />
       </AppShell>
     </ScreenFrame>

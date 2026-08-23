@@ -5,6 +5,7 @@ import { IconBriefcase, IconMicrophone, IconUsers } from "@tabler/icons-react";
 // Purpose: Three-persona section, Notion-style colorful cards.
 import type { ComponentType, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
+import * as m from "@/paraglide/messages";
 import { Section, SectionLead, SectionTitle } from "./section";
 
 interface Persona {
@@ -14,34 +15,32 @@ interface Persona {
   title: string;
 }
 
-const personas: Persona[] = [
-  {
-    Icon: IconBriefcase,
-    description: "设置岗位语境，推进筛选、AI 面试与真人复面。每位候选人走到哪一步，都清楚可见。",
-    role: "HR / 招聘负责人",
-    title: "流程清楚。推进自然。",
-  },
-  {
-    Icon: IconUsers,
-    description: "直接查看简历证据、关键回答与风险提示，把时间留给真正需要人来判断的问题。",
-    role: "业务面试官 / 用人经理",
-    title: "少翻材料。多看证据。",
-  },
-  {
-    Icon: IconMicrophone,
-    description: "无需注册，打开链接即可参加 AI 面试。跟随清晰提示回答，把注意力留给表达本身。",
-    role: "候选人",
-    title: "打开链接。就可以开始。",
-  },
-];
-
 export function Personas() {
+  const personas: Persona[] = [
+    {
+      Icon: IconBriefcase,
+      description: m.home_persona_hr_description(),
+      role: m.home_persona_hr_role(),
+      title: m.home_persona_hr_title(),
+    },
+    {
+      Icon: IconUsers,
+      description: m.home_persona_manager_description(),
+      role: m.home_persona_manager_role(),
+      title: m.home_persona_manager_title(),
+    },
+    {
+      Icon: IconMicrophone,
+      description: m.home_persona_candidate_description(),
+      role: m.home_persona_candidate_role(),
+      title: m.home_persona_candidate_title(),
+    },
+  ];
+
   return (
     <Section width="wide">
-      <SectionTitle className="mt-0">每个人，看到自己该看的。</SectionTitle>
-      <SectionLead>
-        招聘负责人推进流程，用人经理判断能力，候选人专注表达。信息在同一处流动，角色不被混在一起。
-      </SectionLead>
+      <SectionTitle className="mt-0">{m.home_personas_title()}</SectionTitle>
+      <SectionLead>{m.home_personas_lead()}</SectionLead>
 
       <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
         {personas.map(({ Icon, description, role, title }, index) => (

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createServerEntryHandler } from "../server";
 import type { ServerEntryDependencies } from "../server";
+import { getLocale } from "../paraglide/runtime";
 
 const startFetch = vi.fn((_request: Request) => Promise.resolve(new Response("start")));
 const honoFetch = vi.fn((_request: Request) => Promise.resolve(new Response("hono")));
@@ -171,5 +172,36 @@ describe("TanStack Start server entry", () => {
 
     expect(text).toBe("start");
     expect(startFetch).toHaveBeenCalledWith(request);
+  });
+
+  it.each(["en", "ja", "ko"] as const)(
+    "uses the %s locale cookie on the public login route without changing its path",
+    async (locale) => {
+      startFetch.mockImplementationOnce((request) =>
+        Promise.resolve(new Response(`${getLocale()} ${new URL(request.url).pathname}`)),
+      );
+      const entry = createTestEntry();
+      const request = new Request("https://example.test/login", {
+        headers: { cookie: `ARC_LOCALE=${locale}` },
+      });
+
+      const response = await entry.fetch(request);
+
+      expect(await response.text()).toBe(`${locale} /login`);
+    },
+  );
+
+  it("keeps authenticated routes on the base locale even when the public locale cookie differs", async () => {
+    startFetch.mockImplementationOnce((request) =>
+      Promise.resolve(new Response(`${getLocale()} ${new URL(request.url).pathname}`)),
+    );
+    const entry = createTestEntry();
+    const request = new Request("https://example.test/w/acme/studio", {
+      headers: { cookie: "ARC_LOCALE=ja" },
+    });
+
+    const response = await entry.fetch(request);
+
+    expect(await response.text()).toBe("zh-CN /w/acme/studio");
   });
 });

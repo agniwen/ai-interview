@@ -3,6 +3,7 @@ import { z } from "zod";
 import { LoginPage } from "@/components/features/login/login-page";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { resolveLoginCallbackURL } from "@/components/features/login/login-navigation";
+import * as m from "@/paraglide/messages";
 
 const loginSearchSchema = z.object({
   callbackURL: z.string().optional(),
@@ -28,7 +29,7 @@ function LoginRoute() {
 export const Route = createFileRoute("/login")({
   validateSearch: loginSearchSchema,
   head: () => ({
-    meta: [{ title: formatDocumentTitle("登录") }],
+    meta: [{ title: formatDocumentTitle(m.login_document_title()) }],
   }),
   component: LoginRoute,
 });

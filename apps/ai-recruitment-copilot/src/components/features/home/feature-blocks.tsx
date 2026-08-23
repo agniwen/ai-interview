@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
+import * as messages from "@/paraglide/messages";
+import { getHomeDemoCopy } from "./home-demo-copy";
 import { ModernArtwork } from "./modern-artwork";
 import { Section, SectionLead, SectionTitle } from "./section";
 
@@ -36,49 +38,24 @@ const CANDIDATE_REVIEW_VALUES = {
   skillMatch: 92,
   stability: 78,
 } as const;
-const CANDIDATE_RADAR_LABELS = {
-  educationBackground: "学历",
-  experienceRelevance: "经验",
-  potential: "潜力",
-  projectMatch: "项目",
-  skillMatch: "技能",
-  stability: "稳定",
-} as const;
-const CANDIDATE_REVIEW_DIMENSIONS = RESUME_REVIEW_DIMENSIONS.map(({ key, label, weight }) => ({
-  key,
-  label,
-  score: CANDIDATE_REVIEW_VALUES[key],
-  weight: Math.round(weight * 100),
-}));
-const CANDIDATE_RADAR_DIMENSIONS = CANDIDATE_REVIEW_DIMENSIONS.map((dimension) => ({
-  ...dimension,
-  label: CANDIDATE_RADAR_LABELS[dimension.key],
-}));
-const CANDIDATE_AGENT_MESSAGES = [
-  {
-    content: "李晗在复杂前端项目里，具体负责过什么？",
-    role: "user",
-  },
-  {
-    content:
-      "她主导了设计系统迁移，覆盖 4 条产品线，并将平均交付周期缩短 30%。证据来自简历第 2 页和面试回答 12:36。",
-    role: "assistant",
-  },
-  {
-    content: "她本人承担了哪些关键决策？",
-    role: "user",
-  },
-  {
-    content: "她负责划定迁移范围、确定分阶段发布与回滚标准，并协调产品和研发统一优先级。",
-    role: "assistant",
-  },
-] as const;
 const STORY_SCENE_HEIGHTS = {
   calibration: "min-h-[22rem] sm:min-h-[30rem]",
   evidence: "min-h-[24rem] sm:min-h-[32rem]",
   interview: "min-h-[28rem] sm:min-h-[34rem]",
 } satisfies Record<Story["id"], string>;
 function CandidateScoreCard() {
+  const copy = getHomeDemoCopy().feature;
+  const reviewDimensions = RESUME_REVIEW_DIMENSIONS.map(({ key, weight }) => ({
+    key,
+    label: copy.dimensionLabels[key],
+    score: CANDIDATE_REVIEW_VALUES[key],
+    weight: Math.round(weight * 100),
+  }));
+  const radarDimensions = reviewDimensions.map((dimension) => ({
+    ...dimension,
+    label: copy.radarLabels[dimension.key],
+  }));
+
   return (
     <Card
       className="w-[min(96%,32rem)] overflow-hidden rounded-xl border-border/70 bg-background/95 shadow-[0_22px_56px_-34px_rgba(15,23,42,0.55)]"
@@ -87,17 +64,17 @@ function CandidateScoreCard() {
     >
       <CardHeader className="grid grid-rows-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar generatedSize={36} label="李晗的头像" seed="candidate:李晗">
-            <AvatarFallback>李</AvatarFallback>
+          <Avatar generatedSize={36} label={copy.avatarLabel} seed="candidate:李晗">
+            <AvatarFallback>{copy.candidateName.slice(0, 1)}</AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex min-w-0 items-center gap-2">
-              <h4 className="truncate font-semibold text-sm">李晗</h4>
-              <Badge variant="success">建议面试</Badge>
+              <h4 className="truncate font-semibold text-sm">{copy.candidateName}</h4>
+              <Badge variant="success">{copy.recommendInterview}</Badge>
             </div>
             <p className="flex min-w-0 items-center gap-1.5 truncate text-muted-foreground text-[11px]">
               <IconBriefcase aria-hidden className="size-3.5 shrink-0" />
-              高级前端工程师 · 8 年经验
+              {copy.candidateRole}
             </p>
           </div>
         </div>
@@ -105,7 +82,7 @@ function CandidateScoreCard() {
           <p className="font-semibold text-2xl tabular-nums leading-none">
             {CANDIDATE_REVIEW_SCORE}
           </p>
-          <p className="text-[10px] text-muted-foreground">综合评分</p>
+          <p className="text-[10px] text-muted-foreground">{copy.overallScore}</p>
         </div>
       </CardHeader>
 
@@ -116,15 +93,15 @@ function CandidateScoreCard() {
       >
         <div className="min-w-0" data-slot="candidate-score-radar">
           <DimensionRadarChart
-            ariaLabel="李晗的六维简历评分"
+            ariaLabel={copy.radarAria}
             className="h-[9.75rem] min-h-[9.75rem] max-w-[8.75rem] sm:max-w-[9.75rem]"
             compact
-            dimensions={CANDIDATE_RADAR_DIMENSIONS}
+            dimensions={radarDimensions}
             height={156}
           />
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-x-2 sm:gap-x-3">
-          {CANDIDATE_REVIEW_DIMENSIONS.map((dimension) => (
+          {reviewDimensions.map((dimension) => (
             <div
               className="flex min-w-0 items-baseline justify-between gap-2 border-b py-1.5"
               data-score-dimension={dimension.key}
@@ -140,8 +117,8 @@ function CandidateScoreCard() {
       <CardFooter className="gap-2 border-t px-3 py-2 text-[11px] leading-relaxed">
         <IconSparkles aria-hidden className="size-3.5 shrink-0 text-primary" />
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">整体匹配。</span>
-          核心技能与项目复杂度均有直接经历支撑。
+          <span className="font-medium text-foreground">{copy.matchLead}</span>
+          {copy.matchBody}
         </p>
       </CardFooter>
     </Card>
@@ -158,10 +135,12 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function CandidateAgentChat() {
+  const copy = getHomeDemoCopy().feature;
+
   return (
     <div className="flex w-full max-w-[31rem] flex-col gap-2.5">
       <div className="flex flex-col gap-2" data-slot="interview-messages">
-        {CANDIDATE_AGENT_MESSAGES.map((message, index) => (
+        {copy.agentMessages.map((message, index) => (
           <Message
             className="gap-0"
             data-message-role={message.role}
@@ -196,10 +175,10 @@ function CandidateAgentChat() {
       >
         <div className="rounded-md bg-muted/70 px-3 py-2.5">
           <p className="min-h-8 text-[12px] text-foreground/45 leading-relaxed">
-            继续询问李晗的项目经历、能力证据或风险…
+            {copy.placeholder}
           </p>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="font-mono text-[10px] text-foreground/45">发送给 Agent</span>
+            <span className="font-mono text-[10px] text-foreground/45">{copy.send}</span>
             <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
               <svg aria-hidden="true" fill="none" height="12" viewBox="0 0 12 12" width="12">
                 <path
@@ -219,6 +198,8 @@ function CandidateAgentChat() {
 }
 
 function TeamCalibrationCard() {
+  const copy = getHomeDemoCopy().feature;
+
   return (
     <div className="flex w-full max-w-[36rem] flex-col">
       <div
@@ -229,28 +210,28 @@ function TeamCalibrationCard() {
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 sm:grid-cols-[minmax(10rem,1.15fr)_minmax(11rem,1.35fr)_auto] sm:gap-x-5">
           <div className="order-1 min-w-0">
-            <p className="font-medium text-foreground text-sm">李晗 · 综合评估</p>
-            <p className="mt-0.5 text-foreground/50 text-xs">3 位面试官已完成校准</p>
+            <p className="font-medium text-foreground text-sm">{copy.calibrationTitle}</p>
+            <p className="mt-0.5 text-foreground/50 text-xs">{copy.calibrationComplete}</p>
           </div>
           <Badge className="order-2 justify-self-end sm:order-3" variant="success">
-            建议复试
+            {copy.recommendNext}
           </Badge>
           <div
             className="order-3 col-span-2 grid grid-cols-3 gap-3 sm:order-2 sm:col-span-1 sm:gap-4"
             data-slot="team-calibration-metrics"
           >
-            <Metric label="能力匹配" value="88" />
-            <Metric label="证据完整" value="84" />
-            <Metric label="风险" value="低" />
+            <Metric label={copy.metrics.fit} value="88" />
+            <Metric label={copy.metrics.evidence} value="84" />
+            <Metric label={copy.metrics.risk} value={copy.low} />
           </div>
         </div>
 
         <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
-          <Avatar generatedSize={24} label="郭老师的头像" seed="interviewer:郭" size="sm">
+          <Avatar generatedSize={24} label={copy.interviewerAvatar} seed="interviewer:郭" size="sm">
             <AvatarFallback>郭</AvatarFallback>
           </Avatar>
           <p className="text-[11px] text-foreground/70 leading-relaxed">
-            风险项已经在追问中确认，建议下一轮重点验证带队规模。
+            {copy.calibrationComment}
           </p>
         </div>
       </div>
@@ -258,50 +239,52 @@ function TeamCalibrationCard() {
   );
 }
 
-const stories: Story[] = [
-  {
-    darkImage: "/landing/feature-scenes/evidence-review-dark-v2.jpg",
-    description:
-      "AI 不只给出一个分数。亮点、风险和岗位匹配，都能回到简历中的具体经历，让筛选从一开始就有依据。",
-    id: "evidence",
-    image: "/landing/feature-scenes/evidence-review-v2.jpg",
-    imagePosition: "object-center",
-    optimizedDarkImage: "/landing/optimized/feature-scenes/evidence-review-dark-v2",
-    optimizedImage: "/landing/optimized/feature-scenes/evidence-review-v2",
-    points: ["逐条连接简历原文", "同时呈现亮点与风险"],
-    title: "先看证据。再做判断。",
-    visual: <CandidateScoreCard />,
-    visualPosition: "top-right",
-  },
-  {
-    darkImage: "/landing/feature-scenes/interview-conversation-dark.jpg",
-    description:
-      "直接询问某位候选人的项目经历、能力证据或风险。Agent 汇总简历、面试记录和团队备注，给出有出处的回答。",
-    id: "interview",
-    image: "/landing/feature-scenes/interview-conversation.jpg",
-    imagePosition: "object-center",
-    optimizedDarkImage: "/landing/optimized/feature-scenes/interview-conversation-dark",
-    optimizedImage: "/landing/optimized/feature-scenes/interview-conversation",
-    points: ["自然语言追问候选人细节", "回答回到简历与面试证据"],
-    title: "像聊天一样，把关键问题问清楚。",
-    visual: <CandidateAgentChat />,
-    visualPosition: "bottom-right",
-  },
-  {
-    darkImage: "/landing/feature-scenes/team-calibration-dark.jpg",
-    description:
-      "面试结束后，评分、风险、回答证据和团队备注留在同一个视图里。每个人讨论的是同一份事实，而不是各自的印象。",
-    id: "calibration",
-    image: "/landing/feature-scenes/team-calibration.jpg",
-    imagePosition: "object-center",
-    optimizedDarkImage: "/landing/optimized/feature-scenes/team-calibration-dark",
-    optimizedImage: "/landing/optimized/feature-scenes/team-calibration",
-    points: ["统一评分口径与证据", "保留团队判断过程"],
-    title: "同一份证据，团队一起校准。",
-    visual: <TeamCalibrationCard />,
-    visualPosition: "bottom-left",
-  },
-];
+function getStories(): Story[] {
+  return [
+    {
+      darkImage: "/landing/feature-scenes/evidence-review-dark-v2.jpg",
+      description: messages.home_feature_evidence_description(),
+      id: "evidence",
+      image: "/landing/feature-scenes/evidence-review-v2.jpg",
+      imagePosition: "object-center",
+      optimizedDarkImage: "/landing/optimized/feature-scenes/evidence-review-dark-v2",
+      optimizedImage: "/landing/optimized/feature-scenes/evidence-review-v2",
+      points: [
+        messages.home_feature_evidence_point_one(),
+        messages.home_feature_evidence_point_two(),
+      ],
+      title: messages.home_feature_evidence_title(),
+      visual: <CandidateScoreCard />,
+      visualPosition: "top-right",
+    },
+    {
+      darkImage: "/landing/feature-scenes/interview-conversation-dark.jpg",
+      description: messages.home_feature_chat_description(),
+      id: "interview",
+      image: "/landing/feature-scenes/interview-conversation.jpg",
+      imagePosition: "object-center",
+      optimizedDarkImage: "/landing/optimized/feature-scenes/interview-conversation-dark",
+      optimizedImage: "/landing/optimized/feature-scenes/interview-conversation",
+      points: [messages.home_feature_chat_point_one(), messages.home_feature_chat_point_two()],
+      title: messages.home_feature_chat_title(),
+      visual: <CandidateAgentChat />,
+      visualPosition: "bottom-right",
+    },
+    {
+      darkImage: "/landing/feature-scenes/team-calibration-dark.jpg",
+      description: messages.home_feature_team_description(),
+      id: "calibration",
+      image: "/landing/feature-scenes/team-calibration.jpg",
+      imagePosition: "object-center",
+      optimizedDarkImage: "/landing/optimized/feature-scenes/team-calibration-dark",
+      optimizedImage: "/landing/optimized/feature-scenes/team-calibration",
+      points: [messages.home_feature_team_point_one(), messages.home_feature_team_point_two()],
+      title: messages.home_feature_team_title(),
+      visual: <TeamCalibrationCard />,
+      visualPosition: "bottom-left",
+    },
+  ];
+}
 
 function StoryCard({ story, index }: { index: number; story: Story }) {
   const isMirrored = index % 2 === 1;
@@ -389,12 +372,12 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
 }
 
 export function FeatureBlocks() {
+  const stories = getStories();
+
   return (
     <Section className="pt-10 sm:pt-14 lg:pt-20" width="wide">
-      <SectionTitle className="mt-0">把复杂的招聘工作，收进几个清楚的动作。</SectionTitle>
-      <SectionLead>
-        不用在一整套后台里寻找重点。每一步只呈现当前真正需要判断的信息，再把证据带到下一步。
-      </SectionLead>
+      <SectionTitle className="mt-0">{messages.home_features_title()}</SectionTitle>
+      <SectionLead>{messages.home_features_lead()}</SectionLead>
 
       <div className="mt-12 space-y-20 sm:mt-16 sm:space-y-28 lg:space-y-32">
         {stories.map((story, index) => (

@@ -8,6 +8,7 @@ import { FadeContent } from "@/components/react-bits/fade-content";
 import { SplitText } from "@/components/react-bits/split-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import * as messages from "@/paraglide/messages";
 
 interface HeroProps {
   onResumeFiltering: () => void;
@@ -33,7 +34,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
         <Badge className="dark:border-primary/45! dark:bg-primary/25! dark:text-chart-4!">
           <IconSparkles aria-hidden="true" data-icon="inline-start" />
-          招聘 AI 协同工作台
+          {messages.home_hero_eyebrow()}
         </Badge>
       </FadeContent>
 
@@ -56,36 +57,35 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             AI Recruitment Copilot
           </m.span>
         )}
-        <SplitText text="更快看清，谁更合适。" />
+        <SplitText text={messages.home_hero_tagline()} />
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
         <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-white/80 sm:text-lg sm:leading-[1.8]">
-          从岗位标准出发，AI 帮你筛简历、问重点、整理证据，再交给团队判断。筛选、AI
-          面试和真人复面，始终沿着同一条招聘链路。
+          {messages.home_hero_description()}
         </p>
       </FadeContent>
 
-      <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
-        <div className="inline-flex items-stretch">
+      <FadeContent className="mt-8 flex justify-center px-5 sm:mt-10" delay={0.2}>
+        <div className="flex w-full max-w-[30rem] flex-col gap-3 sm:flex-row sm:gap-4">
           <Button
-            className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm hover:bg-primary/40! dark:border-white/30 dark:bg-slate-950/55! dark:text-white dark:hover:bg-slate-950/75! sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 w-full min-w-0 flex-1 gap-0 rounded-xl border-primary/40 bg-primary/20! px-8 text-sm whitespace-nowrap hover:bg-primary/40! dark:border-white/30 dark:bg-slate-950/55! dark:text-white dark:hover:bg-slate-950/75! sm:h-12 sm:px-10 sm:text-base"
             onClick={onResumeFiltering}
             type="button"
             variant="outline"
           >
-            <span>开始筛选简历</span>
+            <span>{messages.home_hero_resume_cta()}</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-[margin,max-width,opacity] duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
               <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
           <Button
-            className="group h-11 min-w-[12em] gap-0 rounded-l-none rounded-r-xl border-background bg-background/60 px-8 text-sm hover:bg-background/80 dark:border-white/50 dark:bg-white/85 dark:text-slate-950 dark:hover:bg-white sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 w-full min-w-0 flex-1 gap-0 rounded-xl border-background bg-background/60 px-8 text-sm whitespace-nowrap hover:bg-background/80 dark:border-white/50 dark:bg-white/85 dark:text-slate-950 dark:hover:bg-white sm:h-12 sm:px-10 sm:text-base"
             onClick={onWorkbench}
             type="button"
             variant="outline"
           >
-            <span>进入工作台</span>
+            <span>{messages.home_hero_workbench_cta()}</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-[margin,max-width,opacity] duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
               <IconArrowRight aria-hidden="true" className="size-4" />
             </span>

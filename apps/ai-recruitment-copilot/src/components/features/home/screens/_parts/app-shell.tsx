@@ -31,6 +31,7 @@ import { RecruitmentCopilotBrand } from "@/components/layout/app-sidebar/recruit
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import * as m from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
 
 interface NavItem {
@@ -45,43 +46,45 @@ interface NavGroup {
 
 // 对齐 studio-sidebar-slots.tsx 的 navGroups。
 // Mirrors src/components/features/studio/studio-sidebar-slots.tsx.
-export const STUDIO_NAV_GROUPS: NavGroup[] = [
-  {
-    items: [
-      { icon: IconUsers, label: "招聘" },
-      { icon: IconLayoutGrid, label: "人才库" },
-      { icon: IconRobot, label: "AI 面试" },
-      { icon: IconCalendarEvent, label: "日程管理" },
-      { icon: IconChartBar, label: "数据看板" },
-    ],
-    label: "工作台",
-  },
-  {
-    items: [
-      { icon: IconBuilding, label: "部门管理" },
-      { icon: IconUserCircle, label: "AI面试官管理" },
-      { icon: IconFileText, label: "岗位设置" },
-    ],
-    label: "招聘配置",
-  },
-  {
-    items: [
-      { icon: IconClipboardList, label: "表单题" },
-      { icon: IconListCheck, label: "沟通题" },
-    ],
-    label: "题库",
-  },
-  {
-    items: [
-      { icon: IconUser, label: "个人中心" },
-      { icon: IconUserCog, label: "工作区管理" },
-      { icon: IconMailCheck, label: "邮箱监听" },
-      { icon: IconShieldCheck, label: "权限管理" },
-      { icon: IconMessageChatbot, label: "上下文设置" },
-    ],
-    label: "系统配置",
-  },
-];
+function getStudioNavGroups(): NavGroup[] {
+  return [
+    {
+      items: [
+        { icon: IconUsers, label: m.home_frame_nav_recruitment() },
+        { icon: IconLayoutGrid, label: m.home_frame_nav_talent_pool() },
+        { icon: IconRobot, label: m.home_frame_nav_ai_interview() },
+        { icon: IconCalendarEvent, label: m.home_frame_nav_calendar() },
+        { icon: IconChartBar, label: m.home_frame_nav_dashboard() },
+      ],
+      label: m.home_frame_nav_workbench(),
+    },
+    {
+      items: [
+        { icon: IconBuilding, label: m.home_frame_nav_departments() },
+        { icon: IconUserCircle, label: m.home_frame_nav_interviewers() },
+        { icon: IconFileText, label: m.home_frame_nav_jobs() },
+      ],
+      label: m.home_frame_nav_recruitment_config(),
+    },
+    {
+      items: [
+        { icon: IconClipboardList, label: m.home_frame_nav_form_questions() },
+        { icon: IconListCheck, label: m.home_frame_nav_conversation_questions() },
+      ],
+      label: m.home_frame_nav_question_bank(),
+    },
+    {
+      items: [
+        { icon: IconUser, label: m.home_frame_nav_profile() },
+        { icon: IconUserCog, label: m.home_frame_nav_workspace() },
+        { icon: IconMailCheck, label: m.home_frame_nav_mail() },
+        { icon: IconShieldCheck, label: m.home_frame_nav_permissions() },
+        { icon: IconMessageChatbot, label: m.home_frame_nav_context() },
+      ],
+      label: m.home_frame_nav_system(),
+    },
+  ];
+}
 
 // ─────────────────── Tabs (real shadcn Tabs default variant) ───────────────────
 interface SidebarTabsProps {
@@ -107,9 +110,11 @@ interface StudioNavProps {
 }
 
 export function StudioNav({ activeLabel }: StudioNavProps) {
+  const studioNavGroups = getStudioNavGroups();
+
   return (
     <>
-      {STUDIO_NAV_GROUPS.map((group) => (
+      {studioNavGroups.map((group) => (
         <div
           // SidebarGroup: relative flex w-full min-w-0 flex-col p-2
           className="relative flex w-full min-w-0 flex-col p-2"
@@ -237,7 +242,7 @@ function BreadcrumbBar({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
   // Mirrors shadcn Breadcrumb: text-sm muted; BreadcrumbPage = font-normal text-foreground
   return (
     <nav
-      aria-label="breadcrumb"
+      aria-label={m.home_frame_breadcrumb_aria()}
       className="flex items-center gap-2.5 text-muted-foreground text-sm"
     >
       {crumbs.map((c, i) => (
@@ -255,7 +260,7 @@ function WorkspaceSwitcher() {
   // Real: ghost sm button with gap-2 font-normal + truncated org name + ChevronsUpDown opacity-60
   return (
     <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
-      <span className="truncate">Workspace</span>
+      <span className="truncate">{m.home_frame_workspace()}</span>
       <IconChevronRight className="size-4 rotate-90 opacity-60" />
     </span>
   );

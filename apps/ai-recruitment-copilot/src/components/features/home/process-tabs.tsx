@@ -6,9 +6,13 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import * as messages from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
+import { getHomeDemoCopy } from "./home-demo-copy";
 import { ModernArtwork } from "./modern-artwork";
 import { Section, SectionLead, SectionTitle } from "./section";
+
+type StepValue = "decision" | "interview" | "role" | "screening";
 
 interface Step {
   body: string;
@@ -16,10 +20,16 @@ interface Step {
   label: string;
   number: string;
   title: string;
-  value: string;
+  value: StepValue;
 }
 
 const STEP_DURATION_MS = 5000;
+const STEP_VALUES = [
+  "role",
+  "screening",
+  "interview",
+  "decision",
+] as const satisfies readonly StepValue[];
 
 function StepProgress({
   active,
@@ -51,35 +61,31 @@ function StepProgress({
   );
 }
 
-const ROLE_CRITERIA = [
-  { label: "React 架构与工程化", value: "40%", width: "w-full" },
-  { label: "复杂项目交付", value: "35%", width: "w-[88%]" },
-  { label: "协作与技术决策", value: "25%", width: "w-[63%]" },
-] as const;
-
 function RoleBlueprintBlock() {
+  const copy = getHomeDemoCopy().process.role;
+
   return (
     <div className="w-full max-w-[34rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold text-sm">资深前端工程师</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">岗位标尺 · 第 3 版</p>
+            <p className="truncate font-semibold text-sm">{copy.title}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
           </div>
-          <span className="shrink-0 text-[9px] text-muted-foreground">今天 10:24 更新</span>
+          <span className="shrink-0 text-[9px] text-muted-foreground">{copy.updated}</span>
         </div>
 
         <div className="grid sm:grid-cols-[minmax(0,1.35fr)_minmax(9rem,0.65fr)]">
           <div className="space-y-3.5 px-4 py-4 sm:border-r">
-            <p className="font-medium text-[9px] text-muted-foreground">能力权重</p>
-            {ROLE_CRITERIA.map((criterion) => (
-              <div key={criterion.label}>
+            <p className="font-medium text-[9px] text-muted-foreground">{copy.weights}</p>
+            {copy.criteria.map(([label, value, width]) => (
+              <div key={label}>
                 <div className="flex items-center justify-between gap-3 text-[10px]">
-                  <span>{criterion.label}</span>
-                  <span className="font-medium tabular-nums">{criterion.value}</span>
+                  <span>{label}</span>
+                  <span className="font-medium tabular-nums">{value}</span>
                 </div>
                 <div className="mt-1.5 h-1 overflow-hidden bg-muted">
-                  <div className={cn("h-full bg-primary/72", criterion.width)} />
+                  <div className={cn("h-full bg-primary/72", width)} />
                 </div>
               </div>
             ))}
@@ -87,12 +93,14 @@ function RoleBlueprintBlock() {
 
           <div className="divide-y divide-border/70 border-t sm:border-t-0">
             <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[9px] text-muted-foreground">硬性门槛</p>
-              <p className="mt-2 text-[10px] leading-relaxed">5 年以上 · 复杂项目 · 技术决策</p>
+              <p className="font-medium text-[9px] text-muted-foreground">
+                {copy.hardRequirementsLabel}
+              </p>
+              <p className="mt-2 text-[10px] leading-relaxed">{copy.hardRequirements}</p>
             </div>
             <div className="px-3.5 py-3.5">
-              <p className="font-medium text-[9px] text-muted-foreground">使用范围</p>
-              <p className="mt-2 text-[10px] leading-relaxed">筛选、复面与团队评审</p>
+              <p className="font-medium text-[9px] text-muted-foreground">{copy.scopeLabel}</p>
+              <p className="mt-2 text-[10px] leading-relaxed">{copy.scope}</p>
             </div>
           </div>
         </div>
@@ -101,13 +109,9 @@ function RoleBlueprintBlock() {
   );
 }
 
-const EVIDENCE_ITEMS = [
-  { detail: "主导 4 条产品线的设计系统迁移", label: "复杂项目交付", source: "简历 · 第 2 页" },
-  { detail: "将平均交付周期缩短 30%", label: "结果影响", source: "项目经历" },
-  { detail: "带队规模与直接管理范围未说明", label: "待确认风险", source: "需要追问" },
-] as const;
-
 function EvidenceScreeningBlock() {
+  const copy = getHomeDemoCopy().process.evidence;
+
   return (
     <div className="w-full max-w-[34rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
@@ -116,47 +120,43 @@ function EvidenceScreeningBlock() {
             <Avatar
               className="size-7"
               generatedSize={28}
-              label="李晗的头像"
+              label={copy.avatarLabel}
               seed="candidate:李晗"
               size="sm"
             >
               <AvatarFallback>李</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-[11px]">李晗 · 简历筛选</p>
-              <p className="mt-0.5 text-[9px] text-muted-foreground">高级前端工程师 · 8 年经验</p>
+              <p className="font-semibold text-[11px]">{copy.name}</p>
+              <p className="mt-0.5 text-[9px] text-muted-foreground">{copy.role}</p>
             </div>
           </div>
           <div className="text-right">
             <p className="font-semibold text-lg tabular-nums leading-none">87</p>
-            <p className="mt-1 text-[8px] text-muted-foreground">综合评分</p>
+            <p className="mt-1 text-[8px] text-muted-foreground">{copy.overallScore}</p>
           </div>
         </div>
 
         <div className="grid sm:grid-cols-[minmax(9rem,0.78fr)_minmax(0,1.22fr)]">
           <div className="px-4 py-3.5 sm:border-r">
-            <p className="font-medium text-[9px] text-muted-foreground">简历原文 · 第 2 页</p>
+            <p className="font-medium text-[9px] text-muted-foreground">{copy.originalTitle}</p>
             <div className="mt-3 space-y-3 text-[9px] text-foreground/58 leading-relaxed">
-              <p>
-                主导 <mark className="bg-primary/10 px-0.5 text-foreground">4 条产品线</mark>
-                的设计系统迁移，并负责发布策略。
-              </p>
-              <p>
-                将平均交付周期缩短 <mark className="bg-primary/10 px-0.5 text-foreground">30%</mark>
-                。
-              </p>
-              <p className="text-foreground/38">团队规模与直接管理范围未说明。</p>
+              {copy.originalLines.map((line, index) => (
+                <p className={index === 2 ? "text-foreground/38" : undefined} key={line}>
+                  {line}
+                </p>
+              ))}
             </div>
           </div>
 
           <div className="divide-y divide-border/65 border-t px-4 sm:border-t-0">
-            {EVIDENCE_ITEMS.map((item) => (
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2.5" key={item.label}>
+            {copy.items.map(([label, detail, source]) => (
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2.5" key={label}>
                 <div className="min-w-0">
-                  <p className="font-medium text-[10px]">{item.label}</p>
-                  <p className="mt-0.5 truncate text-[9px] text-muted-foreground">{item.detail}</p>
+                  <p className="font-medium text-[10px]">{label}</p>
+                  <p className="mt-0.5 truncate text-[9px] text-muted-foreground">{detail}</p>
                 </div>
-                <span className="self-center text-[8px] text-muted-foreground">{item.source}</span>
+                <span className="self-center text-[8px] text-muted-foreground">{source}</span>
               </div>
             ))}
           </div>
@@ -166,100 +166,75 @@ function EvidenceScreeningBlock() {
   );
 }
 
-const INTERVIEW_QUESTIONS = [
-  {
-    label: "项目所有权",
-    question: "设计系统迁移中，你本人承担了哪些关键决策？",
-    source: "来自简历证据",
-  },
-  {
-    label: "结果验证",
-    question: "交付周期缩短 30% 的统计口径是什么？",
-    source: "来自结果影响",
-  },
-  {
-    label: "风险确认",
-    question: "请说明直接管理人数，以及跨团队协作边界。",
-    source: "来自待确认项",
-  },
-] as const;
-
 function InterviewGuideBlock() {
+  const copy = getHomeDemoCopy().process.interview;
+
   return (
     <div className="w-full max-w-[34rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold text-sm">李晗 · 真人复面问题</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">根据简历中的待确认项整理</p>
+            <p className="truncate font-semibold text-sm">{copy.title}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
           </div>
-          <span className="shrink-0 text-[9px] text-muted-foreground">3 个待验证项</span>
+          <span className="shrink-0 text-[9px] text-muted-foreground">{copy.count}</span>
         </div>
 
         <div className="grid grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.3fr)] border-b bg-muted/24 px-4 py-2 font-medium text-[8px] text-muted-foreground uppercase tracking-[0.08em]">
-          <span>待验证维度</span>
-          <span>真人复面问题</span>
+          <span>{copy.headers[0]}</span>
+          <span>{copy.headers[1]}</span>
         </div>
         <div className="divide-y divide-border/65 px-4">
-          {INTERVIEW_QUESTIONS.map((item, index) => (
+          {copy.questions.map(([label, question, source], index) => (
             <div
               className="grid grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.3fr)] gap-4 py-3"
-              key={item.label}
+              key={label}
             >
               <div className="flex min-w-0 items-start gap-2.5">
                 <span className="font-mono text-[9px] text-primary leading-6">0{index + 1}</span>
                 <div className="min-w-0">
-                  <p className="font-medium text-[10px]">{item.label}</p>
-                  <p className="mt-1 text-[8px] text-muted-foreground">{item.source}</p>
+                  <p className="font-medium text-[10px]">{label}</p>
+                  <p className="mt-1 text-[8px] text-muted-foreground">{source}</p>
                 </div>
               </div>
-              <p className="text-[10px] text-foreground/72 leading-relaxed">{item.question}</p>
+              <p className="text-[10px] text-foreground/72 leading-relaxed">{question}</p>
             </div>
           ))}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-[9px] text-muted-foreground">
-          <span>面试回答将回写证据完整度</span>
-          <span>已同步给面试官</span>
+          <span>{copy.footers[0]}</span>
+          <span>{copy.footers[1]}</span>
         </div>
       </div>
     </div>
   );
 }
 
-const DECISION_FACTS = [
-  ["能力匹配", "88"],
-  ["证据完整", "84"],
-  ["稳定性", "78"],
-] as const;
-const TEAM_VERDICTS = [
-  ["郭", "建议复试", "核心能力明确"],
-  ["林", "建议复试", "风险已确认"],
-  ["周", "建议推进", "证据较完整"],
-] as const;
-
 function TeamDecisionBlock() {
+  const copy = getHomeDemoCopy().process.decision;
+
   return (
     <div className="w-full max-w-[34rem]" data-process-ui-block>
       <div className="overflow-hidden rounded-lg border border-border/80 bg-background/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.58)] backdrop-blur-[3px] dark:bg-background/92">
         <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div>
-            <p className="font-semibold text-sm">李晗 · 团队评审记录</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">3 位面试官 · 同一份证据</p>
+            <p className="font-semibold text-sm">{copy.title}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{copy.subtitle}</p>
           </div>
           <span className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
             <span className="size-1.5 rounded-full bg-emerald-500" />
-            意见已收齐
+            {copy.collected}
           </span>
         </div>
 
         <div className="grid grid-cols-[4rem_minmax(5rem,0.65fr)_minmax(0,1fr)] bg-muted/24 px-4 py-2 font-medium text-[8px] text-muted-foreground uppercase tracking-[0.08em]">
-          <span>面试官</span>
-          <span>判断</span>
-          <span>依据</span>
+          <span>{copy.headers[0]}</span>
+          <span>{copy.headers[1]}</span>
+          <span>{copy.headers[2]}</span>
         </div>
         <div className="divide-y divide-border/65 px-4">
-          {TEAM_VERDICTS.map(([name, verdict, note]) => (
+          {copy.verdicts.map(([name, verdict, note]) => (
             <div
               className="grid grid-cols-[4rem_minmax(5rem,0.65fr)_minmax(0,1fr)] items-center py-3 text-[10px]"
               key={name}
@@ -268,13 +243,13 @@ function TeamDecisionBlock() {
                 <Avatar
                   className="size-5"
                   generatedSize={20}
-                  label={`${name}老师的头像`}
+                  label={name}
                   seed={`interviewer:${name}`}
                   size="sm"
                 >
                   <AvatarFallback>{name}</AvatarFallback>
                 </Avatar>
-                {name}老师
+                {name}
               </span>
               <span className="font-medium text-primary">{verdict}</span>
               <span className="text-muted-foreground">{note}</span>
@@ -288,11 +263,11 @@ function TeamDecisionBlock() {
         >
           <div className="flex items-center justify-between gap-4">
             <div className="shrink-0">
-              <p className="text-[9px] text-muted-foreground">最终决定</p>
-              <p className="mt-1 font-semibold text-sm">进入下一轮复面</p>
+              <p className="text-[9px] text-muted-foreground">{copy.finalDecision}</p>
+              <p className="mt-1 font-semibold text-sm">{copy.finalValue}</p>
             </div>
             <div className="grid flex-1 grid-cols-3 gap-3">
-              {DECISION_FACTS.map(([label, value]) => (
+              {copy.facts.map(([label, value]) => (
                 <div className="border-border/70 border-l pl-3 text-right" key={label}>
                   <p className="font-semibold text-sm tabular-nums leading-none">{value}</p>
                   <p className="mt-1 text-[8px] text-muted-foreground">{label}</p>
@@ -301,7 +276,7 @@ function TeamDecisionBlock() {
             </div>
           </div>
           <p className="mt-2.5 border-border/70 border-t pt-2 text-[9px] text-muted-foreground leading-relaxed">
-            核心能力有直接项目证据，带队规模已在复面中确认。
+            {copy.summary}
           </p>
         </div>
       </div>
@@ -309,43 +284,46 @@ function TeamDecisionBlock() {
   );
 }
 
-const steps: Step[] = [
-  {
-    body: "把职责、硬性门槛和能力权重整理成团队共用的判断标尺，后续不再各凭印象。",
-    demo: <RoleBlueprintBlock />,
-    label: "岗位标尺",
-    number: "01",
-    title: "先定义什么是合适",
-    value: "role",
-  },
-  {
-    body: "岗位维度与简历原文逐条对应，结论、来源和待确认风险都能被复核。",
-    demo: <EvidenceScreeningBlock />,
-    label: "证据映射",
-    number: "02",
-    title: "每个结论，都能点回原文",
-    value: "screening",
-  },
-  {
-    body: "把尚未证实的判断转成真人复面问题，面试官清楚为什么问、回答要补全什么。",
-    demo: <InterviewGuideBlock />,
-    label: "面试验证",
-    number: "03",
-    title: "把不确定项，变成有目的的追问",
-    value: "interview",
-  },
-  {
-    body: "并排呈现每位面试官的判断与依据，让分歧显性化，再形成最终决策。",
-    demo: <TeamDecisionBlock />,
-    label: "团队共识",
-    number: "04",
-    title: "把分歧摊开，再做决定",
-    value: "decision",
-  },
-];
+function getSteps(): Step[] {
+  return [
+    {
+      body: messages.home_process_scale_body(),
+      demo: <RoleBlueprintBlock />,
+      label: messages.home_process_scale_label(),
+      number: "01",
+      title: messages.home_process_scale_title(),
+      value: "role",
+    },
+    {
+      body: messages.home_process_evidence_body(),
+      demo: <EvidenceScreeningBlock />,
+      label: messages.home_process_evidence_label(),
+      number: "02",
+      title: messages.home_process_evidence_title(),
+      value: "screening",
+    },
+    {
+      body: messages.home_process_interview_body(),
+      demo: <InterviewGuideBlock />,
+      label: messages.home_process_interview_label(),
+      number: "03",
+      title: messages.home_process_interview_title(),
+      value: "interview",
+    },
+    {
+      body: messages.home_process_consensus_body(),
+      demo: <TeamDecisionBlock />,
+      label: messages.home_process_consensus_label(),
+      number: "04",
+      title: messages.home_process_consensus_title(),
+      value: "decision",
+    },
+  ];
+}
 
 export function ProcessTabs() {
-  const [activeValue, setActiveValue] = useState(steps[0].value);
+  const steps = getSteps();
+  const [activeValue, setActiveValue] = useState<StepValue>("role");
   const [cycleKey, setCycleKey] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -379,8 +357,8 @@ export function ProcessTabs() {
     timeoutRef.current = window.setTimeout(() => {
       timeoutRef.current = null;
       setActiveValue((currentValue) => {
-        const currentIndex = steps.findIndex((step) => step.value === currentValue);
-        return steps.at((currentIndex + 1) % steps.length)?.value ?? steps[0].value;
+        const currentIndex = STEP_VALUES.indexOf(currentValue);
+        return STEP_VALUES.at((currentIndex + 1) % STEP_VALUES.length) ?? STEP_VALUES[0];
       });
       setCycleKey((currentKey) => currentKey + 1);
     }, STEP_DURATION_MS);
@@ -393,7 +371,7 @@ export function ProcessTabs() {
     };
   }, [activeValue, cycleKey, isVisible, prefersReducedMotion]);
 
-  const activateStep = (value: string) => {
+  const activateStep = (value: StepValue) => {
     if (timeoutRef.current !== null) {
       window.clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -407,15 +385,13 @@ export function ProcessTabs() {
     <Section className="overflow-hidden" width="wide">
       <div ref={sectionRef}>
         <div className="max-w-3xl">
-          <SectionTitle className="mt-0">从岗位开始。到决定结束。</SectionTitle>
-          <SectionLead>
-            同一份岗位语境，贯穿筛选、面试准备和团队评审。每一步只呈现当前真正需要判断的信息。
-          </SectionLead>
+          <SectionTitle className="mt-0">{messages.home_process_title()}</SectionTitle>
+          <SectionLead>{messages.home_process_lead()}</SectionLead>
         </div>
 
         <div className="mt-12 grid items-start gap-10 lg:mt-14 lg:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.32fr)] lg:gap-12 xl:gap-16">
           <div
-            aria-label="招聘流程"
+            aria-label={messages.home_process_aria()}
             className="min-w-0"
             data-cycle-duration={STEP_DURATION_MS}
             role="tablist"
@@ -425,7 +401,10 @@ export function ProcessTabs() {
               return (
                 <button
                   aria-controls="process-demo-panel"
-                  aria-label={`查看${step.label}：${step.title}`}
+                  aria-label={messages.home_process_view_step({
+                    label: step.label,
+                    title: step.title,
+                  })}
                   aria-selected={isActive}
                   className="group block w-full py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-4 active:opacity-80 lg:py-2.5"
                   data-process-step={step.value}

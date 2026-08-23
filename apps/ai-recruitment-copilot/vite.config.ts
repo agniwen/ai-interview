@@ -1,10 +1,12 @@
 import { createRequire } from "node:module";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import babel from "@rolldown/plugin-babel";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
+import { paraglideCompilerOptions } from "./paraglide.config";
 
 const requireFromQueuePackage = createRequire(
   new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
@@ -61,6 +63,7 @@ export default defineConfig({
     ],
   },
   plugins: [
+    paraglideVitePlugin(paraglideCompilerOptions),
     {
       enforce: "pre",
       name: "arc-bullmq-tslib-esm",
@@ -74,17 +77,6 @@ export default defineConfig({
     },
     tailwindcss(),
     tanstackStart({
-      pages: [
-        {
-          path: "/",
-          prerender: { enabled: true, outputPath: "/index.html" },
-        },
-      ],
-      prerender: {
-        autoStaticPathsDiscovery: false,
-        crawlLinks: false,
-        enabled: true,
-      },
       router: {
         // Ignore non-route artifacts under `src/routes` so colocated tests
         // (or future helpers) never become pages. Defaults already skip names

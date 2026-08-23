@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
+import { setLocale } from "@/paraglide/runtime";
 import { Hero } from "./hero";
 
 class TestIntersectionObserver {
@@ -25,6 +26,7 @@ vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
 
 describe("Hero", () => {
   it("uses the evidence-led homepage copy and dark-mode contrast controls", () => {
+    setLocale("zh-CN", { reload: false });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -40,6 +42,7 @@ describe("Hero", () => {
     );
     const description = container.querySelector("p.font-serif");
     const buttons = container.querySelectorAll("button");
+    const actions = buttons[0]?.parentElement;
 
     expect(heading?.className).toContain("dark:text-white");
     expect(brand?.className).toContain("dark:text-chart-4");
@@ -54,6 +57,15 @@ describe("Hero", () => {
     expect(description?.className).not.toContain("text-shadow");
     expect(buttons[0]?.className).toContain("dark:text-white");
     expect(buttons[1]?.className).toContain("dark:text-slate-950");
+    expect(actions?.className).toContain("gap-3");
+    expect(actions?.className).toContain("sm:flex-row");
+    for (const button of buttons) {
+      expect(button.className).toContain("w-full");
+      expect(button.className).toContain("flex-1");
+      expect(button.className).toContain("rounded-xl");
+      expect(button.className).not.toContain("rounded-r-none");
+      expect(button.className).not.toContain("rounded-l-none");
+    }
 
     act(() => root.unmount());
     container.remove();

@@ -4,6 +4,7 @@
 
 import Autoplay from "embla-carousel-autoplay";
 import useEmblaCarousel from "embla-carousel-react";
+import * as m from "@/paraglide/messages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@arc/shared/utils";
@@ -159,7 +160,7 @@ export function CenterCarousel({
       <div className="mt-5 flex justify-center gap-2">
         {items.map((item, i) => (
           <button
-            aria-label={`跳到第 ${i + 1} 张：${item.label}`}
+            aria-label={m.home_carousel_jump_to({ index: i + 1, label: item.label })}
             className={cn(
               "h-1.5 rounded-full transition-all duration-300",
               i === selectedIndex ? "w-6 bg-foreground/70" : "w-1.5 bg-foreground/20",

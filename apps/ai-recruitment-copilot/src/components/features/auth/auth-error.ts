@@ -6,10 +6,13 @@ interface AuthErrorLike {
   message?: string | null;
 }
 
-export function getBannedAuthMessage(message: string | null | undefined): string {
+export function getBannedAuthMessage(
+  message: string | null | undefined,
+  fallback = BANNED_USER_MESSAGE,
+): string {
   return message?.trim() && message.trim() !== BANNED_USER_REDIRECT_MARKER
     ? message.trim()
-    : BANNED_USER_MESSAGE;
+    : fallback;
 }
 
 export function isBannedAuthError(error: AuthErrorLike): boolean {

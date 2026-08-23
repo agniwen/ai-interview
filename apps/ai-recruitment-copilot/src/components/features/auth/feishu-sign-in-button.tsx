@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/client/auth-client";
 import { withCleanup } from "@/lib/client/async-control";
+import * as m from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
 import { FeishuIcon } from "./feishu-icon";
 
@@ -18,7 +19,7 @@ interface FeishuSignInButtonProps {
 export function FeishuSignInButton({
   callbackURL,
   className,
-  label = "极光员工飞书登录",
+  label = m.login_jiguang_employee_feishu(),
   variant = "outline",
   providerId = "feishu",
 }: FeishuSignInButtonProps) {
@@ -54,7 +55,7 @@ export function FeishuSignInButton({
       variant={variant}
     >
       <FeishuIcon className="size-4" />
-      {isSubmitting ? "跳转中..." : label}
+      {isSubmitting ? m.login_redirecting() : label}
     </Button>
   );
 }

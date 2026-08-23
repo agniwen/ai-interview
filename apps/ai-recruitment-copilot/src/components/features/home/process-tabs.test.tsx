@@ -2,7 +2,8 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "@/paraglide/runtime";
 import { ProcessTabs } from "./process-tabs";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
@@ -23,6 +24,10 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const mountedRoots: { container: HTMLDivElement; root: ReturnType<typeof createRoot> }[] = [];
+
+beforeEach(() => {
+  setLocale("zh-CN", { reload: false });
+});
 
 function renderProcessTabs() {
   const container = document.createElement("div");

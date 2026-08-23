@@ -1,5 +1,6 @@
 import startHandler, { createServerEntry } from "@tanstack/react-start/server-entry";
 import { applyServerEnv } from "./env/server";
+import { paraglideMiddleware } from "./paraglide/server";
 
 // Some Node-oriented dependencies still probe `__dirname` after ESM bundling.
 // Define a process-wide fallback before any lazy backend chunks are imported.
@@ -135,7 +136,7 @@ export function createServerEntryHandler(dependencies: ServerEntryDependencies) 
         return honoApp.fetch(request);
       }
 
-      return startFetch();
+      return paraglideMiddleware(request, () => startFetch());
     },
   };
 }

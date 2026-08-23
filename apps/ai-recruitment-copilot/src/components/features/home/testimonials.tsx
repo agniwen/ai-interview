@@ -4,6 +4,8 @@
 
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Marquee } from "@/components/spell-ui/marquee";
+import * as m from "@/paraglide/messages";
+import { getHomeDemoCopy } from "./home-demo-copy";
 import { Section, SectionLead, SectionTitle } from "./section";
 
 interface HiringPrinciple {
@@ -93,22 +95,28 @@ function PrincipleCard({ description, label, title }: HiringPrinciple) {
 }
 
 export function DecisionPrinciples() {
+  const localizedPrinciples = getHomeDemoCopy().principles;
+  const principles =
+    localizedPrinciples.length > 0
+      ? [...localizedPrinciples]
+      : [...principlesRow1, ...principlesRow2];
+  const firstRow = principles.slice(0, 6);
+  const secondRow = principles.slice(6);
+
   return (
     <Section width="wide">
-      <SectionTitle className="mt-0">不是替你决定。是让决定更有依据。</SectionTitle>
-      <SectionLead>
-        把招聘中最容易丢失的上下文，变成每个人都看得见的事实。每一步，都能回到证据。
-      </SectionLead>
+      <SectionTitle className="mt-0">{m.home_principles_title()}</SectionTitle>
+      <SectionLead>{m.home_principles_lead()}</SectionLead>
 
       <FadeContent>
         <div className="relative left-1/2 mt-12 flex w-screen max-w-[2000px] -translate-x-1/2 flex-col gap-5 overflow-hidden">
           <Marquee duration={48} fadeAmount={8} pauseOnHover>
-            {principlesRow1.map((principle) => (
+            {firstRow.map((principle) => (
               <PrincipleCard key={principle.title} {...principle} />
             ))}
           </Marquee>
           <Marquee direction="right" duration={56} fadeAmount={8} pauseOnHover>
-            {principlesRow2.map((principle) => (
+            {secondRow.map((principle) => (
               <PrincipleCard key={principle.title} {...principle} />
             ))}
           </Marquee>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/client/auth-client";
 import { withCleanup } from "@/lib/client/async-control";
+import * as m from "@/paraglide/messages";
 import { getBannedAuthMessage, isBannedAuthError } from "./auth-error";
 
 interface EmailPasswordSignInFormProps {
@@ -25,7 +26,7 @@ const PASSWORD_MAX_LENGTH = 256;
 
 export function EmailPasswordSignInForm({
   callbackURL,
-  submitLabel = "登录",
+  submitLabel = m.login_submit(),
   className,
 }: EmailPasswordSignInFormProps) {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export function EmailPasswordSignInForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email.trim() || !password) {
-      toast.error("请输入账号和密码");
+      toast.error(m.login_missing_credentials());
       return;
     }
     setSubmitting(true);
@@ -49,12 +50,12 @@ export function EmailPasswordSignInForm({
         });
         if (error) {
           if (isBannedAuthError(error)) {
-            toast.error(getBannedAuthMessage(error.message));
+            toast.error(getBannedAuthMessage(error.message, m.login_banned()));
             await authClient.signOut();
             await navigate({ replace: true, to: "/" });
             return;
           }
-          toast.error(error.message ?? "登录失败，请检查账号或密码");
+          toast.error(error.message ?? m.login_failed());
           return;
         }
         // 登录成功后跳转。用 router.replace 避免回退到登录页。
@@ -73,7 +74,7 @@ export function EmailPasswordSignInForm({
   return (
     <form className={className ?? "space-y-3"} onSubmit={handleSubmit}>
       <div className="space-y-1.5">
-        <Label htmlFor="signin-email">账号（邮箱）</Label>
+        <Label htmlFor="signin-email">{m.login_email_label()}</Label>
         <Input
           autoComplete="username"
           id="signin-email"
@@ -87,13 +88,13 @@ export function EmailPasswordSignInForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="signin-password">密码</Label>
+        <Label htmlFor="signin-password">{m.login_password_label()}</Label>
         <Input
           autoComplete="current-password"
           id="signin-password"
           maxLength={PASSWORD_MAX_LENGTH}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="请输入密码"
+          placeholder={m.login_password_placeholder()}
           required
           spellCheck={false}
           type="password"
@@ -104,7 +105,7 @@ export function EmailPasswordSignInForm({
         {submitting ? (
           <>
             <IconLoader2 className="size-4 animate-spin" />
-            登录中…
+            {m.login_submitting()}
           </>
         ) : (
           submitLabel
