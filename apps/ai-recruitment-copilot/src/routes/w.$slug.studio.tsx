@@ -3,6 +3,10 @@ import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-rou
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
+import {
+  StudioContentOverlayProvider,
+  StudioContentOverlayTarget,
+} from "@/components/features/studio/studio-content-route-overlay";
 import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,17 +30,20 @@ async function findFirstAllowedStudioPath(slug: string) {
 function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
-      <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
-        <ScrollArea
-          className="@container/main min-h-0 flex-1 bg-background"
-          scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
-        >
-          <SiteHeader />
-          <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
-            {children}
-          </PendingOutlet>
-        </ScrollArea>
-      </SidebarInset>
+      <StudioContentOverlayProvider>
+        <SidebarInset className="h-dvh overflow-hidden border border-border md:h-[calc(100dvh-1rem)] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2">
+          <ScrollArea
+            className="@container/main min-h-0 flex-1 bg-background [&_[data-overlayscrollbars-viewport]]:z-auto!"
+            scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
+          >
+            <SiteHeader />
+            <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
+              {children}
+            </PendingOutlet>
+          </ScrollArea>
+          <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
+        </SidebarInset>
+      </StudioContentOverlayProvider>
     </StudioHeaderProvider>
   );
 }

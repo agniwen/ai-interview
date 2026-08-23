@@ -1,4 +1,3 @@
-import type { ReactVirtualizer, VirtualItem } from "@tanstack/react-virtual";
 import { useElementScrollRestoration, useNavigate } from "@tanstack/react-router";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import {
@@ -111,121 +110,12 @@ export function useResumeLibraryCardHeight() {
   return useSyncExternalStore(subscribeToViewportWidth, getViewportCardHeight, getServerCardHeight);
 }
 
-export interface ResumeLibraryScrollRestoreSnapshot {
-  measurements: VirtualItem[];
-  recordId: string;
-  recordTopInScrollElement: number;
-  scrollOffset: number;
-  viewportWidth: number;
-}
-
-interface ResumeLibraryScrollRestoreRef {
-  current: ResumeLibraryScrollRestoreSnapshot | null;
-}
-
-export const resumeLibraryScrollRestoreSnapshot: ResumeLibraryScrollRestoreRef = {
-  current: null,
-};
-
-export function setResumeLibraryScrollRestoreSnapshot(
-  snapshot: ResumeLibraryScrollRestoreSnapshot | null,
-) {
-  resumeLibraryScrollRestoreSnapshot.current = snapshot;
-}
-
-export function useResumeLibraryInitialScrollRestore(
-  restoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null,
-) {
-  const initialScrollElement = globalThis.document?.querySelector<HTMLElement>(
-    `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
-  );
-  const canUseInitialMeasurements =
-    !!restoreSnapshot &&
-    !!initialScrollElement &&
-    restoreSnapshot.viewportWidth === initialScrollElement.clientWidth;
+export function useResumeLibraryInitialScrollOffset() {
   const studioScrollEntry = useElementScrollRestoration({
     id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
   });
 
-  return {
-    initialMeasurementsCache: canUseInitialMeasurements ? restoreSnapshot.measurements : undefined,
-    initialOffset: canUseInitialMeasurements
-      ? restoreSnapshot.scrollOffset
-      : studioScrollEntry?.scrollY,
-  };
-}
-
-export function useResumeLibraryResizeScrollRestore({
-  listRootRef,
-  records,
-  restoreSnapshotRef,
-  scrollElement,
-  virtualizer,
-}: {
-  listRootRef: RefObject<HTMLDivElement | null>;
-  records: ResumeLibraryListRecord[];
-  restoreSnapshotRef: RefObject<ResumeLibraryScrollRestoreSnapshot | null>;
-  scrollElement: HTMLElement | null;
-  virtualizer: ReactVirtualizer<HTMLElement, HTMLElement>;
-}) {
-  useEffect(() => {
-    const snapshot = restoreSnapshotRef.current;
-    if (!snapshot || !scrollElement || records.length === 0) {
-      return;
-    }
-    const recordIndex = records.findIndex((record) => record.id === snapshot.recordId);
-    if (recordIndex === -1) {
-      resumeLibraryScrollRestoreSnapshot.current = null;
-      restoreSnapshotRef.current = null;
-      return;
-    }
-    if (scrollElement.clientWidth === snapshot.viewportWidth) {
-      resumeLibraryScrollRestoreSnapshot.current = null;
-      restoreSnapshotRef.current = null;
-      return;
-    }
-
-    let cancelled = false;
-    let frame: number | null = null;
-    let remainingAttempts = 4;
-    const clearSnapshot = () => {
-      resumeLibraryScrollRestoreSnapshot.current = null;
-      restoreSnapshotRef.current = null;
-    };
-    const alignToSnapshot = () => {
-      if (cancelled) {
-        return;
-      }
-      const rowElement = listRootRef.current?.querySelector<HTMLElement>(
-        `[data-resume-record-id="${snapshot.recordId}"]`,
-      );
-      if (!rowElement && remainingAttempts > 0) {
-        remainingAttempts -= 1;
-        frame = window.requestAnimationFrame(alignToSnapshot);
-        return;
-      }
-      if (rowElement) {
-        const nextTop =
-          rowElement.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top;
-        const correction = nextTop - snapshot.recordTopInScrollElement;
-        if (Math.abs(correction) > 1) {
-          virtualizer.scrollToOffset(scrollElement.scrollTop + correction);
-        }
-      }
-      clearSnapshot();
-    };
-    virtualizer.scrollToIndex(recordIndex, { align: "start" });
-    frame = window.requestAnimationFrame(() => {
-      frame = window.requestAnimationFrame(alignToSnapshot);
-    });
-
-    return () => {
-      cancelled = true;
-      if (frame !== null) {
-        window.cancelAnimationFrame(frame);
-      }
-    };
-  }, [listRootRef, records, restoreSnapshotRef, scrollElement, virtualizer]);
+  return studioScrollEntry?.scrollY;
 }
 
 export interface WorkspaceMember {

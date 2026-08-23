@@ -59,7 +59,7 @@ export function SiteHeader() {
 
   return (
     <SidebarInsetHeader
-      activeMenuIcon={ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
+      activeMenuIcon={headerOverride === null && ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
       actions={
         <>
           <WorkspaceSwitcher />

@@ -1,9 +1,18 @@
-import { createRouter } from "@tanstack/react-router";
+import { createRouteMask, createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { NotFoundPage } from "@/components/layout/not-found-view";
 import { RoutePendingView } from "@/components/layout/route-pending-view";
 import { getQueryClient } from "@/lib/client/query-client";
 import { routeTree } from "./routeTree.gen";
+
+const recruiterResumeOverlayMask = createRouteMask({
+  from: "/w/$slug/studio/resumes/overlay/$recordId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/resumes/$recordId",
+  unmaskOnReload: true,
+});
 
 const RECRUITER_RESUME_DETAIL_PATH = /^\/w\/[^/]+\/studio\/resumes\/[^/]+\/?$/;
 
@@ -33,6 +42,7 @@ export function getRouter() {
     defaultPendingMs: 350,
     defaultPreload: "intent",
     notFoundMode: "root",
+    routeMasks: [recruiterResumeOverlayMask],
     routeTree,
     scrollRestoration: true,
     scrollToTopSelectors: [getRecruiterResumeDetailScrollToTopElement],

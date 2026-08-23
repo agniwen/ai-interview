@@ -10,7 +10,7 @@ import { copyResumeDetailLink, firstSearchValue } from "./resume-library-page-mo
 import type { ResumeLibraryGridState, SearchParamsRecord } from "./resume-library-page-model";
 
 const resumeLibraryRouteApi = getRouteApi("/w/$slug/studio/resumes");
-const resumeDetailRouteApi = getRouteApi("/w/$slug/studio/resumes/$recordId");
+const resumeDetailRouteApi = getRouteApi("/w/$slug/studio/resumes/overlay/$recordId");
 
 export function useResumeLibraryPageActions({
   grid,
@@ -153,7 +153,7 @@ export function useResumeLibraryPageActions({
   function onOpenDetail(record: ResumeLibraryListRecord, tab: ResumeDetailDefaultTab = "overview") {
     navigateDetail({
       params: { recordId: record.id, slug },
-      resetScroll: true,
+      resetScroll: false,
       search: (previous) => {
         const nextSearch = { ...previous };
         if (tab === "overview") {
@@ -163,7 +163,8 @@ export function useResumeLibraryPageActions({
         }
         return nextSearch;
       },
-      to: "/w/$slug/studio/resumes/$recordId",
+      state: (previous) => ({ ...previous, fromRecruiterResumeList: true }),
+      to: "/w/$slug/studio/resumes/overlay/$recordId",
     });
   }
 
