@@ -80,7 +80,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             </span>
           </Button>
           <Button
-            className="group h-11 w-full min-w-0 flex-1 gap-0 rounded-xl border-background bg-background/60 px-8 text-sm whitespace-nowrap hover:bg-background/80 dark:border-white/50 dark:bg-white/85 dark:text-slate-950 dark:hover:bg-white sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 border-border w-full min-w-0 flex-1 gap-0 rounded-xl  bg-background/60 px-8 text-sm whitespace-nowrap hover:bg-background/80 dark:border-white/50 dark:bg-white/85 dark:text-slate-950 dark:hover:bg-white sm:h-12 sm:px-10 sm:text-base"
             onClick={onWorkbench}
             type="button"
             variant="outline"
