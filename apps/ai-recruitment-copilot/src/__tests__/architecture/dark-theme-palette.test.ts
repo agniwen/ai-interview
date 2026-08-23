@@ -85,7 +85,7 @@ describe("theme palette", () => {
     expect(radarSource).toContain('light: "#2d6a4f"');
   });
 
-  it("uses the warm pipeline palette in both the real chart and homepage mock", () => {
+  it("uses progressively darker theme colors for active pipeline stages", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/ai-recruitment-copilot/src/styles/globals.css"),
       "utf-8",
@@ -106,16 +106,26 @@ describe("theme palette", () => {
     );
     const lightTheme = globalStyles.match(/:root \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
     const darkTheme = globalStyles.match(/\.dark \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
-    const pipelineColors = [
-      ["screening", "#c6b4a2"],
-      ["ai-interview", "#d6c2b1"],
-      ["human-interview", "#decdbc"],
-      ["offer", "#ded4c2"],
+    const activePipelineColors = [
+      ["screening", "var(--chart-4)"],
+      ["ai-interview", "var(--chart-3)"],
+      ["human-interview", "var(--chart-2)"],
+      ["offer", "var(--chart-1)"],
+    ] as const;
+
+    for (const [token, themeColor] of activePipelineColors) {
+      expect(lightTheme).toContain(`--pipeline-${token}: ${themeColor}`);
+      expect(darkTheme).toContain(`--pipeline-${token}: ${themeColor}`);
+      expect(realChart).toContain(`var(--pipeline-${token})`);
+      expect(homepageMock).toContain(`var(--pipeline-${token})`);
+    }
+
+    const semanticPipelineColors = [
       ["closed-hired", "#8dc096"],
       ["closed-rejected", "#dc8ebb"],
     ] as const;
 
-    for (const [token, lightColor] of pipelineColors) {
+    for (const [token, lightColor] of semanticPipelineColors) {
       expect(lightTheme).toContain(`--pipeline-${token}: ${lightColor}`);
       expect(darkTheme).toContain(`--pipeline-${token}: color-mix(in oklch, ${lightColor}`);
       expect(realChart).toContain(`var(--pipeline-${token})`);
