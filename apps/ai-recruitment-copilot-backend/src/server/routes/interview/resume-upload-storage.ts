@@ -11,7 +11,10 @@ export interface ResumeUploadStorageDependencies {
   buildAttachmentKeyByHash: (contentHash: string, extension: string) => Promise<string>;
   createAttachment: (input: CreateAttachmentInput) => Promise<void>;
   findAttachmentByContentHash: (hash: string) => Promise<ChatAttachmentRow | null>;
-  generateResumeStructured: (text: string) => Promise<ResumeParserStructured>;
+  generateResumeStructured: (
+    text: string,
+    options?: { fileName?: string },
+  ) => Promise<ResumeParserStructured>;
   getResumeDocumentExtension: (input: { fileName: string; mediaType?: string }) => string;
   isResumeParseCacheEnabled: () => boolean;
   isResumeParseCacheSourceCompatible: (source: string | null) => boolean;
@@ -146,7 +149,9 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
 
       if (existing?.parsedText && existing.parsedText.trim().length > 0) {
         try {
-          const structured = await dependencies.generateResumeStructured(existing.parsedText);
+          const structured = await dependencies.generateResumeStructured(existing.parsedText, {
+            fileName: file.name,
+          });
           await dependencies.updateStructuredByHash(contentHash, structured);
           await copyCachedAttachmentForRequester(dependencies, {
             contentHash,

@@ -135,4 +135,41 @@ describe("streamParseResumeProfile cache policy", () => {
       },
     });
   });
+
+  it("passes the current filename when structuring cached OCR text", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "false";
+    mocks.findCachedAttachment.mockResolvedValue({
+      contentHash: HASH,
+      createdAt: new Date(0),
+      filename: "cached.pdf",
+      id: "cached-attachment",
+      mediaType: "application/pdf",
+      organizationId: "organization-1",
+      parsedAt: new Date(0),
+      parsedError: null,
+      parsedPageCount: 1,
+      parsedStatus: "ready",
+      parsedStructured: null,
+      parsedText: "cached OCR text",
+      parsedTextSource: "qwen-ocr",
+      size: 10,
+      storageKey: "chat-attachments/cached.pdf",
+      userId: "user-1",
+    });
+    mocks.generateStructured.mockResolvedValue(STRUCTURED);
+
+    await readStreamEvents(
+      streamParseResumeProfile(
+        makeFile(),
+        { organizationId: null, userId: "user-1" },
+        dependencies,
+      ),
+    );
+
+    expect(mocks.generateStructured).toHaveBeenCalledWith("cached OCR text", {
+      fileName: "resume.pdf",
+    });
+    expect(mocks.updateCachedStructured).toHaveBeenCalledWith(HASH, STRUCTURED);
+    expect(mocks.streamWorkflow).not.toHaveBeenCalled();
+  });
 });

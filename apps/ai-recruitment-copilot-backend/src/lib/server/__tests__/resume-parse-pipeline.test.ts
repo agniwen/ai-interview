@@ -765,6 +765,18 @@ describe("generateResumeStructured", () => {
     );
   });
 
+  it("adds the resume filename as a candidate-name clue for structured extraction", async () => {
+    await generateResumeStructured("正文未明确展示姓名", {
+      fileName: "【产品经理】张三 10年经验.pdf",
+    });
+
+    const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain("简历文件名");
+    expect(prompt).toContain("【产品经理】张三 10年经验.pdf");
+    expect(prompt).toContain("可能包含候选人姓名（用户名）");
+    expect(prompt).toContain("若与简历正文冲突，以简历正文中的明确事实为准");
+  });
+
   it("preserves bounded PDF text supplements when long OCR input is clipped", async () => {
     await generateResumeStructured(
       `${"OCR正文".repeat(6000)}\n\n[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]\n${"普通补充".repeat(1200)}\n亿达信息技术有限公司\n产品经理\n2020.7-2022.4\n蓝贝科技有限公司\n产品经理\n2020年—2022年`,

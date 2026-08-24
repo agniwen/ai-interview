@@ -581,7 +581,11 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
             () => parsedDocument.structured,
           )
         : await recordAsyncStage("structure-resume", { text: parsedDocument.text }, stages, () =>
-            parsePipeline.generateResumeStructured(parsedDocument.text, parseDependencies),
+            parsePipeline.generateResumeStructured(
+              parsedDocument.text,
+              { fileName: resumeFileName },
+              parseDependencies,
+            ),
           );
     const freshResumeProfile = recordSyncStage(
       "normalize-resume-profile",

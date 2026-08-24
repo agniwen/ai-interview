@@ -96,7 +96,9 @@ async function main() {
       mediaType: "application/pdf",
     }),
   );
-  const currentStructured = await timed(() => generateResumeStructured(currentOcr.result.text));
+  const currentStructured = await timed(() =>
+    generateResumeStructured(currentOcr.result.text, { fileName }),
+  );
   const currentTotalMs = Math.round(performance.now() - currentTotalStartedAt);
 
   console.log(

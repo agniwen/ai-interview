@@ -554,7 +554,9 @@ export function streamParseResumeProfile(
           type: "step.started",
         });
 
-        const structured = await dependencies.generateStructured(existing.parsedText);
+        const structured = await dependencies.generateStructured(existing.parsedText, {
+          fileName: file.name,
+        });
         await dependencies.updateCachedStructured(contentHash, structured);
 
         emitAiRun({

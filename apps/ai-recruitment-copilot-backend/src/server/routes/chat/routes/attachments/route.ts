@@ -75,7 +75,9 @@ export function createAttachmentsRouter(
         attachment.parsedTextSource !== "aliyun-docmining" &&
         attachment.parsedText?.trim()
       ) {
-        const structured = await dependencies.generateResumeStructured(attachment.parsedText);
+        const structured = await dependencies.generateResumeStructured(attachment.parsedText, {
+          fileName: attachment.filename,
+        });
         if (attachment.contentHash) {
           await dependencies.updateStructuredByHash(attachment.contentHash, structured);
         }

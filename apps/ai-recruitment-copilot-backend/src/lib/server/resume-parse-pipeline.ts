@@ -643,10 +643,16 @@ function validateGeneratedResumeStructured(output: ResumeParserStructured): void
 
 export async function generateResumeStructured(
   text: string,
+  options: { fileName?: string } = {},
   dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
+  const fileName = options.fileName?.trim().slice(0, 255);
+  const fileContext = fileName
+    ? `\n\n简历文件信息：\n- 简历文件名：${JSON.stringify(fileName)}\n- 文件名可能包含候选人姓名（用户名），可作为 name 字段的辅助线索；若与简历正文冲突，以简历正文中的明确事实为准。文件名中的岗位、薪资、平台标签等不得直接当作候选人事实。`
+    : "";
   devOcrLog("structured start", {
+    fileNameIncluded: Boolean(fileName),
     inputChars: text.length,
   });
   const output = await dependencies.generateStructuredWithMastraAgent({
@@ -656,7 +662,7 @@ export async function generateResumeStructured(
     // Keep thinking disabled at the agent model and reserve 32K for the final JSON.
     maxOutputTokens: 32_768,
     observabilityLabel: "resume-structure",
-    prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}${fileContext}\n\n简历文本：\n${clipForStructured(text)}`,
     retryOnInvalid: true,
     retryOnTransient: true,
     schema: resumeParserGenerationSchema,
@@ -890,7 +896,11 @@ export async function parseResumeFast(
     inputChars: parsed.text.length,
     pageCount: parsed.pageCount,
   });
-  const structured = await generateResumeStructured(parsed.text, dependencies);
+  const structured = await generateResumeStructured(
+    parsed.text,
+    { fileName: documentInput.fileName },
+    dependencies,
+  );
   devOcrLog("full parse completed", {
     duration: formatDuration(startedAt),
     outputChars: parsed.text.length,
@@ -903,7 +913,8 @@ export function createResumeParsePipeline(dependencies: ResumeParsePipelineDepen
   return {
     extractResumeDocumentText: (input: ResumeDocumentInput) =>
       extractResumeDocumentText(input, dependencies),
-    generateResumeStructured: (text: string) => generateResumeStructured(text, dependencies),
+    generateResumeStructured: (text: string, options: { fileName?: string } = {}) =>
+      generateResumeStructured(text, options, dependencies),
     parseResumeFast: (input: Uint8Array | ResumeDocumentInput) =>
       parseResumeFast(input, dependencies),
     parseResumeOcrOnly: (

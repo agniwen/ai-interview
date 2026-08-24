@@ -198,7 +198,9 @@ describe("attachmentsRouter match-job-description", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(mocks.generateResumeStructured).toHaveBeenCalledWith("cached ocr text");
+    expect(mocks.generateResumeStructured).toHaveBeenCalledWith("cached ocr text", {
+      fileName: "resume.pdf",
+    });
     expect(mocks.updateStructuredByHash).toHaveBeenCalledWith("b".repeat(64), structured);
     expect(mocks.resolveJobDescriptionMatchBestEffort).toHaveBeenCalledWith({
       jobDescriptions,
