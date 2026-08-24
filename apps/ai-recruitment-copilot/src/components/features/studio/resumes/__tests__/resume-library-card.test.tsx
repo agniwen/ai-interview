@@ -232,8 +232,10 @@ describe("ResumeLibraryCard", () => {
 
     expect(content).toContain('aria-label="更多工作与教育经历"');
     expect(content).toContain(">更多</span>");
-    expect(content).toContain("2xl:hidden");
-    expect(content).toContain("2xl:block");
+    expect(content).toContain("xl:hidden");
+    expect(content).toContain("xl:block");
+    expect(content).toContain("xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]");
+    expect(content).not.toContain("2xl:hidden");
     expect(content).toContain("字节跳动");
     expect(content).toContain("浙江大学");
   });

@@ -389,8 +389,8 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
   }
 
   return (
-    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 2xl:block">
-      <div className="grid min-w-0 content-start gap-1 text-sm 2xl:max-w-sm">
+    <div className="hidden min-w-0 border-border/60 border-l border-dashed pl-8 xl:block">
+      <div className="grid min-w-0 content-start gap-1 text-sm xl:max-w-sm">
         {workLines.map(renderResumeCardProfileSnapshotLine)}
         {snapshot.workHasMore ? renderResumeCardProfileSnapshotMoreRow("work-more") : null}
         {hasWorkGroup && hasEducationGroup ? (
@@ -423,7 +423,7 @@ function ResumeCardProfileSnapshotHoverCard({
         render={
           <button
             aria-label="更多工作与教育经历"
-            className="inline-flex min-h-6 min-w-0 items-center gap-1.5 rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:hidden"
+            className="inline-flex min-h-6 min-w-0 items-center gap-1.5 rounded-xs text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:hidden"
             type="button"
           >
             <IconInfoCircle aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
@@ -610,7 +610,7 @@ function ResumeLibraryCardComponent({
           </Avatar>
 
           <div className="min-w-0 flex-1">
-            <div className="grid min-w-0 gap-x-4 gap-y-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] 2xl:gap-x-8">
+            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
               <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
                 <button
                   className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
