@@ -1,5 +1,21 @@
 /* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
-import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
+import type { SQL, SQLWrapper } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   jobDescription,
@@ -91,9 +107,18 @@ export interface MarkResumePoolItemStatusInput {
 }
 
 export interface QueryResumePoolItemsInput {
+  createdAtBefore?: Date;
+  createdAtFrom?: Date;
   creatorIds?: string[] | null;
+  importStatus?: "imported" | "not_imported";
+  limit?: number;
+  offset?: number;
   organizationId: string;
+  search?: string;
+  sortBy?: "candidateName" | "createdAt" | "updatedAt";
+  sortOrder?: "asc" | "desc";
   scope: ResumePoolScope;
+  sourceType?: "all" | "non_referral" | "referral";
 }
 
 export interface PublishPrivatePoolItemInput {
@@ -485,6 +510,115 @@ async function loadImportsForOrg(
     .orderBy(desc(resumePoolImport.importedAt), desc(resumePoolImport.id));
 }
 
+async function loadImportsForPoolItems(
+  poolItemIds: string[],
+  organizationId: string,
+): Promise<
+  Map<
+    string,
+    {
+      creatorImage: string | null;
+      creatorName: string | null;
+      importedAt: Date;
+      resumeRecordId: string;
+    }[]
+  >
+> {
+  if (poolItemIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({
+      creatorImage: user.image,
+      creatorName: user.name,
+      importedAt: resumePoolImport.importedAt,
+      poolItemId: resumePoolImport.poolItemId,
+      resumeRecordId: resumePoolImport.importedResumeRecordId,
+    })
+    .from(resumePoolImport)
+    .leftJoin(user, eq(resumePoolImport.importedBy, user.id))
+    .where(
+      and(
+        inArray(resumePoolImport.poolItemId, poolItemIds),
+        eq(resumePoolImport.organizationId, organizationId),
+      ),
+    )
+    .orderBy(desc(resumePoolImport.importedAt), desc(resumePoolImport.id));
+  const imports = new Map<
+    string,
+    {
+      creatorImage: string | null;
+      creatorName: string | null;
+      importedAt: Date;
+      resumeRecordId: string;
+    }[]
+  >();
+  for (const row of rows) {
+    const current = imports.get(row.poolItemId) ?? [];
+    current.push({
+      creatorImage: row.creatorImage,
+      creatorName: row.creatorName,
+      importedAt: row.importedAt,
+      resumeRecordId: row.resumeRecordId,
+    });
+    imports.set(row.poolItemId, current);
+  }
+  return imports;
+}
+
+function buildResumePoolImportStatusWhere(
+  importStatus: QueryResumePoolItemsInput["importStatus"],
+  organizationId: string,
+): SQL | undefined {
+  if (!importStatus) {
+    return undefined;
+  }
+  const importsForItem = db
+    .select({ id: resumePoolImport.id })
+    .from(resumePoolImport)
+    .where(
+      and(
+        eq(resumePoolImport.poolItemId, resumePoolItem.id),
+        eq(resumePoolImport.organizationId, organizationId),
+      ),
+    );
+  return importStatus === "imported" ? exists(importsForItem) : notExists(importsForItem);
+}
+
+function resumePoolListOrder(input: QueryResumePoolItemsInput): [SQL, SQL] {
+  const ascending = input.sortOrder === "asc";
+  const idOrder = ascending ? asc(resumePoolItem.id) : desc(resumePoolItem.id);
+  if (input.sortBy === "candidateName") {
+    return [
+      ascending ? asc(resumePoolItem.candidateName) : desc(resumePoolItem.candidateName),
+      idOrder,
+    ];
+  }
+  if (input.sortBy === "updatedAt") {
+    return [ascending ? asc(resumePoolItem.updatedAt) : desc(resumePoolItem.updatedAt), idOrder];
+  }
+  return [ascending ? asc(resumePoolItem.createdAt) : desc(resumePoolItem.createdAt), idOrder];
+}
+
+function literalLikePattern(value: string) {
+  return `%${value.replaceAll(/[!%_]/g, "!$&")}%`;
+}
+
+function literalIlike(column: SQLWrapper, pattern: string): SQL {
+  return sql`${column} ILIKE ${pattern} ESCAPE '!'`;
+}
+
+function resumePoolSearchWhere(search: string): SQL | undefined {
+  const pattern = literalLikePattern(search);
+  return or(
+    literalIlike(resumePoolItem.candidateName, pattern),
+    literalIlike(resumePoolItem.candidateEmail, pattern),
+    literalIlike(resumePoolItem.candidatePhone, pattern),
+    literalIlike(resumePoolItem.resumeFileName, pattern),
+    literalIlike(resumePoolItem.targetRole, pattern),
+  );
+}
+
 async function loadSourceChannels(
   poolItemIds: string[],
 ): Promise<Map<string, ResumePoolSourceChannel>> {
@@ -541,7 +675,7 @@ export async function queryResumePoolItems(
   if (input.scope === "private" && input.creatorIds?.length === 0) {
     return { records: [], total: 0 };
   }
-  const where =
+  const scopeWhere =
     input.scope === "private"
       ? and(
           eq(resumePoolItem.scope, "private"),
@@ -556,6 +690,20 @@ export async function queryResumePoolItems(
           eq(resumePoolItem.organizationId, input.organizationId),
         );
 
+  const where = and(
+    scopeWhere,
+    input.createdAtFrom ? gte(resumePoolItem.createdAt, input.createdAtFrom) : undefined,
+    input.createdAtBefore ? lt(resumePoolItem.createdAt, input.createdAtBefore) : undefined,
+    input.creatorIds && input.scope === "public"
+      ? inArray(resumePoolItem.createdBy, input.creatorIds)
+      : undefined,
+    input.sourceType === "referral" ? eq(resumePoolItem.sourceChannel, "referral") : undefined,
+    input.sourceType === "non_referral"
+      ? or(isNull(resumePoolItem.sourceChannel), ne(resumePoolItem.sourceChannel, "referral"))
+      : undefined,
+    buildResumePoolImportStatusWhere(input.importStatus, input.organizationId),
+    input.search ? resumePoolSearchWhere(input.search) : undefined,
+  );
   const [totalRow] = await db.select({ total: count() }).from(resumePoolItem).where(where);
   const rows = await db
     .select({
@@ -577,10 +725,12 @@ export async function queryResumePoolItems(
       ),
     )
     .where(where)
-    .orderBy(desc(resumePoolItem.createdAt))
-    .limit(100);
-  const imports = await Promise.all(
-    rows.map((row) => loadImportsForOrg(row.item.id, input.organizationId)),
+    .orderBy(...resumePoolListOrder(input))
+    .limit(input.limit ?? 60)
+    .offset(input.offset ?? 0);
+  const imports = await loadImportsForPoolItems(
+    rows.map((row) => row.item.id),
+    input.organizationId,
   );
   const [sourceChannels, duplicateMatches, retryableIds, jobBindingModes] = await Promise.all([
     loadSourceChannels(rows.map((row) => row.item.id)),
@@ -596,10 +746,10 @@ export async function queryResumePoolItems(
     loadJobBindingModes(rows.map((row) => row.item.id)),
   ]);
   return {
-    records: rows.map((row, index) =>
+    records: rows.map((row) =>
       toResumePoolListRecord(
         row.item,
-        imports[index] ?? [],
+        imports.get(row.item.id) ?? [],
         uploaderMetaFromRow(row),
         sourceChannels.get(row.item.id) ?? null,
         duplicateMatches.get(row.item.id) ?? null,

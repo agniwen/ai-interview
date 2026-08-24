@@ -53,6 +53,8 @@ import {
   resumePoolCreateInputSchema,
   resumePoolImportInputSchema,
   resumePoolListQuerySchema,
+  nextShanghaiCalendarDayStart,
+  shanghaiCalendarDayStart,
 } from "./schema";
 
 const formDataTextSchema = z.string();
@@ -212,6 +214,12 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             return c.json({ message: "Unauthorized" }, 401);
           }
           const q = c.req.valid("query");
+          const uploaderIds = q.uploaderIds
+            ? q.uploaderIds
+                .split(",")
+                .map((id) => id.trim())
+                .filter(Boolean)
+            : undefined;
           const visibilityScope = await resolveRecruitingVisibilityScope({
             currentRole: c.var.member?.role,
             organizationId: activeOrg.id,
@@ -225,9 +233,18 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
                 )
               : undefined;
           const result = await queryResumePoolItems({
-            creatorIds,
+            createdAtBefore: q.createdTo ? nextShanghaiCalendarDayStart(q.createdTo) : undefined,
+            createdAtFrom: q.createdFrom ? shanghaiCalendarDayStart(q.createdFrom) : undefined,
+            creatorIds: q.scope === "private" ? creatorIds : uploaderIds,
+            importStatus: q.importStatus,
+            limit: q.limit,
+            offset: q.offset,
             organizationId: activeOrg.id,
             scope: q.scope,
+            search: q.search,
+            sortBy: q.sortBy,
+            sortOrder: q.sortOrder,
+            sourceType: q.sourceType,
           });
           return c.json(result, 200);
         },

@@ -96,13 +96,13 @@ function useRecruitingPersonPool(): RecruitingPersonPool {
   });
 
   const poolPublicQuery = useQuery({
-    queryFn: () => fetchResumePoolItems(slug, "public"),
+    queryFn: () => fetchResumePoolItems(slug, "public", { limit: 100 }),
     queryKey: ["recruiting-mention", "resume-pool", slug, "public"],
     staleTime: 30_000,
   });
 
   const poolPrivateQuery = useQuery({
-    queryFn: () => fetchResumePoolItems(slug, "private"),
+    queryFn: () => fetchResumePoolItems(slug, "private", { limit: 100 }),
     queryKey: ["recruiting-mention", "resume-pool", slug, "private"],
     staleTime: 30_000,
   });

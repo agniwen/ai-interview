@@ -4,6 +4,9 @@ import {
   createResumePoolFilters,
   filterPoolRecords,
   groupResumePoolRecordsByCreatedAt,
+  resumePoolCreatedAtBounds,
+  resumePoolCreatedAtRangeLabel,
+  uploaderMetaLabel,
   RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
 } from "../resume-pool-page-model";
@@ -26,10 +29,48 @@ describe("resume pool uploader filter", () => {
 
   it("starts with no uploader selection", () => {
     expect(createResumePoolFilters()).toEqual({
+      createdAtRange: "",
       importStatus: "",
       sourceType: "all",
       uploaderIds: "",
     });
+  });
+
+  it("resolves quick and custom ranges in the app timezone", () => {
+    const now = new Date("2026-08-14T16:30:00.000Z");
+
+    expect(resumePoolCreatedAtBounds("today", now)).toEqual({
+      from: "2026-08-15",
+      to: "2026-08-15",
+    });
+    expect(resumePoolCreatedAtBounds("yesterday", now)).toEqual({
+      from: "2026-08-14",
+      to: "2026-08-14",
+    });
+    expect(resumePoolCreatedAtBounds("last_7_days", now)).toEqual({
+      from: "2026-08-09",
+      to: "2026-08-15",
+    });
+    expect(resumePoolCreatedAtBounds("custom:2026-08-01:2026-08-08", now)).toEqual({
+      from: "2026-08-01",
+      to: "2026-08-08",
+    });
+    expect(resumePoolCreatedAtBounds("custom:2026-08-08:2026-08-01", now)).toBeNull();
+    expect(resumePoolCreatedAtRangeLabel("custom:2026-08-01:2026-08-08")).toBe("8月1日–8月8日");
+  });
+
+  it("labels a referral with its referrer instead of calling it an upload", () => {
+    // SAFETY: This test constructs the value with the asserted shape before this boundary.
+    const record = {
+      createdAt: "2026-08-14T16:00:00.000Z",
+      id: "referral-record",
+      sourceChannel: "referral",
+      uploaderName: "张三",
+    } as ResumePoolListRecord;
+
+    expect(uploaderMetaLabel(record)).toContain("张三");
+    expect(uploaderMetaLabel(record)).toContain("内推");
+    expect(uploaderMetaLabel(record)).not.toContain("上传");
   });
 
   it("builds visible uploader choices without a synthetic all option", () => {

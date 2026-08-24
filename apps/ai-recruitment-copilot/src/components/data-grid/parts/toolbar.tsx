@@ -18,6 +18,7 @@ import { DebouncedSearchInput } from "./debounced-search-input";
 
 export type ToolbarFilterConfig =
   | { type: "search"; key: string; placeholder?: string; minWidth?: string }
+  | { type: "custom"; key: string; render: ReactNode }
   | {
       type: "select";
       key: string;
@@ -125,6 +126,13 @@ export function Toolbar(props: ToolbarProps) {
         >
           {filters?.map((filter) => {
             const value = filterValues?.[filter.key] ?? "";
+            if (filter.type === "custom") {
+              return (
+                <div className="min-w-0 sm:w-auto" key={filter.key}>
+                  {filter.render}
+                </div>
+              );
+            }
             if (filter.type === "search") {
               return (
                 <DebouncedSearchInput

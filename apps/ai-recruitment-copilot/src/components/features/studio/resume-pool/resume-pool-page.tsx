@@ -49,16 +49,17 @@ import {
   buildResumePoolUploaderFilterOptions,
   createResumePoolFilters,
   deletePoolRecordLabel,
-  filterPoolRecords,
   getCandidateTitle,
   getCandidateTitleWithId,
   RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
+  resumePoolCreatedAtBounds,
   sessionUserId,
 } from "@/components/features/studio/resume-pool/resume-pool-page-model";
 import type { ResumePoolFilters } from "@/components/features/studio/resume-pool/resume-pool-page-model";
 import { useResumePoolPageState } from "@/components/features/studio/resume-pool/use-resume-pool-page-state";
 import { ImportResumePoolDialog } from "@/components/features/studio/resume-pool/resume-pool-dialogs";
+import { ResumePoolCreatedAtFilter } from "@/components/features/studio/resume-pool/resume-pool-created-at-filter";
 import {
   ResumePoolDetailDialog,
   ResumePoolRecommendationsDialog,
@@ -74,7 +75,6 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 });
 
 const RESUME_POOL_INITIAL_PAGE_SIZE = 60;
-const RESUME_POOL_LOAD_STEP = 60;
 
 export function ResumePoolPage() {
   const slug = useWorkspaceSlug();
@@ -117,6 +117,14 @@ export function ResumePoolPage() {
   const [recommendationTarget, setRecommendationTarget] = useState<ResumePoolListRecord | null>(
     null,
   );
+  const [loadedPoolResult, setLoadedPoolResult] = useState<{
+    records: ResumePoolListRecord[];
+    signature: string;
+  }>({
+    records: [],
+    signature: "",
+  });
+  const shouldResetInitialPageRef = useRef(true);
 
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
   const fetcher = useMemo(
@@ -129,14 +137,32 @@ export function ResumePoolPage() {
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
       }) => {
-        const result = await fetchResumePoolItems(slug, "public");
-        const filtered = filterPoolRecords(result.records, params);
-        const start = (params.page - 1) * params.pageSize;
-        const records = filtered.slice(start, start + params.pageSize);
+        const createdAtBounds = resumePoolCreatedAtBounds(params.filters.createdAtRange);
+        const result = await fetchResumePoolItems(slug, "public", {
+          createdFrom: createdAtBounds?.from,
+          createdTo: createdAtBounds?.to,
+          importStatus:
+            params.filters.importStatus === "imported" ||
+            params.filters.importStatus === "not_imported"
+              ? params.filters.importStatus
+              : undefined,
+          limit: params.pageSize,
+          offset: (params.page - 1) * params.pageSize,
+          search: params.search.trim() || undefined,
+          sortBy:
+            params.sortBy === "candidateName" ||
+            params.sortBy === "createdAt" ||
+            params.sortBy === "updatedAt"
+              ? params.sortBy
+              : undefined,
+          sortOrder: params.sortOrder,
+          sourceType: params.filters.sourceType,
+          uploaderIds: params.filters.uploaderIds || undefined,
+        });
         return {
-          records,
-          total: filtered.length,
-          totalPages: Math.max(1, Math.ceil(filtered.length / params.pageSize)),
+          records: result.records,
+          total: result.total,
+          totalPages: Math.max(1, Math.ceil(result.total / params.pageSize)),
         };
       },
     [slug],
@@ -146,16 +172,60 @@ export function ResumePoolPage() {
     defaultPageSize: RESUME_POOL_INITIAL_PAGE_SIZE,
     defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: initialPoolFilters,
-    maxPageSize: Number.MAX_SAFE_INTEGER,
+    maxPageSize: 100,
     queryFn: fetcher,
     queryKeyBase: ["resume-pool", slug, scope],
   });
-  const visibleRecordCount = grid.bind.data.length;
+  useEffect(() => {
+    if (!shouldResetInitialPageRef.current) {
+      return;
+    }
+    shouldResetInitialPageRef.current = false;
+    if (grid.bind.pagination.page > 1) {
+      grid.bind.pagination.onPageChange(1);
+    }
+  }, [grid.bind.pagination]);
+  const poolQuerySignature = JSON.stringify({
+    filters: grid.bind.filterValues,
+    search: grid.bind.filterValues.search.trim(),
+    sortBy: grid.bind.sorting[0]?.id ?? "createdAt",
+    sortOrder: grid.bind.sorting[0]?.desc === false ? "asc" : "desc",
+  });
+
+  useEffect(() => {
+    if (grid.bind.loading || grid.bind.refetching) {
+      return;
+    }
+    setLoadedPoolResult((current) => {
+      if (grid.bind.pagination.page === 1 || current.signature !== poolQuerySignature) {
+        return { records: grid.bind.data, signature: poolQuerySignature };
+      }
+      const records = [...current.records];
+      const start = (grid.bind.pagination.page - 1) * grid.bind.pagination.pageSize;
+      records.splice(start, grid.bind.pagination.pageSize, ...grid.bind.data);
+      return {
+        records: records.slice(0, grid.bind.total),
+        signature: poolQuerySignature,
+      };
+    });
+  }, [
+    grid.bind.data,
+    grid.bind.loading,
+    grid.bind.pagination.page,
+    grid.bind.pagination.pageSize,
+    grid.bind.refetching,
+    grid.bind.total,
+    poolQuerySignature,
+  ]);
+
+  const loadedPoolRecords =
+    loadedPoolResult.signature === poolQuerySignature ? loadedPoolResult.records : [];
+  const visibleRecordCount = loadedPoolRecords.length;
   const totalRecordCount = grid.bind.total;
   const isPoolBusy = grid.bind.loading || grid.bind.refetching;
   const hasMoreRecords = visibleRecordCount < totalRecordCount;
   const isInitialPoolLoading = isPoolBusy && visibleRecordCount === 0;
-  const showEmptyState = !isInitialPoolLoading && grid.bind.data.length === 0;
+  const showEmptyState = !isInitialPoolLoading && loadedPoolRecords.length === 0;
   const showPoolFooter = visibleRecordCount > 0;
   const canUploadResumePool = canUploadToResumePool(
     canCreateResumePool,
@@ -169,16 +239,17 @@ export function ResumePoolPage() {
     if (!hasMoreRecords || isPoolBusy) {
       return;
     }
-    const nextPageSize = Math.min(
-      totalRecordCount,
-      grid.bind.pagination.pageSize + RESUME_POOL_LOAD_STEP,
-    );
-    grid.bind.pagination.onPageSizeChange(nextPageSize);
-  }, [grid.bind.pagination, hasMoreRecords, isPoolBusy, totalRecordCount]);
+    grid.bind.pagination.onPageChange(grid.bind.pagination.page + 1);
+  }, [grid.bind.pagination, hasMoreRecords, isPoolBusy]);
 
   const invalidatePool = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeyPrefix });
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+  };
+  const refreshPool = () => {
+    setLoadedPoolResult({ records: [], signature: "" });
+    grid.bind.pagination.onPageChange(1);
+    invalidatePool();
   };
 
   const bulk = useBulkUpload({
@@ -188,7 +259,7 @@ export function ResumePoolPage() {
       void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       invalidatePool();
     },
-    onRecordsChanged: invalidatePool,
+    onRecordsChanged: refreshPool,
   });
   const batchListQuery = useQuery({
     enabled: canReadResumeUploadBatch,
@@ -281,7 +352,7 @@ export function ResumePoolPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "推送失败"),
     onSuccess: () => {
       toast.success("已推送到公共简历池");
-      invalidatePool();
+      refreshPool();
     },
   });
   const deleteMutation = useMutation({
@@ -290,7 +361,7 @@ export function ResumePoolPage() {
     onSuccess: (_data, record) => {
       toast.success(`${deletePoolRecordLabel(record)}已删除`);
       setDeleteTarget(null);
-      invalidatePool();
+      refreshPool();
     },
   });
   const retryParseMutation = useMutation({
@@ -299,12 +370,14 @@ export function ResumePoolPage() {
     onSuccess: (_result, record) => {
       setRetriedRecordIds((current) => new Set(current).add(record.id));
       toast.success("已重新加入解析队列");
-      invalidatePool();
+      refreshPool();
     },
   });
   const isDeletingPoolRecords = deleteMutation.isPending;
 
-  const emptyTitle = "公共简历池暂无简历";
+  const emptyTitle = grid.bind.filterValues.createdAtRange
+    ? "当前时间范围内暂无人才"
+    : "公共简历池暂无简历";
   const uploaderFilterOptions = useMemo(
     () => buildResumePoolUploaderFilterOptions(uploadersQuery.data ?? []),
     [uploadersQuery.data],
@@ -316,6 +389,16 @@ export function ResumePoolPage() {
         minWidth: "15rem",
         placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
         type: "search" as const,
+      },
+      {
+        key: "createdAtRange" as const,
+        render: (
+          <ResumePoolCreatedAtFilter
+            onValueChange={(value) => grid.bind.onFilterChange("createdAtRange", value)}
+            value={grid.bind.filterValues.createdAtRange}
+          />
+        ),
+        type: "custom" as const,
       },
       {
         clearable: false,
@@ -333,9 +416,9 @@ export function ResumePoolPage() {
         emptyMessage: uploadersQuery.isFetching ? "正在加载上传用户…" : "没有可选择的上传用户",
         key: "uploaderIds" as const,
         options: uploaderFilterOptions,
-        placeholder: "上传用户",
-        searchPlaceholder: "搜索上传用户…",
-        selectedFormat: (count: number) => `已选 ${count} 位用户`,
+        placeholder: "上传人 / 内推人",
+        searchPlaceholder: "搜索上传人 / 内推人…",
+        selectedFormat: (count: number) => `已选 ${count} 位人员`,
         type: "multi-select" as const,
       },
       {
@@ -348,7 +431,7 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
     ],
-    [uploaderFilterOptions, uploadersQuery.isFetching],
+    [grid.bind, uploaderFilterOptions, uploadersQuery.isFetching],
   );
   let loadMoreStatusText = "暂无可加载简历";
   if (hasMoreRecords) {
@@ -373,7 +456,7 @@ export function ResumePoolPage() {
             filterValues={grid.bind.filterValues}
             filters={filtersConfig}
             onFilterChange={grid.bind.onFilterChange}
-            onRefresh={grid.bind.onRefresh}
+            onRefresh={refreshPool}
             onResetFilters={grid.bind.onResetFilters}
             refreshing={grid.bind.refetching}
             searchLoading={grid.bind.loading}
@@ -405,6 +488,7 @@ export function ResumePoolPage() {
             onOpenDuplicateMatches={setDuplicateMatchRecord}
             onOpenDetail={setDetailRecord}
             onOpenPdf={setPreviewRecord}
+            onResetFilters={grid.bind.onResetFilters}
             onPublish={publishMutation.mutate}
             onRecommend={(record) => {
               setRecommendationTarget(record);
@@ -416,7 +500,7 @@ export function ResumePoolPage() {
               retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
             }
             retriedRecordIds={retriedRecordIds}
-            records={grid.bind.data}
+            records={loadedPoolRecords}
             scope={scope}
             showEmptyState={showEmptyState}
           />
@@ -435,7 +519,7 @@ export function ResumePoolPage() {
               <Button
                 className="w-full sm:w-auto"
                 disabled={isPoolBusy}
-                onClick={grid.bind.onRefresh}
+                onClick={refreshPool}
                 type="button"
                 variant="outline"
               >

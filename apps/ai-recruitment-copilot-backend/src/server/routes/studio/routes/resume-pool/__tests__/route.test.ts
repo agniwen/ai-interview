@@ -181,11 +181,13 @@ describe("resume pool private uploader visibility", () => {
     const response = await makeApp().request("/resume-pool?scope=private");
 
     expect(response.status).toBe(200);
-    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith({
-      creatorIds: [USER_ID],
-      organizationId: ORGANIZATION_ID,
-      scope: "private",
-    });
+    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creatorIds: [USER_ID],
+        organizationId: ORGANIZATION_ID,
+        scope: "private",
+      }),
+    );
   });
 
   it("allows selecting a visible subordinate uploader", async () => {
@@ -194,33 +196,61 @@ describe("resume pool private uploader visibility", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith({
-      creatorIds: ["subordinate-user"],
-      organizationId: ORGANIZATION_ID,
-      scope: "private",
-    });
+    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creatorIds: ["subordinate-user"],
+        organizationId: ORGANIZATION_ID,
+        scope: "private",
+      }),
+    );
   });
 
   it("returns no records for an uploader outside the visibility scope", async () => {
     const response = await makeApp().request("/resume-pool?scope=private&uploaderId=other-user");
 
     expect(response.status).toBe(200);
-    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith({
-      creatorIds: [],
-      organizationId: ORGANIZATION_ID,
-      scope: "private",
-    });
+    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creatorIds: [],
+        organizationId: ORGANIZATION_ID,
+        scope: "private",
+      }),
+    );
   });
 
   it("expands all uploaders only within the visibility scope", async () => {
     const response = await makeApp().request("/resume-pool?scope=private&uploaderId=all");
 
     expect(response.status).toBe(200);
-    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith({
-      creatorIds: [USER_ID, "subordinate-user"],
-      organizationId: ORGANIZATION_ID,
-      scope: "private",
-    });
+    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creatorIds: [USER_ID, "subordinate-user"],
+        organizationId: ORGANIZATION_ID,
+        scope: "private",
+      }),
+    );
+  });
+
+  it("forwards public filters and a bounded page to the DAO", async () => {
+    const response = await makeApp().request(
+      "/resume-pool?scope=public&createdFrom=2026-08-01&createdTo=2026-08-07&importStatus=not_imported&limit=100&offset=100&search=候选人&sourceType=referral&uploaderIds=referrer-1,referrer-2&sortBy=updatedAt&sortOrder=asc",
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.queryResumePoolItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdAtBefore: new Date("2026-08-07T16:00:00.000Z"),
+        createdAtFrom: new Date("2026-07-31T16:00:00.000Z"),
+        creatorIds: ["referrer-1", "referrer-2"],
+        importStatus: "not_imported",
+        limit: 100,
+        offset: 100,
+        search: "候选人",
+        sortBy: "updatedAt",
+        sortOrder: "asc",
+        sourceType: "referral",
+      }),
+    );
   });
 
   it("loads a private detail through the same recruiting visibility scope", async () => {

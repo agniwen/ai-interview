@@ -135,12 +135,33 @@ export function ResumePoolEmptyState({
   canResetFilters,
   emptyTitle,
   onUpload,
+  onResetFilters,
 }: {
   canUpload: boolean;
   canResetFilters: boolean;
   emptyTitle: string;
   onUpload: () => void;
+  onResetFilters: () => void;
 }) {
+  let action: ReactNode = null;
+  if (canResetFilters) {
+    action = (
+      <EmptyContent>
+        <Button onClick={onResetFilters} variant="outline">
+          清除筛选
+        </Button>
+      </EmptyContent>
+    );
+  } else if (canUpload) {
+    action = (
+      <EmptyContent>
+        <Button onClick={onUpload}>
+          <IconUserPlus className="size-4" />
+          创建人才记录
+        </Button>
+      </EmptyContent>
+    );
+  }
   return (
     <Empty className="border-border">
       <EmptyHeader>
@@ -149,14 +170,7 @@ export function ResumePoolEmptyState({
         </EmptyMedia>
         <EmptyTitle>{emptyTitle}</EmptyTitle>
       </EmptyHeader>
-      {canResetFilters || !canUpload ? null : (
-        <EmptyContent>
-          <Button onClick={onUpload}>
-            <IconUserPlus className="size-4" />
-            创建人才记录
-          </Button>
-        </EmptyContent>
-      )}
+      {action}
     </Empty>
   );
 }
@@ -182,6 +196,7 @@ export function ResumePoolListContent({
   onPublish,
   onRecommend,
   onRetryParse,
+  onResetFilters,
   onUpload,
   publishing,
   retryingRecordId,
@@ -216,6 +231,7 @@ export function ResumePoolListContent({
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onUpload: () => void;
+  onResetFilters: () => void;
   retryingRecordId: string | null;
   retriedRecordIds: ReadonlySet<string>;
   renderCard?: (record: ResumePoolListRecord) => ReactNode;
@@ -316,6 +332,7 @@ export function ResumePoolListContent({
         canUpload={canUpload}
         canResetFilters={canResetFilters}
         emptyTitle={emptyTitle}
+        onResetFilters={onResetFilters}
         onUpload={onUpload}
       />
     );

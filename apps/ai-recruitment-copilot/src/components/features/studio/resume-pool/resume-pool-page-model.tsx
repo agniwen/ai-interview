@@ -20,6 +20,18 @@ import { rpc } from "@/lib/client/rpc";
 
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 
+export type ResumePoolCreatedAtRange =
+  | ""
+  | "today"
+  | "yesterday"
+  | "last_7_days"
+  | `custom:${string}:${string}`;
+
+export interface ResumePoolCreatedAtBounds {
+  from: string;
+  to: string;
+}
+
 export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
   refetchOnMount: "always",
   staleTime: 0,
@@ -27,7 +39,10 @@ export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
 
 export const RESUME_POOL_LOAD_MORE_ROOT_MARGIN = "720px 0px";
 
-export type ResumePoolFilters = Record<"importStatus" | "uploaderIds", string> & {
+export type ResumePoolFilters = Record<
+  "createdAtRange" | "importStatus" | "uploaderIds",
+  string
+> & {
   sourceType: ResumePoolSourceFilter;
 };
 
@@ -39,6 +54,7 @@ export interface ResumePoolDateGroup {
 
 export function createResumePoolFilters(): ResumePoolFilters {
   return {
+    createdAtRange: "",
     importStatus: "",
     sourceType: "all",
     uploaderIds: "",
@@ -209,10 +225,88 @@ export function uploaderUserLabel(record: ResumePoolListRecord) {
 
 export function uploaderMetaLabel(record: ResumePoolListRecord) {
   const createdAt = formatDateInAppTimeZone(record.createdAt, "YY年MM月DD日:HH:mm");
+  if (record.sourceChannel === "referral") {
+    return `${uploaderUserLabel(record)} ${createdAt} 内推`;
+  }
   if (record.sourceChannel === "mail_ingest") {
     return `${createdAt} 扫描${uploaderUserLabel(record)}邮箱录入`;
   }
   return `${uploaderUserLabel(record)} ${createdAt} 上传`;
+}
+
+function isCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (!match) {
+    return false;
+  }
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return (
+    date.getUTCFullYear() === Number(year) &&
+    date.getUTCMonth() === Number(month) - 1 &&
+    date.getUTCDate() === Number(day)
+  );
+}
+
+function addCalendarDays(value: string, days: number): string {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function dateKeyInAppTimeZone(value: string | Date) {
+  return formatDateInAppTimeZone(value, "YYYY-MM-DD");
+}
+
+function formatCreatedAtRangeDate(date: string) {
+  return `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;
+}
+
+function customCreatedAtRange(value: string): ResumePoolCreatedAtBounds | null {
+  const match = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/u.exec(value);
+  if (!match) {
+    return null;
+  }
+  const [, from, to] = match;
+  return isCalendarDate(from) && isCalendarDate(to) && from <= to ? { from, to } : null;
+}
+
+export function resumePoolCreatedAtBounds(
+  value: string,
+  now: Date = new Date(),
+): ResumePoolCreatedAtBounds | null {
+  if (value === "") {
+    return null;
+  }
+  const today = dateKeyInAppTimeZone(now);
+  if (value === "today") {
+    return { from: today, to: today };
+  }
+  if (value === "yesterday") {
+    const yesterday = addCalendarDays(today, -1);
+    return { from: yesterday, to: yesterday };
+  }
+  if (value === "last_7_days") {
+    return { from: addCalendarDays(today, -6), to: today };
+  }
+  return customCreatedAtRange(value);
+}
+
+export function resumePoolCreatedAtRangeLabel(value: string): string {
+  if (value === "today") {
+    return "今天";
+  }
+  if (value === "yesterday") {
+    return "昨天";
+  }
+  if (value === "last_7_days") {
+    return "最近 7 天";
+  }
+  const range = customCreatedAtRange(value);
+  if (!range) {
+    return "加入时间";
+  }
+  return `${formatCreatedAtRangeDate(range.from)}–${formatCreatedAtRangeDate(range.to)}`;
 }
 
 export function sourceActorLabel(record: ResumePoolListRecord) {
@@ -300,10 +394,6 @@ export function sortPoolRecords(
     return direction * (new Date(a[key]).getTime() - new Date(b[key]).getTime());
   });
   return sorted;
-}
-
-function dateKeyInAppTimeZone(value: string | Date) {
-  return formatDateInAppTimeZone(value, "YYYY-MM-DD");
 }
 
 function monthLabelInAppTimeZone(value: string | Date) {

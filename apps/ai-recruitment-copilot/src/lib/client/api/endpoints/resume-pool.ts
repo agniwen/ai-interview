@@ -16,12 +16,29 @@ import { rpcFetch } from "../rpc-fetch";
 export function fetchResumePoolItems(
   slug: string,
   scope: ResumePoolScope,
-  uploaderId?: string,
+  options: {
+    createdFrom?: string;
+    createdTo?: string;
+    importStatus?: "imported" | "not_imported";
+    limit?: number;
+    offset?: number;
+    search?: string;
+    sortBy?: "candidateName" | "createdAt" | "updatedAt";
+    sortOrder?: "asc" | "desc";
+    sourceType?: "all" | "non_referral" | "referral";
+    uploaderId?: string;
+    uploaderIds?: string;
+  } = {},
 ): Promise<PaginatedResumePoolResult> {
   return rpcFetch<PaginatedResumePoolResult>(
     rpc.api.w[":slug"].studio["resume-pool"].$get({
       param: { slug },
-      query: { scope, uploaderId },
+      query: {
+        ...options,
+        limit: options.limit?.toString(),
+        offset: options.offset?.toString(),
+        scope,
+      },
     }),
     "加载人才库失败",
   );

@@ -33,6 +33,7 @@ describe("resume pool list SSR boundary", () => {
         onOpenPdf: () => {},
         onPublish: () => {},
         onRecommend: () => {},
+        onResetFilters: () => {},
         onRetryParse: () => {},
         onUpload: () => {},
         publishing: false,

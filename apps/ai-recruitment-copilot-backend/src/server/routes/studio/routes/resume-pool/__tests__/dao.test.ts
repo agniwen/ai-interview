@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- resume-pool DAO assertions share one integration fixture. */
 import { and, eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -178,6 +179,65 @@ describe("queryResumePoolItems", () => {
 
     expect(result.records.map((record) => record.id)).toEqual([ownPublicId]);
     expect(result.records.every((record) => record.organizationId === ORG_A)).toBe(true);
+  });
+
+  it("filters public items by an inclusive Shanghai calendar-date range", async () => {
+    const earlierId = await createResumePoolItem(
+      basePoolInput({ contentHash: "hash-resume-pool-earlier", scope: "public" }),
+    );
+    const includedId = await createResumePoolItem(
+      basePoolInput({ contentHash: "hash-resume-pool-included", scope: "public" }),
+    );
+    const laterId = await createResumePoolItem(
+      basePoolInput({ contentHash: "hash-resume-pool-later", scope: "public" }),
+    );
+    await db
+      .update(resumePoolItem)
+      .set({ createdAt: new Date("2026-06-11T15:59:59.999Z") })
+      .where(eq(resumePoolItem.id, earlierId));
+    await db
+      .update(resumePoolItem)
+      .set({ createdAt: new Date("2026-06-12T00:00:00.000Z") })
+      .where(eq(resumePoolItem.id, includedId));
+    await db
+      .update(resumePoolItem)
+      .set({ createdAt: new Date("2026-06-13T16:00:00.000Z") })
+      .where(eq(resumePoolItem.id, laterId));
+
+    const result = await queryResumePoolItems({
+      createdAtBefore: new Date("2026-06-13T16:00:00.000Z"),
+      createdAtFrom: new Date("2026-06-11T16:00:00.000Z"),
+      organizationId: ORG_A,
+      scope: "public",
+    });
+
+    expect(result.records.map((record) => record.id)).toEqual([includedId]);
+    expect(result.total).toBe(1);
+  });
+
+  it("treats search wildcard characters as literal text", async () => {
+    const literalId = await createResumePoolItem(
+      basePoolInput({
+        candidateName: "候选_100%",
+        contentHash: "hash-resume-pool-search-literal",
+        scope: "public",
+      }),
+    );
+    await createResumePoolItem(
+      basePoolInput({
+        candidateName: "候选A100x",
+        contentHash: "hash-resume-pool-search-wildcard",
+        scope: "public",
+      }),
+    );
+
+    const result = await queryResumePoolItems({
+      organizationId: ORG_A,
+      scope: "public",
+      search: "候选_100%",
+    });
+
+    expect(result.records.map((record) => record.id)).toEqual([literalId]);
   });
 
   it("includes profile highlights for resume pool cards", async () => {
