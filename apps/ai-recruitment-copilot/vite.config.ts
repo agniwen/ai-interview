@@ -14,7 +14,7 @@ const requireFromQueuePackage = createRequire(
 const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/package.json"));
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
-  /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
+  /[/\\]node_modules[/\\](?:\.bun[/\\]bullmq@[^/\\]+[/\\]node_modules[/\\])?bullmq[/\\]/;
 // Keep the dev config stable: Vite includes define values in its dependency cache key.
 const buildTime = process.env.NODE_ENV === "production" ? new Date().toISOString() : "development";
 export default defineConfig({
@@ -98,6 +98,7 @@ export default defineConfig({
       presets: [reactCompilerPreset()],
     }),
     nitro({
+      preset: "bun",
       routeRules: {
         "/**": {
           headers: {

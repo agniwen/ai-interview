@@ -8,9 +8,9 @@
   "type": "module",
   "scripts": {
     "build": "tsdown",
-    "dev": "tsx watch src/index.ts",
-    "load:meeting-capacity": "tsx src/scripts/meeting-capacity-load.ts",
-    "start": "node dist/index.mjs",
+    "dev": "bun --watch src/index.ts",
+    "load:meeting-capacity": "bun src/scripts/meeting-capacity-load.ts",
+    "start": "bun dist/index.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

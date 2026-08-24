@@ -22,9 +22,9 @@ help: ## 显示所有可用命令
 
 install: web-install agent-install agent-download ## 一键安装前后端依赖 + 下载模型
 
-web-install: ## pnpm install (TanStack Start 前端)
-	pnpm install
-	pnpm hooks
+web-install: ## bun install (TanStack Start 前端)
+	bun install
+	bun run hooks
 
 agent-install: ## 创建 venv 并安装 Python 依赖 (uv sync)
 	cd $(AGENT_DIR) && uv sync
@@ -38,45 +38,45 @@ dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
 web-dev: ## 使用已有依赖缓存启动 TanStack Start dev server
-	pnpm --filter @arc/ai-recruitment-copilot dev
+	bun run --filter @arc/ai-recruitment-copilot dev
 
 web-dev-fresh: ## 清理依赖缓存后启动 TanStack Start dev server
-	pnpm --filter @arc/ai-recruitment-copilot dev:fresh
+	bun run --filter @arc/ai-recruitment-copilot dev:fresh
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
-	pnpm --filter $(WORKER_PACKAGE) dev
+	bun run --filter $(WORKER_PACKAGE) dev
 
 worker-start: ## 启动简历异步解析 worker (生产模式，不热重载)
-	pnpm --filter $(WORKER_PACKAGE) start
+	bun run --filter $(WORKER_PACKAGE) start
 
 worker-typecheck: ## 检查简历异步解析 worker TypeScript 类型
-	pnpm --filter $(WORKER_PACKAGE) typecheck
+	bun run --filter $(WORKER_PACKAGE) typecheck
 
 # ---------- desktop (Electron) ----------
 
 desktop-dev: ## 启动 Electron 桌面端 (electron-vite dev)
-	pnpm --filter $(DESKTOP_PACKAGE) dev
+	bun run --filter $(DESKTOP_PACKAGE) dev
 
 desktop-start: ## 预览已构建的 Electron 桌面端
-	pnpm --filter $(DESKTOP_PACKAGE) start
+	bun run --filter $(DESKTOP_PACKAGE) start
 
 desktop-typecheck: ## 检查 Electron 桌面端 TypeScript 类型
-	pnpm --filter $(DESKTOP_PACKAGE) typecheck
+	bun run --filter $(DESKTOP_PACKAGE) typecheck
 
 desktop-build: ## 构建 Electron 主进程/渲染进程 (不打安装包)
-	pnpm --filter $(DESKTOP_PACKAGE) build
+	bun run --filter $(DESKTOP_PACKAGE) build
 
 desktop-build-mac: ## 构建并打包 macOS 安装包 (dmg)
-	pnpm --filter $(DESKTOP_PACKAGE) build:mac
+	bun run --filter $(DESKTOP_PACKAGE) build:mac
 
 desktop-build-win: ## 构建并打包 Windows 安装包
-	pnpm --filter $(DESKTOP_PACKAGE) build:win
+	bun run --filter $(DESKTOP_PACKAGE) build:win
 
 desktop-build-linux: ## 构建并打包 Linux 安装包
-	pnpm --filter $(DESKTOP_PACKAGE) build:linux
+	bun run --filter $(DESKTOP_PACKAGE) build:linux
 
 desktop-build-unpack: ## 构建未打包的应用目录 (调试用)
-	pnpm --filter $(DESKTOP_PACKAGE) build:unpack
+	bun run --filter $(DESKTOP_PACKAGE) build:unpack
 
 agent-dev: ## 仅启动 LiveKit agent worker (dev 模式，热重载)
 	cd $(AGENT_DIR) && uv run $(AGENT_SCRIPT) dev

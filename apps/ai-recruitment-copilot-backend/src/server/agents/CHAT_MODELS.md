@@ -62,9 +62,9 @@
 ### 6. 运行验证
 
 ```bash
-pnpm typecheck    # 必须过
-pnpm check        # 必须 0 errors
-pnpm test         # 必须全绿（无 model-catalog 相关测试，因为已废弃）
+bun run typecheck    # 必须过
+bun run check        # 必须 0 errors
+bun run test         # 必须全绿（无 model-catalog 相关测试，因为已废弃）
 ```
 
 如果改了字段形状（例如加了新字段），还要同步仍在消费模型列表的客户端类型。
@@ -72,11 +72,12 @@ pnpm test         # 必须全绿（无 model-catalog 相关测试，因为已废
 ### 7. dev server 重启
 
 ```bash
-rm -rf apps/ai-recruitment-copilot/.next
-pnpm dev
+rm -rf apps/ai-recruitment-copilot/.tanstack/tmp \
+  apps/ai-recruitment-copilot/node_modules/.vite
+bun run dev
 ```
 
-Next.js dev cache 会持有旧模块引用，不清的话本地页面可能短时间显示旧列表。
+TanStack Start 与 Vite 的 dev cache 会持有旧模块引用，不清的话本地页面可能短时间显示旧列表。
 
 ## 同步检查项（容易漏的）
 

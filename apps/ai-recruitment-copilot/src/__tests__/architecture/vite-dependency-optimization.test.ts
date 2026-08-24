@@ -29,7 +29,7 @@ describe("Vite dependency optimization", () => {
   it("uses the stable dev cache from the default workspace target", () => {
     const makefile = readFileSync(path.join(appRoot, "../../Makefile"), "utf-8");
 
-    expect(makefile).toMatch(/web-dev:.*\n\tpnpm --filter @arc\/ai-recruitment-copilot dev\n/);
+    expect(makefile).toMatch(/web-dev:.*\n\tbun run --filter @arc\/ai-recruitment-copilot dev\n/);
   });
 
   it("keeps the development build marker stable across restarts", () => {

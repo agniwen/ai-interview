@@ -13,7 +13,7 @@ Simplified Chinese.
 - **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime,
   Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
   AI utilities. It can be mounted by the web app at `/api` or started as a
-  standalone Node service.
+  standalone Bun service.
 - **Resume worker** (`apps/ai-recruitment-copilot-worker/`): asynchronous resume
   parsing worker for queued PDF/OCR processing.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
@@ -21,7 +21,7 @@ Simplified Chinese.
 - **Shared packages** (`packages/`): `@arc/shared`, `@arc/db-schema`, and
   `@arc/resume-parse-queue`.
 
-Two package managers are used: **pnpm** for TypeScript apps/packages and **uv**
+Two package managers are used: **Bun 1.4.0** for TypeScript apps/packages and **uv**
 for the Python agent. Do not mix them.
 
 ## Quick Start
@@ -31,12 +31,36 @@ make install
 cp apps/ai-recruitment-copilot/.env.example apps/ai-recruitment-copilot/.env
 cp apps/ai-recruitment-copilot-backend/.env.example apps/ai-recruitment-copilot-backend/.env
 cp apps/livekit-agent/.env.example apps/livekit-agent/.env
-pnpm db:migrate
+bun run db:migrate
 make dev
 ```
 
 `make agent-console` runs an in-terminal chat against the agent without opening
 a LiveKit room. `make help` lists every Make target.
+
+## Local Docker Validation
+
+Build and start the Bun 1.4.0 web and worker images. Both services load
+`apps/ai-recruitment-copilot/.env`, matching the dependencies and credentials
+used by the local web app:
+
+```bash
+BETTER_AUTH_URL=http://localhost:3000 \
+  docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+```
+
+Open <http://localhost:3000>. Web readiness is available at
+<http://localhost:3000/api/ready>, and worker readiness is available at
+<http://localhost:8790/readyz>. Because the worker uses the real application
+configuration, it connects to the configured Redis queue immediately and may
+process pending jobs just like a normal local worker start.
+
+Stop the local validation stack with:
+
+```bash
+BETTER_AUTH_URL=http://localhost:3000 \
+  docker compose -f docker-compose.yml -f docker-compose.local.yml down
+```
 
 ## Configuration
 
@@ -67,34 +91,34 @@ reads them from `import.meta.env.NEXT_PUBLIC_*`.
 
 ### Root
 
-| Command                   | Purpose                                     |
-| ------------------------- | ------------------------------------------- |
-| `pnpm dev`                | Turbo dev across apps                       |
-| `pnpm build`              | Turbo production build                      |
-| `pnpm typecheck`          | Turbo TypeScript checks                     |
-| `pnpm test`               | Turbo tests                                 |
-| `pnpm check` / `pnpm fix` | Ultracite check / autofix                   |
-| `pnpm db:generate`        | Generate Drizzle migrations through web app |
-| `pnpm db:migrate`         | Apply Drizzle migrations through web app    |
-| `pnpm db:studio`          | Drizzle Studio                              |
-| `pnpm hooks`              | Install lefthook git hooks                  |
+| Command                         | Purpose                                     |
+| ------------------------------- | ------------------------------------------- |
+| `bun run dev`                   | Turbo dev across apps                       |
+| `bun run build`                 | Turbo production build                      |
+| `bun run typecheck`             | Turbo TypeScript checks                     |
+| `bun run test`                  | Turbo tests                                 |
+| `bun run check` / `bun run fix` | Ultracite check / autofix                   |
+| `bun run db:generate`           | Generate Drizzle migrations through web app |
+| `bun run db:migrate`            | Apply Drizzle migrations through web app    |
+| `bun run db:studio`             | Drizzle Studio                              |
+| `bun run hooks`                 | Install lefthook git hooks                  |
 
 ### Web
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot dev
-pnpm --filter @arc/ai-recruitment-copilot build
-pnpm --filter @arc/ai-recruitment-copilot typecheck
-pnpm --filter @arc/ai-recruitment-copilot test
+bun run --filter @arc/ai-recruitment-copilot dev
+bun run --filter @arc/ai-recruitment-copilot build
+bun run --filter @arc/ai-recruitment-copilot typecheck
+bun run --filter @arc/ai-recruitment-copilot test
 ```
 
 ### Backend
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend dev:standalone
-pnpm --filter @arc/ai-recruitment-copilot-backend start
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot-backend test
+bun run --filter @arc/ai-recruitment-copilot-backend dev:standalone
+bun run --filter @arc/ai-recruitment-copilot-backend start
+bun run --filter @arc/ai-recruitment-copilot-backend typecheck
+bun run --filter @arc/ai-recruitment-copilot-backend test
 ```
 
 ### Agent
@@ -127,7 +151,7 @@ apps/
     src/server/app.ts           Hono app factory
     src/server/routes/          route folders with route.ts/schema.ts/dao
     src/lib/server/             backend runtime helpers
-    src/index.ts                standalone Node entrypoint
+    src/index.ts                standalone Bun entrypoint
   ai-recruitment-copilot-worker/
     src/                        async resume parsing worker
   livekit-agent/

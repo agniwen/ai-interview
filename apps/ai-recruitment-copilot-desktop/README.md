@@ -71,19 +71,19 @@ import { Button } from "@/components/ui/button";
 From the monorepo root:
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-desktop dev
-pnpm --filter @arc/ai-recruitment-copilot-desktop typecheck
-pnpm --filter @arc/ai-recruitment-copilot-desktop build
-pnpm --filter @arc/ai-recruitment-copilot-desktop build:mac
-pnpm --filter @arc/ai-recruitment-copilot-desktop build:win
+bun run --filter @arc/ai-recruitment-copilot-desktop dev
+bun run --filter @arc/ai-recruitment-copilot-desktop typecheck
+bun run --filter @arc/ai-recruitment-copilot-desktop build
+bun run --filter @arc/ai-recruitment-copilot-desktop build:mac
+bun run --filter @arc/ai-recruitment-copilot-desktop build:win
 ```
 
 From this package:
 
 ```bash
-pnpm dev
-pnpm typecheck
-pnpm build
+bun run dev
+bun run typecheck
+bun run build
 ```
 
 ## Layout
@@ -99,5 +99,5 @@ build/        # electron-builder resources
 
 ## Notes
 
-- Prefer running with `--filter` so `pnpm dev` at the monorepo root does not have to be the only entry for this app.
+- Prefer running with `--filter` so `bun run dev` at the monorepo root does not have to be the only entry for this app.
 - Dual-audio capture and STT integration are intentionally not scaffolded yet.

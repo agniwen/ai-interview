@@ -1,28 +1,27 @@
-# syntax=docker/dockerfile:1
-# 中文：构建上下文为仓库根，例如 `docker build -f apps/ai-recruitment-copilot/Dockerfile .`
-# English: build from the monorepo root, e.g.
+# Build from the monorepo root:
 #   docker build -f apps/ai-recruitment-copilot/Dockerfile .
 
-FROM node:22-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+ARG BUN_IMAGE=oven/bun:1.4.0-debian@sha256:5bb0f9be3a1a36a03e27c9a9dd894a3b1ad26657155c7df4dda771e17bf872ef
+
+FROM ${BUN_IMAGE} AS base
+WORKDIR /repo
 
 # --- Dependencies ---
 FROM base AS deps
-WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY .bun-version bun.lock bunfig.toml package.json ./
 COPY patches patches
 COPY apps/ai-recruitment-copilot/package.json apps/ai-recruitment-copilot/
 COPY apps/ai-recruitment-copilot-backend/package.json apps/ai-recruitment-copilot-backend/
-COPY packages packages
-# --ignore-scripts skips the `prepare` hook (lefthook install) which needs git
-# and is only used for local git hooks, not CI/runtime.
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY apps/ai-recruitment-copilot-desktop/package.json apps/ai-recruitment-copilot-desktop/
+COPY apps/ai-recruitment-copilot-worker/package.json apps/ai-recruitment-copilot-worker/
+COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
+COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/shared/package.json packages/shared/
+RUN bun install --frozen-lockfile --filter @arc/ai-recruitment-copilot
 
 # --- Build ---
 FROM base AS builder
-WORKDIR /repo
 
 ARG ALIBABA_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ARG ALIBABA_FAST_MODEL=deepseek-v4-flash-0731
@@ -52,7 +51,6 @@ ARG RECORDING_R2_REGION=auto
 ARG S3_FORCE_PATH_STYLE=true
 ARG S3_KEY_PREFIX=uploads
 ARG S3_REGION=auto
-ARG NODE_OPTIONS=--max-old-space-size=3584
 
 ENV ALIBABA_BASE_URL=$ALIBABA_BASE_URL
 ENV ALIBABA_FAST_MODEL=$ALIBABA_FAST_MODEL
@@ -82,27 +80,25 @@ ENV RECORDING_R2_REGION=$RECORDING_R2_REGION
 ENV S3_FORCE_PATH_STYLE=$S3_FORCE_PATH_STYLE
 ENV S3_KEY_PREFIX=$S3_KEY_PREFIX
 ENV S3_REGION=$S3_REGION
-ENV NODE_OPTIONS=$NODE_OPTIONS
 
-# Carry over the fully-installed workspace from deps (root + per-workspace node_modules,
-# including packages/*/node_modules that pnpm symlinks into each package).
 COPY --from=deps /repo /repo
-# Layer in root config / lockfile / shared tsconfig and the app source.
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
-COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
-COPY apps/ai-recruitment-copilot-backend ./apps/ai-recruitment-copilot-backend
+COPY .bun-version bun.lock bunfig.toml package.json turbo.json tsconfig.base.json ./
+COPY apps/ai-recruitment-copilot apps/ai-recruitment-copilot
+COPY apps/ai-recruitment-copilot-backend apps/ai-recruitment-copilot-backend
+COPY packages packages
 
 RUN test -n "$BETTER_AUTH_URL" || (echo "BETTER_AUTH_URL build arg is required." && false) \
  && export NEXT_PUBLIC_BASE_URL="${NEXT_PUBLIC_BASE_URL:-$BETTER_AUTH_URL}" \
  && export NEXT_PUBLIC_BETTER_AUTH_URL="${NEXT_PUBLIC_BETTER_AUTH_URL:-$BETTER_AUTH_URL}" \
- && pnpm --filter @arc/ai-recruitment-copilot build
+ && bun run --filter @arc/ai-recruitment-copilot build
 
 # --- Production ---
-FROM base AS runner
+FROM ${BUN_IMAGE} AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV LIBREOFFICE_BIN=/usr/bin/soffice
+ENV TZ=UTC
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -113,16 +109,12 @@ RUN apt-get update \
     libreoffice-writer \
  && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup --system --gid 1001 nodejs \
- && adduser --system --uid 1001 startjs
+COPY --from=builder --chown=bun:bun /repo/apps/ai-recruitment-copilot/.output ./.output
 
-# TanStack Start with Nitro emits a standalone Node server in `.output`.
-COPY --from=builder --chown=startjs:nodejs /repo/apps/ai-recruitment-copilot/.output ./.output
-
-USER startjs
+USER bun
 
 EXPOSE 3000
 ENV PORT=3000
-ENV HOST="0.0.0.0"
+ENV HOST=0.0.0.0
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["bun", ".output/server/index.mjs"]

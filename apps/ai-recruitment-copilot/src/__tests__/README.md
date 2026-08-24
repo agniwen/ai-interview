@@ -25,5 +25,5 @@
 ## Running
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot test
+bun run --filter @arc/ai-recruitment-copilot test
 ```
