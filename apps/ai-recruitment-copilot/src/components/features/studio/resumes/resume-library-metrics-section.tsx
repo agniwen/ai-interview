@@ -61,15 +61,19 @@ export function ResumeLibraryMetricsSection({
   chartKey,
   error,
   isSwitching = false,
+  isRefreshing = false,
   metrics,
+  onRefresh,
   onRetry,
   renderCharts,
 }: {
   /** Forces chart remount when scope data changes (TanStack Charts is definition-identity driven). */
   chartKey?: string;
   error: unknown;
+  isRefreshing?: boolean;
   isSwitching?: boolean;
   metrics: ResumeLibraryMetrics | undefined;
+  onRefresh?: MetricsRetry;
   onRetry: MetricsRetry;
   renderCharts?: (metrics: ResumeLibraryMetrics) => ReactNode;
 }) {
@@ -97,7 +101,12 @@ export function ResumeLibraryMetricsSection({
         {renderCharts ? (
           <MetricsChartRenderer metrics={metrics} renderCharts={renderCharts} />
         ) : (
-          <ResumeLibraryCharts key={chartKey ?? "metrics"} metrics={metrics} />
+          <ResumeLibraryCharts
+            chartKey={chartKey}
+            isRefreshing={isRefreshing}
+            metrics={metrics}
+            onRefresh={onRefresh}
+          />
         )}
       </div>
     </MetricsErrorBoundary>

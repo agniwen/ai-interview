@@ -47,6 +47,7 @@ describe("BackgroundLayers", () => {
     });
 
     const fade = container.querySelector<HTMLElement>('[data-slot="home-hero-artwork-fade"]');
+    expect(fade?.className).toContain("-bottom-1");
     expect(fade?.className).toContain("transparent_88%");
     expect(fade?.className).toContain("var(--background)_100%");
 

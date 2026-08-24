@@ -2,10 +2,12 @@
 
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { IconRefresh } from "@tabler/icons-react";
 import { barX, defineChart, stack } from "@tanstack/charts";
 import { scaleBand, scaleLinear } from "d3-scale";
 import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -344,7 +346,15 @@ function isRankingPeriod(value: string): value is RankingPeriod {
   return RANKING_PERIODS.some((period) => period.value === value);
 }
 
-function UploaderRankingCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dailyAdded"] }) {
+function UploaderRankingCard({
+  dailyAdded,
+  isRefreshing,
+  onRefresh,
+}: {
+  dailyAdded: ResumeLibraryMetrics["dailyAdded"];
+  isRefreshing: boolean;
+  onRefresh?: () => Promise<void>;
+}) {
   const [period, setPeriod] = useState<RankingPeriod>("month");
   const ranking = useMemo(() => buildUploaderRanking(dailyAdded, period), [dailyAdded, period]);
   const [leader] = ranking.rows;
@@ -360,7 +370,7 @@ function UploaderRankingCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics[
       title="入库排行榜"
     >
       <div className="flex flex-col gap-3">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
           <ToggleGroup
             aria-label="排行榜统计周期"
             onValueChange={(value) => {
@@ -379,6 +389,21 @@ function UploaderRankingCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics[
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+          {onRefresh ? (
+            <Button
+              disabled={isRefreshing}
+              onClick={onRefresh}
+              size="xs"
+              type="button"
+              variant="ghost"
+            >
+              <IconRefresh
+                className={isRefreshing ? "animate-spin" : undefined}
+                data-icon="inline-start"
+              />
+              刷新
+            </Button>
+          ) : null}
         </div>
         {ranking.rows.length > 0 ? (
           <ol className="flex flex-col gap-2.5" data-period={period}>
@@ -503,12 +528,26 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
   );
 }
 
-export function ResumeLibraryCharts({ metrics }: { metrics: ResumeLibraryMetrics }) {
+export function ResumeLibraryCharts({
+  chartKey,
+  isRefreshing = false,
+  metrics,
+  onRefresh,
+}: {
+  chartKey?: string;
+  isRefreshing?: boolean;
+  metrics: ResumeLibraryMetrics;
+  onRefresh?: () => Promise<void>;
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <StatusCard byPipeline={metrics.byPipeline} />
-      <UploaderRankingCard dailyAdded={metrics.dailyAdded} />
-      <ConversionCard conversion={metrics.conversion} />
+      <StatusCard byPipeline={metrics.byPipeline} key={`status:${chartKey ?? "metrics"}`} />
+      <UploaderRankingCard
+        dailyAdded={metrics.dailyAdded}
+        isRefreshing={isRefreshing}
+        onRefresh={onRefresh}
+      />
+      <ConversionCard conversion={metrics.conversion} key={`conversion:${chartKey ?? "metrics"}`} />
     </div>
   );
 }

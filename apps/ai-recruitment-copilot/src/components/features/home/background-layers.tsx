@@ -15,10 +15,7 @@ export function BackgroundLayersView({
   video = false,
 }: BackgroundLayersProps) {
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden"
-    >
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen">
       {video ? (
         <HomeHeroBackgroundVideo onReadyChange={onVideoReadyChange} />
       ) : (
@@ -41,7 +38,7 @@ export function BackgroundLayersView({
       />
       {fadeToBackground ? (
         <div
-          className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_88%,var(--background)_100%)]"
+          className="absolute inset-x-0 top-0 -bottom-1 bg-[linear-gradient(to_bottom,transparent_88%,var(--background)_100%)]"
           data-slot="home-hero-artwork-fade"
         />
       ) : null}

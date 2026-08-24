@@ -1,4 +1,3 @@
-import { IconRefresh } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
@@ -66,18 +65,6 @@ export function ResumeLibraryPageShell({
             >
               {metricsScope === "team" ? "切换个人维度" : "切换到团队维度"}
             </Button>
-            <Button
-              aria-label="刷新招聘指标"
-              className="opacity-80 hover:opacity-100"
-              disabled={metricsFetching}
-              onClick={handleMetricsRetry}
-              size="icon-xs"
-              title="刷新招聘指标"
-              type="button"
-              variant="ghost"
-            >
-              <IconRefresh className={metricsFetching ? "size-3 animate-spin" : "size-3"} />
-            </Button>
           </div>
         }
         title="招聘台"
@@ -85,8 +72,10 @@ export function ResumeLibraryPageShell({
       <ResumeLibraryMetricsSection
         chartKey={metricsChartKey}
         error={metricsError}
+        isRefreshing={metricsFetching}
         isSwitching={metricsSwitching}
         metrics={metrics}
+        onRefresh={handleMetricsRetry}
         onRetry={onMetricsRetry}
       />
       <Tabs

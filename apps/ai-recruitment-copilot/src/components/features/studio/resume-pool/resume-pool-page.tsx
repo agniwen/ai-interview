@@ -73,8 +73,8 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
   return { default: mod.ResumeDocumentPreviewDialog };
 });
 
-const RESUME_POOL_INITIAL_PAGE_SIZE = 20;
-const RESUME_POOL_LOAD_STEP = 20;
+const RESUME_POOL_INITIAL_PAGE_SIZE = 60;
+const RESUME_POOL_LOAD_STEP = 60;
 
 export function ResumePoolPage() {
   const slug = useWorkspaceSlug();
