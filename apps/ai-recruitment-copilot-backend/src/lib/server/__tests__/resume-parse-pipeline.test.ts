@@ -858,16 +858,18 @@ describe("parseResumeFast provider selection", () => {
       mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
+    const structuredWithSource = { ...STRUCTURED_RESUME, sourceFileName: "resume.docx" };
     expect(result).toEqual({
       pageCount: 2,
-      structured: STRUCTURED_RESUME,
-      text: JSON.stringify(STRUCTURED_RESUME),
+      structured: structuredWithSource,
+      text: JSON.stringify(structuredWithSource),
       textSource: "aliyun-docmining",
     });
     expect(runAliyunResumeExtraction).toHaveBeenCalledWith(
       expect.objectContaining({
         apiKey: "test-key",
         fileName: "resume.docx",
+        prompt: expect.stringContaining("文件名可能包含候选人姓名（用户名）"),
       }),
     );
     expect(mocks.qwenVlOcr).not.toHaveBeenCalled();
@@ -888,7 +890,7 @@ describe("parseResumeFast provider selection", () => {
       mediaType: "application/pdf",
     });
 
-    expect(result.structured).toEqual(STRUCTURED_RESUME);
+    expect(result.structured).toEqual({ ...STRUCTURED_RESUME, sourceFileName: "resume.pdf" });
     expect(runAliyunResumeExtraction).toHaveBeenCalledTimes(2);
   });
 

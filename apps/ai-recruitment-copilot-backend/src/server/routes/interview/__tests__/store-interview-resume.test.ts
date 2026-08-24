@@ -101,7 +101,7 @@ describe("storeInterviewResume", () => {
     // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
       // SAFETY: This test supplies only the fields read by the storage boundary.
-      parsedStructured: { name: "郭靖" } as never,
+      parsedStructured: { name: "郭靖", sourceFileName: "resume.pdf" } as never,
       storageKey: STORAGE_KEY,
       // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     } as never);
@@ -121,7 +121,7 @@ describe("storeInterviewResume", () => {
     expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
     expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
       contentHash: HASH,
-      parsedStructured: { name: "郭靖" },
+      parsedStructured: { name: "郭靖", sourceFileName: "resume.pdf" },
       storageKey: STORAGE_KEY,
       userId: "user-1",
     });
@@ -409,7 +409,7 @@ describe("storeResumeObjectOnly", () => {
     });
   });
 
-  it("registry hit: uses a freshly written current-file key instead of a stale cached key", async () => {
+  it("registry hit: does not copy filename-derived structure to a renamed file", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "false";
     // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     mocks.findAttachmentByContentHash.mockResolvedValue({
@@ -417,7 +417,7 @@ describe("storeResumeObjectOnly", () => {
       mediaType: "application/pdf",
       parsedStatus: "ready",
       // SAFETY: This test supplies only the fields read by the storage boundary.
-      parsedStructured: { name: "缓存候选人" } as never,
+      parsedStructured: { name: "缓存候选人", sourceFileName: "old-resume.pdf" } as never,
       storageKey: "chat-attachments/stale.pdf",
       // SAFETY: This fake row intentionally contains only fields read by the storage boundary.
     } as never);
@@ -446,7 +446,7 @@ describe("storeResumeObjectOnly", () => {
     expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
       contentHash: HASH,
       parsedStatus: "ready",
-      parsedStructured: { name: "缓存候选人" },
+      parsedStructured: null,
       storageKey: "chat-attachments/fresh.jpeg",
       userId: "user-7",
     });

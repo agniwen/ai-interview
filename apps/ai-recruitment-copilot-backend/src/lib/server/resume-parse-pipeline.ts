@@ -8,7 +8,10 @@ import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
 import pRetry from "p-retry";
 import { z } from "zod";
-import { resumeParserGenerationSchema } from "@arc/db-schema/resume-parser-schema";
+import {
+  normalizeResumeStructuredSourceFileName,
+  resumeParserGenerationSchema,
+} from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
@@ -647,7 +650,9 @@ export async function generateResumeStructured(
   dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,
 ): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
-  const fileName = options.fileName?.trim().slice(0, 255);
+  const fileName = options.fileName
+    ? normalizeResumeStructuredSourceFileName(options.fileName)
+    : undefined;
   const fileContext = fileName
     ? `\n\n简历文件信息：\n- 简历文件名：${JSON.stringify(fileName)}\n- 文件名可能包含候选人姓名（用户名），可作为 name 字段的辅助线索；若与简历正文冲突，以简历正文中的明确事实为准。文件名中的岗位、薪资、平台标签等不得直接当作候选人事实。`
     : "";
@@ -674,7 +679,7 @@ export async function generateResumeStructured(
     inputChars: text.length,
     outputChars: JSON.stringify(output).length,
   });
-  return output;
+  return fileName ? { ...output, sourceFileName: fileName } : output;
 }
 
 /**

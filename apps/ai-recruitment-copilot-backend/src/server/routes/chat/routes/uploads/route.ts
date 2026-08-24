@@ -12,6 +12,8 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@arc/db-schema/db-enums";
+import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   createAttachment,
@@ -43,6 +45,15 @@ const defaultDependencies: UploadsRouterDependencies = {
 
 function getParsedStructured(parsed: ParsedResumeDocument) {
   return "structured" in parsed ? parsed.structured : null;
+}
+
+function getFilenameCompatibleStructured(
+  structured: ResumeParserStructured | null,
+  fileName: string,
+): ResumeParserStructured | null {
+  return structured && isResumeStructuredSourceFileNameCompatible(structured, fileName)
+    ? structured
+    : null;
 }
 
 // 构造上传/preflight 共用的响应结构。
@@ -106,6 +117,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
       if (!existing) {
         return c.json({ hit: false } as const);
       }
+      const parsedStructured = getFilenameCompatibleStructured(existing.parsedStructured, filename);
 
       const attachmentId = crypto.randomUUID();
       await dependencies.createAttachment({
@@ -118,7 +130,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
         parsedError: existing.parsedError,
         parsedPageCount: existing.parsedPageCount,
         parsedStatus: existing.parsedStatus,
-        parsedStructured: existing.parsedStructured,
+        parsedStructured,
         parsedText: existing.parsedText,
         parsedTextSource: existing.parsedTextSource,
         size,
@@ -132,7 +144,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
           attachmentId,
           parsedPageCount: existing.parsedPageCount,
           parsedStatus: existing.parsedStatus,
-          parsedStructured: existing.parsedStructured,
+          parsedStructured,
           parsedText: existing.parsedText,
           parsedTextSource: existing.parsedTextSource,
           slug: activeOrg.slug,
@@ -181,6 +193,10 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
       const existing =
         cached && isResumeParseCacheSourceCompatible(cached.parsedTextSource) ? cached : null;
       if (existing) {
+        const parsedStructured = getFilenameCompatibleStructured(
+          existing.parsedStructured,
+          filename,
+        );
         const attachmentId = crypto.randomUUID();
         await dependencies.createAttachment({
           contentHash,
@@ -192,7 +208,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
           parsedError: existing.parsedError,
           parsedPageCount: existing.parsedPageCount,
           parsedStatus: existing.parsedStatus,
-          parsedStructured: existing.parsedStructured,
+          parsedStructured,
           parsedText: existing.parsedText,
           parsedTextSource: existing.parsedTextSource,
           size: file.size,
@@ -205,7 +221,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
             attachmentId,
             parsedPageCount: existing.parsedPageCount,
             parsedStatus: existing.parsedStatus,
-            parsedStructured: existing.parsedStructured,
+            parsedStructured,
             parsedText: existing.parsedText,
             parsedTextSource: existing.parsedTextSource,
             slug: activeOrg.slug,

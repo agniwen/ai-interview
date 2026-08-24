@@ -62,6 +62,7 @@ const VALID_STRUCTURED: ResumeParserStructured = {
   projectExperiences: [],
   schools: [],
   skills: [],
+  sourceFileName: "resume.pdf",
   targetRoles: [],
   timelineSummary: {
     currentStatus: null,
@@ -77,11 +78,12 @@ async function insertFakeRow(
   hash: string,
   storageKey: string,
   parsedStructured: ResumeParserStructured | null,
+  filename = "resume.pdf",
 ) {
   rowSequence += 1;
   await db.insert(chatAttachment).values({
     contentHash: hash,
-    filename: `resume-${rowSequence}.pdf`,
+    filename,
     id: `structured-hash-att-${rowSequence}`,
     mediaType: "application/pdf",
     organizationId: ORG_ID,
@@ -122,6 +124,18 @@ describe("updateStructuredByHash", () => {
     for (const row of rows) {
       expect(row.parsedStructured?.name).toBe("郭靖");
     }
+  });
+
+  it("does not spread filename-derived structure to a differently named copy", async () => {
+    const hash = "9".repeat(64);
+    await insertFakeRow(hash, "chat-attachments/shared.pdf", null, "resume.pdf");
+    await insertFakeRow(hash, "chat-attachments/shared.pdf", null, "另一位候选人.pdf");
+
+    await updateStructuredByHash(hash, VALID_STRUCTURED);
+
+    const rows = await loadRows();
+    expect(rows[0]?.parsedStructured?.name).toBe("郭靖");
+    expect(rows[1]?.parsedStructured).toBeNull();
   });
 
   it("is idempotent: rows that already have parsedStructured are left untouched", async () => {

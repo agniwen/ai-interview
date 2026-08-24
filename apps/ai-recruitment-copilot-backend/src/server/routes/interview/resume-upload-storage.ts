@@ -1,6 +1,7 @@
 import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
 import type {
   ChatAttachmentRow,
   CreateAttachmentInput,
@@ -41,6 +42,22 @@ export interface ResumeUploadStorageResult {
 
 type ExistingAttachment = NonNullable<ChatAttachmentRow>;
 
+function getFilenameCompatibleStructured(
+  structured: ResumeParserStructured | null | undefined,
+  fileName: string,
+): ResumeParserStructured | null {
+  return structured && isResumeStructuredSourceFileNameCompatible(structured, fileName)
+    ? structured
+    : null;
+}
+
+function getStructuredCacheForFile(
+  existing: ExistingAttachment | null,
+  fileName: string,
+): ExistingAttachment | null {
+  return getFilenameCompatibleStructured(existing?.parsedStructured, fileName) ? existing : null;
+}
+
 async function copyCachedAttachmentForRequester(
   dependencies: ResumeUploadStorageDependencies,
   {
@@ -67,7 +84,7 @@ async function copyCachedAttachmentForRequester(
     parsedError: existing.parsedError,
     parsedPageCount: existing.parsedPageCount,
     parsedStatus: existing.parsedStatus,
-    parsedStructured: existing.parsedStructured,
+    parsedStructured: getFilenameCompatibleStructured(existing.parsedStructured, file.name),
     parsedText: existing.parsedText,
     parsedTextSource: existing.parsedTextSource,
     size: file.size,
@@ -100,7 +117,7 @@ async function createObjectAttachment(
     input.parsedError = existing.parsedError;
     input.parsedPageCount = existing.parsedPageCount;
     input.parsedStatus = existing.parsedStatus;
-    input.parsedStructured = existing.parsedStructured;
+    input.parsedStructured = getFilenameCompatibleStructured(existing.parsedStructured, file.name);
     input.parsedText = existing.parsedText;
     input.parsedTextSource = existing.parsedTextSource;
   } else {
@@ -128,12 +145,15 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
           ? cachedAttachment
           : null;
 
-      if (existing?.parsedStructured) {
-        const cached = dependencies.projectAttachmentToResumeProfile(existing.parsedStructured);
+      const structuredCache = getStructuredCacheForFile(existing, file.name);
+      if (structuredCache) {
+        const cached = dependencies.projectAttachmentToResumeProfile(
+          structuredCache.parsedStructured,
+        );
         if (cached) {
           await copyCachedAttachmentForRequester(dependencies, {
             contentHash,
-            existing,
+            existing: structuredCache,
             file,
             organizationId,
             userId,
@@ -141,8 +161,8 @@ export function createResumeUploadStorage(dependencies: ResumeUploadStorageDepen
           return {
             cachedResumeProfile: cached,
             contentHash,
-            resumeText: existing.parsedText ?? null,
-            storageKey: existing.storageKey,
+            resumeText: structuredCache.parsedText ?? null,
+            storageKey: structuredCache.storageKey,
           };
         }
       }

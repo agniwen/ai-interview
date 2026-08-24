@@ -4,6 +4,7 @@ import {
   parseResumeFast,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
 import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
 import {
   getUserAttachment,
@@ -66,7 +67,9 @@ export function createAttachmentsRouter(
 
       const cacheCompatible = isResumeParseCacheSourceCompatible(attachment.parsedTextSource);
       let resumeProfile =
-        cacheCompatible && attachment.parsedStructured
+        cacheCompatible &&
+        attachment.parsedStructured &&
+        isResumeStructuredSourceFileNameCompatible(attachment.parsedStructured, attachment.filename)
           ? dependencies.projectAttachmentToResumeProfile(attachment.parsedStructured)
           : null;
       if (

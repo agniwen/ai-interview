@@ -6,6 +6,7 @@ import type {
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
+import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
 import {
   generatedInterviewQuestionSchema,
   generatedInterviewQuestionsSchema,
@@ -532,7 +533,10 @@ export function streamParseResumeProfile(
         cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
           ? cachedAttachment
           : null;
-      if (existing?.parsedStructured) {
+      if (
+        existing?.parsedStructured &&
+        isResumeStructuredSourceFileNameCompatible(existing.parsedStructured, file.name)
+      ) {
         const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
         if (cached) {
           emitAiRun({

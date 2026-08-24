@@ -172,4 +172,47 @@ describe("streamParseResumeProfile cache policy", () => {
     expect(mocks.updateCachedStructured).toHaveBeenCalledWith(HASH, STRUCTURED);
     expect(mocks.streamWorkflow).not.toHaveBeenCalled();
   });
+
+  it("regenerates structure when the same bytes are uploaded under a different filename", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "false";
+    mocks.findCachedAttachment.mockResolvedValue({
+      contentHash: HASH,
+      createdAt: new Date(0),
+      filename: "张三.pdf",
+      id: "cached-attachment",
+      mediaType: "application/pdf",
+      organizationId: "organization-1",
+      parsedAt: new Date(0),
+      parsedError: null,
+      parsedPageCount: 1,
+      parsedStatus: "ready",
+      parsedStructured: { ...STRUCTURED, name: "张三", sourceFileName: "张三.pdf" },
+      parsedText: "正文未明确姓名",
+      parsedTextSource: "qwen-ocr",
+      size: 10,
+      storageKey: "chat-attachments/cached.pdf",
+      userId: "user-1",
+    });
+    const currentStructured = {
+      ...STRUCTURED,
+      name: "李四",
+      sourceFileName: "resume.pdf",
+    };
+    mocks.generateStructured.mockResolvedValue(currentStructured);
+
+    const events = await readStreamEvents(
+      streamParseResumeProfile(
+        makeFile(),
+        { organizationId: null, userId: "user-1" },
+        dependencies,
+      ),
+    );
+    const result = events.find((event) => event.type === "run.completed")?.output;
+
+    expect(mocks.generateStructured).toHaveBeenCalledWith("正文未明确姓名", {
+      fileName: "resume.pdf",
+    });
+    expect(result).toMatchObject({ resumeProfile: { name: "李四" } });
+    expect(mocks.streamWorkflow).not.toHaveBeenCalled();
+  });
 });

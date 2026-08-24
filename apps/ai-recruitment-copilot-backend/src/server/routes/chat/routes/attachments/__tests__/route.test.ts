@@ -62,6 +62,7 @@ const structured: ResumeParserStructured = {
   projectExperiences: [],
   schools: [],
   skills: ["React"],
+  sourceFileName: "resume.pdf",
   targetRoles: ["前端工程师"],
   timelineSummary: {
     currentStatus: null,
