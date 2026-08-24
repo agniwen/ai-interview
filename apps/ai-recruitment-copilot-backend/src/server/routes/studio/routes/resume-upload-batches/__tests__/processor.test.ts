@@ -279,11 +279,20 @@ describe("getClaimMissRetryError", () => {
 // ─── Test 1: happy path ───────────────────────────────────────────────────────
 
 describe("processNextItem — happy path", () => {
-  it("reparses a storage-key cache entry created for a different filename", async () => {
+  it.each([
+    {
+      cacheCase: "a different filename",
+      parsedStructured: { name: "错误姓名", sourceFileName: "另一个文件名.pdf" },
+    },
+    {
+      cacheCase: "a legacy structure without filename provenance",
+      parsedStructured: { name: "旧缓存姓名" },
+    },
+  ])("reparses a storage-key cache entry with $cacheCase", async ({ parsedStructured }) => {
     const { item } = await createQueuedSingleItemBatch();
     // SAFETY: This fixture supplies only the attachment fields read by the cache lookup path.
     dependencies.findAttachmentByStorageKey.mockResolvedValue({
-      parsedStructured: { name: "错误姓名", sourceFileName: "另一个文件名.pdf" },
+      parsedStructured,
       parsedTextSource: "qwen-ocr",
     } as never);
     // SAFETY: The mismatch guard must prevent this deliberately partial profile from being read.
