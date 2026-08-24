@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { PersistedSidebarProvider } from "@/components/layout/persisted-sidebar-provider";
 import { AppSidebar } from "./app-sidebar";
 import {
   SidebarBodyPortalProvider,
@@ -25,11 +25,11 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
     <SidebarHeaderPortalProvider>
       <SidebarBodyPortalProvider>
         <SidebarFooterPortalProvider>
-          <SidebarProvider style={sidebarStyle}>
+          <PersistedSidebarProvider style={sidebarStyle}>
             <AppSidebar />
             <WorkspaceSidebarSlots />
             {children}
-          </SidebarProvider>
+          </PersistedSidebarProvider>
         </SidebarFooterPortalProvider>
       </SidebarBodyPortalProvider>
     </SidebarHeaderPortalProvider>
