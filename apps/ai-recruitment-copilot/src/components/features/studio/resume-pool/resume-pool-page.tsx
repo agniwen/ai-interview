@@ -120,7 +120,6 @@ export function ResumePoolPage() {
     signature: "",
   });
   const shouldResetInitialPageRef = useRef(true);
-
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
   const fetcher = useMemo(
     () =>
@@ -191,6 +190,7 @@ export function ResumePoolPage() {
     if (grid.bind.loading || grid.bind.refetching) {
       return;
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- accumulate externally fetched page snapshots for load-more rendering
     setLoadedPoolResult((current) => {
       if (grid.bind.pagination.page === 1 || current.signature !== poolQuerySignature) {
         return { records: grid.bind.data, signature: poolQuerySignature };

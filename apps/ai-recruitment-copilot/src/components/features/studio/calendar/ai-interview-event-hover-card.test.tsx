@@ -7,13 +7,14 @@ import type {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiInterviewEventHoverCard } from "./ai-interview-event-hover-card";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fetchPreviewMock = vi.hoisted(() => vi.fn());
+const originalTimeZone = process.env.TZ;
 
 const event: StudioAiCalendarEvent = {
   candidates: [
@@ -62,9 +63,18 @@ const preview: StudioAiCalendarEventPreview = {
   },
 };
 
+beforeEach(() => {
+  process.env.TZ = "Asia/Shanghai";
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  if (originalTimeZone === undefined) {
+    delete process.env.TZ;
+  } else {
+    process.env.TZ = originalTimeZone;
+  }
 });
 
 describe("AiInterviewEventHoverCard", () => {

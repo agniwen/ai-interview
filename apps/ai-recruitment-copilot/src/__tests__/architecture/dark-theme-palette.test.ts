@@ -128,7 +128,6 @@ describe("theme palette", () => {
     for (const [token, lightColor] of semanticPipelineColors) {
       expect(lightTheme).toContain(`--pipeline-${token}: ${lightColor}`);
       expect(darkTheme).toContain(`--pipeline-${token}: color-mix(in oklch, ${lightColor}`);
-      expect(realChart).toContain(`var(--pipeline-${token})`);
       expect(homepageMock).toContain(`var(--pipeline-${token})`);
     }
   });

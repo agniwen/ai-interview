@@ -1,7 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { dateTimeLocalInputToISOString, isoStringToDateTimeLocalInput } from "../datetime-local";
 
 const originalTimeZone = process.env.TZ;
+
+beforeEach(() => {
+  process.env.TZ = "Asia/Shanghai";
+});
 
 afterEach(() => {
   if (originalTimeZone === undefined) {
@@ -13,8 +17,6 @@ afterEach(() => {
 
 describe("dateTimeLocalInputToISOString", () => {
   it("serializes a datetime-local value as the user's local instant", () => {
-    process.env.TZ = "Asia/Shanghai";
-
     expect(dateTimeLocalInputToISOString("2026-06-02T17:30")).toBe("2026-06-02T09:30:00.000Z");
   });
 

@@ -478,13 +478,13 @@ const skillFactSchema = z.preprocess(
       return value;
     }
     const skill = parsedSkill.data;
-    const parsedReason = nonEmptyGeneratedStringSchema.safeParse(skill.reason);
+    const parsedReason = generatedReasonSchema.safeParse(skill.reason);
     let reason = "模型返回了该技能判断，但未提供详细原因。";
     if (skill.status === "missing") {
       reason = "模型判断简历未体现该技能，但未提供详细原因。";
     }
     if (parsedReason.success) {
-      reason = parsedReason.data;
+      reason = normalizeGeneratedReason(parsedReason.data);
     }
     return {
       ...skill,
@@ -1017,6 +1017,15 @@ function validateAdjustmentClauseCoverage(
         `STRUCTURED_RESUME_ADJUSTMENT_CLAUSE_COVERAGE_MISMATCH：${condition.id} 预期 ${clauses.length} 项，实际 ${clauseIndexes.size} 项`,
       );
     }
+  }
+}
+
+function validateEducationTierUnits(output: DimensionAgentOutput): void {
+  const educationTierJudgment = output.ruleJudgments.find(
+    (ruleJudgment) => ruleJudgment.ruleId === "education.below_tier",
+  );
+  if (educationTierJudgment?.status === "matched" && educationTierJudgment.units === undefined) {
+    throw new Error("STRUCTURED_RESUME_EDUCATION_TIER_UNITS_MISSING：学历层级扣分必须返回层级差");
   }
 }
 
@@ -1783,13 +1792,13 @@ export async function judgeStructuredDimensionEvidence(
             : [],
         ),
       ]);
+      validateEducationTierUnits(sanitized);
       validateSemanticRuleCoverage(sanitized);
     },
   });
-  return normalizeDimensionOutputWithReusableFacts(
-    input,
-    sanitizeDimensionProfileEvidence(input, output),
-  );
+  const sanitizedOutput = sanitizeDimensionProfileEvidence(input, output);
+  validateEducationTierUnits(sanitizedOutput);
+  return normalizeDimensionOutputWithReusableFacts(input, sanitizedOutput);
 }
 
 type AdjustmentCondition =

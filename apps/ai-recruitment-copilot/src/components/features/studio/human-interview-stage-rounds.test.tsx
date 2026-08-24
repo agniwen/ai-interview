@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
@@ -22,6 +22,7 @@ const toastMocks = {
   success: vi.fn(),
   warning: vi.fn(),
 };
+const originalTimeZone = process.env.TZ;
 
 const dependencies: RoundCardDependencies = {
   isApiError: (error): error is ApiError => error instanceof ApiError,
@@ -96,9 +97,18 @@ const meeting: HumanInterviewMeetingRecord = {
   validUntil: "2026-08-05T10:30:00.000Z",
 };
 
+beforeEach(() => {
+  process.env.TZ = "Asia/Shanghai";
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  if (originalTimeZone === undefined) {
+    delete process.env.TZ;
+  } else {
+    process.env.TZ = originalTimeZone;
+  }
 });
 
 describe("RoundCard rescheduling", () => {
