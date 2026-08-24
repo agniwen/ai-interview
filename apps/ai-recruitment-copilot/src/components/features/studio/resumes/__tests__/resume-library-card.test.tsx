@@ -238,7 +238,7 @@ describe("ResumeLibraryCard", () => {
     expect(content).not.toContain("2xl:hidden");
     expect(content).toContain("line-clamp-3");
     expect(content).toContain("text-[13px]");
-    expect(content).toContain("leading-[18px]");
+    expect(content).toContain("leading-[19px]");
     expect(content).toContain("字节跳动");
     expect(content).toContain("浙江大学");
   });

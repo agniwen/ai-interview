@@ -664,7 +664,7 @@ function ResumeLibraryCardComponent({
                   <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
                 </div>
 
-                <p className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[18px]">
+                <p className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]">
                   <IconSparkles
                     aria-hidden
                     className={cn(
