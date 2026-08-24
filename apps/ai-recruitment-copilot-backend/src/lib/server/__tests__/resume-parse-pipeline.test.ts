@@ -32,6 +32,7 @@ const processPdfPagesWithMeta = vi.fn<ProcessPdfPagesWithMeta>() as ReturnType<
 const mocks = {
   convertLegacyOfficeToOoxml:
     vi.fn<ResumeParsePipelineDependencies["convertLegacyOfficeToOoxml"]>(),
+  extractPdfTextPages: vi.fn(),
   generateStructuredWithMastraAgent,
   getResumeParseProvider: vi.fn<ResumeParsePipelineDependencies["getResumeParseProvider"]>(),
   isQwenOcrConfigured: vi.fn<ResumeParsePipelineDependencies["isQwenOcrConfigured"]>(),
@@ -61,6 +62,9 @@ let pdfPages = [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-
 
 function resetPipelineMocks() {
   vi.resetAllMocks();
+  mocks.extractPdfTextPages.mockImplementation(() =>
+    Promise.resolve({ pageCount: pdfPageCount, pages: pdfPages.map(() => "") }),
+  );
   mocks.isQwenOcrConfigured.mockReturnValue(true);
   mocks.getResumeParseProvider.mockImplementation(() =>
     process.env.RESUME_PARSE_PROVIDER === "aliyun-docmining" ? "aliyun-docmining" : "ocr-llm",
@@ -341,6 +345,37 @@ describe("parseResumeOcrOnly", () => {
         type: "ocr.completed",
       },
     ]);
+  });
+
+  it("keeps OCR primary and appends only missing PDF text-layer context", async () => {
+    pdfPageCount = 1;
+    pdfPages = [Buffer.from("pdf-page")];
+    mocks.qwenVlOcr.mockResolvedValue(
+      "亿达信息技术有限公司（驻场腾讯新闻）\n产品经理\n蓝贝科技有限公司\n产品经理",
+    );
+    mocks.extractPdfTextPages.mockResolvedValue({
+      pageCount: 1,
+      pages: [
+        [
+          "亿达信息技术有限公司（驻场腾讯新闻）",
+          "产品经理",
+          "2020.7-2022.4",
+          "蓝贝科技有限公司",
+          "产品经理",
+          "2017.9-2020.5",
+          "bc9233faf24663511HNy3t60EVFTwIq9UfKeWOOjnv7VPxZl2w~~",
+        ].join("\n"),
+      ],
+    });
+
+    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+
+    expect(result.text).toMatch(/^亿达信息技术有限公司/);
+    expect(result.text).toContain("PDF 文本层补充信息");
+    expect(result.text).toContain("亿达信息技术有限公司（驻场腾讯新闻）\n产品经理\n2020.7-2022.4");
+    expect(result.text).toContain("蓝贝科技有限公司\n产品经理\n2017.9-2020.5");
+    expect(result.text).not.toContain("bc9233faf24663511HNy3t60EVFTwIq9UfKeWOOjnv7VPxZl2w");
+    expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(1);
   });
 
   it("retries transient OCR connection errors", async () => {

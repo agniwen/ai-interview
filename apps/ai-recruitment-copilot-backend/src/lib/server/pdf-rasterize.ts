@@ -39,6 +39,11 @@ export interface ProcessPdfPagesResult<T> {
   results: T[];
 }
 
+export interface PdfTextPagesResult {
+  pageCount: number;
+  pages: string[];
+}
+
 export interface PdfPageDocument {
   destroy: () => void;
   pageCount: number;
@@ -81,6 +86,34 @@ const defaultPdfPageRenderer: PdfPageRenderer = {
     };
   },
 };
+
+export async function extractPdfTextPages(
+  bytes: Uint8Array,
+  maxPages = 6,
+): Promise<PdfTextPagesResult> {
+  const mupdf = await loadMupdf();
+  const doc = mupdf.Document.openDocument(bytes, "application/pdf");
+  try {
+    const pageCount = doc.countPages();
+    const pages: string[] = [];
+    for (let index = 0; index < Math.min(pageCount, maxPages); index += 1) {
+      const page = doc.loadPage(index);
+      try {
+        const structuredText = page.toStructuredText();
+        try {
+          pages.push(structuredText.asText());
+        } finally {
+          structuredText.destroy();
+        }
+      } finally {
+        page.destroy();
+      }
+    }
+    return { pageCount, pages };
+  } finally {
+    doc.destroy();
+  }
+}
 
 export async function processPdfPagesWithMeta<T>(
   bytes: Uint8Array,

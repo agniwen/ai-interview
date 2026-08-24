@@ -3,13 +3,14 @@ import {
   resumeStructuredAgent,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
-import { processPdfPagesWithMeta } from "./pdf-rasterize";
+import { extractPdfTextPages, processPdfPagesWithMeta } from "./pdf-rasterize";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";
 import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 export interface ResumeParsePipelineDependencies {
   convertLegacyOfficeToOoxml: typeof convertLegacyOfficeToOoxml;
+  extractPdfTextPages: typeof extractPdfTextPages;
   generateStructuredWithMastraAgent: typeof generateStructuredWithMastraAgent;
   getResumeParseProvider: typeof getResumeParseProvider;
   isQwenOcrConfigured: typeof isQwenOcrConfigured;
@@ -21,6 +22,7 @@ export interface ResumeParsePipelineDependencies {
 
 export const defaultResumeParsePipelineDependencies: ResumeParsePipelineDependencies = {
   convertLegacyOfficeToOoxml,
+  extractPdfTextPages,
   generateStructuredWithMastraAgent,
   getResumeParseProvider,
   isQwenOcrConfigured,

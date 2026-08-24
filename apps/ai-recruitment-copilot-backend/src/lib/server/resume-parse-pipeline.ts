@@ -40,6 +40,8 @@ const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
 const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
+const PDF_TEXT_SUPPLEMENT_HEADING =
+  "[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]";
 
 export { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 
@@ -119,6 +121,58 @@ function normalizeExtractedText(text: string): string {
   );
 }
 
+function compactTextForCoverage(text: string): string {
+  return text
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .replaceAll(/[\s\p{P}\p{S}]+/gu, "");
+}
+
+function isLikelyDecorativePdfText(line: string): boolean {
+  const compact = line.replaceAll(/\s+/g, "");
+  return (
+    compact.length >= 32 &&
+    /^[A-Za-z0-9_~-]+$/.test(compact) &&
+    /[a-z]/.test(compact) &&
+    /[A-Z]/.test(compact) &&
+    /\d/.test(compact)
+  );
+}
+
+function buildPdfTextSupplement(ocrText: string, textPages: string[]): string | null {
+  const compactOcr = compactTextForCoverage(ocrText);
+  const pageBlocks: string[] = [];
+  for (const [pageIndex, pageText] of textPages.entries()) {
+    const lines = pageText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => compactTextForCoverage(line).length >= 4)
+      .filter((line) => !isLikelyDecorativePdfText(line));
+    const missingIndexes = lines.flatMap((line, index) =>
+      compactOcr.includes(compactTextForCoverage(line)) ? [] : [index],
+    );
+    if (missingIndexes.length === 0) {
+      continue;
+    }
+    const selectedIndexes = new Set(missingIndexes);
+    for (const index of missingIndexes) {
+      if (!/(?:19|20)\d{2}[./年-]\d{1,2}/.test(lines[index] ?? "")) {
+        continue;
+      }
+      selectedIndexes.add(Math.max(0, index - 1));
+      selectedIndexes.add(Math.max(0, index - 2));
+    }
+    const supplementalLines = [...selectedIndexes]
+      .toSorted((left, right) => left - right)
+      .map((index) => lines[index])
+      .filter((line): line is string => Boolean(line));
+    pageBlocks.push(`[第 ${pageIndex + 1} 页]\n${supplementalLines.join("\n")}`);
+  }
+  return pageBlocks.length > 0
+    ? `${PDF_TEXT_SUPPLEMENT_HEADING}\n${pageBlocks.join("\n\n")}`
+    : null;
+}
+
 function validateOcrTextQuality(text: string): void {
   const lines = text
     .split("\n")
@@ -181,6 +235,20 @@ function devOcrLog(message: string, data?: OcrLogData): void {
   }
   // eslint-disable-next-line no-console
   console.info(DEV_OCR_LOG_PREFIX, message, data ?? "");
+}
+
+async function extractPdfTextPagesBestEffort(
+  bytes: Uint8Array,
+  dependencies: ResumeParsePipelineDependencies,
+) {
+  try {
+    return await dependencies.extractPdfTextPages(bytes, 6);
+  } catch (error) {
+    devOcrLog("PDF text layer unavailable", {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
@@ -590,6 +658,7 @@ export async function parseResumeOcrOnly(
     scale: DEFAULT_OCR_RENDER_SCALE,
   });
   const ocrStartedAt = nowMs();
+  const textLayerPromise = extractPdfTextPagesBestEffort(bytes, dependencies);
   const pageConcurrency = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
     DEFAULT_OCR_PAGE_CONCURRENCY,
@@ -645,13 +714,17 @@ export async function parseResumeOcrOnly(
     throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
   }
 
-  const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
+  const ocrText = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
+  const textLayer = await textLayerPromise;
+  const supplement = textLayer ? buildPdfTextSupplement(ocrText, textLayer.pages) : null;
+  const text = supplement ? `${ocrText}\n\n${supplement}` : ocrText;
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),
     outputChars: text.length,
     pageCount,
     renderedPages,
     renderedSizes,
+    supplementalChars: supplement?.length ?? 0,
   });
   emitResumeParseProgress(options.onProgress, {
     outputChars: text.length,
