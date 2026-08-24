@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { defineDonutChart } from "@/lib/client/charts/donut";
 import { toBeijingDayKey } from "@arc/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
+import { cn } from "@arc/shared/utils";
 
 type PipelineBucket =
   | "screening"
@@ -102,20 +103,29 @@ function ChartCardShell({
 }) {
   return (
     <Card className="h-full gap-0 overflow-hidden rounded-xl py-0">
-      <div className="grid grid-cols-2 border-b 2xl:h-22 2xl:grid-cols-[minmax(0,1fr)_repeat(2,6rem)]">
-        <CardHeader className="col-span-2 min-w-0 gap-1 border-b p-4 2xl:col-span-1 2xl:border-b-0 2xl:p-5">
-          <CardTitle className="truncate text-base">{title}</CardTitle>
+      <div className="grid grid-cols-[minmax(0,1fr)_repeat(2,5rem)] border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,6rem)] 2xl:h-22">
+        <CardHeader className="min-w-0 gap-1 p-3 sm:p-4 2xl:p-5">
+          <CardTitle className="truncate text-sm sm:text-base">{title}</CardTitle>
           {description ? (
-            <CardDescription className="truncate">{description}</CardDescription>
+            <CardDescription className="truncate text-xs sm:text-sm">{description}</CardDescription>
           ) : null}
         </CardHeader>
         {metrics.map((metric) => (
           <div
-            className="flex min-w-0 flex-col justify-center px-4 py-3 last:border-l 2xl:border-l 2xl:px-3"
+            className="flex min-w-0 flex-col justify-center border-l px-2 py-3 sm:px-3"
             key={metric.label}
           >
-            <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
-            <div className="mt-1 font-mono font-semibold text-2xl leading-none tabular-nums">
+            <div className="truncate text-[10px] text-muted-foreground sm:text-xs">
+              {metric.label}
+            </div>
+            <div
+              className={cn(
+                "mt-1 truncate font-mono font-semibold leading-none tabular-nums",
+                metric.value.length >= 5
+                  ? "text-base tracking-tight sm:text-xl"
+                  : "text-lg sm:text-2xl",
+              )}
+            >
               {metric.value}
             </div>
             {metric.description ? (
