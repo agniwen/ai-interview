@@ -189,8 +189,9 @@ describe("ResumeLibraryCard", () => {
     );
 
     expect(content).toMatch(
-      /<p class="[^"]*text-\[13px\][^"]*">.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
+      /<p class="[^"]*text-\[13px\][^"]*"[^>]*>.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
     );
+    expect(content).toContain('title="未通过门槛 · 68 分 AI 生成的候选人评价"');
     expect(content).not.toContain("</button> · AI 生成的候选人评价");
     expect(content).not.toContain('<span class="sr-only">AI评分</span>');
   });

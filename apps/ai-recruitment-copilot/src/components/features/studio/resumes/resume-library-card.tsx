@@ -327,6 +327,16 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
   );
 }
 
+function buildResumeReviewSummaryTitle(
+  label: string,
+  replacementAttemptLabel: string | null,
+  summary: string | null,
+) {
+  const replacement = replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : "";
+  const description = summary ? ` ${summary}` : "";
+  return `${label}${replacement}${description}`;
+}
+
 function renderResumeCardProfileSnapshotLine(line: ResumeLibraryProfileSnapshotLine) {
   return (
     <p
@@ -522,6 +532,11 @@ function ResumeLibraryCardComponent({
       replacementAttemptLabel = "新版重评失败";
     }
   }
+  const reviewSummaryTitle = buildResumeReviewSummaryTitle(
+    reviewCard.label,
+    replacementAttemptLabel,
+    summary,
+  );
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
@@ -664,7 +679,10 @@ function ResumeLibraryCardComponent({
                   <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
                 </div>
 
-                <p className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]">
+                <p
+                  className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
+                  title={reviewSummaryTitle}
+                >
                   <IconSparkles
                     aria-hidden
                     className={cn(
