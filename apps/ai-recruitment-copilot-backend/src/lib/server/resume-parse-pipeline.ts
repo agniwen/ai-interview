@@ -43,6 +43,7 @@ const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 const PDF_TEXT_SUPPLEMENT_MAX_CHARS = 4000;
 const PDF_TEXT_SUPPLEMENT_HEADING =
   "[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]";
+const RESUME_DATE_LINE_PATTERN = /(?:19|20)\d{2}[./年-]\d{1,2}/;
 
 export { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 
@@ -96,6 +97,33 @@ export type ResumeParseProgressEvent =
       type: "ocr.completed";
     };
 
+function prioritizePdfTextSupplement(supplement: string): string {
+  const [heading = PDF_TEXT_SUPPLEMENT_HEADING, ...bodyLines] = supplement.split("\n");
+  const dateIndexes = bodyLines.flatMap((line, index) =>
+    RESUME_DATE_LINE_PATTERN.test(line) ? [index] : [],
+  );
+  if (dateIndexes.length === 0) {
+    return supplement.slice(0, PDF_TEXT_SUPPLEMENT_MAX_CHARS);
+  }
+
+  const contextIndexes = new Set<number>();
+  for (const index of dateIndexes) {
+    contextIndexes.add(Math.max(0, index - 2));
+    contextIndexes.add(Math.max(0, index - 1));
+    contextIndexes.add(index);
+  }
+  const criticalDates = dateIndexes.map((index) => bodyLines[index]?.slice(0, 240)).join("\n");
+  const dateContexts = [...contextIndexes]
+    .toSorted((left, right) => left - right)
+    .map((index) => bodyLines[index]?.slice(0, 320))
+    .join("\n");
+  const remaining = bodyLines.filter((_, index) => !contextIndexes.has(index)).join("\n");
+  return `${heading}\n[优先保留的日期字段]\n${criticalDates}\n[日期字段上下文]\n${dateContexts}\n[其他补充]\n${remaining}`.slice(
+    0,
+    PDF_TEXT_SUPPLEMENT_MAX_CHARS,
+  );
+}
+
 function clipForStructured(text: string): string {
   if (text.length <= STRUCTURED_TEXT_MAX_CHARS) {
     return text;
@@ -103,7 +131,7 @@ function clipForStructured(text: string): string {
   const supplementStart = text.indexOf(`\n\n${PDF_TEXT_SUPPLEMENT_HEADING}`);
   if (supplementStart !== -1) {
     const ocrText = text.slice(0, supplementStart);
-    const supplement = text.slice(supplementStart + 2).slice(0, PDF_TEXT_SUPPLEMENT_MAX_CHARS);
+    const supplement = prioritizePdfTextSupplement(text.slice(supplementStart + 2));
     const suffix = `\n\n[...OCR content truncated...]\n\n${supplement}`;
     return `${ocrText.slice(0, STRUCTURED_TEXT_MAX_CHARS - suffix.length)}${suffix}`;
   }
@@ -164,7 +192,7 @@ function buildPdfTextSupplement(ocrPages: string[], textPages: string[]): string
     }
     const selectedIndexes = new Set(missingIndexes);
     for (const index of missingIndexes) {
-      if (!/(?:19|20)\d{2}[./年-]\d{1,2}/.test(lines[index] ?? "")) {
+      if (!RESUME_DATE_LINE_PATTERN.test(lines[index] ?? "")) {
         continue;
       }
       selectedIndexes.add(Math.max(0, index - 1));
