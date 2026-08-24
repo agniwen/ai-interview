@@ -74,7 +74,7 @@ export const resumeParserGenerationSchema = structuredSchema.omit({ sourceFileNa
 export type ResumeParserStructured = z.infer<typeof structuredSchema>;
 
 export function normalizeResumeStructuredSourceFileName(fileName: string): string {
-  return fileName.trim().slice(0, 255);
+  return fileName.slice(0, 255);
 }
 
 export function isResumeStructuredSourceFileNameCompatible(

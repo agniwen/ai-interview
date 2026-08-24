@@ -766,15 +766,16 @@ describe("generateResumeStructured", () => {
   });
 
   it("adds the resume filename as a candidate-name clue for structured extraction", async () => {
-    await generateResumeStructured("正文未明确展示姓名", {
-      fileName: "【产品经理】张三 10年经验.pdf",
+    const result = await generateResumeStructured("正文未明确展示姓名", {
+      fileName: " 【产品经理】张三 10年经验.pdf ",
     });
 
     const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
     expect(prompt).toContain("简历文件名");
-    expect(prompt).toContain("【产品经理】张三 10年经验.pdf");
+    expect(prompt).toContain(" 【产品经理】张三 10年经验.pdf ");
     expect(prompt).toContain("可能包含候选人姓名（用户名）");
     expect(prompt).toContain("若与简历正文冲突，以简历正文中的明确事实为准");
+    expect(result.sourceFileName).toBe(" 【产品经理】张三 10年经验.pdf ");
   });
 
   it("preserves bounded PDF text supplements when long OCR input is clipped", async () => {

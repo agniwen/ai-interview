@@ -279,6 +279,32 @@ describe("getClaimMissRetryError", () => {
 // ─── Test 1: happy path ───────────────────────────────────────────────────────
 
 describe("processNextItem — happy path", () => {
+  it("reparses a storage-key cache entry created for a different filename", async () => {
+    const { item } = await createQueuedSingleItemBatch();
+    // SAFETY: This fixture supplies only the attachment fields read by the cache lookup path.
+    dependencies.findAttachmentByStorageKey.mockResolvedValue({
+      parsedStructured: { name: "错误姓名", sourceFileName: "另一个文件名.pdf" },
+      parsedTextSource: "qwen-ocr",
+    } as never);
+    // SAFETY: The mismatch guard must prevent this deliberately partial profile from being read.
+    dependencies.projectAttachmentToResumeProfile.mockReturnValue({ name: "错误姓名" } as never);
+    mockS3OK();
+    mockParseOK({
+      email: null,
+      name: "当前文件候选人",
+      phone: null,
+      targetRoles: [],
+    });
+
+    const result = await processBatchItem(item.id);
+
+    expect(result?.item?.status).toBe("succeeded");
+    expect(dependencies.projectAttachmentToResumeProfile).not.toHaveBeenCalled();
+    expect(dependencies.parseResumeBytesToProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: item.originalFileName }),
+    );
+  });
+
   it("pending item → succeeded，并更新批次创建时的未解析占位记录", async () => {
     // Happy path: single-item batch processes to succeeded and updates the queued placeholder record.
     const {

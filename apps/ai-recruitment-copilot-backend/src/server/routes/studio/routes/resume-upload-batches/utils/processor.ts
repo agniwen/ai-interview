@@ -11,6 +11,7 @@ import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/
 import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
 import type { toItemDto } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import {
   claimNextPendingItem,
@@ -133,7 +134,9 @@ async function resolveResumeProfile(
     logStep("cache.lookup.start", { itemId: item.id });
     const cached = await dependencies.findAttachmentByStorageKey(item.storageKey);
     const fromCache =
-      cached?.parsedStructured && isResumeParseCacheSourceCompatible(cached.parsedTextSource)
+      cached?.parsedStructured &&
+      isResumeParseCacheSourceCompatible(cached.parsedTextSource) &&
+      isResumeStructuredSourceFileNameCompatible(cached.parsedStructured, item.originalFileName)
         ? dependencies.projectAttachmentToResumeProfile(cached.parsedStructured)
         : null;
     if (fromCache) {
