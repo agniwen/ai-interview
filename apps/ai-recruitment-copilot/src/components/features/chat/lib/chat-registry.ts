@@ -1,9 +1,6 @@
 import type { UIMessage } from "ai";
 import { Chat } from "@ai-sdk/react";
-import {
-  lastAssistantMessageIsCompleteWithApprovalResponses,
-  lastAssistantMessageIsCompleteWithToolCalls,
-} from "ai";
+import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 import { LRUCache } from "lru-cache";
 import { upsertChatMessageOnServer } from "@/lib/client/api";
 import { notifyConversationsChanged } from "./chat-events";
@@ -52,6 +49,10 @@ async function persistPartialMessage(slug: string, chatId: string, message: UIMe
   }
 }
 
+export function shouldAutomaticallyContinueChat({ messages }: { messages: UIMessage[] }): boolean {
+  return lastAssistantMessageIsCompleteWithApprovalResponses({ messages });
+}
+
 export function getOrCreateChat(
   chatId: string,
   slug: string,
@@ -65,11 +66,6 @@ export function getOrCreateChat(
   const chat = new Chat<UIMessage>({
     id: chatId,
     messages: options.initialMessages ?? [],
-    // 工具调用完成后自动续跑下一步;hook 层的 `sendAutomaticallyWhen`
-    // 在外部 Chat 实例下会被忽略,必须配置在构造器上。
-    // Auto-resume after tool calls finish; the hook-level
-    // `sendAutomaticallyWhen` is ignored when an external Chat
-    // instance is passed in, so it must live on the constructor.
     onFinish: ({ message, isAbort, isDisconnect, isError }) => {
       notifyConversationsChanged();
 
@@ -79,14 +75,9 @@ export function getOrCreateChat(
 
       emitFinish({ chatId, isAbort, isDisconnect, isError, message, slug });
     },
-    // 工具调用完成后自动续跑下一步;hook 层的 `sendAutomaticallyWhen`
-    // 在外部 Chat 实例下会被忽略,必须配置在构造器上。
-    // Auto-resume after tool calls finish; the hook-level
-    // `sendAutomaticallyWhen` is ignored when an external Chat
-    // instance is passed in, so it must live on the constructor.
-    sendAutomaticallyWhen: ({ messages }) =>
-      lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
-      lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
+    // Server-executed Mastra tools already continue inside the same stream.
+    // A new client request is only needed after the user answers an approval.
+    sendAutomaticallyWhen: shouldAutomaticallyContinueChat,
     transport: createChatTransport(chatId, slug),
   });
 

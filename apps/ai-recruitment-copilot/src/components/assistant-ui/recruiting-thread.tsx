@@ -52,6 +52,7 @@ import {
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
 import { RecruitingResumeReviewCard } from "./recruiting-resume-review-card";
+import { shouldPresentResumeReviewCard } from "./recruiting-tool-presentation";
 import type {
   CandidateSummaryCard,
   CopilotCitation,
@@ -64,7 +65,7 @@ export { NewRecruitingThread } from "./new-recruiting-thread";
 
 function ToolNotice({ children }: { children: string }) {
   return (
-    <div className="aui-tool-notice rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+    <div className="aui-tool-notice mt-2 rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
       {children}
     </div>
   );
@@ -488,23 +489,76 @@ const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRe
   toolName: "search_resume_records",
 });
 
+interface RecruitingCitationBatchResult {
+  citations?: CopilotCitation[];
+  missingIds?: string[];
+}
+
+interface ResumePoolDetailBatchResult {
+  missingIds?: string[];
+  resumePoolItems?: { citation: CopilotCitation }[];
+}
+
+const RecruitingJobDetailToolUI = makeAssistantToolUI<unknown, RecruitingCitationBatchResult>({
+  display: "standalone",
+  render: ({ result, status }) => {
+    if (status.type === "running") {
+      return null;
+    }
+    if (!(result?.citations?.length || result?.missingIds?.length)) {
+      return null;
+    }
+    return (
+      <>
+        <CopilotToolContextReporter citations={result.citations ?? []} />
+        {result.missingIds?.length ? <ToolNotice>部分岗位记录未找到。</ToolNotice> : null}
+      </>
+    );
+  },
+  toolName: "get_job_description_detail",
+});
+
+const RecruitingResumePoolDetailToolUI = makeAssistantToolUI<unknown, ResumePoolDetailBatchResult>({
+  display: "standalone",
+  render: ({ result, status }) => {
+    if (status.type === "running") {
+      return null;
+    }
+    const citations = result?.resumePoolItems?.map((item) => item.citation) ?? [];
+    if (!(citations.length || result?.missingIds?.length)) {
+      return null;
+    }
+    return (
+      <>
+        <CopilotToolContextReporter citations={citations} />
+        {result?.missingIds?.length ? <ToolNotice>部分人才库记录未找到。</ToolNotice> : null}
+      </>
+    );
+  },
+  toolName: "get_resume_pool_detail",
+});
+
 const RecruitingResumeDetailToolUI = makeAssistantToolUI<unknown, ResumeRecordDetailResult>({
   display: "standalone",
   render: ({ result, status }) => {
     if (status.type === "running") {
-      return <ToolNotice>正在读取候选人数据库记录...</ToolNotice>;
+      return null;
     }
-    const record = result?.resumeRecord;
-    if (!record) {
-      return <ToolNotice>未找到候选人记录。</ToolNotice>;
+    const records = result?.resumeRecords ?? (result?.resumeRecord ? [result.resumeRecord] : []);
+    if (records.length === 0) {
+      return result?.missingIds?.length ? <ToolNotice>未找到候选人记录。</ToolNotice> : null;
     }
-    if (!record.jobDescriptionId) {
-      return <CopilotToolContextReporter citations={[record.citation]} />;
+    const citations = records.map((record) => record.citation);
+    const cardRecords = records.filter(shouldPresentResumeReviewCard);
+    if (cardRecords.length === 0) {
+      return <CopilotToolContextReporter citations={citations} />;
     }
     return (
       <div className="grid gap-2">
-        <CopilotToolContextReporter citations={[record.citation]} />
-        <RecruitingResumeReviewCard record={record} />
+        <CopilotToolContextReporter citations={citations} />
+        {cardRecords.map((record) => (
+          <RecruitingResumeReviewCard key={record.id} record={record} />
+        ))}
       </div>
     );
   },
@@ -515,6 +569,8 @@ export function RecruitingToolRenderers() {
   return (
     <>
       <RecruitingResumeSearchToolUI />
+      <RecruitingJobDetailToolUI />
+      <RecruitingResumePoolDetailToolUI />
       <RecruitingResumeDetailToolUI />
       <RecruitingActionProposalToolUI />
     </>

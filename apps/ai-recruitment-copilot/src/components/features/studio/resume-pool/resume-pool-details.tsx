@@ -4,6 +4,7 @@ import type { TablerIcon } from "@tabler/icons-react";
 import {
   IconBriefcase2,
   IconBuilding,
+  IconChevronDown,
   IconFileUpload,
   IconGitBranch,
   IconLink,
@@ -43,9 +44,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
-import { fetchResumePoolItem } from "@/lib/client/api";
+import {
+  fetchPublishedResumePoolJobDescriptions,
+  fetchResumePoolItem,
+  fetchResumePoolJobMatch,
+  fetchResumePoolJobRecommendations,
+} from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 import {
@@ -59,7 +73,10 @@ import {
   uploaderMetaLabel,
   uploaderUserLabel,
 } from "./resume-pool-page-model";
-import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
+import {
+  RESUME_POOL_JOB_RECOMMENDATION_LIMIT,
+  ResumePoolRecommendationsPanel,
+} from "./resume-pool-recommendations-panel";
 
 const RESUME_POOL_CARD_SKILL_LIMIT = 9;
 
@@ -79,15 +96,160 @@ function textOrDash(value: string | number | null | undefined) {
 }
 
 function JobBindingModeBadge({ mode }: { mode: ResumePoolJobBindingMode | null }) {
-  if (!mode) {
+  if (!mode || mode === "automatic") {
     return null;
   }
+  return <span className="shrink-0 text-[10px] text-muted-foreground/70 leading-4">手动绑定</span>;
+}
+
+/* oxlint-disable complexity -- this dropdown mirrors the existing persisted-match, generated-recommendation, and published-job fallback states. */
+function ResumePoolJobBindingMenu({
+  binding,
+  currentJobDescriptionId,
+  onSelect,
+  recordId,
+  slug,
+}: {
+  binding: boolean;
+  currentJobDescriptionId: string | null;
+  onSelect: (jobDescriptionId: string) => void;
+  recordId: string;
+  slug: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const bound = Boolean(currentJobDescriptionId);
+  const matchQuery = useQuery({
+    enabled: open,
+    queryFn: () => fetchResumePoolJobMatch(slug, recordId),
+    queryKey: ["resume-pool", "job-match", slug, recordId] as const,
+    staleTime: 60 * 1000,
+  });
+  const matchedJobDescriptions = (matchQuery.data?.candidates ?? []).filter(
+    (candidate) => candidate.available && (!bound || !candidate.isCurrent),
+  );
+  const hasAvailablePersistedCandidate = Boolean(
+    matchQuery.data?.candidates.some((candidate) => candidate.available),
+  );
+  const hasPersistedAlternative = Boolean(
+    matchQuery.data?.candidates.some((candidate) => candidate.available && !candidate.isCurrent),
+  );
+  const needsGeneratedRecommendations = matchQuery.isSuccess && !bound && !matchQuery.data;
+  const recommendationsQuery = useQuery({
+    enabled: open && needsGeneratedRecommendations,
+    queryFn: () =>
+      fetchResumePoolJobRecommendations(slug, recordId, RESUME_POOL_JOB_RECOMMENDATION_LIMIT),
+    queryKey: ["resume-pool", "jd-recommendations", slug, recordId] as const,
+    staleTime: 60 * 1000,
+  });
+  const needsPublishedJobFallback =
+    matchQuery.isSuccess &&
+    (bound
+      ? !matchQuery.data || !hasPersistedAlternative
+      : Boolean(matchQuery.data && !hasAvailablePersistedCandidate));
+  const publishedJobsQuery = useQuery({
+    enabled: open && needsPublishedJobFallback,
+    queryFn: () => fetchPublishedResumePoolJobDescriptions(slug),
+    queryKey: ["job-descriptions", "recruiting", slug] as const,
+    staleTime: 60 * 1000,
+  });
+  const fallbackJobDescriptions = (publishedJobsQuery.data ?? []).filter(
+    (jobDescription) => jobDescription.id !== currentJobDescriptionId,
+  );
+  const generatedJobDescriptions =
+    recommendationsQuery.data?.status === "ready"
+      ? recommendationsQuery.data.recommendations.map((recommendation) => ({
+          departmentName: recommendation.departmentName,
+          description:
+            recommendation.description?.trim() ||
+            recommendation.reasons[0]?.trim() ||
+            "暂无岗位描述。",
+          id: recommendation.id,
+          name: recommendation.name,
+        }))
+      : [];
+  let availableJobDescriptions = fallbackJobDescriptions.map((jobDescription) => ({
+    departmentName: jobDescription.departmentName,
+    description: jobDescription.description?.trim() || "暂无岗位描述。",
+    id: jobDescription.id,
+    name: jobDescription.name,
+  }));
+  if (generatedJobDescriptions.length > 0) {
+    availableJobDescriptions = generatedJobDescriptions;
+  }
+  if (matchedJobDescriptions.length > 0) {
+    availableJobDescriptions = matchedJobDescriptions.map((jobDescription) => ({
+      departmentName: jobDescription.departmentName,
+      description: jobDescription.aiReason?.trim() || "该岗位由明确投递线索或向量排序选出。",
+      id: jobDescription.id,
+      name: jobDescription.name,
+    }));
+  }
+  availableJobDescriptions = availableJobDescriptions.slice(
+    0,
+    RESUME_POOL_JOB_RECOMMENDATION_LIMIT,
+  );
+  const isLoading =
+    matchQuery.isLoading || recommendationsQuery.isLoading || publishedJobsQuery.isLoading;
+  const isError = matchQuery.isError || recommendationsQuery.isError || publishedJobsQuery.isError;
+  let content: ReactNode;
+  if (isLoading) {
+    content = <DropdownMenuItem disabled>正在加载匹配岗位…</DropdownMenuItem>;
+  } else if (isError) {
+    content = <DropdownMenuItem disabled>岗位加载失败，请刷新页面</DropdownMenuItem>;
+  } else if (availableJobDescriptions.length === 0) {
+    let emptyLabel = bound ? "暂无其他在招岗位" : "暂无合适岗位";
+    if (recommendationsQuery.data?.status === "disabled") {
+      emptyLabel = "岗位推荐暂不可用";
+    } else if (recommendationsQuery.data?.status === "indexing") {
+      emptyLabel = "推荐准备中，请稍后再试";
+    } else if (recommendationsQuery.data?.status === "already_matched") {
+      emptyLabel = "该简历已绑定岗位，请刷新页面";
+    }
+    content = <DropdownMenuItem disabled>{emptyLabel}</DropdownMenuItem>;
+  } else {
+    content = availableJobDescriptions.map((jobDescription) => (
+      <DropdownMenuItem
+        className="items-start py-2"
+        key={jobDescription.id}
+        onClick={() => onSelect(jobDescription.id)}
+      >
+        <ItemContent>
+          <ItemTitle>{jobDescription.name}</ItemTitle>
+          <ItemDescription>
+            {jobDescription.departmentName
+              ? `${jobDescription.departmentName} · ${jobDescription.description}`
+              : jobDescription.description}
+          </ItemDescription>
+        </ItemContent>
+      </DropdownMenuItem>
+    ));
+  }
+
   return (
-    <span className="shrink-0 text-[10px] text-muted-foreground/70 leading-4">
-      {mode === "automatic" ? "自动匹配" : "手动绑定"}
-    </span>
+    <DropdownMenu modal={false} onOpenChange={setOpen} open={open}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={bound ? "更换绑定岗位" : "推荐岗位"}
+            className="h-5 shrink-0 px-1.5 text-xs"
+            disabled={binding}
+            size="xs"
+            type="button"
+            variant={bound ? "outline" : "secondary"}
+          >
+            {binding ? <IconLoader2 className="animate-spin" data-icon="inline-start" /> : null}
+            {bound ? "更换" : "推荐岗位"}
+            <IconChevronDown data-icon="inline-end" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+        <DropdownMenuGroup>{content}</DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
+/* oxlint-enable complexity */
 
 function DetailSummaryItem({ children, label }: { label: string; children: ReactNode }) {
   return (
@@ -685,19 +847,20 @@ function ResumePoolCardActions({
 }
 
 export function ResumePoolCard({
+  bindingJobDescription,
   canDelete,
   canImport,
   canPublish,
   canRecommend,
   canRetryParse,
   deleting,
+  onBindJobDescription,
   onDelete,
   onOpenDuplicateMatches,
   onOpenDetail,
   onOpenPdf,
   onImport,
   onPublish,
-  onRecommend,
   onRetryParse,
   onSelectionChange,
   publishing,
@@ -717,6 +880,7 @@ export function ResumePoolCard({
   publishing: boolean;
   retrying: boolean;
   deleting: boolean;
+  bindingJobDescription?: boolean;
   selected: boolean;
   selectionDisabled: boolean;
   onOpenDetail: (record: ResumePoolListRecord) => void;
@@ -724,7 +888,7 @@ export function ResumePoolCard({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
-  onRecommend: (record: ResumePoolListRecord) => void;
+  onBindJobDescription?: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
@@ -740,6 +904,7 @@ export function ResumePoolCard({
   const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
   const canPreview = hasStoredResume && previewable;
   const importActionState = getResumePoolImportActionState(record);
+  const canChangeJobDescription = canRecommend && Boolean(onBindJobDescription);
   let documentIcon = (
     <span
       aria-disabled="true"
@@ -841,16 +1006,16 @@ export function ResumePoolCard({
                       {record.jobDescriptionName}
                     </Link>
                     <JobBindingModeBadge mode={record.jobBindingMode} />
-                    {canRecommend ? (
-                      <Button
-                        aria-label="更换绑定岗位"
-                        className="h-5 shrink-0 px-1.5 text-xs"
-                        onClick={() => onRecommend(record)}
-                        size="xs"
-                        variant="outline"
-                      >
-                        更换
-                      </Button>
+                    {canChangeJobDescription ? (
+                      <ResumePoolJobBindingMenu
+                        binding={bindingJobDescription ?? false}
+                        currentJobDescriptionId={record.jobDescriptionId}
+                        onSelect={(jobDescriptionId) =>
+                          onBindJobDescription?.(record, jobDescriptionId)
+                        }
+                        recordId={record.id}
+                        slug={slug}
+                      />
                     ) : null}
                   </span>
                 );
@@ -860,16 +1025,16 @@ export function ResumePoolCard({
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-muted-foreground/60">已绑定</span>
                     <JobBindingModeBadge mode={record.jobBindingMode} />
-                    {canRecommend ? (
-                      <Button
-                        aria-label="更换绑定岗位"
-                        className="h-5 shrink-0 px-1.5 text-xs"
-                        onClick={() => onRecommend(record)}
-                        size="xs"
-                        variant="outline"
-                      >
-                        更换
-                      </Button>
+                    {canChangeJobDescription ? (
+                      <ResumePoolJobBindingMenu
+                        binding={bindingJobDescription ?? false}
+                        currentJobDescriptionId={record.jobDescriptionId}
+                        onSelect={(jobDescriptionId) =>
+                          onBindJobDescription?.(record, jobDescriptionId)
+                        }
+                        recordId={record.id}
+                        slug={slug}
+                      />
                     ) : null}
                   </span>
                 );
@@ -877,15 +1042,16 @@ export function ResumePoolCard({
               return (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate text-muted-foreground/60">未关联</span>
-                  {canRecommend ? (
-                    <Button
-                      aria-label="推荐岗位"
-                      className="h-5 shrink-0 px-1.5 text-xs"
-                      onClick={() => onRecommend(record)}
-                      size="xs"
-                    >
-                      推荐岗位
-                    </Button>
+                  {canChangeJobDescription ? (
+                    <ResumePoolJobBindingMenu
+                      binding={bindingJobDescription ?? false}
+                      currentJobDescriptionId={null}
+                      onSelect={(jobDescriptionId) =>
+                        onBindJobDescription?.(record, jobDescriptionId)
+                      }
+                      recordId={record.id}
+                      slug={slug}
+                    />
                   ) : null}
                 </span>
               );

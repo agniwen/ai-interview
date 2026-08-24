@@ -25,8 +25,13 @@ import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/r
 import { upsertConversationContextJobBinding } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
 import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
+import { jobEvaluationModeSchema } from "@arc/db-schema/job-description-evaluation";
 import { resumeReviewLooseSchema } from "@arc/db-schema/resume-review";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import { resumeReviewStatusSchema } from "@arc/db-schema/studio-interviews";
+import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+import { structuredResumeReviewSchema } from "@arc/shared/recruiting-copilot";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
 import type { ResumePoolDetail } from "@arc/shared/resume-pool";
@@ -103,10 +108,14 @@ export const resumeRecordDetailSchema = z.object({
   jobDescriptionName: z.string().nullable(),
   notes: z.string().nullable(),
   pipelineStage: z.string(),
+  resumeEvaluationArtifactMode: jobEvaluationModeSchema.nullable(),
   resumeProfile: z.unknown().nullable(),
   resumeReview: resumeReviewLooseSchema.nullable(),
+  resumeReviewError: z.string().nullable(),
+  resumeReviewStatus: resumeReviewStatusSchema,
   resumeSummary: z.string().nullable(),
   resumeText: z.string().nullable(),
+  structuredResumeReview: structuredResumeReviewSchema.nullable(),
   targetRole: z.string().nullable(),
 });
 
@@ -140,7 +149,7 @@ export const recruitingActionConfirmationSchema = z.object({
 });
 
 export const searchResumeRecordsInputSchema = z.object({
-  jobDescriptionId: z.string().min(1).optional(),
+  jobDescriptionIds: z.array(z.string().min(1)).min(1).max(MAX_COMPARISON_CANDIDATES).optional(),
   limit: z.number().int().min(1).max(MAX_SEARCH_LIMIT).optional(),
   pipelineStages: z.array(z.string().min(1)).max(10).optional(),
   query: z.string().trim().max(120).optional(),
@@ -155,13 +164,18 @@ export const searchResumeRecordsOutputSchema = z.object({
   total: z.number().int().nonnegative(),
 });
 
-export const getResumeRecordDetailInputSchema = z.object({
+const resumeRecordDetailRequestSchema = z.object({
   id: z.string().min(1),
   includeResumeText: z.boolean().optional(),
 });
 
+export const getResumeRecordDetailInputSchema = z.object({
+  requests: z.array(resumeRecordDetailRequestSchema).min(1).max(MAX_COMPARISON_CANDIDATES),
+});
+
 export const getResumeRecordDetailOutputSchema = z.object({
-  resumeRecord: resumeRecordDetailSchema.nullable(),
+  missingIds: z.array(z.string()),
+  resumeRecords: z.array(resumeRecordDetailSchema),
 });
 
 export const resumePoolItemDetailSchema = z.object({
@@ -181,13 +195,18 @@ export const resumePoolItemDetailSchema = z.object({
   targetRole: z.string().nullable(),
 });
 
-export const getResumePoolDetailInputSchema = z.object({
+const resumePoolDetailRequestSchema = z.object({
   id: z.string().min(1),
   includeResumeText: z.boolean().optional(),
 });
 
+export const getResumePoolDetailInputSchema = z.object({
+  requests: z.array(resumePoolDetailRequestSchema).min(1).max(MAX_COMPARISON_CANDIDATES),
+});
+
 export const getResumePoolDetailOutputSchema = z.object({
-  resumePoolItem: resumePoolItemDetailSchema.nullable(),
+  missingIds: z.array(z.string()),
+  resumePoolItems: z.array(resumePoolItemDetailSchema),
 });
 
 export const searchJobDescriptionsInputSchema = z.object({
@@ -201,7 +220,13 @@ export const searchJobDescriptionsOutputSchema = z.object({
 });
 
 export const getJobDescriptionDetailInputSchema = z.object({
-  id: z.string().min(1),
+  ids: z.array(z.string().min(1)).min(1).max(MAX_COMPARISON_CANDIDATES),
+});
+
+export const getJobDescriptionDetailOutputSchema = z.object({
+  citations: z.array(copilotCitationSchema),
+  jobDescriptions: z.array(jobDescriptionSummarySchema),
+  missingIds: z.array(z.string()),
 });
 
 export const proposeRecruitingActionInputSchema = z.object({
@@ -210,6 +235,16 @@ export const proposeRecruitingActionInputSchema = z.object({
   title: z.string().trim().min(1).max(120),
   type: recruitingActionProposalSchema.shape.type,
 });
+
+const nonBindingRecruitingActionInputSchema = proposeRecruitingActionInputSchema.extend({
+  type: z.enum(["advance_candidate_stage", "generate_interview_questions"]),
+});
+
+export function getRecruitingActionInputSchema(bindingConsent: boolean) {
+  return bindingConsent
+    ? proposeRecruitingActionInputSchema
+    : nonBindingRecruitingActionInputSchema;
+}
 
 export const proposeRecruitingActionOutputSchema = z.object({
   confirmation: recruitingActionConfirmationSchema.optional(),
@@ -237,6 +272,54 @@ function readResumeReviewConclusion(
   value: z.infer<typeof resumeReviewLooseSchema> | null,
 ): string | null {
   return cleanString(value?.overall.conclusion);
+}
+
+function toStructuredResumeReview(
+  evaluation: StructuredResumeEvaluationV1,
+): z.infer<typeof structuredResumeReviewSchema> {
+  const dimensionRationale = (key: keyof typeof evaluation.dimensions): string => {
+    const ruleRationale = evaluation.dimensions[key].ruleJudgments
+      .map((judgment) => judgment.reason)
+      .join("；");
+    return (
+      evaluation.narrative.dimensionComments?.[key] || ruleRationale || evaluation.narrative.summary
+    );
+  };
+  const dimension = (key: keyof typeof evaluation.dimensions) => ({
+    rationale: dimensionRationale(key),
+    score: evaluation.dimensions[key].rawScore,
+    weight: evaluation.dimensions[key].weight,
+  });
+
+  return structuredResumeReviewSchema.parse({
+    adjustments: evaluation.adjustments.matches
+      .filter((match) => match.matched)
+      .map((match) => ({
+        appliedPoints: match.appliedPoints,
+        kind: match.kind,
+        reason: match.reason,
+        sourceText: match.sourceText,
+      })),
+    compositeScore: evaluation.calculations.compositeScore,
+    dimensions: {
+      educationBackground: dimension("educationBackground"),
+      experienceRelevance: dimension("experienceRelevance"),
+      potential: dimension("potential"),
+      projectMatch: dimension("projectMatch"),
+      skillMatch: dimension("skillMatch"),
+      stability: dimension("stability"),
+    },
+    gateJudgments: evaluation.gates.judgments.map((judgment) => ({
+      category: judgment.category,
+      reason: judgment.reason,
+      status: judgment.correction?.correctedStatus ?? judgment.aiStatus,
+    })),
+    gateStatus: evaluation.gates.effectiveStatus,
+    grade: evaluation.grade,
+    overallComment: evaluation.narrative.overallComment ?? null,
+    recommendation: evaluation.narrative.recommendation,
+    summary: evaluation.narrative.summary,
+  });
 }
 
 function serializeDate(value: string | Date): string {
@@ -314,7 +397,7 @@ export async function searchResumeRecordsForCopilot(
   const result = await resumeRecordsDeps.listResumeRecords(
     input.organizationId,
     {
-      jobDescriptionIds: parsed.jobDescriptionId ? [parsed.jobDescriptionId] : null,
+      jobDescriptionIds: parsed.jobDescriptionIds ?? null,
       pipelineStages: parsed.pipelineStages ?? null,
       search: parsed.query ?? null,
       skills: parsed.skills ?? null,
@@ -330,7 +413,7 @@ export async function searchResumeRecordsForCopilot(
   const semanticCards = parsed.query
     ? // oxlint-disable-next-line no-use-before-define -- Default dependency is declared below the public tool entrypoint.
       await (resumeRecordsDeps.semanticSearch ?? searchSemanticResumeRecords)({
-        jobDescriptionId: parsed.jobDescriptionId,
+        jobDescriptionIds: parsed.jobDescriptionIds,
         limit,
         organizationId: input.organizationId,
         pipelineStages: parsed.pipelineStages,
@@ -421,12 +504,15 @@ function mergeSemanticSourceIds(results: ResumeVectorSearchResult[]) {
 function matchesSemanticFilters(
   record: z.infer<typeof candidateSummaryCardSchema>,
   filters: {
-    jobDescriptionId?: string;
+    jobDescriptionIds?: string[];
     pipelineStages?: string[];
     skills?: string[];
   },
 ) {
-  if (filters.jobDescriptionId && record.jobDescriptionId !== filters.jobDescriptionId) {
+  if (
+    filters.jobDescriptionIds?.length &&
+    (!record.jobDescriptionId || !filters.jobDescriptionIds.includes(record.jobDescriptionId))
+  ) {
     return false;
   }
   if (filters.pipelineStages?.length && !filters.pipelineStages.includes(record.pipelineStage)) {
@@ -514,7 +600,7 @@ async function loadSemanticCandidateCards({
 }
 
 export async function searchSemanticResumeRecords(input: {
-  jobDescriptionId?: string;
+  jobDescriptionIds?: string[];
   limit: number;
   organizationId: string;
   pipelineStages?: string[];
@@ -552,7 +638,7 @@ export async function searchSemanticResumeRecords(input: {
     return cards
       .filter((record) =>
         matchesSemanticFilters(record, {
-          jobDescriptionId: input.jobDescriptionId,
+          jobDescriptionIds: input.jobDescriptionIds,
           pipelineStages: input.pipelineStages,
           skills: input.skills,
         }),
@@ -811,20 +897,20 @@ async function executeProposeRecruitingAction(input: {
 
 export async function getResumeRecordDetailForCopilot(input: {
   contextBindings?: ChatContextBindings;
-  id: string;
-  includeResumeText?: boolean;
   organizationId: string;
+  requests: z.infer<typeof resumeRecordDetailRequestSchema>[];
   visibilityScope: RecruitingVisibilityScope;
 }): Promise<z.infer<typeof getResumeRecordDetailOutputSchema>> {
   const parsed = getResumeRecordDetailInputSchema.parse(input);
   if (input.visibilityScope.kind === "none") {
-    return { resumeRecord: null };
+    return { missingIds: parsed.requests.map((request) => request.id), resumeRecords: [] };
   }
+  const ids = parsed.requests.map((request) => request.id);
   const visibilityCondition =
     input.visibilityScope.kind === "restricted"
       ? inArray(studioInterview.createdBy, input.visibilityScope.userIds)
       : undefined;
-  const [record] = await db
+  const records = await db
     .select({
       candidateName: studioInterview.candidateName,
       id: studioInterview.id,
@@ -833,9 +919,13 @@ export async function getResumeRecordDetailForCopilot(input: {
       jobDescriptionName: jobDescription.name,
       notes: studioInterview.notes,
       pipelineStage: studioInterview.pipelineStage,
+      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
       resumeProfile: studioInterview.resumeProfile,
       resumeReview: studioInterview.resumeReview,
+      resumeReviewError: studioInterview.resumeReviewError,
+      resumeReviewStatus: studioInterview.resumeReviewStatus,
       resumeText: studioInterview.resumeText,
+      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
       targetRole: studioInterview.targetRole,
     })
     .from(studioInterview)
@@ -848,43 +938,85 @@ export async function getResumeRecordDetailForCopilot(input: {
     )
     .where(
       and(
-        eq(studioInterview.id, parsed.id),
+        inArray(studioInterview.id, ids),
         eq(studioInterview.organizationId, input.organizationId),
         visibilityCondition,
       ),
-    )
-    .limit(1);
-  if (!record) {
-    return { resumeRecord: null };
-  }
-  const boundJobDescriptionId = input.contextBindings?.resume_record?.[record.id];
-  const jobBinding = await resolveConversationJobOverlay({
-    boundJobDescriptionId,
-    jobDescriptionId: record.jobDescriptionId,
-    jobDescriptionName: record.jobDescriptionName,
-    organizationId: input.organizationId,
-  });
+    );
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const resumeRecords = await Promise.all(
+    parsed.requests.flatMap((request) => {
+      const record = recordsById.get(request.id);
+      if (!record) {
+        return [];
+      }
+      return [
+        (async () => {
+          const boundJobDescriptionId = input.contextBindings?.resume_record?.[record.id];
+          const jobBinding = await resolveConversationJobOverlay({
+            boundJobDescriptionId,
+            jobDescriptionId: record.jobDescriptionId,
+            jobDescriptionName: record.jobDescriptionName,
+            organizationId: input.organizationId,
+          });
+          const conversationOverridesPersistedJob = Boolean(
+            boundJobDescriptionId && boundJobDescriptionId !== record.jobDescriptionId,
+          );
+          const effectiveResumeReview =
+            conversationOverridesPersistedJob ||
+            record.resumeEvaluationArtifactMode === "structured"
+              ? null
+              : record.resumeReview;
+          const storedStructuredEvaluation =
+            !conversationOverridesPersistedJob &&
+            record.resumeEvaluationArtifactMode === "structured"
+              ? structuredResumeEvaluationV1Schema.safeParse(record.structuredResumeEvaluation)
+              : null;
+          const effectiveStructuredResumeReview = storedStructuredEvaluation?.success
+            ? toStructuredResumeReview(storedStructuredEvaluation.data)
+            : null;
+          return {
+            candidateName: record.candidateName,
+            citation: {
+              id: record.id,
+              label: record.candidateName,
+              recordType: "resume_record" as const,
+              secondaryLabel: jobBinding.jobDescriptionName,
+            },
+            id: record.id,
+            interviewQuestions: record.interviewQuestions ?? [],
+            jobDescriptionId: jobBinding.jobDescriptionId,
+            jobDescriptionName: jobBinding.jobDescriptionName,
+            notes: cleanString(record.notes),
+            pipelineStage: record.pipelineStage,
+            resumeEvaluationArtifactMode: conversationOverridesPersistedJob
+              ? null
+              : record.resumeEvaluationArtifactMode,
+            resumeProfile: record.resumeProfile,
+            resumeReview: effectiveResumeReview,
+            resumeReviewError: conversationOverridesPersistedJob
+              ? null
+              : cleanString(record.resumeReviewError),
+            resumeReviewStatus: conversationOverridesPersistedJob
+              ? "idle"
+              : record.resumeReviewStatus,
+            resumeSummary:
+              effectiveStructuredResumeReview?.summary ??
+              readResumeReviewConclusion(effectiveResumeReview) ??
+              cleanString(record.notes),
+            resumeText: request.includeResumeText
+              ? (record.resumeText?.slice(0, 12_000) ?? null)
+              : null,
+            structuredResumeReview: effectiveStructuredResumeReview,
+            targetRole: cleanString(record.targetRole),
+          };
+        })(),
+      ];
+    }),
+  );
   return {
-    resumeRecord: {
-      candidateName: record.candidateName,
-      citation: {
-        id: record.id,
-        label: record.candidateName,
-        recordType: "resume_record" as const,
-        secondaryLabel: jobBinding.jobDescriptionName,
-      },
-      id: record.id,
-      interviewQuestions: record.interviewQuestions ?? [],
-      jobDescriptionId: jobBinding.jobDescriptionId,
-      jobDescriptionName: jobBinding.jobDescriptionName,
-      notes: cleanString(record.notes),
-      pipelineStage: record.pipelineStage,
-      resumeProfile: record.resumeProfile,
-      resumeReview: record.resumeReview,
-      resumeSummary: readResumeReviewConclusion(record.resumeReview) ?? cleanString(record.notes),
-      resumeText: parsed.includeResumeText ? (record.resumeText?.slice(0, 12_000) ?? null) : null,
-      targetRole: cleanString(record.targetRole),
-    },
+    missingIds: ids.filter((id) => !recordsById.has(id)),
+    resumeRecords,
   };
 }
 
@@ -921,49 +1053,59 @@ function toResumePoolItemDetail(
 
 export async function getResumePoolDetailForCopilot(input: {
   contextBindings?: ChatContextBindings;
-  id: string;
-  includeResumeText?: boolean;
   organizationId: string;
+  requests: z.infer<typeof resumePoolDetailRequestSchema>[];
   visibilityScope: RecruitingVisibilityScope;
 }): Promise<z.infer<typeof getResumePoolDetailOutputSchema>> {
   const parsed = getResumePoolDetailInputSchema.parse(input);
   if (input.visibilityScope.kind === "none") {
-    return { resumePoolItem: null };
+    return { missingIds: parsed.requests.map((request) => request.id), resumePoolItems: [] };
   }
-  const poolItemId = normalizeResumePoolItemId(parsed.id);
-  if (!poolItemId) {
-    return { resumePoolItem: null };
-  }
-  const detail = await loadResumePoolItem({
-    organizationId: input.organizationId,
-    poolItemId,
-    visibilityScope: input.visibilityScope,
-  });
-  if (!detail) {
-    return { resumePoolItem: null };
-  }
-  let resumeText: string | null = null;
-  if (parsed.includeResumeText) {
-    const [row] = await db
-      .select({ resumeText: resumePoolItem.resumeText })
-      .from(resumePoolItem)
-      .where(
-        and(
-          eq(resumePoolItem.id, detail.id),
-          eq(resumePoolItem.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1);
-    resumeText = row?.resumeText?.slice(0, 12_000) ?? null;
-  }
-  const jobBinding = await resolveConversationJobOverlay({
-    boundJobDescriptionId: input.contextBindings?.resume_pool_item?.[detail.id],
-    jobDescriptionId: detail.jobDescriptionId,
-    jobDescriptionName: detail.jobDescriptionName,
-    organizationId: input.organizationId,
-  });
+  const results = await Promise.all(
+    parsed.requests.map(async (request) => {
+      const poolItemId = normalizeResumePoolItemId(request.id);
+      if (!poolItemId) {
+        return { requestedId: request.id, resumePoolItem: null };
+      }
+      const detail = await loadResumePoolItem({
+        organizationId: input.organizationId,
+        poolItemId,
+        visibilityScope: input.visibilityScope,
+      });
+      if (!detail) {
+        return { requestedId: request.id, resumePoolItem: null };
+      }
+      let resumeText: string | null = null;
+      if (request.includeResumeText) {
+        const [row] = await db
+          .select({ resumeText: resumePoolItem.resumeText })
+          .from(resumePoolItem)
+          .where(
+            and(
+              eq(resumePoolItem.id, detail.id),
+              eq(resumePoolItem.organizationId, input.organizationId),
+            ),
+          )
+          .limit(1);
+        resumeText = row?.resumeText?.slice(0, 12_000) ?? null;
+      }
+      const jobBinding = await resolveConversationJobOverlay({
+        boundJobDescriptionId: input.contextBindings?.resume_pool_item?.[detail.id],
+        jobDescriptionId: detail.jobDescriptionId,
+        jobDescriptionName: detail.jobDescriptionName,
+        organizationId: input.organizationId,
+      });
+      return {
+        requestedId: request.id,
+        resumePoolItem: toResumePoolItemDetail(detail, resumeText, jobBinding),
+      };
+    }),
+  );
   return {
-    resumePoolItem: toResumePoolItemDetail(detail, resumeText, jobBinding),
+    missingIds: results.flatMap((result) => (result.resumePoolItem ? [] : [result.requestedId])),
+    resumePoolItems: results.flatMap((result) =>
+      result.resumePoolItem ? [result.resumePoolItem] : [],
+    ),
   };
 }
 
@@ -1014,34 +1156,41 @@ export async function searchJobDescriptionsForCopilot(
 }
 
 export function createRecruitingCopilotTools({
+  bindingConsent = false,
   contextBindings = EMPTY_CHAT_CONTEXT_BINDINGS,
   conversationId,
   organizationId,
   visibilityScope,
 }: {
+  bindingConsent?: boolean;
   contextBindings?: ChatContextBindings;
   conversationId?: string | null;
   organizationId: string;
   visibilityScope: RecruitingVisibilityScope;
 }) {
+  const actionProposalInputSchema = getRecruitingActionInputSchema(bindingConsent);
+
   return {
     get_job_description_detail: createTool({
-      description: "读取当前 workspace 中某个岗位的完整岗位描述，用于解释岗位匹配。",
-      execute: async ({ id }: z.infer<typeof getJobDescriptionDetailInputSchema>) => {
-        const record = await loadRecruitingJobDescriptionById(organizationId, id);
-        return record
-          ? {
-              citation: toJobDescriptionCitation(record),
-              jobDescription: toJobDescriptionSummary(record),
-            }
-          : { citation: null, jobDescription: null };
+      description: "一次读取当前 workspace 中 1 到 5 个岗位的完整描述，用于多人、多岗位匹配比较。",
+      execute: async ({ ids }: z.infer<typeof getJobDescriptionDetailInputSchema>) => {
+        const records = await Promise.all(
+          ids.map((id) => loadRecruitingJobDescriptionById(organizationId, id)),
+        );
+        const found = records.flatMap((record) => (record ? [record] : []));
+        return {
+          citations: found.map(toJobDescriptionCitation),
+          jobDescriptions: found.map(toJobDescriptionSummary),
+          missingIds: ids.filter((_, index) => !records[index]),
+        };
       },
       id: "get_job_description_detail",
       inputSchema: getJobDescriptionDetailInputSchema,
+      outputSchema: getJobDescriptionDetailOutputSchema,
     }),
     get_resume_pool_detail: createTool({
       description:
-        "读取当前 workspace 人才库（resume pool）条目详情。id 可为 uuid 或 pool:uuid。若返回的 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_pool_item_to_job，payload.poolItemId=本条目 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
+        "一次读取当前 workspace 中 1 到 5 个人才库（resume pool）条目详情。每个 id 可为 uuid 或 pool:uuid；多人询问必须放在同一次 requests 调用中。若未绑定岗位且用户要求评价，先依据现有资料输出通用 Markdown 评价，再询问是否绑定；用户明确同意前不要调用 propose_recruiting_action。",
       execute: (input: z.infer<typeof getResumePoolDetailInputSchema>) =>
         getResumePoolDetailForCopilot({
           ...input,
@@ -1055,7 +1204,7 @@ export function createRecruitingCopilotTools({
     }),
     get_resume_record_detail: createTool({
       description:
-        "读取当前 workspace 中某个招聘台候选人的简历详情，并返回数据库已有六维评分 resumeReview。若返回的 jobDescriptionId 不为空，必须依据 resumeReview 输出数据库评分，不要自行重算；前端会直接渲染评分卡。若 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_candidate_to_job，payload.resumeRecordId=本候选人 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
+        "一次读取 1 到 5 人在当前 workspace 招聘台中的简历详情，以及数据库已有的旧版六维评分或新版结构化评分；多人询问必须放在同一次 requests 调用中。评价候选人时对每个 request 设置 includeResumeText=true。候选人已绑定岗位时，前端会主动展示数据库评分卡；jobDescriptionId 为 null 时先输出不写库的通用 Markdown 评价，再询问是否绑定。用户明确同意前不要调用 propose_recruiting_action，也不要把临时评价写回 resumeReview。",
       execute: (input: z.infer<typeof getResumeRecordDetailInputSchema>) =>
         getResumeRecordDetailForCopilot({
           ...input,
@@ -1069,7 +1218,7 @@ export function createRecruitingCopilotTools({
     }),
     propose_recruiting_action: createTool({
       description:
-        "弹出需要用户批准的动作卡（前端会渲染）。读详情后若 jobDescriptionId 为空，必须主动、立即调用本工具做本对话岗位关联，不要等用户再说「选岗位」。bind_candidate_to_job：payload 含 resumeRecordId，尽量预填推荐 jobDescriptionId；bind_pool_item_to_job：payload 含 poolItemId，尽量预填推荐 jobDescriptionId。若本轮已有 search_job_descriptions 结果，用最相关岗位填 jobDescriptionId；没有也可先提案，由用户在卡片里选择。批准前不要输出分析正文；确认后只写入本对话分析上下文。推进阶段/生成面试题等写操作也用本工具。",
+        "弹出需要用户批准的动作卡（前端会渲染）。bind_candidate_to_job / bind_pool_item_to_job 只能在已完成未绑定候选人的通用 Markdown 评价、并且用户随后明确同意绑定后调用。payload 分别包含 resumeRecordId 或 poolItemId，可预填用户指定或检索到的 jobDescriptionId；批准后只写入本对话分析上下文，不改招聘台、人才库或 resumeReview。推进阶段/生成面试题等写操作也用本工具。",
       execute: (input: z.infer<typeof proposeRecruitingActionInputSchema>) =>
         executeProposeRecruitingAction({
           contextBindings,
@@ -1079,7 +1228,7 @@ export function createRecruitingCopilotTools({
           visibilityScope,
         }),
       id: "propose_recruiting_action",
-      inputSchema: proposeRecruitingActionInputSchema,
+      inputSchema: actionProposalInputSchema,
       outputSchema: proposeRecruitingActionOutputSchema,
       requireApproval: true,
     }),
@@ -1094,7 +1243,7 @@ export function createRecruitingCopilotTools({
     }),
     search_resume_records: createTool({
       description:
-        "在当前 workspace 的招聘台中检索候选人。默认返回候选人摘要卡片，不返回完整简历全文。",
+        "在当前 workspace 的招聘台中检索多个候选人，可同时按多个 jobDescriptionIds、阶段和技能过滤。默认返回候选人摘要卡片，不返回完整简历全文。",
       execute: (input: z.infer<typeof searchResumeRecordsInputSchema>) =>
         searchResumeRecordsForCopilot({ ...input, organizationId, visibilityScope }),
       id: "search_resume_records",

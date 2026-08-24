@@ -9,38 +9,82 @@ import type {
 } from "@arc/db-schema/ai-message";
 
 const arcMessageRoleSchema = z.enum(["assistant", "system", "tool", "user"]);
-const arcTextPartSchema = z.object({ text: z.string(), type: z.literal("text") });
-const arcReasoningPartSchema = z.object({ text: z.string(), type: z.literal("reasoning") });
-const arcFilePartSchema = z.object({
-  data: z.string().optional(),
-  filename: z.string().optional(),
-  hash: z.string().optional(),
-  mediaType: z.string(),
-  name: z.string().optional(),
-  type: z.literal("file"),
-  url: z.string().optional(),
-});
-const arcSourcePartSchema = z.object({
-  metadata: z.unknown().optional(),
-  title: z.string().optional(),
-  type: z.literal("source"),
-  url: z.string().optional(),
-});
-const arcToolPartSchema = z.object({
-  errorText: z.string().optional(),
-  input: z.unknown().optional(),
-  output: z.unknown().optional(),
-  state: z.enum(["input-streaming", "input-available", "output-available", "error"]),
-  toolCallId: z.string(),
-  toolName: z.string(),
-  type: z.literal("tool"),
-});
-const arcMessagePartSchema = z.discriminatedUnion("type", [
+const arcTextPartSchema = z.object({ text: z.string(), type: z.literal("text") }).passthrough();
+const arcReasoningPartSchema = z
+  .object({ text: z.string(), type: z.literal("reasoning") })
+  .passthrough();
+const arcFilePartSchema = z
+  .object({
+    data: z.string().optional(),
+    filename: z.string().optional(),
+    hash: z.string().optional(),
+    mediaType: z.string(),
+    name: z.string().optional(),
+    type: z.literal("file"),
+    url: z.string().optional(),
+  })
+  .passthrough();
+const arcSourcePartSchema = z
+  .object({
+    filename: z.string().optional(),
+    mediaType: z.string().optional(),
+    metadata: z.unknown().optional(),
+    sourceId: z.string().optional(),
+    title: z.string().optional(),
+    type: z.enum(["source", "source-url", "source-document"]),
+    url: z.string().optional(),
+  })
+  .passthrough();
+const arcToolStateSchema = z.enum([
+  "input-streaming",
+  "input-available",
+  "approval-requested",
+  "approval-responded",
+  "output-available",
+  "output-error",
+  "output-denied",
+  "error",
+]);
+const arcToolTypeSchema = z.union([
+  z.literal("tool"),
+  z.literal("dynamic-tool"),
+  z.templateLiteral(["tool-", z.string()]),
+]);
+const arcToolPartSchema = z
+  .object({
+    approval: z
+      .object({
+        approved: z.boolean().optional(),
+        id: z.string(),
+        reason: z.string().optional(),
+        signature: z.string().optional(),
+      })
+      .optional(),
+    errorText: z.string().optional(),
+    input: z.unknown().optional(),
+    output: z.unknown().optional(),
+    state: arcToolStateSchema,
+    toolCallId: z.string(),
+    toolName: z.string().optional(),
+    type: arcToolTypeSchema,
+  })
+  .passthrough();
+const arcStepStartPartSchema = z.object({ type: z.literal("step-start") }).passthrough();
+const arcDataPartSchema = z
+  .object({
+    data: z.unknown(),
+    id: z.string().optional(),
+    type: z.templateLiteral(["data-", z.string()]),
+  })
+  .passthrough();
+const arcMessagePartSchema = z.union([
   arcTextPartSchema,
   arcReasoningPartSchema,
   arcFilePartSchema,
   arcSourcePartSchema,
   arcToolPartSchema,
+  arcStepStartPartSchema,
+  arcDataPartSchema,
 ]) satisfies z.ZodType<ArcMessagePart>;
 
 const legacyUiMessageSchema = z.object({
@@ -104,20 +148,30 @@ function normalizeParts(message: z.output<typeof legacyUiMessageSchema>): ArcMes
   return message.content?.trim() ? [{ text: message.content, type: "text" }] : [];
 }
 
+function isArcToolPart(part: ArcMessagePart): part is ArcToolPart {
+  return part.type === "tool" || part.type === "dynamic-tool" || part.type.startsWith("tool-");
+}
+
+function isArcSourcePart(part: ArcMessagePart): part is ArcSourcePart {
+  return ["source", "source-url", "source-document"].includes(part.type);
+}
+
 function arcPartToModelText(part: ArcMessagePart): string | null {
   if (part.type === "text" || part.type === "reasoning") {
     return part.text;
   }
   if (part.type === "file") {
-    const label = part.filename?.trim() || part.name?.trim() || "attachment";
-    const locator = part.url?.trim() || part.hash?.trim() || "";
-    return `[file:${label} ${part.mediaType}${locator ? ` ${locator}` : ""}]`;
+    const label = [part.filename, part.name].map((value) => value?.trim()).find(Boolean);
+    const locator = [part.url, part.hash].map((value) => value?.trim()).find(Boolean);
+    return `[file:${label ?? "attachment"} ${part.mediaType}${locator ? ` ${locator}` : ""}]`;
   }
-  if (part.type === "source") {
-    return `[source:${part.title?.trim() || part.url?.trim() || "source"}]`;
+  if (isArcSourcePart(part)) {
+    const label = [part.title, part.url].map((value) => value?.trim()).find(Boolean);
+    return `[source:${label ?? "source"}]`;
   }
-  if (part.type === "tool") {
-    return `[tool:${part.toolName} ${part.state}]`;
+  if (isArcToolPart(part)) {
+    const toolName = part.toolName ?? part.type.slice("tool-".length);
+    return `[tool:${toolName} ${part.state}]`;
   }
   return null;
 }
@@ -137,7 +191,7 @@ function sourceChunkToArcPart(chunk: z.output<typeof streamRecordChunkSchema>): 
 }
 
 function normalizeToolState(value: string | undefined): ArcToolPart["state"] {
-  const result = arcToolPartSchema.shape.state.safeParse(value);
+  const result = arcToolStateSchema.safeParse(value);
   return result.success ? result.data : "input-available";
 }
 

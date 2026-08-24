@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import type { JsonValue } from "@arc/db-schema/json";
 import { StructuredResumeEvaluationPanel } from "../structured-resume-evaluation-panel";
 
@@ -47,7 +48,17 @@ function parseDetailFixture(fixture: DetailFixture): ResumeLibraryDetail {
   return partial as ResumeLibraryDetail;
 }
 
+function getRequiredElement<T extends Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing test element: ${selector}`);
+  }
+  return element;
+}
+
 function createDetail(): ResumeLibraryDetail {
+  const jobConfig = createDefaultJobDescriptionStructuredConfig();
+  jobConfig.deductionRules["experience.missing_year"].points = 15;
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
   return parseDetailFixture({
     id: "resume-1",
@@ -156,6 +167,7 @@ function createDetail(): ResumeLibraryDetail {
         rawStatus: "failed",
       },
       grade: "recommended",
+      jobConfig,
       narrative: {
         dimensionComments: {
           educationBackground: "学历背景存在明确差距，其他背景要求未触发扣分。",
@@ -348,7 +360,7 @@ describe("StructuredResumeEvaluationPanel", () => {
     act(() => root.unmount());
   });
 
-  it("keeps HR decision primary and renders all raw dimensions including zero weight", () => {
+  it("keeps HR decision primary and renders all raw dimensions including zero weight", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -430,20 +442,46 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
       "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
     );
-    const experienceDimension = container.querySelector(
+    const experienceDimension = getRequiredElement<HTMLElement>(
+      container,
       '[data-structured-dimension-score="experienceRelevance"]',
     );
-    expect(experienceDimension?.textContent).toContain("岗位要求");
-    expect(experienceDimension?.textContent).toContain("至少 5 年相关经验");
-    expect(experienceDimension?.textContent).toContain("AI 判断");
-    expect(experienceDimension?.textContent).toContain("相关经验整体充分");
-    expect(experienceDimension?.textContent).toContain("相关经验缺少两年，扣 15 分");
-    expect(experienceDimension?.textContent).toContain("本维度合计扣 15 分");
-    expect(experienceDimension?.textContent).not.toContain("经验年限不足");
-    expect(experienceDimension?.textContent).not.toContain("未扣分方面");
-    expect(experienceDimension?.textContent).not.toContain("证据不足项");
-    expect(experienceDimension?.textContent).not.toContain("标准化扣分明细");
+    expect(
+      container.querySelectorAll("[data-structured-dimension-requirements-trigger]"),
+    ).toHaveLength(6);
+    expect(experienceDimension.textContent).toContain("查看要求");
+    expect(experienceDimension.textContent).not.toContain("至少 5 年相关经验");
+    expect(experienceDimension.textContent).toContain("AI 判断");
+    expect(experienceDimension.textContent).toContain("相关经验整体充分");
+    expect(experienceDimension.textContent).toContain("相关经验缺少两年，扣 15 分");
+    expect(experienceDimension.textContent).toContain("本维度合计扣 15 分");
+    expect(experienceDimension.textContent).not.toContain("经验年限不足");
+    expect(experienceDimension.textContent).not.toContain("未扣分方面");
+    expect(experienceDimension.textContent).not.toContain("证据不足项");
+    expect(experienceDimension.textContent).not.toContain("标准化扣分明细");
     expect(frameTitles).not.toContain("标准化扣分明细");
+
+    const requirementTrigger = getRequiredElement<HTMLButtonElement>(
+      experienceDimension,
+      "[data-structured-dimension-requirements-trigger]",
+    );
+    const deductionSummary = getRequiredElement(
+      experienceDimension,
+      "[data-structured-dimension-deduction-summary]",
+    );
+    expect(deductionSummary.textContent).toContain("本维度合计扣 15 分");
+    expect(deductionSummary.contains(requirementTrigger)).toBe(true);
+    act(() => requirementTrigger.focus());
+
+    await vi.waitFor(() => {
+      const requirementCard = document.body.querySelector('[data-slot="hover-card-content"]');
+      expect(requirementCard?.textContent).toContain("经验维度");
+      expect(requirementCard?.textContent).toContain("岗位要求");
+      expect(requirementCard?.textContent).toContain("至少 5 年相关经验");
+      expect(requirementCard?.textContent).toContain("扣分规则");
+      expect(requirementCard?.textContent).toContain("相关经验每缺少 1 年");
+      expect(requirementCard?.textContent).toContain("扣 15 分");
+    });
 
     act(() => root.unmount());
   });

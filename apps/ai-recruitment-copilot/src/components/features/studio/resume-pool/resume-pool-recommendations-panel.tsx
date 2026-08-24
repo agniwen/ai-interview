@@ -27,11 +27,13 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   bindResumePoolItem,
+  fetchPublishedResumePoolJobDescriptions,
   fetchResumePoolJobMatch,
+  fetchResumePoolJobRecommendations,
   isApiError,
-  rpcFetch,
 } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+
+export const RESUME_POOL_JOB_RECOMMENDATION_LIMIT = 5;
 
 function RecommendationsSkeleton() {
   return (
@@ -229,21 +231,9 @@ export interface ResumePoolRecommendationsDependencies {
 const defaultDependencies: ResumePoolRecommendationsDependencies = {
   bindResumePoolItem,
   fetchMatchResult: fetchResumePoolJobMatch,
-  fetchPublishedJobs: async (slug) => {
-    const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
-      rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({ param: { slug } }),
-      "加载在招岗位列表失败",
-    );
-    return payload.records;
-  },
+  fetchPublishedJobs: fetchPublishedResumePoolJobDescriptions,
   fetchRecommendations: (slug, resumePoolItemId) =>
-    rpcFetch<JobDescriptionRecommendationResult>(
-      rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
-        json: { topN: 10 },
-        param: { id: resumePoolItemId, slug },
-      }),
-      "加载岗位推荐失败",
-    ),
+    fetchResumePoolJobRecommendations(slug, resumePoolItemId, RESUME_POOL_JOB_RECOMMENDATION_LIMIT),
   isConflictError: (error) => isApiError(error) && error.status === 409,
   notifyError: (message) => toast.error(message),
 };
@@ -336,23 +326,25 @@ export function ResumePoolRecommendationsPanel({
   if (matchQuery.data && (bound ? hasPersistedAlternative : hasAvailablePersistedCandidate)) {
     return (
       <div className="space-y-3">
-        {matchQuery.data.candidates.map((candidate) => (
-          <PersistedJobMatchCandidateCard
-            candidate={candidate}
-            disabled={bindMutation.isPending}
-            key={candidate.id}
-            matching={bindMutation.isPending && bindMutation.variables === candidate.id}
-            onMatch={(jobDescriptionId) => bindMutation.mutate(jobDescriptionId)}
-          />
-        ))}
+        {matchQuery.data.candidates
+          .slice(0, RESUME_POOL_JOB_RECOMMENDATION_LIMIT)
+          .map((candidate) => (
+            <PersistedJobMatchCandidateCard
+              candidate={candidate}
+              disabled={bindMutation.isPending}
+              key={candidate.id}
+              matching={bindMutation.isPending && bindMutation.variables === candidate.id}
+              onMatch={(jobDescriptionId) => bindMutation.mutate(jobDescriptionId)}
+            />
+          ))}
       </div>
     );
   }
 
   if (needsPublishedJobFallback) {
-    const availablePublishedJobs = (publishedJobsQuery.data ?? []).filter(
-      (jobDescription) => jobDescription.id !== detail.jobDescriptionId,
-    );
+    const availablePublishedJobs = (publishedJobsQuery.data ?? [])
+      .filter((jobDescription) => jobDescription.id !== detail.jobDescriptionId)
+      .slice(0, RESUME_POOL_JOB_RECOMMENDATION_LIMIT);
     if (availablePublishedJobs.length === 0) {
       return (
         <Empty className="border-border">
@@ -446,7 +438,7 @@ export function ResumePoolRecommendationsPanel({
 
   return (
     <div className="space-y-3">
-      {data.recommendations.map((recommendation) => (
+      {data.recommendations.slice(0, RESUME_POOL_JOB_RECOMMENDATION_LIMIT).map((recommendation) => (
         <JobDescriptionRecommendationCard
           disabled={bindMutation.isPending}
           key={recommendation.id}

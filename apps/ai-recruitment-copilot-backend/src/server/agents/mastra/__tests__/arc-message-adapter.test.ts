@@ -74,6 +74,62 @@ describe("Arc message adapter", () => {
     });
   });
 
+  it("preserves AI SDK v6 tool parts for persistence and reload", () => {
+    expect(
+      legacyUiMessageToArcMessage({
+        id: "message-v6",
+        parts: [
+          { type: "step-start" },
+          { text: "先读取候选人。", type: "text" },
+          {
+            input: { id: "resume-1", presentation: "context" },
+            output: { resumeRecord: { id: "resume-1" } },
+            state: "output-available",
+            toolCallId: "tool-1",
+            type: "tool-get_resume_record_detail",
+          },
+        ],
+        role: "assistant",
+      }).parts,
+    ).toEqual([
+      { type: "step-start" },
+      { text: "先读取候选人。", type: "text" },
+      {
+        input: { id: "resume-1", presentation: "context" },
+        output: { resumeRecord: { id: "resume-1" } },
+        state: "output-available",
+        toolCallId: "tool-1",
+        type: "tool-get_resume_record_detail",
+      },
+    ]);
+  });
+
+  it("preserves AI SDK v6 approval states", () => {
+    expect(
+      legacyUiMessageToArcMessage({
+        id: "message-approval",
+        parts: [
+          {
+            approval: { id: "approval-1" },
+            input: { type: "bind_candidate_to_job" },
+            state: "approval-requested",
+            toolCallId: "tool-approval",
+            type: "tool-propose_recruiting_action",
+          },
+        ],
+        role: "assistant",
+      }).parts,
+    ).toEqual([
+      {
+        approval: { id: "approval-1" },
+        input: { type: "bind_candidate_to_job" },
+        state: "approval-requested",
+        toolCallId: "tool-approval",
+        type: "tool-propose_recruiting_action",
+      },
+    ]);
+  });
+
   it("falls back to a text part for legacy content strings", () => {
     expect(
       legacyUiMessageToArcMessage({

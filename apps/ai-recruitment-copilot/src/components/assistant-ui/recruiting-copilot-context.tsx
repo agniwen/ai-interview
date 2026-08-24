@@ -12,6 +12,8 @@ import {
 } from "react";
 import type { CSSProperties, PropsWithChildren } from "react";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
+import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
+import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
@@ -55,14 +57,21 @@ export interface SearchResumeRecordsResult {
 }
 
 export interface ResumeRecordDetailResult {
-  resumeRecord?: {
-    candidateName: string;
-    citation: CopilotCitation;
-    id: string;
-    jobDescriptionId: string | null;
-    jobDescriptionName: string | null;
-    resumeReview?: ResumeReviewLoose | null;
-  } | null;
+  missingIds?: string[];
+  /** Legacy persisted tool results used the singular field. */
+  resumeRecord?: ResumeRecordToolDetail | null;
+  resumeRecords?: ResumeRecordToolDetail[];
+}
+
+export interface ResumeRecordToolDetail {
+  candidateName: string;
+  citation: CopilotCitation;
+  id: string;
+  jobDescriptionId: string | null;
+  jobDescriptionName: string | null;
+  resumeEvaluationArtifactMode?: JobEvaluationMode | null;
+  resumeReview?: ResumeReviewLoose | null;
+  structuredResumeReview?: StructuredResumeReview | null;
 }
 
 export interface CopilotCitation {

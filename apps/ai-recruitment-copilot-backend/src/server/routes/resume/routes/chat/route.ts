@@ -1,5 +1,5 @@
-import type { ModelMessage, UIMessage } from "ai";
-import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
+import type { UIMessage } from "ai";
+import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { zValidator } from "@hono/zod-validator";
 import { toAISdkStream } from "@mastra/ai-sdk";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
@@ -19,7 +19,7 @@ import { extractV6NativeApproval } from "@arc/ai-recruitment-copilot-backend/ser
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { loadResumeRecordFocus } from "./dao";
 import { resolveRecruitingCopilotFocus } from "./focus";
-import { validateClientChatMessages } from "./messages";
+import { hasExplicitJobBindingConsent, validateClientChatMessages } from "./messages";
 
 function latestUserMessage(messages: UIMessage[]) {
   return [...messages]
@@ -28,26 +28,6 @@ function latestUserMessage(messages: UIMessage[]) {
       (message): message is UIMessage =>
         typeof message === "object" && message !== null && message.role === "user",
     );
-}
-
-function messageText(message: UIMessage) {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
-}
-
-function toModelMessages(messages: UIMessage[]): ModelMessage[] {
-  return messages
-    .map((message): ModelMessage | null => {
-      const content = messageText(message);
-      if (!content) {
-        return null;
-      }
-      return { content, role: message.role };
-    })
-    .filter((message): message is ModelMessage => message !== null);
 }
 
 async function persistChatMessage({
@@ -163,6 +143,7 @@ export const resumeChatRouter = factory
     const { messages } = preparedConversation;
 
     const agent = createRecruitingCopilotAgent({
+      bindingConsent: hasExplicitJobBindingConsent(messages),
       contextBindings,
       conversationId: conversationOwned ? chatId : null,
       focus: resolvedFocus ?? undefined,
@@ -174,7 +155,7 @@ export const resumeChatRouter = factory
     const nativeApproval = extractV6NativeApproval(messages);
     const agentStream = nativeApproval
       ? await agent.resumeStream(nativeApproval.resumeData, { runId: nativeApproval.runId })
-      : await agent.stream(toModelMessages(messages));
+      : await agent.stream(await convertToModelMessages(messages));
     const stream = createUIMessageStream<UIMessage>({
       execute: ({ writer }) => {
         writer.merge(

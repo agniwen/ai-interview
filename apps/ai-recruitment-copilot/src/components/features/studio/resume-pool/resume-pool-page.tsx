@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  bindResumePoolItem,
   deleteResumePoolItem,
   fetchResumePoolDuplicateMatches,
   fetchResumePoolItems,
@@ -60,10 +61,7 @@ import type { ResumePoolFilters } from "@/components/features/studio/resume-pool
 import { useResumePoolPageState } from "@/components/features/studio/resume-pool/use-resume-pool-page-state";
 import { ImportResumePoolDialog } from "@/components/features/studio/resume-pool/resume-pool-dialogs";
 import { ResumePoolCreatedAtFilter } from "@/components/features/studio/resume-pool/resume-pool-created-at-filter";
-import {
-  ResumePoolDetailDialog,
-  ResumePoolRecommendationsDialog,
-} from "@/components/features/studio/resume-pool/resume-pool-details";
+import { ResumePoolDetailDialog } from "@/components/features/studio/resume-pool/resume-pool-details";
 import {
   ResumePoolListContent,
   ResumePoolToolbarActions,
@@ -114,9 +112,6 @@ export function ResumePoolPage() {
   } = useResumePoolPageState();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [recommendationTarget, setRecommendationTarget] = useState<ResumePoolListRecord | null>(
-    null,
-  );
   const [loadedPoolResult, setLoadedPoolResult] = useState<{
     records: ResumePoolListRecord[];
     signature: string;
@@ -373,6 +368,20 @@ export function ResumePoolPage() {
       refreshPool();
     },
   });
+  const bindJobDescriptionMutation = useMutation({
+    mutationFn: ({
+      jobDescriptionId,
+      record,
+    }: {
+      jobDescriptionId: string;
+      record: ResumePoolListRecord;
+    }) => bindResumePoolItem(slug, record.id, jobDescriptionId),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "更换绑定岗位失败"),
+    onSuccess: () => {
+      toast.success("已更换绑定岗位");
+      refreshPool();
+    },
+  });
   const isDeletingPoolRecords = deleteMutation.isPending;
 
   const emptyTitle = grid.bind.filterValues.createdAtRange
@@ -471,6 +480,11 @@ export function ResumePoolPage() {
             }
           />
           <ResumePoolListContent
+            bindingJobDescriptionRecordId={
+              bindJobDescriptionMutation.isPending
+                ? (bindJobDescriptionMutation.variables?.record.id ?? null)
+                : null
+            }
             canResetFilters={grid.bind.canResetFilters}
             canDeletePoolRecords={canDeleteResumePool}
             canImportToLibrary={canImportToLibrary}
@@ -483,6 +497,9 @@ export function ResumePoolPage() {
             deleting={isDeletingPoolRecords}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
+            onBindJobDescription={(record, jobDescriptionId) => {
+              bindJobDescriptionMutation.mutate({ jobDescriptionId, record });
+            }}
             onDelete={setDeleteTarget}
             onImport={setImportTarget}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
@@ -490,9 +507,6 @@ export function ResumePoolPage() {
             onOpenPdf={setPreviewRecord}
             onResetFilters={grid.bind.onResetFilters}
             onPublish={publishMutation.mutate}
-            onRecommend={(record) => {
-              setRecommendationTarget(record);
-            }}
             onRetryParse={retryParseMutation.mutate}
             onUpload={() => setUploadEntryOpen(true)}
             publishing={publishMutation.isPending}
@@ -590,14 +604,6 @@ export function ResumePoolPage() {
           }
         }}
         record={detailRecord}
-        slug={slug}
-      />
-      <ResumePoolRecommendationsDialog
-        canRecommend={canImportResumePool && canReadJobDescriptions}
-        currentUserId={currentUserId}
-        onOpenChange={(open) => !open && setRecommendationTarget(null)}
-        open={recommendationTarget !== null}
-        record={recommendationTarget}
         slug={slug}
       />
       <ResumeDuplicateMatchesDialog

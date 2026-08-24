@@ -83,6 +83,70 @@ describe("buildRecruitingResumeReviewCardModel", () => {
     expect(model.dimensions.every((dimension) => dimension.score === null)).toBe(true);
   });
 
+  it("renders a structured score when the legacy review is empty", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <RecruitingCopilotContext.Provider value={contextValue}>
+          <RecruitingResumeReviewCard
+            record={{
+              candidateName: "结构化候选人",
+              citation: {
+                id: "resume-structured",
+                label: "结构化候选人",
+                recordType: "resume_record",
+                secondaryLabel: "运营岗位",
+              },
+              id: "resume-structured",
+              jobDescriptionId: "jd-community-operations",
+              jobDescriptionName: "运营岗位",
+              resumeEvaluationArtifactMode: "structured",
+              resumeReview: null,
+              structuredResumeReview: {
+                adjustments: [],
+                compositeScore: 100,
+                dimensions: {
+                  educationBackground: {
+                    rationale: "学历符合岗位要求",
+                    score: 100,
+                    weight: 10,
+                  },
+                  experienceRelevance: {
+                    rationale: "运营经验高度相关",
+                    score: 100,
+                    weight: 25,
+                  },
+                  potential: { rationale: "具备成长潜力", score: 100, weight: 8 },
+                  projectMatch: { rationale: "项目经验匹配", score: 100, weight: 15 },
+                  skillMatch: { rationale: "核心技能匹配", score: 100, weight: 35 },
+                  stability: { rationale: "履历稳定", score: 100, weight: 7 },
+                },
+                gateJudgments: [],
+                gateStatus: "passed",
+                grade: "recommended",
+                overallComment: "岗位匹配度高",
+                recommendation: "建议进入下一轮",
+                summary: "六维表现均衡",
+              },
+            }}
+          />
+        </RecruitingCopilotContext.Provider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("100");
+    expect(container.textContent).toContain("推荐");
+    expect(container.textContent).toContain("门槛通过");
+    expect(container.textContent).not.toContain("尚未生成");
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it("opens the candidate detail directly on the AI score tab", async () => {
     const container = document.createElement("div");
     document.body.append(container);

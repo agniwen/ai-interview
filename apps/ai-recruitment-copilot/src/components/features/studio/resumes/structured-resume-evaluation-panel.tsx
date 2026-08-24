@@ -4,13 +4,19 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { StructuredResumeRuleId } from "@arc/db-schema/job-description-structured-config";
+import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-structured-config";
 import type { StructuredResumeGateStatus } from "@arc/db-schema/structured-resume-evaluation";
-import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
+import {
+  STRUCTURED_RESUME_DEDUCTION_CATALOG,
+  STRUCTURED_RESUME_DIMENSIONS,
+} from "@arc/shared/structured-resume-scoring";
 import { cn } from "@arc/shared/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { correctStructuredResumeGate } from "@/lib/client/api/endpoints/studio-resumes";
 
 const DIMENSION_LABELS = {
@@ -21,6 +27,32 @@ const DIMENSION_LABELS = {
   skillMatch: "技能",
   stability: "稳定",
 } as const;
+
+const DEDUCTION_RULE_LABELS = {
+  "education.below_tier": "学历每低于门槛一档",
+  "education.major_unrelated": "专业与岗位无关",
+  "experience.fragmented": "相关经验碎片化或多次转行断档",
+  "experience.industry_unrelated": "行业完全不匹配",
+  "experience.missing_year": "相关经验每缺少 1 年",
+  "potential.illogical_switches": "无逻辑频繁跨行",
+  "potential.no_growth_two_years": "近 2 年无成长记录",
+  "potential.unexplained_gap_over_six_months": "超过 6 个月空档且无合理解释",
+  "project.edge_participation": "仅边缘参与相关项目",
+  "project.no_relevant_project": "无相关项目",
+  "project.old_relevant_project": "最近相关项目距今超过 3 年",
+  "project.scale_low": "项目规模或复杂度不足",
+  "skill.missing_auxiliary": "每缺失 1 项辅助技能",
+  "skill.missing_core": "每缺失 1 项核心技能",
+  "skill.no_related_skill": "无任何相关技能",
+  "skill.shallow": "每项技能仅浅层了解",
+  "stability.frequent_unrelated_industries": "频繁跨完全无关行业",
+  "stability.gap_over_six_months": "空档超过 6 个月且无解释",
+  "stability.gap_three_to_six_months": "空档 3～6 个月且无解释",
+  "stability.short_tenure": "每段任职不足 3 个月",
+  "stability.three_changes_one_year": "1 年内跳槽至少 3 次",
+  "stability.two_changes_one_year": "1 年内跳槽 2 次",
+  "stability.two_changes_two_years": "近 2 年跳槽 2 次",
+} satisfies Record<StructuredResumeRuleId, string>;
 
 const RADAR_DIMENSION_ORDER = [
   "skillMatch",
@@ -106,12 +138,36 @@ function hrStatusLabel(status: ResumeLibraryDetail["resumeEvaluationStatus"]) {
 interface StructuredDimensionDisplay {
   comment: string;
   contribution: number;
+  deductionRules: { label: string; value: string }[];
   deductionTotal: number;
   key: StructuredDimensionKey;
   label: string;
   requirements: string[];
   score: number;
   weight: number;
+}
+
+function getDimensionDeductionRules(
+  evaluation: StructuredEvaluation,
+  key: StructuredDimensionKey,
+): StructuredDimensionDisplay["deductionRules"] {
+  const deductionRules = evaluation.jobConfig?.deductionRules;
+  if (!deductionRules) {
+    return [];
+  }
+  return structuredResumeRuleIdSchema.options.flatMap((ruleId) => {
+    const catalogRule = STRUCTURED_RESUME_DEDUCTION_CATALOG[ruleId];
+    const config = deductionRules[ruleId];
+    if (catalogRule.dimension !== key || !config.enabled) {
+      return [];
+    }
+    return [
+      {
+        label: DEDUCTION_RULE_LABELS[ruleId],
+        value: catalogRule.directZero ? "命中后本维度记 0 分" : `扣 ${config.points} 分`,
+      },
+    ];
+  });
 }
 
 function getDimensionRequirements(
@@ -292,6 +348,57 @@ function StructuredSkillAssessmentPanel({
   );
 }
 
+function DimensionRequirementsHoverCard({ dimension }: { dimension: StructuredDimensionDisplay }) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <Button
+            aria-label={`查看${dimension.label}维度要求`}
+            data-structured-dimension-requirements-trigger={dimension.key}
+            size="xs"
+            type="button"
+            variant="ghost"
+          >
+            查看要求
+          </Button>
+        }
+      />
+      <HoverCardContent align="start" className="w-96 max-w-[calc(100vw-2rem)]" sideOffset={8}>
+        <div className="flex flex-col gap-4">
+          <div className="font-medium text-sm">{dimension.label}维度</div>
+          <div className="flex flex-col gap-2">
+            <div className="font-medium text-xs">岗位要求</div>
+            {dimension.requirements.length > 0 ? (
+              <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-sm leading-6">
+                {dimension.requirements.map((requirement) => (
+                  <li key={requirement}>{requirement}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm leading-6">该维度未配置明确要求</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2" data-structured-dimension-deduction-rules>
+            <div className="font-medium text-xs">扣分规则</div>
+            {dimension.deductionRules.length > 0 ? (
+              <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-sm leading-6">
+                {dimension.deductionRules.map((rule) => (
+                  <li key={rule.label}>
+                    {rule.label}：{rule.value}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm leading-6">该维度未启用扣分规则</p>
+            )}
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 function StructuredDimensionScore({ dimension }: { dimension: StructuredDimensionDisplay }) {
   return (
     <div
@@ -307,27 +414,21 @@ function StructuredDimensionScore({ dimension }: { dimension: StructuredDimensio
         </div>
         <div className="font-semibold text-xl tabular-nums leading-none">{dimension.score}</div>
       </div>
-      <div className="mt-3 space-y-3">
-        <div className="space-y-1.5" data-structured-dimension-requirements>
-          <div className="font-medium text-xs">岗位要求</div>
-          {dimension.requirements.length > 0 ? (
-            <ul className="list-disc space-y-1 pl-4 text-muted-foreground text-sm leading-6">
-              {dimension.requirements.map((requirement) => (
-                <li key={requirement}>{requirement}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground text-sm leading-6">该维度未配置明确要求</p>
-          )}
-        </div>
-        <div className="space-y-1.5" data-structured-dimension-judgment>
+      <div className="mt-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5" data-structured-dimension-judgment>
           <div className="font-medium text-xs">AI 判断</div>
           <p className="text-muted-foreground text-sm leading-6">{dimension.comment}</p>
         </div>
-        <div className="text-muted-foreground text-xs">
-          {dimension.deductionTotal > 0
-            ? `本维度合计扣 ${dimension.deductionTotal} 分`
-            : "本维度无扣分"}
+        <div
+          className="flex items-center gap-1.5 text-muted-foreground text-xs"
+          data-structured-dimension-deduction-summary
+        >
+          <span>
+            {dimension.deductionTotal > 0
+              ? `本维度合计扣 ${dimension.deductionTotal} 分`
+              : "本维度无扣分"}
+          </span>
+          <DimensionRequirementsHoverCard dimension={dimension} />
         </div>
       </div>
     </div>
@@ -481,6 +582,7 @@ export function StructuredResumeEvaluationPanel({
     return {
       comment: [overallComment, deductionComment].filter(Boolean).join(" "),
       contribution: Math.round(result.weightedContributionHundredths / 100),
+      deductionRules: getDimensionDeductionRules(evaluation, key),
       deductionTotal: result.deductionTotal,
       key,
       label: DIMENSION_LABELS[key],

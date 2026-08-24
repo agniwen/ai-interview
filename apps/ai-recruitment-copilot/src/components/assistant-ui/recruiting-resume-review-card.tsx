@@ -6,9 +6,16 @@ import {
   RESUME_REVIEW_DIMENSIONS,
 } from "@arc/shared/resume-review";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
+import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
+import {
+  structuredGateVariant,
+  STRUCTURED_GATE_LABELS,
+  STRUCTURED_GRADE_LABELS,
+} from "@/components/features/studio/resumes/resume-review-display";
 import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type { ResumeRecordDetailResult } from "./recruiting-copilot-context";
@@ -23,11 +30,27 @@ interface RecruitingResumeReviewCardModel {
   baseScore: number | null;
   conclusion: string | null;
   dimensions: RecruitingResumeReviewDimension[];
+  gateStatus: StructuredResumeReview["gateStatus"] | null;
+  grade: StructuredResumeReview["grade"] | null;
 }
 
 export function buildRecruitingResumeReviewCardModel(
   review: ResumeReviewLoose | null | undefined,
+  structuredReview?: StructuredResumeReview | null,
 ): RecruitingResumeReviewCardModel {
+  if (structuredReview) {
+    return {
+      baseScore: structuredReview.compositeScore,
+      conclusion: structuredReview.overallComment ?? structuredReview.summary,
+      dimensions: RESUME_REVIEW_DIMENSIONS.map((definition) => ({
+        key: definition.key,
+        label: definition.label,
+        score: structuredReview.dimensions[definition.key].score,
+      })),
+      gateStatus: structuredReview.gateStatus,
+      grade: structuredReview.grade,
+    };
+  }
   return {
     baseScore: review ? getResumeReviewBaseScore(review) : null,
     conclusion: review?.overall.conclusion ?? null,
@@ -39,6 +62,8 @@ export function buildRecruitingResumeReviewCardModel(
         score: dimension?.score ?? null,
       };
     }),
+    gateStatus: null,
+    grade: null,
   };
 }
 
@@ -74,7 +99,10 @@ export function RecruitingResumeReviewCard({
   record: NonNullable<ResumeRecordDetailResult["resumeRecord"]>;
 }) {
   const { openResumeDetail } = useRecruitingCopilotContext();
-  const model = buildRecruitingResumeReviewCardModel(record.resumeReview);
+  const model = buildRecruitingResumeReviewCardModel(
+    record.resumeReview,
+    record.resumeEvaluationArtifactMode === "structured" ? record.structuredResumeReview : null,
+  );
 
   return (
     <RecruitingChatCard
@@ -103,6 +131,14 @@ export function RecruitingResumeReviewCard({
           <p className="text-sm leading-6">
             {model.conclusion ?? "该候选人尚未生成 AI评分，六维评分暂无数据。"}
           </p>
+          {model.grade && model.gateStatus ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge variant="outline">{STRUCTURED_GRADE_LABELS[model.grade]}</Badge>
+              <Badge variant={structuredGateVariant(model.gateStatus)}>
+                {STRUCTURED_GATE_LABELS[model.gateStatus]}
+              </Badge>
+            </div>
+          ) : null}
           <dl className="mt-3 grid gap-x-4 sm:grid-cols-2">
             {model.dimensions.map((dimension) => (
               <div

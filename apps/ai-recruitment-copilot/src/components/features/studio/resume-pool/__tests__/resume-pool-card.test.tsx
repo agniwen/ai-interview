@@ -1,12 +1,24 @@
+// @vitest-environment jsdom
+
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act } from "react";
 import type { ReactElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 import { canManageResumePoolJobBinding, ResumePoolCard } from "../resume-pool-details";
 import { uploaderMetaLabel } from "../resume-pool-page-model";
+
+// SAFETY: React's test environment flag is intentionally attached to globalThis.
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.clearAllMocks();
+});
 
 const record = {
   candidateEmail: null,
@@ -101,7 +113,7 @@ describe("ResumePoolCard", () => {
         onOpenDuplicateMatches={() => {}}
         onOpenPdf={() => {}}
         onPublish={() => {}}
-        onRecommend={() => {}}
+        onBindJobDescription={() => {}}
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}
@@ -151,7 +163,7 @@ describe("ResumePoolCard", () => {
         onOpenDuplicateMatches={() => {}}
         onOpenPdf={() => {}}
         onPublish={() => {}}
-        onRecommend={() => {}}
+        onBindJobDescription={() => {}}
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}
@@ -175,9 +187,233 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("7 年");
     expect(html).toContain("绑定岗位：");
     expect(html).toContain("已绑定");
-    expect(html).toContain("自动匹配");
+    expect(html).not.toContain("自动匹配");
     expect(html).toContain("更换");
+    expect(html).toContain('aria-haspopup="menu"');
     expect(html.indexOf("目标岗位：")).toBeLessThan(html.indexOf("绑定岗位："));
+  });
+
+  it("opens a job dropdown with the existing matching result", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onBindJobDescription = vi.fn();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], {
+      candidates: [
+        {
+          aiRank: 1,
+          aiReason: "当前最匹配",
+          aiScore: 92,
+          available: true,
+          code: null,
+          departmentName: "商业化",
+          id: "jd-commercial-operations",
+          isCurrent: true,
+          name: "商业化运营",
+          recallRank: 1,
+          vectorScore: 0.91,
+        },
+        {
+          aiRank: 2,
+          aiReason: "内容经验匹配",
+          aiScore: 86,
+          available: true,
+          code: null,
+          departmentName: "内容部",
+          id: "jd-content",
+          isCurrent: false,
+          name: "内容运营",
+          recallRank: 2,
+          vectorScore: 0.84,
+        },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          aiRank: index + 3,
+          aiReason: `候选岗位 ${index + 3} 的匹配说明`,
+          aiScore: 80 - index,
+          available: true,
+          code: null,
+          departmentName: "候选部门",
+          id: `jd-candidate-${index + 3}`,
+          isCurrent: false,
+          name: `候选岗位 ${index + 3}`,
+          recallRank: index + 3,
+          vectorScore: 0.8 - index / 100,
+        })),
+      ],
+      createdAt: "2026-07-31T00:00:00.000Z",
+      id: "match-run-1",
+      selectedJobDescriptionId: "jd-commercial-operations",
+      selectionMethod: "ai",
+      status: "completed",
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <WorkspaceSlugProvider
+            id="org-1"
+            memberRole="admin"
+            permissions={{}}
+            slug="test-workspace"
+          >
+            <ResumePoolCard
+              canDelete={false}
+              canImport={false}
+              canPublish={false}
+              canRecommend={true}
+              canRetryParse={false}
+              deleting={false}
+              onBindJobDescription={onBindJobDescription}
+              onDelete={() => {}}
+              onImport={() => {}}
+              onOpenDetail={() => {}}
+              onOpenDuplicateMatches={() => {}}
+              onOpenPdf={() => {}}
+              onPublish={() => {}}
+              onRetryParse={() => {}}
+              onSelectionChange={() => {}}
+              publishing={false}
+              record={{
+                ...record,
+                jobBindingMode: "automatic",
+                jobDescriptionId: "jd-commercial-operations",
+                jobDescriptionName: null,
+              }}
+              retrying={false}
+              scope="public"
+              selected={false}
+              selectionDisabled={false}
+            />
+          </WorkspaceSlugProvider>
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-label="更换绑定岗位"]');
+    expect(trigger).not.toBeNull();
+
+    await act(async () => {
+      trigger?.click();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("内容运营");
+    expect(document.body.textContent).toContain("内容部 · 内容经验匹配");
+    expect(document.body.textContent).not.toContain("候选岗位 7");
+    expect(document.body.textContent).not.toContain("自动匹配");
+
+    const options = [...document.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]')];
+    expect(options).toHaveLength(5);
+    const option = options.find((item) => item.textContent?.includes("内容运营"));
+    expect(option).toBeDefined();
+    expect(option?.querySelector('[data-slot="item-title"]')?.textContent).toBe("内容运营");
+    expect(option?.querySelector('[data-slot="item-description"]')?.textContent).toBe(
+      "内容部 · 内容经验匹配",
+    );
+
+    await act(async () => {
+      option?.click();
+      await Promise.resolve();
+    });
+
+    expect(onBindJobDescription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: record.id }),
+      "jd-content",
+    );
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
+  it("opens at most five generated recommendations from a secondary dropdown", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onBindJobDescription = vi.fn();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], null);
+    queryClient.setQueryData(["resume-pool", "jd-recommendations", "test-workspace", record.id], {
+      diagnostics: { aboveThresholdCount: 6, eligibleCount: 6, vectorHitCount: 6 },
+      recommendations: Array.from({ length: 6 }, (_, index) => ({
+        departmentName: "产品部",
+        description: `推荐岗位 ${index + 1} 的岗位描述`,
+        id: `jd-recommended-${index + 1}`,
+        name: `推荐岗位 ${index + 1}`,
+        reasons: [`推荐岗位 ${index + 1} 的匹配理由`],
+        score: 90 - index,
+        similarity: {},
+      })),
+      resume: { id: record.id },
+      status: "ready",
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <WorkspaceSlugProvider
+            id="org-1"
+            memberRole="admin"
+            permissions={{}}
+            slug="test-workspace"
+          >
+            <ResumePoolCard
+              canDelete={false}
+              canImport={false}
+              canPublish={false}
+              canRecommend={true}
+              canRetryParse={false}
+              deleting={false}
+              onBindJobDescription={onBindJobDescription}
+              onDelete={() => {}}
+              onImport={() => {}}
+              onOpenDetail={() => {}}
+              onOpenDuplicateMatches={() => {}}
+              onOpenPdf={() => {}}
+              onPublish={() => {}}
+              onRetryParse={() => {}}
+              onSelectionChange={() => {}}
+              publishing={false}
+              record={record}
+              retrying={false}
+              scope="public"
+              selected={false}
+              selectionDisabled={false}
+            />
+          </WorkspaceSlugProvider>
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-label="推荐岗位"]');
+    expect(trigger?.dataset.variant).toBe("secondary");
+
+    await act(async () => {
+      trigger?.click();
+      await Promise.resolve();
+    });
+
+    const options = [...document.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]')];
+    expect(options).toHaveLength(5);
+    expect(document.body.textContent).toContain("产品部 · 推荐岗位 1 的岗位描述");
+    expect(document.body.textContent).not.toContain("推荐岗位 6");
+
+    await act(async () => {
+      options[0]?.click();
+      await Promise.resolve();
+    });
+
+    expect(onBindJobDescription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: record.id }),
+      "jd-recommended-1",
+    );
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
   });
 
   it("offers an enabled reimport action for an imported resume", () => {
@@ -195,7 +431,6 @@ describe("ResumePoolCard", () => {
         onOpenDuplicateMatches={() => {}}
         onOpenPdf={() => {}}
         onPublish={() => {}}
-        onRecommend={() => {}}
         onRetryParse={() => {}}
         onSelectionChange={() => {}}
         publishing={false}

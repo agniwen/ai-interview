@@ -30,7 +30,7 @@ import type {
 
 function ToolNotice({ children }: { children: string }) {
   return (
-    <div className="aui-tool-notice rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+    <div className="aui-tool-notice mt-2 rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
       {children}
     </div>
   );

@@ -1,4 +1,8 @@
 import type {
+  JobDescriptionListRecord,
+  JobDescriptionRecommendationResult,
+} from "@arc/shared/job-descriptions";
+import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
   ResumePoolImportInput,
@@ -104,6 +108,16 @@ export function bindResumePoolItem(
   );
 }
 
+export async function fetchPublishedResumePoolJobDescriptions(
+  slug: string,
+): Promise<JobDescriptionListRecord[]> {
+  const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+    rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({ param: { slug } }),
+    "加载在招岗位列表失败",
+  );
+  return payload.records;
+}
+
 export function fetchResumePoolJobMatch(
   slug: string,
   id: string,
@@ -113,6 +127,20 @@ export function fetchResumePoolJobMatch(
       param: { id, slug },
     }),
     "加载岗位匹配结果失败",
+  );
+}
+
+export function fetchResumePoolJobRecommendations(
+  slug: string,
+  id: string,
+  topN: number,
+): Promise<JobDescriptionRecommendationResult> {
+  return rpcFetch<JobDescriptionRecommendationResult>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
+      json: { topN },
+      param: { id, slug },
+    }),
+    "加载岗位推荐失败",
   );
 }
 

@@ -11,12 +11,14 @@ import { buildRecruitingCopilotInstructions } from "./recruiting-copilot-instruc
 import type { RecruitingCopilotFocus } from "./recruiting-copilot-instructions";
 
 export function createRecruitingCopilotAgent({
+  bindingConsent = false,
   contextBindings = EMPTY_CHAT_CONTEXT_BINDINGS,
   conversationId,
   focus,
   organizationId,
   visibilityScope,
 }: {
+  bindingConsent?: boolean;
   contextBindings?: ChatContextBindings;
   conversationId?: string | null;
   focus?: RecruitingCopilotFocus;
@@ -30,6 +32,7 @@ export function createRecruitingCopilotAgent({
     model: withThinkingDisabled(mastraModels.fastModel),
     name: "RecruitingCopilotAgent",
     tools: createRecruitingCopilotTools({
+      bindingConsent,
       contextBindings,
       conversationId,
       organizationId,

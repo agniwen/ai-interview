@@ -176,6 +176,7 @@ export function ResumePoolEmptyState({
 }
 
 export function ResumePoolListContent({
+  bindingJobDescriptionRecordId,
   canDeletePoolRecords,
   canImportToLibrary,
   canResetFilters,
@@ -188,13 +189,13 @@ export function ResumePoolListContent({
   deleting,
   emptyTitle,
   isInitialPoolLoading,
+  onBindJobDescription,
   onDelete,
   onImport,
   onOpenDuplicateMatches,
   onOpenDetail,
   onOpenPdf,
   onPublish,
-  onRecommend,
   onRetryParse,
   onResetFilters,
   onUpload,
@@ -219,6 +220,7 @@ export function ResumePoolListContent({
   publishing: boolean;
   deleting: boolean;
   isInitialPoolLoading: boolean;
+  bindingJobDescriptionRecordId: string | null;
   showEmptyState: boolean;
   emptyTitle: string;
   canResetFilters: boolean;
@@ -227,7 +229,7 @@ export function ResumePoolListContent({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
-  onRecommend: (record: ResumePoolListRecord) => void;
+  onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onUpload: () => void;
@@ -250,6 +252,7 @@ export function ResumePoolListContent({
         const canManageRecord = scope !== "private" || record.createdBy === currentUserId;
         return (
           <ResumePoolCard
+            bindingJobDescription={bindingJobDescriptionRecordId === record.id}
             canDelete={canDelete}
             canImport={canImportToLibrary && canManageRecord}
             canPublish={canPublishToPool && canManageRecord}
@@ -265,7 +268,7 @@ export function ResumePoolListContent({
             onOpenDetail={onOpenDetail}
             onOpenPdf={onOpenPdf}
             onPublish={onPublish}
-            onRecommend={onRecommend}
+            onBindJobDescription={onBindJobDescription}
             onRetryParse={onRetryParse}
             publishing={publishing}
             retrying={retryingRecordId === record.id}

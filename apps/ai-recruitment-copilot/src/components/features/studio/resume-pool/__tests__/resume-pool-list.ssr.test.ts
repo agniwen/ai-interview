@@ -14,6 +14,7 @@ describe("resume pool list SSR boundary", () => {
     const { ResumePoolListContent } = await import("../resume-pool-list");
     const markup = renderToStaticMarkup(
       createElement(ResumePoolListContent, {
+        bindingJobDescriptionRecordId: null,
         canDeletePoolRecords: false,
         canImportToLibrary: false,
         canPublishToPool: false,
@@ -26,13 +27,13 @@ describe("resume pool list SSR boundary", () => {
         deleting: false,
         emptyTitle: "",
         isInitialPoolLoading: false,
+        onBindJobDescription: () => {},
         onDelete: () => {},
         onImport: () => {},
         onOpenDetail: () => {},
         onOpenDuplicateMatches: () => {},
         onOpenPdf: () => {},
         onPublish: () => {},
-        onRecommend: () => {},
         onResetFilters: () => {},
         onRetryParse: () => {},
         onUpload: () => {},
