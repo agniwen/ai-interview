@@ -378,6 +378,36 @@ describe("parseResumeOcrOnly", () => {
     expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(1);
   });
 
+  it("compares PDF text coverage per page", async () => {
+    pdfPageCount = 2;
+    pdfPages = [Buffer.from("page-1"), Buffer.from("page-2")];
+    mocks.qwenVlOcr
+      .mockResolvedValueOnce("其他公司\n2020.7-2022.4")
+      .mockResolvedValueOnce("亿达信息技术有限公司\n产品经理");
+    mocks.extractPdfTextPages.mockResolvedValue({
+      pageCount: 2,
+      pages: ["其他公司\n2020.7-2022.4", "亿达信息技术有限公司\n产品经理\n2020.7-2022.4"],
+    });
+
+    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+
+    expect(result.text).toContain("[第 2 页]\n亿达信息技术有限公司\n产品经理\n2020.7-2022.4");
+  });
+
+  it("does not fall back to PDF text when OCR returns empty", async () => {
+    pdfPageCount = 1;
+    pdfPages = [Buffer.from("pdf-page")];
+    mocks.qwenVlOcr.mockResolvedValue("");
+    mocks.extractPdfTextPages.mockResolvedValue({
+      pageCount: 1,
+      pages: ["亿达信息技术有限公司\n2020.7-2022.4"],
+    });
+
+    await expect(parseResumeOcrOnly(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+      "Qwen OCR returned empty text for every page",
+    );
+  });
+
   it("retries transient OCR connection errors", async () => {
     mocks.qwenVlOcr
       .mockRejectedValueOnce(new Error("Connection error."))
@@ -733,6 +763,16 @@ describe("generateResumeStructured", () => {
         validate: expect.any(Function),
       }),
     );
+  });
+
+  it("preserves bounded PDF text supplements when long OCR input is clipped", async () => {
+    await generateResumeStructured(
+      `${"OCR正文".repeat(6000)}\n\n[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]\n2020.7-2022.4`,
+    );
+
+    const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain("[...OCR content truncated...]");
+    expect(prompt).toContain("2020.7-2022.4");
   });
 
   it("instructs the model to collect a complete skill set without an 18-item cap", async () => {

@@ -40,6 +40,7 @@ const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
 const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
+const PDF_TEXT_SUPPLEMENT_MAX_CHARS = 4000;
 const PDF_TEXT_SUPPLEMENT_HEADING =
   "[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]";
 
@@ -99,6 +100,13 @@ function clipForStructured(text: string): string {
   if (text.length <= STRUCTURED_TEXT_MAX_CHARS) {
     return text;
   }
+  const supplementStart = text.indexOf(`\n\n${PDF_TEXT_SUPPLEMENT_HEADING}`);
+  if (supplementStart !== -1) {
+    const ocrText = text.slice(0, supplementStart);
+    const supplement = text.slice(supplementStart + 2).slice(0, PDF_TEXT_SUPPLEMENT_MAX_CHARS);
+    const suffix = `\n\n[...OCR content truncated...]\n\n${supplement}`;
+    return `${ocrText.slice(0, STRUCTURED_TEXT_MAX_CHARS - suffix.length)}${suffix}`;
+  }
   return `${text.slice(0, STRUCTURED_TEXT_MAX_CHARS)}\n\n[...content truncated...]`;
 }
 
@@ -139,17 +147,17 @@ function isLikelyDecorativePdfText(line: string): boolean {
   );
 }
 
-function buildPdfTextSupplement(ocrText: string, textPages: string[]): string | null {
-  const compactOcr = compactTextForCoverage(ocrText);
+function buildPdfTextSupplement(ocrPages: string[], textPages: string[]): string | null {
   const pageBlocks: string[] = [];
   for (const [pageIndex, pageText] of textPages.entries()) {
+    const compactOcrPage = compactTextForCoverage(ocrPages[pageIndex] ?? "");
     const lines = pageText
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => compactTextForCoverage(line).length >= 4)
       .filter((line) => !isLikelyDecorativePdfText(line));
     const missingIndexes = lines.flatMap((line, index) =>
-      compactOcr.includes(compactTextForCoverage(line)) ? [] : [index],
+      compactOcrPage.includes(compactTextForCoverage(line)) ? [] : [index],
     );
     if (missingIndexes.length === 0) {
       continue;
@@ -715,8 +723,13 @@ export async function parseResumeOcrOnly(
   }
 
   const ocrText = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
+  if (ocrText.trim().length === 0) {
+    throw new Error("Qwen OCR returned empty text for every page.");
+  }
+  validateOcrTextQuality(ocrText);
+
   const textLayer = await textLayerPromise;
-  const supplement = textLayer ? buildPdfTextSupplement(ocrText, textLayer.pages) : null;
+  const supplement = textLayer ? buildPdfTextSupplement(ocrTexts, textLayer.pages) : null;
   const text = supplement ? `${ocrText}\n\n${supplement}` : ocrText;
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),
@@ -732,11 +745,6 @@ export async function parseResumeOcrOnly(
     totalPages: pageCount,
     type: "ocr.completed",
   });
-
-  if (text.trim().length === 0) {
-    throw new Error("Qwen OCR returned empty text for every page.");
-  }
-  validateOcrTextQuality(text);
 
   devOcrLog("completed", {
     duration: formatDuration(totalStartedAt),
