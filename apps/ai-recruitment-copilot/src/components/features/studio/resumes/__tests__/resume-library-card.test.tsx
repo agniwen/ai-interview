@@ -189,7 +189,7 @@ describe("ResumeLibraryCard", () => {
     );
 
     expect(content).toMatch(
-      /<p class="[^"]*text-sm[^"]*">.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
+      /<p class="[^"]*text-\[13px\][^"]*">.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
     );
     expect(content).not.toContain("</button> · AI 生成的候选人评价");
     expect(content).not.toContain('<span class="sr-only">AI评分</span>');
@@ -236,6 +236,9 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("xl:block");
     expect(content).toContain("xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]");
     expect(content).not.toContain("2xl:hidden");
+    expect(content).toContain("line-clamp-3");
+    expect(content).toContain("text-[13px]");
+    expect(content).toContain("leading-[18px]");
     expect(content).toContain("字节跳动");
     expect(content).toContain("浙江大学");
   });
