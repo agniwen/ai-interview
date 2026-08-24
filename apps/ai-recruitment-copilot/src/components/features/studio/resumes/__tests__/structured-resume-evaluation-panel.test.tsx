@@ -75,6 +75,56 @@ function createDetail(): ResumeLibraryDetail {
         ],
         priorityPointTotal: 0,
       },
+      blueprint: {
+        auxiliarySkills: [],
+        coreSkills: [],
+        dimensionExpectations: {
+          educationBackground: [
+            {
+              expectation: "本科及以上学历",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "本科及以上学历",
+            },
+          ],
+          experienceRelevance: [
+            {
+              expectation: "至少 5 年相关经验",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "至少 5 年相关经验",
+            },
+          ],
+          potential: [
+            {
+              expectation: "具备持续学习能力",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "具备持续学习能力",
+            },
+          ],
+          projectMatch: [
+            {
+              expectation: "主导复杂业务项目",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "主导复杂业务项目",
+            },
+          ],
+          skillMatch: [
+            {
+              expectation: "掌握 TypeScript 与 React",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "掌握 TypeScript 与 React",
+            },
+          ],
+          stability: [
+            {
+              expectation: "履历保持稳定",
+              sourceRef: { kind: "job_description", path: "description" },
+              sourceText: "履历保持稳定",
+            },
+          ],
+        },
+        educationExpectation: null,
+        requiredRelevantExperience: null,
+      },
       calculations: {
         adjustedHundredths: 8660,
         clampedHundredths: 8660,
@@ -383,6 +433,9 @@ describe("StructuredResumeEvaluationPanel", () => {
     const experienceDimension = container.querySelector(
       '[data-structured-dimension-score="experienceRelevance"]',
     );
+    expect(experienceDimension?.textContent).toContain("岗位要求");
+    expect(experienceDimension?.textContent).toContain("至少 5 年相关经验");
+    expect(experienceDimension?.textContent).toContain("AI 判断");
     expect(experienceDimension?.textContent).toContain("相关经验整体充分");
     expect(experienceDimension?.textContent).toContain("相关经验缺少两年，扣 15 分");
     expect(experienceDimension?.textContent).toContain("本维度合计扣 15 分");

@@ -109,8 +109,39 @@ interface StructuredDimensionDisplay {
   deductionTotal: number;
   key: StructuredDimensionKey;
   label: string;
+  requirements: string[];
   score: number;
   weight: number;
+}
+
+function getDimensionRequirements(
+  evaluation: StructuredEvaluation,
+  key: StructuredDimensionKey,
+): string[] {
+  const { blueprint } = evaluation;
+  if (!blueprint) {
+    return [];
+  }
+  const requirements =
+    blueprint.dimensionExpectations?.[key]?.map((item) => item.expectation) ?? [];
+  if (key === "educationBackground" && blueprint.educationExpectation) {
+    requirements.push(blueprint.educationExpectation.sourceText);
+  }
+  if (key === "experienceRelevance") {
+    const experienceRequirements =
+      blueprint.requiredRelevantExperiences?.map((item) => item.sourceText) ?? [];
+    if (experienceRequirements.length === 0 && blueprint.requiredRelevantExperience) {
+      experienceRequirements.push(blueprint.requiredRelevantExperience.sourceText);
+    }
+    requirements.push(...experienceRequirements);
+  }
+  if (key === "skillMatch") {
+    requirements.push(
+      ...(blueprint.coreSkills ?? []).map((item) => item.sourceText),
+      ...(blueprint.auxiliarySkills ?? []).map((item) => item.sourceText),
+    );
+  }
+  return [...new Set(requirements.map((item) => item.trim()).filter(Boolean))];
 }
 
 function describeDeductionPoints(
@@ -276,8 +307,23 @@ function StructuredDimensionScore({ dimension }: { dimension: StructuredDimensio
         </div>
         <div className="font-semibold text-xl tabular-nums leading-none">{dimension.score}</div>
       </div>
-      <div className="mt-3 space-y-2">
-        <p className="text-muted-foreground text-sm leading-6">{dimension.comment}</p>
+      <div className="mt-3 space-y-3">
+        <div className="space-y-1.5" data-structured-dimension-requirements>
+          <div className="font-medium text-xs">岗位要求</div>
+          {dimension.requirements.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-4 text-muted-foreground text-sm leading-6">
+              {dimension.requirements.map((requirement) => (
+                <li key={requirement}>{requirement}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm leading-6">该维度未配置明确要求</p>
+          )}
+        </div>
+        <div className="space-y-1.5" data-structured-dimension-judgment>
+          <div className="font-medium text-xs">AI 判断</div>
+          <p className="text-muted-foreground text-sm leading-6">{dimension.comment}</p>
+        </div>
         <div className="text-muted-foreground text-xs">
           {dimension.deductionTotal > 0
             ? `本维度合计扣 ${dimension.deductionTotal} 分`
@@ -438,6 +484,7 @@ export function StructuredResumeEvaluationPanel({
       deductionTotal: result.deductionTotal,
       key,
       label: DIMENSION_LABELS[key],
+      requirements: getDimensionRequirements(evaluation, key),
       score: result.rawScore,
       weight: result.weight,
     };
