@@ -224,6 +224,7 @@ describe("ResumeLibraryCard", () => {
             education: [{ period: "2016–2020", primary: "浙江大学", secondary: "计算机科学" }],
             work: [{ period: "2021–至今", primary: "字节跳动", secondary: "高级前端工程师" }],
           },
+          resumeSkills: ["增长实验", "用户分层", "激励机制", "生命周期运营", "Discord", "Mod 管理"],
         }}
         retrying={false}
         selected={false}
@@ -239,6 +240,11 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("line-clamp-3");
     expect(content).toContain("text-[13px]");
     expect(content).toContain("leading-[19px]");
+    expect(content).toContain("flex-nowrap");
+    expect(content).toContain(
+      "[mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]",
+    );
+    expect(content).not.toContain("flex-wrap gap-1.5 overflow-hidden");
     expect(content).toContain("字节跳动");
     expect(content).toContain("浙江大学");
   });

@@ -689,7 +689,7 @@ function ResumeLibraryCardComponent({
                 </p>
 
                 {skills.length > 0 ? (
-                  <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
+                  <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]">
                     {skills.map((item) => (
                       <Badge className="max-w-52 truncate" key={item} variant="outline">
                         {item}
