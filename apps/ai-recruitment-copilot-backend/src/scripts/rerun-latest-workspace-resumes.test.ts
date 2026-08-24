@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRerunExecutionPlan,
   buildTargetFingerprint,
+  isSuccessfulRerunOutcome,
   parseRerunLatestWorkspaceResumesOptions,
   shouldRetryEvaluation,
 } from "./rerun-latest-workspace-resumes";
@@ -10,6 +11,8 @@ describe("latest workspace resume rerun", () => {
   it("defaults to a dry run and requires a fingerprint for apply mode", () => {
     expect(parseRerunLatestWorkspaceResumesOptions([])).toEqual({
       apply: false,
+      date: null,
+      excludeResumeIds: [],
       expectedFingerprint: null,
       outputPath: null,
       retryFailedEvaluations: false,
@@ -20,11 +23,15 @@ describe("latest workspace resume rerun", () => {
     expect(
       parseRerunLatestWorkspaceResumesOptions([
         "--apply",
+        "--date=2026-08-24",
+        "--exclude-resume-id=resume-legacy",
         `--expected-fingerprint=${"a".repeat(64)}`,
         "--output=/tmp/report.json",
       ]),
     ).toEqual({
       apply: true,
+      date: "2026-08-24",
+      excludeResumeIds: ["resume-legacy"],
       expectedFingerprint: "a".repeat(64),
       outputPath: "/tmp/report.json",
       retryFailedEvaluations: false,
@@ -68,6 +75,23 @@ describe("latest workspace resume rerun", () => {
     ).toBe(true);
   });
 
+  it("uses the final persisted state when an overlapping evaluation dispatch reports failure", () => {
+    expect(
+      isSuccessfulRerunOutcome("ready", {
+        resumeParseStatus: "ready",
+        resumeReviewStatus: "ready",
+        structuredResumeEvaluation: {},
+      }),
+    ).toBe(true);
+    expect(
+      isSuccessfulRerunOutcome("ready", {
+        resumeParseStatus: "ready",
+        resumeReviewStatus: "processing",
+        structuredResumeEvaluation: null,
+      }),
+    ).toBe(false);
+  });
+
   it("plans full reruns and failed-evaluation recovery without reprocessing successful PDFs", () => {
     const snapshots = [
       {
@@ -97,6 +121,9 @@ describe("latest workspace resume rerun", () => {
       "64 位",
     );
     expect(() => parseRerunLatestWorkspaceResumesOptions(["--limit=9"])).toThrow("未知参数");
+    expect(() => parseRerunLatestWorkspaceResumesOptions(["--date=2026/08/24"])).toThrow(
+      "YYYY-MM-DD",
+    );
   });
 
   it("builds a stable fingerprint that changes with target identity", () => {

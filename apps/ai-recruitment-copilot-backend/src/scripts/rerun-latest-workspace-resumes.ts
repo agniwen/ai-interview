@@ -3,14 +3,19 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config as loadEnvFile } from "dotenv";
+import pLimit from "p-limit";
 
-const TARGET_COUNT = 10;
+const DEFAULT_TARGET_COUNT = 10;
+const MAX_DATE_TARGET_COUNT = 500;
+const TARGET_CONCURRENCY = 10;
 const TARGET_MODEL = "deepseek-v4-flash-0731";
 const WORKSPACE_ID = "org_default";
 const WORKSPACE_NAME = "极光/幻游";
 
 interface Options {
   apply: boolean;
+  date: string | null;
+  excludeResumeIds: string[];
   expectedFingerprint: string | null;
   outputPath: string | null;
   retryFailedEvaluations: boolean;
@@ -59,6 +64,8 @@ const logContext = new AsyncLocalStorage<LogContext>();
 export function parseRerunLatestWorkspaceResumesOptions(argv: string[]): Options {
   const options: Options = {
     apply: false,
+    date: null,
+    excludeResumeIds: [],
     expectedFingerprint: null,
     outputPath: null,
     retryFailedEvaluations: false,
@@ -73,7 +80,11 @@ export function parseRerunLatestWorkspaceResumesOptions(argv: string[]): Options
       continue;
     }
     const [key, value] = argument.split("=", 2);
-    if (key === "--expected-fingerprint" && value) {
+    if (key === "--date" && value) {
+      options.date = value;
+    } else if (key === "--exclude-resume-id" && value) {
+      options.excludeResumeIds.push(value);
+    } else if (key === "--expected-fingerprint" && value) {
       options.expectedFingerprint = value;
     } else if (key === "--output" && value) {
       options.outputPath = value;
@@ -90,6 +101,9 @@ export function parseRerunLatestWorkspaceResumesOptions(argv: string[]): Options
   if (options.retryFailedEvaluations && !options.apply) {
     throw new Error("--retry-failed-evaluations 必须与 --apply 一起使用。 ");
   }
+  if (options.date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(options.date)) {
+    throw new Error("--date 必须是 YYYY-MM-DD。 ");
+  }
   return options;
 }
 
@@ -102,6 +116,22 @@ export function shouldRetryEvaluation(snapshot: {
     snapshot.resumeReviewStatus === "failed" ||
     snapshot.resumeReviewError !== null ||
     snapshot.structuredResumeEvaluation === null
+  );
+}
+
+export function isSuccessfulRerunOutcome(
+  parseStatus: string,
+  snapshot: {
+    resumeParseStatus: string | null;
+    resumeReviewStatus: string | null;
+    structuredResumeEvaluation: unknown;
+  } | null,
+): boolean {
+  return (
+    parseStatus === "ready" &&
+    snapshot?.resumeParseStatus === "ready" &&
+    snapshot.resumeReviewStatus === "ready" &&
+    snapshot.structuredResumeEvaluation !== null
   );
 }
 
@@ -260,7 +290,7 @@ async function run(options: Options): Promise<void> {
   const runtimeLogs: RuntimeLog[] = [];
   const restoreConsole = captureConsole(runtimeLogs);
   const report: ExecutionReport = {
-    concurrency: TARGET_COUNT,
+    concurrency: TARGET_CONCURRENCY,
     evaluation: null,
     fatalError: null,
     final: [],
@@ -317,9 +347,18 @@ async function run(options: Options): Promise<void> {
       throw new Error("目标工作区没有可用于重跑归因的成员。 ");
     }
 
-    const targets = await backfill.loadRecentRows(TARGET_COUNT);
-    if (targets.length !== TARGET_COUNT) {
-      throw new Error(`预期选中 ${TARGET_COUNT} 条，实际 ${targets.length} 条。`);
+    const loadedTargets = await backfill.loadRecentRows(
+      options.date ? MAX_DATE_TARGET_COUNT : DEFAULT_TARGET_COUNT,
+      undefined,
+      options.date ?? undefined,
+    );
+    const excludedIds = new Set(options.excludeResumeIds);
+    const targets = loadedTargets.filter((target) => !excludedIds.has(target.id));
+    if (!options.date && targets.length !== DEFAULT_TARGET_COUNT) {
+      throw new Error(`预期选中 ${DEFAULT_TARGET_COUNT} 条，实际 ${targets.length} 条。`);
+    }
+    if (targets.length === 0) {
+      throw new Error("没有符合条件的目标记录。 ");
     }
     const fingerprint = buildTargetFingerprint(targets);
     const ids = targets.map((target) => target.id);
@@ -437,40 +476,43 @@ async function run(options: Options): Promise<void> {
             enqueueResumeSemanticIndexJobBestEffort: () => Promise.resolve(true),
             resolveCandidateQuestionGenerationEnabled: () => false,
           });
+          const limit = pLimit(TARGET_CONCURRENCY);
           return Promise.all(
             targets.map((target) =>
-              logContext.run({ phase: "parse", resumeId: target.id }, async () => {
-                const itemStartedAt = Date.now();
-                try {
-                  const claim = await claimForceResumeReparse({
-                    organizationId: WORKSPACE_ID,
-                    requestedBy: fallbackMember[0].userId,
-                    resumeRecordId: target.id,
-                  });
-                  if (claim.status !== "claimed") {
-                    throw new Error(`强制重解析 claim 失败：${claim.status}`);
+              limit(() =>
+                logContext.run({ phase: "parse", resumeId: target.id }, async () => {
+                  const itemStartedAt = Date.now();
+                  try {
+                    const claim = await claimForceResumeReparse({
+                      organizationId: WORKSPACE_ID,
+                      requestedBy: fallbackMember[0].userId,
+                      resumeRecordId: target.id,
+                    });
+                    if (claim.status !== "claimed") {
+                      throw new Error(`强制重解析 claim 失败：${claim.status}`);
+                    }
+                    const output = await processor.processBatchItem(claim.job.itemId, {
+                      bypassCache: true,
+                    });
+                    if (output?.item?.status !== "succeeded") {
+                      throw new Error(
+                        `PDF 解析未成功：${output?.item?.errorMessage ?? output?.item?.status ?? "无结果"}`,
+                      );
+                    }
+                    return {
+                      durationMs: Date.now() - itemStartedAt,
+                      output,
+                      status: "ready" as const,
+                    };
+                  } catch (error) {
+                    return {
+                      durationMs: Date.now() - itemStartedAt,
+                      error: error instanceof Error ? error.message : String(error),
+                      status: "failed" as const,
+                    };
                   }
-                  const output = await processor.processBatchItem(claim.job.itemId, {
-                    bypassCache: true,
-                  });
-                  if (output?.item?.status !== "succeeded") {
-                    throw new Error(
-                      `PDF 解析未成功：${output?.item?.errorMessage ?? output?.item?.status ?? "无结果"}`,
-                    );
-                  }
-                  return {
-                    durationMs: Date.now() - itemStartedAt,
-                    output,
-                    status: "ready" as const,
-                  };
-                } catch (error) {
-                  return {
-                    durationMs: Date.now() - itemStartedAt,
-                    error: error instanceof Error ? error.message : String(error),
-                    status: "failed" as const,
-                  };
-                }
-              }),
+                }),
+              ),
             ),
           );
         })();
@@ -482,52 +524,58 @@ async function run(options: Options): Promise<void> {
       import("../server/routes/studio/routes/resumes/utils/review-worker"),
     ]);
     const evaluationStartedAt = Date.now();
+    const evaluationLimit = pLimit(TARGET_CONCURRENCY);
     const evaluationResults = await Promise.all(
       refreshed.map((target, index) =>
-        logContext.run({ phase: "evaluation", resumeId: target.id }, async () => {
-          if (parseResults[index].status !== "ready") {
-            return { reason: "parse_failed", status: "skipped" as const };
-          }
-          if (options.retryFailedEvaluations && !executionPlan[index].evaluate) {
-            return { reason: "evaluation_already_ready", status: "skipped" as const };
-          }
-          const itemStartedAt = Date.now();
-          try {
-            const evaluationJob = {
-              autoMatchJobDescription: !target.jobDescriptionId,
-              force: true,
-              jobDescriptionId: target.jobDescriptionId,
-              organizationId: WORKSPACE_ID,
-              resumeRecordId: target.id,
-              source: "resume_upload" as const,
-            };
-            const scheduling = await reviewQueue.scheduleResumeEvaluationForRecord(evaluationJob, {
-              ...reviewQueue.defaultResumeEvaluationSchedulingDependencies,
-              isQueueConfigured: () => false,
-            });
-            if (scheduling.status !== "fallback_sync") {
-              throw new Error(
-                `评分调度失败：${scheduling.status === "failed" ? scheduling.errorMessage : scheduling.status}`,
-              );
+        evaluationLimit(() =>
+          logContext.run({ phase: "evaluation", resumeId: target.id }, async () => {
+            if (parseResults[index].status !== "ready") {
+              return { reason: "parse_failed", status: "skipped" as const };
             }
-            const output = await reviewWorker.processResumeReviewGenerationJob({
-              ...evaluationJob,
-              runId: scheduling.runId,
-            });
-            return {
-              durationMs: Date.now() - itemStartedAt,
-              output,
-              scheduling,
-              status: "ready" as const,
-            };
-          } catch (error) {
-            return {
-              durationMs: Date.now() - itemStartedAt,
-              error: error instanceof Error ? error.message : String(error),
-              status: "failed" as const,
-            };
-          }
-        }),
+            if (options.retryFailedEvaluations && !executionPlan[index].evaluate) {
+              return { reason: "evaluation_already_ready", status: "skipped" as const };
+            }
+            const itemStartedAt = Date.now();
+            try {
+              const evaluationJob = {
+                autoMatchJobDescription: !target.jobDescriptionId,
+                force: true,
+                jobDescriptionId: target.jobDescriptionId,
+                organizationId: WORKSPACE_ID,
+                resumeRecordId: target.id,
+                source: "resume_upload" as const,
+              };
+              const scheduling = await reviewQueue.scheduleResumeEvaluationForRecord(
+                evaluationJob,
+                {
+                  ...reviewQueue.defaultResumeEvaluationSchedulingDependencies,
+                  isQueueConfigured: () => false,
+                },
+              );
+              if (scheduling.status !== "fallback_sync") {
+                throw new Error(
+                  `评分调度失败：${scheduling.status === "failed" ? scheduling.errorMessage : scheduling.status}`,
+                );
+              }
+              const output = await reviewWorker.processResumeReviewGenerationJob({
+                ...evaluationJob,
+                runId: scheduling.runId,
+              });
+              return {
+                durationMs: Date.now() - itemStartedAt,
+                output,
+                scheduling,
+                status: "ready" as const,
+              };
+            } catch (error) {
+              return {
+                durationMs: Date.now() - itemStartedAt,
+                error: error instanceof Error ? error.message : String(error),
+                status: "failed" as const,
+              };
+            }
+          }),
+        ),
       ),
     );
     report.evaluation = {
@@ -538,17 +586,11 @@ async function run(options: Options): Promise<void> {
     const final = await loadRecordSnapshots(ids);
     report.final = final;
     const failed = ids.filter(
-      (_, index) =>
-        parseResults[index].status !== "ready" ||
-        (evaluationResults[index].status !== "ready" &&
-          evaluationResults[index].reason !== "evaluation_already_ready") ||
-        final[index]?.resumeParseStatus !== "ready" ||
-        final[index]?.resumeReviewStatus !== "ready" ||
-        !final[index]?.structuredResumeEvaluation,
+      (_, index) => !isSuccessfulRerunOutcome(parseResults[index].status, final[index]),
     ).length;
     report.summary = {
       failed,
-      succeeded: TARGET_COUNT - failed,
+      succeeded: targets.length - failed,
       totalWallClockDurationMs: Date.now() - startedAt.getTime(),
     };
     if (failed > 0) {
