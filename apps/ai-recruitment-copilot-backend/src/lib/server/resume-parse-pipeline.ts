@@ -43,7 +43,7 @@ const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 const PDF_TEXT_SUPPLEMENT_MAX_CHARS = 4000;
 const PDF_TEXT_SUPPLEMENT_HEADING =
   "[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]";
-const RESUME_DATE_LINE_PATTERN = /(?:19|20)\d{2}[./年-]\d{1,2}/;
+const RESUME_DATE_LINE_PATTERN = /(?<!\d)(?:19|20)\d{2}(?!\d)/;
 
 export { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions";
 

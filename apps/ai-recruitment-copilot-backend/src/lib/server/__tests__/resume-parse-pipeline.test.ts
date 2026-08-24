@@ -767,12 +767,13 @@ describe("generateResumeStructured", () => {
 
   it("preserves bounded PDF text supplements when long OCR input is clipped", async () => {
     await generateResumeStructured(
-      `${"OCR正文".repeat(6000)}\n\n[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]\n${"普通补充".repeat(1200)}\n亿达信息技术有限公司\n产品经理\n2020.7-2022.4`,
+      `${"OCR正文".repeat(6000)}\n\n[PDF 文本层补充信息：仅补足 OCR 可能遗漏的可见文字；如有冲突，以前面的 OCR 正文为准]\n${"普通补充".repeat(1200)}\n亿达信息技术有限公司\n产品经理\n2020.7-2022.4\n蓝贝科技有限公司\n产品经理\n2020年—2022年`,
     );
 
     const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
     expect(prompt).toContain("[...OCR content truncated...]");
     expect(prompt).toContain("2020.7-2022.4");
+    expect(prompt).toContain("2020年—2022年");
   });
 
   it("instructs the model to collect a complete skill set without an 18-item cap", async () => {
