@@ -17,7 +17,6 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { listActiveStudioDuplicateMatchSummaries } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
-import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import {
   buildOrderBy,
   calcTotalPages,
@@ -445,7 +444,6 @@ interface ResumeDerivedFields {
   feishuDocumentUrl: string | null;
   hasInterviewRounds: boolean;
   lastInterviewAt: string | null;
-  resumeParseRetryable: boolean | null;
   stageProgress: ResumeStageProgress;
 }
 
@@ -453,24 +451,18 @@ const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
   feishuDocumentUrl: null,
   hasInterviewRounds: false,
   lastInterviewAt: null,
-  resumeParseRetryable: null,
   stageProgress: EMPTY_STAGE_PROGRESS,
 };
 
-// 在共享阶段进度之上补充解析重试资格，组装招聘台列表/详情需要的完整派生字段。
-// Composes parse-retry eligibility on top of the shared stage-progress bundle.
+// 在共享阶段进度之上补充文档链接，组装招聘台列表/详情需要的完整派生字段。
+// Composes document links on top of the shared stage-progress bundle.
 async function loadResumeDerivedFields(
   candidateIds: string[],
   organizationId: string,
 ): Promise<Map<string, ResumeDerivedFields>> {
   const ids = uniq(candidateIds.filter(Boolean));
-  const [stageProgressById, retryableIds, documentUrls] = await Promise.all([
+  const [stageProgressById, documentUrls] = await Promise.all([
     loadResumeStageProgress(ids),
-    loadResumeParseRetryEligibility({
-      ids,
-      organizationId,
-      target: "resume_library",
-    }),
     loadLatestFeishuDocumentUrls({ ids, key: "interviewRecordId", organizationId }),
   ]);
   const result = new Map<string, ResumeDerivedFields>();
@@ -483,7 +475,6 @@ async function loadResumeDerivedFields(
       feishuDocumentUrl: documentUrls.get(id) ?? null,
       hasInterviewRounds: bundle.stageProgress.aiInterview !== null,
       lastInterviewAt: bundle.lastInterviewAt,
-      resumeParseRetryable: retryableIds.get(id) ?? null,
       stageProgress: bundle.stageProgress,
     });
   }
@@ -567,10 +558,7 @@ function toRecord(
     resumeEvaluationAttemptMode: row.resumeEvaluationAttemptMode,
     resumeEvaluationStatus: row.resumeEvaluationStatus,
     resumeFileName: row.resumeFileName,
-    resumeParseRetryable:
-      row.resumeParseStatus === "failed" &&
-      Boolean(row.resumeStorageKey) &&
-      (resolvedDerived.resumeParseRetryable ?? true),
+    resumeParseRetryable: row.resumeParseStatus === "failed" && Boolean(row.resumeStorageKey),
     resumeParseStatus: row.resumeParseStatus,
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
     resumeReviewBaseScore: parseResumeReviewBaseScore(row.resumeReviewBaseScore),

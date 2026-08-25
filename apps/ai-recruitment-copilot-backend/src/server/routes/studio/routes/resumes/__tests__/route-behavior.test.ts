@@ -332,7 +332,7 @@ describe("resumeLibraryRouter behavior", () => {
     });
   });
 
-  it("rejects a resume record that already used its retry", async () => {
+  it("queues another retry after a failed resume record was retried before", async () => {
     mocks.loadResumeDetail.mockResolvedValue({
       id: RECORD_ID,
       resumeParseRetryable: false,
@@ -343,8 +343,12 @@ describe("resumeLibraryRouter behavior", () => {
       method: "POST",
     });
 
-    expect(response.status).toBe(409);
-    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId: RECORD_ID,
+    });
   });
 
   it("queues an admin force reparse that bypasses parse cache", async () => {

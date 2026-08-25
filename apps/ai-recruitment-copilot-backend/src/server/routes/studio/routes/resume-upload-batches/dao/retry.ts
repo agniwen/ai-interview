@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   resumePoolItem,
@@ -6,7 +6,6 @@ import {
   resumeUploadBatchItem,
   studioInterview,
 } from "@arc/db-schema/schema";
-import type { ResumeUploadBatchTarget } from "@arc/db-schema/schema";
 import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
 import { reconcileBatchProgress } from "./batches";
 
@@ -20,7 +19,7 @@ export type ResumeParseRetryClaim =
       job: ResumeParseJobData;
       status: "claimed";
     }
-  | { status: "not_failed" | "not_found" | "retry_exhausted" };
+  | { status: "not_failed" | "not_found" };
 
 export type ResumeForceReparseClaim =
   | {
@@ -191,10 +190,6 @@ export async function claimFailedResumeParseRetry(
     if (row.item.status !== "failed") {
       return { status: "not_failed" };
     }
-    if (row.item.attemptCount > 1) {
-      return { status: "retry_exhausted" };
-    }
-
     const now = new Date();
     const updatedTarget = targetsResumeRecord
       ? await tx
@@ -479,39 +474,4 @@ export async function rollbackForceResumeReparse(input: {
       });
     }
   }
-}
-
-export async function loadResumeParseRetryEligibility(input: {
-  ids: string[];
-  organizationId: string;
-  target: ResumeUploadBatchTarget;
-}): Promise<Map<string, boolean>> {
-  if (input.ids.length === 0) {
-    return new Map();
-  }
-  const targetColumn =
-    input.target === "resume_library"
-      ? resumeUploadBatchItem.resumeRecordId
-      : resumeUploadBatchItem.poolItemId;
-  const rows = await db
-    .selectDistinctOn([targetColumn], {
-      attemptCount: resumeUploadBatchItem.attemptCount,
-      id: targetColumn,
-      status: resumeUploadBatchItem.status,
-    })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
-    .where(
-      and(
-        inArray(targetColumn, input.ids),
-        eq(resumeUploadBatch.organizationId, input.organizationId),
-        eq(resumeUploadBatch.target, input.target),
-      ),
-    )
-    .orderBy(targetColumn, desc(resumeUploadBatch.createdAt), desc(resumeUploadBatchItem.queuedAt));
-  return new Map(
-    rows.flatMap((row) =>
-      row.id ? [[row.id, row.status === "failed" && row.attemptCount <= 1] as const] : [],
-    ),
-  );
 }

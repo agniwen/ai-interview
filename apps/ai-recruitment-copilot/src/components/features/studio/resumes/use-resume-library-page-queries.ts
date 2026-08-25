@@ -14,7 +14,7 @@ import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
 } from "@arc/shared/studio-resumes";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -76,8 +76,6 @@ export function useResumeLibraryPageQueries({
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void router.invalidate();
   }, [queryClient, router]);
-
-  const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const fetcher = useMemo(
     () =>
@@ -217,8 +215,7 @@ export function useResumeLibraryPageQueries({
   const retryParseMutation = useMutation({
     mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),
     onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
-    onSuccess: (_result, record) => {
-      setRetriedRecordIds((current) => new Set(current).add(record.id));
+    onSuccess: () => {
       toast.success("已重新加入解析队列");
       invalidateAll();
     },
@@ -267,7 +264,6 @@ export function useResumeLibraryPageQueries({
     metricsSwitching,
     resumeLibraryListQuery,
     resumeLibraryTotal,
-    retriedRecordIds,
     retryParseMutation,
     selectedStructuredJob,
     setMetricsScope,

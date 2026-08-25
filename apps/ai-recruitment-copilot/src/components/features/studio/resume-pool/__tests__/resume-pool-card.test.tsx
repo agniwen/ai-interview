@@ -104,11 +104,18 @@ const record = {
   workYears: 5,
 } satisfies ResumePoolListRecord;
 
+const defaultRetryProps = {
+  canRetryParse: false,
+  onRetryParse: () => {},
+  retrying: false,
+} as const;
+
 describe("ResumePoolCard", () => {
   it("matches the recruitment-desk information rhythm and restores the bound-job action", () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={true}
@@ -155,6 +162,7 @@ describe("ResumePoolCard", () => {
     const failedHtml = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={true}
@@ -174,6 +182,7 @@ describe("ResumePoolCard", () => {
     const importedHtml = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={false}
@@ -201,6 +210,7 @@ describe("ResumePoolCard", () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={true}
@@ -232,6 +242,7 @@ describe("ResumePoolCard", () => {
     act(() => {
       root.render(
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={true}
@@ -299,6 +310,7 @@ describe("ResumePoolCard", () => {
       root.render(
         <QueryClientProvider client={queryClient}>
           <ResumePoolCard
+            {...defaultRetryProps}
             bindingJobDescription={false}
             canDelete={false}
             canEnterRecruiting={true}
@@ -359,6 +371,7 @@ describe("ResumePoolCard", () => {
     act(() => {
       root.render(
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={true}
           canEnterRecruiting={true}
@@ -385,6 +398,46 @@ describe("ResumePoolCard", () => {
     act(() => root.unmount());
   });
 
+  it("offers manual reparse for every failed record without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDetail = vi.fn();
+    const onRetryParse = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          canRetryParse
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          onRetryParse={onRetryParse}
+          record={{ ...record, resumeParseRetryable: false, resumeParseStatus: "failed" }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain("重新解析");
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="重新解析简历"]')?.click();
+    });
+    expect(onRetryParse).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+  });
+
   it("invokes detail and recruiting actions without triggering the card click twice", () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -395,6 +448,7 @@ describe("ResumePoolCard", () => {
     act(() => {
       root.render(
         <ResumePoolCard
+          {...defaultRetryProps}
           bindingJobDescription={false}
           canDelete={false}
           canEnterRecruiting={true}

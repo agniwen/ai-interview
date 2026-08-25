@@ -54,7 +54,6 @@ import {
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
@@ -720,16 +719,11 @@ export async function queryResumePoolItems(
     rows.map((row) => row.item.id),
     input.organizationId,
   );
-  const [sourceChannels, duplicateMatches, retryableIds, jobBindingModes] = await Promise.all([
+  const [sourceChannels, duplicateMatches, jobBindingModes] = await Promise.all([
     loadSourceChannels(rows.map((row) => row.item.id)),
     loadPoolDuplicateMatches({
       organizationId: input.organizationId,
       rows: rows.map((row) => row.item),
-    }),
-    loadResumeParseRetryEligibility({
-      ids: rows.map((row) => row.item.id),
-      organizationId: input.organizationId,
-      target: "resume_pool",
     }),
     loadJobBindingModes(rows.map((row) => row.item.id)),
   ]);
@@ -742,9 +736,7 @@ export async function queryResumePoolItems(
         sourceChannels.get(row.item.id) ?? null,
         duplicateMatches.get(row.item.id) ?? null,
         row.jobDescriptionName ?? null,
-        row.item.resumeParseStatus === "failed" &&
-          Boolean(row.item.resumeStorageKey) &&
-          (retryableIds.get(row.item.id) ?? true),
+        row.item.resumeParseStatus === "failed",
         jobBindingModes.get(row.item.id) ?? null,
       ),
     ),
@@ -775,21 +767,15 @@ export async function loadResumePoolItem(
   if (!row) {
     return null;
   }
-  const [importRows, uploaderMeta, duplicateMatches, jobDescriptionName, retryableIds] =
-    await Promise.all([
-      loadImportsForOrg(row.id, input.organizationId),
-      loadUploaderMeta(row.id),
-      loadPoolDuplicateMatches({
-        organizationId: input.organizationId,
-        rows: [row],
-      }),
-      loadBoundJobDescriptionName(row.jobDescriptionId, input.organizationId),
-      loadResumeParseRetryEligibility({
-        ids: [row.id],
-        organizationId: input.organizationId,
-        target: "resume_pool",
-      }),
-    ]);
+  const [importRows, uploaderMeta, duplicateMatches, jobDescriptionName] = await Promise.all([
+    loadImportsForOrg(row.id, input.organizationId),
+    loadUploaderMeta(row.id),
+    loadPoolDuplicateMatches({
+      organizationId: input.organizationId,
+      rows: [row],
+    }),
+    loadBoundJobDescriptionName(row.jobDescriptionId, input.organizationId),
+  ]);
   const [sourceChannels, jobBindingModes] = await Promise.all([
     loadSourceChannels([row.id]),
     loadJobBindingModes([row.id]),
@@ -801,9 +787,7 @@ export async function loadResumePoolItem(
     sourceChannels.get(row.id) ?? null,
     duplicateMatches.get(row.id) ?? null,
     jobDescriptionName,
-    row.resumeParseStatus === "failed" &&
-      Boolean(row.resumeStorageKey) &&
-      (retryableIds.get(row.id) ?? true),
+    row.resumeParseStatus === "failed",
     jobBindingModes.get(row.id) ?? null,
   );
 }

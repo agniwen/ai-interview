@@ -84,6 +84,7 @@ export function ResumePoolListContent({
   canDeletePoolRecords,
   canEnterRecruiting,
   canRecommend,
+  canRetryResumeParse,
   canResetFilters,
   canUpload,
   currentOrganizationId,
@@ -97,9 +98,11 @@ export function ResumePoolListContent({
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
+  onRetryParse,
   onResetFilters,
   onUpload,
   records,
+  retryingRecordId,
   showEmptyState,
   slug,
   sortBy,
@@ -108,6 +111,7 @@ export function ResumePoolListContent({
   canDeletePoolRecords: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
+  canRetryResumeParse: boolean;
   canResetFilters: boolean;
   canUpload: boolean;
   currentOrganizationId: string | null;
@@ -121,9 +125,11 @@ export function ResumePoolListContent({
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   onResetFilters: () => void;
   onUpload: () => void;
   records: ResumePoolListRecord[];
+  retryingRecordId: string | null;
   showEmptyState: boolean;
   slug: string;
   sortBy: string | undefined;
@@ -247,6 +253,7 @@ export function ResumePoolListContent({
                 canDelete={canDelete}
                 canEnterRecruiting={canEnterRecruiting}
                 canRecommend={canRecommend}
+                canRetryParse={canRetryResumeParse}
                 deleting={deletingRecordId === record.id}
                 enteringRecruiting={enteringRecruitingRecordId === record.id}
                 onBindJobDescription={onBindJobDescription}
@@ -254,7 +261,9 @@ export function ResumePoolListContent({
                 onEnterRecruiting={onEnterRecruiting}
                 onOpenDetail={onOpenDetail}
                 onOpenDuplicateMatches={onOpenDuplicateMatches}
+                onRetryParse={onRetryParse}
                 record={record}
+                retrying={retryingRecordId === record.id}
                 slug={slug}
               />
             </div>

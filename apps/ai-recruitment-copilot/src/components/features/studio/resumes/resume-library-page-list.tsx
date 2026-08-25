@@ -81,7 +81,6 @@ interface ResumeLibraryCardListProps {
   onToggleStructuredScoreSort: () => void;
   records: ResumeLibraryListRecord[];
   retryingRecordId: string | null;
-  retriedRecordIds: ReadonlySet<string>;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   isRefetching: boolean;
@@ -129,7 +128,6 @@ export function ResumeLibraryCardList({
   onToggleStructuredScoreSort,
   records,
   retryingRecordId,
-  retriedRecordIds,
   total,
   structuredScoreSortActive,
   structuredScoreSortEnabled,
@@ -292,7 +290,7 @@ export function ResumeLibraryCardList({
                   canCreateInterview={canCreateInterview}
                   canDeleteResumeLibrary={canDeleteResumeLibrary}
                   canForceReparse={canForceReparse}
-                  canRetryResumeParse={canRetryResumeParse && !retriedRecordIds.has(record.id)}
+                  canRetryResumeParse={canRetryResumeParse}
                   canUpdateResumeLibrary={canUpdateResumeLibrary}
                   currentMemberRole={currentMemberRole}
                   currentUserId={currentUserId}

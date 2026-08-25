@@ -79,7 +79,6 @@ export function ResumeLibraryPage() {
     metricsSwitching,
     resumeLibraryListQuery,
     resumeLibraryTotal,
-    retriedRecordIds,
     retryParseMutation,
     selectedStructuredJob,
     setMetricsScope,
@@ -225,7 +224,6 @@ export function ResumeLibraryPage() {
             (retryParseMutation.isPending ? retryParseMutation.variables?.id : null) ??
             null
           }
-          retriedRecordIds={retriedRecordIds}
           total={resumeLibraryTotal}
           uploadEntryDisabled={uploadEntryDisabled}
         />

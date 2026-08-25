@@ -259,10 +259,7 @@ function resolveCardActionFlags({
     canPreviewFromMenu: !parseEditable && record.hasResumeFile && previewable,
     canReactivate: canUpdateResumeLibrary && parseEditable && isClosed,
     canRetry:
-      canUpdateResumeLibrary &&
-      canRetryResumeParse &&
-      record.resumeParseStatus === "failed" &&
-      record.resumeParseRetryable === true,
+      canUpdateResumeLibrary && canRetryResumeParse && record.resumeParseStatus === "failed",
     // Admin force reparse: any record with a file that is not already in-flight.
     showForceReparseInMenu: canForceReparse && record.hasResumeFile && !parseInFlight,
   };

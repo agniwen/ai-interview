@@ -64,17 +64,17 @@ describe("retryFailedResumeParse", () => {
     });
   });
 
-  it("does not enqueue an already retried item", async () => {
+  it("does not enqueue an item that is no longer failed", async () => {
     const enqueue = vi.fn();
 
     const result = await retryFailedResumeParse(INPUT, {
-      claim: vi.fn().mockResolvedValue({ status: "retry_exhausted" }),
+      claim: vi.fn().mockResolvedValue({ status: "not_failed" }),
       enqueue,
       isQueueConfigured: () => true,
       rollback: vi.fn(),
     });
 
-    expect(result).toEqual({ status: "retry_exhausted" });
+    expect(result).toEqual({ status: "not_failed" });
     expect(enqueue).not.toHaveBeenCalled();
   });
 });

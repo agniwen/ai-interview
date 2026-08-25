@@ -63,6 +63,37 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
+  it("shows reparse for every failed record regardless of legacy retry eligibility", () => {
+    const noop = vi.fn();
+    const content = renderWithQueryClient(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canForceReparse={false}
+        canRetryResumeParse
+        canUpdateResumeLibrary
+        currentMemberRole="member"
+        currentUserId="user-1"
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onForceReparse={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{ ...record, resumeParseRetryable: false, resumeParseStatus: "failed" }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content).toContain(">重新解析</span>");
+  });
+
   it("shows the candidate evaluation form action only when a Feishu document exists", () => {
     const noop = vi.fn();
     const renderCard = (feishuDocumentUrl: string | null) =>

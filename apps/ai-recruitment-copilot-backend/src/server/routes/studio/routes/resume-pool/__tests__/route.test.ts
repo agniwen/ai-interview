@@ -291,7 +291,7 @@ describe("resume pool private uploader visibility", () => {
     });
   });
 
-  it("rejects a failed resume that already used its retry", async () => {
+  it("queues a failed resume even when the legacy retry flag is false", async () => {
     mocks.loadResumePoolItem.mockResolvedValue(
       makePoolItem({
         id: "failed-item",
@@ -304,8 +304,12 @@ describe("resume pool private uploader visibility", () => {
       method: "POST",
     });
 
-    expect(response.status).toBe(409);
-    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "failed-item",
+      requestedBy: USER_ID,
+    });
   });
 
   it("reads a subordinate resume file through the recruiting visibility scope", async () => {

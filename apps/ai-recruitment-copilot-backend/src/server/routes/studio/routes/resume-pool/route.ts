@@ -411,9 +411,6 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
           if (item.resumeParseStatus !== "failed") {
             return c.json({ error: "只有解析失败的简历可以重新解析。" }, 409);
           }
-          if (!item.resumeParseRetryable) {
-            return c.json({ error: "该简历已重新解析过，不能再次操作。" }, 409);
-          }
           try {
             const result = await retryFailedResumeParse({
               organizationId: activeOrg.id,

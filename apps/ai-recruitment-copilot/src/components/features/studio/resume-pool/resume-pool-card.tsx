@@ -5,6 +5,7 @@ import {
   IconBuilding,
   IconFileDescription,
   IconLoader2,
+  IconRefresh,
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
@@ -204,21 +205,27 @@ function ResumePoolProfileSnapshot({ record }: { record: ResumePoolListRecord })
 function ResumePoolCardActions({
   canDelete,
   canEnterRecruiting,
+  canRetryParse,
   deleting,
   enteringRecruiting,
   onDelete,
   onEnterRecruiting,
   onOpenDetail,
+  onRetryParse,
   record,
+  retrying,
 }: {
   canDelete: boolean;
   canEnterRecruiting: boolean;
+  canRetryParse: boolean;
   deleting: boolean;
   enteringRecruiting: boolean;
   onDelete: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
+  retrying: boolean;
 }) {
   const importActionState = getResumePoolImportActionState(record);
   const enterDisabled =
@@ -244,6 +251,28 @@ function ResumePoolCardActions({
         <IconFileDescription data-icon="inline-start" />
         详情
       </Button>
+      {canRetryParse && record.resumeParseStatus === "failed" ? (
+        <Button
+          aria-label="重新解析简历"
+          className={actionClass}
+          data-resume-pool-card-action="重新解析"
+          disabled={retrying}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRetryParse(record);
+          }}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {retrying ? (
+            <IconLoader2 className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <IconRefresh data-icon="inline-start" />
+          )}
+          {retrying ? "加入队列中…" : "重新解析"}
+        </Button>
+      ) : null}
       <Button
         aria-label="进入招聘"
         className={actionClass}
@@ -296,6 +325,7 @@ export function ResumePoolCard({
   canDelete,
   canEnterRecruiting,
   canRecommend,
+  canRetryParse,
   deleting,
   enteringRecruiting,
   onBindJobDescription,
@@ -303,13 +333,16 @@ export function ResumePoolCard({
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
+  onRetryParse,
   record,
+  retrying,
   slug,
 }: {
   bindingJobDescription: boolean;
   canDelete: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
+  canRetryParse: boolean;
   deleting: boolean;
   enteringRecruiting: boolean;
   onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
@@ -317,7 +350,9 @@ export function ResumePoolCard({
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
+  retrying: boolean;
   slug: string;
 }) {
   const title = getCandidateTitle(record);
@@ -431,12 +466,15 @@ export function ResumePoolCard({
         <ResumePoolCardActions
           canDelete={canDelete}
           canEnterRecruiting={canEnterRecruiting}
+          canRetryParse={canRetryParse}
           deleting={deleting}
           enteringRecruiting={enteringRecruiting}
           onDelete={onDelete}
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
+          onRetryParse={onRetryParse}
           record={record}
+          retrying={retrying}
         />
       </CardPanel>
     </Card>

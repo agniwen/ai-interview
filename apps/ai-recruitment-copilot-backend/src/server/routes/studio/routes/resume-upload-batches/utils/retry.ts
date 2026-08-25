@@ -37,7 +37,7 @@ const DEFAULT_ADAPTERS: ResumeParseRetryAdapters = {
 
 export type ResumeParseRetryResult =
   | { status: "queued" }
-  | { status: "not_failed" | "not_found" | "queue_unavailable" | "retry_exhausted" };
+  | { status: "not_failed" | "not_found" | "queue_unavailable" };
 
 export type ResumeForceReparseResult =
   | { status: "queued" }

@@ -36,6 +36,7 @@ import {
   fetchResumePoolDuplicateMatches,
   fetchResumePoolItems,
   fetchResumePoolUploaders,
+  retryResumePoolItemParse,
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
@@ -78,6 +79,7 @@ export function ResumePoolPage() {
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
+  const canRetryResumeParse = useHasPermission("resumeUploadBatch", "process");
   const scope = "public" as const;
   const currentUserId = sessionUserId(session);
   const initialPoolFilters = useMemo(() => createResumePoolFilters(), []);
@@ -354,6 +356,15 @@ export function ResumePoolPage() {
       refreshPool();
     },
   });
+  const retryParseMutation = useMutation({
+    mutationFn: (record: ResumePoolListRecord) => retryResumePoolItemParse(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
+    onSuccess: () => {
+      toast.success("已重新加入解析队列");
+      void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
+      refreshPool();
+    },
+  });
 
   const emptyTitle = grid.bind.filterValues.createdAtRange
     ? "当前时间范围内暂无人才"
@@ -459,6 +470,7 @@ export function ResumePoolPage() {
             canDeletePoolRecords={canDeleteResumePool}
             canEnterRecruiting={canImportToLibrary}
             canRecommend={canImportResumePool && canReadJobDescriptions}
+            canRetryResumeParse={canRetryResumeParse}
             canResetFilters={grid.bind.canResetFilters}
             canUpload={canUploadResumePool}
             currentOrganizationId={workspaceId}
@@ -476,9 +488,13 @@ export function ResumePoolPage() {
             onEnterRecruiting={enterRecruiting}
             onOpenDetail={openPoolDetail}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
+            onRetryParse={retryParseMutation.mutate}
             onResetFilters={grid.bind.onResetFilters}
             onUpload={() => setUploadEntryOpen(true)}
             records={loadedPoolRecords}
+            retryingRecordId={
+              retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
+            }
             showEmptyState={showEmptyState}
             slug={slug}
             sortBy={grid.bind.sorting[0]?.id ?? "createdAt"}
