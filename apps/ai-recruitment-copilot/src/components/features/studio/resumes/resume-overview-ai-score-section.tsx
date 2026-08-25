@@ -3,7 +3,6 @@
 
 import { getResumeReviewBaseScore, resumeReviewActionLabel } from "@arc/shared/resume-review";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
@@ -13,7 +12,6 @@ import { OverviewDimensionRadar } from "./resume-overview-dimension-radar";
 import {
   QualitativeDimensionRadar,
   QUALITATIVE_RECOMMENDATION_LABEL,
-  QUALITATIVE_RECOMMENDATION_TEXT_CLASS,
 } from "./qualitative-resume-evaluation-panel";
 import {
   actionVariant,
@@ -54,10 +52,7 @@ export function ResumeOverviewAiScoreSection({
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="text-muted-foreground text-xs">综合评价</div>
               <div
-                className={cn(
-                  "font-semibold text-4xl leading-none tracking-tight",
-                  QUALITATIVE_RECOMMENDATION_TEXT_CLASS[evaluation.recommendationLevel],
-                )}
+                className="font-semibold text-4xl leading-none tracking-tight"
                 data-qualitative-overview-recommendation
               >
                 {QUALITATIVE_RECOMMENDATION_LABEL[evaluation.recommendationLevel]}

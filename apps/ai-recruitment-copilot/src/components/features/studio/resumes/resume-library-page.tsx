@@ -64,7 +64,6 @@ export function ResumeLibraryPage() {
   } = useResumeLibraryPageState();
 
   const {
-    activeSort,
     duplicateMatchesQuery,
     forceReparseMutation,
     grid,
@@ -114,7 +113,6 @@ export function ResumeLibraryPage() {
     handleSingleUploadFilePicked,
     onCopyDetailLink,
     onOpenDetail,
-    onToggleStructuredScoreSort,
     onTransition,
     startAiInterview,
   } = useResumeLibraryPageActions({
@@ -197,7 +195,6 @@ export function ResumeLibraryPage() {
           isRefetching={
             resumeLibraryListQuery.isRefetching && !resumeLibraryListQuery.isFetchingNextPage
           }
-          onToggleStructuredScoreSort={() => onToggleStructuredScoreSort(activeSort?.id)}
           onBulkDelete={() => setBulkDeleteOpen(true)}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={setDeleteRecord}
@@ -215,8 +212,6 @@ export function ResumeLibraryPage() {
           onShowDuplicateMatches={setDuplicateMatchRecord}
           onTransition={onTransition}
           records={loadedResumeRecords}
-          structuredScoreSortActive={activeSort?.id === "aiRecommendation"}
-          structuredScoreSortEnabled
           retryingRecordId={
             (forceReparseMutation.isPending ? forceReparseMutation.variables?.id : null) ??
             (retryParseMutation.isPending ? retryParseMutation.variables?.id : null) ??

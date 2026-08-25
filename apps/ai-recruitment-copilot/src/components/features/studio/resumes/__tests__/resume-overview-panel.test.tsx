@@ -316,7 +316,7 @@ describe("ResumeOverviewPanel", () => {
     ["recommended", "推荐", "text-green-700"],
     ["highly_recommended", "非常推荐", "text-purple-700"],
   ] as const)(
-    "shows qualitative %s with its level color and detailed judgment",
+    "shows qualitative %s neutrally with its detailed judgment",
     (level, label, colorClass) => {
       const container = document.createElement("div");
       document.body.append(container);
@@ -336,7 +336,7 @@ describe("ResumeOverviewPanel", () => {
       );
       const judgment = container.querySelector<HTMLElement>("[data-qualitative-overview-judgment]");
       expect(recommendation?.textContent).toBe(label);
-      expect(recommendation?.className).toContain(colorClass);
+      expect(recommendation?.className).not.toContain(colorClass);
       expect(judgment?.textContent).toContain("关键判断");
       expect(judgment?.querySelector("strong")?.textContent).toBe("关键判断");
       expect(judgment?.querySelector(".typeset")?.className).toContain("text-foreground");

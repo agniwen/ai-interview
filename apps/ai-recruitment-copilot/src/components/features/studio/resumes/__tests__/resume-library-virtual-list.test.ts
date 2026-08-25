@@ -1,3 +1,4 @@
+import { resumeLibrarySortIds } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
@@ -6,6 +7,7 @@ import {
   buildStudioDateGroupedVirtualRows,
   buildStudioStickyDateHeaderPositions,
 } from "../../studio-date-group-virtual-list";
+import { parseResumeQuery } from "../resume-library-page-model";
 
 describe("resume library virtual list", () => {
   it("builds one date header across loaded page boundaries", () => {
@@ -52,6 +54,13 @@ describe("resume library virtual list", () => {
     ).toEqual(["candidate-a", "candidate-b"]);
   });
 
+  it("does not expose AI recommendation sorting", () => {
+    expect(resumeLibrarySortIds).not.toContain("aiRecommendation");
+    expect(parseResumeQuery({ sortBy: "aiRecommendation", sortOrder: "desc" }).sortBy).toBe(
+      "createdAt",
+    );
+  });
+
   it("keeps sticky date headers and records inside one fixed-height virtual list", async () => {
     const [source, sharedSource] = await Promise.all([
       readFile(new URL("../resume-library-page-list.tsx", import.meta.url), "utf-8"),
@@ -64,6 +73,8 @@ describe("resume library virtual list", () => {
     expect(source).toContain("StudioDateGroupHeaderSkeleton");
     expect(source).toContain('row.type === "date-header"');
     expect(source).toContain("rangeExtractor");
+    expect(source).not.toContain("AI 评价排序");
+    expect(source).not.toContain("onToggleStructuredScoreSort");
     expect(source).not.toContain("measureElement");
   });
 });

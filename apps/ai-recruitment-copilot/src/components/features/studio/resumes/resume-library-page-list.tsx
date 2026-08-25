@@ -1,4 +1,4 @@
-import { IconArrowsSort, IconHistory } from "@tabler/icons-react";
+import { IconHistory } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { canDeleteResumeRecord } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
@@ -78,15 +78,12 @@ interface ResumeLibraryCardListProps {
   onRetry: () => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
-  onToggleStructuredScoreSort: () => void;
   records: ResumeLibraryListRecord[];
   retryingRecordId: string | null;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   isRefetching: boolean;
   total: number;
-  structuredScoreSortActive: boolean;
-  structuredScoreSortEnabled: boolean;
   uploadEntryDisabled: boolean;
   hasActiveUploadBatches: boolean;
 }
@@ -125,12 +122,9 @@ export function ResumeLibraryCardList({
   onRetry,
   onShowDuplicateMatches,
   onTransition,
-  onToggleStructuredScoreSort,
   records,
   retryingRecordId,
   total,
-  structuredScoreSortActive,
-  structuredScoreSortEnabled,
   uploadEntryDisabled,
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
@@ -338,18 +332,8 @@ export function ResumeLibraryCardList({
         refreshing={isRefetching}
         searchLoading={isInitialLoading}
         toolbarRight={
-          structuredScoreSortEnabled || canUploadResumeLibrary || canReadResumeUploadBatch ? (
+          canUploadResumeLibrary || canReadResumeUploadBatch ? (
             <ButtonGroup>
-              {structuredScoreSortEnabled ? (
-                <Button
-                  onClick={onToggleStructuredScoreSort}
-                  type="button"
-                  variant={structuredScoreSortActive ? "secondary" : "outline"}
-                >
-                  <IconArrowsSort className="size-4" />
-                  AI 评价排序
-                </Button>
-              ) : null}
               {canUploadResumeLibrary ? (
                 <ResumeUploadEntryButton
                   disabled={uploadEntryDisabled}

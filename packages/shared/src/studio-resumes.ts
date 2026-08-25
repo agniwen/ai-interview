@@ -434,7 +434,6 @@ export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
 export const resumeLibrarySortIds = [
   "createdAt",
   "candidateName",
-  "aiRecommendation",
   "structuredScore",
   "updatedAt",
 ] as const;

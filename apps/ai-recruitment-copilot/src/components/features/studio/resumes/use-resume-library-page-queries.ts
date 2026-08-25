@@ -242,7 +242,6 @@ export function useResumeLibraryPageQueries({
   const isInitialPageLoading = resumeLibraryListQuery.isPending && metricsQuery.isPending;
 
   return {
-    activeSort,
     duplicateMatchesQuery,
     forceReparseMutation,
     grid,

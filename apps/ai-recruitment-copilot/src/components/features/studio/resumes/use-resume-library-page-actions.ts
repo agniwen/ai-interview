@@ -135,21 +135,6 @@ export function useResumeLibraryPageActions({
     });
   }
 
-  function onToggleStructuredScoreSort(activeSortId: string | undefined) {
-    const isActive = activeSortId === "aiRecommendation";
-    navigate({
-      params: { slug },
-      replace: true,
-      resetScroll: false,
-      search: {
-        ...routeSearch,
-        sortBy: isActive ? undefined : "aiRecommendation",
-        sortOrder: isActive ? undefined : "desc",
-      },
-      to: "/w/$slug/studio/resumes",
-    });
-  }
-
   function onOpenDetail(record: ResumeLibraryListRecord, tab: ResumeDetailDefaultTab = "overview") {
     navigateDetail({
       params: { recordId: record.id, slug },
@@ -186,7 +171,6 @@ export function useResumeLibraryPageActions({
     handleSingleUploadFilePicked,
     onCopyDetailLink,
     onOpenDetail,
-    onToggleStructuredScoreSort,
     onTransition,
     startAiInterview,
   };

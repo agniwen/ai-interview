@@ -66,13 +66,7 @@ function parseResumeReviewNextStepAction(
   return parsed.success ? parsed.data : null;
 }
 
-const SORT_COLUMNS = [
-  "aiRecommendation",
-  "createdAt",
-  "candidateName",
-  "structuredScore",
-  "updatedAt",
-] as const;
+const SORT_COLUMNS = ["createdAt", "candidateName", "structuredScore", "updatedAt"] as const;
 
 const ORDER_COLUMNS = {
   candidateName: studioInterview.candidateName,
@@ -431,41 +425,24 @@ function selectRows({
       ) then 2
     else 3
   end`;
-  const recommendationRank = sql`case ${studioInterview.qualitativeRecommendationLevel}
-    when 'highly_recommended' then 0
-    when 'recommended' then 1
-    when 'undecided' then 2
-    when 'not_recommended' then 3
-    else 4
-  end`;
-  let orderBy;
-  if (sortBy === "aiRecommendation") {
-    orderBy = [
-      asc(artifactGroup),
-      asc(recommendationRank),
-      desc(studioInterview.resumeReviewGeneratedAt),
-      asc(studioInterview.candidateName),
-      asc(studioInterview.id),
-    ];
-  } else if (sortBy === "structuredScore") {
-    orderBy = [
-      asc(artifactGroup),
-      asc(studioInterview.structuredGateSortRank),
-      desc(studioInterview.structuredCompositeScore),
-      desc(
-        sql`case when ${artifactGroup} = 2
+  const orderBy =
+    sortBy === "structuredScore"
+      ? [
+          asc(artifactGroup),
+          asc(studioInterview.structuredGateSortRank),
+          desc(studioInterview.structuredCompositeScore),
+          desc(
+            sql`case when ${artifactGroup} = 2
               then coalesce(
                 ${studioInterview.resumeReview}->'overall'->>'baseScore',
                 ${studioInterview.resumeReview}->'overall'->>'score'
               )::numeric
               else null end`,
-      ),
-      asc(studioInterview.candidateName),
-      asc(studioInterview.id),
-    ];
-  } else {
-    orderBy = [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
-  }
+          ),
+          asc(studioInterview.candidateName),
+          asc(studioInterview.id),
+        ]
+      : [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
 
   return db
     .select(LIST_SELECTED_COLUMNS)
