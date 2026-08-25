@@ -11,10 +11,12 @@ import type { MailIngestRouteDependencies } from "../route";
 const mocks = {
   createMailIngestAccount: vi.fn<MailIngestRouteDependencies["createMailIngestAccount"]>(),
   deleteMailIngestAccount: vi.fn<MailIngestRouteDependencies["deleteMailIngestAccount"]>(),
+  enqueueMailIngestTrigger: vi.fn(),
   getMailIngestAccountLoginConfig:
     vi.fn<MailIngestRouteDependencies["getMailIngestAccountLoginConfig"]>(),
   getWorkspaceMailIngestAccount:
     vi.fn<MailIngestRouteDependencies["getWorkspaceMailIngestAccount"]>(),
+  isMailIngestTriggerQueueConfigured: vi.fn(() => true),
   isWorkspaceMember: vi.fn<MailIngestRouteDependencies["isWorkspaceMember"]>(),
   listAccountMailMessages: vi.fn<MailIngestRouteDependencies["listAccountMailMessages"]>(),
   listMailIngestAccounts: vi.fn<MailIngestRouteDependencies["listMailIngestAccounts"]>(),
@@ -167,6 +169,8 @@ describe("mailIngestRouter", () => {
     });
     mocks.isWorkspaceMember.mockResolvedValue(true);
     mocks.getWorkspaceMailIngestAccount.mockResolvedValue(workspaceAccount);
+    mocks.enqueueMailIngestTrigger.mockImplementation(() => Promise.resolve());
+    mocks.isMailIngestTriggerQueueConfigured.mockReturnValue(true);
     mocks.createMailIngestAccount.mockResolvedValue(account);
     mocks.listAccountMailMessages.mockResolvedValue({ records: [], total: 0 });
     mocks.mailIngestAccountExistsInOrg.mockResolvedValue(true);
@@ -174,6 +178,29 @@ describe("mailIngestRouter", () => {
     mocks.validateMailIngestAccountLogin.mockRejectedValue(
       new MailIngestValidationError("邮箱登录校验失败：Invalid credentials"),
     );
+  });
+
+  it("queues an immediate workspace poll for an administrator", async () => {
+    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(202);
+    await expect(res.json()).resolves.toEqual({ status: "queued" });
+    expect(mocks.enqueueMailIngestTrigger).toHaveBeenCalledWith({
+      organizationId: "org_1",
+    });
+  });
+
+  it("reports an unavailable immediate poll queue", async () => {
+    mocks.isMailIngestTriggerQueueConfigured.mockReturnValue(false);
+
+    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(503);
+    expect(mocks.enqueueMailIngestTrigger).not.toHaveBeenCalled();
   });
 
   it("rejects managed create when the IMAP login cannot be validated", async () => {

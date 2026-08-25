@@ -1,8 +1,88 @@
 import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
 import { resolveMailIngestConfig } from "./config";
+import type { MailIngestConfig } from "./config";
+import type { MailIngestRunScope, RunResult } from "./processor";
+
+type RunMailIngestOnce = (
+  config: MailIngestConfig,
+  scope?: MailIngestRunScope,
+) => Promise<RunResult>;
 
 export interface MailIngestScheduler {
   close: () => void;
+  runNow: (scope: MailIngestRunScope) => Promise<RunResult>;
+}
+
+export function createMailIngestScheduler(
+  config: MailIngestConfig,
+  runMailIngestOnce: RunMailIngestOnce,
+): MailIngestScheduler {
+  let activeRun: Promise<RunResult> | null = null;
+  let closed = false;
+  let timer: NodeJS.Timeout | null = null;
+
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const execute = async (scope?: MailIngestRunScope): Promise<RunResult> => {
+    if (activeRun) {
+      return activeRun;
+    }
+    activeRun = runMailIngestOnce(config, scope);
+    try {
+      return await activeRun;
+    } finally {
+      activeRun = null;
+    }
+  };
+
+  const runAutomatic = async () => {
+    if (activeRun) {
+      return;
+    }
+    try {
+      const result = await execute();
+      console.info("[mail-ingest] poll finished", result);
+    } catch (error) {
+      console.error("[mail-ingest] poll failed", error);
+    }
+  };
+
+  const scheduleNext = () => {
+    clearTimer();
+    if (closed) {
+      return;
+    }
+    timer = setTimeout(() => {
+      scheduleNext();
+      void runAutomatic();
+    }, config.intervalMs);
+    timer.unref();
+  };
+
+  queueMicrotask(() => {
+    scheduleNext();
+    void runAutomatic();
+  });
+
+  return {
+    close: () => {
+      closed = true;
+      clearTimer();
+    },
+    runNow: async (scope) => {
+      clearTimer();
+      scheduleNext();
+      if (activeRun) {
+        await Promise.allSettled([activeRun]);
+      }
+      return await execute(scope);
+    },
+  };
 }
 
 export function startMailIngestScheduler(): MailIngestScheduler | null {
@@ -16,40 +96,14 @@ export function startMailIngestScheduler(): MailIngestScheduler | null {
     return null;
   }
 
-  let running = false;
-  let closed = false;
-  const run = async () => {
-    if (running || closed) {
-      return;
-    }
-    running = true;
-    try {
-      const { runMailIngestOnce } = await import("./processor-runtime");
-      const result = await runMailIngestOnce(config);
-      console.info("[mail-ingest] poll finished", result);
-    } catch (error) {
-      console.error("[mail-ingest] poll failed", error);
-    } finally {
-      running = false;
-    }
-  };
-
-  const scheduleRun = async () => {
-    await run();
-  };
-  const timer = setInterval(scheduleRun, config.intervalMs);
-  timer.unref();
-  queueMicrotask(scheduleRun);
+  const scheduler = createMailIngestScheduler(config, async (runConfig, scope) => {
+    const { runMailIngestOnce } = await import("./processor-runtime");
+    return runMailIngestOnce(runConfig, scope);
+  });
   console.info("[mail-ingest] scheduler started", {
     intervalMs: config.intervalMs,
     maxAccountsPerRun: config.maxAccountsPerRun,
     maxMessagesPerAccount: config.maxMessagesPerAccount,
   });
-
-  return {
-    close: () => {
-      closed = true;
-      clearInterval(timer);
-    },
-  };
+  return scheduler;
 }

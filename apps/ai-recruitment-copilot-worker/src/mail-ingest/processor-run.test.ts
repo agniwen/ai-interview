@@ -175,6 +175,16 @@ describe("runMailIngestOnce", () => {
     mocks.updateMailIngestMessageResult.mockImplementation(() => Promise.resolve());
   });
 
+  it("limits an immediate poll to the requested workspace", async () => {
+    mocks.listEnabledMailIngestAccounts.mockResolvedValue([]);
+
+    await processor.runMailIngestOnce(config, { organizationId: "org_1" });
+
+    expect(mocks.listEnabledMailIngestAccounts).toHaveBeenCalledWith(20, {
+      organizationId: "org_1",
+    });
+  });
+
   it("attaches an IMAP error listener so socket errors do not crash the worker process", async () => {
     const result = await processor.runMailIngestOnce(config);
 

@@ -14,6 +14,7 @@ import {
   createMailIngestAccount,
   finishMailIngestAccountRun,
   getMailIngestAccountLoginConfig,
+  listEnabledMailIngestAccounts,
   listWorkspaceMailIngestAccounts,
   mailIngestAccountExistsInOrg,
   markMailIngestMessageSkipped,
@@ -284,6 +285,12 @@ describe("mail ingest workspace administration dao", () => {
     expect(row?.lastError).toContain("NO");
     expect(row?.lastError).toContain("Too many simultaneous connections");
   }, 30_000);
+
+  it("limits immediate polling accounts to one workspace", async () => {
+    const accounts = await listEnabledMailIngestAccounts(20, { organizationId: ORG });
+
+    expect(accounts.map((account) => account.id)).toEqual(["mail_ingest_owner_account"]);
+  });
 
   it("clears saved account errors and ignores a stale poll completion", async () => {
     const pollingStartedAt = new Date("2026-06-18T10:01:00.000Z");

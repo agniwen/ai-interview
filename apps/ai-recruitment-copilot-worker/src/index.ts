@@ -14,6 +14,7 @@ import {
   closeResumeReviewGenerationQueue,
   createResumeReviewGenerationWorker,
 } from "@arc/resume-parse-queue/resume-review-generation";
+import { createMailIngestTriggerWorker } from "@arc/resume-parse-queue/mail-ingest-trigger";
 import {
   closeMeetingAnswerQueue,
   createMeetingAnswerWorker,
@@ -274,6 +275,7 @@ async function main() {
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
+  let mailIngestTriggerWorker: ReturnType<typeof createMailIngestTriggerWorker> | null = null;
   let meetingAnswerWorker: ReturnType<typeof createMeetingAnswerWorker> | null = null;
   let meetingAnswerRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingIntelligenceWorker: ReturnType<typeof createMeetingIntelligenceWorker> | null = null;
@@ -403,6 +405,11 @@ async function main() {
     console.warn("[worker] REDIS_URL is not set; resume parse worker is not started.");
     mailIngestScheduler = startMailIngestScheduler();
   }
+  if (mailIngestScheduler) {
+    mailIngestTriggerWorker = createMailIngestTriggerWorker(async ({ organizationId }) => {
+      await mailIngestScheduler?.runNow({ organizationId });
+    });
+  }
 
   console.info(`[worker] listening on http://${hostname}:${port}`);
   console.info("[worker] connection config", getWorkerConnectionSummary());
@@ -413,6 +420,7 @@ async function main() {
       try {
         console.info(`[worker] shutting down after ${signal}`);
         mailIngestScheduler?.close();
+        await mailIngestTriggerWorker?.close();
         await closeServer();
         await worker?.close();
         await semanticIndexWorker?.close();

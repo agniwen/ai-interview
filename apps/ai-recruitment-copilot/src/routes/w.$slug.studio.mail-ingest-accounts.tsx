@@ -16,6 +16,7 @@ import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { MailIngestRunNowButton } from "@/components/features/studio/mail-ingest/mail-ingest-run-now-button";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   SettingsGroup,
@@ -27,6 +28,7 @@ import {
   buildWorkspaceRoleOptions,
 } from "@/components/features/studio/members/role-display";
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
+import { isWorkspaceAdministratorRole } from "@arc/shared/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,7 +81,11 @@ import {
 } from "@/lib/client/mail-ingest-platforms";
 import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
 import { rpc } from "@/lib/client/rpc";
-import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
+import {
+  useWorkspaceId,
+  useWorkspaceMemberRole,
+  useWorkspaceSlug,
+} from "@/lib/client/workspace-context";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
 
@@ -483,7 +489,10 @@ function ManagedMailIngestPage() {
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const workspaceId = useWorkspaceId();
+  const workspaceMemberRole = useWorkspaceMemberRole();
   const canManageMailIngestAccounts = useHasPermission("mailIngestAccount", "manage");
+  const canImmediatelyPollMailIngest =
+    canManageMailIngestAccounts && isWorkspaceAdministratorRole(workspaceMemberRole);
   const [editingRow, setEditingRow] = useState<ManagedMailIngestRow | null>(null);
   const { data: dynamicWorkspaceRoles = [] } = useQuery({
     enabled: canManageMailIngestAccounts,
@@ -709,6 +718,9 @@ function ManagedMailIngestPage() {
           },
         ]}
         getRowId={(row) => `${row.user.id}:${row.account?.id ?? "empty"}`}
+        toolbarRight={
+          <MailIngestRunNowButton canManage={canImmediatelyPollMailIngest} slug={slug} />
+        }
       />
 
       <MailIngestAccountDialog

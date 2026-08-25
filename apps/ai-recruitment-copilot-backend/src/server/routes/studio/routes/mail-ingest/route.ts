@@ -1,4 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
+import {
+  enqueueMailIngestTrigger,
+  isMailIngestTriggerQueueConfigured,
+} from "@arc/resume-parse-queue/mail-ingest-trigger";
+import { isWorkspaceAdministratorRole } from "@arc/shared/permissions";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import {
@@ -34,8 +39,10 @@ type ResumeEmailIngestPermissionAction = "create" | "delete" | "read" | "update"
 export interface MailIngestRouteDependencies {
   createMailIngestAccount: typeof createMailIngestAccount;
   deleteMailIngestAccount: typeof deleteMailIngestAccount;
+  enqueueMailIngestTrigger: typeof enqueueMailIngestTrigger;
   getMailIngestAccountLoginConfig: typeof getMailIngestAccountLoginConfig;
   getWorkspaceMailIngestAccount: typeof getWorkspaceMailIngestAccount;
+  isMailIngestTriggerQueueConfigured: typeof isMailIngestTriggerQueueConfigured;
   isWorkspaceMember: typeof isWorkspaceMember;
   listAccountMailMessages: typeof listAccountMailMessages;
   listMailIngestAccounts: typeof listMailIngestAccounts;
@@ -55,8 +62,10 @@ export interface MailIngestRouteDependencies {
 const defaultDependencies: MailIngestRouteDependencies = {
   createMailIngestAccount,
   deleteMailIngestAccount,
+  enqueueMailIngestTrigger,
   getMailIngestAccountLoginConfig,
   getWorkspaceMailIngestAccount,
+  isMailIngestTriggerQueueConfigured,
   isWorkspaceMember,
   listAccountMailMessages,
   listMailIngestAccounts,
@@ -102,6 +111,34 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
         return c.json(result, 200);
       },
     )
+    .post("/managed/poll-now", dependencies.requireMailIngestPermission("manage"), async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!(activeOrg && member && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      if (!isWorkspaceAdministratorRole(member.role)) {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+      if (!dependencies.isMailIngestTriggerQueueConfigured()) {
+        return c.json({ error: "邮箱轮训队列未配置 REDIS_URL。" }, 503);
+      }
+      try {
+        await dependencies.enqueueMailIngestTrigger({
+          organizationId: activeOrg.id,
+        });
+        return c.json({ status: "queued" as const }, 202);
+      } catch (error) {
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, userId: user.id },
+            error,
+            operation: "managed-mail-ingest-poll-now",
+            publicMessage: "立即轮训触发失败。",
+          }),
+          503,
+        );
+      }
+    })
     .post(
       "/managed",
       dependencies.requireMailIngestPermission("manage"),

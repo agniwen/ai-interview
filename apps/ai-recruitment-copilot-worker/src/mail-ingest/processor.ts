@@ -33,11 +33,15 @@ import { getMailIngestGroupListenStart, groupMailIngestAccounts } from "./accoun
 import { deriveJdBindStatus } from "./job-binding";
 import type { MailIngestConfig } from "./config";
 
-interface RunResult {
+export interface RunResult {
   accounts: number;
   messagesQueued: number;
   messagesSkipped: number;
   messagesFailed: number;
+}
+
+export interface MailIngestRunScope {
+  organizationId: string;
 }
 
 type MailJobBinding = Pick<WorkerMailIngestAccount, "jdMode" | "jobDescriptionId">;
@@ -418,9 +422,12 @@ async function finishAccounts(
 async function runMailIngestOnceWithDependencies(
   config: MailIngestConfig,
   dependencies: MailIngestDependencies,
+  scope?: MailIngestRunScope,
 ): Promise<RunResult> {
   const result = { accounts: 0, messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
-  const accounts = await dependencies.listEnabledMailIngestAccounts(config.maxAccountsPerRun);
+  const accounts = scope
+    ? await dependencies.listEnabledMailIngestAccounts(config.maxAccountsPerRun, scope)
+    : await dependencies.listEnabledMailIngestAccounts(config.maxAccountsPerRun);
   const claimedAccounts: WorkerMailIngestAccount[] = [];
   const pollingStartedAtByAccountId = new Map<string, Date>();
   for (const account of accounts) {
@@ -464,7 +471,7 @@ async function runMailIngestOnceWithDependencies(
 
 export function createMailIngestProcessor(dependencies: MailIngestDependencies) {
   return {
-    runMailIngestOnce: (config: MailIngestConfig) =>
-      runMailIngestOnceWithDependencies(config, dependencies),
+    runMailIngestOnce: (config: MailIngestConfig, scope?: MailIngestRunScope) =>
+      runMailIngestOnceWithDependencies(config, dependencies, scope),
   };
 }

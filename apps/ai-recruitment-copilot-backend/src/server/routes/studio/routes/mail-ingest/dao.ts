@@ -709,11 +709,16 @@ export async function deleteMailIngestAccount({
 
 export async function listEnabledMailIngestAccounts(
   limit = 20,
+  scope?: { organizationId: string },
 ): Promise<WorkerMailIngestAccount[]> {
+  const filters = [eq(mailIngestAccount.enabled, true)];
+  if (scope) {
+    filters.push(eq(mailIngestAccount.organizationId, scope.organizationId));
+  }
   const rows = await db
     .select()
     .from(mailIngestAccount)
-    .where(eq(mailIngestAccount.enabled, true))
+    .where(and(...filters))
     .orderBy(mailIngestAccount.lastCheckedAt)
     .limit(limit);
   return rows.map(toWorkerMailIngestAccount);

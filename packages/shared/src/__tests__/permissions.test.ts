@@ -3,7 +3,20 @@
 // 权限矩阵的表驱动测试。每加一个角色就追加测试块，确保矩阵不会被无意改坏。
 
 import { describe, expect, it } from "vitest";
-import { roles, STUDIO_PAGE_PERMISSION_ACTIONS } from "@arc/shared/permissions";
+import {
+  isWorkspaceAdministratorRole,
+  roles,
+  STUDIO_PAGE_PERMISSION_ACTIONS,
+} from "@arc/shared/permissions";
+
+describe("workspace administrator roles", () => {
+  it("only treats owner and admin as administrators", () => {
+    expect(isWorkspaceAdministratorRole("owner")).toBe(true);
+    expect(isWorkspaceAdministratorRole("admin")).toBe(true);
+    expect(isWorkspaceAdministratorRole("member")).toBe(false);
+    expect(isWorkspaceAdministratorRole("recruiting-lead")).toBe(false);
+  });
+});
 
 describe("permissions matrix", () => {
   describe("owner role", () => {

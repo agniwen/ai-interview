@@ -37,7 +37,7 @@ const app = factory
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("activeOrg", { id: "org_1" } as never);
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    c.set("member", { role: "admin" } as never);
+    c.set("member", { role: c.req.header("x-test-member-role") ?? "admin" } as never);
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     c.set("user", { id: "admin_1" } as never);
     await next();
@@ -81,6 +81,37 @@ describe("managed messages permission (real middleware)", () => {
 
     const res = await app.request("/mail-ingest-accounts/managed/account_1/messages");
     expect(res.status).toBe(200);
+  });
+
+  it("denies immediate polling without mailIngestAccount manage", async () => {
+    mocks.computeWorkspacePermissionSnapshot.mockResolvedValue({
+      role: "member",
+      statements: {
+        mailIngestAccount: ["read"],
+      },
+    });
+
+    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("denies immediate polling to a custom role even when it has manage permission", async () => {
+    mocks.computeWorkspacePermissionSnapshot.mockResolvedValue({
+      role: "recruiting-lead",
+      statements: {
+        mailIngestAccount: ["manage"],
+      },
+    });
+
+    const res = await app.request("/mail-ingest-accounts/managed/poll-now", {
+      headers: { "x-test-member-role": "recruiting-lead" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(403);
   });
 
   it("denies personal account listing when only mailIngestAccount read is granted", async () => {
