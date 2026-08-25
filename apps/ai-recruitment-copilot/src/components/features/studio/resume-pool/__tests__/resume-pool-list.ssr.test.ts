@@ -34,4 +34,12 @@ describe("resume pool list", () => {
     expect(source).toMatch(/translateY\(\$\{virtualRow\.start\}px\)/u);
     expect(source).not.toContain("ResumePoolMasonry");
   });
+
+  it("keeps the current virtual list visible until refreshed data arrives", async () => {
+    const source = await readFile(new URL("../resume-pool-page.tsx", import.meta.url), "utf-8");
+
+    expect(source).not.toContain('setLoadedPoolResult({ records: [], signature: "" });');
+    expect(source).toContain("grid.bind.pagination.onPageChange(1)");
+    expect(source).toContain("invalidatePool()");
+  });
 });

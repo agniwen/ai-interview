@@ -14,7 +14,11 @@ import {
   ResumePoolDetailSummaryPanel,
   canManageResumePoolJobBinding,
 } from "../resume-pool-details";
-import { canDeletePoolRecord, uploaderMetaLabel } from "../resume-pool-page-model";
+import {
+  canDeletePoolRecord,
+  resumeParseStatusBadge,
+  uploaderMetaLabel,
+} from "../resume-pool-page-model";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 // SAFETY: React's test environment flag is intentionally attached to globalThis.
@@ -241,6 +245,20 @@ describe("ResumePoolCard", () => {
     expect(failedHtml).not.toContain("待进入招聘");
     expect(importedHtml).toContain("已在招聘流程");
     expect(importedHtml).not.toContain("已进入招聘");
+  });
+
+  it("shows the warning badge while a resume is queued or processing", () => {
+    const queuedHtml = renderToStaticMarkup(
+      resumeParseStatusBadge({ ...record, resumeParseStatus: "queued" }),
+    );
+    const processingHtml = renderToStaticMarkup(
+      resumeParseStatusBadge({ ...record, resumeParseStatus: "processing" }),
+    );
+
+    expect(queuedHtml).toContain('data-variant="warning"');
+    expect(queuedHtml).toContain("解析中");
+    expect(processingHtml).toContain('data-variant="warning"');
+    expect(processingHtml).toContain("解析中");
   });
 
   it("shows a recommendation action beside an unbound job", () => {

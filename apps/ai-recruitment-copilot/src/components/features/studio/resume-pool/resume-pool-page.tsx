@@ -223,7 +223,6 @@ export function ResumePoolPage() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
   }, [queryClient, queryKeyPrefix]);
   const refreshPool = useCallback(() => {
-    setLoadedPoolResult({ records: [], signature: "" });
     grid.bind.pagination.onPageChange(1);
     invalidatePool();
   }, [grid.bind.pagination, invalidatePool]);

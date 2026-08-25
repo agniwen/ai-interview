@@ -89,6 +89,9 @@ export function getCandidateTitleWithId(record: ResumePoolListRecord) {
 }
 
 export function resumeParseStatusBadge(record: ResumePoolListRecord) {
+  if (record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing") {
+    return <Badge variant="warning">解析中</Badge>;
+  }
   return record.resumeParseStatus === "failed" ? (
     <Badge variant="destructive">解析失败</Badge>
   ) : null;
