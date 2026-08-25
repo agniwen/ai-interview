@@ -3,9 +3,8 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { IconRefresh } from "@tabler/icons-react";
-import { areaY, d3Curve, defineChart, text } from "@tanstack/charts";
-import { scaleLinear } from "d3-scale";
-import { curveMonotoneX } from "d3-shape";
+import { barX, defineChart, stack } from "@tanstack/charts";
+import { scaleBand, scaleLinear } from "d3-scale";
 import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,26 +27,34 @@ type PipelineBucket =
   | "closed_hired"
   | "closed_rejected";
 
-const FUNNEL_STAGE_META = [
-  { color: "var(--pipeline-screening)", id: "entered", label: "已入库" },
-  { color: "var(--pipeline-ai-interview)", id: "ai_interview", label: "进入 AI 面试" },
-  { color: "var(--pipeline-human-interview)", id: "human_interview", label: "进入真人复面" },
-  { color: "var(--pipeline-offer)", id: "offer", label: "进入 Offer" },
-  {
-    color: "color-mix(in oklch, var(--pipeline-offer) 84%, var(--foreground))",
-    id: "closed",
-    label: "已结案",
-  },
-] as const;
+const BUCKET_ORDER: PipelineBucket[] = [
+  "screening",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed_hired",
+  "closed_rejected",
+];
 
-const FUNNEL_TRANSITION_SCALING = [
-  { exponent: 0.52, floor: 0.24 },
-  { exponent: 0.65, floor: 0.18 },
-  { exponent: 0.85, floor: 0.12 },
-  { exponent: 1, floor: 0.06 },
-] as const;
-const FUNNEL_FINAL_BASE_RATIO = 0.72;
-const FUNNEL_MAX_THICKNESS = 76;
+const BUCKET_LABEL = {
+  ai_interview: "AI 面试",
+  closed_hired: "已录用",
+  closed_rejected: "已淘汰 / 撤回",
+  human_interview: "真人复面",
+  offer: "Offer",
+  screening: "简历筛选",
+} as const satisfies Record<PipelineBucket, string>;
+
+const BUCKET_COLORS = {
+  ai_interview: "var(--pipeline-ai-interview)",
+  closed_hired: "var(--pipeline-closed-hired)",
+  closed_rejected: "var(--pipeline-closed-rejected)",
+  human_interview: "var(--pipeline-human-interview)",
+  offer: "var(--pipeline-offer)",
+  screening: "var(--pipeline-screening)",
+} as const satisfies Record<PipelineBucket, string>;
+
+const MIN_PIPELINE_VISUAL_SHARE = 0.035;
 
 const pipelineTooltipDatumSchema = z.object({
   label: z.string(),
@@ -227,7 +234,51 @@ function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): Pipeline
   return null;
 }
 
-export function buildPipelineFunnel(rows: ResumeLibraryMetrics["byPipeline"]) {
+function buildReadablePipelineShares(values: number[]) {
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) {
+    return values.map(() => 0);
+  }
+
+  const actualShares = values.map((value) => value / total);
+  const visibleIndexes = values.flatMap((value, index) => (value > 0 ? [index] : []));
+  const fixedIndexes = new Set<number>();
+
+  while (fixedIndexes.size < visibleIndexes.length) {
+    const flexibleIndexes = visibleIndexes.filter((index) => !fixedIndexes.has(index));
+    const availableShare = 1 - fixedIndexes.size * MIN_PIPELINE_VISUAL_SHARE;
+    const flexibleTotal = flexibleIndexes.reduce(
+      (sum, index) => sum + (actualShares[index] ?? 0),
+      0,
+    );
+    const newlyFixedIndexes = flexibleIndexes.filter(
+      (index) =>
+        ((actualShares[index] ?? 0) / flexibleTotal) * availableShare < MIN_PIPELINE_VISUAL_SHARE,
+    );
+    if (newlyFixedIndexes.length === 0) {
+      break;
+    }
+    for (const index of newlyFixedIndexes) {
+      fixedIndexes.add(index);
+    }
+  }
+
+  const flexibleIndexes = visibleIndexes.filter((index) => !fixedIndexes.has(index));
+  const availableShare = 1 - fixedIndexes.size * MIN_PIPELINE_VISUAL_SHARE;
+  const flexibleTotal = flexibleIndexes.reduce((sum, index) => sum + (actualShares[index] ?? 0), 0);
+
+  return values.map((value, index) => {
+    if (value <= 0) {
+      return 0;
+    }
+    if (fixedIndexes.has(index)) {
+      return MIN_PIPELINE_VISUAL_SHARE;
+    }
+    return ((actualShares[index] ?? 0) / flexibleTotal) * availableShare;
+  });
+}
+
+export function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
   const counts = {
     ai_interview: 0,
     closed_hired: 0,
@@ -246,72 +297,24 @@ export function buildPipelineFunnel(rows: ResumeLibraryMetrics["byPipeline"]) {
     }
   }
 
-  const closed = counts.closed_hired + counts.closed_rejected;
-  const offer = counts.offer + closed;
-  const humanInterview = counts.human_interview + offer;
-  const aiInterview = counts.ai_interview + humanInterview;
-  const values = [total, aiInterview, humanInterview, offer, closed];
-  const widthRatios = [1];
-
-  for (let index = 1; index < values.length; index += 1) {
-    const previousValue = values[index - 1] ?? 0;
-    const value = values[index] ?? 0;
-    const retention = previousValue > 0 ? Math.min(1, value / previousValue) : 0;
-    const scaling = FUNNEL_TRANSITION_SCALING[index - 1] ?? { exponent: 1, floor: 0 };
-    const adjustedRetention = scaling.floor + (1 - scaling.floor) * retention ** scaling.exponent;
-
-    widthRatios.push((widthRatios[index - 1] ?? 1) * adjustedRetention);
-  }
-
-  const stages = FUNNEL_STAGE_META.map((stage, index) => ({
-    ...stage,
-    value: values[index] ?? 0,
-    widthRatio: widthRatios[index] ?? 0,
+  const visualShares = buildReadablePipelineShares(BUCKET_ORDER.map((bucket) => counts[bucket]));
+  const stackRows = BUCKET_ORDER.map((bucket, index) => ({
+    bucket,
+    category: "总计",
+    color: BUCKET_COLORS[bucket],
+    label: BUCKET_LABEL[bucket],
+    value: counts[bucket],
+    visualShare: visualShares[index] ?? 0,
   }));
-
-  return { closed, stages, total };
+  const active = counts.screening + counts.ai_interview + counts.human_interview + counts.offer;
+  return { active, counts, stackRows, total };
 }
 
-export function buildFunnelLayout(stages: ReturnType<typeof buildPipelineFunnel>["stages"]) {
-  const segmentInset = 0.04;
-  const samples = [0, 0.25, 0.5, 0.75, 1] as const;
-  const points = stages.flatMap((stage, index) => {
-    const nextWidthRatio =
-      stages[index + 1]?.widthRatio ?? stage.widthRatio * FUNNEL_FINAL_BASE_RATIO;
-    return samples.map((progress) => {
-      const easedProgress = progress * progress * (3 - 2 * progress);
-      const thickness =
-        FUNNEL_MAX_THICKNESS *
-        (stage.widthRatio + (nextWidthRatio - stage.widthRatio) * easedProgress);
-      return {
-        ...stage,
-        key: `${stage.id}:${progress}`,
-        x: index + segmentInset + progress * (1 - segmentInset * 2),
-        y1: -thickness / 2,
-        y2: thickness / 2,
-      };
-    });
-  });
-  const stageLabels = stages.map((stage, index) => ({
-    ...stage,
-    text: stage.label,
-    x: index + 0.5,
-    y: 50,
-  }));
-  const valueLabels = stages.map((stage, index) => ({
-    ...stage,
-    text: formatCompact(stage.value),
-    x: index + 0.5,
-    y: 63,
-  }));
-  return { points, stageLabels, valueLabels };
-}
-
-const funnelChartConfig: ChartConfig = {};
-for (const stage of FUNNEL_STAGE_META) {
-  funnelChartConfig[stage.id] = {
-    color: stage.color,
-    label: stage.label,
+const statusChartConfig: ChartConfig = {};
+for (const bucket of BUCKET_ORDER) {
+  statusChartConfig[bucket] = {
+    color: BUCKET_COLORS[bucket],
+    label: BUCKET_LABEL[bucket],
   };
 }
 
@@ -321,51 +324,26 @@ const conversionChartConfig: ChartConfig = {
 };
 
 function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeline"] }) {
-  const { closed, stages, total } = useMemo(() => buildPipelineFunnel(byPipeline), [byPipeline]);
+  const { active, counts, stackRows, total } = useMemo(
+    () => buildPipelineRow(byPipeline),
+    [byPipeline],
+  );
   const hasData = total > 0;
 
   const definition = useMemo(() => {
     if (!hasData) {
       return null;
     }
-    const layout = buildFunnelLayout(stages);
     return defineChart({
-      color: {
-        domain: stages.map((stage) => stage.id),
-        range: stages.map((stage) => stage.color),
-      },
-      margin: 8,
+      margin: { bottom: 4, left: 0, right: 0, top: 4 },
       marks: [
-        areaY(layout.points, {
-          color: "id",
-          curve: d3Curve(curveMonotoneX),
-          fillOpacity: 1,
-          id: "recruiting-funnel",
-          key: "key",
-          x: "x",
-          y1: "y1",
-          y2: "y2",
-          z: "id",
-        }),
-        text(layout.stageLabels, {
-          anchor: "middle",
-          fontSize: 9,
-          fontWeight: 600,
-          id: "funnel-stage-labels",
-          key: "id",
-          text: "text",
-          x: "x",
-          y: "y",
-        }),
-        text(layout.valueLabels, {
-          anchor: "middle",
-          fontSize: 10,
-          fontWeight: 700,
-          id: "funnel-value-labels",
-          key: "id",
-          text: "text",
-          x: "x",
-          y: "y",
+        barX(stackRows, {
+          fill: (row) => row.color,
+          layout: stack({ order: BUCKET_ORDER }),
+          radius: 4,
+          x: "visualShare",
+          y: "category",
+          z: "bucket",
         }),
       ],
       tooltip: {
@@ -375,30 +353,45 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
           return result.success ? `${result.data.label}: ${result.data.value}` : "数据不可用";
         },
       },
-      x: { axis: false, scale: scaleLinear().domain([0, stages.length]) },
-      y: { axis: false, scale: scaleLinear().domain([82, -58]) },
+      x: { axis: false, scale: scaleLinear },
+      y: { axis: false, scale: () => scaleBand().padding(0.2) },
     });
-  }, [hasData, stages]);
+  }, [hasData, stackRows]);
 
   return (
     <ChartCardShell
-      description={hasData ? "各招聘阶段累计候选人数" : "暂无候选人"}
+      description={hasData ? "不含归档候选人" : "暂无候选人"}
       metrics={[
-        { label: "已入库", value: formatCompact(total) },
-        { label: "已结案", value: formatCompact(closed) },
+        { label: "总候选", value: formatCompact(total) },
+        { label: "推进中", value: formatCompact(active) },
       ]}
-      title="招聘流程漏斗"
+      title="面试流程分布"
     >
       <div className="flex min-h-[228px] items-center">
         {hasData && definition ? (
-          <ChartContainer className="aspect-auto h-[228px] w-full" config={funnelChartConfig}>
-            <Chart
-              ariaLabel="招聘流程漏斗"
-              className="h-[228px] w-full"
-              definition={definition}
-              height={228}
-            />
-          </ChartContainer>
+          <div className="flex w-full flex-col justify-center gap-3">
+            <ChartContainer className="aspect-auto h-[86px] w-full" config={statusChartConfig}>
+              <Chart
+                ariaLabel="面试流程分布"
+                className="h-[86px] w-full"
+                definition={definition}
+                height={86}
+              />
+            </ChartContainer>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
+              {BUCKET_ORDER.map((bucket) => (
+                <li className="flex items-center gap-2" key={bucket}>
+                  <span
+                    aria-hidden
+                    className="size-2.5 rounded-sm"
+                    style={{ backgroundColor: BUCKET_COLORS[bucket] }}
+                  />
+                  <span className="flex-1 truncate">{BUCKET_LABEL[bucket]}</span>
+                  <span className="tabular-nums">{counts[bucket]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
           <EmptyHint message="还没有任何候选人" />
         )}

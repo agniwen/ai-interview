@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildFunnelLayout,
-  buildPipelineFunnel,
-  buildUploaderRanking,
-} from "./resume-library-charts";
+import { buildPipelineRow, buildUploaderRanking } from "./resume-library-charts";
 
 describe("resume library chart models", () => {
-  it("keeps the recruiting funnel readable while approaching real retention deeper down", () => {
-    const funnel = buildPipelineFunnel([
+  it("builds the single stacked pipeline bar from current-stage counts", () => {
+    const pipeline = buildPipelineRow([
       { count: 1444, outcome: "in_pipeline", stage: "screening" },
       { count: 130, outcome: "in_pipeline", stage: "ai_interview" },
       { count: 6, outcome: "in_pipeline", stage: "human_interview" },
@@ -16,38 +12,21 @@ describe("resume library chart models", () => {
       { count: 10, outcome: "rejected", stage: "closed" },
     ]);
 
-    expect(funnel.stages.map(({ label, value }) => ({ label, value }))).toEqual([
-      { label: "已入库", value: 1592 },
-      { label: "进入 AI 面试", value: 148 },
-      { label: "进入真人复面", value: 18 },
-      { label: "进入 Offer", value: 12 },
-      { label: "已结案", value: 10 },
+    expect(pipeline).toMatchObject({ active: 1582, total: 1592 });
+    expect(pipeline.stackRows.map(({ label, value }) => ({ label, value }))).toEqual([
+      { label: "简历筛选", value: 1444 },
+      { label: "AI 面试", value: 130 },
+      { label: "真人复面", value: 6 },
+      { label: "Offer", value: 2 },
+      { label: "已录用", value: 0 },
+      { label: "已淘汰 / 撤回", value: 10 },
     ]);
-    expect(funnel.stages.map((stage) => stage.widthRatio)).toEqual(
-      funnel.stages.map((stage) => stage.widthRatio).toSorted((left, right) => right - left),
+    const visibleRows = pipeline.stackRows.filter((row) => row.value > 0);
+    expect(visibleRows.every((row) => row.visualShare >= 0.035)).toBe(true);
+    expect(pipeline.stackRows.reduce((sum, row) => sum + row.visualShare, 0)).toBeCloseTo(1, 8);
+    expect(pipeline.stackRows[0]?.visualShare).toBeGreaterThan(
+      pipeline.stackRows[1]?.visualShare ?? 0,
     );
-    const widths = funnel.stages.map((stage) => stage.widthRatio);
-    expect(widths[0]).toBeCloseTo(1, 3);
-    expect(widths[1]).toBeCloseTo(0.461, 3);
-    expect(widths[2]).toBeCloseTo(0.179, 3);
-    expect(widths[3]).toBeCloseTo(0.133, 3);
-    expect(widths[4]).toBeCloseTo(0.112, 3);
-
-    const finalVisualRetention = (widths[4] ?? 0) / (widths[3] ?? 1);
-    const finalActualRetention = 10 / 12;
-    expect(Math.abs(finalVisualRetention - finalActualRetention)).toBeLessThan(0.02);
-
-    const layout = buildFunnelLayout(funnel.stages);
-    const firstStageThickness = (layout.points[0]?.y2 ?? 0) - (layout.points[0]?.y1 ?? 0);
-    expect(firstStageThickness).toBeCloseTo(76, 3);
-
-    const finalThicknesses = layout.points
-      .filter((point) => point.id === "closed")
-      .map((point) => point.y2 - point.y1);
-    const finalTopThickness = finalThicknesses[0] ?? 0;
-    const finalBaseThickness = finalThicknesses.at(-1) ?? 0;
-    expect(finalBaseThickness / finalTopThickness).toBeCloseTo(0.72, 3);
-    expect(finalBaseThickness).toBeGreaterThan(0);
   });
 
   it("aggregates uploader totals for each Beijing calendar range and returns the top five", () => {
