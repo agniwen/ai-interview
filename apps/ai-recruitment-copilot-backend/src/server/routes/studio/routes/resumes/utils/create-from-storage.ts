@@ -5,6 +5,7 @@ import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/
 import type { ResumeReview } from "@arc/db-schema/resume-review";
 import type {
   ResumeParseStatus,
+  PipelineStage,
   ResumeReviewStatus,
   ResumeScreeningStatus,
 } from "@arc/db-schema/studio-interviews";
@@ -23,6 +24,7 @@ export interface CreateResumeRecordFromStorageInput {
   jobDescriptionId: string | null;
   notes: string | null;
   organizationId: string;
+  pipelineStage?: PipelineStage;
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   resumeParseStatus?: ResumeParseStatus;
@@ -85,6 +87,7 @@ export async function createResumeRecordFromStorage(
       jobDescriptionId: input.jobDescriptionId,
       notes: input.notes,
       organizationId: input.organizationId,
+      pipelineStage: input.pipelineStage ?? "screening",
       resumeContentHash: input.contentHash,
       resumeEvaluationArtifactMode: input.resumeReview ? "legacy" : null,
       resumeEvaluationAttemptMode: input.resumeReview ? "legacy" : null,

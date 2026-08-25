@@ -133,7 +133,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
             context: { organizationId: activeOrg.id, userId: user.id },
             error,
             operation: "managed-mail-ingest-poll-now",
-            publicMessage: "立即轮训触发失败。",
+            publicMessage: "立即轮询触发失败。",
           }),
           503,
         );

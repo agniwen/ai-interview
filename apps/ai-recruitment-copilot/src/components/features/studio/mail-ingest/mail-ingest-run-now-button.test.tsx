@@ -14,6 +14,6 @@ function renderButton(canManage: boolean) {
 describe("MailIngestRunNowButton", () => {
   it("only renders the immediate poll action for administrators", () => {
     expect(renderButton(false)).toBe("");
-    expect(renderButton(true)).toContain("立即轮训");
+    expect(renderButton(true)).toContain("立即轮询");
   });
 });

@@ -3,6 +3,7 @@
 import { IconDatabase, IconExternalLink, IconLoader2 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type {
+  ResumePoolInitialRecruitmentStage,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
@@ -121,6 +122,8 @@ export function ImportResumePoolDialog({
   const { data: jobDescriptionOptions = [] } = dependencies.useJobDescriptionOptions(slug);
   const [mode, setMode] = useState<"none" | "bind">("bind");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
+  const [initialRecruitmentStage, setInitialRecruitmentStage] =
+    useState<ResumePoolInitialRecruitmentStage>("screening");
   const [duplicates, setDuplicates] = useState<ResumePoolImportDuplicateResult | null>(null);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const isReimport = Boolean(item?.importedResumeRecordId);
@@ -134,12 +137,14 @@ export function ImportResumePoolDialog({
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setMode("bind");
       setJobDescriptionId("");
+      setInitialRecruitmentStage("screening");
       setDuplicates(null);
       setDetailRecordId(null);
       return;
     }
     setMode("bind");
     setJobDescriptionId(sourceJobDescriptionId);
+    setInitialRecruitmentStage("screening");
     setDuplicates(null);
   }, [itemId, sourceJobDescriptionId]);
 
@@ -150,6 +155,7 @@ export function ImportResumePoolDialog({
       }
       return await dependencies.importResumePoolItem(slug, item.id, {
         dedupPolicy,
+        initialRecruitmentStage: mode === "bind" ? initialRecruitmentStage : "screening",
         jobDescriptionId: mode === "bind" ? jobDescriptionId : null,
         jobDescriptionMode: mode,
         reimport: isReimport,
@@ -284,21 +290,55 @@ export function ImportResumePoolDialog({
             </FieldContent>
           </Field>
           {mode === "bind" ? (
-            <Field data-invalid={bindInvalid ? true : undefined}>
-              <FieldLabel htmlFor="resume-pool-import-jd">在招岗位</FieldLabel>
-              <FieldContent>
-                <SearchableSelect
-                  disabled={isPending}
-                  id="resume-pool-import-jd"
-                  invalid={bindInvalid}
-                  onChange={(next) => setJobDescriptionId(next ?? "")}
-                  options={jobDescriptionOptions}
-                  placeholder="请选择在招岗位"
-                  searchPlaceholder="搜索岗位..."
-                  value={jobDescriptionId || null}
-                />
-              </FieldContent>
-            </Field>
+            <>
+              <Field data-invalid={bindInvalid ? true : undefined}>
+                <FieldLabel htmlFor="resume-pool-import-jd">在招岗位</FieldLabel>
+                <FieldContent>
+                  <SearchableSelect
+                    disabled={isPending}
+                    id="resume-pool-import-jd"
+                    invalid={bindInvalid}
+                    onChange={(next) => setJobDescriptionId(next ?? "")}
+                    options={jobDescriptionOptions}
+                    placeholder="请选择在招岗位"
+                    searchPlaceholder="搜索岗位..."
+                    value={jobDescriptionId || null}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>进入招聘流程</FieldLabel>
+                <FieldContent>
+                  <RadioGroup
+                    className="grid grid-cols-3 gap-2"
+                    disabled={isPending}
+                    onValueChange={(value) => {
+                      if (
+                        value === "screening" ||
+                        value === "ai_interview" ||
+                        value === "human_interview"
+                      ) {
+                        setInitialRecruitmentStage(value);
+                      }
+                    }}
+                    value={initialRecruitmentStage}
+                  >
+                    <FieldLabel className="w-full rounded-md border p-3">
+                      <RadioGroupItem value="screening" />
+                      <span>简历筛选</span>
+                    </FieldLabel>
+                    <FieldLabel className="w-full rounded-md border p-3">
+                      <RadioGroupItem value="ai_interview" />
+                      <span>AI 面试</span>
+                    </FieldLabel>
+                    <FieldLabel className="w-full rounded-md border p-3">
+                      <RadioGroupItem value="human_interview" />
+                      <span>真人复面</span>
+                    </FieldLabel>
+                  </RadioGroup>
+                </FieldContent>
+              </Field>
+            </>
           ) : null}
         </div>
       </Modal>

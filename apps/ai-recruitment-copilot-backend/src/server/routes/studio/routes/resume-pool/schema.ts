@@ -62,6 +62,13 @@ export const resumePoolImportInputSchema = resumePoolImportSchema
         path: ["jobDescriptionId"],
       });
     }
+    if (value.jobDescriptionMode !== "bind" && value.initialRecruitmentStage !== "screening") {
+      ctx.addIssue({
+        code: "custom",
+        message: "进入后续招聘阶段时必须关联岗位。",
+        path: ["initialRecruitmentStage"],
+      });
+    }
   })
   .transform((value) => ({
     ...value,

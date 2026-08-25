@@ -186,6 +186,7 @@ describe("ImportResumePoolDialog", () => {
 
     expect(importResumePoolItemMock).toHaveBeenCalledWith("test-workspace", "pool-item-1", {
       dedupPolicy: "force",
+      initialRecruitmentStage: "screening",
       jobDescriptionId: "jd-1",
       jobDescriptionMode: "bind",
       reimport: true,
@@ -194,5 +195,63 @@ describe("ImportResumePoolDialog", () => {
     act(() => {
       root.unmount();
     });
+  });
+
+  it("imports directly into the selected AI interview stage", async () => {
+    importResumePoolItemMock.mockResolvedValue({
+      resumeRecordId: "resume-record-ai",
+      status: "imported",
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ImportResumePoolDialog
+            dependencies={dependencies}
+            item={{ ...importedItem, importedRecords: [], importedResumeRecordId: null }}
+            onImported={vi.fn()}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("进入招聘流程");
+    const aiStageLabel = [...document.querySelectorAll("label")].find((label) =>
+      label.textContent?.includes("AI 面试"),
+    );
+    const aiStage = aiStageLabel?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    expect(aiStage).toBeTruthy();
+    await act(async () => {
+      aiStage?.click();
+      await Promise.resolve();
+    });
+
+    const confirmButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("确认创建"),
+    );
+    await act(async () => {
+      confirmButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(importResumePoolItemMock).toHaveBeenCalledWith("test-workspace", "pool-item-1", {
+      dedupPolicy: "check",
+      initialRecruitmentStage: "ai_interview",
+      jobDescriptionId: "jd-1",
+      jobDescriptionMode: "bind",
+      reimport: false,
+    });
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
   });
 });

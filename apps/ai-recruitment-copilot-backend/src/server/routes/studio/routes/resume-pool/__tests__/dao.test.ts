@@ -665,6 +665,31 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(mocks.enqueueSemanticIndex).not.toHaveBeenCalled();
   });
 
+  it("creates an imported Resume Record directly in the human interview stage", async () => {
+    const publicId = await createResumePoolItem(
+      basePoolInput({ contentHash: "hash-resume-pool-human-stage", scope: "public" }),
+    );
+
+    const result = await importPoolItem({
+      dedupPolicy: "force",
+      importedBy: USER_B,
+      initialRecruitmentStage: "human_interview",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      poolItemId: publicId,
+    });
+
+    expect(result.status).toBe("imported");
+    if (result.status !== "imported") {
+      throw new Error("expected import success");
+    }
+    const [record] = await db
+      .select({ pipelineStage: studioInterview.pipelineStage })
+      .from(studioInterview)
+      .where(eq(studioInterview.id, result.resumeRecordId));
+    expect(record?.pipelineStage).toBe("human_interview");
+  });
+
   it("creates another Resume Record for an explicit reimport", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
     const input = {

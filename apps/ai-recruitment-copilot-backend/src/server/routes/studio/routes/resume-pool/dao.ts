@@ -129,6 +129,7 @@ export interface PublishPrivatePoolItemInput {
 export interface ImportPoolItemInput {
   dedupPolicy: "check" | "force";
   importedBy: string;
+  initialRecruitmentStage?: "screening" | "ai_interview" | "human_interview";
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;
@@ -922,6 +923,10 @@ export async function importPoolItemToResumeLibrary(
               .update(studioInterview)
               .set({
                 jobDescriptionId: admission.jobDescriptionId,
+                pipelineStage:
+                  admission.initialRecruitmentStage === "human_interview"
+                    ? "human_interview"
+                    : "screening",
                 resumeParseError: null,
                 resumeParseStatus: "processing",
                 updatedAt: new Date(),
@@ -947,6 +952,10 @@ export async function importPoolItemToResumeLibrary(
             jobDescriptionId: admission.jobDescriptionId,
             notes: source.notes,
             organizationId: admission.organizationId,
+            pipelineStage:
+              admission.initialRecruitmentStage === "human_interview"
+                ? "human_interview"
+                : "screening",
             resumeFileName: source.resumeFileName,
             resumeParseStatus: "processing",
             resumeProfile: source.resumeProfile,

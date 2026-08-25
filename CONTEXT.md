@@ -577,6 +577,10 @@ _Avoid_: Workspace invitation, reminder email
 The candidate's business stage in the recruiting pipeline, such as screening, AI interview, human interview, offer, rejected, or hired.
 _Avoid_: Status when the value represents pipeline meaning
 
+**Initial Recruitment Stage**:
+The recruitment stage chosen when creating a Candidate Recruiting Record, allowing already-completed earlier steps to be skipped.
+_Avoid_: Current stage, import status
+
 ### Semantic Matching
 
 **Semantic Index**:

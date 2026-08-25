@@ -13,6 +13,11 @@ import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);
+export const resumePoolInitialRecruitmentStageSchema = z.enum([
+  "screening",
+  "ai_interview",
+  "human_interview",
+]);
 
 export const resumePoolCreateSchema = z.object({
   candidateEmail: z.string().trim().max(200).nullable().optional(),
@@ -26,6 +31,7 @@ export const resumePoolCreateSchema = z.object({
 
 export const resumePoolImportSchema = z.object({
   dedupPolicy: z.enum(["check", "force"]).default("check"),
+  initialRecruitmentStage: resumePoolInitialRecruitmentStageSchema.default("screening"),
   jobDescriptionId: z.string().trim().min(1).nullable().optional(),
   jobDescriptionMode: z.enum(["none", "bind"]).default("none"),
   reimport: z.boolean().optional(),
@@ -33,6 +39,9 @@ export const resumePoolImportSchema = z.object({
 
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
+export type ResumePoolInitialRecruitmentStage = z.infer<
+  typeof resumePoolInitialRecruitmentStageSchema
+>;
 
 export interface ResumePoolLatestExperienceDetail {
   period: string | null;

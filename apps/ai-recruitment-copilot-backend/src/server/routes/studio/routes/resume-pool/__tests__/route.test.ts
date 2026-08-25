@@ -16,6 +16,8 @@ const mocks = {
   deleteOwnPoolItem: vi.fn<ResumePoolRouterDependencies["deleteOwnPoolItem"]>(),
   enqueueCandidateQuestionGenerationForRecordBestEffort:
     vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
+  enqueueResumeReviewGenerationForRecordBestEffort:
+    vi.fn<ResumePoolRouterDependencies["enqueueResumeReviewGenerationForRecordBestEffort"]>(),
   findSemanticResumeDuplicates:
     vi.fn<ResumePoolRouterDependencies["findSemanticResumeDuplicates"]>(),
   getObjectBytes: vi.fn<ResumePoolRouterDependencies["getObjectBytes"]>(),
@@ -37,9 +39,12 @@ const mocks = {
       return requestedCreatorIds.filter((id) => visible.has(id));
     },
   ),
+  launchAiInterviewRound: vi.fn<ResumePoolRouterDependencies["launchAiInterviewRound"]>(),
   listDuplicateMatchesForSource:
     vi.fn<ResumePoolRouterDependencies["listDuplicateMatchesForSource"]>(),
   listResumePoolUploaders: vi.fn<ResumePoolRouterDependencies["listResumePoolUploaders"]>(),
+  loadRecruitingJobDescriptionById:
+    vi.fn<ResumePoolRouterDependencies["loadRecruitingJobDescriptionById"]>(),
   loadResumePoolItem: vi.fn<ResumePoolRouterDependencies["loadResumePoolItem"]>(),
   normalizeResumeFile: (value: FormDataEntryValue | null) => (value instanceof File ? value : null),
   queryResumePoolItems: vi.fn<ResumePoolRouterDependencies["queryResumePoolItems"]>(),
@@ -447,6 +452,29 @@ describe("resumePoolImportInputSchema", () => {
     });
 
     expect(result.jobDescriptionId).toBeNull();
+    expect(result.initialRecruitmentStage).toBe("screening");
+  });
+
+  it("accepts a later initial recruitment stage when a job is bound", () => {
+    const result = resumePoolImportInputSchema.parse({
+      dedupPolicy: "force",
+      initialRecruitmentStage: "ai_interview",
+      jobDescriptionId: "jd-1",
+      jobDescriptionMode: "bind",
+    });
+
+    expect(result.initialRecruitmentStage).toBe("ai_interview");
+  });
+
+  it("rejects a later initial recruitment stage without a bound job", () => {
+    const result = resumePoolImportInputSchema.safeParse({
+      dedupPolicy: "force",
+      initialRecruitmentStage: "human_interview",
+      jobDescriptionMode: "none",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("进入后续招聘阶段时必须关联岗位。");
   });
 
   it("preserves an explicit reimport request", () => {
@@ -465,6 +493,16 @@ describe("resume pool import route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.enqueueCandidateQuestionGenerationForRecordBestEffort.mockResolvedValue(true);
+    mocks.enqueueResumeReviewGenerationForRecordBestEffort.mockResolvedValue({
+      runId: "review-run-1",
+      status: "enqueued",
+    });
+    // SAFETY: The route only checks whether this mocked job exists before forwarding its id.
+    mocks.loadRecruitingJobDescriptionById.mockResolvedValue({ id: "jd-1" } as never);
+    mocks.resolveRecruitingVisibilityScope.mockResolvedValue({
+      kind: "restricted",
+      userIds: [USER_ID],
+    });
   });
 
   it("forwards an explicit reimport request to the DAO", async () => {
@@ -487,6 +525,7 @@ describe("resume pool import route", () => {
     expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith({
       dedupPolicy: "force",
       importedBy: USER_ID,
+      initialRecruitmentStage: "screening",
       jobDescriptionId: null,
       organizationId: ORGANIZATION_ID,
       poolItemId: "pool-item-1",
@@ -496,6 +535,63 @@ describe("resume pool import route", () => {
       organizationId: ORGANIZATION_ID,
       resumeRecordId: "resume-record-2",
     });
+  });
+
+  it("launches an AI interview round after importing directly into AI interview", async () => {
+    mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+      resumeRecordId: "resume-record-ai",
+      status: "imported",
+    });
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: true,
+      roundId: "round-ai-1",
+    });
+
+    const response = await makeApp().request("/resume-pool/pool-item-ai/import", {
+      body: JSON.stringify({
+        dedupPolicy: "force",
+        initialRecruitmentStage: "ai_interview",
+        jobDescriptionId: "jd-1",
+        jobDescriptionMode: "bind",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith(
+      expect.objectContaining({ initialRecruitmentStage: "ai_interview" }),
+    );
+    expect(mocks.launchAiInterviewRound).toHaveBeenCalledWith({
+      actorId: USER_ID,
+      interviewRecordId: "resume-record-ai",
+      organizationId: ORGANIZATION_ID,
+      visibilityScope: { kind: "restricted", userIds: [USER_ID] },
+    });
+  });
+
+  it("imports directly into human interview without creating an AI round", async () => {
+    mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+      resumeRecordId: "resume-record-human",
+      status: "imported",
+    });
+
+    const response = await makeApp().request("/resume-pool/pool-item-human/import", {
+      body: JSON.stringify({
+        dedupPolicy: "force",
+        initialRecruitmentStage: "human_interview",
+        jobDescriptionId: "jd-1",
+        jobDescriptionMode: "bind",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith(
+      expect.objectContaining({ initialRecruitmentStage: "human_interview" }),
+    );
+    expect(mocks.launchAiInterviewRound).not.toHaveBeenCalled();
   });
 });
 

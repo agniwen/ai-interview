@@ -48,6 +48,7 @@ import {
 } from "./dao";
 import { resumePoolRecommendationsRouter as defaultResumePoolRecommendationsRouter } from "./routes/recommendations/route";
 import { retryFailedResumeParse as defaultRetryFailedResumeParse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
+import { launchAiInterviewRound as defaultLaunchAiInterviewRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
 import {
   resumePoolBindSchema,
   resumePoolCreateInputSchema,
@@ -75,6 +76,7 @@ export interface ResumePoolRouterDependencies {
   intersectRequestedCreatorIds: typeof defaultIntersectRequestedCreatorIds;
   listDuplicateMatchesForSource: typeof defaultListDuplicateMatchesForSource;
   listResumePoolUploaders: typeof defaultListResumePoolUploaders;
+  launchAiInterviewRound: typeof defaultLaunchAiInterviewRound;
   loadRecruitingJobDescriptionById: typeof defaultLoadRecruitingJobDescriptionById;
   loadResumePoolItem: typeof defaultLoadResumePoolItem;
   loadResumePoolJobMatchResult: typeof defaultLoadResumePoolJobMatchResult;
@@ -146,6 +148,7 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   getObjectStream: defaultGetObjectStream,
   importPoolItemToResumeLibrary: defaultImportPoolItemToResumeLibrary,
   intersectRequestedCreatorIds: defaultIntersectRequestedCreatorIds,
+  launchAiInterviewRound: defaultLaunchAiInterviewRound,
   listDuplicateMatchesForSource: defaultListDuplicateMatchesForSource,
   listResumePoolUploaders: defaultListResumePoolUploaders,
   loadRecruitingJobDescriptionById: defaultLoadRecruitingJobDescriptionById,
@@ -183,6 +186,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
     intersectRequestedCreatorIds,
     listDuplicateMatchesForSource,
     listResumePoolUploaders,
+    launchAiInterviewRound,
     loadRecruitingJobDescriptionById,
     loadResumePoolItem,
     loadResumePoolJobMatchResult,
@@ -638,11 +642,28 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             const result = await importPoolItemToResumeLibrary({
               dedupPolicy: input.dedupPolicy,
               importedBy: user.id,
+              initialRecruitmentStage: input.initialRecruitmentStage,
               jobDescriptionId: input.jobDescriptionId,
               organizationId: activeOrg.id,
               poolItemId: c.req.param("id"),
               reimport: input.reimport === true,
             });
+            if (result.status === "imported" && input.initialRecruitmentStage === "ai_interview") {
+              const visibilityScope = await resolveRecruitingVisibilityScope({
+                currentRole: c.var.member?.role,
+                organizationId: activeOrg.id,
+                userId: user.id,
+              });
+              const launchResult = await launchAiInterviewRound({
+                actorId: user.id,
+                interviewRecordId: result.resumeRecordId,
+                organizationId: activeOrg.id,
+                visibilityScope,
+              });
+              if (!launchResult.ok) {
+                throw new Error("AI 面试轮次创建失败，请进入招聘台后重试。");
+              }
+            }
             if (result.status === "imported") {
               await enqueueCandidateQuestionGenerationForRecordBestEffort({
                 organizationId: activeOrg.id,
