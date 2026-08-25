@@ -8,7 +8,7 @@ import {
 } from "@arc/db-schema/schema";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationV1Schema,
+  qualitativeResumeEvaluationSchema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import {
   enqueueResumeReviewGenerationJobs,
@@ -124,14 +124,13 @@ function hasCurrentEvaluationArtifact(record: {
     return hasCurrentStructuredEvaluation(record);
   }
   if (record.resumeEvaluationArtifactMode === "qualitative") {
-    return qualitativeResumeEvaluationV1Schema.safeParse(record.qualitativeResumeEvaluation)
-      .success;
+    return qualitativeResumeEvaluationSchema.safeParse(record.qualitativeResumeEvaluation).success;
   }
   if (record.resumeEvaluationArtifactMode === "legacy") {
     return Boolean(record.resumeReview);
   }
   return (
-    qualitativeResumeEvaluationV1Schema.safeParse(record.qualitativeResumeEvaluation).success ||
+    qualitativeResumeEvaluationSchema.safeParse(record.qualitativeResumeEvaluation).success ||
     hasCurrentStructuredEvaluation(record) ||
     Boolean(record.resumeReview)
   );

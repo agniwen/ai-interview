@@ -14,7 +14,7 @@ import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationV1Schema,
+  qualitativeResumeEvaluationV2Schema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
@@ -245,7 +245,7 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
           return false;
         }
 
-        const evaluation = qualitativeResumeEvaluationV1Schema.parse(assessment.evaluation);
+        const evaluation = qualitativeResumeEvaluationV2Schema.parse(assessment.evaluation);
         if (current.resumeEvaluationArtifactMode !== "qualitative") {
           const archive = buildPreQualitativeEvaluationArchive({
             organizationId: input.organizationId,

@@ -1,11 +1,8 @@
 import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
-import {
-  QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
-  qualitativeResumeEvaluationV1Schema,
-} from "@arc/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
 import type {
-  QualitativeResumeEvaluationV1,
+  QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
@@ -28,7 +25,7 @@ const legacyContractMetadataSchema = z.object({
 
 type PersistedEvaluationArtifact =
   | JsonValue
-  | QualitativeResumeEvaluationV1
+  | QualitativeResumeEvaluation
   | ResumeReview
   | StructuredResumeEvaluationV1;
 
@@ -48,8 +45,8 @@ export function deriveResumeEvaluationContractVersion(
   artifact: PersistedEvaluationArtifact,
 ): string {
   if (mode === "qualitative") {
-    const parsed = qualitativeResumeEvaluationV1Schema.safeParse(artifact);
-    return parsed.success ? QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION : "qualitative-unknown";
+    const parsed = qualitativeResumeEvaluationSchema.safeParse(artifact);
+    return parsed.success ? `qualitative-v${parsed.data.schemaVersion}` : "qualitative-unknown";
   }
   if (mode === "structured") {
     const parsed = structuredContractMetadataSchema.safeParse(artifact);

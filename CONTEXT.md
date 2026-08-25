@@ -298,8 +298,12 @@ The candidate clearly conflicts with a core responsibility or explicit requireme
 _Avoid_: Automatic rejection, insufficient-information result
 
 **Six-Dimension Candidate Evaluation**:
-The qualitative evaluation of a candidate across skill match, experience relevance, project match, education/background, potential, and stability. Explicit job-description requirements take precedence; where the job is silent, the evaluation applies the general professional evidence standard without turning it into a hidden job gate.
+The qualitative evaluation of a candidate across skill match, experience relevance, project match, education/background, potential, and stability. Each dimension has one of the four advisory levels plus an evidence-grounded narrative. Explicit job-description requirements take precedence; where the job is silent, the evaluation applies the general professional evidence standard without turning it into a hidden job gate.
 _Avoid_: Six-dimension score, weighted scorecard, inferred job gate
+
+**Dimension Recommendation Level**:
+The not-recommended, undecided, recommended, or highly-recommended judgment for one resume-evaluation dimension. The six ordered levels may be plotted on a radar chart for comparison, but their radial positions are not numeric scores and are never weighted or summed.
+_Avoid_: Dimension score, percentage, weighted contribution
 
 **General Professional Evidence Standard**:
 The versioned fallback used to make a dense, resume-grounded judgment when a job description does not state a requirement for one evaluation dimension. It covers demonstrated skill depth and transferability, responsibility and outcomes, project ownership and complexity, relevant learning foundations, growth and adaptability, and explainable career continuity without credential, career-gap, or job-change presumptions; it cannot by itself justify a not-recommended result.
@@ -318,7 +322,7 @@ An immutable snapshot of the job description used as the basis for AI evaluation
 _Avoid_: Editable job row, evaluation result version, user-selected historical JD
 
 **Qualitative Resume Evaluation**:
-The current job-bound resume-evaluation contract that produces an AI candidate recommendation level, concise and detailed overall evaluations, six text-only dimension evaluations, and optional evidence-backed seniority and team-positioning guidance from the job description and resume evidence. A candidate without a bound job is not evaluated; the contract has no radar chart, skill checklist, gate result, or scoring adjustment.
+The current job-bound resume-evaluation contract that produces an AI candidate recommendation level, concise and detailed overall evaluations, six dimension levels with dense narratives, and optional evidence-backed seniority and team-positioning guidance from the job description and resume evidence. A candidate without a bound job is not evaluated. The UI includes a qualitative six-dimension radar chart, but the contract has no numeric score, skill checklist, gate result, or scoring adjustment.
 _Avoid_: Structured score, weighted evaluation, screening gate result
 
 **Candidate Seniority Recommendation**:

@@ -3,41 +3,59 @@
 import { IconQuestionMark, IconSparkles, IconThumbUp, IconX } from "@tabler/icons-react";
 import type {
   QualitativeRecommendationLevel,
-  QualitativeResumeEvaluationV1,
+  QualitativeResumeEvaluation,
+  QualitativeResumeEvaluationV2,
 } from "@arc/db-schema/qualitative-resume-evaluation";
-import { qualitativeResumeEvaluationV1Schema } from "@arc/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
 import type {
   ResumeEvaluationFailureRecord,
   ResumeEvaluationHistoryRecord,
   ResumeLibraryDetail,
 } from "@arc/shared/studio-resumes";
+import { cn } from "@arc/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
+export const QUALITATIVE_RECOMMENDATION_LABEL = {
+  highly_recommended: "非常推荐",
+  not_recommended: "不推荐",
+  recommended: "推荐",
+  undecided: "待定",
+} as const satisfies Record<QualitativeRecommendationLevel, string>;
+
+export const QUALITATIVE_RECOMMENDATION_TEXT_CLASS = {
+  highly_recommended: "text-purple-700 dark:text-purple-300",
+  not_recommended: "text-red-700 dark:text-red-300",
+  recommended: "text-green-700 dark:text-green-300",
+  undecided: "text-yellow-700 dark:text-yellow-300",
+} as const satisfies Record<QualitativeRecommendationLevel, string>;
+
 const LEVEL_META = {
   highly_recommended: {
-    className: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+    className: QUALITATIVE_RECOMMENDATION_TEXT_CLASS.highly_recommended,
     icon: IconSparkles,
-    label: "非常推荐",
+    label: QUALITATIVE_RECOMMENDATION_LABEL.highly_recommended,
   },
   not_recommended: {
-    className: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+    className: QUALITATIVE_RECOMMENDATION_TEXT_CLASS.not_recommended,
     icon: IconX,
-    label: "不推荐",
+    label: QUALITATIVE_RECOMMENDATION_LABEL.not_recommended,
   },
   recommended: {
-    className: "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300",
+    className: QUALITATIVE_RECOMMENDATION_TEXT_CLASS.recommended,
     icon: IconThumbUp,
-    label: "推荐",
+    label: QUALITATIVE_RECOMMENDATION_LABEL.recommended,
   },
   undecided: {
-    className: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+    className: QUALITATIVE_RECOMMENDATION_TEXT_CLASS.undecided,
     icon: IconQuestionMark,
-    label: "待定",
+    label: QUALITATIVE_RECOMMENDATION_LABEL.undecided,
   },
 } as const;
 
@@ -50,15 +68,28 @@ const DIMENSION_ENTRIES = [
   ["stability", "稳定性"],
 ] as const;
 
-const BASIS_LABELS = {
-  both: "岗位要求 + 通用标准",
-  general: "通用职业标准",
-  job: "岗位要求",
+const DIMENSION_GROUP_DESKTOP_CORNER_CLASSES = [
+  "lg:rounded-[2px] lg:rounded-tr-xl",
+  "lg:rounded-[2px] lg:rounded-bl-xl",
+  "lg:rounded-[2px] lg:rounded-br-xl",
+] as const;
+
+const BASIS_DESCRIPTIONS = {
+  both: "根据岗位要求和通用职业标准分析得出",
+  general: "根据通用职业标准分析得出",
+  job: "根据岗位要求分析得出",
 } as const;
 
-export function QualitativeRecommendationBadge({
+const LEVEL_RADAR_VALUE = {
+  highly_recommended: 4,
+  not_recommended: 1,
+  recommended: 3,
+  undecided: 2,
+} as const satisfies Record<QualitativeRecommendationLevel, number>;
+
+export function QualitativeRecommendationIndicator({
   level,
-  className = "",
+  className,
 }: {
   level: QualitativeRecommendationLevel;
   className?: string;
@@ -66,80 +97,215 @@ export function QualitativeRecommendationBadge({
   const meta = LEVEL_META[level];
   const Icon = meta.icon;
   return (
-    <Badge className={`${meta.className} ${className}`} variant="outline">
-      <Icon className="size-3.5" />
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 font-medium text-xs leading-none",
+        meta.className,
+        className,
+      )}
+      data-qualitative-recommendation={level}
+    >
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
       {meta.label}
-    </Badge>
+    </span>
   );
 }
 
-function EvaluationDetails({ evaluation }: { evaluation: QualitativeResumeEvaluationV1 }) {
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">综合评价详情</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-6">
-          <div>
-            <div className="mb-1 font-medium">判断</div>
-            <p className="text-muted-foreground">{evaluation.detailedOverall.judgment}</p>
-          </div>
-          <div>
-            <div className="mb-1 font-medium">匹配依据</div>
-            <p className="text-muted-foreground">{evaluation.detailedOverall.matchingEvidence}</p>
-          </div>
-          <div>
-            <div className="mb-1 font-medium">风险与待确认项</div>
-            <p className="text-muted-foreground">{evaluation.detailedOverall.risks}</p>
-          </div>
-        </CardContent>
-      </Card>
+function hasDimensionLevels(
+  evaluation: QualitativeResumeEvaluation,
+): evaluation is QualitativeResumeEvaluationV2 {
+  return evaluation.schemaVersion === 2;
+}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {DIMENSION_ENTRIES.map(([key, label]) => {
-          const dimension = evaluation.dimensions[key];
-          return (
-            <Card key={key}>
-              <CardHeader className="gap-2">
-                <CardTitle className="text-base">{label}</CardTitle>
-                <Badge className="w-fit" variant="secondary">
-                  {BASIS_LABELS[dimension.basis]}
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm leading-6">{dimension.evaluation}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+export function QualitativeDimensionRadar({
+  compact = false,
+  evaluation,
+}: {
+  compact?: boolean;
+  evaluation: QualitativeResumeEvaluation;
+}) {
+  if (!hasDimensionLevels(evaluation)) {
+    return (
+      <p className="flex min-h-48 items-center justify-center text-center text-muted-foreground text-sm leading-6">
+        此结果生成于六维评级引入前，重新评价后可查看六维图表。
+      </p>
+    );
+  }
+  const dimensions = DIMENSION_ENTRIES.map(([key, label]) => {
+    const dimension = evaluation.dimensions[key];
+    return {
+      key,
+      label,
+      rationale: dimension.evaluation,
+      score: LEVEL_RADAR_VALUE[dimension.level],
+    };
+  });
+
+  return (
+    <DimensionRadarChart
+      ariaLabel="简历六维定性评价雷达图"
+      compact={compact}
+      dimensions={dimensions}
+      maxScore={4}
+      tooltipBody={(point) => {
+        const dimensionKey = DIMENSION_ENTRIES.find(([key]) => key === point.key)?.[0];
+        if (!dimensionKey) {
+          return null;
+        }
+        const dimension = evaluation.dimensions[dimensionKey];
+        return (
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="font-medium text-foreground">
+              {point.label}：{LEVEL_META[dimension.level].label}
+            </div>
+            <RestrictedMarkdownView
+              className="line-clamp-3 text-xs leading-5"
+              content={dimension.evaluation}
+            />
+          </div>
+        );
+      }}
+    />
+  );
+}
+
+type QualitativeDimensionEntry = (typeof DIMENSION_ENTRIES)[number];
+
+function QualitativeDimensionGroup({
+  className,
+  entries,
+  evaluation,
+}: {
+  className?: string;
+  entries: readonly QualitativeDimensionEntry[];
+  evaluation: QualitativeResumeEvaluation;
+}) {
+  return (
+    <FramePanel
+      className={cn("flex flex-col gap-4", className)}
+      data-qualitative-dimension-group={entries.map(([key]) => key).join(",")}
+    >
+      {entries.map(([key, label], index) => {
+        const dimension = evaluation.dimensions[key];
+        return (
+          <div className={cn(index > 0 && "border-border/50 border-t pt-4")} key={key}>
+            <div
+              className="flex items-start justify-between gap-3"
+              data-qualitative-dimension-header={key}
+            >
+              <div className="font-medium text-sm">{label}</div>
+              {"level" in dimension ? (
+                <QualitativeRecommendationIndicator className="shrink-0" level={dimension.level} />
+              ) : null}
+            </div>
+            <RestrictedMarkdownView
+              className="mt-3 text-sm leading-6"
+              content={dimension.evaluation}
+            />
+            <p
+              className="mt-2 text-muted-foreground text-xs leading-5"
+              data-qualitative-dimension-basis={dimension.basis}
+            >
+              {BASIS_DESCRIPTIONS[dimension.basis]}
+            </p>
+          </div>
+        );
+      })}
+    </FramePanel>
+  );
+}
+
+export function QualitativeEvaluationDetails({
+  evaluation,
+  summaryAction,
+}: {
+  evaluation: QualitativeResumeEvaluation;
+  summaryAction?: ReactNode;
+}) {
+  const dimensionGroups = [
+    DIMENSION_ENTRIES.slice(0, 2),
+    DIMENSION_ENTRIES.slice(2, 4),
+    DIMENSION_ENTRIES.slice(4, 6),
+  ];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Frame>
+        <FrameHeader className="justify-between gap-3">
+          <FrameTitle>综合评价</FrameTitle>
+          {summaryAction}
+        </FrameHeader>
+        <FramePanel>
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground text-xs">推荐建议</span>
+              <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
+            </div>
+            <h3 className="font-semibold text-base leading-7">{evaluation.conciseOverall}</h3>
+            <div className="text-sm leading-6" data-qualitative-overall-judgment>
+              <div className="mb-1 font-medium">判断</div>
+              <RestrictedMarkdownView content={evaluation.detailedOverall.judgment} />
+            </div>
+            <div className="grid gap-5 md:grid-cols-2" data-qualitative-overall-supporting>
+              <div className="text-sm leading-6">
+                <div className="mb-1 font-medium">匹配依据</div>
+                <RestrictedMarkdownView content={evaluation.detailedOverall.matchingEvidence} />
+              </div>
+              <div className="text-sm leading-6">
+                <div className="mb-1 font-medium">风险与待确认项</div>
+                <RestrictedMarkdownView content={evaluation.detailedOverall.risks} />
+              </div>
+            </div>
+          </div>
+        </FramePanel>
+      </Frame>
+
+      <Frame>
+        <FrameHeader className="justify-between gap-3">
+          <FrameTitle>六维评价</FrameTitle>
+          <span className="text-muted-foreground text-xs">不推荐 · 待定 · 推荐 · 非常推荐</span>
+        </FrameHeader>
+        <div className="grid gap-1 lg:grid-cols-2">
+          <FramePanel
+            className="flex min-w-0 items-center justify-center lg:rounded-[2px] lg:rounded-tl-xl"
+            data-qualitative-radar-panel
+          >
+            <QualitativeDimensionRadar evaluation={evaluation} />
+          </FramePanel>
+          {dimensionGroups.map((entries, index) => (
+            <QualitativeDimensionGroup
+              className={DIMENSION_GROUP_DESKTOP_CORNER_CLASSES[index]}
+              entries={entries}
+              evaluation={evaluation}
+              key={entries.map(([key]) => key).join("-")}
+            />
+          ))}
+        </div>
+      </Frame>
 
       {evaluation.seniorityRecommendation || evaluation.teamPositioning ? (
         <div className="grid gap-4 md:grid-cols-2">
           {evaluation.seniorityRecommendation ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">职级建议</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm leading-6">
+            <Frame>
+              <FrameHeader>
+                <FrameTitle>职级建议</FrameTitle>
+              </FrameHeader>
+              <FramePanel className="flex flex-1 flex-col gap-2 text-sm leading-6">
                 <p className="font-medium">{evaluation.seniorityRecommendation.level}</p>
-                <p className="text-muted-foreground">
-                  {evaluation.seniorityRecommendation.rationale}
-                </p>
-              </CardContent>
-            </Card>
+                <RestrictedMarkdownView content={evaluation.seniorityRecommendation.rationale} />
+              </FramePanel>
+            </Frame>
           ) : null}
           {evaluation.teamPositioning ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">团队定位</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm leading-6">
+            <Frame>
+              <FrameHeader>
+                <FrameTitle>团队定位</FrameTitle>
+              </FrameHeader>
+              <FramePanel className="flex flex-1 flex-col gap-2 text-sm leading-6">
                 <p className="font-medium">{evaluation.teamPositioning.suggestion}</p>
-                <p className="text-muted-foreground">{evaluation.teamPositioning.rationale}</p>
-              </CardContent>
-            </Card>
+                <RestrictedMarkdownView content={evaluation.teamPositioning.rationale} />
+              </FramePanel>
+            </Frame>
           ) : null}
         </div>
       ) : null}
@@ -148,7 +314,7 @@ function EvaluationDetails({ evaluation }: { evaluation: QualitativeResumeEvalua
 }
 
 function historyTypeLabel(contractVersion: string) {
-  if (contractVersion === "qualitative-v1") {
+  if (contractVersion.startsWith("qualitative-v")) {
     return "六维定性评价";
   }
   if (contractVersion.startsWith("structured-")) {
@@ -158,12 +324,12 @@ function historyTypeLabel(contractVersion: string) {
 }
 
 function EvaluationHistoryItem({ item }: { item: ResumeEvaluationHistoryRecord }) {
-  const qualitative = qualitativeResumeEvaluationV1Schema.safeParse(item.artifact);
-  let statusBadge: ReactNode = (
+  const qualitative = qualitativeResumeEvaluationSchema.safeParse(item.artifact);
+  let statusIndicator: ReactNode = (
     <Badge variant="outline">{historyTypeLabel(item.contractVersion)}</Badge>
   );
   if (item.recommendationLevel) {
-    statusBadge = <QualitativeRecommendationBadge level={item.recommendationLevel} />;
+    statusIndicator = <QualitativeRecommendationIndicator level={item.recommendationLevel} />;
   }
   let content: ReactNode = (
     <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">
@@ -171,14 +337,14 @@ function EvaluationHistoryItem({ item }: { item: ResumeEvaluationHistoryRecord }
     </pre>
   );
   if (qualitative.success) {
-    content = <EvaluationDetails evaluation={qualitative.data} />;
+    content = <QualitativeEvaluationDetails evaluation={qualitative.data} />;
   }
   return (
     <details className="rounded-md border bg-muted/20 p-3">
       <summary aria-label="展开完整历史评价" className="cursor-pointer list-none">
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            {statusBadge}
+            {statusIndicator}
             <span className="text-muted-foreground">{historyTypeLabel(item.contractVersion)}</span>
             {item.numericScore === null ? null : <span>{item.numericScore} 分</span>}
             <span className="text-muted-foreground">
@@ -305,18 +471,6 @@ export function QualitativeResumeEvaluationPanel({
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-lg">AI 评价</h2>
-            <QualitativeRecommendationBadge level={evaluation.recommendationLevel} />
-          </div>
-          <p className="max-w-3xl text-muted-foreground text-sm leading-6">
-            {evaluation.conciseOverall}
-          </p>
-        </div>
-        {summaryAction}
-      </div>
       {isUpdating ? (
         <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
           正在重新评价，当前继续展示上一次已完成的结果。
@@ -327,7 +481,7 @@ export function QualitativeResumeEvaluationPanel({
           {detail.resumeReviewError || "重新评价失败"}，当前继续展示上一次已完成的结果。
         </p>
       ) : null}
-      <EvaluationDetails evaluation={evaluation} />
+      <QualitativeEvaluationDetails evaluation={evaluation} summaryAction={summaryAction} />
       {previousActivities.length > 0 ? (
         <details className="rounded-lg border p-4">
           <summary className="cursor-pointer font-medium text-sm">

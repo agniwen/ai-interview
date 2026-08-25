@@ -58,6 +58,7 @@ export function DimensionRadarChart({
   ariaLabel = "维度评分雷达图",
   fillOpacity = 0.16,
   height: heightProp,
+  maxScore = 100,
   empty,
   tooltipBody,
 }: {
@@ -69,6 +70,8 @@ export function DimensionRadarChart({
   fillOpacity?: number;
   /** Keep the renderer height aligned with a caller-provided compact host height. */
   height?: number;
+  /** Maximum radial value. Qualitative charts use four ordered levels. */
+  maxScore?: number;
   empty?: ReactNode;
   tooltipBody?: (point: RadarDimensionPoint) => ReactNode;
 }) {
@@ -98,7 +101,7 @@ export function DimensionRadarChart({
             wrap: true,
           },
           radius: {
-            scale: scaleLinear().domain([0, 100]),
+            scale: scaleLinear().domain([0, maxScore]),
           },
           guides: [
             radialGrid({
@@ -173,7 +176,7 @@ export function DimensionRadarChart({
             },
           },
     });
-  }, [compact, fillOpacity, labels, scored, tooltipBody]);
+  }, [compact, fillOpacity, labels, maxScore, scored, tooltipBody]);
 
   if (scored.length === 0 || !definition) {
     return (
@@ -201,6 +204,7 @@ export function DimensionRadarChart({
         className,
       )}
       config={config}
+      data-radar-max-score={maxScore}
       data-radar-order={orderAttr}
     >
       <ChartComponent

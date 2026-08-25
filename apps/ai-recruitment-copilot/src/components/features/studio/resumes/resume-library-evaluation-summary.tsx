@@ -4,7 +4,6 @@ import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 import { ResumeAiScoreHoverCard } from "./resume-ai-score-hover-card";
-import { QualitativeRecommendationBadge } from "./qualitative-resume-evaluation-panel";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
 const REVIEW_ACTION_TONE_CLASS = {
@@ -13,6 +12,13 @@ const REVIEW_ACTION_TONE_CLASS = {
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-700 dark:text-amber-300",
 } satisfies Record<ResumeReviewActionTone, string>;
+
+const QUALITATIVE_RECOMMENDATION_TONE_CLASS = {
+  highly_recommended: "text-purple-700 dark:text-purple-300",
+  not_recommended: "text-red-700 dark:text-red-300",
+  recommended: "text-green-700 dark:text-green-300",
+  undecided: "text-yellow-700 dark:text-yellow-300",
+} satisfies Record<NonNullable<ResumeLibraryListRecord["qualitativeRecommendationLevel"]>, string>;
 
 interface StructuredReviewCardDescription {
   label: string;
@@ -63,18 +69,23 @@ function describeStructuredReviewCard(
   return { label: "待 AI 评估", tone: "muted" };
 }
 
-function qualitativeRecommendationLabel(
+function describeQualitativeReviewCard(
   level: ResumeLibraryListRecord["qualitativeRecommendationLevel"],
-) {
+): StructuredReviewCardDescription {
   if (!level) {
-    return "待 AI 评价";
+    return { label: "待 AI 评价", tone: "muted" };
   }
-  return {
-    highly_recommended: "非常推荐",
-    not_recommended: "不推荐",
-    recommended: "推荐",
-    undecided: "待定",
-  }[level];
+  return (
+    {
+      highly_recommended: { label: "非常推荐", tone: "success" },
+      not_recommended: { label: "不推荐", tone: "danger" },
+      recommended: { label: "推荐", tone: "success" },
+      undecided: { label: "待定", tone: "warning" },
+    } satisfies Record<
+      NonNullable<ResumeLibraryListRecord["qualitativeRecommendationLevel"]>,
+      StructuredReviewCardDescription
+    >
+  )[level];
 }
 
 function resumeReplacementAttemptLabel(
@@ -119,14 +130,13 @@ export function ResumeLibraryEvaluationSummary({
   const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
   const hasRetainedLegacyReview =
     artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
-  const qualitativeLabel = qualitativeRecommendationLabel(record.qualitativeRecommendationLevel);
   let baseReviewCard: StructuredReviewCardDescription = describeResumeLibraryReviewCard({
     baseScore: record.resumeReviewBaseScore,
     nextStepAction: record.resumeReviewNextStepAction,
     status: hasRetainedLegacyReview ? "ready" : record.resumeReviewStatus,
   });
   if (artifactMode === "qualitative") {
-    baseReviewCard = { label: qualitativeLabel, tone: "muted" };
+    baseReviewCard = describeQualitativeReviewCard(record.qualitativeRecommendationLevel);
   } else if (artifactMode === "structured") {
     baseReviewCard = describeStructuredReviewCard(record);
   }
@@ -145,15 +155,19 @@ export function ResumeLibraryEvaluationSummary({
     replacementAttemptLabel,
     summary,
   );
-  let reviewLabel = (
-    <span className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}>
-      {reviewCard.label}
-    </span>
-  );
+  const reviewToneClass =
+    artifactMode === "qualitative" && record.qualitativeRecommendationLevel
+      ? QUALITATIVE_RECOMMENDATION_TONE_CLASS[record.qualitativeRecommendationLevel]
+      : REVIEW_ACTION_TONE_CLASS[reviewCard.tone];
+  let reviewLabel = <span className={cn("font-medium", reviewToneClass)}>{reviewCard.label}</span>;
   if (artifactMode === "qualitative" && record.qualitativeRecommendationLevel) {
     reviewLabel = (
-      <button onClick={() => onOpenDetail(record, "ai-analysis")} type="button">
-        <QualitativeRecommendationBadge level={record.qualitativeRecommendationLevel} />
+      <button
+        className={cn("font-medium", reviewToneClass)}
+        onClick={() => onOpenDetail(record, "ai-analysis")}
+        type="button"
+      >
+        {reviewCard.label}
       </button>
     );
   } else if (hasAiScoreDetail) {
@@ -174,10 +188,7 @@ export function ResumeLibraryEvaluationSummary({
     >
       <IconSparkles
         aria-hidden
-        className={cn(
-          "mr-1 inline size-3.5 align-[-2px]",
-          REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-        )}
+        className={cn("mr-1 inline size-3.5 align-[-2px]", reviewToneClass)}
       />
       {reviewLabel}
       {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}

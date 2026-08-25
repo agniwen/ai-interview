@@ -3,12 +3,18 @@
 
 import { getResumeReviewBaseScore, resumeReviewActionLabel } from "@arc/shared/resume-review";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
+import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OverviewDimensionRadar } from "./resume-overview-dimension-radar";
-import { QualitativeRecommendationBadge } from "./qualitative-resume-evaluation-panel";
+import {
+  QualitativeDimensionRadar,
+  QUALITATIVE_RECOMMENDATION_LABEL,
+  QUALITATIVE_RECOMMENDATION_TEXT_CLASS,
+} from "./qualitative-resume-evaluation-panel";
 import {
   actionVariant,
   getReviewDimensionDisplays,
@@ -32,18 +38,40 @@ export function ResumeOverviewAiScoreSection({
       detail.resumeReviewStatus === "queued" || detail.resumeReviewStatus === "processing";
     return (
       <section className="space-y-4">
+        <div className="flex min-h-10 flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">AI评价</h3>
+        </div>
         {isUpdating ? (
           <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
             正在重新评价，当前展示上一次结果。
           </p>
         ) : null}
-        <div className="grid gap-5 rounded-lg border p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="space-y-3">
-            <h3 className="font-medium text-sm">AI评价</h3>
-            <p className="font-medium text-sm leading-6">{evaluation.conciseOverall}</p>
+        <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+          <div className="min-w-0">
+            <QualitativeDimensionRadar compact evaluation={evaluation} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="text-muted-foreground text-xs">综合评价</div>
+              <div
+                className={cn(
+                  "font-semibold text-4xl leading-none tracking-tight",
+                  QUALITATIVE_RECOMMENDATION_TEXT_CLASS[evaluation.recommendationLevel],
+                )}
+                data-qualitative-overview-recommendation
+              >
+                {QUALITATIVE_RECOMMENDATION_LABEL[evaluation.recommendationLevel]}
+              </div>
+            </div>
+            <div data-qualitative-overview-judgment>
+              <RestrictedMarkdownView
+                className="text-sm leading-6"
+                content={evaluation.detailedOverall.judgment}
+              />
+            </div>
             {onViewAiScore ? (
               <Button
-                className="h-auto px-0 text-xs"
+                className="h-auto self-center px-0 text-xs lg:self-start"
                 onClick={onViewAiScore}
                 type="button"
                 variant="link"
@@ -52,10 +80,6 @@ export function ResumeOverviewAiScoreSection({
               </Button>
             ) : null}
           </div>
-          <QualitativeRecommendationBadge
-            className="px-4 py-3 font-semibold text-lg"
-            level={evaluation.recommendationLevel}
-          />
         </div>
       </section>
     );

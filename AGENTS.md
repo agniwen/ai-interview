@@ -184,9 +184,10 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 - New job-bound resume evaluations use exactly four advisory levels: 不推荐, 待定, 推荐, 非常推荐. They never change recruiter decisions or pipeline state automatically.
 - 不推荐 requires resume-supported conflict with an explicit core JD responsibility or requirement. Missing or conflicting evidence produces 待定, not 不推荐.
-- Each of the six dimensions—技能匹配、经验相关性、项目匹配、教育与背景、潜力、稳定性—returns dense candidate-specific text, not a score or per-dimension level. Prefer explicit JD requirements; when the JD is silent, apply the versioned general professional evidence standard and label the visible basis accordingly.
+- Each of the six dimensions—技能匹配、经验相关性、项目匹配、教育与背景、潜力、稳定性—returns one of the same four advisory levels plus dense candidate-specific text. Prefer explicit JD requirements; when the JD is silent, apply the versioned general professional evidence standard and label the visible basis accordingly.
 - The concise overall evaluation is 1–2 sentences (roughly 50–100 Chinese characters). The detailed evaluation covers overall judgment, key matching evidence, and risks or uncertainties without repeating all six dimensions. Each dimension targets 2–4 information-dense sentences.
-- New results must not contain numeric scores, weights, gates, deductions, priority conditions, exclusion conditions, radar data, or skill-checklist output. Seniority recommendation and team positioning are optional and must be omitted when unsupported.
+- Detailed narrative fields may use restricted Markdown for scanability: bold, italic, ordered lists, and unordered lists only. Do not generate Markdown headings, links, images, tables, code, blockquotes, dividers, task lists, or HTML; concise overall text, level names, and suggestion titles remain plain text. The UI must render this content through the restricted Typeset whitelist rather than raw HTML.
+- New results must not contain numeric scores, weights, gates, deductions, priority conditions, exclusion conditions, or skill-checklist output. The UI may map the four ordered dimension levels to non-user-facing radial positions solely to draw the six-dimension qualitative radar chart; those positions are not scores. Seniority recommendation and team positioning are optional and must be omitted when unsupported.
 - See `docs/adr/0029-version-qualitative-resume-evaluation.md` and `docs/adr/0030-use-guarded-general-professional-evidence.md` for versioning, presentation, fallback, and history rules.
 
 ## Architecture

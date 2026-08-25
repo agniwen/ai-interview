@@ -30,8 +30,8 @@ import type {
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 import type {
+  QualitativeResumeEvaluation,
   QualitativeRecommendationLevel,
-  QualitativeResumeEvaluationV1,
   ResumeEvaluationContractMode,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 
@@ -226,7 +226,7 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeReviewGeneratedAt: string | null;
   resumeReviewQueuedAt: string | null;
   qualitativeJobDescriptionVersionId: string | null;
-  qualitativeResumeEvaluation: QualitativeResumeEvaluationV1 | null;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
   resumeScreeningError: string | null;
   resumeScreeningEvaluatedAt: string | null;

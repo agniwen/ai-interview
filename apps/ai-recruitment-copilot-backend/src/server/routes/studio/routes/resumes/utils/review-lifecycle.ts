@@ -6,7 +6,7 @@ import type {
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
 import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
-import type { QualitativeResumeEvaluationV1 } from "@arc/db-schema/qualitative-resume-evaluation";
+import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
@@ -24,7 +24,7 @@ export type GeneratedResumeAssessment =
       summaries: StructuredResumeSummaryFields;
     }
   | {
-      evaluation: QualitativeResumeEvaluationV1;
+      evaluation: QualitativeResumeEvaluation;
       jobDescriptionVersionId: string;
       mode: "qualitative";
     };
@@ -33,7 +33,7 @@ export interface ResumeAssessmentRecord {
   jobDescriptionId: string | null;
   evaluationMode: "legacy" | "qualitative" | "structured" | null;
   qualitativeAttemptJobDescriptionVersionId: string | null;
-  qualitativeResumeEvaluation: QualitativeResumeEvaluationV1 | null;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   resumeEvaluationArtifactMode: "legacy" | "qualitative" | "structured" | null;
   resumeEvaluationAttemptMode: "legacy" | "qualitative" | "structured" | null;
   outcome: CandidateOutcome;

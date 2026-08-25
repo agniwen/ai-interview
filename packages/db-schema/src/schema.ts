@@ -71,8 +71,8 @@ import type {
   StructuredResumeGrade,
 } from "./structured-resume-evaluation";
 import type {
+  QualitativeResumeEvaluation,
   QualitativeRecommendationLevel,
-  QualitativeResumeEvaluationV1,
   ResumeEvaluationContractMode,
 } from "./qualitative-resume-evaluation";
 import { sql } from "drizzle-orm";
@@ -1339,7 +1339,7 @@ export const studioInterview = pgTable(
     ).$type<QualitativeRecommendationLevel>(),
     qualitativeResumeEvaluation: jsonb(
       "qualitative_resume_evaluation",
-    ).$type<QualitativeResumeEvaluationV1 | null>(),
+    ).$type<QualitativeResumeEvaluation | null>(),
     resumeContentHash: text("resume_content_hash"),
     resumeEvaluationArtifactMode: text(
       "resume_evaluation_artifact_mode",

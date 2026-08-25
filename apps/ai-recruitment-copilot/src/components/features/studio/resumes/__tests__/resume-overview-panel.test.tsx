@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { JsonValue } from "@arc/db-schema/json";
+import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { ResumeOverviewPanel } from "../resume-overview-panel";
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -108,6 +109,43 @@ function createStructuredDetail(): ResumeLibraryDetail {
       runId: "run-1",
     },
   });
+}
+
+function createQualitativeDetail(
+  recommendationLevel: "highly_recommended" | "not_recommended" | "recommended" | "undecided",
+): ResumeLibraryDetail {
+  const qualitativeDimension = {
+    basis: "job",
+    evaluation: "维度评价正文。",
+    level: "recommended",
+  } satisfies QualitativeResumeEvaluationV2["dimensions"]["skillMatch"];
+  return {
+    ...createStructuredDetail(),
+    jobEvaluationMode: "qualitative",
+    qualitativeResumeEvaluation: {
+      conciseOverall: "不应继续显示的精简摘要。",
+      detailedOverall: {
+        judgment: "**关键判断**：候选人的核心经验与岗位要求部分匹配，但仍有重要信息需要确认。",
+        matchingEvidence: "1. 核心技能部分匹配。",
+        risks: "1. 关键经验仍需确认。",
+      },
+      dimensions: {
+        educationBackground: qualitativeDimension,
+        experienceRelevance: qualitativeDimension,
+        potential: qualitativeDimension,
+        projectMatch: qualitativeDimension,
+        skillMatch: qualitativeDimension,
+        stability: qualitativeDimension,
+      },
+      recommendationLevel,
+      schemaVersion: 2,
+      seniorityRecommendation: null,
+      teamPositioning: null,
+    },
+    resumeEvaluationArtifactMode: "qualitative",
+    resumeEvaluationAttemptMode: "qualitative",
+    structuredResumeEvaluation: null,
+  } satisfies ResumeLibraryDetail;
 }
 
 function createLegacyDetail(): ResumeLibraryDetail {
@@ -268,6 +306,70 @@ describe("ResumeOverviewPanel", () => {
     expect(detailButton).toBeDefined();
     act(() => detailButton?.click());
     expect(onViewAiScore).toHaveBeenCalledOnce();
+
+    act(() => root.unmount());
+  });
+
+  it.each([
+    ["not_recommended", "不推荐", "text-red-700"],
+    ["undecided", "待定", "text-yellow-700"],
+    ["recommended", "推荐", "text-green-700"],
+    ["highly_recommended", "非常推荐", "text-purple-700"],
+  ] as const)(
+    "shows qualitative %s with its level color and detailed judgment",
+    (level, label, colorClass) => {
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      const queryClient = new QueryClient();
+
+      act(() => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <ResumeOverviewPanel detail={createQualitativeDetail(level)} />
+          </QueryClientProvider>,
+        );
+      });
+
+      const recommendation = container.querySelector<HTMLElement>(
+        "[data-qualitative-overview-recommendation]",
+      );
+      const judgment = container.querySelector<HTMLElement>("[data-qualitative-overview-judgment]");
+      expect(recommendation?.textContent).toBe(label);
+      expect(recommendation?.className).toContain(colorClass);
+      expect(judgment?.textContent).toContain("关键判断");
+      expect(judgment?.querySelector("strong")?.textContent).toBe("关键判断");
+      expect(judgment?.querySelector(".typeset")?.className).toContain("text-foreground");
+      expect(judgment?.querySelector(".typeset")?.className).not.toContain("text-muted-foreground");
+      expect(judgment?.className).not.toContain("font-semibold");
+      expect(container.textContent).not.toContain("不应继续显示的精简摘要");
+
+      act(() => root.unmount());
+    },
+  );
+
+  it("centers the qualitative detail action on mobile and aligns it left on desktop", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel
+            detail={createQualitativeDetail("undecided")}
+            onViewAiScore={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    const detailButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "查看详情",
+    );
+    expect(detailButton?.className).toContain("self-center");
+    expect(detailButton?.className).toContain("lg:self-start");
 
     act(() => root.unmount());
   });

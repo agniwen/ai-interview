@@ -5,6 +5,7 @@ import { EMPTY_RESUME_PROFILE_SNAPSHOT } from "@arc/shared/studio-resumes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ResumeLibraryCard } from "../resume-library-card";
+import { ResumeLibraryEvaluationSummary } from "../resume-library-evaluation-summary";
 
 function renderWithQueryClient(element: ReactElement) {
   return renderToStaticMarkup(
@@ -65,6 +66,24 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
+  it("renders qualitative recommendations as colored text with the sparkle icon", () => {
+    const content = renderToStaticMarkup(
+      <ResumeLibraryEvaluationSummary
+        onOpenDetail={vi.fn()}
+        record={{
+          ...record,
+          qualitativeRecommendationLevel: "undecided",
+          resumeEvaluationArtifactMode: "qualitative",
+        }}
+        summary="候选人的核心经验仍需进一步确认"
+      />,
+    );
+
+    expect(content).toContain("待定");
+    expect(content.match(/text-yellow-700/g)).toHaveLength(2);
+    expect(content).not.toContain('data-slot="badge"');
+  });
+
   it("shows reparse for every failed record regardless of legacy retry eligibility", () => {
     const noop = vi.fn();
     const content = renderWithQueryClient(

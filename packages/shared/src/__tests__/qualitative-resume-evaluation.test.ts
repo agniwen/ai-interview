@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { qualitativeResumeEvaluationV1Schema } from "@arc/db-schema/qualitative-resume-evaluation";
+import {
+  qualitativeResumeEvaluationSchema,
+  qualitativeResumeEvaluationV1Schema,
+  qualitativeResumeEvaluationV2Schema,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 
 const dimension = (basis: "both" | "general" | "job", evaluation: string) => ({
   basis,
   evaluation,
+  level: "recommended" as const,
 });
 
 function validEvaluation() {
@@ -23,7 +28,7 @@ function validEvaluation() {
       stability: dimension("general", "任职变化均有连贯的职责升级。"),
     },
     recommendationLevel: "highly_recommended",
-    schemaVersion: 1,
+    schemaVersion: 2,
     seniorityRecommendation: {
       level: "高级工程师",
       rationale: "能够独立负责复杂业务域。",
@@ -33,13 +38,21 @@ function validEvaluation() {
 }
 
 describe("qualitative resume evaluation contract", () => {
-  it("accepts four-level, text-only six-dimension evaluations", () => {
-    expect(qualitativeResumeEvaluationV1Schema.parse(validEvaluation())).toEqual(validEvaluation());
+  it("requires a four-level rating alongside every dimension narrative", () => {
+    expect(qualitativeResumeEvaluationV2Schema.parse(validEvaluation())).toEqual(validEvaluation());
+    const value = validEvaluation();
+    const { level: _level, ...skillMatch } = value.dimensions.skillMatch;
+    expect(() =>
+      qualitativeResumeEvaluationV2Schema.parse({
+        ...value,
+        dimensions: { ...value.dimensions, skillMatch },
+      }),
+    ).toThrow();
   });
 
   it("rejects legacy numeric scoring fields", () => {
     expect(() =>
-      qualitativeResumeEvaluationV1Schema.parse({
+      qualitativeResumeEvaluationV2Schema.parse({
         ...validEvaluation(),
         compositeScore: 92,
       }),
@@ -49,9 +62,9 @@ describe("qualitative resume evaluation contract", () => {
   it("requires every dimension and a supported evaluation basis", () => {
     const value = validEvaluation();
     const { stability: _stability, ...dimensions } = value.dimensions;
-    expect(() => qualitativeResumeEvaluationV1Schema.parse({ ...value, dimensions })).toThrow();
+    expect(() => qualitativeResumeEvaluationV2Schema.parse({ ...value, dimensions })).toThrow();
     expect(() =>
-      qualitativeResumeEvaluationV1Schema.parse({
+      qualitativeResumeEvaluationV2Schema.parse({
         ...value,
         dimensions: {
           ...value.dimensions,
@@ -59,5 +72,16 @@ describe("qualitative resume evaluation contract", () => {
         },
       }),
     ).toThrow();
+  });
+
+  it("keeps qualitative-v1 readable without inventing dimension ratings", () => {
+    const value = validEvaluation();
+    const dimensions = Object.fromEntries(
+      Object.entries(value.dimensions).map(([key, { level: _level, ...item }]) => [key, item]),
+    );
+    const legacy = { ...value, dimensions, schemaVersion: 1 };
+
+    expect(qualitativeResumeEvaluationV1Schema.safeParse(legacy).success).toBe(true);
+    expect(qualitativeResumeEvaluationSchema.safeParse(legacy).success).toBe(true);
   });
 });

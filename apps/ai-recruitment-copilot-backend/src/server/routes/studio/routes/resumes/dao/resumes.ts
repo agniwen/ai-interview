@@ -42,7 +42,7 @@ import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import {
   qualitativeRecommendationLevelSchema,
-  qualitativeResumeEvaluationV1Schema,
+  qualitativeResumeEvaluationSchema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { normalizeSkill } from "./skills";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
@@ -818,7 +818,7 @@ export async function loadResumeDetail(
   const structuredEvaluation = structuredResumeEvaluationV1Schema.safeParse(
     rest.structuredResumeEvaluation,
   );
-  const qualitativeEvaluation = qualitativeResumeEvaluationV1Schema.safeParse(
+  const qualitativeEvaluation = qualitativeResumeEvaluationSchema.safeParse(
     rest.qualitativeResumeEvaluation,
   );
   const [derivedFields, duplicateMatches] = await Promise.all([

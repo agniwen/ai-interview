@@ -89,7 +89,7 @@ export const resumeEvaluationHistoryRouter = factory
         records: rows.map((row) => {
           const isCurrent =
             !markedCurrent &&
-            row.contractVersion === "qualitative-v1" &&
+            row.contractVersion.startsWith("qualitative-v") &&
             row.jobDescriptionVersionId === current.qualitativeJobDescriptionVersionId;
           markedCurrent ||= isCurrent;
           return {
