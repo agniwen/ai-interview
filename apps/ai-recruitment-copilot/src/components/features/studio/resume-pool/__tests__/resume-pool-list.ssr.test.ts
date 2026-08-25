@@ -16,6 +16,11 @@ describe("resume pool list", () => {
     expect(source).toContain("useResumePoolCardHeight");
     expect(source).toContain("buildResumePoolVirtualRows");
     expect(source).toContain("ResumePoolStickyDateGroupHeader");
+    expect(source).toContain("RESUME_POOL_DATE_HEADER_GAP = 12");
+    expect(source).toMatch(
+      /type === "date-header"\s*\? RESUME_POOL_DATE_HEADER_ROW_HEIGHT\s*: cardHeight/u,
+    );
+    expect(source).toContain("height: RESUME_POOL_DATE_HEADER_HEIGHT");
     expect(source).toContain("useElementScrollRestoration");
     expect(source).toContain("initialOffset: studioScrollEntry?.scrollY");
     expect(source).toContain("[overflow-anchor:none]");

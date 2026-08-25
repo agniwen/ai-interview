@@ -19,6 +19,9 @@ import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
 import { buildResumePoolVirtualRows, resolveResumePoolStickyState } from "./resume-pool-page-model";
 
 const RESUME_POOL_DATE_HEADER_HEIGHT = 44;
+const RESUME_POOL_DATE_HEADER_GAP = 12;
+const RESUME_POOL_DATE_HEADER_ROW_HEIGHT =
+  RESUME_POOL_DATE_HEADER_HEIGHT + RESUME_POOL_DATE_HEADER_GAP;
 
 function ResumePoolStickyDateGroupHeader({
   active,
@@ -157,7 +160,7 @@ export function ResumePoolListContent({
   const virtualRows = useMemo(() => buildResumePoolVirtualRows(records, sortBy), [records, sortBy]);
   const getVirtualRowSize = useCallback(
     (index: number) =>
-      virtualRows[index]?.type === "date-header" ? RESUME_POOL_DATE_HEADER_HEIGHT : cardHeight,
+      virtualRows[index]?.type === "date-header" ? RESUME_POOL_DATE_HEADER_ROW_HEIGHT : cardHeight,
     [cardHeight, virtualRows],
   );
   const stickyHeaderPositions = useMemo(() => {
