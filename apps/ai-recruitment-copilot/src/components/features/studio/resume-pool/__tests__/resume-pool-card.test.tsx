@@ -15,6 +15,7 @@ import {
   canManageResumePoolJobBinding,
 } from "../resume-pool-details";
 import { canDeletePoolRecord, uploaderMetaLabel } from "../resume-pool-page-model";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 // SAFETY: React's test environment flag is intentionally attached to globalThis.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -111,6 +112,38 @@ const defaultRetryProps = {
 } as const;
 
 describe("ResumePoolCard", () => {
+  it("shows the recruitment-desk job preview trigger for a bound job", () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceSlugProvider
+          id="organization-1"
+          memberRole="admin"
+          permissions={{}}
+          slug="test-workspace"
+        >
+          <ResumePoolCard
+            {...defaultRetryProps}
+            bindingJobDescription={false}
+            canDelete={false}
+            canEnterRecruiting={true}
+            canRecommend={true}
+            deleting={false}
+            enteringRecruiting={false}
+            onBindJobDescription={() => {}}
+            onDelete={() => {}}
+            onEnterRecruiting={() => {}}
+            onOpenDetail={() => {}}
+            onOpenDuplicateMatches={() => {}}
+            record={record}
+            slug="test-workspace"
+          />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(html).toMatch(/hover:underline[^>]*>AI 产品经理<\/button>/u);
+  });
+
   it("matches the recruitment-desk information rhythm and restores the bound-job action", () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
@@ -266,6 +299,8 @@ describe("ResumePoolCard", () => {
               },
             },
             importedResumeRecordId: "studio-resume-1",
+            jobDescriptionId: null,
+            jobDescriptionName: null,
           }}
           slug="test-workspace"
         />,
@@ -383,7 +418,7 @@ describe("ResumePoolCard", () => {
           onEnterRecruiting={() => {}}
           onOpenDetail={onOpenDetail}
           onOpenDuplicateMatches={() => {}}
-          record={record}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
           slug="test-workspace"
         />,
       );
@@ -422,7 +457,13 @@ describe("ResumePoolCard", () => {
           onOpenDetail={onOpenDetail}
           onOpenDuplicateMatches={() => {}}
           onRetryParse={onRetryParse}
-          record={{ ...record, resumeParseRetryable: false, resumeParseStatus: "failed" }}
+          record={{
+            ...record,
+            jobDescriptionId: null,
+            jobDescriptionName: null,
+            resumeParseRetryable: false,
+            resumeParseStatus: "failed",
+          }}
           slug="test-workspace"
         />,
       );
@@ -460,7 +501,7 @@ describe("ResumePoolCard", () => {
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
           onOpenDuplicateMatches={() => {}}
-          record={record}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
           slug="test-workspace"
         />,
       );

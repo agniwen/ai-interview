@@ -14,6 +14,7 @@ import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,18 +113,20 @@ function ResumePoolCardMeta({
   icon,
   label,
   value,
+  valueContent,
 }: {
   action?: ReactNode;
   icon: ReactNode;
   label: string;
   value: string;
+  valueContent?: ReactNode;
 }) {
   return (
     <span className="flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
       <span className="shrink-0 text-muted-foreground/70">{icon}</span>
       <span className="shrink-0">{label}</span>
       <span className="min-w-0 truncate text-foreground/80" title={value}>
-        {value}
+        {valueContent ?? value}
       </span>
       {action}
     </span>
@@ -363,7 +366,8 @@ export function ResumePoolCard({
       .filter(Boolean)
       .join("；") || "暂无主要亮点。";
   const targetRole = record.targetRole?.trim() || "未填写目标岗位";
-  const boundJob = record.jobDescriptionName?.trim() || "未绑定岗位";
+  const boundJobName = record.jobDescriptionName?.trim();
+  const boundJob = boundJobName || "未绑定岗位";
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
@@ -436,6 +440,15 @@ export function ResumePoolCard({
                     icon={<IconBuilding className="size-3.5" />}
                     label="绑定岗位"
                     value={boundJob}
+                    valueContent={
+                      record.jobDescriptionId && boundJobName ? (
+                        <JobDescriptionHoverCard
+                          className="min-w-0 truncate text-foreground/80 underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40"
+                          jobDescriptionId={record.jobDescriptionId}
+                          name={boundJobName}
+                        />
+                      ) : undefined
+                    }
                   />
                   <ResumePoolUploaderMeta record={record} />
                 </div>
