@@ -1,3 +1,5 @@
+import type { ResumePoolInitialRecruitmentStage } from "@arc/shared/resume-pool";
+
 interface ResumePoolAdmissionSource {
   id: string;
   organizationId: string | null;
@@ -7,7 +9,7 @@ interface ResumePoolAdmissionSource {
 interface ResumePoolAdmissionInput {
   dedupPolicy: "check" | "force";
   importedBy: string;
-  initialRecruitmentStage?: "screening" | "ai_interview" | "human_interview";
+  initialRecruitmentStage?: ResumePoolInitialRecruitmentStage;
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;

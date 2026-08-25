@@ -19,6 +19,7 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
+  studioInterviewSchedule,
   user,
 } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -750,6 +751,34 @@ describe("POST /:id/import job association", () => {
         source: "resume_pool_import",
       }),
     );
+  });
+
+  it("creates the first AI interview round when importing directly into AI interview", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-import-ai-stage" });
+
+    const response = await client[":id"].import.$post({
+      json: {
+        dedupPolicy: "force",
+        initialRecruitmentStage: "ai_interview",
+        jobDescriptionId: JD_A,
+        jobDescriptionMode: "bind",
+      },
+      param: { id: poolItemId },
+    });
+
+    expect(response.status).toBe(201);
+    const [record] = await db
+      .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, poolItemId));
+    expect(record?.pipelineStage).toBe("ai_interview");
+    const rounds = record
+      ? await db
+          .select({ status: studioInterviewSchedule.status })
+          .from(studioInterviewSchedule)
+          .where(eq(studioInterviewSchedule.interviewRecordId, record.id))
+      : [];
+    expect(rounds).toEqual([{ status: "pending" }]);
   });
 
   it("replaces the pool item job when explicitly reimported for another job", async () => {

@@ -41,6 +41,7 @@ import type {
   ResumePoolDetail,
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
+  ResumePoolInitialRecruitmentStage,
   ResumePoolJobBindingMode,
   ResumePoolJobMatchResult,
   ResumePoolSourceChannel,
@@ -129,7 +130,7 @@ export interface PublishPrivatePoolItemInput {
 export interface ImportPoolItemInput {
   dedupPolicy: "check" | "force";
   importedBy: string;
-  initialRecruitmentStage?: "screening" | "ai_interview" | "human_interview";
+  initialRecruitmentStage?: ResumePoolInitialRecruitmentStage;
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;
@@ -888,6 +889,12 @@ const defaultImportPoolItemDependencies: ImportPoolItemDependencies = {
   findDuplicateMatches: findSemanticResumeDuplicates,
 };
 
+function resolveImportedRecordPipelineStage(
+  initialRecruitmentStage: ResumePoolInitialRecruitmentStage | undefined,
+) {
+  return initialRecruitmentStage === "human_interview" ? "human_interview" : "screening";
+}
+
 export async function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
   dependencies = defaultImportPoolItemDependencies,
@@ -903,6 +910,7 @@ export async function importPoolItemToResumeLibrary(
     ensureAdmissionRecord: async ({ admission, source }) => {
       let resumeRecordId = "";
       await db.transaction(async (tx) => {
+        const pipelineStage = resolveImportedRecordPipelineStage(admission.initialRecruitmentStage);
         const lockKey = `resume-pool-import:${admission.organizationId}:${source.id}`;
         await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
         if (!admission.reimport) {
@@ -923,10 +931,7 @@ export async function importPoolItemToResumeLibrary(
               .update(studioInterview)
               .set({
                 jobDescriptionId: admission.jobDescriptionId,
-                pipelineStage:
-                  admission.initialRecruitmentStage === "human_interview"
-                    ? "human_interview"
-                    : "screening",
+                pipelineStage,
                 resumeParseError: null,
                 resumeParseStatus: "processing",
                 updatedAt: new Date(),
@@ -952,10 +957,7 @@ export async function importPoolItemToResumeLibrary(
             jobDescriptionId: admission.jobDescriptionId,
             notes: source.notes,
             organizationId: admission.organizationId,
-            pipelineStage:
-              admission.initialRecruitmentStage === "human_interview"
-                ? "human_interview"
-                : "screening",
+            pipelineStage,
             resumeFileName: source.resumeFileName,
             resumeParseStatus: "processing",
             resumeProfile: source.resumeProfile,
