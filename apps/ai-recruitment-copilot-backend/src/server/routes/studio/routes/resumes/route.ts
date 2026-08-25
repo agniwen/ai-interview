@@ -5,7 +5,7 @@ import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./rea
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
+import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@arc/db-schema/schema";
 import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
@@ -61,8 +61,10 @@ import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/structured-evaluation/route";
 import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/meetings/route";
+import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/evaluation-history/route";
 import {
   forceResumeReparse as defaultForceResumeReparse,
   retryFailedResumeParse as defaultRetryFailedResumeParse,
@@ -245,6 +247,7 @@ export function createResumeLibraryRouter(
     factory
       .createApp()
       .route("/", resumeLibraryReadRouter)
+      .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)
       .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
       .post(
@@ -377,8 +380,8 @@ export function createResumeLibraryRouter(
           if (input.data.jobDescriptionId && !selectedJob) {
             return c.json({ error: "所选在招岗位不存在。" }, 400);
           }
-          if (resumeReviewInput.data && selectedJob?.evaluationMode !== "legacy") {
-            return c.json({ error: "新版岗位不接受客户端写入旧版简历评价。" }, 400);
+          if (resumeReviewInput.data && selectedJob) {
+            return c.json({ error: "关联岗位的候选人不接受客户端写入旧版简历评价。" }, 400);
           }
 
           const uploadResult = await resolveResumeUploadStorage({
@@ -468,7 +471,7 @@ export function createResumeLibraryRouter(
             sourceId: recordId,
             sourceType: "studio_interview",
           });
-          if (resumeProfile && selectedJob && !resumeReview) {
+          if (resumeProfile && selectedJob) {
             const scheduling = await scheduleResumeEvaluationForRecord({
               jobDescriptionId: selectedJob.id,
               organizationId: activeOrg.id,
@@ -623,6 +626,16 @@ export function createResumeLibraryRouter(
           }
 
           await db.transaction(async (tx) => {
+            if (jobDescriptionChanged || resumeEvidenceChanged) {
+              const archive = buildPreQualitativeEvaluationArchive({
+                organizationId: activeOrg.id,
+                record: existing,
+                resumeRecordId: id,
+              });
+              if (archive) {
+                await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
+              }
+            }
             await tx
               .update(studioInterview)
               .set(update)
@@ -790,6 +803,16 @@ export function createResumeLibraryRouter(
           }
 
           await db.transaction(async (tx) => {
+            if (jobDescriptionChanged || resumeEvidenceChanged) {
+              const archive = buildPreQualitativeEvaluationArchive({
+                organizationId: activeOrg.id,
+                record: existing,
+                resumeRecordId: id,
+              });
+              if (archive) {
+                await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
+              }
+            }
             await tx
               .update(studioInterview)
               .set(update)

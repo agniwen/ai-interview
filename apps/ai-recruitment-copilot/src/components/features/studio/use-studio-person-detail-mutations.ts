@@ -7,7 +7,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Dispatch } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import { reassessStudioResume } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import type {
   StudioPersonDetailAccessMode,
@@ -22,8 +22,6 @@ import {
   updateAllowTextInput,
 } from "./studio-person-detail-sections";
 import type { DetailPanelUiAction } from "./studio-person-detail-sections";
-
-const reassessErrorPayloadSchema = z.object({ error: z.string().optional() });
 
 export interface UseStudioPersonDetailMutationsParams {
   accessMode: StudioPersonDetailAccessMode;
@@ -71,18 +69,7 @@ export function useStudioPersonDetailMutations({
       cleanup: () => setIsReassessingResume(false),
       onError: (error) => toast.error(error instanceof Error ? error.message : "重新评估失败"),
       operation: async () => {
-        const response = await fetch(
-          `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
-          { method: "POST" },
-        );
-        const payload = reassessErrorPayloadSchema.safeParse(
-          await response.json().catch(() => null),
-        );
-        if (!response.ok) {
-          throw new Error(
-            payload.success ? (payload.data.error ?? "重新评估失败") : "重新评估失败",
-          );
-        }
+        await reassessStudioResume(slug, effectiveRecordId);
         toast.success("已开始重新评估");
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),

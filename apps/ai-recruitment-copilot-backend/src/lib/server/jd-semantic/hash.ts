@@ -8,7 +8,6 @@ function cleanText(value: string | null | undefined): string {
 export function hashJobDescriptionForSemanticIndex(jd: JobDescriptionSemanticInput): string {
   const canonical = {
     departmentName: cleanText(jd.departmentName),
-    description: cleanText(jd.description),
     name: cleanText(jd.name),
     prompt: cleanText(jd.prompt),
   };

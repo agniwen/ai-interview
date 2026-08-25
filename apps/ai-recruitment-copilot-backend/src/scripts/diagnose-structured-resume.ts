@@ -40,7 +40,7 @@ interface DiagnosticTarget {
   deductionRuleSetVersion: number | null;
   evaluationBlueprint: unknown;
   evaluationBlueprintHash: string | null;
-  evaluationMode: "legacy" | "structured" | null;
+  evaluationMode: "legacy" | "qualitative" | "structured" | null;
   id: string;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;

@@ -239,11 +239,7 @@ export async function recommendCandidatesForJobDescription(
     },
     deps,
   );
-  const jdText = [
-    input.jobDescription.name,
-    input.jobDescription.description,
-    input.jobDescription.prompt,
-  ]
+  const jdText = [input.jobDescription.name, input.jobDescription.prompt]
     .filter((value): value is string => typeof value === "string")
     .join("\n");
   const recommendations = core.ranked

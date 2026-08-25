@@ -5,7 +5,6 @@ import { hashJobDescriptionForSemanticIndex } from "./hash";
 
 const base = {
   departmentName: "算法组",
-  description: "负责推荐系统",
   id: "jd-1",
   name: "推荐算法工程师",
   prompt: "考察向量检索经验",

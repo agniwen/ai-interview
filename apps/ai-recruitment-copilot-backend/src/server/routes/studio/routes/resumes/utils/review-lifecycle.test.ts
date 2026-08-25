@@ -53,6 +53,8 @@ function createStore(overrides: Partial<ResumeAssessmentRecord> = {}) {
     jobDescriptionId: "jd-1",
     outcome: "in_pipeline",
     pipelineStage: "screening",
+    qualitativeAttemptJobDescriptionVersionId: null,
+    qualitativeResumeEvaluation: null,
     resumeContentHash: "file-hash",
     resumeEvaluationArtifactMode: "legacy",
     resumeEvaluationAttemptMode: "legacy",

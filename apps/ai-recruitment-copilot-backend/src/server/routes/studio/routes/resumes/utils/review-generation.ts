@@ -1,4 +1,7 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { and, eq } from "drizzle-orm";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { jobDescriptionVersion } from "@arc/db-schema/schema";
 import {
   generateResumeReview,
   generateResumeScreeningResult,
@@ -14,6 +17,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
 import { runStructuredResumeReviewWorkflow } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/structured-resume-review-workflow";
 import type { GeneratedResumeAssessment } from "./review-lifecycle";
+import { generateQualitativeResumeEvaluation } from "@arc/ai-recruitment-copilot-backend/server/agents/qualitative-resume-evaluation";
 
 interface ResumeReviewContext {
   jobDescription: string | null;
@@ -23,17 +27,46 @@ interface ResumeReviewContext {
 export interface ResumeReviewGenerationDependencies {
   generateReview: typeof generateResumeReview;
   generateScreeningResult: typeof generateResumeScreeningResult;
+  generateQualitative?: typeof generateQualitativeResumeEvaluation;
   loadJobDescription: typeof loadRecruitingJobDescriptionById;
   runStructuredReview: typeof runStructuredResumeReviewWorkflow;
+  loadJobDescriptionVersion?: (
+    organizationId: string,
+    jobDescriptionVersionId: string,
+  ) => Promise<{
+    id: string;
+    jobDescriptionId: string | null;
+    jobDescriptionName: string;
+    prompt: string;
+  } | null>;
 }
 
 const defaultDependencies: ResumeReviewGenerationDependencies = {
+  generateQualitative: generateQualitativeResumeEvaluation,
   generateReview: generateResumeReview,
   generateScreeningResult: generateResumeScreeningResult,
   loadJobDescription: async (organizationId, jobDescriptionId) => {
     const { loadRecruitingJobDescriptionById: loadJobDescription } =
       await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao");
     return loadJobDescription(organizationId, jobDescriptionId);
+  },
+  loadJobDescriptionVersion: async (organizationId, jobDescriptionVersionId) => {
+    const [version] = await db
+      .select({
+        id: jobDescriptionVersion.id,
+        jobDescriptionId: jobDescriptionVersion.jobDescriptionId,
+        jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
+        prompt: jobDescriptionVersion.prompt,
+      })
+      .from(jobDescriptionVersion)
+      .where(
+        and(
+          eq(jobDescriptionVersion.id, jobDescriptionVersionId),
+          eq(jobDescriptionVersion.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    return version ?? null;
   },
   runStructuredReview: runStructuredResumeReviewWorkflow,
 };
@@ -50,11 +83,7 @@ export async function buildJobDescriptionReviewContext(
   if (!jd) {
     return { jobDescription: null, screeningPolicy: null };
   }
-  const jobDescription = [
-    `岗位名称：${jd.name}`,
-    jd.description ? `岗位描述：${jd.description}` : null,
-    `岗位 Prompt：\n${jd.prompt}`,
-  ]
+  const jobDescription = [`岗位名称：${jd.name}`, `岗位 Prompt：\n${jd.prompt}`]
     .filter(Boolean)
     .join("\n\n");
   return { jobDescription, screeningPolicy: jd.resumeScreeningPolicy };
@@ -70,9 +99,38 @@ export async function generateResumeAssessment(
     resumeProfile: ResumeProfile;
     resumeText?: string | null;
     runId: string;
+    jobDescriptionVersionId?: string;
   },
   dependencies: ResumeReviewGenerationDependencies = defaultDependencies,
 ): Promise<GeneratedResumeAssessment> {
+  if (input.jobDescriptionVersionId) {
+    const loadJobDescriptionVersion =
+      dependencies.loadJobDescriptionVersion ?? defaultDependencies.loadJobDescriptionVersion;
+    if (!loadJobDescriptionVersion) {
+      throw new Error("岗位 JD 快照加载器未配置。");
+    }
+    const snapshot = await loadJobDescriptionVersion(
+      input.organizationId,
+      input.jobDescriptionVersionId,
+    );
+    if (!snapshot || snapshot.jobDescriptionId !== input.jobDescriptionId) {
+      throw new Error("岗位 JD 快照不存在或与当前岗位不匹配。");
+    }
+    const evaluation = await (
+      dependencies.generateQualitative ?? generateQualitativeResumeEvaluation
+    )({
+      evaluationAsOf: input.evaluationAsOf,
+      jobDescriptionName: snapshot.jobDescriptionName,
+      jobDescriptionPrompt: snapshot.prompt,
+      resumeProfile: input.resumeProfile,
+      resumeText: input.resumeText ?? null,
+    });
+    return {
+      evaluation,
+      jobDescriptionVersionId: snapshot.id,
+      mode: "qualitative",
+    };
+  }
   const job = await dependencies.loadJobDescription(input.organizationId, input.jobDescriptionId);
   if (!job) {
     throw new Error("绑定岗位不存在或尚未发布。");

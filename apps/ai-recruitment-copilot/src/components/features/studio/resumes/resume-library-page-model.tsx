@@ -45,6 +45,7 @@ export interface ResumeFilters extends Record<string, string> {
 export const EMPTY_FILTERS: ResumeFilters = {
   creatorIds: "",
   jdIds: "",
+  recommendationLevels: "",
   skills: "",
   stage: "",
   structuredMaxScore: "",

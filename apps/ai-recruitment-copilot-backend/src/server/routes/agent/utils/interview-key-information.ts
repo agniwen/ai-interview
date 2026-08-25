@@ -52,8 +52,7 @@ function formatJobContext(input: {
   return [
     targetRole ? `目标岗位：${targetRole}` : null,
     jobDescription?.name ? `岗位名称：${jobDescription.name}` : null,
-    jobDescription?.description ? `岗位描述：${jobDescription.description}` : null,
-    jobDescription?.prompt ? `岗位考察要求：${jobDescription.prompt}` : null,
+    jobDescription?.prompt ? `岗位 JD：${jobDescription.prompt}` : null,
   ]
     .filter(Boolean)
     .join("\n");

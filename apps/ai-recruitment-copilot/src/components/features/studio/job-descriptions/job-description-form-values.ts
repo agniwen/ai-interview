@@ -1,14 +1,9 @@
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import {
-  createDefaultJobDescriptionStructuredConfig,
-  createDefaultResumeScreeningPolicy,
-} from "@arc/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
 import { filterInterviewerIdsByDepartment } from "@arc/shared/job-description-interviewers";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 export const NAME_MAX_LENGTH = 120;
-export const DESCRIPTION_MAX_LENGTH = 500;
 export const PROMPT_MAX_LENGTH = 10_000;
 export const JOB_DESCRIPTION_MARKDOWN_CONTENT_HEIGHT = 320;
 export const JOB_DESCRIPTION_MARKDOWN_MAX_HEIGHT = 480;
@@ -17,9 +12,7 @@ export const JOB_SETTING_CONTROL_CLASS =
   "flex w-full flex-col gap-2 @md/field-group:basis-80 @md/field-group:shrink-0";
 
 export type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
-export type JobDescriptionSubmitAction = "preview" | "save";
-export type JobDescriptionMutationPayload = Partial<JobDescriptionRecord> & { error?: string };
-
+export type JobDescriptionSubmitAction = "save";
 // oxlint-disable no-explicit-any -- TanStack Form has 11 validator generics after TFormData; only the values type matters here.
 export type JobDescriptionFormApi = ReactFormExtendedApi<
   JobDescriptionFormValues,
@@ -58,42 +51,27 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
     allowCrossDepartmentInterviewers: false,
     code: "",
     departmentId: "",
-    description: "",
     interviewerIds: [],
     name: "",
     prompt: "",
-    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
   };
 }
 
 export function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
-  const isStructured = record.evaluationMode === "structured";
-  const description = record.description?.trim() ?? "";
-  const prompt = record.prompt.trim();
   return {
     allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
     code: record.code ?? "",
     departmentId: record.departmentId,
-    description: isStructured ? "" : (record.description ?? ""),
     interviewerIds: [...record.interviewerIds],
     name: record.name,
-    prompt: isStructured ? prompt || description : record.prompt,
-    resumeScreeningPolicy: record.resumeScreeningPolicy,
-    structuredConfig: record.structuredConfig,
+    prompt: record.prompt,
   };
 }
 
 export function toStructuredDraftValues(
   values: JobDescriptionFormValues,
 ): JobDescriptionFormValues {
-  const description = values.description?.trim() ?? "";
-  const prompt = values.prompt.trim();
-  return {
-    ...values,
-    description: "",
-    prompt: prompt || description,
-  };
+  return values;
 }
 
 export function toDepartmentScopedFormValues(
@@ -129,7 +107,6 @@ const JOB_DESCRIPTION_BASIC_FIELDS = [
   "departmentId",
   "allowCrossDepartmentInterviewers",
   "interviewerIds",
-  "description",
   "prompt",
 ] as const;
 
@@ -140,12 +117,7 @@ export function focusJobDescriptionBasicTabOnInvalidSubmit(
   const hasBasicError = JOB_DESCRIPTION_BASIC_FIELDS.some(
     (key) => (fieldMeta[key]?.errors?.length ?? 0) > 0,
   );
-  const hasStructuredError = Object.entries(fieldMeta).some(
-    ([key, meta]) =>
-      (key === "structuredConfig" || key.startsWith("structuredConfig.")) &&
-      (meta?.errors?.length ?? 0) > 0,
-  );
-  if (hasBasicError || hasStructuredError) {
+  if (hasBasicError) {
     setActiveTab("basic");
   }
 }

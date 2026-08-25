@@ -10,6 +10,7 @@ import {
   ResumeReviewStructuredView,
 } from "@/components/features/studio/resumes/resume-overview-panel";
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
+import { QualitativeResumeEvaluationPanel } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { CandidateMeetingLinks } from "@/components/features/studio/resumes/candidate-meeting-links";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
       ) : (
         <IconArrowBackUp className="size-3.5" />
       )}
-      {isResumeAssessmentInProgress || isReassessingResume ? "评估中" : "重新评估"}
+      {isResumeAssessmentInProgress || isReassessingResume ? "评价中" : "重新评价"}
     </Button>
   ) : null;
   const body = isLoading ? (
@@ -131,7 +132,16 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
-                {resumeRecord?.resumeEvaluationArtifactMode === "structured" ? (
+                {resumeRecord &&
+                (!resumeRecord.jobDescriptionId ||
+                  resumeRecord.resumeEvaluationArtifactMode === "qualitative" ||
+                  !resumeRecord.resumeEvaluationArtifactMode) ? (
+                  <QualitativeResumeEvaluationPanel
+                    detail={resumeRecord}
+                    slug={model.slug}
+                    summaryAction={resumeReassessAction ?? undefined}
+                  />
+                ) : resumeRecord?.resumeEvaluationArtifactMode === "structured" ? (
                   <StructuredResumeEvaluationPanel
                     canEdit={Boolean(model.canUpdateResumeLibrary)}
                     detail={resumeRecord}
@@ -140,11 +150,28 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                     summaryAction={resumeReassessAction ?? undefined}
                   />
                 ) : (
-                  <ResumeReviewStructuredView
-                    review={resumeRecord?.resumeReview}
-                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
-                    summaryAction={resumeReassessAction ?? undefined}
-                  />
+                  <>
+                    {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
+                    (resumeRecord.resumeReviewStatus === "queued" ||
+                      resumeRecord.resumeReviewStatus === "processing") ? (
+                      <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+                        正在使用新版重新评价，当前展示老版本结果。
+                      </p>
+                    ) : null}
+                    {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
+                    resumeRecord.resumeReviewStatus === "failed" ? (
+                      <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                        {resumeRecord.resumeReviewError || "新版评价失败"}，当前展示老版本结果。
+                      </p>
+                    ) : null}
+                    <ResumeReviewStructuredView
+                      review={resumeRecord?.resumeReview}
+                      screeningResultSlot={
+                        <ResumeScreeningResultPanel resumeRecord={resumeRecord} />
+                      }
+                      summaryAction={resumeReassessAction ?? undefined}
+                    />
+                  </>
                 )}
               </div>
             </TabsContent>

@@ -81,7 +81,6 @@ describe("recommendCandidatesForJobDescription", () => {
         excludeAlreadyLinked: true,
         jobDescription: {
           departmentName: "研发部",
-          description: "负责 AI 招聘产品、候选人推荐、数据平台建设。",
           id: "jd-1",
           name: "全栈工程师",
           prompt: "熟悉 TypeScript、PostgreSQL、Qdrant，有招聘系统经验。",
@@ -229,7 +228,7 @@ const depsWith = (
     upsertResumeEmbeddings: vi.fn(() => Promise.resolve()),
   },
 });
-const jd = { departmentName: null, description: "d", id: "jd1", name: "后端", prompt: "p" };
+const jd = { departmentName: null, id: "jd1", name: "后端", prompt: "p" };
 const call = (deps: ReturnType<typeof depsWith>, excludeAlreadyLinked = true, limit = 20) =>
   recommendCandidatesForJobDescription(
     { excludeAlreadyLinked, jobDescription: jd, limit, organizationId: "org" },
@@ -283,7 +282,6 @@ describe("recommendCandidatesForJobDescription — disabled", () => {
         excludeAlreadyLinked: true,
         jobDescription: {
           departmentName: null,
-          description: null,
           id: "jd-1",
           name: "产品经理",
           prompt: "",

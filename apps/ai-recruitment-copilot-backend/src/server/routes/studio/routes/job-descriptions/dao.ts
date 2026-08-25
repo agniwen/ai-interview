@@ -109,7 +109,7 @@ function buildWhereConditions({
   if (search) {
     const searchCond = or(
       ilike(jobDescription.name, `%${search}%`),
-      ilike(jobDescription.description, `%${search}%`),
+      ilike(jobDescription.prompt, `%${search}%`),
     );
     if (searchCond) {
       conditions.push(searchCond);

@@ -88,7 +88,7 @@ function ResumePoolJobBindingMenuContent({
       : [];
   let availableJobDescriptions = fallbackJobDescriptions.map((jobDescription) => ({
     departmentName: jobDescription.departmentName,
-    description: jobDescription.description?.trim() || "暂无岗位描述。",
+    description: jobDescription.prompt.trim() || "暂无岗位描述。",
     id: jobDescription.id,
     name: jobDescription.name,
   }));

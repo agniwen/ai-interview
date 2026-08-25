@@ -7,7 +7,7 @@ const job = {
   sourceId: "jd-1",
   sourceType: "job_description" as const,
 };
-const jd = { departmentName: "算法组", description: "d", id: "jd-1", name: "n", prompt: "p" };
+const jd = { departmentName: "算法组", id: "jd-1", name: "n", prompt: "p" };
 const config = {
   apiKey: "k",
   baseUrl: "b",

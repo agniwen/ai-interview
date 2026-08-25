@@ -6,9 +6,15 @@ import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JsonValue } from "@arc/db-schema/json";
-import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import {
+  chatAttachment,
+  resumeEvaluationVersion,
+  resumePoolItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type BackfillTarget = "all" | "pool" | "private";
@@ -359,12 +365,32 @@ async function writeBackfillResult(
 
     if (record.recordType === "private") {
       const [current] = await tx
-        .select({ resumeProfile: studioInterview.resumeProfile })
+        .select({
+          notes: studioInterview.notes,
+          organizationId: studioInterview.organizationId,
+          qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
+          qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+          resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+          resumeProfile: studioInterview.resumeProfile,
+          resumeReview: studioInterview.resumeReview,
+          resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+          structuredCompositeScore: studioInterview.structuredCompositeScore,
+          structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+        })
         .from(studioInterview)
         .where(eq(studioInterview.id, record.id))
-        .limit(1);
+        .limit(1)
+        .for("update");
       if (!current?.resumeProfile) {
         throw new Error("Existing resumeProfile is empty; education-only backfill cannot merge.");
+      }
+      const archive = buildPreQualitativeEvaluationArchive({
+        organizationId: current.organizationId,
+        record: current,
+        resumeRecordId: record.id,
+      });
+      if (archive) {
+        await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
       }
       await tx
         .update(studioInterview)

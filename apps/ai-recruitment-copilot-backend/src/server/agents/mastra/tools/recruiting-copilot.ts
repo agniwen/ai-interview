@@ -1119,7 +1119,7 @@ function toJobDescriptionSummary(record: JobDescriptionWithDepartment) {
   return {
     code: record.code,
     departmentName: readDepartmentName(record),
-    description: cleanString(record.description),
+    description: cleanString(record.prompt),
     id: record.id,
     name: record.name,
     prompt: record.prompt,
@@ -1143,7 +1143,7 @@ export async function searchJobDescriptionsForCopilot(
   const query = parsed.query?.toLowerCase();
   const filtered = query
     ? all.filter((record) =>
-        [record.name, record.description, record.prompt, record.departmentName]
+        [record.name, record.prompt, record.departmentName]
           .filter((value): value is string => typeof value === "string")
           .some((value) => value.toLowerCase().includes(query)),
       )

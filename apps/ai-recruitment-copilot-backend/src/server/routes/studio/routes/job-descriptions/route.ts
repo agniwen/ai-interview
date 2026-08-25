@@ -1,6 +1,6 @@
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { and, count, eq, inArray, max, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -9,17 +9,19 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
+  jobDescriptionVersion,
   studioInterview,
 } from "@arc/db-schema/schema";
 import {
-  legacyJobDescriptionUpdateSchema,
+  jobDescriptionSaveSchema,
   publishedJobOperationalUpdateSchema,
-  structuredJobDescriptionCreateSchema,
-  structuredJobDescriptionDraftUpdateSchema,
   structuredJobDescriptionPublishSchema,
 } from "@arc/shared/job-descriptions";
 import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
-import { jobDescriptionDeductionRulesSchema } from "@arc/db-schema/job-description-structured-config";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  jobDescriptionDeductionRulesSchema,
+} from "@arc/db-schema/job-description-structured-config";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -54,7 +56,6 @@ import {
   saveStructuredJobRuleDraft,
 } from "./application/job-evaluation-lifecycle";
 import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
-import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 import { jobEvaluationUpgradeRouter } from "./routes/upgrade/route";
 import { jobEvaluationPreviewStreamRouter } from "./routes/evaluation-blueprint-preview/route";
 
@@ -165,12 +166,6 @@ const saveEvaluationRuleDraftBodySchema = z
     ruleDraft: jobEvaluationRuleDraftSchema,
   })
   .strict();
-
-const jobDescriptionPatchBodySchema = z.union([
-  legacyJobDescriptionUpdateSchema,
-  structuredJobDescriptionDraftUpdateSchema,
-  publishedJobOperationalUpdateSchema,
-]);
 
 function jobLifecycleErrorPayload(error: JobEvaluationLifecycleError) {
   const messages = new Map<string, string>([
@@ -371,11 +366,7 @@ export function createJobDescriptionsRouter(
     .post(
       "/",
       dependencies.requirePermission("jd", "create"),
-      zValidator(
-        "json",
-        structuredJobDescriptionCreateSchema,
-        jsonValidatorError("表单校验失败。"),
-      ),
+      zValidator("json", jobDescriptionSaveSchema, jsonValidatorError("表单校验失败。")),
       async (c) => {
         const { activeOrg } = c.var;
         if (!activeOrg) {
@@ -415,7 +406,7 @@ export function createJobDescriptionsRouter(
             createdBy: c.var.user?.id ?? null,
             deductionRuleSetVersion: null,
             departmentId: input.departmentId,
-            description: input.description?.trim() || null,
+            description: null,
             evaluationBlueprint: null,
             evaluationBlueprintHash: null,
             evaluationBlueprintPreview: null,
@@ -423,31 +414,41 @@ export function createJobDescriptionsRouter(
             evaluationBlueprintPreviewHash: null,
             evaluationBlueprintPreviewInputHash: null,
             evaluationBlueprintSchemaVersion: null,
-            evaluationMode: "structured",
+            evaluationMode: "qualitative",
             evaluationUpgradedAt: null,
             evaluationUpgradedBy: null,
             feishuChatBoundAt: null,
             feishuChatBoundBy: null,
             feishuChatId: null,
             id: crypto.randomUUID(),
-            lifecycleStatus: "draft",
+            lifecycleStatus: "published",
             name: input.name.trim(),
             organizationId: activeOrg.id,
             // presetQuestions is deprecated — column kept with default [] for legacy
             // data; new rows always store an empty array.
             presetQuestions: [],
             prompt: input.prompt.trim(),
-            publishedAt: null,
+            publishedAt: now,
             resumeScreeningPolicy: null,
             resumeScreeningPolicyHash: null,
             resumeScreeningPolicyVersion: 1,
-            structuredConfig: input.structuredConfig,
+            structuredConfig: createDefaultJobDescriptionStructuredConfig(),
             updatedAt: now,
           } satisfies typeof jobDescription.$inferSelect;
 
           try {
             await db.transaction(async (tx) => {
               await tx.insert(jobDescription).values(record);
+              await tx.insert(jobDescriptionVersion).values({
+                createdAt: now,
+                createdBy: c.var.user?.id ?? null,
+                id: crypto.randomUUID(),
+                jobDescriptionId: record.id,
+                jobDescriptionName: record.name,
+                organizationId: activeOrg.id,
+                prompt: record.prompt,
+                version: 1,
+              });
               await tx.insert(jobDescriptionInterviewer).values(
                 interviewerIds.map((id) => ({
                   createdAt: now,
@@ -459,6 +460,10 @@ export function createJobDescriptionsRouter(
 
             safeUpdateTag(`job-descriptions:${activeOrg.id}`);
             safeUpdateTag(`interviewers:${activeOrg.id}`);
+            await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+              jobDescriptionId: record.id,
+              organizationId: activeOrg.id,
+            });
 
             return c.json(serializeJobDescription(record, interviewerIds), 201);
           } catch (insertError) {
@@ -679,7 +684,6 @@ export function createJobDescriptionsRouter(
             excludeAlreadyLinked: body.excludeAlreadyLinked,
             jobDescription: {
               departmentName: null,
-              description: record.description,
               id: record.id,
               name: record.name,
               prompt: record.prompt,
@@ -701,8 +705,7 @@ export function createJobDescriptionsRouter(
     .patch(
       "/:id",
       dependencies.requirePermission("jd", "update"),
-      zValidator("json", jobDescriptionPatchBodySchema, jsonValidatorError("表单校验失败。")),
-      // oxlint-disable-next-line complexity -- mode-specific update contracts converge at one legacy URL.
+      zValidator("json", jobDescriptionSaveSchema, jsonValidatorError("表单校验失败。")),
       async (c) => {
         const { activeOrg } = c.var;
         if (!activeOrg) {
@@ -714,110 +717,56 @@ export function createJobDescriptionsRouter(
           return c.json({ error: "在招岗位不存在。" }, 404);
         }
 
-        const rawInput = c.req.valid("json");
-        let input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
-        if (existing.evaluationMode === "legacy") {
-          input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
-          if (!input.success) {
-            return c.json(
-              {
-                code: "JOB_LEGACY_REQUIRES_UPGRADE",
-                error: "老版本岗位的评估设置需要通过升级到新版进行修改。",
-              },
-              409,
-            );
-          }
-        } else if (existing.lifecycleStatus === "draft") {
-          input = structuredJobDescriptionDraftUpdateSchema.safeParse(rawInput);
-        }
-        if (!input.success) {
-          if (
-            existing.evaluationMode === "structured" &&
-            existing.lifecycleStatus === "published"
-          ) {
-            return c.json(
-              {
-                code: "JOB_EVALUATION_FROZEN",
-                error: "岗位已发布，评估相关设置不能修改。",
-              },
-              409,
-            );
-          }
-          return c.json({ error: "表单校验失败。" }, 400);
-        }
-        const interviewerIds = dedupeInterviewerIds(input.data.interviewerIds);
+        const input = c.req.valid("json");
+        const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
         if (interviewerIds.length === 0) {
           return c.json({ error: "请至少选择一位面试官。" }, 400);
         }
 
         const { error } = await validateReferences(
           activeOrg.id,
-          input.data.departmentId,
+          input.departmentId,
           interviewerIds,
-          input.data.allowCrossDepartmentInterviewers,
+          input.allowCrossDepartmentInterviewers,
         );
         if (error) {
           return c.json({ error }, 400);
         }
 
         const now = new Date();
-        const operationalValues = {
-          allowCrossDepartmentInterviewers: input.data.allowCrossDepartmentInterviewers,
-          departmentId: input.data.departmentId,
-          updatedAt: now,
-        };
-        let updateValues: Partial<typeof jobDescription.$inferInsert> = operationalValues;
-        if (existing.evaluationMode === "structured" && existing.lifecycleStatus === "draft") {
-          const draftInput = structuredJobDescriptionDraftUpdateSchema.parse(input.data);
-          const oldInputHash = computeJobEvaluationDraftInputHash({
-            description: existing.description,
-            prompt: existing.prompt,
-            structuredConfig: existing.structuredConfig,
-          });
-          const newInputHash = computeJobEvaluationDraftInputHash({
-            description: draftInput.description?.trim() || null,
-            prompt: draftInput.prompt,
-            structuredConfig: draftInput.structuredConfig,
-          });
-          const draftUpdateValues: Partial<typeof jobDescription.$inferInsert> = {
-            ...operationalValues,
-            description: draftInput.description?.trim() || null,
-            name: draftInput.name.trim(),
-            prompt: draftInput.prompt.trim(),
-            structuredConfig: draftInput.structuredConfig,
-          };
-          if (!existing.code && draftInput.code) {
-            draftUpdateValues.code = draftInput.code;
-          }
-          if (oldInputHash !== newInputHash) {
-            Object.assign(draftUpdateValues, {
-              evaluationBlueprintPreview: null,
-              evaluationBlueprintPreviewGeneratedAt: null,
-              evaluationBlueprintPreviewHash: null,
-              evaluationBlueprintPreviewInputHash: null,
-            });
-          }
-          updateValues = draftUpdateValues;
-        }
         try {
-          const updatedCurrentLifecycle = await db.transaction(async (tx) => {
-            const updated = await tx
-              .update(jobDescription)
-              .set(updateValues)
+          const updatedExisting = await db.transaction(async (tx) => {
+            const [lockedExisting] = await tx
+              .select({
+                code: jobDescription.code,
+                publishedAt: jobDescription.publishedAt,
+              })
+              .from(jobDescription)
               .where(
-                and(
-                  eq(jobDescription.id, id),
-                  eq(jobDescription.organizationId, activeOrg.id),
-                  eq(jobDescription.evaluationMode, existing.evaluationMode),
-                  eq(jobDescription.lifecycleStatus, existing.lifecycleStatus),
-                ),
+                and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)),
               )
-              .returning({ id: jobDescription.id });
-            if (updated.length === 0) {
+              .limit(1)
+              .for("update");
+            if (!lockedExisting) {
               return false;
             }
+            await tx
+              .update(jobDescription)
+              .set({
+                allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
+                code: input.code ?? lockedExisting.code,
+                departmentId: input.departmentId,
+                evaluationMode: "qualitative",
+                lifecycleStatus: "published",
+                name: input.name,
+                prompt: input.prompt,
+                publishedAt: lockedExisting.publishedAt ?? now,
+                updatedAt: now,
+              })
+              .where(
+                and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)),
+              );
 
-            // Replace junction links atomically.
             await tx
               .delete(jobDescriptionInterviewer)
               .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
@@ -828,10 +777,25 @@ export function createJobDescriptionsRouter(
                 jobDescriptionId: id,
               })),
             );
+
+            const [latest] = await tx
+              .select({ version: max(jobDescriptionVersion.version) })
+              .from(jobDescriptionVersion)
+              .where(eq(jobDescriptionVersion.jobDescriptionId, id));
+            await tx.insert(jobDescriptionVersion).values({
+              createdAt: now,
+              createdBy: c.var.user?.id ?? null,
+              id: crypto.randomUUID(),
+              jobDescriptionId: id,
+              jobDescriptionName: input.name,
+              organizationId: activeOrg.id,
+              prompt: input.prompt,
+              version: (latest?.version ?? 0) + 1,
+            });
             return true;
           });
-          if (!updatedCurrentLifecycle) {
-            return c.json({ code: "JOB_EVALUATION_FROZEN", error: "岗位状态已变化。" }, 409);
+          if (!updatedExisting) {
+            return c.json({ error: "在招岗位不存在。" }, 404);
           }
         } catch (updateError) {
           const parsedUpdateError = jobCodeConflictErrorSchema.safeParse(updateError);
@@ -843,6 +807,10 @@ export function createJobDescriptionsRouter(
 
         safeUpdateTag(`job-descriptions:${activeOrg.id}`);
         safeUpdateTag(`interviewers:${activeOrg.id}`);
+        await dependencies.enqueueJobDescriptionIndexJobBestEffort({
+          jobDescriptionId: id,
+          organizationId: activeOrg.id,
+        });
 
         const updated = await loadJobDescriptionById(activeOrg.id, id);
         return c.json(updated, 200);

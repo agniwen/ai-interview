@@ -357,7 +357,7 @@ async function loadJobDescriptionsForDisplay(
   const rows = await db
     .select({
       departmentName: department.name,
-      description: jobDescription.description,
+      description: jobDescription.prompt,
       id: jobDescription.id,
       name: jobDescription.name,
     })

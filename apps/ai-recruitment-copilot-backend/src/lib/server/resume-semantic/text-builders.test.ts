@@ -65,10 +65,9 @@ describe("buildResumeSemanticTexts", () => {
 });
 
 describe("buildJobDescriptionSemanticTexts", () => {
-  it("从 JD 生成 3 个 chunk，覆盖 name/department/description/prompt", () => {
+  it("从 JD 生成 3 个 chunk，覆盖 name/department/prompt", () => {
     const chunks = buildJobDescriptionSemanticTexts({
       departmentName: "算法组",
-      description: "负责推荐系统",
       id: "jd-1",
       name: "推荐算法工程师",
       prompt: "考察向量检索经验",
@@ -83,10 +82,9 @@ describe("buildJobDescriptionSemanticTexts", () => {
     expect(chunks[2].text).toContain("考察向量检索经验");
   });
 
-  it("description/prompt 全空时 work_project chunk 仍为非空 header(不产生空串)", () => {
+  it("prompt 为空时 work_project chunk 仍为非空 header(不产生空串)", () => {
     const chunks = buildJobDescriptionSemanticTexts({
       departmentName: null,
-      description: null,
       id: "jd-2",
       name: "产品经理",
       prompt: "",

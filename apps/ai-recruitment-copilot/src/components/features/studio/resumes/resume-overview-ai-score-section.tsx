@@ -8,6 +8,7 @@ import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OverviewDimensionRadar } from "./resume-overview-dimension-radar";
+import { QualitativeRecommendationBadge } from "./qualitative-resume-evaluation-panel";
 import {
   actionVariant,
   getReviewDimensionDisplays,
@@ -25,6 +26,40 @@ export function ResumeOverviewAiScoreSection({
   detail: ResumeLibraryDetail;
   onViewAiScore?: () => void;
 }) {
+  if (detail.resumeEvaluationArtifactMode === "qualitative" && detail.qualitativeResumeEvaluation) {
+    const evaluation = detail.qualitativeResumeEvaluation;
+    const isUpdating =
+      detail.resumeReviewStatus === "queued" || detail.resumeReviewStatus === "processing";
+    return (
+      <section className="space-y-4">
+        {isUpdating ? (
+          <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+            正在重新评价，当前展示上一次结果。
+          </p>
+        ) : null}
+        <div className="grid gap-5 rounded-lg border p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">AI评价</h3>
+            <p className="font-medium text-sm leading-6">{evaluation.conciseOverall}</p>
+            {onViewAiScore ? (
+              <Button
+                className="h-auto px-0 text-xs"
+                onClick={onViewAiScore}
+                type="button"
+                variant="link"
+              >
+                查看详情
+              </Button>
+            ) : null}
+          </div>
+          <QualitativeRecommendationBadge
+            className="px-4 py-3 font-semibold text-lg"
+            level={evaluation.recommendationLevel}
+          />
+        </div>
+      </section>
+    );
+  }
   const review = detail.resumeReview;
   const structuredEvaluation =
     detail.resumeEvaluationArtifactMode === "structured" ? detail.structuredResumeEvaluation : null;
@@ -87,13 +122,15 @@ export function ResumeOverviewAiScoreSection({
   let retainedResultNotice: string | null = null;
   if (
     detail.resumeEvaluationArtifactMode === "legacy" &&
-    detail.resumeEvaluationAttemptMode === "structured" &&
+    (detail.resumeEvaluationAttemptMode === "structured" ||
+      detail.resumeEvaluationAttemptMode === "qualitative") &&
     detail.resumeReviewStatus === "failed"
   ) {
     retainedResultNotice = `${detail.resumeReviewError || "新版评估失败"} 当前展示老版本结果。`;
   } else if (
     detail.resumeEvaluationArtifactMode === "legacy" &&
-    detail.resumeEvaluationAttemptMode === "structured" &&
+    (detail.resumeEvaluationAttemptMode === "structured" ||
+      detail.resumeEvaluationAttemptMode === "qualitative") &&
     (detail.resumeReviewStatus === "processing" || detail.resumeReviewStatus === "queued")
   ) {
     retainedResultNotice = "正在使用新版重新评估，当前展示老版本结果。";

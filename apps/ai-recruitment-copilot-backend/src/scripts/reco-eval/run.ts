@@ -59,7 +59,6 @@ export async function runEval(o: {
           excludeLinkedExceptIds: new Set(ids),
           jobDescription: {
             departmentName: null,
-            description: jd.description,
             id: jd.id,
             name: jd.name,
             prompt: jd.prompt,

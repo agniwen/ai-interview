@@ -1,7 +1,7 @@
 import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 
 export function getJobDescriptionUpgradeActionLabel(record: {
-  evaluationMode: "legacy" | "structured";
+  evaluationMode: "legacy" | "qualitative" | "structured";
   hasEvaluationUpgradeDraft: boolean;
 }): "升级评分规则" | "继续升级" | null {
   if (record.evaluationMode !== "legacy") {

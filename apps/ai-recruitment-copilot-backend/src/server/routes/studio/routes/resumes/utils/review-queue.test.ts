@@ -18,7 +18,7 @@ interface ReviewEvaluationUpdate {
 const mocks = {
   // SAFETY: The fixture state is intentionally absent until each test calls setContext.
   claimJob: null as null | {
-    evaluationMode: "legacy" | "structured";
+    evaluationMode: "legacy" | "qualitative" | "structured";
     id: string;
     lifecycleStatus: "draft" | "published";
   },
@@ -59,12 +59,13 @@ const PROFILE = {
   workYears: null,
 };
 
-function setContext(mode: "legacy" | "structured") {
+function setContext(mode: "legacy" | "qualitative" | "structured") {
   mocks.claimJob = { evaluationMode: mode, id: "jd-1", lifecycleStatus: "published" };
   const record: ResumeEvaluationRecord = {
     jobDescriptionId: "jd-1",
     outcome: "in_pipeline",
     pipelineStage: "screening",
+    qualitativeResumeEvaluation: null,
     resumeEvaluationArtifactMode: null,
     resumeEvaluationAttemptMode: null,
     resumeFileName: "resume.pdf",
@@ -100,21 +101,13 @@ describe("scheduleResumeEvaluationForRecord", () => {
     mocks.loadSchedulingContext.mockImplementation(() => Promise.resolve(mocks.context));
     mocks.isQueueConfigured.mockImplementation(() => mocks.queueConfigured);
     mocks.persistQueuedRun.mockImplementation((input) => {
-      if (
-        !mocks.claimJob ||
-        mocks.claimJob.evaluationMode !== input.mode ||
-        mocks.claimJob.lifecycleStatus !== "published"
-      ) {
+      if (!mocks.claimJob || mocks.claimJob.lifecycleStatus !== "published") {
         return Promise.resolve(false);
       }
       const update: ReviewEvaluationUpdate = {
         resumeReviewRunId: input.runId,
         resumeReviewStatus: "queued",
       };
-      if (input.mode === "legacy") {
-        update.resumeScreeningError = null;
-        update.resumeScreeningStatus = "processing";
-      }
       mocks.updates.push(update);
       return Promise.resolve(true);
     });
@@ -123,10 +116,6 @@ describe("scheduleResumeEvaluationForRecord", () => {
         resumeReviewError: input.errorMessage,
         resumeReviewStatus: "failed",
       };
-      if (input.mode === "legacy") {
-        update.resumeScreeningError = input.errorMessage;
-        update.resumeScreeningStatus = "failed";
-      }
       mocks.updates.push(update);
       return Promise.resolve();
     });
@@ -177,13 +166,13 @@ describe("scheduleResumeEvaluationForRecord", () => {
     expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
   });
 
-  it("keeps legacy screening lifecycle behavior", async () => {
+  it("uses the qualitative contract even for an existing legacy job", async () => {
     setContext("legacy");
     await scheduleResumeEvaluationForRecord(INPUT, dependencies);
-    expect(mocks.updates[0]).toMatchObject({
-      resumeScreeningError: null,
-      resumeScreeningStatus: "processing",
-    });
+    expect(mocks.persistQueuedRun).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "qualitative" }),
+    );
+    expect(mocks.updates[0]).not.toHaveProperty("resumeScreeningStatus");
   });
 
   it("marks a structured enqueue failure without touching legacy screening fields", async () => {
@@ -204,7 +193,7 @@ describe("scheduleResumeEvaluationForRecord", () => {
     expect(mocks.updates).toHaveLength(0);
   });
 
-  it("does not persist or enqueue a legacy run after the job upgrades", async () => {
+  it("continues with a qualitative run when an old job mode changes before persistence", async () => {
     setContext("legacy");
     mocks.claimJob = {
       evaluationMode: "structured",
@@ -214,8 +203,8 @@ describe("scheduleResumeEvaluationForRecord", () => {
 
     const result = await scheduleResumeEvaluationForRecord(INPUT, dependencies);
 
-    expect(result.status).toBe("failed");
-    expect(mocks.updates).toHaveLength(0);
-    expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
+    expect(result.status).toBe("enqueued");
+    expect(mocks.updates).toHaveLength(1);
+    expect(mocks.enqueueReviewJobs).toHaveBeenCalledOnce();
   });
 });

@@ -38,13 +38,7 @@ async function loadJobDescriptionText(organizationId: string, jobDescriptionId?:
   if (!jd) {
     return null;
   }
-  return [
-    `岗位名称：${jd.name}`,
-    jd.description ? `岗位描述：${jd.description}` : null,
-    `岗位 Prompt：\n${jd.prompt}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  return [`岗位名称：${jd.name}`, `岗位 JD：\n${jd.prompt}`].join("\n\n");
 }
 
 export const interviewAnalysisRouter = factory

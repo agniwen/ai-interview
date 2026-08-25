@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- schema relations remain centralized by repository convention */
 import { defineRelations } from "drizzle-orm";
 import * as schema from "./schema";
 
@@ -224,6 +225,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.createdBy,
       to: r.user.id,
     }),
+    versions: r.many.jobDescriptionVersion(),
   },
   jobDescriptionEvaluationUpgradeAudit: {
     jobDescription: r.one.jobDescription({
@@ -257,6 +259,22 @@ export const relations = defineRelations(schema, (r) => ({
     jobDescription: r.one.jobDescription({
       from: r.jobDescriptionInterviewer.jobDescriptionId,
       to: r.jobDescription.id,
+    }),
+  },
+  jobDescriptionVersion: {
+    creator: r.one.user({
+      from: r.jobDescriptionVersion.createdBy,
+      to: r.user.id,
+    }),
+    evaluationFailures: r.many.resumeEvaluationFailure(),
+    evaluations: r.many.resumeEvaluationVersion(),
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionVersion.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionVersion.organizationId,
+      to: r.organization.id,
     }),
   },
   meetingAccessGrant: {
@@ -490,6 +508,8 @@ export const relations = defineRelations(schema, (r) => ({
     meetingTranscriptionPolicies: r.many.meetingTranscriptionPolicy(),
     members: r.many.member(),
     organizationRoles: r.many.organizationRole(),
+    resumeEvaluationFailures: r.many.resumeEvaluationFailure(),
+    resumeEvaluationVersions: r.many.resumeEvaluationVersion(),
     studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
@@ -501,6 +521,34 @@ export const relations = defineRelations(schema, (r) => ({
     organization: r.one.organization({
       from: r.organizationRole.organizationId,
       to: r.organization.id,
+    }),
+  },
+  resumeEvaluationFailure: {
+    jobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.resumeEvaluationFailure.jobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeEvaluationFailure.organizationId,
+      to: r.organization.id,
+    }),
+    resumeRecord: r.one.studioInterview({
+      from: r.resumeEvaluationFailure.resumeRecordId,
+      to: r.studioInterview.id,
+    }),
+  },
+  resumeEvaluationVersion: {
+    jobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.resumeEvaluationVersion.jobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumeEvaluationVersion.organizationId,
+      to: r.organization.id,
+    }),
+    resumeRecord: r.one.studioInterview({
+      from: r.resumeEvaluationVersion.resumeRecordId,
+      to: r.studioInterview.id,
     }),
   },
   resumeJobMatchCandidate: {
@@ -668,6 +716,8 @@ export const relations = defineRelations(schema, (r) => ({
     candidateFormSubmissions: r.many.candidateFormSubmission(),
     conversationTurns: r.many.interviewConversationTurn(),
     conversations: r.many.interviewConversation(),
+    evaluationFailures: r.many.resumeEvaluationFailure(),
+    evaluationVersions: r.many.resumeEvaluationVersion(),
     humanInterviewRounds: r.many.studioHumanInterviewRound(),
     jobDescription: r.one.jobDescription({
       from: r.studioInterview.jobDescriptionId,
@@ -678,6 +728,14 @@ export const relations = defineRelations(schema, (r) => ({
     organization: r.one.organization({
       from: r.studioInterview.organizationId,
       to: r.organization.id,
+    }),
+    qualitativeAttemptJobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.studioInterview.qualitativeAttemptJobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
+    }),
+    qualitativeJobDescriptionVersion: r.one.jobDescriptionVersion({
+      from: r.studioInterview.qualitativeJobDescriptionVersionId,
+      to: r.jobDescriptionVersion.id,
     }),
     roundEmailLogs: r.many.studioRoundEmailLog(),
     scheduleEntries: r.many.studioInterviewSchedule(),

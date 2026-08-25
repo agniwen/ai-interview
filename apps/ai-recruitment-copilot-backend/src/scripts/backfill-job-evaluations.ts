@@ -48,7 +48,7 @@ interface BackfillJobRow {
   createdBy: string | null;
   evaluationBlueprint: JsonValue | null;
   evaluationBlueprintHash: string | null;
-  evaluationMode: "legacy" | "structured";
+  evaluationMode: "legacy" | "qualitative" | "structured";
   id: string;
   lifecycleStatus: "draft" | "published";
   name: string;

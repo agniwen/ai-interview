@@ -30,7 +30,7 @@ import type {
 } from "./interview-snapshots";
 import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
-import type { JsonObject } from "./json";
+import type { JsonObject, JsonValue } from "./json";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
 import type {
@@ -70,6 +70,11 @@ import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
 } from "./structured-resume-evaluation";
+import type {
+  QualitativeRecommendationLevel,
+  QualitativeResumeEvaluationV1,
+  ResumeEvaluationContractMode,
+} from "./qualitative-resume-evaluation";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
@@ -1320,11 +1325,28 @@ export const studioInterview = pgTable(
     // default 让 prod 旧 INSERT 路径不传值时也能写入。
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
+    qualitativeAttemptJobDescriptionVersionId: text(
+      "qualitative_attempt_job_description_version_id",
+      // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+    ).references(() => jobDescriptionVersion.id, { onDelete: "set null" }),
+    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id").references(
+      // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    qualitativeRecommendationLevel: text(
+      "qualitative_recommendation_level",
+    ).$type<QualitativeRecommendationLevel>(),
+    qualitativeResumeEvaluation: jsonb(
+      "qualitative_resume_evaluation",
+    ).$type<QualitativeResumeEvaluationV1 | null>(),
     resumeContentHash: text("resume_content_hash"),
     resumeEvaluationArtifactMode: text(
       "resume_evaluation_artifact_mode",
-    ).$type<JobEvaluationMode>(),
-    resumeEvaluationAttemptMode: text("resume_evaluation_attempt_mode").$type<JobEvaluationMode>(),
+    ).$type<ResumeEvaluationContractMode>(),
+    resumeEvaluationAttemptMode: text(
+      "resume_evaluation_attempt_mode",
+    ).$type<ResumeEvaluationContractMode>(),
     resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
@@ -1418,11 +1440,11 @@ export const studioInterview = pgTable(
     ),
     check(
       "studio_interview_resume_evaluation_artifact_mode_check",
-      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured')`,
+      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     check(
       "studio_interview_resume_evaluation_attempt_mode_check",
-      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured')`,
+      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
@@ -1462,6 +1484,24 @@ export const studioInterview = pgTable(
       table.jobDescriptionId,
       table.structuredGateSortRank.asc(),
       table.structuredCompositeScore.desc(),
+    ),
+    check(
+      "studio_interview_qualitative_evaluation_complete_check",
+      sql`(
+        ${table.qualitativeResumeEvaluation} IS NULL
+        AND ${table.qualitativeRecommendationLevel} IS NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NULL
+      ) OR (
+        ${table.qualitativeResumeEvaluation} IS NOT NULL
+        AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
+        AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
+      )`,
+    ),
+    index("studio_interview_qualitative_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.qualitativeRecommendationLevel,
+      table.resumeReviewGeneratedAt.desc(),
     ),
   ],
 );
@@ -1668,7 +1708,7 @@ export const jobDescription = pgTable(
       .where(sql`${table.code} IS NOT NULL`),
     check(
       "job_description_evaluation_mode_check",
-      sql`${table.evaluationMode} IN ('legacy', 'structured')`,
+      sql`${table.evaluationMode} IN ('legacy', 'structured', 'qualitative')`,
     ),
     check(
       "job_description_lifecycle_status_check",
@@ -1721,7 +1761,110 @@ export const jobDescription = pgTable(
         AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
         AND ${table.evaluationBlueprintPreviewHash} IS NULL
         AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+      ) OR (
+        ${table.evaluationMode} = 'qualitative'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
       )`,
+    ),
+  ],
+);
+
+export const jobDescriptionVersion = pgTable(
+  "job_description_version",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    jobDescriptionName: text("job_description_name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    index("job_description_version_job_idx").on(table.jobDescriptionId, table.version),
+    index("job_description_version_org_idx").on(table.organizationId),
+    uniqueIndex("job_description_version_job_version_uq")
+      .on(table.jobDescriptionId, table.version)
+      .where(sql`${table.jobDescriptionId} IS NOT NULL`),
+  ],
+);
+
+export const resumeEvaluationVersion = pgTable(
+  "resume_evaluation_version",
+  {
+    artifact: jsonb("artifact").$type<JsonValue>().notNull(),
+    contractVersion: text("contract_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionVersionId: text("job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    numericScore: integer("numeric_score"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recommendationLevel: text("recommendation_level").$type<QualitativeRecommendationLevel>(),
+    resumeRecordId: text("resume_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    runId: text("run_id"),
+  },
+  (table) => [
+    index("resume_evaluation_version_record_created_idx").on(
+      table.resumeRecordId,
+      table.createdAt.desc(),
+    ),
+    index("resume_evaluation_version_org_idx").on(table.organizationId),
+    uniqueIndex("resume_evaluation_version_record_contract_run_uq")
+      .on(table.resumeRecordId, table.contractVersion, table.runId)
+      .where(sql`${table.runId} IS NOT NULL`),
+    check(
+      "resume_evaluation_version_numeric_score_check",
+      sql`${table.numericScore} IS NULL OR ${table.numericScore} BETWEEN 0 AND 100`,
+    ),
+    check(
+      "resume_evaluation_version_recommendation_check",
+      sql`${table.recommendationLevel} IS NULL OR ${table.recommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')`,
+    ),
+  ],
+);
+
+export const resumeEvaluationFailure = pgTable(
+  "resume_evaluation_failure",
+  {
+    contractVersion: text("contract_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message").notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionVersionId: text("job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    resumeRecordId: text("resume_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    runId: text("run_id").notNull(),
+  },
+  (table) => [
+    index("resume_evaluation_failure_record_created_idx").on(
+      table.resumeRecordId,
+      table.createdAt.desc(),
+    ),
+    index("resume_evaluation_failure_org_idx").on(table.organizationId),
+    uniqueIndex("resume_evaluation_failure_record_contract_run_uq").on(
+      table.resumeRecordId,
+      table.contractVersion,
+      table.runId,
     ),
   ],
 );

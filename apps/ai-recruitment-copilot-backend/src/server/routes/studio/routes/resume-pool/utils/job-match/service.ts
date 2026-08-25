@@ -117,7 +117,6 @@ function snapshotJob(
     code: matchedJob.code,
     contentHash: hashJobDescriptionForSemanticIndex({
       departmentName: matchedJob.departmentName,
-      description: matchedJob.description,
       id: matchedJob.id,
       name: matchedJob.name,
       prompt: matchedJob.prompt,

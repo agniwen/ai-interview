@@ -347,7 +347,7 @@ export function ResumeLibraryCardList({
                   variant={structuredScoreSortActive ? "secondary" : "outline"}
                 >
                   <IconArrowsSort className="size-4" />
-                  综合分排序
+                  AI 评价排序
                 </Button>
               ) : null}
               {canUploadResumeLibrary ? (

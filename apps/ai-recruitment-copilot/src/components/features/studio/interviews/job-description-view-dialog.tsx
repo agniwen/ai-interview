@@ -48,13 +48,6 @@ export function JobDescriptionViewDialog({
     return (
       <div className="space-y-5 text-sm">
         <section className="space-y-1.5">
-          <h3 className="font-medium text-muted-foreground text-xs">岗位描述</h3>
-          <p className="whitespace-pre-wrap">
-            {record.description?.trim() || <span className="text-muted-foreground">未填写</span>}
-          </p>
-        </section>
-
-        <section className="space-y-1.5">
           <h3 className="font-medium text-muted-foreground text-xs">面试官</h3>
           {interviewers.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
@@ -70,7 +63,7 @@ export function JobDescriptionViewDialog({
         </section>
 
         <section className="space-y-1.5">
-          <h3 className="font-medium text-muted-foreground text-xs">岗位 Prompt</h3>
+          <h3 className="font-medium text-muted-foreground text-xs">岗位 JD</h3>
           <Card className="gap-0 rounded-md py-0">
             <CardContent className="bg-muted/40 p-3">
               <MarkdownView className="text-sm" content={record.prompt} />

@@ -63,7 +63,6 @@ function latestWork(profile: ResumeProfile) {
 
 export interface JobDescriptionSemanticInput {
   departmentName: string | null;
-  description: string | null;
   id: string;
   name: string;
   prompt: string;
@@ -80,7 +79,6 @@ export function buildJobDescriptionSemanticTexts(
 ): ResumeSemanticTextChunk[] {
   const name = cleanText(jd.name);
   const departmentName = cleanText(jd.departmentName);
-  const description = cleanText(jd.description);
   const prompt = cleanText(jd.prompt);
 
   return [
@@ -89,22 +87,18 @@ export function buildJobDescriptionSemanticTexts(
       text: sectionOrHeader("岗位概览", [
         name ? `岗位名称：${name}` : null,
         departmentName ? `所属部门：${departmentName}` : null,
-        description ? `岗位描述：${description}` : null,
+        prompt ? `岗位 JD：${prompt}` : null,
       ]),
     },
     {
       chunkType: "work_project",
-      text: sectionOrHeader("职责和业务场景", [
-        description ? `业务描述：${description}` : null,
-        prompt ? `面试官提示：${prompt}` : null,
-      ]),
+      text: sectionOrHeader("职责和业务场景", [prompt ? `岗位 JD：${prompt}` : null]),
     },
     {
       chunkType: "skill_role",
       text: sectionOrHeader("岗位和技能要求", [
         name ? `目标岗位：${name}` : null,
         prompt ? `能力要求：${prompt}` : null,
-        description ? `补充描述：${description}` : null,
       ]),
     },
   ];

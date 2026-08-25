@@ -136,14 +136,14 @@ export function useResumeLibraryPageActions({
   }
 
   function onToggleStructuredScoreSort(activeSortId: string | undefined) {
-    const isActive = activeSortId === "structuredScore";
+    const isActive = activeSortId === "aiRecommendation";
     navigate({
       params: { slug },
       replace: true,
       resetScroll: false,
       search: {
         ...routeSearch,
-        sortBy: isActive ? undefined : "structuredScore",
+        sortBy: isActive ? undefined : "aiRecommendation",
         sortOrder: isActive ? undefined : "desc",
       },
       to: "/w/$slug/studio/resumes",

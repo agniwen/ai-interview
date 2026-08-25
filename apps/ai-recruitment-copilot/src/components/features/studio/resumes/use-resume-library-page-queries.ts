@@ -42,7 +42,7 @@ const recruitingJobDescriptionsPayloadSchema = z.object({
   records: z.array(
     z.object({
       departmentName: z.string().nullable(),
-      evaluationMode: z.enum(["legacy", "structured"]),
+      evaluationMode: z.enum(["legacy", "structured", "qualitative"]),
       id: z.string(),
       name: z.string(),
     }),
@@ -87,6 +87,7 @@ export function useResumeLibraryPageQueries({
           page: params.page,
           pageSize: params.pageSize,
           pipelineStages: parseCsvParam(params.filters.stage),
+          recommendationLevels: parseCsvParam(params.filters.recommendationLevels),
           search: params.search || undefined,
           skills: parseCsvParam(params.filters.skills),
           sortBy: params.sortBy,
@@ -152,14 +153,6 @@ export function useResumeLibraryPageQueries({
     slug,
   });
   const { setRowSelection } = grid;
-
-  const selectedJobIds = parseCsvParam(grid.filters.jdIds);
-  const selectedStructuredJob =
-    selectedJobIds.length === 1
-      ? jobDescriptions.find(
-          (job) => job.id === selectedJobIds[0] && job.evaluationMode === "structured",
-        )
-      : undefined;
 
   useEffect(() => {
     setRowSelection({});
@@ -265,7 +258,6 @@ export function useResumeLibraryPageQueries({
     resumeLibraryListQuery,
     resumeLibraryTotal,
     retryParseMutation,
-    selectedStructuredJob,
     setMetricsScope,
     skillSuggestions,
     slug,

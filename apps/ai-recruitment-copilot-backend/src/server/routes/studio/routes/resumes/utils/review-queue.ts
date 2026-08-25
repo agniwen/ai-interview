@@ -1,6 +1,15 @@
-import { and, eq, isNull, notInArray } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { jobDescription, studioInterview } from "@arc/db-schema/schema";
+import {
+  jobDescription,
+  jobDescriptionVersion,
+  resumeEvaluationFailure,
+  studioInterview,
+} from "@arc/db-schema/schema";
+import {
+  QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+  qualitativeResumeEvaluationV1Schema,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
@@ -24,8 +33,9 @@ export interface ResumeEvaluationRecord {
   jobDescriptionId: string | null;
   outcome: string | null;
   pipelineStage: string | null;
-  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
-  resumeEvaluationAttemptMode: "legacy" | "structured" | null;
+  qualitativeResumeEvaluation: unknown;
+  resumeEvaluationArtifactMode: "legacy" | "qualitative" | "structured" | null;
+  resumeEvaluationAttemptMode: "legacy" | "qualitative" | "structured" | null;
   resumeFileName: string | null;
   resumeParseStatus: string | null;
   resumeProfile: ResumeProfile | null;
@@ -40,7 +50,7 @@ export interface ResumeEvaluationRecord {
 
 export interface ResumeEvaluationSchedulingContext {
   job: {
-    evaluationMode: "legacy" | "structured";
+    evaluationMode: "legacy" | "qualitative" | "structured";
     id: string;
     lifecycleStatus: "draft" | "published";
   };
@@ -55,7 +65,7 @@ interface SchedulingContextInput {
 
 interface PersistQueuedRunInput {
   expectedJobDescriptionId: string;
-  mode: "legacy" | "structured";
+  mode: "qualitative";
   organizationId: string;
   resumeRecordId: string;
   runId: string;
@@ -63,7 +73,7 @@ interface PersistQueuedRunInput {
 
 interface MarkQueueFailureInput {
   errorMessage: string;
-  mode: "legacy" | "structured";
+  mode: "qualitative";
   organizationId: string;
   resumeRecordId: string;
   runId: string;
@@ -101,7 +111,8 @@ function hasCurrentStructuredEvaluation(record: {
 }
 
 function hasCurrentEvaluationArtifact(record: {
-  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
+  qualitativeResumeEvaluation: unknown;
+  resumeEvaluationArtifactMode: "legacy" | "qualitative" | "structured" | null;
   resumeReview: unknown;
   structuredCompositeScore: number | null;
   structuredGateSortRank: number | null;
@@ -112,10 +123,18 @@ function hasCurrentEvaluationArtifact(record: {
   if (record.resumeEvaluationArtifactMode === "structured") {
     return hasCurrentStructuredEvaluation(record);
   }
+  if (record.resumeEvaluationArtifactMode === "qualitative") {
+    return qualitativeResumeEvaluationV1Schema.safeParse(record.qualitativeResumeEvaluation)
+      .success;
+  }
   if (record.resumeEvaluationArtifactMode === "legacy") {
     return Boolean(record.resumeReview);
   }
-  return hasCurrentStructuredEvaluation(record) || Boolean(record.resumeReview);
+  return (
+    qualitativeResumeEvaluationV1Schema.safeParse(record.qualitativeResumeEvaluation).success ||
+    hasCurrentStructuredEvaluation(record) ||
+    Boolean(record.resumeReview)
+  );
 }
 
 async function loadSchedulingContextWithDb(
@@ -126,6 +145,7 @@ async function loadSchedulingContextWithDb(
       jobDescriptionId: studioInterview.jobDescriptionId,
       outcome: studioInterview.outcome,
       pipelineStage: studioInterview.pipelineStage,
+      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
       resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
       resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
       resumeFileName: studioInterview.resumeFileName,
@@ -194,8 +214,9 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
   return db.transaction(async (tx) => {
     const [currentJob] = await tx
       .select({
-        evaluationMode: jobDescription.evaluationMode,
         lifecycleStatus: jobDescription.lifecycleStatus,
+        name: jobDescription.name,
+        prompt: jobDescription.prompt,
       })
       .from(jobDescription)
       .where(
@@ -205,28 +226,62 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
         ),
       )
       .limit(1)
-      .for("share");
-    if (currentJob?.evaluationMode !== input.mode || currentJob.lifecycleStatus !== "published") {
+      .for("update");
+    if (!currentJob || currentJob.lifecycleStatus !== "published") {
+      return false;
+    }
+
+    let [snapshot] = await tx
+      .select({
+        id: jobDescriptionVersion.id,
+        jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
+        prompt: jobDescriptionVersion.prompt,
+        version: jobDescriptionVersion.version,
+      })
+      .from(jobDescriptionVersion)
+      .where(eq(jobDescriptionVersion.jobDescriptionId, input.expectedJobDescriptionId))
+      .orderBy(desc(jobDescriptionVersion.version))
+      .limit(1);
+    if (
+      !snapshot ||
+      snapshot.prompt !== currentJob.prompt ||
+      snapshot.jobDescriptionName !== currentJob.name
+    ) {
+      const nextVersion = (snapshot?.version ?? 0) + 1;
+      const [created] = await tx
+        .insert(jobDescriptionVersion)
+        .values({
+          createdAt: new Date(),
+          createdBy: null,
+          id: crypto.randomUUID(),
+          jobDescriptionId: input.expectedJobDescriptionId,
+          jobDescriptionName: currentJob.name,
+          organizationId: input.organizationId,
+          prompt: currentJob.prompt,
+          version: nextVersion,
+        })
+        .returning({
+          id: jobDescriptionVersion.id,
+          jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
+          prompt: jobDescriptionVersion.prompt,
+          version: jobDescriptionVersion.version,
+        });
+      snapshot = created;
+    }
+    if (!snapshot) {
       return false;
     }
 
     const now = new Date();
-    const legacyValues =
-      input.mode === "legacy"
-        ? {
-            resumeScreeningError: null,
-            resumeScreeningStatus: "processing" as const,
-          }
-        : {};
     const updated = await tx
       .update(studioInterview)
       .set({
+        qualitativeAttemptJobDescriptionVersionId: snapshot.id,
         resumeEvaluationAttemptMode: input.mode,
         resumeReviewError: null,
         resumeReviewQueuedAt: now,
         resumeReviewRunId: input.runId,
         resumeReviewStatus: "queued",
-        ...legacyValues,
         updatedAt: now,
       })
       .where(
@@ -244,29 +299,53 @@ function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
 
 async function markQueueFailureWithDb(input: MarkQueueFailureInput) {
   const errorMessage = input.errorMessage.slice(0, 1000);
-  const legacyValues =
-    input.mode === "legacy"
-      ? {
-          resumeScreeningError: errorMessage,
-          resumeScreeningStatus: "failed" as const,
-        }
-      : {};
-  await db
-    .update(studioInterview)
-    .set({
-      resumeReviewError: errorMessage,
-      resumeReviewStatus: "failed",
-      ...legacyValues,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-        eq(studioInterview.resumeReviewRunId, input.runId),
-      ),
-    )
-    .returning({ id: studioInterview.id });
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        jobDescriptionVersionId: studioInterview.qualitativeAttemptJobDescriptionVersionId,
+      })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, input.resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+          eq(studioInterview.resumeReviewRunId, input.runId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!current?.jobDescriptionVersionId) {
+      return;
+    }
+    await tx
+      .insert(resumeEvaluationFailure)
+      .values({
+        contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+        createdAt: new Date(),
+        errorMessage,
+        id: crypto.randomUUID(),
+        jobDescriptionVersionId: current.jobDescriptionVersionId,
+        organizationId: input.organizationId,
+        resumeRecordId: input.resumeRecordId,
+        runId: input.runId,
+      })
+      .onConflictDoNothing();
+    await tx
+      .update(studioInterview)
+      .set({
+        qualitativeAttemptJobDescriptionVersionId: null,
+        resumeReviewError: errorMessage,
+        resumeReviewStatus: "failed",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(studioInterview.id, input.resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+          eq(studioInterview.resumeReviewRunId, input.runId),
+        ),
+      );
+  });
 }
 
 export const defaultResumeEvaluationSchedulingDependencies: ResumeEvaluationSchedulingDependencies =
@@ -307,7 +386,7 @@ export async function scheduleResumeEvaluationForRecord(
   const runId = crypto.randomUUID();
   const persisted = await dependencies.persistQueuedRun({
     expectedJobDescriptionId: context.job.id,
-    mode: context.job.evaluationMode,
+    mode: "qualitative",
     organizationId: input.organizationId,
     resumeRecordId: input.resumeRecordId,
     runId,
@@ -336,7 +415,7 @@ export async function scheduleResumeEvaluationForRecord(
     const errorMessage = error instanceof Error ? error.message : String(error);
     await dependencies.markQueueFailure({
       errorMessage,
-      mode: context.job.evaluationMode,
+      mode: "qualitative",
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,
       runId,

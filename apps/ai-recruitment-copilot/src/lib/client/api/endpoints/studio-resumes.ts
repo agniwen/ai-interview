@@ -48,6 +48,7 @@ export interface ResumeListParams {
   pipelineStages?: string[];
   /** 候选人最终结论过滤（任一匹配）。Outcome filter (OR semantics). */
   outcomes?: string[];
+  recommendationLevels?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   structuredMaxScore?: number;
@@ -59,6 +60,7 @@ interface ResumeListQuery {
   jdIds?: string;
   knownTotal?: string;
   outcomes?: string;
+  recommendationLevels?: string;
   page?: string;
   pageSize?: string;
   pipelineStages?: string;
@@ -70,41 +72,19 @@ interface ResumeListQuery {
   structuredMinScore?: string;
 }
 
-/**
- * 拉取简历列表（支持分页 / 关键词 / 排序 / 技能 / 关联岗位筛选）。
- * Fetch the resume list (pagination / keyword / sort / skills / JD filters).
- */
-export function fetchStudioResumes(
-  slug: string,
-  params: ResumeListParams = {},
-): Promise<PaginatedResumeLibraryResult> {
+function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   const query: ResumeListQuery = {};
+  if (params.knownTotal !== undefined) {
+    query.knownTotal = String(params.knownTotal);
+  }
   if (params.page !== undefined) {
     query.page = String(params.page);
   }
   if (params.pageSize !== undefined) {
     query.pageSize = String(params.pageSize);
   }
-  if (params.knownTotal !== undefined) {
-    query.knownTotal = String(params.knownTotal);
-  }
   if (params.search) {
     query.search = params.search;
-  }
-  if (params.creatorIds?.length) {
-    query.creatorIds = params.creatorIds.join(",");
-  }
-  if (params.skills?.length) {
-    query.skills = params.skills.join(",");
-  }
-  if (params.jobDescriptionIds?.length) {
-    query.jdIds = params.jobDescriptionIds.join(",");
-  }
-  if (params.pipelineStages?.length) {
-    query.pipelineStages = params.pipelineStages.join(",");
-  }
-  if (params.outcomes?.length) {
-    query.outcomes = params.outcomes.join(",");
   }
   if (params.sortBy) {
     query.sortBy = params.sortBy;
@@ -118,10 +98,44 @@ export function fetchStudioResumes(
   if (params.structuredMinScore !== undefined) {
     query.structuredMinScore = String(params.structuredMinScore);
   }
+  return query;
+}
+
+function buildResumeListQuery(params: ResumeListParams): ResumeListQuery {
+  const query = buildResumeScalarQuery(params);
+  if (params.creatorIds?.length) {
+    query.creatorIds = params.creatorIds.join(",");
+  }
+  if (params.jobDescriptionIds?.length) {
+    query.jdIds = params.jobDescriptionIds.join(",");
+  }
+  if (params.outcomes?.length) {
+    query.outcomes = params.outcomes.join(",");
+  }
+  if (params.pipelineStages?.length) {
+    query.pipelineStages = params.pipelineStages.join(",");
+  }
+  if (params.recommendationLevels?.length) {
+    query.recommendationLevels = params.recommendationLevels.join(",");
+  }
+  if (params.skills?.length) {
+    query.skills = params.skills.join(",");
+  }
+  return query;
+}
+
+/**
+ * 拉取简历列表（支持分页 / 关键词 / 排序 / 技能 / 关联岗位筛选）。
+ * Fetch the resume list (pagination / keyword / sort / skills / JD filters).
+ */
+export function fetchStudioResumes(
+  slug: string,
+  params: ResumeListParams = {},
+): Promise<PaginatedResumeLibraryResult> {
   return rpcFetch<PaginatedResumeLibraryResult>(
     rpc.api.w[":slug"].studio.resumes.$get({
       param: { slug },
-      query,
+      query: buildResumeListQuery(params),
     }),
     "加载简历列表失败",
   );
@@ -390,6 +404,15 @@ export function updateResumeEvaluationStatus(
       param: { id, slug },
     }),
     "更新评估状态失败",
+  );
+}
+
+export function reassessStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail> {
+  return rpcFetch<ResumeLibraryDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"].reassess.$post({
+      param: { id, slug },
+    }),
+    "重新评价失败",
   );
 }
 

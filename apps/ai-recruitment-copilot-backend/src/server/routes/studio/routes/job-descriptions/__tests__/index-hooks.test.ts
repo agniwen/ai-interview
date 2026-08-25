@@ -19,7 +19,6 @@ import {
   organization,
   user,
 } from "@arc/db-schema/schema";
-import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission as defaultRequirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { generateStructuredJobBlueprintPreview } from "../application/job-evaluation-lifecycle";
@@ -143,22 +142,18 @@ async function seedFixtures() {
 interface JobDescriptionTestOverrides {
   allowCrossDepartmentInterviewers?: boolean;
   departmentId?: string;
-  description?: string;
   interviewerIds?: string[];
   name?: string;
   prompt?: string;
-  structuredConfig?: ReturnType<typeof createDefaultJobDescriptionStructuredConfig>;
 }
 
 function jobDescriptionPayload(overrides?: JobDescriptionTestOverrides) {
   return {
     allowCrossDepartmentInterviewers: true,
     departmentId: DEPARTMENT_ID,
-    description: "",
     interviewerIds: [INTERVIEWER_ID],
     name: "前端工程师",
     prompt: "负责前端工程化与业务开发。",
-    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     ...overrides,
   };
 }
@@ -173,7 +168,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe("job-descriptions route index hooks", () => {
-  it("POST / keeps a new draft out of the semantic index", async () => {
+  it("POST / publishes a qualitative job and indexes it", async () => {
     const res = await client["job-descriptions"].$post({ json: jobDescriptionPayload() });
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -182,38 +177,24 @@ describe("job-descriptions route index hooks", () => {
     }
 
     expect(body).toMatchObject({
-      evaluationMode: "structured",
-      lifecycleStatus: "draft",
+      evaluationMode: "qualitative",
+      lifecycleStatus: "published",
     });
-    expect(hookCalls.enqueue).toHaveLength(0);
+    expect(hookCalls.enqueue).toEqual([{ jobDescriptionId: body.id, organizationId: ORG_ID }]);
   });
 
-  it("POST / persists and returns the structured JD configuration", async () => {
-    const config = {
-      ...createDefaultJobDescriptionStructuredConfig(),
-      hardGates: {
-        ...createDefaultJobDescriptionStructuredConfig().hardGates,
-        education: "本科及以上，985/211 优先",
-      },
-      priorityConditions: [
-        {
-          condition: "具有头部企业项目经验",
-          id: "priority-1",
-          points: 5,
-        },
-      ],
-    };
-
+  it("POST / rejects retired recruiter evaluation settings", async () => {
     const res = await client["job-descriptions"].$post({
-      json: jobDescriptionPayload({ structuredConfig: config }),
+      // SAFETY: This test intentionally sends a retired field outside the typed API contract.
+      json: {
+        ...jobDescriptionPayload(),
+        structuredConfig: { priorityConditions: [] },
+      } as never,
     });
-    expect(res.status).toBe(201);
-    const body = await res.json();
-
-    expect("structuredConfig" in body ? body.structuredConfig : null).toEqual(config);
+    expect(res.status).toBe(400);
   });
 
-  it("PATCH /:id keeps an updated draft out of the semantic index", async () => {
+  it("PATCH /:id saves and indexes the qualitative JD", async () => {
     await db.insert(jobDescription).values({
       allowCrossDepartmentInterviewers: true,
       createdAt: NOW,
@@ -232,7 +213,9 @@ describe("job-descriptions route index hooks", () => {
     });
     expect(res.status).toBe(200);
 
-    expect(hookCalls.enqueue).toHaveLength(0);
+    expect(hookCalls.enqueue).toEqual([
+      { jobDescriptionId: EXISTING_JD_ID, organizationId: ORG_ID },
+    ]);
   });
 
   it("PATCH /:id/operational delegates department changes to semantic indexing", async () => {

@@ -1,6 +1,11 @@
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 
-export type ResumeDetailDefaultTab = "overview" | "rounds" | "human-interview" | "offer";
+export type ResumeDetailDefaultTab =
+  | "overview"
+  | "ai-analysis"
+  | "rounds"
+  | "human-interview"
+  | "offer";
 
 export interface ResumeLibraryCardProps {
   canCreateInterview: boolean;

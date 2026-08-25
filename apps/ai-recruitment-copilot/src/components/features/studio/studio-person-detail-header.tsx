@@ -286,7 +286,7 @@ export function buildStudioPersonDetailHeader({
           ) : null}
           {mode === "resume" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-              AI评分
+              AI评价
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (

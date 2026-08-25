@@ -33,6 +33,8 @@ const record: ResumeLibraryListRecord = {
   notes: null,
   outcome: "in_pipeline",
   pipelineStage: "screening",
+  qualitativeRecommendationLevel: null,
+  qualitativeResumeSummary: null,
   resumeEvaluationArtifactMode: "structured",
   resumeEvaluationAttemptMode: "structured",
   resumeEvaluationStatus: null,

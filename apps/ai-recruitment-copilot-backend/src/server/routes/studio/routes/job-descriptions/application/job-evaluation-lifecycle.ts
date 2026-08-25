@@ -36,7 +36,7 @@ export interface JobEvaluationDraft {
   description: string | null;
   evaluationBlueprintPreview: JobEvaluationBlueprint | null;
   evaluationBlueprintPreviewHash: string | null;
-  evaluationMode: "legacy" | "structured";
+  evaluationMode: "legacy" | "qualitative" | "structured";
   id: string;
   lifecycleStatus: "draft" | "published";
   prompt: string;

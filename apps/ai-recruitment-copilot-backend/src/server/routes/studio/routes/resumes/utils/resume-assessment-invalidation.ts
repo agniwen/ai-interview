@@ -2,6 +2,10 @@ import type { studioInterview } from "@arc/db-schema/schema";
 
 export const INVALIDATED_AI_RESUME_ASSESSMENT = {
   notes: null,
+  qualitativeAttemptJobDescriptionVersionId: null,
+  qualitativeJobDescriptionVersionId: null,
+  qualitativeRecommendationLevel: null,
+  qualitativeResumeEvaluation: null,
   resumeEvaluationArtifactMode: null,
   resumeEvaluationAttemptMode: null,
   resumeReview: null,

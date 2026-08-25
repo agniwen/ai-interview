@@ -1,0 +1,104 @@
+import { and, desc, eq } from "drizzle-orm";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import {
+  jobDescriptionVersion,
+  resumeEvaluationFailure,
+  resumeEvaluationVersion,
+} from "@arc/db-schema/schema";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
+import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+
+export const resumeEvaluationHistoryRouter = factory
+  .createApp()
+  .use("/", requirePermission("resumeLibrary", "read"))
+  .get("/", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    if (!id) {
+      return c.json({ error: "记录 ID 缺失。" }, 400);
+    }
+    const visibilityScope = c.var.user
+      ? await resolveRecruitingVisibilityScope({
+          currentRole: c.var.member?.role,
+          organizationId: activeOrg.id,
+          userId: c.var.user.id,
+        })
+      : { kind: "none" as const };
+    const current = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+    if (!current) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const [rows, failureRows] = await Promise.all([
+      db
+        .select({
+          artifact: resumeEvaluationVersion.artifact,
+          contractVersion: resumeEvaluationVersion.contractVersion,
+          createdAt: resumeEvaluationVersion.createdAt,
+          id: resumeEvaluationVersion.id,
+          jobDescriptionVersion: jobDescriptionVersion.version,
+          jobDescriptionVersionId: resumeEvaluationVersion.jobDescriptionVersionId,
+          numericScore: resumeEvaluationVersion.numericScore,
+          recommendationLevel: resumeEvaluationVersion.recommendationLevel,
+        })
+        .from(resumeEvaluationVersion)
+        .leftJoin(
+          jobDescriptionVersion,
+          eq(resumeEvaluationVersion.jobDescriptionVersionId, jobDescriptionVersion.id),
+        )
+        .where(
+          and(
+            eq(resumeEvaluationVersion.resumeRecordId, id),
+            eq(resumeEvaluationVersion.organizationId, activeOrg.id),
+          ),
+        )
+        .orderBy(desc(resumeEvaluationVersion.createdAt)),
+      db
+        .select({
+          contractVersion: resumeEvaluationFailure.contractVersion,
+          createdAt: resumeEvaluationFailure.createdAt,
+          errorMessage: resumeEvaluationFailure.errorMessage,
+          id: resumeEvaluationFailure.id,
+          jobDescriptionVersion: jobDescriptionVersion.version,
+          jobDescriptionVersionId: resumeEvaluationFailure.jobDescriptionVersionId,
+        })
+        .from(resumeEvaluationFailure)
+        .leftJoin(
+          jobDescriptionVersion,
+          eq(resumeEvaluationFailure.jobDescriptionVersionId, jobDescriptionVersion.id),
+        )
+        .where(
+          and(
+            eq(resumeEvaluationFailure.resumeRecordId, id),
+            eq(resumeEvaluationFailure.organizationId, activeOrg.id),
+          ),
+        )
+        .orderBy(desc(resumeEvaluationFailure.createdAt)),
+    ]);
+    let markedCurrent = false;
+    return c.json(
+      {
+        failures: failureRows.map((row) => ({
+          ...row,
+          createdAt: row.createdAt.toISOString(),
+        })),
+        records: rows.map((row) => {
+          const isCurrent =
+            !markedCurrent &&
+            row.contractVersion === "qualitative-v1" &&
+            row.jobDescriptionVersionId === current.qualitativeJobDescriptionVersionId;
+          markedCurrent ||= isCurrent;
+          return {
+            ...row,
+            createdAt: row.createdAt.toISOString(),
+            isCurrent,
+          };
+        }),
+      },
+      200,
+    );
+  });

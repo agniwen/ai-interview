@@ -3,10 +3,16 @@ import { pathToFileURL } from "node:url";
 import { and, asc, desc, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
-import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import {
+  chatAttachment,
+  resumeEvaluationVersion,
+  resumePoolItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type ResumeTextBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
@@ -262,19 +268,47 @@ async function updateResumeText(
 ): Promise<void> {
   const now = new Date();
   if (record.recordType === "studio_interview") {
-    await db
-      .update(studioInterview)
-      .set({
-        ...INVALIDATED_AI_RESUME_ASSESSMENT,
-        resumeText,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, record.id),
-          resumeTextMissingCondition(studioInterview.resumeText),
-        ),
-      );
+    await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({
+          notes: studioInterview.notes,
+          organizationId: studioInterview.organizationId,
+          qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
+          qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+          resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+          resumeReview: studioInterview.resumeReview,
+          resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+          structuredCompositeScore: studioInterview.structuredCompositeScore,
+          structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+        })
+        .from(studioInterview)
+        .where(eq(studioInterview.id, record.id))
+        .limit(1)
+        .for("update");
+      if (current) {
+        const archive = buildPreQualitativeEvaluationArchive({
+          organizationId: current.organizationId,
+          record: current,
+          resumeRecordId: record.id,
+        });
+        if (archive) {
+          await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
+        }
+      }
+      await tx
+        .update(studioInterview)
+        .set({
+          ...INVALIDATED_AI_RESUME_ASSESSMENT,
+          resumeText,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(studioInterview.id, record.id),
+            resumeTextMissingCondition(studioInterview.resumeText),
+          ),
+        );
+    });
     return;
   }
   await db

@@ -40,6 +40,10 @@ import { resumeReviewActionSchema } from "@arc/shared/resume-review";
 import type { ResumeReviewAction } from "@arc/shared/resume-review";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import {
+  qualitativeRecommendationLevelSchema,
+  qualitativeResumeEvaluationV1Schema,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 import { normalizeSkill } from "./skills";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/feishu-document-urls";
@@ -62,7 +66,13 @@ function parseResumeReviewNextStepAction(
   return parsed.success ? parsed.data : null;
 }
 
-const SORT_COLUMNS = ["createdAt", "candidateName", "structuredScore", "updatedAt"] as const;
+const SORT_COLUMNS = [
+  "aiRecommendation",
+  "createdAt",
+  "candidateName",
+  "structuredScore",
+  "updatedAt",
+] as const;
 
 const ORDER_COLUMNS = {
   candidateName: studioInterview.candidateName,
@@ -89,6 +99,7 @@ const filtersSchema = z.object({
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   outcomes: z.array(z.string()).max(10).optional().nullable(),
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
+  recommendationLevels: z.array(qualitativeRecommendationLevelSchema).max(4).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
   structuredMaxScore: z.number().int().min(0).max(100).optional().nullable(),
@@ -169,6 +180,21 @@ function buildOutcomesCondition(outcomes: string[] | null | undefined) {
   return filtered.length > 0 ? inArray(studioInterview.outcome, filtered) : null;
 }
 
+function buildRecommendationLevelsCondition(levels: ResumeQueryFilters["recommendationLevels"]) {
+  return levels?.length ? inArray(studioInterview.qualitativeRecommendationLevel, levels) : null;
+}
+
+function buildStructuredScoreConditions(filters?: ResumeQueryFilters) {
+  const conditions = [];
+  if (filters?.structuredMinScore !== null && filters?.structuredMinScore !== undefined) {
+    conditions.push(gte(studioInterview.structuredCompositeScore, filters.structuredMinScore));
+  }
+  if (filters?.structuredMaxScore !== null && filters?.structuredMaxScore !== undefined) {
+    conditions.push(lte(studioInterview.structuredCompositeScore, filters.structuredMaxScore));
+  }
+  return conditions;
+}
+
 function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
   if (filters?.forceEmpty) {
     return sql`false`;
@@ -181,12 +207,8 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildCreatorIdsCondition(filters?.creatorIds),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
-    filters?.structuredMinScore === null || filters?.structuredMinScore === undefined
-      ? null
-      : gte(studioInterview.structuredCompositeScore, filters.structuredMinScore),
-    filters?.structuredMaxScore === null || filters?.structuredMaxScore === undefined
-      ? null
-      : lte(studioInterview.structuredCompositeScore, filters.structuredMaxScore),
+    buildRecommendationLevelsCondition(filters?.recommendationLevels),
+    ...buildStructuredScoreConditions(filters),
   ].filter((c) => c !== null);
   return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
@@ -220,6 +242,14 @@ const SELECTED_COLUMNS = {
   offerSentAt: studioInterview.offerSentAt,
   outcome: studioInterview.outcome,
   pipelineStage: studioInterview.pipelineStage,
+  qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
+  qualitativeRecommendationLevel: studioInterview.qualitativeRecommendationLevel,
+  qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+  qualitativeResumeSummary: sql<
+    string | null
+  >`${studioInterview.qualitativeResumeEvaluation}->>'conciseOverall'`.as(
+    "qualitative_resume_summary",
+  ),
   resumeContentHash: studioInterview.resumeContentHash,
   resumeEducationExperiences:
     sql<unknown>`${studioInterview.resumeProfile}->'educationExperiences'`.as(
@@ -332,6 +362,8 @@ const LIST_SELECTED_COLUMNS = {
   notes: SELECTED_COLUMNS.notes,
   outcome: SELECTED_COLUMNS.outcome,
   pipelineStage: SELECTED_COLUMNS.pipelineStage,
+  qualitativeRecommendationLevel: SELECTED_COLUMNS.qualitativeRecommendationLevel,
+  qualitativeResumeSummary: SELECTED_COLUMNS.qualitativeResumeSummary,
   resumeEducationExperiences: SELECTED_COLUMNS.resumeEducationExperiences,
   resumeEducationGraduationYear: SELECTED_COLUMNS.resumeEducationGraduationYear,
   resumeEducationLevel: SELECTED_COLUMNS.resumeEducationLevel,
@@ -382,36 +414,58 @@ function selectRows({
   const { page, pageSize, sortBy, sortOrder } = paginationSchema.parse(pagination ?? {});
   const offset = (page - 1) * pageSize;
   const artifactGroup = sql`case
+    when ${studioInterview.resumeEvaluationArtifactMode} = 'qualitative'
+      or (
+        ${studioInterview.resumeEvaluationArtifactMode} is null
+        and ${studioInterview.qualitativeRecommendationLevel} is not null
+      ) then 0
     when ${studioInterview.resumeEvaluationArtifactMode} = 'structured'
       or (
         ${studioInterview.resumeEvaluationArtifactMode} is null
         and ${studioInterview.structuredCompositeScore} is not null
-      ) then 0
+      ) then 1
     when ${studioInterview.resumeEvaluationArtifactMode} = 'legacy'
       or (
         ${studioInterview.resumeEvaluationArtifactMode} is null
         and ${studioInterview.resumeReview} is not null
-      ) then 1
-    else 2
+      ) then 2
+    else 3
   end`;
-  const orderBy =
-    sortBy === "structuredScore"
-      ? [
-          asc(artifactGroup),
-          asc(studioInterview.structuredGateSortRank),
-          desc(studioInterview.structuredCompositeScore),
-          desc(
-            sql`case when ${artifactGroup} = 1
+  const recommendationRank = sql`case ${studioInterview.qualitativeRecommendationLevel}
+    when 'highly_recommended' then 0
+    when 'recommended' then 1
+    when 'undecided' then 2
+    when 'not_recommended' then 3
+    else 4
+  end`;
+  let orderBy;
+  if (sortBy === "aiRecommendation") {
+    orderBy = [
+      asc(artifactGroup),
+      asc(recommendationRank),
+      desc(studioInterview.resumeReviewGeneratedAt),
+      asc(studioInterview.candidateName),
+      asc(studioInterview.id),
+    ];
+  } else if (sortBy === "structuredScore") {
+    orderBy = [
+      asc(artifactGroup),
+      asc(studioInterview.structuredGateSortRank),
+      desc(studioInterview.structuredCompositeScore),
+      desc(
+        sql`case when ${artifactGroup} = 2
               then coalesce(
                 ${studioInterview.resumeReview}->'overall'->>'baseScore',
                 ${studioInterview.resumeReview}->'overall'->>'score'
               )::numeric
               else null end`,
-          ),
-          asc(studioInterview.candidateName),
-          asc(studioInterview.id),
-        ]
-      : [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
+      ),
+      asc(studioInterview.candidateName),
+      asc(studioInterview.id),
+    ];
+  } else {
+    orderBy = [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
+  }
 
   return db
     .select(LIST_SELECTED_COLUMNS)
@@ -511,7 +565,7 @@ function buildResumeSkills(skills: z.output<typeof resumeSkillsSchema>) {
 }
 
 function resolveResumeEvaluationArtifactMode(row: {
-  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
+  resumeEvaluationArtifactMode: "legacy" | "qualitative" | "structured" | null;
   resumeReviewBaseScore: string | null;
   structuredCompositeScore: number | null;
 }) {
@@ -554,6 +608,8 @@ function toRecord(
     notes: row.notes,
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
+    qualitativeRecommendationLevel: row.qualitativeRecommendationLevel,
+    qualitativeResumeSummary: row.qualitativeResumeSummary,
     resumeEvaluationArtifactMode: resolveResumeEvaluationArtifactMode(row),
     resumeEvaluationAttemptMode: row.resumeEvaluationAttemptMode,
     resumeEvaluationStatus: row.resumeEvaluationStatus,
@@ -570,7 +626,11 @@ function toRecord(
     resumeReviewStatus: row.resumeReviewStatus,
     resumeSkills: buildResumeSkills(parseStoredJson(row.resumeSkills, resumeSkillsSchema) ?? []),
     resumeSummary:
-      row.structuredResumeSummary ?? row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
+      row.qualitativeResumeSummary ??
+      row.structuredResumeSummary ??
+      row.resumeReviewConclusion ??
+      row.notes?.trim() ??
+      null,
     stageProgress: resolvedDerived.stageProgress,
     structuredCompositeScore: row.structuredCompositeScore,
     structuredGateSortRank: row.structuredGateSortRank,
@@ -590,6 +650,7 @@ export async function queryPaginatedResumeRecords(
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
+    recommendationLevels?: string[] | null;
     structuredMaxScore?: number | null;
     structuredMinScore?: number | null;
   },
@@ -757,6 +818,9 @@ export async function loadResumeDetail(
   const structuredEvaluation = structuredResumeEvaluationV1Schema.safeParse(
     rest.structuredResumeEvaluation,
   );
+  const qualitativeEvaluation = qualitativeResumeEvaluationV1Schema.safeParse(
+    rest.qualitativeResumeEvaluation,
+  );
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id], organizationId),
     listActiveStudioDuplicateMatchSummaries({
@@ -783,6 +847,8 @@ export async function loadResumeDetail(
     interviewQuestions: interviewQuestions ?? [],
     offerAcceptedAt: serializeDate(rest.offerAcceptedAt),
     offerSentAt: serializeDate(rest.offerSentAt),
+    qualitativeJobDescriptionVersionId: rest.qualitativeJobDescriptionVersionId,
+    qualitativeResumeEvaluation: qualitativeEvaluation.success ? qualitativeEvaluation.data : null,
     resumeContentHash: rest.resumeContentHash,
     resumeEvaluationStatus: rest.resumeEvaluationStatus,
     resumeParseError: rest.resumeParseError,

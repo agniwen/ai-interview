@@ -48,32 +48,12 @@ function JobDescriptionPreview({ record }: { record: JobDescriptionRecord }) {
         </p>
       </div>
 
-      {record.evaluationMode === "structured" ? (
-        <section className="flex flex-col gap-1">
-          <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
-          <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
-            <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
-          </ScrollArea>
-        </section>
-      ) : (
-        <>
-          <section className="flex flex-col gap-1">
-            <h4 className="font-medium text-muted-foreground text-xs">岗位描述</h4>
-            <ScrollArea className="max-h-32 [--scroll-fade-reveal:1rem]" scrollFade>
-              <p className="pr-3 whitespace-pre-wrap wrap-break-word text-sm leading-5">
-                {record.description?.trim() || "未填写"}
-              </p>
-            </ScrollArea>
-          </section>
-
-          <section className="flex flex-col gap-1">
-            <h4 className="font-medium text-muted-foreground text-xs">岗位 Prompt</h4>
-            <ScrollArea className="max-h-48" scrollFade>
-              <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
-            </ScrollArea>
-          </section>
-        </>
-      )}
+      <section className="flex flex-col gap-1">
+        <h4 className="font-medium text-muted-foreground text-xs">岗位 JD</h4>
+        <ScrollArea className="max-h-48 [--scroll-fade-reveal:1rem]" scrollFade>
+          <MarkdownView className="pr-3 text-sm" content={record.prompt.trim() || "未填写"} />
+        </ScrollArea>
+      </section>
     </div>
   );
 }

@@ -5,7 +5,7 @@ export const JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION = 1;
 export const JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS_PER_CATEGORY = 20;
 export const JOB_EVALUATION_BLUEPRINT_MAX_REQUIREMENTS = 60;
 
-export const jobEvaluationModeSchema = z.enum(["legacy", "structured"]);
+export const jobEvaluationModeSchema = z.enum(["legacy", "structured", "qualitative"]);
 export const jobLifecycleStatusSchema = z.enum(["draft", "published"]);
 
 export const jobEvaluationSourceRefSchema = z

@@ -1,11 +1,21 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import {
+  jobDescription,
+  resumeEvaluationFailure,
+  resumeEvaluationVersion,
+  resumePoolItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import {
+  QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+  qualitativeResumeEvaluationV1Schema,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
@@ -21,6 +31,7 @@ import {
 import { generateCandidateInterviewQuestions } from "./candidate-question-generation";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
+import { buildPreQualitativeEvaluationArchive } from "./resume-evaluation-history";
 
 function recordWhere(input: { organizationId: string; resumeRecordId: string }) {
   return and(
@@ -68,6 +79,9 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
         jobDescriptionId: studioInterview.jobDescriptionId,
         outcome: studioInterview.outcome,
         pipelineStage: studioInterview.pipelineStage,
+        qualitativeAttemptJobDescriptionVersionId:
+          studioInterview.qualitativeAttemptJobDescriptionVersionId,
+        qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
         resumeContentHash: studioInterview.resumeContentHash,
         resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
         resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
@@ -119,6 +133,46 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   },
   markFailed: async (input) => {
     const errorMessage = input.errorMessage.slice(0, 1000);
+    const { runId } = input;
+    if (input.mode === "qualitative" && runId) {
+      return db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            jobDescriptionVersionId: studioInterview.qualitativeAttemptJobDescriptionVersionId,
+          })
+          .from(studioInterview)
+          .where(guardedRecordWhere({ ...input, runId }))
+          .limit(1)
+          .for("update");
+        if (!current?.jobDescriptionVersionId) {
+          return false;
+        }
+        await tx
+          .insert(resumeEvaluationFailure)
+          .values({
+            contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+            createdAt: new Date(),
+            errorMessage,
+            id: crypto.randomUUID(),
+            jobDescriptionVersionId: current.jobDescriptionVersionId,
+            organizationId: input.organizationId,
+            resumeRecordId: input.resumeRecordId,
+            runId,
+          })
+          .onConflictDoNothing();
+        const updated = await tx
+          .update(studioInterview)
+          .set({
+            qualitativeAttemptJobDescriptionVersionId: null,
+            resumeReviewError: errorMessage,
+            resumeReviewStatus: "failed",
+            updatedAt: new Date(),
+          })
+          .where(guardedRecordWhere({ ...input, runId }))
+          .returning({ id: studioInterview.id });
+        return updated.length > 0;
+      });
+    }
     const modeValues =
       input.mode === "legacy"
         ? {
@@ -129,6 +183,7 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     const updated = await db
       .update(studioInterview)
       .set({
+        qualitativeAttemptJobDescriptionVersionId: input.mode === "qualitative" ? null : undefined,
         resumeReviewError: errorMessage,
         resumeReviewStatus: "failed",
         ...modeValues,
@@ -161,6 +216,89 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   },
   markReady: async (input) => {
     const now = new Date();
+    if (input.assessment.mode === "qualitative") {
+      const { assessment } = input;
+      return db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            notes: studioInterview.notes,
+            qualitativeAttemptJobDescriptionVersionId:
+              studioInterview.qualitativeAttemptJobDescriptionVersionId,
+            qualitativeJobDescriptionVersionId: studioInterview.qualitativeJobDescriptionVersionId,
+            qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+            resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+            resumeReview: studioInterview.resumeReview,
+            resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+            resumeReviewRunId: studioInterview.resumeReviewRunId,
+            structuredCompositeScore: studioInterview.structuredCompositeScore,
+            structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+          })
+          .from(studioInterview)
+          .where(recordWhere(input))
+          .limit(1)
+          .for("update");
+        if (
+          !current ||
+          current.resumeReviewRunId !== input.runId ||
+          current.qualitativeAttemptJobDescriptionVersionId !== assessment.jobDescriptionVersionId
+        ) {
+          return false;
+        }
+
+        const evaluation = qualitativeResumeEvaluationV1Schema.parse(assessment.evaluation);
+        if (current.resumeEvaluationArtifactMode !== "qualitative") {
+          const archive = buildPreQualitativeEvaluationArchive({
+            organizationId: input.organizationId,
+            record: current,
+            resumeRecordId: input.resumeRecordId,
+          });
+          if (archive) {
+            await tx.insert(resumeEvaluationVersion).values(archive).onConflictDoNothing();
+          }
+        }
+        await tx.insert(resumeEvaluationVersion).values({
+          // SAFETY: The strict qualitative schema has already parsed this JSON-compatible object.
+          artifact: evaluation as JsonValue,
+          contractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+          createdAt: now,
+          id: crypto.randomUUID(),
+          jobDescriptionVersionId: assessment.jobDescriptionVersionId,
+          numericScore: null,
+          organizationId: input.organizationId,
+          recommendationLevel: evaluation.recommendationLevel,
+          resumeRecordId: input.resumeRecordId,
+          runId: input.runId,
+        });
+        const updated = await tx
+          .update(studioInterview)
+          .set({
+            qualitativeAttemptJobDescriptionVersionId: null,
+            qualitativeJobDescriptionVersionId: assessment.jobDescriptionVersionId,
+            qualitativeRecommendationLevel: evaluation.recommendationLevel,
+            qualitativeResumeEvaluation: evaluation,
+            resumeEvaluationArtifactMode: "qualitative",
+            resumeEvaluationAttemptMode: "qualitative",
+            resumeReview: null,
+            resumeReviewError: null,
+            resumeReviewGeneratedAt: now,
+            resumeReviewRunId: null,
+            resumeReviewStatus: "ready",
+            resumeScreeningError: null,
+            resumeScreeningEvaluatedAt: null,
+            resumeScreeningResult: null,
+            resumeScreeningStatus: "idle",
+            structuredCompositeScore: null,
+            structuredGateSortRank: null,
+            structuredGateStatus: null,
+            structuredResumeEvaluation: null,
+            structuredScoreGrade: null,
+            updatedAt: now,
+          })
+          .where(guardedRecordWhere(input))
+          .returning({ id: studioInterview.id });
+        return updated.length > 0;
+      });
+    }
     if (input.assessment.mode === "structured") {
       const { assessment } = input;
       return db.transaction(async (tx) => {

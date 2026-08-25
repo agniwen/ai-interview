@@ -57,8 +57,6 @@ const RANK_INSTRUCTIONS = `你是一名招聘岗位匹配助手。你会收到�
 rank 从 1 连续递增，selectedJobDescriptionId 必须等于 rank=1 的岗位。matchScore 为 0 到 100 的整数，只用于排序解释，不作为是否绑定的门槛。reason 使用不超过 80 字的简短中文。不要输出额外字段或 Markdown。`;
 
 const JOB_REQUIREMENT_TEXT_LIMIT = 1200;
-const JOB_DESCRIPTION_TEXT_LIMIT = 1200;
-const JOB_BLUEPRINT_SUMMARY_LIMIT = 800;
 const MAX_RANKING_CANDIDATES_PER_CALL = 20;
 
 function buildMatchResultSchema(candidateIds: Set<string>) {
@@ -123,43 +121,14 @@ function truncateContent(value: string, limit: number): string {
   return `${value.slice(0, limit)}\n[内容已截断]`;
 }
 
-function summarizeEvaluationBlueprint(jd: JobDescriptionListRecord): string | null {
-  const blueprint = jd.evaluationBlueprint;
-  if (!blueprint) {
-    return null;
-  }
-  const lines = [
-    blueprint.coreSkills.length > 0
-      ? `核心技能: ${blueprint.coreSkills.map((item) => item.normalizedSkill).join("、")}`
-      : null,
-    blueprint.auxiliarySkills.length > 0
-      ? `辅助技能: ${blueprint.auxiliarySkills.map((item) => item.normalizedSkill).join("、")}`
-      : null,
-    blueprint.hardGateRequirements.length > 0
-      ? `硬性要求: ${blueprint.hardGateRequirements.map((item) => item.normalizedRequirement).join("；")}`
-      : null,
-    blueprint.requiredRelevantExperience
-      ? `相关经验: ${blueprint.requiredRelevantExperience.scopeDescription} ${blueprint.requiredRelevantExperience.years}年`
-      : null,
-    blueprint.educationExpectation
-      ? `学历要求: ${blueprint.educationExpectation.degreeLevel ?? "未限定学历层级"}${blueprint.educationExpectation.majorExpectation ? `，${blueprint.educationExpectation.majorExpectation}` : ""}`
-      : null,
-  ].filter((line): line is string => Boolean(line));
-  return lines.length > 0 ? truncateContent(lines.join("；"), JOB_BLUEPRINT_SUMMARY_LIMIT) : null;
-}
-
 function summarizeJobDescription(jd: JobDescriptionListRecord) {
   const departmentPrefix = jd.departmentName ? `${jd.departmentName} / ` : "";
-  const description = jd.description?.trim() || "（无描述）";
   const requirements = jd.prompt?.trim();
-  const blueprintSummary = summarizeEvaluationBlueprint(jd);
 
   return [
     `- id: ${jd.id}`,
     `  岗位: ${departmentPrefix}${jd.name}`,
-    `  描述: ${truncateContent(description, JOB_DESCRIPTION_TEXT_LIMIT)}`,
-    `  岗位要求: ${requirements ? truncateContent(requirements, JOB_REQUIREMENT_TEXT_LIMIT) : "（未提供）"}`,
-    blueprintSummary ? `  结构化要求: ${blueprintSummary}` : null,
+    `  岗位 JD: ${requirements ? truncateContent(requirements, JOB_REQUIREMENT_TEXT_LIMIT) : "（未提供）"}`,
   ]
     .filter((line): line is string => Boolean(line))
     .join("\n");

@@ -80,7 +80,6 @@ export function ResumeLibraryPage() {
     resumeLibraryListQuery,
     resumeLibraryTotal,
     retryParseMutation,
-    selectedStructuredJob,
     setMetricsScope,
     skillSuggestions,
     slug,
@@ -139,11 +138,10 @@ export function ResumeLibraryPage() {
     () =>
       buildResumeLibraryFiltersConfig({
         jobDescriptions,
-        selectedStructuredJob,
         skillSuggestions,
         workspaceMembers,
       }),
-    [skillSuggestions, jobDescriptions, selectedStructuredJob, workspaceMembers],
+    [skillSuggestions, jobDescriptions, workspaceMembers],
   );
 
   if (isInitialPageLoading) {
@@ -217,8 +215,8 @@ export function ResumeLibraryPage() {
           onShowDuplicateMatches={setDuplicateMatchRecord}
           onTransition={onTransition}
           records={loadedResumeRecords}
-          structuredScoreSortActive={activeSort?.id === "structuredScore"}
-          structuredScoreSortEnabled={Boolean(selectedStructuredJob)}
+          structuredScoreSortActive={activeSort?.id === "aiRecommendation"}
+          structuredScoreSortEnabled
           retryingRecordId={
             (forceReparseMutation.isPending ? forceReparseMutation.variables?.id : null) ??
             (retryParseMutation.isPending ? retryParseMutation.variables?.id : null) ??

@@ -29,6 +29,11 @@ import type {
   StructuredResumeGrade,
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
+import type {
+  QualitativeRecommendationLevel,
+  QualitativeResumeEvaluationV1,
+  ResumeEvaluationContractMode,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。
@@ -155,8 +160,10 @@ export interface ResumeLibraryListRecord {
   resumeReviewQueuedAt: string | null;
   resumeReviewRunId: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
-  resumeEvaluationArtifactMode: JobEvaluationMode | null;
-  resumeEvaluationAttemptMode: JobEvaluationMode | null;
+  qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
+  qualitativeResumeSummary: string | null;
+  resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
+  resumeEvaluationAttemptMode: ResumeEvaluationContractMode | null;
   structuredCompositeScore: number | null;
   structuredGateSortRank: number | null;
   structuredGateStatus: StructuredResumeGateStatus | null;
@@ -218,6 +225,8 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeReviewError: string | null;
   resumeReviewGeneratedAt: string | null;
   resumeReviewQueuedAt: string | null;
+  qualitativeJobDescriptionVersionId: string | null;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluationV1 | null;
   structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
   resumeScreeningError: string | null;
   resumeScreeningEvaluatedAt: string | null;
@@ -229,6 +238,27 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   writtenTestScheduledAt: string | null;
   writtenTestScore: string | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
+}
+
+export interface ResumeEvaluationHistoryRecord {
+  artifact: unknown;
+  contractVersion: string;
+  createdAt: string;
+  id: string;
+  isCurrent: boolean;
+  jobDescriptionVersionId: string | null;
+  jobDescriptionVersion: number | null;
+  numericScore: number | null;
+  recommendationLevel: QualitativeRecommendationLevel | null;
+}
+
+export interface ResumeEvaluationFailureRecord {
+  contractVersion: string;
+  createdAt: string;
+  errorMessage: string;
+  id: string;
+  jobDescriptionVersionId: string | null;
+  jobDescriptionVersion: number | null;
 }
 
 // ── 阶段子描述函数：每段独立逻辑，方便单测 ──
@@ -404,6 +434,7 @@ export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
 export const resumeLibrarySortIds = [
   "createdAt",
   "candidateName",
+  "aiRecommendation",
   "structuredScore",
   "updatedAt",
 ] as const;

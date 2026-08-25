@@ -6,6 +6,7 @@ import type {
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
 import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
+import type { QualitativeResumeEvaluationV1 } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
 import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
@@ -21,13 +22,20 @@ export type GeneratedResumeAssessment =
       evaluation: StructuredResumeEvaluationV1;
       mode: "structured";
       summaries: StructuredResumeSummaryFields;
+    }
+  | {
+      evaluation: QualitativeResumeEvaluationV1;
+      jobDescriptionVersionId: string;
+      mode: "qualitative";
     };
 
 export interface ResumeAssessmentRecord {
   jobDescriptionId: string | null;
-  evaluationMode: "legacy" | "structured" | null;
-  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
-  resumeEvaluationAttemptMode: "legacy" | "structured" | null;
+  evaluationMode: "legacy" | "qualitative" | "structured" | null;
+  qualitativeAttemptJobDescriptionVersionId: string | null;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluationV1 | null;
+  resumeEvaluationArtifactMode: "legacy" | "qualitative" | "structured" | null;
+  resumeEvaluationAttemptMode: "legacy" | "qualitative" | "structured" | null;
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
   resumeParseStatus: ResumeParseStatus;
@@ -61,25 +69,29 @@ export interface ResumeAssessmentLifecycleDeps {
     resumeInputHash: string;
     resumeText: string | null;
     runId: string;
+    jobDescriptionVersionId?: string;
   }) => Promise<GeneratedResumeAssessment>;
   loadRecord: (input: ResumeAssessmentLifecycleKey) => Promise<ResumeAssessmentRecord | null>;
   markExistingReady: (
     input: ResumeAssessmentLifecycleKey & {
       expectedJobDescriptionId: string | null;
       hasScreeningResult: boolean;
-      mode: "legacy" | "structured";
+      mode: "legacy" | "qualitative" | "structured";
     },
   ) => Promise<boolean>;
   markFailed: (
     input: ResumeAssessmentLifecycleKey & {
       errorMessage: string;
       expectedJobDescriptionId: string | null;
-      mode: "legacy" | "structured";
+      mode: "legacy" | "qualitative" | "structured";
       runId?: string;
     },
   ) => Promise<boolean>;
   markProcessing: (
-    input: ResumeAssessmentLifecycleKey & ResumeAssessmentGuard & { mode: "legacy" | "structured" },
+    input: ResumeAssessmentLifecycleKey &
+      ResumeAssessmentGuard & {
+        mode: "legacy" | "qualitative" | "structured";
+      },
   ) => Promise<boolean>;
   markReady: (
     input: ResumeAssessmentLifecycleKey &
@@ -104,11 +116,15 @@ function resolveExistingAssessment(input: {
   let hasCurrentArtifact: boolean;
   if (input.record.resumeEvaluationArtifactMode === "structured") {
     hasCurrentArtifact = Boolean(input.record.structuredResumeEvaluation);
+  } else if (input.record.resumeEvaluationArtifactMode === "qualitative") {
+    hasCurrentArtifact = Boolean(input.record.qualitativeResumeEvaluation);
   } else if (input.record.resumeEvaluationArtifactMode === "legacy") {
     hasCurrentArtifact = Boolean(input.record.resumeReview);
   } else {
     hasCurrentArtifact =
-      Boolean(input.record.structuredResumeEvaluation) || Boolean(input.record.resumeReview);
+      Boolean(input.record.qualitativeResumeEvaluation) ||
+      Boolean(input.record.structuredResumeEvaluation) ||
+      Boolean(input.record.resumeReview);
   }
   if (input.force || !hasCurrentArtifact || !input.record.evaluationMode) {
     return null;
@@ -176,12 +192,15 @@ export async function runResumeAssessmentLifecycle(
   if (!record.resumeReviewRunId || !record.resumeReviewQueuedAt) {
     throw new Error("评估任务缺少已持久化的运行标识。");
   }
+  const attemptMode = record.resumeEvaluationAttemptMode ?? record.evaluationMode;
+  if (attemptMode === "qualitative" && !record.qualitativeAttemptJobDescriptionVersionId) {
+    throw new Error("评估任务缺少岗位 JD 快照。");
+  }
 
   const guard = {
     expectedJobDescriptionId: record.jobDescriptionId,
     runId: record.resumeReviewRunId,
   };
-  const attemptMode = record.resumeEvaluationAttemptMode ?? record.evaluationMode;
   if (
     !(await deps.markProcessing({
       ...key,
@@ -200,6 +219,7 @@ export async function runResumeAssessmentLifecycle(
     const assessment = await deps.generate({
       evaluationAsOf: record.resumeReviewQueuedAt.toISOString().slice(0, 10),
       jobDescriptionId: record.jobDescriptionId,
+      jobDescriptionVersionId: record.qualitativeAttemptJobDescriptionVersionId ?? undefined,
       organizationId: input.organizationId,
       resumeContentHash: record.resumeContentHash,
       resumeInputHash,

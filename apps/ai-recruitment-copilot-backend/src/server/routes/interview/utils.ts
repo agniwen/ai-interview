@@ -90,22 +90,6 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     .from(globalConfig)
     .where(eq(globalConfig.organizationId, record.organizationId))
     .limit(1);
-  let jobDescriptionDescription = payload.jobDescription?.description ?? null;
-  if (payload.jobDescription && payload.jobDescription.description === undefined) {
-    const [currentJobDescription] = await db
-      .select({ description: jobDescription.description })
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, payload.jobDescription.id),
-          eq(jobDescription.organizationId, record.organizationId),
-          eq(jobDescription.lifecycleStatus, "published"),
-        ),
-      )
-      .limit(1);
-    jobDescriptionDescription = currentJobDescription?.description ?? null;
-  }
-
   return {
     ...view,
     companyContext: resolveCandidateCompanyContext({
@@ -114,7 +98,7 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     }),
     interviewQuestions: payload.personalizedQuestions,
     interviewers: payload.interviewers,
-    jobDescriptionDescription,
+    jobDescriptionDescription: null,
     jobDescriptionName: payload.jobDescription?.name ?? null,
     jobDescriptionPresetQuestions,
     jobDescriptionPrompt: payload.jobDescription?.prompt ?? null,

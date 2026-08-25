@@ -27,6 +27,7 @@
     "eval:jd-match:synthetic": "bun src/scripts/jd-match-synthetic-eval.ts",
     "eval:meeting-transcription": "bun src/scripts/meeting-transcription-eval/cli.ts",
     "eval:meeting-transcription:costs": "bun src/scripts/meeting-transcription-eval/report-costs.ts",
+    "eval:qualitative-resumes:regression": "bun src/scripts/qualitative-resume-regression.ts",
     "eval:recommendations": "bun src/scripts/reco-eval.ts",
     "eval:resume-reviews": "bun src/scripts/resume-review-eval.ts",
     "eval:resume-reviews:synthetic": "bun src/scripts/resume-review-synthetic-eval.ts",

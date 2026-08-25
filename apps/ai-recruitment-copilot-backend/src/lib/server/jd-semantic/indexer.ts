@@ -99,7 +99,6 @@ async function loadJdSource(job: JdSemanticIndexJob): Promise<JobDescriptionSema
   const [row] = await db
     .select({
       departmentName: department.name,
-      description: jobDescription.description,
       id: jobDescription.id,
       name: jobDescription.name,
       prompt: jobDescription.prompt,

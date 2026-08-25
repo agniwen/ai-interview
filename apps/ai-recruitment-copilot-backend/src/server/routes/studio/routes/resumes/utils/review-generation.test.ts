@@ -79,8 +79,7 @@ describe("generateResumeReviewBestEffort", () => {
     expect(result?.mode === "legacy" ? result.resumeReview : null).toBe(structuredReview);
     expect(mocks.loadRecruitingJobDescriptionById).toHaveBeenCalledWith("org-1", "jd-1");
     expect(mocks.generateResumeReview).toHaveBeenCalledWith({
-      jobDescription:
-        "岗位名称：前端工程师\n\n岗位描述：负责 Web 端研发\n\n岗位 Prompt：\n需要 React 经验",
+      jobDescription: "岗位名称：前端工程师\n\n岗位 Prompt：\n需要 React 经验",
       resumeProfile: RESUME_PROFILE,
       screeningResult: {
         policyEmpty: true,

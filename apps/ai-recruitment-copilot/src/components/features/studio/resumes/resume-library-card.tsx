@@ -1,4 +1,4 @@
-import { IconBriefcase, IconInfoCircle, IconSparkles, IconUpload } from "@tabler/icons-react";
+import { IconBriefcase, IconInfoCircle, IconUpload } from "@tabler/icons-react";
 import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
@@ -6,15 +6,12 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
-import { ResumeAiScoreHoverCard } from "@/components/features/studio/resumes/resume-ai-score-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
-import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
   ResumeLibraryListRecord,
@@ -23,6 +20,7 @@ import type {
 } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 import { ResumeLibraryCardActions } from "./resume-library-card-actions";
+import { ResumeLibraryEvaluationSummary } from "./resume-library-evaluation-summary";
 import type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
 
 export type { ResumeDetailDefaultTab, ResumeLibraryCardProps } from "./resume-library-card.types";
@@ -138,13 +136,6 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
-const REVIEW_ACTION_TONE_CLASS = {
-  danger: "text-rose-700 dark:text-rose-300",
-  muted: "text-muted-foreground",
-  success: "text-emerald-700 dark:text-emerald-300",
-  warning: "text-amber-700 dark:text-amber-300",
-} satisfies Record<ResumeReviewActionTone, string>;
-
 const AI_INTERVIEW_BADGE_CLASS =
   "border-violet-500/30 bg-violet-500/10 text-violet-700 hover:ring-violet-500/10 dark:border-violet-400/40 dark:bg-violet-400/15 dark:text-violet-300";
 
@@ -229,55 +220,6 @@ function getCandidateAvatarSeed(candidateName: string) {
   return candidateName.trim() || "未命名候选人";
 }
 
-interface StructuredReviewCardDescription {
-  label: string;
-  tone: ResumeReviewActionTone;
-}
-
-function describeStructuredReviewCard(
-  record: ResumeLibraryListRecord,
-): StructuredReviewCardDescription {
-  if (record.resumeEvaluationStatus === "pass") {
-    return { label: "HR 已通过", tone: "success" };
-  }
-  if (record.resumeEvaluationStatus === "fail") {
-    return { label: "HR 未通过", tone: "danger" };
-  }
-  if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
-    return { label: "AI 评估中", tone: "muted" };
-  }
-  if (record.structuredGateStatus === "failed") {
-    return {
-      label:
-        record.structuredCompositeScore === null
-          ? "未通过门槛"
-          : `未通过门槛 · ${record.structuredCompositeScore} 分`,
-      tone: "danger",
-    };
-  }
-  if (record.structuredGateStatus === "needs_verification") {
-    return { label: "门槛待核实", tone: "warning" };
-  }
-  if (record.structuredCompositeScore !== null) {
-    const gradeLabel = {
-      matched: "匹配",
-      recommended: "推荐",
-      unmatched: "不匹配",
-    }[record.structuredScoreGrade ?? "unmatched"];
-    let tone: ResumeReviewActionTone = "danger";
-    if (record.structuredScoreGrade === "recommended") {
-      tone = "success";
-    } else if (record.structuredScoreGrade === "matched") {
-      tone = "warning";
-    }
-    return {
-      label: `${gradeLabel} · ${record.structuredCompositeScore} 分`,
-      tone,
-    };
-  }
-  return { label: "待 AI 评估", tone: "muted" };
-}
-
 function ResumeCardMetaItem({
   children,
   className,
@@ -325,16 +267,6 @@ function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: st
       <span className="min-w-0 flex-1 truncate">{displayName}</span>
     </span>
   );
-}
-
-function buildResumeReviewSummaryTitle(
-  label: string,
-  replacementAttemptLabel: string | null,
-  summary: string | null,
-) {
-  const replacement = replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : "";
-  const description = summary ? ` ${summary}` : "";
-  return `${label}${replacement}${description}`;
 }
 
 function renderResumeCardProfileSnapshotLine(line: ResumeLibraryProfileSnapshotLine) {
@@ -506,37 +438,6 @@ function ResumeLibraryCardComponent({
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
-  const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
-  const hasRetainedLegacyReview =
-    artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
-  const baseReviewCard =
-    artifactMode === "structured"
-      ? describeStructuredReviewCard(record)
-      : describeResumeLibraryReviewCard({
-          baseScore: record.resumeReviewBaseScore,
-          nextStepAction: record.resumeReviewNextStepAction,
-          status: hasRetainedLegacyReview ? "ready" : record.resumeReviewStatus,
-        });
-  const reviewCard = hasRetainedLegacyReview
-    ? { ...baseReviewCard, label: `老版本结果 · ${baseReviewCard.label}` }
-    : baseReviewCard;
-  const hasAiScoreDetail =
-    artifactMode === "structured"
-      ? record.structuredCompositeScore !== null
-      : record.resumeReviewBaseScore !== null;
-  let replacementAttemptLabel: string | null = null;
-  if (hasRetainedLegacyReview && record.resumeEvaluationAttemptMode === "structured") {
-    if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
-      replacementAttemptLabel = "新版重评中";
-    } else if (record.resumeReviewStatus === "failed") {
-      replacementAttemptLabel = "新版重评失败";
-    }
-  }
-  const reviewSummaryTitle = buildResumeReviewSummaryTitle(
-    reviewCard.label,
-    replacementAttemptLabel,
-    summary,
-  );
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
@@ -679,32 +580,11 @@ function ResumeLibraryCardComponent({
                   <ResumeCardProfileSnapshotHoverCard snapshot={profileSnapshot} />
                 </div>
 
-                <p
-                  className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
-                  title={reviewSummaryTitle}
-                >
-                  <IconSparkles
-                    aria-hidden
-                    className={cn(
-                      "mr-1 inline size-3.5 align-[-2px]",
-                      REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                    )}
-                  />
-                  {hasAiScoreDetail ? (
-                    <ResumeAiScoreHoverCard
-                      className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}
-                      recordId={record.id}
-                    >
-                      {reviewCard.label}
-                    </ResumeAiScoreHoverCard>
-                  ) : (
-                    <span className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}>
-                      {reviewCard.label}
-                    </span>
-                  )}
-                  {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}
-                  {summary ? ` ${summary}` : null}
-                </p>
+                <ResumeLibraryEvaluationSummary
+                  onOpenDetail={onOpenDetail}
+                  record={record}
+                  summary={summary}
+                />
 
                 {skills.length > 0 ? (
                   <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]">

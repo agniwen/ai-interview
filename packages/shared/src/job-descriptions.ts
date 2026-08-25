@@ -36,6 +36,14 @@ const operationalAssignmentSchema = z.object({
     .max(20, "最多只能选择 20 位面试官"),
 });
 
+export const jobDescriptionSaveSchema = operationalAssignmentSchema
+  .extend({
+    code: jobDescriptionCodeSchema,
+    name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
+    prompt: z.string().trim().min(1, "请输入岗位 JD").max(10_000, "岗位 JD 不能超过 10000 字"),
+  })
+  .strict();
+
 const structuredJobOwnedFieldsSchema = z.object({
   code: jobDescriptionCodeSchema,
   description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
@@ -60,10 +68,8 @@ export const legacyJobDescriptionUpdateSchema = structuredJobDescriptionCreateSc
   })
   .strict();
 
-/** @deprecated Use the mode-specific request schemas at server boundaries. */
-export const jobDescriptionFormSchema = legacyJobDescriptionUpdateSchema;
-/** @deprecated Use the mode-specific request schemas at server boundaries. */
-export const jobDescriptionUpdateSchema = legacyJobDescriptionUpdateSchema;
+export const jobDescriptionFormSchema = jobDescriptionSaveSchema;
+export const jobDescriptionUpdateSchema = jobDescriptionSaveSchema;
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;
 export type JobDescriptionUpdateValues = z.infer<typeof jobDescriptionUpdateSchema>;
