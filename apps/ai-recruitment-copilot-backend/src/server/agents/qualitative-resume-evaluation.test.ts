@@ -81,6 +81,8 @@ describe("qualitative resume evaluation prompt", () => {
         generate,
       ),
     ).resolves.toMatchObject({ recommendationLevel: "recommended" });
-    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ temperature: 0 }));
+    expect(generate).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 8192, temperature: 0 }),
+    );
   });
 });

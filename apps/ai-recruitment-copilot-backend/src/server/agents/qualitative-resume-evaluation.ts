@@ -52,7 +52,7 @@ export function generateQualitativeResumeEvaluation(
   return generate({
     agent: resumeReviewQualitativeAgent,
     fallbackToTextGeneration: true,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     observabilityLabel: QUALITATIVE_RESUME_PROMPT_VERSION,
     prompt: buildQualitativeResumeEvaluationPrompt(input),
     retryOnInvalid: true,
