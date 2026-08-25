@@ -3,13 +3,15 @@
 
 import { IconLoader2, IconRefresh } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
+import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
+import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
@@ -18,7 +20,12 @@ import { UploadBatchListDialog } from "@/components/features/studio/resumes/uplo
 import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
 import { Button } from "@/components/ui/button";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import { fetchResumePoolItems, fetchResumePoolUploaders } from "@/lib/client/api";
+import {
+  bindResumePoolItem,
+  fetchResumePoolDuplicateMatches,
+  fetchResumePoolItems,
+  fetchResumePoolUploaders,
+} from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -33,6 +40,7 @@ import {
   canImportResumePoolToLibrary,
   canUploadToResumePool,
   createResumePoolFilters,
+  getCandidateTitleWithId,
   resumePoolCreatedAtBounds,
 } from "./resume-pool-page-model";
 import type { ResumePoolFilters } from "./resume-pool-page-model";
@@ -48,6 +56,7 @@ export function ResumePoolPage() {
   const navigateRecruiterDetail = recruiterDetailRouteApi.useNavigate();
   const canCreateResumePool = useHasPermission("resumePool", "create");
   const canImportResumePool = useHasPermission("resumePool", "import");
+  const canReadJobDescriptions = useHasPermission("jd", "read");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
@@ -59,6 +68,9 @@ export function ResumePoolPage() {
   const [progressOpen, setProgressOpen] = useState(false);
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
+  const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumePoolListRecord | null>(
+    null,
+  );
   const [enteringRecruitingRecordId, setEnteringRecruitingRecordId] = useState<string | null>(null);
   const [loadedPoolResult, setLoadedPoolResult] = useState<{
     records: ResumePoolListRecord[];
@@ -212,6 +224,11 @@ export function ResumePoolPage() {
     queryKey: ["resume-pool-uploaders", slug],
     ...RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
   });
+  const duplicateMatchesQuery = useQuery({
+    enabled: duplicateMatchRecord !== null,
+    queryFn: () => fetchResumePoolDuplicateMatches(slug, duplicateMatchRecord?.id ?? ""),
+    queryKey: ["resume-pool", slug, duplicateMatchRecord?.id, "duplicate-matches"],
+  });
   const poolBatches = useMemo(
     () => (batchListQuery.data ?? []).filter((batch) => batch.target === "resume_pool"),
     [batchListQuery.data],
@@ -293,6 +310,21 @@ export function ResumePoolPage() {
       setEnteringRecruitingRecordId(null);
     }
   }
+
+  const bindJobDescriptionMutation = useMutation({
+    mutationFn: ({
+      jobDescriptionId,
+      record,
+    }: {
+      jobDescriptionId: string;
+      record: ResumePoolListRecord;
+    }) => bindResumePoolItem(slug, record.id, jobDescriptionId),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "更换绑定岗位失败"),
+    onSuccess: (_detail, variables) => {
+      toast.success(variables.record.jobDescriptionId ? "已更换绑定岗位" : "已绑定推荐岗位");
+      refreshPool();
+    },
+  });
 
   const emptyTitle = grid.bind.filterValues.createdAtRange
     ? "当前时间范围内暂无人才"
@@ -390,18 +422,29 @@ export function ResumePoolPage() {
             }
           />
           <ResumePoolListContent
+            bindingJobDescriptionRecordId={
+              bindJobDescriptionMutation.isPending
+                ? (bindJobDescriptionMutation.variables?.record.id ?? null)
+                : null
+            }
             canEnterRecruiting={canImportToLibrary}
+            canRecommend={canImportResumePool && canReadJobDescriptions}
             canResetFilters={grid.bind.canResetFilters}
             canUpload={canUploadResumePool}
             emptyTitle={emptyTitle}
             enteringRecruitingRecordId={enteringRecruitingRecordId}
             isInitialPoolLoading={isInitialPoolLoading}
+            onBindJobDescription={(record, jobDescriptionId) => {
+              bindJobDescriptionMutation.mutate({ jobDescriptionId, record });
+            }}
             onEnterRecruiting={enterRecruiting}
             onOpenDetail={openPoolDetail}
+            onOpenDuplicateMatches={setDuplicateMatchRecord}
             onResetFilters={grid.bind.onResetFilters}
             onUpload={() => setUploadEntryOpen(true)}
             records={loadedPoolRecords}
             showEmptyState={showEmptyState}
+            slug={slug}
             sortBy={grid.bind.sorting[0]?.id ?? "createdAt"}
           />
           {visibleRecordCount > 0 ? (
@@ -482,6 +525,23 @@ export function ResumePoolPage() {
         item={importTarget}
         onImported={invalidatePool}
         onOpenChange={(open) => !open && setImportTarget(null)}
+      />
+      <ResumeDuplicateMatchesDialog
+        isError={duplicateMatchesQuery.isError}
+        isLoading={duplicateMatchesQuery.isLoading}
+        matches={duplicateMatchesQuery.data?.matches ?? []}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDuplicateMatchRecord(null);
+          }
+        }}
+        open={duplicateMatchRecord !== null}
+        source={duplicateMatchRecord ? toDedupSourceFromPoolRecord(duplicateMatchRecord) : null}
+        title={
+          duplicateMatchRecord
+            ? `${getCandidateTitleWithId(duplicateMatchRecord)} 的疑似重复简历`
+            : "疑似重复简历"
+        }
       />
       <StudioScrollToTopButton />
     </>

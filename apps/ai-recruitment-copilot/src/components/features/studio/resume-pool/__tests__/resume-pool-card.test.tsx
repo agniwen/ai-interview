@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -104,15 +105,22 @@ const record = {
 } satisfies ResumePoolListRecord;
 
 describe("ResumePoolCard", () => {
-  it("matches the recruitment-desk information rhythm and only renders two actions", () => {
+  it("matches the recruitment-desk information rhythm and restores the bound-job action", () => {
     const html = renderToStaticMarkup(
-      <ResumePoolCard
-        canEnterRecruiting={true}
-        enteringRecruiting={false}
-        onEnterRecruiting={() => {}}
-        onOpenDetail={() => {}}
-        record={record}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canEnterRecruiting={true}
+          canRecommend={true}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={record}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
     );
 
     expect(html).toContain("测试候选人");
@@ -133,8 +141,130 @@ describe("ResumePoolCard", () => {
     );
     expect(actionLabels).toEqual(["详情", "进入招聘"]);
     expect(html).not.toContain("推荐岗位");
-    expect(html).not.toContain("更换");
+    expect(html).toContain("更换");
+    expect(html).toContain('aria-label="更换绑定岗位"');
     expect(html).not.toContain("删除");
+  });
+
+  it("shows a recommendation action beside an unbound job", () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canEnterRecruiting={true}
+          canRecommend={true}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(html).toContain("未绑定岗位");
+    expect(html).toContain("推荐岗位");
+    expect(html).toContain('aria-label="推荐岗位"');
+  });
+
+  it("opens the duplicate-resume comparison from an imported record badge", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDuplicateMatches = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={onOpenDuplicateMatches}
+          record={{
+            ...record,
+            duplicateMatch: { count: 2, highestLevel: "high" },
+            importedResumeRecordId: "studio-resume-1",
+          }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain("重复简历 2 条");
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[title="重复简历 2 条"]')?.click();
+    });
+    expect(onOpenDuplicateMatches).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+
+    act(() => root.unmount());
+  });
+
+  it("binds a cached recommended job from the restored menu", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+    const onBindJobDescription = vi.fn();
+    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], null);
+    queryClient.setQueryData(["resume-pool", "jd-recommendations", "test-workspace", record.id], {
+      diagnostics: { aboveThresholdCount: 1, eligibleCount: 1, vectorHitCount: 1 },
+      recommendations: [
+        {
+          departmentName: "产品部",
+          description: "负责招聘产品规划",
+          id: "jd-recommended",
+          name: "招聘产品经理",
+          reasons: ["经历匹配"],
+          score: 92,
+          similarity: {},
+        },
+      ],
+      resume: { id: record.id },
+      status: "ready",
+    });
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumePoolCard
+            bindingJobDescription={false}
+            canEnterRecruiting={true}
+            canRecommend={true}
+            enteringRecruiting={false}
+            onBindJobDescription={onBindJobDescription}
+            onEnterRecruiting={() => {}}
+            onOpenDetail={() => {}}
+            onOpenDuplicateMatches={() => {}}
+            record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="推荐岗位"]')?.click();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain("招聘产品经理");
+
+    await act(async () => {
+      document.querySelector<HTMLElement>('[data-slot="dropdown-menu-item"]')?.click();
+      await Promise.resolve();
+    });
+    expect(onBindJobDescription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: record.id }),
+      "jd-recommended",
+    );
+
+    act(() => root.unmount());
+    queryClient.clear();
   });
 
   it("places the uploader's real avatar immediately before the uploader name", async () => {
@@ -160,11 +290,16 @@ describe("ResumePoolCard", () => {
     act(() => {
       root.render(
         <ResumePoolCard
+          bindingJobDescription={false}
           canEnterRecruiting={true}
+          canRecommend={false}
           enteringRecruiting={false}
+          onBindJobDescription={() => {}}
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
           record={record}
+          slug="test-workspace"
         />,
       );
     });

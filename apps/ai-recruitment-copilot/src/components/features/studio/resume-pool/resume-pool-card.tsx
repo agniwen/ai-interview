@@ -20,11 +20,13 @@ import { Card, CardPanel } from "@/components/ui/card";
 import {
   getCandidateTitle,
   getResumePoolImportActionState,
+  duplicateMatchBadge,
   resumeParseStatusBadge,
   sourceLabel,
   uploaderMetaLabel,
   uploaderMetaSegments,
 } from "./resume-pool-page-model";
+import { ResumePoolJobBindingMenu } from "./resume-pool-job-binding-menu";
 
 const RESUME_POOL_CARD_HEIGHTS = {
   base: 356,
@@ -103,10 +105,12 @@ function getCandidateInitial(record: ResumePoolListRecord) {
 }
 
 function ResumePoolCardMeta({
+  action,
   icon,
   label,
   value,
 }: {
+  action?: ReactNode;
   icon: ReactNode;
   label: string;
   value: string;
@@ -118,6 +122,7 @@ function ResumePoolCardMeta({
       <span className="min-w-0 truncate text-foreground/80" title={value}>
         {value}
       </span>
+      {action}
     </span>
   );
 }
@@ -257,17 +262,27 @@ function ResumePoolCardActions({
 }
 
 export function ResumePoolCard({
+  bindingJobDescription,
   canEnterRecruiting,
+  canRecommend,
   enteringRecruiting,
+  onBindJobDescription,
   onEnterRecruiting,
   onOpenDetail,
+  onOpenDuplicateMatches,
   record,
+  slug,
 }: {
+  bindingJobDescription: boolean;
   canEnterRecruiting: boolean;
+  canRecommend: boolean;
   enteringRecruiting: boolean;
+  onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
+  slug: string;
 }) {
   const title = getCandidateTitle(record);
   const skills = record.masteredSkills.slice(0, RESUME_POOL_CARD_SKILL_LIMIT);
@@ -319,6 +334,7 @@ export function ResumePoolCard({
                   </span>
                 </button>
                 {resumeParseStatusBadge(record)}
+                {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
                 {record.importedResumeRecordId ? (
                   <Badge variant="success">已进入招聘</Badge>
                 ) : (
@@ -337,6 +353,19 @@ export function ResumePoolCard({
                     value={targetRole}
                   />
                   <ResumePoolCardMeta
+                    action={
+                      canRecommend ? (
+                        <ResumePoolJobBindingMenu
+                          binding={bindingJobDescription}
+                          currentJobDescriptionId={record.jobDescriptionId}
+                          onSelect={(jobDescriptionId) =>
+                            onBindJobDescription(record, jobDescriptionId)
+                          }
+                          recordId={record.id}
+                          slug={slug}
+                        />
+                      ) : undefined
+                    }
                     icon={<IconBuilding className="size-3.5" />}
                     label="绑定岗位"
                     value={boundJob}

@@ -80,32 +80,42 @@ export function ResumePoolEmptyState({
 }
 
 export function ResumePoolListContent({
+  bindingJobDescriptionRecordId,
   canEnterRecruiting,
+  canRecommend,
   canResetFilters,
   canUpload,
   emptyTitle,
   enteringRecruitingRecordId,
   isInitialPoolLoading,
+  onBindJobDescription,
   onEnterRecruiting,
   onOpenDetail,
+  onOpenDuplicateMatches,
   onResetFilters,
   onUpload,
   records,
   showEmptyState,
+  slug,
   sortBy,
 }: {
+  bindingJobDescriptionRecordId: string | null;
   canEnterRecruiting: boolean;
+  canRecommend: boolean;
   canResetFilters: boolean;
   canUpload: boolean;
   emptyTitle: string;
   enteringRecruitingRecordId: string | null;
   isInitialPoolLoading: boolean;
+  onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
   onResetFilters: () => void;
   onUpload: () => void;
   records: ResumePoolListRecord[];
   showEmptyState: boolean;
+  slug: string;
   sortBy: string | undefined;
 }) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
@@ -220,11 +230,16 @@ export function ResumePoolListContent({
               }}
             >
               <ResumePoolCard
+                bindingJobDescription={bindingJobDescriptionRecordId === record.id}
                 canEnterRecruiting={canEnterRecruiting}
+                canRecommend={canRecommend}
                 enteringRecruiting={enteringRecruitingRecordId === record.id}
+                onBindJobDescription={onBindJobDescription}
                 onEnterRecruiting={onEnterRecruiting}
                 onOpenDetail={onOpenDetail}
+                onOpenDuplicateMatches={onOpenDuplicateMatches}
                 record={record}
+                slug={slug}
               />
             </div>
           );
