@@ -48,7 +48,7 @@ function ResumePoolStickyDateGroupHeader({
     <div
       className={cn(
         "left-0 z-10 flex w-fit items-center rounded-r-xl border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70 [contain:layout]",
-        active ? "sticky z-20" : "absolute",
+        active ? "sticky" : "absolute",
         isStuck && "border-input bg-background/80 backdrop-blur-md",
       )}
       style={{

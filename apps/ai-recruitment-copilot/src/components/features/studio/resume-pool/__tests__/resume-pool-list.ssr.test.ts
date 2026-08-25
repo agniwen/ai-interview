@@ -21,6 +21,8 @@ describe("resume pool list", () => {
       /type === "date-header"\s*\? RESUME_POOL_DATE_HEADER_ROW_HEIGHT\s*: cardHeight/u,
     );
     expect(source).toContain("height: RESUME_POOL_DATE_HEADER_HEIGHT");
+    expect(source).toContain('active ? "sticky" : "absolute"');
+    expect(source).not.toContain('active ? "sticky z-20" : "absolute"');
     expect(source).toContain("useElementScrollRestoration");
     expect(source).toContain("initialOffset: studioScrollEntry?.scrollY");
     expect(source).toContain("[overflow-anchor:none]");
