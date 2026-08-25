@@ -89,33 +89,26 @@ export function getCandidateTitleWithId(record: ResumePoolListRecord) {
 }
 
 export function resumeParseStatusBadge(record: ResumePoolListRecord) {
-  switch (record.resumeParseStatus) {
-    case "ready": {
-      return <Badge variant="success">已解析</Badge>;
-    }
-    case "failed": {
-      return <Badge variant="destructive">解析失败</Badge>;
-    }
-    case "queued": {
-      return <Badge variant="secondary">待解析</Badge>;
-    }
-    case "processing": {
-      return <Badge variant="secondary">解析中</Badge>;
-    }
-    case "unparsed": {
-      return <Badge variant="secondary">未解析</Badge>;
-    }
-    default: {
-      return <Badge variant="secondary">{record.resumeParseStatus}</Badge>;
-    }
-  }
+  return record.resumeParseStatus === "failed" ? (
+    <Badge variant="destructive">解析失败</Badge>
+  ) : null;
+}
+
+export function resumeRecruitingStatusBadge(record: ResumePoolListRecord) {
+  return record.importedResumeRecordId ? <Badge variant="success">已在招聘流程</Badge> : null;
 }
 
 export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () => void) {
   if (!record.duplicateMatch) {
     return null;
   }
-  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
+  return (
+    <ResumeDuplicateMatchBadge
+      displayMode="recruiting-entry"
+      duplicateMatch={record.duplicateMatch}
+      onClick={onClick}
+    />
+  );
 }
 
 export function getResumePoolImportActionState(record: ResumePoolListRecord) {

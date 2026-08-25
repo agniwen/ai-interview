@@ -50,7 +50,7 @@ import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates"
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,
-  listActiveDuplicateMatchCounts,
+  listActiveDuplicateSummariesAgainstStudioInterviews,
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
@@ -642,12 +642,6 @@ async function loadSourceChannels(
   );
 }
 
-function toDuplicateMatchSummary(
-  value: { count: number; highestLevel: "high" | "low" | "medium" | null } | undefined,
-): ResumeDuplicateMatchSummary | null {
-  return value && value.count > 0 ? { count: value.count, highestLevel: value.highestLevel } : null;
-}
-
 async function loadPoolDuplicateMatches(input: {
   organizationId: string;
   rows: PoolRow[];
@@ -655,18 +649,12 @@ async function loadPoolDuplicateMatches(input: {
   const sourceIds = input.rows
     .filter((row) => row.organizationId === input.organizationId)
     .map((row) => row.id);
-  const counts = await listActiveDuplicateMatchCounts({
+  const summaries = await listActiveDuplicateSummariesAgainstStudioInterviews({
     organizationId: input.organizationId,
     sourceIds,
     sourceType: "resume_pool_item",
   });
-  return new Map(
-    [...counts.entries()]
-      .map(([id, value]) => [id, toDuplicateMatchSummary(value)] as const)
-      .filter(
-        (entry): entry is readonly [string, ResumeDuplicateMatchSummary] => entry[1] !== null,
-      ),
-  );
+  return new Map([...summaries.entries()].filter(([, summary]) => summary.highestLevel === "high"));
 }
 
 export async function queryResumePoolItems(

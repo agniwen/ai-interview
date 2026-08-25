@@ -138,6 +138,8 @@ describe("ResumePoolCard", () => {
     expect(html).toContain('data-slot="avatar-fallback"');
     expect(html).toContain("技能 6");
     expect(html).not.toContain("技能 7");
+    expect(html).not.toContain("已解析");
+    expect(html).not.toContain("待进入招聘");
 
     const actionLabels = [...html.matchAll(/data-resume-pool-card-action="([^"]+)"/gu)].map(
       (match) => match[1],
@@ -147,6 +149,52 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("更换");
     expect(html).toContain('aria-label="更换绑定岗位"');
     expect(html).not.toContain("删除");
+  });
+
+  it("only shows parse failures and the imported recruiting-flow status", () => {
+    const failedHtml = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, resumeParseStatus: "failed" }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+    const importedHtml = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={false}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={() => {}}
+          onOpenDuplicateMatches={() => {}}
+          record={{ ...record, importedResumeRecordId: "studio-resume-1" }}
+          slug="test-workspace"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(failedHtml).toContain("解析失败");
+    expect(failedHtml).not.toContain("待进入招聘");
+    expect(importedHtml).toContain("已在招聘流程");
+    expect(importedHtml).not.toContain("已进入招聘");
   });
 
   it("shows a recommendation action beside an unbound job", () => {
@@ -197,7 +245,15 @@ describe("ResumePoolCard", () => {
           onOpenDuplicateMatches={onOpenDuplicateMatches}
           record={{
             ...record,
-            duplicateMatch: { count: 2, highestLevel: "high" },
+            duplicateMatch: {
+              count: 1,
+              highestLevel: "high",
+              latestMatchedResume: {
+                createdAt: "2026-08-18T04:20:00.000Z",
+                creatorImage: "https://example.com/heye.png",
+                creatorName: "荷叶",
+              },
+            },
             importedResumeRecordId: "studio-resume-1",
           }}
           slug="test-workspace"
@@ -205,9 +261,10 @@ describe("ResumePoolCard", () => {
       );
     });
 
-    expect(document.body.textContent).toContain("重复简历 2 条");
+    const duplicateLabel = "疑似重复记录已经由荷叶于26年08月18日 12:20加入招聘台";
+    expect(document.body.textContent).toContain(duplicateLabel);
     act(() => {
-      document.querySelector<HTMLButtonElement>('[title="重复简历 2 条"]')?.click();
+      document.querySelector<HTMLButtonElement>(`[title="${duplicateLabel}"]`)?.click();
     });
     expect(onOpenDuplicateMatches).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
 

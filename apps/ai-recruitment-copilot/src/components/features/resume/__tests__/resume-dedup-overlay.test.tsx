@@ -91,7 +91,7 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(document.body.textContent).toContain("当前上传人");
     expect(document.body.textContent).toContain("疑似上传人");
     const riskBadge = [...document.querySelectorAll<HTMLElement>('[data-slot="badge"]')].find(
-      (element) => element.textContent === "高度疑似 94%",
+      (element) => element.textContent === "相似度 94%",
     );
     expect(riskBadge).toBeTruthy();
     expect(riskBadge?.className).toContain("rounded-sm");

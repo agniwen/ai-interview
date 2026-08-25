@@ -293,8 +293,9 @@ export async function listActiveDuplicateMatchCounts(input: {
   return aggregateDuplicateMatchCounts(scopedRows);
 }
 
-export async function listActiveStudioDuplicateMatchSummaries(input: {
+export async function listActiveDuplicateSummariesAgainstStudioInterviews(input: {
   organizationId: string;
+  sourceType: ResumeSemanticSourceType;
   sourceIds: string[];
 }): Promise<Map<string, ResumeDuplicateMatchSummary>> {
   if (input.sourceIds.length === 0) {
@@ -326,7 +327,7 @@ export async function listActiveStudioDuplicateMatchSummaries(input: {
       .where(
         and(
           eq(resumeDuplicateMatch.organizationId, input.organizationId),
-          eq(resumeDuplicateMatch.sourceType, "studio_interview"),
+          eq(resumeDuplicateMatch.sourceType, input.sourceType),
           eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
           inArray(resumeDuplicateMatch.sourceId, input.sourceIds),
           inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
@@ -356,7 +357,7 @@ export async function listActiveStudioDuplicateMatchSummaries(input: {
         and(
           eq(resumeDuplicateMatch.organizationId, input.organizationId),
           eq(resumeDuplicateMatch.sourceType, "studio_interview"),
-          eq(resumeDuplicateMatch.matchedSourceType, "studio_interview"),
+          eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
           inArray(resumeDuplicateMatch.matchedSourceId, input.sourceIds),
           inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
         ),
@@ -366,6 +367,16 @@ export async function listActiveStudioDuplicateMatchSummaries(input: {
   const scopedRows = [...sourceSideRows, ...matchedSideRows].map(toDuplicateMatchSummaryRow);
 
   return aggregateDuplicateMatchSummaries(scopedRows);
+}
+
+export function listActiveStudioDuplicateMatchSummaries(input: {
+  organizationId: string;
+  sourceIds: string[];
+}): Promise<Map<string, ResumeDuplicateMatchSummary>> {
+  return listActiveDuplicateSummariesAgainstStudioInterviews({
+    ...input,
+    sourceType: "studio_interview",
+  });
 }
 
 type DuplicateMatchRow = typeof resumeDuplicateMatch.$inferSelect;

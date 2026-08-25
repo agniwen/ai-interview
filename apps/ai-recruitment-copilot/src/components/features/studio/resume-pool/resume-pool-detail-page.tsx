@@ -8,7 +8,6 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -32,6 +31,7 @@ import {
 import {
   getCandidateTitle,
   resumeParseStatusBadge,
+  resumeRecruitingStatusBadge,
   sessionUserId,
   sourceLabel,
 } from "./resume-pool-page-model";
@@ -255,11 +255,7 @@ export function ResumePoolDetailPage({
                     ({formatResumeRecordDisplayId(detail.id)})
                   </span>
                   {resumeParseStatusBadge(detail)}
-                  {detail.importedResumeRecordId ? (
-                    <Badge variant="success">已进入招聘</Badge>
-                  ) : (
-                    <Badge variant="secondary">待进入招聘</Badge>
-                  )}
+                  {resumeRecruitingStatusBadge(detail)}
                 </div>
                 <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-sm">
                   <span>{detail.resumeFileName || "未提供简历文件名"}</span>

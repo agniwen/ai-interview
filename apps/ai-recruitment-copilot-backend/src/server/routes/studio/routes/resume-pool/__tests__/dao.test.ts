@@ -248,7 +248,6 @@ describe("queryResumePoolItems", () => {
         resumeProfile: PROFILE_WITH_HIGHLIGHTS,
       }),
     );
-
     const result = await queryResumePoolItems({
       creatorIds: [USER_A],
       organizationId: ORG_A,
@@ -274,17 +273,67 @@ describe("queryResumePoolItems", () => {
         resumeFileName: "candidate-duplicate-summary.pdf",
       }),
     );
+    const mediumOnlyId = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-medium-only-summary",
+        resumeFileName: "candidate-medium-only-summary.pdf",
+      }),
+    );
+    await db.insert(studioInterview).values([
+      {
+        candidateName: "招聘台高相似候选人",
+        createdAt: new Date("2026-06-15T09:00:00.000Z"),
+        createdBy: USER_B,
+        id: "resume_pool_duplicate_high_interview",
+        organizationId: ORG_A,
+        updatedAt: new Date("2026-06-15T09:00:00.000Z"),
+      },
+      {
+        candidateName: "招聘台中相似候选人",
+        createdAt: new Date("2026-06-16T09:00:00.000Z"),
+        createdBy: USER_A,
+        id: "resume_pool_duplicate_medium_interview",
+        organizationId: ORG_A,
+        updatedAt: new Date("2026-06-16T09:00:00.000Z"),
+      },
+    ]);
     await db.insert(resumeDuplicateMatch).values([
       {
         embeddingVersion: "test-v1",
-        id: "resume_pool_duplicate_active",
+        id: "resume_pool_duplicate_high_active",
+        level: "high",
+        matchedSourceId: "resume_pool_duplicate_high_interview",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["简历高度相似"],
+        score: 94,
+        sourceId: id,
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_duplicate_medium_active",
         level: "medium",
-        matchedSourceId: "existing_resume_record",
+        matchedSourceId: "resume_pool_duplicate_medium_interview",
         matchedSourceType: "studio_interview",
         organizationId: ORG_A,
         reasons: ["项目经历相似"],
         score: 88,
         sourceId: id,
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_duplicate_medium_only",
+        level: "medium",
+        matchedSourceId: "resume_pool_duplicate_medium_interview",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["项目经历相似"],
+        score: 88,
+        sourceId: mediumOnlyId,
         sourceType: "resume_pool_item",
         status: "active",
       },
@@ -311,15 +360,29 @@ describe("queryResumePoolItems", () => {
       });
       expect(result.records.find((item) => item.id === id)?.duplicateMatch).toEqual({
         count: 1,
-        highestLevel: "medium",
+        highestLevel: "high",
+        latestMatchedResume: {
+          createdAt: "2026-06-15T09:00:00.000Z",
+          creatorImage: "https://example.com/resume-pool-b.png",
+          creatorName: "resume-pool-b",
+        },
       });
+      expect(result.records.find((item) => item.id === mediumOnlyId)?.duplicateMatch).toBeNull();
 
       const detail = await loadResumePoolItem({
         organizationId: ORG_A,
         poolItemId: id,
         userId: USER_A,
       });
-      expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "medium" });
+      expect(detail?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "high",
+        latestMatchedResume: {
+          createdAt: "2026-06-15T09:00:00.000Z",
+          creatorImage: "https://example.com/resume-pool-b.png",
+          creatorName: "resume-pool-b",
+        },
+      });
     } finally {
       await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
     }

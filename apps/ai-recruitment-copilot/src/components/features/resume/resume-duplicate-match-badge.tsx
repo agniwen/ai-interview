@@ -10,11 +10,15 @@ interface DuplicateMatchBadgeDescription {
   creatorImage?: string | null;
   creatorName?: string;
   fullLabel: string;
+  prefix?: string;
   suffix?: string;
 }
 
+type DuplicateMatchBadgeDisplayMode = "creation" | "recruiting-entry";
+
 function describeDuplicateMatchBadge(
   duplicateMatch: ResumeDuplicateMatchSummary,
+  displayMode: DuplicateMatchBadgeDisplayMode,
   sourceCreatedAt?: string,
 ): DuplicateMatchBadgeDescription {
   const isDuplicate = duplicateMatch.highestLevel === "high";
@@ -27,14 +31,20 @@ function describeDuplicateMatchBadge(
   }
 
   const creatorName = latestMatchedResume.creatorName ?? "未知创建人";
-  const latestCreatedAt = Date.parse(latestMatchedResume.createdAt);
-  const currentCreatedAt = sourceCreatedAt ? Date.parse(sourceCreatedAt) : Number.NaN;
-  const createdAtLabel = formatTimeDisplayText(latestMatchedResume.createdAt);
+  const createdAtLabel = formatTimeDisplayText(
+    latestMatchedResume.createdAt,
+    displayMode === "recruiting-entry" ? "YY年MM月DD日 HH:mm" : undefined,
+  );
   if (!createdAtLabel) {
     return { baseLabel, fullLabel: baseLabel };
   }
-  if (Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt) {
-    const suffix = `于${createdAtLabel}再次创建`;
+
+  if (displayMode === "creation") {
+    const latestCreatedAt = Date.parse(latestMatchedResume.createdAt);
+    const currentCreatedAt = sourceCreatedAt ? Date.parse(sourceCreatedAt) : Number.NaN;
+    const createdAfterSource =
+      Number.isFinite(currentCreatedAt) && latestCreatedAt > currentCreatedAt;
+    const suffix = createdAfterSource ? `于${createdAtLabel}再次创建` : ` ${createdAtLabel}已创建`;
     return {
       baseLabel,
       creatorImage: latestMatchedResume.creatorImage,
@@ -44,12 +54,14 @@ function describeDuplicateMatchBadge(
     };
   }
 
-  const suffix = ` ${createdAtLabel}已创建`;
+  const prefix = "疑似重复记录已经由";
+  const suffix = `于${createdAtLabel}加入招聘台`;
   return {
     baseLabel,
     creatorImage: latestMatchedResume.creatorImage,
     creatorName,
-    fullLabel: `${creatorName}${suffix}`,
+    fullLabel: `${prefix}${creatorName}${suffix}`,
+    prefix,
     suffix,
   };
 }
@@ -63,6 +75,7 @@ function DuplicateMatchBadgeContent({
     <>
       {description.creatorName && description.suffix ? (
         <span className="inline-flex min-w-0 items-center">
+          <span className="shrink-0">{description.prefix}</span>
           <Avatar
             aria-hidden
             className="mx-0.5 size-4"
@@ -87,16 +100,18 @@ function DuplicateMatchBadgeContent({
 }
 
 export function ResumeDuplicateMatchBadge({
+  displayMode = "creation",
   duplicateMatch,
   onClick,
   sourceCreatedAt,
 }: {
+  displayMode?: DuplicateMatchBadgeDisplayMode;
   duplicateMatch: ResumeDuplicateMatchSummary;
   onClick?: () => void;
   sourceCreatedAt?: string;
 }) {
   const isDuplicate = duplicateMatch.highestLevel === "high";
-  const description = describeDuplicateMatchBadge(duplicateMatch, sourceCreatedAt);
+  const description = describeDuplicateMatchBadge(duplicateMatch, displayMode, sourceCreatedAt);
   const variant = isDuplicate ? "destructive" : "secondary";
 
   if (!onClick) {

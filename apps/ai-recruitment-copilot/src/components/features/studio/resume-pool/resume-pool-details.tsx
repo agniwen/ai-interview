@@ -23,6 +23,7 @@ import {
   duplicateMatchBadge,
   getCandidateTitleWithId,
   resumeParseStatusBadge,
+  resumeRecruitingStatusBadge,
   sourceActorLabel,
   sourceLabel,
   uploaderUserLabel,
@@ -92,11 +93,7 @@ export function ResumePoolDetailSummaryPanel({
             <h3 className="font-medium text-sm">候选人摘要</h3>
             {resumeParseStatusBadge(detail)}
             {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
-            {detail.importedResumeRecordId ? (
-              <Badge variant="success">已创建招聘记录</Badge>
-            ) : (
-              <Badge variant="secondary">未创建招聘记录</Badge>
-            )}
+            {resumeRecruitingStatusBadge(detail)}
           </div>
           {summaryContent}
         </div>

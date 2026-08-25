@@ -23,6 +23,7 @@ import {
   getResumePoolImportActionState,
   duplicateMatchBadge,
   resumeParseStatusBadge,
+  resumeRecruitingStatusBadge,
   sourceLabel,
   uploaderMetaLabel,
   uploaderMetaSegments,
@@ -370,11 +371,7 @@ export function ResumePoolCard({
                 </button>
                 {resumeParseStatusBadge(record)}
                 {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
-                {record.importedResumeRecordId ? (
-                  <Badge variant="success">已进入招聘</Badge>
-                ) : (
-                  <Badge variant="secondary">待进入招聘</Badge>
-                )}
+                {resumeRecruitingStatusBadge(record)}
                 {record.sourceChannel === "referral" ? (
                   <Badge variant="secondary">内推</Badge>
                 ) : null}

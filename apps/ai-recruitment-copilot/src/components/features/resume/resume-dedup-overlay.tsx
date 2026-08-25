@@ -56,9 +56,9 @@ const defaultResumeDedupMatchListDependencies: ResumeDedupMatchListDependencies 
 };
 
 const LEVEL_META = {
-  high: { label: "高度疑似", variant: "danger" },
-  low: { label: "低风险", variant: "secondary" },
-  medium: { label: "可能重复", variant: "warning" },
+  high: { label: "相似度", variant: "danger" },
+  low: { label: "相似度", variant: "secondary" },
+  medium: { label: "相似度", variant: "warning" },
 } satisfies Record<
   NonNullable<DedupMatchRecord["level"]>,
   { label: string; variant: "danger" | "secondary" | "warning" }
