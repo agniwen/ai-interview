@@ -5,6 +5,7 @@ import {
   IconBuilding,
   IconFileDescription,
   IconLoader2,
+  IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
@@ -200,14 +201,20 @@ function ResumePoolProfileSnapshot({ record }: { record: ResumePoolListRecord })
 }
 
 function ResumePoolCardActions({
+  canDelete,
   canEnterRecruiting,
+  deleting,
   enteringRecruiting,
+  onDelete,
   onEnterRecruiting,
   onOpenDetail,
   record,
 }: {
+  canDelete: boolean;
   canEnterRecruiting: boolean;
+  deleting: boolean;
   enteringRecruiting: boolean;
+  onDelete: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
@@ -257,16 +264,41 @@ function ResumePoolCardActions({
         )}
         进入招聘
       </Button>
+      {canDelete ? (
+        <Button
+          aria-label="删除人才记录"
+          className={`${actionClass} text-destructive hover:text-destructive`}
+          data-resume-pool-card-action="删除"
+          disabled={deleting}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(record);
+          }}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {deleting ? (
+            <IconLoader2 className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <IconTrash data-icon="inline-start" />
+          )}
+          删除
+        </Button>
+      ) : null}
     </div>
   );
 }
 
 export function ResumePoolCard({
   bindingJobDescription,
+  canDelete,
   canEnterRecruiting,
   canRecommend,
+  deleting,
   enteringRecruiting,
   onBindJobDescription,
+  onDelete,
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
@@ -274,10 +306,13 @@ export function ResumePoolCard({
   slug,
 }: {
   bindingJobDescription: boolean;
+  canDelete: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
+  deleting: boolean;
   enteringRecruiting: boolean;
   onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
+  onDelete: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
@@ -397,8 +432,11 @@ export function ResumePoolCard({
         </div>
 
         <ResumePoolCardActions
+          canDelete={canDelete}
           canEnterRecruiting={canEnterRecruiting}
+          deleting={deleting}
           enteringRecruiting={enteringRecruiting}
+          onDelete={onDelete}
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
           record={record}

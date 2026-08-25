@@ -21,7 +21,7 @@ import {
 } from "@/components/features/studio/studio-date-group-virtual-list";
 
 import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
-import { buildResumePoolVirtualRows } from "./resume-pool-page-model";
+import { buildResumePoolVirtualRows, canDeletePoolRecord } from "./resume-pool-page-model";
 
 export function ResumePoolLoadingState({ showDateGroup = true }: { showDateGroup?: boolean }) {
   return (
@@ -81,14 +81,19 @@ export function ResumePoolEmptyState({
 
 export function ResumePoolListContent({
   bindingJobDescriptionRecordId,
+  canDeletePoolRecords,
   canEnterRecruiting,
   canRecommend,
   canResetFilters,
   canUpload,
+  currentOrganizationId,
+  currentUserId,
+  deletingRecordId,
   emptyTitle,
   enteringRecruitingRecordId,
   isInitialPoolLoading,
   onBindJobDescription,
+  onDelete,
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
@@ -100,14 +105,19 @@ export function ResumePoolListContent({
   sortBy,
 }: {
   bindingJobDescriptionRecordId: string | null;
+  canDeletePoolRecords: boolean;
   canEnterRecruiting: boolean;
   canRecommend: boolean;
   canResetFilters: boolean;
   canUpload: boolean;
+  currentOrganizationId: string | null;
+  currentUserId: string | null;
+  deletingRecordId: string | null;
   emptyTitle: string;
   enteringRecruitingRecordId: string | null;
   isInitialPoolLoading: boolean;
   onBindJobDescription: (record: ResumePoolListRecord, jobDescriptionId: string) => void;
+  onDelete: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
@@ -218,6 +228,9 @@ export function ResumePoolListContent({
             );
           }
           const { record } = row;
+          const canDelete =
+            canDeletePoolRecords &&
+            canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
           return (
             <div
               className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
@@ -231,10 +244,13 @@ export function ResumePoolListContent({
             >
               <ResumePoolCard
                 bindingJobDescription={bindingJobDescriptionRecordId === record.id}
+                canDelete={canDelete}
                 canEnterRecruiting={canEnterRecruiting}
                 canRecommend={canRecommend}
+                deleting={deletingRecordId === record.id}
                 enteringRecruiting={enteringRecruitingRecordId === record.id}
                 onBindJobDescription={onBindJobDescription}
+                onDelete={onDelete}
                 onEnterRecruiting={onEnterRecruiting}
                 onOpenDetail={onOpenDetail}
                 onOpenDuplicateMatches={onOpenDuplicateMatches}

@@ -14,7 +14,7 @@ import {
   ResumePoolDetailSummaryPanel,
   canManageResumePoolJobBinding,
 } from "../resume-pool-details";
-import { uploaderMetaLabel } from "../resume-pool-page-model";
+import { canDeletePoolRecord, uploaderMetaLabel } from "../resume-pool-page-model";
 
 // SAFETY: React's test environment flag is intentionally attached to globalThis.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -110,10 +110,13 @@ describe("ResumePoolCard", () => {
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
           bindingJobDescription={false}
+          canDelete={false}
           canEnterRecruiting={true}
           canRecommend={true}
+          deleting={false}
           enteringRecruiting={false}
           onBindJobDescription={() => {}}
+          onDelete={() => {}}
           onEnterRecruiting={() => {}}
           onOpenDetail={() => {}}
           onOpenDuplicateMatches={() => {}}
@@ -151,10 +154,13 @@ describe("ResumePoolCard", () => {
       <QueryClientProvider client={new QueryClient()}>
         <ResumePoolCard
           bindingJobDescription={false}
+          canDelete={false}
           canEnterRecruiting={true}
           canRecommend={true}
+          deleting={false}
           enteringRecruiting={false}
           onBindJobDescription={() => {}}
+          onDelete={() => {}}
           onEnterRecruiting={() => {}}
           onOpenDetail={() => {}}
           onOpenDuplicateMatches={() => {}}
@@ -179,10 +185,13 @@ describe("ResumePoolCard", () => {
       root.render(
         <ResumePoolCard
           bindingJobDescription={false}
+          canDelete={false}
           canEnterRecruiting={true}
           canRecommend={false}
+          deleting={false}
           enteringRecruiting={false}
           onBindJobDescription={() => {}}
+          onDelete={() => {}}
           onEnterRecruiting={() => {}}
           onOpenDetail={() => {}}
           onOpenDuplicateMatches={onOpenDuplicateMatches}
@@ -234,10 +243,13 @@ describe("ResumePoolCard", () => {
         <QueryClientProvider client={queryClient}>
           <ResumePoolCard
             bindingJobDescription={false}
+            canDelete={false}
             canEnterRecruiting={true}
             canRecommend={true}
+            deleting={false}
             enteringRecruiting={false}
             onBindJobDescription={onBindJobDescription}
+            onDelete={() => {}}
             onEnterRecruiting={() => {}}
             onOpenDetail={() => {}}
             onOpenDuplicateMatches={() => {}}
@@ -280,6 +292,42 @@ describe("ResumePoolCard", () => {
     );
   });
 
+  it("offers deletion for an owned record without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onDelete = vi.fn();
+    const onOpenDetail = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          bindingJobDescription={false}
+          canDelete={true}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={onDelete}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          record={record}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="删除人才记录"]')?.click();
+    });
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+  });
+
   it("invokes detail and recruiting actions without triggering the card click twice", () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -291,10 +339,13 @@ describe("ResumePoolCard", () => {
       root.render(
         <ResumePoolCard
           bindingJobDescription={false}
+          canDelete={false}
           canEnterRecruiting={true}
           canRecommend={false}
+          deleting={false}
           enteringRecruiting={false}
           onBindJobDescription={() => {}}
+          onDelete={() => {}}
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
           onOpenDuplicateMatches={() => {}}
@@ -334,6 +385,19 @@ describe("ResumePoolCard", () => {
         sourceChannel: "mail_ingest",
       }),
     ).toBe("26年07月31日:08:00 扫描王敏邮箱录入");
+  });
+
+  it("allows only the owner to delete user-added or mailbox-scanned records", () => {
+    const owner = {
+      currentOrganizationId: "organization-1",
+      currentUserId: "user-1",
+    };
+
+    expect(canDeletePoolRecord({ ...record, sourceChannel: null }, owner)).toBe(true);
+    expect(canDeletePoolRecord({ ...record, sourceChannel: "mail_ingest" }, owner)).toBe(true);
+    expect(
+      canDeletePoolRecord({ ...record, createdBy: "user-2", sourceChannel: "mail_ingest" }, owner),
+    ).toBe(false);
   });
 
   it("renders a candidate conclusion as typeset markdown", () => {

@@ -1,7 +1,7 @@
 /* oxlint-disable complexity -- page controller coordinates filters, incremental loading, uploads, and route navigation. */
 "use client";
 
-import { IconLoader2, IconRefresh } from "@tabler/icons-react";
+import { IconLoader2, IconRefresh, IconTrash } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
@@ -19,16 +19,28 @@ import { ResumeUploadEntryDialog } from "@/components/features/studio/resumes/re
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
 import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import {
   bindResumePoolItem,
+  deleteResumePoolItem,
   fetchResumePoolDuplicateMatches,
   fetchResumePoolItems,
   fetchResumePoolUploaders,
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-query";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 import { ResumePoolCreatedAtFilter } from "./resume-pool-created-at-filter";
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
@@ -40,8 +52,11 @@ import {
   canImportResumePoolToLibrary,
   canUploadToResumePool,
   createResumePoolFilters,
+  deletePoolRecordLabel,
+  getCandidateTitle,
   getCandidateTitleWithId,
   resumePoolCreatedAtBounds,
+  sessionUserId,
 } from "./resume-pool-page-model";
 import type { ResumePoolFilters } from "./resume-pool-page-model";
 
@@ -51,16 +66,20 @@ const RESUME_POOL_INITIAL_PAGE_SIZE = 60;
 
 export function ResumePoolPage() {
   const slug = useWorkspaceSlug();
+  const workspaceId = useWorkspaceId();
+  const { data: session } = authClient.useSession();
   const queryClient = useQueryClient();
   const navigatePoolDetail = resumePoolDetailRouteApi.useNavigate();
   const navigateRecruiterDetail = recruiterDetailRouteApi.useNavigate();
   const canCreateResumePool = useHasPermission("resumePool", "create");
+  const canDeleteResumePool = useHasPermission("resumePool", "delete");
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
   const scope = "public" as const;
+  const currentUserId = sessionUserId(session);
   const initialPoolFilters = useMemo(() => createResumePoolFilters(), []);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const shouldResetInitialPageRef = useRef(true);
@@ -68,6 +87,7 @@ export function ResumePoolPage() {
   const [progressOpen, setProgressOpen] = useState(false);
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ResumePoolListRecord | null>(null);
   const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumePoolListRecord | null>(
     null,
   );
@@ -325,6 +345,15 @@ export function ResumePoolPage() {
       refreshPool();
     },
   });
+  const deleteMutation = useMutation({
+    mutationFn: (record: ResumePoolListRecord) => deleteResumePoolItem(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "删除失败"),
+    onSuccess: (_data, record) => {
+      toast.success(`${deletePoolRecordLabel(record)}已删除`);
+      setDeleteTarget(null);
+      refreshPool();
+    },
+  });
 
   const emptyTitle = grid.bind.filterValues.createdAtRange
     ? "当前时间范围内暂无人才"
@@ -427,16 +456,23 @@ export function ResumePoolPage() {
                 ? (bindJobDescriptionMutation.variables?.record.id ?? null)
                 : null
             }
+            canDeletePoolRecords={canDeleteResumePool}
             canEnterRecruiting={canImportToLibrary}
             canRecommend={canImportResumePool && canReadJobDescriptions}
             canResetFilters={grid.bind.canResetFilters}
             canUpload={canUploadResumePool}
+            currentOrganizationId={workspaceId}
+            currentUserId={currentUserId}
+            deletingRecordId={
+              deleteMutation.isPending ? (deleteMutation.variables?.id ?? null) : null
+            }
             emptyTitle={emptyTitle}
             enteringRecruitingRecordId={enteringRecruitingRecordId}
             isInitialPoolLoading={isInitialPoolLoading}
             onBindJobDescription={(record, jobDescriptionId) => {
               bindJobDescriptionMutation.mutate({ jobDescriptionId, record });
             }}
+            onDelete={setDeleteTarget}
             onEnterRecruiting={enterRecruiting}
             onOpenDetail={openPoolDetail}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
@@ -543,6 +579,39 @@ export function ResumePoolPage() {
             : "疑似重复简历"
         }
       />
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        open={deleteTarget !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除这份{deletePoolRecordLabel(deleteTarget)}？</AlertDialogTitle>
+            <AlertDialogDescription>
+              这会永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
+              已进入招聘台的记录不会被删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending || !deleteTarget}
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget);
+                }
+              }}
+              variant="destructive"
+            >
+              <IconTrash className="size-4" />
+              {deleteMutation.isPending ? "删除中…" : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <StudioScrollToTopButton />
     </>
   );
