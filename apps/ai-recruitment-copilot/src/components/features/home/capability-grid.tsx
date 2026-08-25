@@ -56,7 +56,7 @@ function BentoTile({
       className={cn(
         // 与 FeatureBlocks SceneCard 同款边距与材质：p-5 sm:p-6 / 同款圆角、淡边、轻投影、毛玻璃
         // Match FeatureBlocks SceneCard padding & material: p-5 sm:p-6, same rounded / faint border / soft drop / blur
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[translate,box-shadow,background-color] duration-[240ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] hover:-translate-y-px hover:ring-foreground/[0.08] hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] motion-reduce:translate-y-0 motion-reduce:transition-none sm:p-6",
         className,
       )}
     >
