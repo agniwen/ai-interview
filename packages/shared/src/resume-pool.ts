@@ -47,6 +47,7 @@ export interface ResumePoolProfileHighlights {
   latestCompanyDetail: ResumePoolLatestExperienceDetail | null;
   latestProject: string | null;
   latestProjectDetail: ResumePoolLatestExperienceDetail | null;
+  personalStrengths: string[];
   schools: string[];
 }
 

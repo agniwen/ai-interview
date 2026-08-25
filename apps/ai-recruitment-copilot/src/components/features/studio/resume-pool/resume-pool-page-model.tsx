@@ -80,23 +80,6 @@ export function getCandidateTitleWithId(record: ResumePoolListRecord) {
   return formatResumeCandidateTitle(candidateTitle, record.id);
 }
 
-export function formatCandidateWorkYears(workYears: number | null) {
-  return workYears === null ? null : `${workYears}年`;
-}
-
-export function getCandidateDisplayTitle(record: ResumePoolListRecord) {
-  const candidateTitle = getCandidateTitle(record);
-  const targetRole = record.targetRole?.trim();
-  if (record.resumeParseStatus !== "ready" || !targetRole) {
-    return candidateTitle;
-  }
-  const workYears = formatCandidateWorkYears(record.workYears);
-  if (workYears) {
-    return `${targetRole}-${workYears}-${candidateTitle}`;
-  }
-  return `${targetRole}-${candidateTitle}`;
-}
-
 export function resumeParseStatusBadge(record: ResumePoolListRecord) {
   switch (record.resumeParseStatus) {
     case "ready": {
@@ -223,15 +206,24 @@ export function uploaderUserLabel(record: ResumePoolListRecord) {
   return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
 }
 
-export function uploaderMetaLabel(record: ResumePoolListRecord) {
+export function uploaderMetaSegments(record: ResumePoolListRecord) {
   const createdAt = formatDateInAppTimeZone(record.createdAt, "YY年MM月DD日:HH:mm");
+  const userName = uploaderUserLabel(record);
   if (record.sourceChannel === "referral") {
-    return `${uploaderUserLabel(record)} ${createdAt} 内推`;
+    return { leadingText: "", trailingText: `${createdAt} 内推`, userName };
   }
   if (record.sourceChannel === "mail_ingest") {
-    return `${createdAt} 扫描${uploaderUserLabel(record)}邮箱录入`;
+    return { leadingText: `${createdAt} 扫描`, trailingText: "邮箱录入", userName };
   }
-  return `${uploaderUserLabel(record)} ${createdAt} 上传`;
+  return { leadingText: "", trailingText: `${createdAt} 上传`, userName };
+}
+
+export function uploaderMetaLabel(record: ResumePoolListRecord) {
+  const { leadingText, trailingText, userName } = uploaderMetaSegments(record);
+  if (record.sourceChannel === "mail_ingest") {
+    return `${leadingText}${userName}${trailingText}`;
+  }
+  return `${userName} ${trailingText}`;
 }
 
 function isCalendarDate(value: string): boolean {

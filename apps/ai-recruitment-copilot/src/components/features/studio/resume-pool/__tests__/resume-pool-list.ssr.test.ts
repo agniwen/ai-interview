@@ -1,65 +1,25 @@
-import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-describe("resume pool list SSR boundary", () => {
-  it("loads without evaluating the client-only masonry package", async () => {
+describe("resume pool list", () => {
+  it("loads without the previous masonry dependency", async () => {
     const listModule = await import("../resume-pool-list");
 
     expect(listModule.ResumePoolListContent).toBeTypeOf("function");
   });
 
-  it("keeps existing cards fully opaque while more records load", async () => {
-    const { ResumePoolListContent } = await import("../resume-pool-list");
-    const markup = renderToStaticMarkup(
-      createElement(ResumePoolListContent, {
-        bindingJobDescriptionRecordId: null,
-        canDeletePoolRecords: false,
-        canImportToLibrary: false,
-        canPublishToPool: false,
-        canRecommend: false,
-        canResetFilters: false,
-        canRetryResumeParse: false,
-        canUpload: false,
-        currentOrganizationId: null,
-        currentUserId: null,
-        deleting: false,
-        emptyTitle: "",
-        isInitialPoolLoading: false,
-        onBindJobDescription: () => {},
-        onDelete: () => {},
-        onImport: () => {},
-        onOpenDetail: () => {},
-        onOpenDuplicateMatches: () => {},
-        onOpenPdf: () => {},
-        onPublish: () => {},
-        onResetFilters: () => {},
-        onRetryParse: () => {},
-        onUpload: () => {},
-        publishing: false,
-        records: [
-          // SAFETY: This test constructs the value with the asserted contract before this boundary.
-          {
-            createdAt: "2026-08-14T16:00:00.000Z",
-            createdBy: null,
-            id: "resume-1",
-          } as ResumePoolListRecord,
-        ],
-        renderCard: (record) => createElement("article", { "data-record-id": record.id }),
-        retriedRecordIds: new Set<string>(),
-        retryingRecordId: null,
-        scope: "public",
-        showEmptyState: false,
-      }),
-    );
+  it("uses a single-column fixed-height virtual list", async () => {
+    const source = await readFile(new URL("../resume-pool-list.tsx", import.meta.url), "utf-8");
 
-    expect(markup).not.toContain("opacity-60");
-    expect(markup).toContain(
-      "group sticky top-[calc(var(--header-height)+0.5rem)] z-10 flex w-fit items-center gap-2 rounded-r-[12px] border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70",
-    );
-    expect(markup).toContain("-translate-x-4 group-hover:translate-x-0");
-    expect(markup).toContain("scroll-mt-[calc(var(--header-height)+0.5rem)]");
-    expect(markup).not.toContain("backdrop-blur-md");
+    expect(source).toContain("useVirtualizer");
+    expect(source).toContain("useResumePoolCardHeight");
+    expect(source).toContain("useElementScrollRestoration");
+    expect(source).toContain("initialOffset: studioScrollEntry?.scrollY");
+    expect(source).toContain("[overflow-anchor:none]");
+    expect(source).toContain("virtualizer.getTotalSize()");
+    expect(source).toMatch(/translateY\(\$\{virtualRow\.start\}px\)/u);
+    expect(source).not.toContain("ResumePoolMasonry");
+    expect(source).not.toContain("groupResumePoolRecordsByCreatedAt");
+    expect(source).not.toContain("ResumePoolStickyDateGroupHeader");
   });
 });

@@ -102,6 +102,7 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
       latestCompanyDetail: null,
       latestProject: null,
       latestProjectDetail: null,
+      personalStrengths: [],
       schools: [],
     },
     publishedAt: null,

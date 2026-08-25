@@ -9,7 +9,7 @@ const profile = {
   email: null,
   gender: null,
   name: "测试候选人",
-  personalStrengths: [],
+  personalStrengths: ["复杂业务前端工程化", "跨团队推动产品落地"],
   phone: null,
   projectExperiences: [
     {
@@ -61,5 +61,6 @@ describe("buildProfileHighlights", () => {
       role: "负责人",
       summary: "负责候选人数据分析与可视化。",
     });
+    expect(highlights.personalStrengths).toEqual(["复杂业务前端工程化", "跨团队推动产品落地"]);
   });
 });

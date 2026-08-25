@@ -359,7 +359,9 @@ describe("resume parsing agent", () => {
       ),
     );
 
-    expect(mocks.generateStructured).toHaveBeenCalledWith("cached ocr text");
+    expect(mocks.generateStructured).toHaveBeenCalledWith("cached ocr text", {
+      fileName: "resume.pdf",
+    });
     expect(events).toContainEqual(
       expect.objectContaining({
         label: "提取结构化字段",

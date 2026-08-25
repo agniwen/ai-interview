@@ -19,6 +19,8 @@ const REQUIRED_ROUTES = [
   "'/w/$slug/studio/interviews'",
   "'/w/$slug/studio/job-descriptions'",
   "'/w/$slug/studio/resume-pool'",
+  "'/w/$slug/studio/resume-pool/$recordId'",
+  "'/w/$slug/studio/resume-pool/overlay/$recordId'",
   "'/w/$slug/chat'",
   "'/w/$slug/agent'",
   "'/interview/$id'",

@@ -67,9 +67,11 @@ import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio
 import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
 import { Route as WSlugAgentSessionIdRouteImport } from './routes/w.$slug.agent.$sessionId'
 import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
+import { Route as WSlugStudioResumePoolRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.$recordId'
 import { Route as WSlugStudioMailIngestAccountsIdRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts.$id'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
 import { Route as WSlugStudioResumesOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resumes.overlay.$recordId'
+import { Route as WSlugStudioResumePoolOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.overlay.$recordId'
 
 const WaitRoute = WaitRouteImport.update({
   id: '/wait',
@@ -370,6 +372,12 @@ const WSlugStudioResumesRecordIdRoute =
     path: '/$recordId',
     getParentRoute: () => WSlugStudioResumesRoute,
   } as any)
+const WSlugStudioResumePoolRecordIdRoute =
+  WSlugStudioResumePoolRecordIdRouteImport.update({
+    id: '/$recordId',
+    path: '/$recordId',
+    getParentRoute: () => WSlugStudioResumePoolRoute,
+  } as any)
 const WSlugStudioMailIngestAccountsIdRoute =
   WSlugStudioMailIngestAccountsIdRouteImport.update({
     id: '/$id',
@@ -387,6 +395,12 @@ const WSlugStudioResumesOverlayRecordIdRoute =
     id: '/overlay/$recordId',
     path: '/overlay/$recordId',
     getParentRoute: () => WSlugStudioResumesRoute,
+  } as any)
+const WSlugStudioResumePoolOverlayRecordIdRoute =
+  WSlugStudioResumePoolOverlayRecordIdRouteImport.update({
+    id: '/overlay/$recordId',
+    path: '/overlay/$recordId',
+    getParentRoute: () => WSlugStudioResumePoolRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -443,13 +457,15 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
-  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
+  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
   '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
+  '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
 }
 export interface FileRoutesByTo {
@@ -503,13 +519,15 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
-  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
+  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent': typeof WSlugAgentIndexRoute
   '/w/$slug/chat': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
   '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
+  '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
 }
 export interface FileRoutesById {
@@ -567,13 +585,15 @@ export interface FileRoutesById {
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
-  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
+  '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRouteWithChildren
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRouteWithChildren
   '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
   '/w/$slug/studio/mail-ingest-accounts/$id': typeof WSlugStudioMailIngestAccountsIdRoute
+  '/w/$slug/studio/resume-pool/$recordId': typeof WSlugStudioResumePoolRecordIdRoute
   '/w/$slug/studio/resumes/$recordId': typeof WSlugStudioResumesRecordIdRoute
+  '/w/$slug/studio/resume-pool/overlay/$recordId': typeof WSlugStudioResumePoolOverlayRecordIdRoute
   '/w/$slug/studio/resumes/overlay/$recordId': typeof WSlugStudioResumesOverlayRecordIdRoute
 }
 export interface FileRouteTypes {
@@ -638,7 +658,9 @@ export interface FileRouteTypes {
     | '/w/$slug/chat/'
     | '/w/$slug/studio/interviews/$roundId'
     | '/w/$slug/studio/mail-ingest-accounts/$id'
+    | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -698,7 +720,9 @@ export interface FileRouteTypes {
     | '/w/$slug/chat'
     | '/w/$slug/studio/interviews/$roundId'
     | '/w/$slug/studio/mail-ingest-accounts/$id'
+    | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
   id:
     | '__root__'
@@ -761,7 +785,9 @@ export interface FileRouteTypes {
     | '/w/$slug/chat/'
     | '/w/$slug/studio/interviews/$roundId'
     | '/w/$slug/studio/mail-ingest-accounts/$id'
+    | '/w/$slug/studio/resume-pool/$recordId'
     | '/w/$slug/studio/resumes/$recordId'
+    | '/w/$slug/studio/resume-pool/overlay/$recordId'
     | '/w/$slug/studio/resumes/overlay/$recordId'
   fileRoutesById: FileRoutesById
 }
@@ -1194,6 +1220,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioResumesRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumesRoute
     }
+    '/w/$slug/studio/resume-pool/$recordId': {
+      id: '/w/$slug/studio/resume-pool/$recordId'
+      path: '/$recordId'
+      fullPath: '/w/$slug/studio/resume-pool/$recordId'
+      preLoaderRoute: typeof WSlugStudioResumePoolRecordIdRouteImport
+      parentRoute: typeof WSlugStudioResumePoolRoute
+    }
     '/w/$slug/studio/mail-ingest-accounts/$id': {
       id: '/w/$slug/studio/mail-ingest-accounts/$id'
       path: '/$id'
@@ -1214,6 +1247,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/studio/resumes/overlay/$recordId'
       preLoaderRoute: typeof WSlugStudioResumesOverlayRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumesRoute
+    }
+    '/w/$slug/studio/resume-pool/overlay/$recordId': {
+      id: '/w/$slug/studio/resume-pool/overlay/$recordId'
+      path: '/overlay/$recordId'
+      fullPath: '/w/$slug/studio/resume-pool/overlay/$recordId'
+      preLoaderRoute: typeof WSlugStudioResumePoolOverlayRecordIdRouteImport
+      parentRoute: typeof WSlugStudioResumePoolRoute
     }
   }
 }
@@ -1356,6 +1396,22 @@ const WSlugStudioMailIngestAccountsRouteWithChildren =
     WSlugStudioMailIngestAccountsRouteChildren,
   )
 
+interface WSlugStudioResumePoolRouteChildren {
+  WSlugStudioResumePoolRecordIdRoute: typeof WSlugStudioResumePoolRecordIdRoute
+  WSlugStudioResumePoolOverlayRecordIdRoute: typeof WSlugStudioResumePoolOverlayRecordIdRoute
+}
+
+const WSlugStudioResumePoolRouteChildren: WSlugStudioResumePoolRouteChildren = {
+  WSlugStudioResumePoolRecordIdRoute: WSlugStudioResumePoolRecordIdRoute,
+  WSlugStudioResumePoolOverlayRecordIdRoute:
+    WSlugStudioResumePoolOverlayRecordIdRoute,
+}
+
+const WSlugStudioResumePoolRouteWithChildren =
+  WSlugStudioResumePoolRoute._addFileChildren(
+    WSlugStudioResumePoolRouteChildren,
+  )
+
 interface WSlugStudioResumesRouteChildren {
   WSlugStudioResumesRecordIdRoute: typeof WSlugStudioResumesRecordIdRoute
   WSlugStudioResumesOverlayRecordIdRoute: typeof WSlugStudioResumesOverlayRecordIdRoute
@@ -1384,7 +1440,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioMeRoute: typeof WSlugStudioMeRoute
   WSlugStudioMembersRoute: typeof WSlugStudioMembersRoute
   WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
-  WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRoute
+  WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRouteWithChildren
   WSlugStudioResumesRoute: typeof WSlugStudioResumesRouteWithChildren
 }
 
@@ -1403,7 +1459,7 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
   WSlugStudioMeRoute: WSlugStudioMeRoute,
   WSlugStudioMembersRoute: WSlugStudioMembersRoute,
   WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
-  WSlugStudioResumePoolRoute: WSlugStudioResumePoolRoute,
+  WSlugStudioResumePoolRoute: WSlugStudioResumePoolRouteWithChildren,
   WSlugStudioResumesRoute: WSlugStudioResumesRouteWithChildren,
 }
 

@@ -11,6 +11,7 @@ import {
 } from "@arc/shared/studio-resumes";
 
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
@@ -18,6 +19,7 @@ import { CandidateDetailRailSkeleton } from "@/components/features/studio/candid
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchStudioResume } from "@/lib/client/api";
@@ -58,6 +60,18 @@ function getRecruiterResumeDocumentTitle(candidateName: string | null | undefine
   return name ? `候选人详情·${name}` : "候选人详情";
 }
 
+function getRecruiterResumeAvatarIdentity(input: {
+  candidateEmail: string | null | undefined;
+  candidateName: string | null | undefined;
+}) {
+  const label = input.candidateName?.trim() || input.candidateEmail?.trim() || "候选人";
+  return {
+    label,
+    seed: input.candidateName?.trim() || "未命名候选人",
+    value: label.slice(0, 1).toUpperCase(),
+  };
+}
+
 export function RecruiterResumeDetailSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5">
@@ -66,8 +80,16 @@ export function RecruiterResumeDetailSkeleton() {
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <Skeleton className="mb-3 h-8 w-28" />
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="mt-2 h-4 w-64 max-w-full" />
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="size-14 shrink-0 rounded-full" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="mt-2 h-4 w-64 max-w-full" />
+                </div>
+              </div>
             </div>
           </div>
           <div className="mt-2 flex flex-col items-stretch gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
@@ -176,17 +198,40 @@ function RecruiterResumeDetailHeaderOverride({ onBack }: { onBack: () => void })
 }
 
 function RecruiterResumeDetailHeaderText({
+  avatarLabel,
+  avatarSeed,
+  avatarValue,
   description,
+  recordId,
   title,
 }: {
+  avatarLabel: string;
+  avatarSeed: string;
+  avatarValue: string;
   description: ReactNode;
+  recordId: string;
   title: ReactNode;
 }) {
   return (
-    <>
-      <h1 className="font-semibold text-2xl tracking-normal">{title}</h1>
-      {description ? <p className="mt-2 text-muted-foreground text-sm">{description}</p> : null}
-    </>
+    <div className="flex min-w-0 items-center gap-3">
+      <Avatar
+        className="size-14 shrink-0"
+        generatedSize={56}
+        label={`${avatarLabel}的头像`}
+        seed={avatarSeed}
+      >
+        <AvatarFallback>{avatarValue}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+          <h1 className="font-semibold text-2xl tracking-normal">{title}</h1>
+          <span className="font-normal text-[14px] text-muted-foreground/60">
+            ({formatResumeRecordDisplayId(recordId)})
+          </span>
+        </div>
+        {description ? <p className="mt-2 text-muted-foreground text-sm">{description}</p> : null}
+      </div>
+    </div>
   );
 }
 
@@ -224,6 +269,10 @@ export function RecruiterResumeDetailPage({
   const detail = detailQuery.data ?? null;
   const defaultTab = resolveDefaultTab(routeSearch);
   const documentTitle = getRecruiterResumeDocumentTitle(detail?.candidateName);
+  const avatarIdentity = getRecruiterResumeAvatarIdentity({
+    candidateEmail: detail?.candidateEmail,
+    candidateName: detail?.candidateName,
+  });
 
   useEffect(() => {
     document.title = documentTitle;
@@ -312,7 +361,14 @@ export function RecruiterResumeDetailPage({
               <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <RecruiterResumeDetailHeaderText description={description} title={title} />
+                    <RecruiterResumeDetailHeaderText
+                      avatarLabel={avatarIdentity.label}
+                      avatarSeed={avatarIdentity.seed}
+                      avatarValue={avatarIdentity.value}
+                      description={description}
+                      recordId={recordId}
+                      title={title}
+                    />
                   </div>
                 </div>
                 <div className="min-w-0">{headerExtra}</div>

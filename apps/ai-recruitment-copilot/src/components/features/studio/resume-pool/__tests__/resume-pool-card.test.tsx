@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
-import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
-import { canManageResumePoolJobBinding, ResumePoolCard } from "../resume-pool-details";
+import { ResumePoolCard, getResumePoolCardHeight } from "../resume-pool-card";
+import {
+  ResumePoolDetailSummaryPanel,
+  canManageResumePoolJobBinding,
+} from "../resume-pool-details";
 import { uploaderMetaLabel } from "../resume-pool-page-model";
 
 // SAFETY: React's test environment flag is intentionally attached to globalThis.
@@ -21,9 +24,9 @@ afterEach(() => {
 });
 
 const record = {
-  candidateEmail: null,
+  candidateEmail: "candidate@example.com",
   candidateName: "测试候选人",
-  candidatePhone: null,
+  candidatePhone: "13800138000",
   createdAt: "2026-07-31T00:00:00.000Z",
   createdBy: "user-1",
   duplicateMatch: null,
@@ -32,10 +35,10 @@ const record = {
   importedRecords: [],
   importedResumeRecordId: null,
   jobBindingMode: null,
-  jobDescriptionId: null,
-  jobDescriptionName: null,
+  jobDescriptionId: "jd-product",
+  jobDescriptionName: "AI 产品经理",
   masteredSkills: Array.from({ length: 12 }, (_, index) => `技能 ${index + 1}`),
-  notes: null,
+  notes: "具备完整的 AI 招聘产品设计与落地经验。",
   organizationId: "organization-1",
   profileHighlights: {
     educationItems: [],
@@ -52,90 +55,141 @@ const record = {
       role: "负责人",
       summary: "负责候选人数据分析与可视化。",
     },
+    personalStrengths: ["擅长复杂招聘产品的设计与落地。", "能够推动跨团队协作"],
     schools: [],
   },
   publishedAt: null,
   publishedBy: null,
   resumeContentHash: null,
-  resumeFileName: null,
+  resumeFileName: "测试候选人.pdf",
   resumeParseError: null,
   resumeParseRetryable: false,
   resumeParseStatus: "ready",
   resumeParsedAt: null,
   resumeProfileSnapshot: {
-    education: [],
+    education: [
+      {
+        period: "2018.09 - 2022.06",
+        primary: "上海交通大学",
+        secondary: "计算机科学",
+      },
+    ],
     educationHasMore: false,
     projects: [],
     projectsHasMore: false,
-    work: [],
+    work: [
+      {
+        period: "2025.02 - 至今",
+        primary: "极光矩阵",
+        secondary: "前端工程师",
+      },
+    ],
     workHasMore: false,
   },
-  resumeStorageKey: null,
+  resumeStorageKey: "resumes/test.pdf",
   scope: "public",
   skillsNormalized: [],
-  sourceChannel: null,
+  sourceChannel: "mail_ingest",
   sourceOrganizationId: null,
   sourcePoolItemId: null,
   sourceUserId: null,
   status: "active",
-  targetRole: null,
+  targetRole: "AI 产品经理",
   updatedAt: "2026-07-31T00:00:00.000Z",
-  uploaderEmail: null,
-  uploaderImage: null,
-  uploaderName: null,
+  uploaderEmail: "recruiter@example.com",
+  uploaderImage: "https://example.com/recruiter.png",
+  uploaderName: "王敏",
   uploaderOrganizationName: null,
-  workYears: null,
+  workYears: 5,
 } satisfies ResumePoolListRecord;
 
-function renderCard(card: ReactElement) {
-  return renderToStaticMarkup(
-    <QueryClientProvider client={new QueryClient()}>
-      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="test-workspace">
-        {card}
-      </WorkspaceSlugProvider>
-    </QueryClientProvider>,
-  );
-}
-
 describe("ResumePoolCard", () => {
-  it("shows nine skills and detailed latest company and project information", () => {
-    const html = renderCard(
+  it("matches the recruitment-desk information rhythm and only renders two actions", () => {
+    const html = renderToStaticMarkup(
       <ResumePoolCard
-        canDelete={false}
-        canImport={false}
-        canPublish={false}
-        canRecommend={true}
-        canRetryParse={false}
-        deleting={false}
-        onDelete={() => {}}
-        onImport={() => {}}
+        canEnterRecruiting={true}
+        enteringRecruiting={false}
+        onEnterRecruiting={() => {}}
         onOpenDetail={() => {}}
-        onOpenDuplicateMatches={() => {}}
-        onOpenPdf={() => {}}
-        onPublish={() => {}}
-        onBindJobDescription={() => {}}
-        onRetryParse={() => {}}
-        onSelectionChange={() => {}}
-        publishing={false}
-        record={{ ...record, uploaderName: "王敏" }}
-        retrying={false}
-        scope="public"
-        selected={false}
-        selectionDisabled={false}
+        record={record}
       />,
     );
 
-    expect(html).toContain("技能 9");
-    expect(html).not.toContain("技能 10");
-    expect(html).toContain("+3");
-    expect(html).toContain("前端工程师");
-    expect(html).toContain("2025.02-至今");
-    expect(html).toContain("负责 AI 招聘产品前端。");
-    expect(html).toContain("负责人");
-    expect(html).toContain("2025.01-2025.05");
-    expect(html).toContain("负责候选人数据分析与可视化。");
-    expect(html).toContain("王敏 26年07月31日:08:00 上传");
-    expect(html).toContain("推荐岗位");
+    expect(html).toContain("测试候选人");
+    expect(html).not.toContain("AI 产品经理-5年-测试候选人");
+    expect(html).toContain("AI 产品经理");
+    expect(html).toContain("王敏");
+    expect(html).toContain("极光矩阵");
+    expect(html).toContain("上海交通大学");
+    expect(html).toContain("擅长复杂招聘产品的设计与落地；能够推动跨团队协作");
+    expect(html).not.toContain("负责 AI 招聘产品前端。");
+    expect(html).not.toContain("具备完整的 AI 招聘产品设计与落地经验。");
+    expect(html).toContain('data-slot="avatar-fallback"');
+    expect(html).toContain("技能 6");
+    expect(html).not.toContain("技能 7");
+
+    const actionLabels = [...html.matchAll(/data-resume-pool-card-action="([^"]+)"/gu)].map(
+      (match) => match[1],
+    );
+    expect(actionLabels).toEqual(["详情", "进入招聘"]);
+    expect(html).not.toContain("推荐岗位");
+    expect(html).not.toContain("更换");
+    expect(html).not.toContain("删除");
+  });
+
+  it("places the uploader's real avatar immediately before the uploader name", async () => {
+    const cardSource = await readFile(
+      resolve("src/components/features/studio/resume-pool/resume-pool-card.tsx"),
+      "utf-8",
+    );
+
+    expect(cardSource).toContain("<AvatarImage");
+    expect(cardSource).toContain("src={record.uploaderImage}");
+    expect(cardSource.indexOf("<AvatarImage")).toBeLessThan(
+      cardSource.indexOf("{segments.userName}</span>"),
+    );
+  });
+
+  it("invokes detail and recruiting actions without triggering the card click twice", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onEnterRecruiting = vi.fn();
+    const onOpenDetail = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          canEnterRecruiting={true}
+          enteringRecruiting={false}
+          onEnterRecruiting={onEnterRecruiting}
+          onOpenDetail={onOpenDetail}
+          record={record}
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="查看人才详情"]')?.click();
+    });
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="进入招聘"]')?.click();
+    });
+    expect(onEnterRecruiting).toHaveBeenCalledTimes(1);
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+  });
+
+  it("uses fixed virtual-row heights for every responsive breakpoint", () => {
+    expect(getResumePoolCardHeight(390)).toBe(356);
+    expect(getResumePoolCardHeight(640)).toBe(308);
+    expect(getResumePoolCardHeight(768)).toBe(286);
+    expect(getResumePoolCardHeight(1024)).toBe(246);
+    expect(getResumePoolCardHeight(1280)).toBe(220);
+    expect(getResumePoolCardHeight(1536)).toBe(218);
   });
 
   it("labels mail-ingested resumes as an email scan", () => {
@@ -143,308 +197,29 @@ describe("ResumePoolCard", () => {
       uploaderMetaLabel({
         ...record,
         sourceChannel: "mail_ingest",
-        uploaderName: "王敏",
       }),
     ).toBe("26年07月31日:08:00 扫描王敏邮箱录入");
   });
 
-  it("shows text labels for the target role and bound job", () => {
-    const html = renderCard(
-      <ResumePoolCard
-        canDelete={false}
-        canImport={false}
-        canPublish={false}
-        canRecommend={true}
-        canRetryParse={false}
-        deleting={false}
-        onDelete={() => {}}
-        onImport={() => {}}
-        onOpenDetail={() => {}}
-        onOpenDuplicateMatches={() => {}}
-        onOpenPdf={() => {}}
-        onPublish={() => {}}
-        onBindJobDescription={() => {}}
-        onRetryParse={() => {}}
-        onSelectionChange={() => {}}
-        publishing={false}
-        record={{
+  it("renders a candidate conclusion as typeset markdown", () => {
+    const html = renderToStaticMarkup(
+      <ResumePoolDetailSummaryPanel
+        detail={{
           ...record,
-          jobBindingMode: "automatic",
-          jobDescriptionId: "jd-commercial-operations",
-          targetRole: "内容运营",
-          workYears: 7,
+          jobDescriptionId: null,
+          jobDescriptionName: null,
+          notes: "**候选人结论**\n\n- 核心能力匹配岗位",
         }}
-        retrying={false}
-        scope="public"
-        selected={false}
-        selectionDisabled={false}
+        isError={false}
+        isLoading={false}
+        resumeProfile={null}
+        slug="default"
       />,
     );
 
-    expect(html).toContain("目标岗位：");
-    expect(html).toContain("内容运营");
-    expect(html).toContain("工作年限：");
-    expect(html).toContain("7 年");
-    expect(html).toContain("绑定岗位：");
-    expect(html).toContain("已绑定");
-    expect(html).not.toContain("自动匹配");
-    expect(html).toContain("更换");
-    expect(html).toContain('aria-haspopup="menu"');
-    expect(html.indexOf("目标岗位：")).toBeLessThan(html.indexOf("绑定岗位："));
-  });
-
-  it("opens a job dropdown with the existing matching result", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const onBindJobDescription = vi.fn();
-    const queryClient = new QueryClient();
-    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], {
-      candidates: [
-        {
-          aiRank: 1,
-          aiReason: "当前最匹配",
-          aiScore: 92,
-          available: true,
-          code: null,
-          departmentName: "商业化",
-          id: "jd-commercial-operations",
-          isCurrent: true,
-          name: "商业化运营",
-          recallRank: 1,
-          vectorScore: 0.91,
-        },
-        {
-          aiRank: 2,
-          aiReason: "内容经验匹配",
-          aiScore: 86,
-          available: true,
-          code: null,
-          departmentName: "内容部",
-          id: "jd-content",
-          isCurrent: false,
-          name: "内容运营",
-          recallRank: 2,
-          vectorScore: 0.84,
-        },
-        ...Array.from({ length: 5 }, (_, index) => ({
-          aiRank: index + 3,
-          aiReason: `候选岗位 ${index + 3} 的匹配说明`,
-          aiScore: 80 - index,
-          available: true,
-          code: null,
-          departmentName: "候选部门",
-          id: `jd-candidate-${index + 3}`,
-          isCurrent: false,
-          name: `候选岗位 ${index + 3}`,
-          recallRank: index + 3,
-          vectorScore: 0.8 - index / 100,
-        })),
-      ],
-      createdAt: "2026-07-31T00:00:00.000Z",
-      id: "match-run-1",
-      selectedJobDescriptionId: "jd-commercial-operations",
-      selectionMethod: "ai",
-      status: "completed",
-    });
-
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <WorkspaceSlugProvider
-            id="org-1"
-            memberRole="admin"
-            permissions={{}}
-            slug="test-workspace"
-          >
-            <ResumePoolCard
-              canDelete={false}
-              canImport={false}
-              canPublish={false}
-              canRecommend={true}
-              canRetryParse={false}
-              deleting={false}
-              onBindJobDescription={onBindJobDescription}
-              onDelete={() => {}}
-              onImport={() => {}}
-              onOpenDetail={() => {}}
-              onOpenDuplicateMatches={() => {}}
-              onOpenPdf={() => {}}
-              onPublish={() => {}}
-              onRetryParse={() => {}}
-              onSelectionChange={() => {}}
-              publishing={false}
-              record={{
-                ...record,
-                jobBindingMode: "automatic",
-                jobDescriptionId: "jd-commercial-operations",
-                jobDescriptionName: null,
-              }}
-              retrying={false}
-              scope="public"
-              selected={false}
-              selectionDisabled={false}
-            />
-          </WorkspaceSlugProvider>
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
-
-    const trigger = document.querySelector<HTMLButtonElement>('[aria-label="更换绑定岗位"]');
-    expect(trigger).not.toBeNull();
-
-    await act(async () => {
-      trigger?.click();
-      await Promise.resolve();
-    });
-
-    expect(document.body.textContent).toContain("内容运营");
-    expect(document.body.textContent).toContain("内容部 · 内容经验匹配");
-    expect(document.body.textContent).not.toContain("候选岗位 7");
-    expect(document.body.textContent).not.toContain("自动匹配");
-
-    const options = [...document.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]')];
-    expect(options).toHaveLength(5);
-    const option = options.find((item) => item.textContent?.includes("内容运营"));
-    expect(option).toBeDefined();
-    expect(option?.querySelector('[data-slot="item-title"]')?.textContent).toBe("内容运营");
-    expect(option?.querySelector('[data-slot="item-description"]')?.textContent).toBe(
-      "内容部 · 内容经验匹配",
-    );
-
-    await act(async () => {
-      option?.click();
-      await Promise.resolve();
-    });
-
-    expect(onBindJobDescription).toHaveBeenCalledWith(
-      expect.objectContaining({ id: record.id }),
-      "jd-content",
-    );
-
-    act(() => root.unmount());
-    queryClient.clear();
-    container.remove();
-  });
-
-  it("opens at most five generated recommendations from a secondary dropdown", async () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const onBindJobDescription = vi.fn();
-    const queryClient = new QueryClient();
-    queryClient.setQueryData(["resume-pool", "job-match", "test-workspace", record.id], null);
-    queryClient.setQueryData(["resume-pool", "jd-recommendations", "test-workspace", record.id], {
-      diagnostics: { aboveThresholdCount: 6, eligibleCount: 6, vectorHitCount: 6 },
-      recommendations: Array.from({ length: 6 }, (_, index) => ({
-        departmentName: "产品部",
-        description: `推荐岗位 ${index + 1} 的岗位描述`,
-        id: `jd-recommended-${index + 1}`,
-        name: `推荐岗位 ${index + 1}`,
-        reasons: [`推荐岗位 ${index + 1} 的匹配理由`],
-        score: 90 - index,
-        similarity: {},
-      })),
-      resume: { id: record.id },
-      status: "ready",
-    });
-
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <WorkspaceSlugProvider
-            id="org-1"
-            memberRole="admin"
-            permissions={{}}
-            slug="test-workspace"
-          >
-            <ResumePoolCard
-              canDelete={false}
-              canImport={false}
-              canPublish={false}
-              canRecommend={true}
-              canRetryParse={false}
-              deleting={false}
-              onBindJobDescription={onBindJobDescription}
-              onDelete={() => {}}
-              onImport={() => {}}
-              onOpenDetail={() => {}}
-              onOpenDuplicateMatches={() => {}}
-              onOpenPdf={() => {}}
-              onPublish={() => {}}
-              onRetryParse={() => {}}
-              onSelectionChange={() => {}}
-              publishing={false}
-              record={record}
-              retrying={false}
-              scope="public"
-              selected={false}
-              selectionDisabled={false}
-            />
-          </WorkspaceSlugProvider>
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
-
-    const trigger = document.querySelector<HTMLButtonElement>('[aria-label="推荐岗位"]');
-    expect(trigger?.dataset.variant).toBe("secondary");
-
-    await act(async () => {
-      trigger?.click();
-      await Promise.resolve();
-    });
-
-    const options = [...document.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]')];
-    expect(options).toHaveLength(5);
-    expect(document.body.textContent).toContain("产品部 · 推荐岗位 1 的岗位描述");
-    expect(document.body.textContent).not.toContain("推荐岗位 6");
-
-    await act(async () => {
-      options[0]?.click();
-      await Promise.resolve();
-    });
-
-    expect(onBindJobDescription).toHaveBeenCalledWith(
-      expect.objectContaining({ id: record.id }),
-      "jd-recommended-1",
-    );
-
-    act(() => root.unmount());
-    queryClient.clear();
-    container.remove();
-  });
-
-  it("offers an enabled reimport action for an imported resume", () => {
-    const html = renderCard(
-      <ResumePoolCard
-        canDelete={false}
-        canImport={true}
-        canPublish={false}
-        canRecommend={true}
-        canRetryParse={false}
-        deleting={false}
-        onDelete={() => {}}
-        onImport={() => {}}
-        onOpenDetail={() => {}}
-        onOpenDuplicateMatches={() => {}}
-        onOpenPdf={() => {}}
-        onPublish={() => {}}
-        onRetryParse={() => {}}
-        onSelectionChange={() => {}}
-        publishing={false}
-        record={{ ...record, importedResumeRecordId: "resume-record-1" }}
-        retrying={false}
-        scope="public"
-        selected={false}
-        selectionDisabled={false}
-      />,
-    );
-    const reimportButton = html.match(/<button[^>]*aria-label="再次创建招聘记录"[^>]*>/u)?.[0];
-
-    expect(reimportButton).toBeDefined();
-    expect(reimportButton).not.toMatch(/\sdisabled(?:=|\s|>)/u);
+    expect(html).toContain("typeset typeset-compact");
+    expect(html).toContain("<strong>候选人结论</strong>");
+    expect(html).toContain("<li>核心能力匹配岗位</li>");
   });
 
   it("denies job recommendation actions without permission", () => {

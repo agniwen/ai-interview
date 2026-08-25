@@ -94,6 +94,7 @@ export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoo
       latestCompanyDetail: null,
       latestProject: null,
       latestProjectDetail: null,
+      personalStrengths: [],
       schools: [],
     };
   }
@@ -121,6 +122,9 @@ export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoo
           summary: cleanHighlightText(latestProject.summary),
         }
       : null,
+    personalStrengths: profile.personalStrengths
+      .map(cleanHighlightText)
+      .filter((item): item is string => item !== null),
     schools,
   };
 }

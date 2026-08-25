@@ -7,8 +7,12 @@ describe("router candidate detail navigation", () => {
 
     expect(routerSource).toContain('from: "/w/$slug/studio/resumes/overlay/$recordId"');
     expect(routerSource).toContain('to: "/w/$slug/studio/resumes/$recordId"');
+    expect(routerSource).toContain('from: "/w/$slug/studio/resume-pool/overlay/$recordId"');
+    expect(routerSource).toContain('to: "/w/$slug/studio/resume-pool/$recordId"');
     expect(routerSource).toContain("unmaskOnReload: true");
-    expect(routerSource).toContain("routeMasks: [recruiterResumeOverlayMask]");
+    expect(routerSource).toContain(
+      "routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask]",
+    );
   });
 
   it("resets the studio viewport when navigating to recruiter resume detail", async () => {

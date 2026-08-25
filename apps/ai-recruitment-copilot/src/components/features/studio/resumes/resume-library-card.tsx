@@ -225,8 +225,8 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
   );
 }
 
-function getResumeAvatarValue(record: ResumeLibraryListRecord) {
-  return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
+function getCandidateAvatarSeed(candidateName: string) {
+  return candidateName.trim() || "未命名候选人";
 }
 
 interface StructuredReviewCardDescription {
@@ -619,7 +619,7 @@ function ResumeLibraryCardComponent({
             className="mt-0.5 size-12"
             generatedSize={48}
             label={`${record.candidateName}的头像`}
-            seed={`candidate:${getResumeAvatarValue(record)}`}
+            seed={getCandidateAvatarSeed(record.candidateName)}
           >
             <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
           </Avatar>

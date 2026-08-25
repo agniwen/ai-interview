@@ -14,11 +14,20 @@ const recruiterResumeOverlayMask = createRouteMask({
   unmaskOnReload: true,
 });
 
-const RECRUITER_RESUME_DETAIL_PATH = /^\/w\/[^/]+\/studio\/resumes\/[^/]+\/?$/;
+const resumePoolOverlayMask = createRouteMask({
+  from: "/w/$slug/studio/resume-pool/overlay/$recordId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/w/$slug/studio/resume-pool/$recordId",
+  unmaskOnReload: true,
+});
+
+const STUDIO_CANDIDATE_DETAIL_PATH = /^\/w\/[^/]+\/studio\/(?:resumes|resume-pool)\/[^/]+\/?$/;
 
 function getRecruiterResumeDetailScrollToTopElement() {
   const currentLocation = globalThis.location;
-  if (!currentLocation || !RECRUITER_RESUME_DETAIL_PATH.test(currentLocation.pathname)) {
+  if (!currentLocation || !STUDIO_CANDIDATE_DETAIL_PATH.test(currentLocation.pathname)) {
     return;
   }
   return document.querySelector('[data-scroll-restoration-id="studio-main-scroll"]');
@@ -42,7 +51,7 @@ export function getRouter() {
     defaultPendingMs: 350,
     defaultPreload: "intent",
     notFoundMode: "root",
-    routeMasks: [recruiterResumeOverlayMask],
+    routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask],
     routeTree,
     scrollRestoration: true,
     scrollToTopSelectors: [getRecruiterResumeDetailScrollToTopElement],
