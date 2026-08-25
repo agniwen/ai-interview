@@ -13,6 +13,16 @@ import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
+import {
+  buildStudioDateGroupedVirtualRows,
+  groupStudioRecordsByCreatedAt,
+  resolveStudioStickyDateGroupState,
+} from "@/components/features/studio/studio-date-group-virtual-list";
+import type {
+  StudioDateGroup,
+  StudioDateGroupedVirtualRow,
+  StudioStickyDateHeaderPosition,
+} from "@/components/features/studio/studio-date-group-virtual-list";
 import { Badge } from "@/components/ui/badge";
 import { rpcFetch } from "@/lib/client/api";
 import type { DedupMatchRecord } from "@/lib/client/api";
@@ -46,20 +56,9 @@ export type ResumePoolFilters = Record<
   sourceType: ResumePoolSourceFilter;
 };
 
-export interface ResumePoolDateGroup {
-  id: string;
-  label: string;
-  records: ResumePoolListRecord[];
-}
-
-export type ResumePoolVirtualRow =
-  | { id: string; label: string; recordCount: number; type: "date-header" }
-  | { id: string; record: ResumePoolListRecord; type: "record" };
-
-export interface ResumePoolStickyHeaderPosition {
-  index: number;
-  start: number;
-}
+export type ResumePoolDateGroup = StudioDateGroup<ResumePoolListRecord>;
+export type ResumePoolVirtualRow = StudioDateGroupedVirtualRow<ResumePoolListRecord>;
+export type ResumePoolStickyHeaderPosition = StudioStickyDateHeaderPosition;
 
 export function createResumePoolFilters(): ResumePoolFilters {
   return {
@@ -397,52 +396,11 @@ export function sortPoolRecords(
   return sorted;
 }
 
-function monthLabelInAppTimeZone(value: string | Date) {
-  return formatDateInAppTimeZone(value, "YYYY 年 M 月");
-}
-
-function daysBetweenDateKeys(earlier: string, later: string) {
-  const earlierTimestamp = Date.parse(`${earlier}T00:00:00+08:00`);
-  const laterTimestamp = Date.parse(`${later}T00:00:00+08:00`);
-  return Math.round((laterTimestamp - earlierTimestamp) / 86_400_000);
-}
-
 export function groupResumePoolRecordsByCreatedAt(
   records: ResumePoolListRecord[],
   now: Date = new Date(),
 ): ResumePoolDateGroup[] {
-  const today = dateKeyInAppTimeZone(now);
-  const groups = new Map<string, ResumePoolDateGroup>();
-
-  for (const record of records) {
-    const dateKey = dateKeyInAppTimeZone(record.createdAt);
-    const dayOffset = daysBetweenDateKeys(dateKey, today);
-    let id = `month:${dateKey.slice(0, 7)}`;
-    let label = monthLabelInAppTimeZone(record.createdAt);
-
-    if (dayOffset === 0) {
-      id = "today";
-      label = "今天";
-    } else if (dayOffset === 1) {
-      id = "yesterday";
-      label = "昨天";
-    } else if (dayOffset === 2) {
-      id = "day-before-yesterday";
-      label = "前天";
-    } else if (dateKey.startsWith(today.slice(0, 7))) {
-      id = "earlier-this-month";
-      label = "本月更早";
-    }
-
-    const group = groups.get(id);
-    if (group) {
-      group.records.push(record);
-    } else {
-      groups.set(id, { id, label, records: [record] });
-    }
-  }
-
-  return [...groups.values()];
+  return groupStudioRecordsByCreatedAt(records, now);
 }
 
 export function buildResumePoolVirtualRows(
@@ -450,40 +408,7 @@ export function buildResumePoolVirtualRows(
   sortBy: string | undefined,
   now: Date = new Date(),
 ): ResumePoolVirtualRow[] {
-  if (sortBy !== "createdAt") {
-    return records.map((record) => ({
-      id: `record:${record.id}`,
-      record,
-      type: "record" as const,
-    }));
-  }
-
-  return groupResumePoolRecordsByCreatedAt(records, now).flatMap((group) => [
-    {
-      id: `date:${group.id}`,
-      label: group.label,
-      recordCount: group.records.length,
-      type: "date-header" as const,
-    },
-    ...group.records.map((record) => ({
-      id: `record:${record.id}`,
-      record,
-      type: "record" as const,
-    })),
-  ]);
-}
-
-function findActiveResumePoolStickyHeader(
-  positions: readonly ResumePoolStickyHeaderPosition[],
-  stickyLine: number,
-): ResumePoolStickyHeaderPosition | null {
-  for (let index = positions.length - 1; index >= 0; index -= 1) {
-    const position = positions[index];
-    if (position && position.start <= stickyLine) {
-      return position;
-    }
-  }
-  return positions[0] ?? null;
+  return buildStudioDateGroupedVirtualRows(records, sortBy, now);
 }
 
 export function resolveResumePoolStickyState(
@@ -491,20 +416,7 @@ export function resolveResumePoolStickyState(
   stickyLine: number,
   headerHeight: number,
 ) {
-  const activeHeader = findActiveResumePoolStickyHeader(positions, stickyLine);
-  if (!activeHeader) {
-    return { index: -1, isStuck: false, pushOffset: 0 };
-  }
-
-  const activePositionIndex = positions.findIndex(({ index }) => index === activeHeader.index);
-  const nextHeader = positions[activePositionIndex + 1];
-  const isStuck = activeHeader.start <= stickyLine;
-  return {
-    index: activeHeader.index,
-    isStuck,
-    pushOffset:
-      isStuck && nextHeader ? Math.min(0, nextHeader.start - stickyLine - headerHeight) : 0,
-  };
+  return resolveStudioStickyDateGroupState(positions, stickyLine, headerHeight);
 }
 
 export function filterPoolRecords(

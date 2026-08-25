@@ -16,6 +16,14 @@ import type { ResumeDetailDefaultTab } from "@/components/features/studio/resume
 import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListLoadError } from "@/components/data-grid/list-load-error";
+import {
+  STUDIO_DATE_GROUP_ROW_HEIGHT,
+  StudioDateGroupHeaderSkeleton,
+  StudioStickyDateGroupHeader,
+  buildStudioDateGroupedVirtualRows,
+  buildStudioStickyDateHeaderPositions,
+  useStudioStickyDateGroup,
+} from "@/components/features/studio/studio-date-group-virtual-list";
 
 import {
   formatResumeLibraryJobDescriptionLabel,
@@ -24,6 +32,22 @@ import {
   useResumeLibraryScrollElement,
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
+
+function getResumeLibrarySortBy(grid: ResumeLibraryGridState) {
+  return grid.sorting[0]?.id ?? "createdAt";
+}
+
+function ResumeLibraryLoadingState({ showDateGroup }: { showDateGroup: boolean }) {
+  return (
+    <div className="grid gap-3">
+      {showDateGroup ? <StudioDateGroupHeaderSkeleton /> : null}
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton className="h-44 rounded-xl" key={index} />
+      ))}
+    </div>
+  );
+}
+
 interface ResumeLibraryCardListProps {
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
@@ -112,23 +136,45 @@ export function ResumeLibraryCardList({
   uploadEntryDisabled,
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
+  const virtualListRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
   const { setRowSelection } = grid;
   const initialScrollOffset = useResumeLibraryInitialScrollOffset();
-  const getVirtualItemKey = useCallback(
-    (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
-    [records],
+  const sortBy = getResumeLibrarySortBy(grid);
+  const virtualRows = useMemo(
+    () => buildStudioDateGroupedVirtualRows(records, sortBy),
+    [records, sortBy],
   );
+  const getVirtualRowSize = useCallback(
+    (index: number) =>
+      virtualRows[index]?.type === "date-header" ? STUDIO_DATE_GROUP_ROW_HEIGHT : cardHeight,
+    [cardHeight, virtualRows],
+  );
+  const stickyHeaderPositions = useMemo(
+    () => buildStudioStickyDateHeaderPositions(virtualRows, cardHeight),
+    [cardHeight, virtualRows],
+  );
+  const getScrollElement = useCallback(() => scrollElement, [scrollElement]);
+  const getVirtualItemKey = useCallback(
+    (index: number) => virtualRows[index]?.id ?? `resume-placeholder-${index}`,
+    [virtualRows],
+  );
+  const { rangeExtractor, stickyState } = useStudioStickyDateGroup({
+    getScrollElement,
+    listRootRef: virtualListRootRef,
+    positions: stickyHeaderPositions,
+  });
   // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is compiler-incompatible and is intentionally skipped.
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
-    count: records.length,
-    estimateSize: () => cardHeight,
+    count: virtualRows.length,
+    estimateSize: getVirtualRowSize,
     getItemKey: getVirtualItemKey,
-    getScrollElement: () => scrollElement,
+    getScrollElement,
     initialOffset: initialScrollOffset,
     overscan: 6,
+    rangeExtractor,
   });
   useEffect(() => {
     virtualizer.measure();
@@ -193,23 +239,44 @@ export function ResumeLibraryCardList({
   if (error && records.length === 0) {
     listContent = <ListLoadError error={error} onRetry={onRetry} />;
   } else if (isInitialLoading) {
-    listContent = (
-      <div className="grid gap-3">
-        {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton className="h-44 rounded-xl" key={index} />
-        ))}
-      </div>
-    );
+    listContent = <ResumeLibraryLoadingState showDateGroup={sortBy === "createdAt"} />;
   } else if (records.length > 0) {
     listContent = (
       <>
         {error ? <ListLoadError compact error={error} onRetry={onRetry} /> : null}
-        <div className="relative transition-opacity" style={{ height: virtualizer.getTotalSize() }}>
+        <div
+          className="relative transition-opacity [overflow-anchor:none]"
+          ref={virtualListRootRef}
+          style={{ height: virtualizer.getTotalSize() }}
+        >
           {virtualItems.map((virtualRow) => {
-            const record = records[virtualRow.index];
-            if (!record) {
+            const row = virtualRows[virtualRow.index];
+            if (!row) {
               return null;
             }
+            if (row.type === "date-header") {
+              const active = virtualRow.index === stickyState.index;
+              return (
+                <StudioStickyDateGroupHeader
+                  active={active}
+                  headingId={`resume-library-${row.id}`}
+                  isStuck={active && stickyState.isStuck}
+                  key={virtualRow.key}
+                  label={row.label}
+                  onNavigate={() =>
+                    virtualizer.scrollToIndex(virtualRow.index, {
+                      align: "start",
+                      behavior: "smooth",
+                    })
+                  }
+                  pushOffset={active ? stickyState.pushOffset : 0}
+                  recordCount={row.recordCount}
+                  start={virtualRow.start}
+                  stickyTop={stickyState.stickyTop}
+                />
+              );
+            }
+            const { record } = row;
             return (
               <div
                 className="absolute top-0 left-0 w-full pb-3 [contain:layout]"

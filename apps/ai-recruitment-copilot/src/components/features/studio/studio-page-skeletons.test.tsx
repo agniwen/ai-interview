@@ -41,7 +41,9 @@ describe("Studio page skeletons", () => {
 
     expect(recruiting).toContain("lg:grid-cols-3");
     expect(recruiting).toContain("h-44 w-full");
-    expect(resumePool).toContain("lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4");
+    expect(recruiting).toContain('data-slot="date-group-header-skeleton"');
+    expect(resumePool).toContain('data-slot="date-group-header-skeleton"');
+    expect(resumePool).toContain("h-[218px]");
     expect(dashboard).toContain("grid-cols-2 gap-4 xl:grid-cols-4");
     expect(dashboard).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
     expect(profile).toContain("max-w-2xl");

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { DetailBodySkeleton, DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
+import { StudioDateGroupHeaderSkeleton } from "./studio-date-group-virtual-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PageShell({ children, label }: { children: ReactNode; label: string }) {
@@ -147,6 +148,7 @@ function ChartGridSkeleton() {
 function RecruitingListSkeleton() {
   return (
     <div className="grid gap-3">
+      <StudioDateGroupHeaderSkeleton />
       {Array.from({ length: 4 }).map((_, index) => (
         <Skeleton className="h-44 w-full rounded-xl" key={index} />
       ))}
@@ -156,28 +158,10 @@ function RecruitingListSkeleton() {
 
 function ResumePoolCardsSkeleton() {
   return (
-    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div className="flex min-h-56 flex-col gap-4 rounded-xl border p-5" key={index}>
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-10 rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <Skeleton className="h-4 w-2/5" />
-              <Skeleton className="h-3 w-3/5" />
-            </div>
-            <Skeleton className="h-6 w-16 rounded-full" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: 4 }).map((__, lineIndex) => (
-              <Skeleton className="h-3 w-4/5" key={lineIndex} />
-            ))}
-          </div>
-          <Skeleton className="h-14 w-full" />
-          <div className="mt-auto flex gap-2">
-            <Skeleton className="h-6 w-14 rounded-full" />
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </div>
-        </div>
+    <div className="grid gap-3">
+      <StudioDateGroupHeaderSkeleton />
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Skeleton className="h-[218px] rounded-xl max-lg:h-[246px] max-md:h-[286px]" key={index} />
       ))}
     </div>
   );

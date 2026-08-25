@@ -2,11 +2,9 @@
 
 import { IconFileText, IconHistory, IconUserPlus } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
-import { cn } from "@arc/shared/utils";
 import { useElementScrollRestoration } from "@tanstack/react-router";
-import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
-import type { Range } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,66 +12,21 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
+import {
+  STUDIO_DATE_GROUP_ROW_HEIGHT,
+  StudioDateGroupHeaderSkeleton,
+  StudioStickyDateGroupHeader,
+  buildStudioStickyDateHeaderPositions,
+  useStudioStickyDateGroup,
+} from "@/components/features/studio/studio-date-group-virtual-list";
 
 import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
-import { buildResumePoolVirtualRows, resolveResumePoolStickyState } from "./resume-pool-page-model";
+import { buildResumePoolVirtualRows } from "./resume-pool-page-model";
 
-const RESUME_POOL_DATE_HEADER_HEIGHT = 44;
-const RESUME_POOL_DATE_HEADER_GAP = 12;
-const RESUME_POOL_DATE_HEADER_ROW_HEIGHT =
-  RESUME_POOL_DATE_HEADER_HEIGHT + RESUME_POOL_DATE_HEADER_GAP;
-
-function ResumePoolStickyDateGroupHeader({
-  active,
-  headingId,
-  isStuck,
-  label,
-  onNavigate,
-  pushOffset,
-  recordCount,
-  start,
-  stickyTop,
-}: {
-  active: boolean;
-  headingId: string;
-  isStuck: boolean;
-  label: string;
-  onNavigate: () => void;
-  pushOffset: number;
-  recordCount: number;
-  start: number;
-  stickyTop: number;
-}) {
-  return (
-    <div
-      className={cn(
-        "left-0 z-10 flex w-fit items-center rounded-r-xl border border-transparent px-4 py-2 transition-colors hover:border-input hover:bg-sidebar/70 [contain:layout]",
-        active ? "sticky" : "absolute",
-        isStuck && "border-input bg-background/80 backdrop-blur-md",
-      )}
-      style={{
-        height: RESUME_POOL_DATE_HEADER_HEIGHT,
-        top: active ? stickyTop : 0,
-        transform: active ? `translateY(${pushOffset}px)` : `translateY(${start}px)`,
-      }}
-    >
-      <h2 className="font-medium text-sm" id={headingId}>
-        <button
-          className="-mx-4 -my-2 flex items-center gap-2 px-4 py-2 text-left outline-none"
-          onClick={onNavigate}
-          type="button"
-        >
-          <span>{label}</span>
-          <span className="font-normal text-muted-foreground text-xs">{recordCount} 份简历</span>
-        </button>
-      </h2>
-    </div>
-  );
-}
-
-export function ResumePoolLoadingState() {
+export function ResumePoolLoadingState({ showDateGroup = true }: { showDateGroup?: boolean }) {
   return (
     <output aria-label="正在加载简历" className="grid gap-3">
+      {showDateGroup ? <StudioDateGroupHeaderSkeleton /> : null}
       {Array.from({ length: 4 }, (_, index) => (
         <Skeleton className="h-[218px] rounded-xl max-lg:h-[246px] max-md:h-[286px]" key={index} />
       ))}
@@ -160,26 +113,13 @@ export function ResumePoolListContent({
   const virtualRows = useMemo(() => buildResumePoolVirtualRows(records, sortBy), [records, sortBy]);
   const getVirtualRowSize = useCallback(
     (index: number) =>
-      virtualRows[index]?.type === "date-header" ? RESUME_POOL_DATE_HEADER_ROW_HEIGHT : cardHeight,
+      virtualRows[index]?.type === "date-header" ? STUDIO_DATE_GROUP_ROW_HEIGHT : cardHeight,
     [cardHeight, virtualRows],
   );
-  const stickyHeaderPositions = useMemo(() => {
-    const positions: { index: number; start: number }[] = [];
-    let start = 0;
-    for (const [index, row] of virtualRows.entries()) {
-      if (row.type === "date-header") {
-        positions.push({ index, start });
-      }
-      start += getVirtualRowSize(index);
-    }
-    return positions;
-  }, [getVirtualRowSize, virtualRows]);
-  const [stickyState, setStickyState] = useState({
-    index: -1,
-    isStuck: false,
-    pushOffset: 0,
-    stickyTop: 0,
-  });
+  const stickyHeaderPositions = useMemo(
+    () => buildStudioStickyDateHeaderPositions(virtualRows, cardHeight),
+    [cardHeight, virtualRows],
+  );
   const studioScrollEntry = useElementScrollRestoration({
     id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
   });
@@ -194,17 +134,11 @@ export function ResumePoolListContent({
     (index: number) => virtualRows[index]?.id ?? `resume-pool-placeholder-${index}`,
     [virtualRows],
   );
-  const rangeExtractor = useCallback(
-    (range: Range) => {
-      if (stickyState.index < 0) {
-        return defaultRangeExtractor(range);
-      }
-      return [...new Set([stickyState.index, ...defaultRangeExtractor(range)])].toSorted(
-        (left, right) => left - right,
-      );
-    },
-    [stickyState.index],
-  );
+  const { rangeExtractor, stickyState } = useStudioStickyDateGroup({
+    getScrollElement,
+    listRootRef,
+    positions: stickyHeaderPositions,
+  });
   // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is compiler-incompatible and is intentionally skipped.
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
     count: virtualRows.length,
@@ -220,68 +154,8 @@ export function ResumePoolListContent({
     virtualizer.measure();
   }, [cardHeight, virtualizer]);
 
-  useEffect(() => {
-    const listNode = listRootRef.current;
-    const scrollElement = getScrollElement();
-    if (!(listNode && scrollElement)) {
-      return;
-    }
-
-    const siteHeader = scrollElement.querySelector<HTMLElement>("header");
-    let frameId: number | null = null;
-    const syncStickyState = () => {
-      if (frameId !== null) {
-        return;
-      }
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null;
-        const scrollRect = scrollElement.getBoundingClientRect();
-        const stickyViewportLine =
-          (siteHeader?.getBoundingClientRect().bottom ?? scrollRect.top) + 8;
-        const listViewportTop = listNode.getBoundingClientRect().top;
-        const stickyLineWithinList = stickyViewportLine - listViewportTop;
-        const nextState = {
-          ...resolveResumePoolStickyState(
-            stickyHeaderPositions,
-            stickyLineWithinList,
-            RESUME_POOL_DATE_HEADER_HEIGHT,
-          ),
-          stickyTop: stickyViewportLine - scrollRect.top,
-        };
-        setStickyState((current) =>
-          current.index === nextState.index &&
-          current.isStuck === nextState.isStuck &&
-          current.pushOffset === nextState.pushOffset &&
-          current.stickyTop === nextState.stickyTop
-            ? current
-            : nextState,
-        );
-      });
-    };
-
-    const ResizeObserverConstructor = globalThis.ResizeObserver;
-    const resizeObserver = ResizeObserverConstructor
-      ? new ResizeObserverConstructor(syncStickyState)
-      : null;
-    syncStickyState();
-    scrollElement.addEventListener("scroll", syncStickyState, { passive: true });
-    window.addEventListener("resize", syncStickyState);
-    resizeObserver?.observe(listNode.parentElement ?? listNode);
-    if (siteHeader) {
-      resizeObserver?.observe(siteHeader);
-    }
-    return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId);
-      }
-      resizeObserver?.disconnect();
-      scrollElement.removeEventListener("scroll", syncStickyState);
-      window.removeEventListener("resize", syncStickyState);
-    };
-  }, [getScrollElement, stickyHeaderPositions]);
-
   if (isInitialPoolLoading) {
-    return <ResumePoolLoadingState />;
+    return <ResumePoolLoadingState showDateGroup={sortBy === "createdAt"} />;
   }
 
   if (showEmptyState) {
@@ -314,7 +188,7 @@ export function ResumePoolListContent({
           if (row.type === "date-header") {
             const active = virtualRow.index === stickyState.index;
             return (
-              <ResumePoolStickyDateGroupHeader
+              <StudioStickyDateGroupHeader
                 active={active}
                 headingId={`resume-pool-${row.id}`}
                 isStuck={active && stickyState.isStuck}

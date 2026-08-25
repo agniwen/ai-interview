@@ -9,20 +9,22 @@ describe("resume pool list", () => {
   });
 
   it("keeps date headers and resume cards inside one virtual list", async () => {
-    const source = await readFile(new URL("../resume-pool-list.tsx", import.meta.url), "utf-8");
+    const [source, sharedSource] = await Promise.all([
+      readFile(new URL("../resume-pool-list.tsx", import.meta.url), "utf-8"),
+      readFile(new URL("../../studio-date-group-virtual-list.tsx", import.meta.url), "utf-8"),
+    ]);
 
     expect(source).toContain("useVirtualizer");
-    expect(source).toContain("defaultRangeExtractor");
+    expect(sharedSource).toContain("defaultRangeExtractor");
     expect(source).toContain("useResumePoolCardHeight");
     expect(source).toContain("buildResumePoolVirtualRows");
-    expect(source).toContain("ResumePoolStickyDateGroupHeader");
-    expect(source).toContain("RESUME_POOL_DATE_HEADER_GAP = 12");
-    expect(source).toMatch(
-      /type === "date-header"\s*\? RESUME_POOL_DATE_HEADER_ROW_HEIGHT\s*: cardHeight/u,
-    );
-    expect(source).toContain("height: RESUME_POOL_DATE_HEADER_HEIGHT");
-    expect(source).toContain('active ? "sticky" : "absolute"');
-    expect(source).not.toContain('active ? "sticky z-20" : "absolute"');
+    expect(source).toContain("StudioStickyDateGroupHeader");
+    expect(source).toContain("StudioDateGroupHeaderSkeleton");
+    expect(source).toContain("STUDIO_DATE_GROUP_ROW_HEIGHT");
+    expect(sharedSource).toContain("STUDIO_DATE_GROUP_HEADER_GAP = 12");
+    expect(sharedSource).toContain("height: STUDIO_DATE_GROUP_HEADER_HEIGHT");
+    expect(sharedSource).toContain('active ? "sticky" : "absolute"');
+    expect(sharedSource).not.toContain('active ? "sticky z-20" : "absolute"');
     expect(source).toContain("useElementScrollRestoration");
     expect(source).toContain("initialOffset: studioScrollEntry?.scrollY");
     expect(source).toContain("[overflow-anchor:none]");
