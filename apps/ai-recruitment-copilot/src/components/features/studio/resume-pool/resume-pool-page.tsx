@@ -402,6 +402,7 @@ export function ResumePoolPage() {
             onUpload={() => setUploadEntryOpen(true)}
             records={loadedPoolRecords}
             showEmptyState={showEmptyState}
+            sortBy={grid.bind.sorting[0]?.id ?? "createdAt"}
           />
           {visibleRecordCount > 0 ? (
             <div className="flex flex-col items-center gap-3 px-2 pt-2 pb-10 text-center text-muted-foreground text-sm">

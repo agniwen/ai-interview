@@ -52,6 +52,15 @@ export interface ResumePoolDateGroup {
   records: ResumePoolListRecord[];
 }
 
+export type ResumePoolVirtualRow =
+  | { id: string; label: string; recordCount: number; type: "date-header" }
+  | { id: string; record: ResumePoolListRecord; type: "record" };
+
+export interface ResumePoolStickyHeaderPosition {
+  index: number;
+  start: number;
+}
+
 export function createResumePoolFilters(): ResumePoolFilters {
   return {
     createdAtRange: "",
@@ -434,6 +443,68 @@ export function groupResumePoolRecordsByCreatedAt(
   }
 
   return [...groups.values()];
+}
+
+export function buildResumePoolVirtualRows(
+  records: ResumePoolListRecord[],
+  sortBy: string | undefined,
+  now: Date = new Date(),
+): ResumePoolVirtualRow[] {
+  if (sortBy !== "createdAt") {
+    return records.map((record) => ({
+      id: `record:${record.id}`,
+      record,
+      type: "record" as const,
+    }));
+  }
+
+  return groupResumePoolRecordsByCreatedAt(records, now).flatMap((group) => [
+    {
+      id: `date:${group.id}`,
+      label: group.label,
+      recordCount: group.records.length,
+      type: "date-header" as const,
+    },
+    ...group.records.map((record) => ({
+      id: `record:${record.id}`,
+      record,
+      type: "record" as const,
+    })),
+  ]);
+}
+
+function findActiveResumePoolStickyHeader(
+  positions: readonly ResumePoolStickyHeaderPosition[],
+  stickyLine: number,
+): ResumePoolStickyHeaderPosition | null {
+  for (let index = positions.length - 1; index >= 0; index -= 1) {
+    const position = positions[index];
+    if (position && position.start <= stickyLine) {
+      return position;
+    }
+  }
+  return positions[0] ?? null;
+}
+
+export function resolveResumePoolStickyState(
+  positions: readonly ResumePoolStickyHeaderPosition[],
+  stickyLine: number,
+  headerHeight: number,
+) {
+  const activeHeader = findActiveResumePoolStickyHeader(positions, stickyLine);
+  if (!activeHeader) {
+    return { index: -1, isStuck: false, pushOffset: 0 };
+  }
+
+  const activePositionIndex = positions.findIndex(({ index }) => index === activeHeader.index);
+  const nextHeader = positions[activePositionIndex + 1];
+  const isStuck = activeHeader.start <= stickyLine;
+  return {
+    index: activeHeader.index,
+    isStuck,
+    pushOffset:
+      isStuck && nextHeader ? Math.min(0, nextHeader.start - stickyLine - headerHeight) : 0,
+  };
 }
 
 export function filterPoolRecords(
