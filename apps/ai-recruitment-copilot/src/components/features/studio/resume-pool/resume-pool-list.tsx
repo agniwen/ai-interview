@@ -98,6 +98,7 @@ export function ResumePoolListContent({
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
+  onPreviewResume,
   onRetryParse,
   onResetFilters,
   onUpload,
@@ -125,6 +126,7 @@ export function ResumePoolListContent({
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
+  onPreviewResume: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   onResetFilters: () => void;
   onUpload: () => void;
@@ -261,6 +263,7 @@ export function ResumePoolListContent({
                 onEnterRecruiting={onEnterRecruiting}
                 onOpenDetail={onOpenDetail}
                 onOpenDuplicateMatches={onOpenDuplicateMatches}
+                onPreviewResume={onPreviewResume}
                 onRetryParse={onRetryParse}
                 record={record}
                 retrying={retryingRecordId === record.id}

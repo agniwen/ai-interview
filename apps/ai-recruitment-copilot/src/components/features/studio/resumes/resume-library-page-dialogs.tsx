@@ -1,8 +1,7 @@
 "use client";
 
-import { lazy, Suspense } from "react";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
+import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,11 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
 
 export function ResumeLibraryDeleteDialogs({
   bulkDeleteOpen,
@@ -101,19 +95,11 @@ export function ResumeLibraryPreviewDialog({
   record: ResumeLibraryListRecord | null;
   slug: string;
 }) {
-  if (!record) {
-    return null;
-  }
-  const kind = getPreviewableResumeDocumentKind({ fileName: record.resumeFileName });
-  return kind ? (
-    <Suspense fallback={null}>
-      <ResumeDocumentPreviewDialog
-        filename={record.resumeFileName ?? undefined}
-        kind={kind}
-        onOpenChange={(open) => !open && onClose()}
-        open
-        url={`/api/w/${slug}/studio/resumes/${record.id}/resume`}
-      />
-    </Suspense>
-  ) : null;
+  return (
+    <ResumeDocumentPreviewModal
+      fileName={record?.resumeFileName}
+      onClose={onClose}
+      url={record ? `/api/w/${slug}/studio/resumes/${record.id}/resume` : null}
+    />
+  );
 }

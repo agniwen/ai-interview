@@ -14,6 +14,7 @@ import { useSyncExternalStore } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { ResumeDocumentPreviewAction } from "@/components/features/resume/resume-document-preview-action";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,11 @@ export function useResumePoolCardHeight() {
 
 function isInteractiveCardClick(event: ReactMouseEvent<HTMLElement>) {
   return event.target instanceof Element
-    ? Boolean(event.target.closest("a,button,input,label,[role='button'],[role='menuitem']"))
+    ? Boolean(
+        event.target.closest(
+          "a,button,input,label,[role='button'],[role='menuitem'],[data-resume-document-preview-disabled]",
+        ),
+      )
     : false;
 }
 
@@ -214,6 +219,7 @@ function ResumePoolCardActions({
   onDelete,
   onEnterRecruiting,
   onOpenDetail,
+  onPreviewResume,
   onRetryParse,
   record,
   retrying,
@@ -226,6 +232,7 @@ function ResumePoolCardActions({
   onDelete: (record: ResumePoolListRecord) => void;
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onPreviewResume: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
   retrying: boolean;
@@ -239,6 +246,11 @@ function ResumePoolCardActions({
 
   return (
     <div className="flex items-center justify-end gap-1.5 lg:flex-col lg:items-stretch">
+      <ResumeDocumentPreviewAction
+        fileName={record.resumeFileName}
+        hasResumeFile={Boolean(record.resumeStorageKey)}
+        onPreview={() => onPreviewResume(record)}
+      />
       <Button
         aria-label="查看人才详情"
         className={actionClass}
@@ -336,6 +348,7 @@ export function ResumePoolCard({
   onEnterRecruiting,
   onOpenDetail,
   onOpenDuplicateMatches,
+  onPreviewResume,
   onRetryParse,
   record,
   retrying,
@@ -353,6 +366,7 @@ export function ResumePoolCard({
   onEnterRecruiting: (record: ResumePoolListRecord) => void;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
+  onPreviewResume: (record: ResumePoolListRecord) => void;
   onRetryParse: (record: ResumePoolListRecord) => void;
   record: ResumePoolListRecord;
   retrying: boolean;
@@ -485,6 +499,7 @@ export function ResumePoolCard({
           onDelete={onDelete}
           onEnterRecruiting={onEnterRecruiting}
           onOpenDetail={onOpenDetail}
+          onPreviewResume={onPreviewResume}
           onRetryParse={onRetryParse}
           record={record}
           retrying={retrying}

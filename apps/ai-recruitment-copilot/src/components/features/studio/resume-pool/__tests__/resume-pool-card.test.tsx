@@ -107,6 +107,7 @@ const record = {
 
 const defaultRetryProps = {
   canRetryParse: false,
+  onPreviewResume: () => {},
   onRetryParse: () => {},
   retrying: false,
 } as const;
@@ -185,6 +186,9 @@ describe("ResumePoolCard", () => {
       (match) => match[1],
     );
     expect(actionLabels).toEqual(["详情", "进入招聘"]);
+    expect(html.indexOf('aria-label="查看简历"')).toBeLessThan(
+      html.indexOf('aria-label="查看人才详情"'),
+    );
     expect(html).not.toContain("推荐岗位");
     expect(html).toContain("更换");
     expect(html).toContain('aria-label="更换绑定岗位"');
@@ -517,6 +521,44 @@ describe("ResumePoolCard", () => {
     });
     expect(onEnterRecruiting).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+  });
+
+  it("opens the resume preview without triggering the card detail", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenDetail = vi.fn();
+    const onPreviewResume = vi.fn();
+
+    act(() => {
+      root.render(
+        <ResumePoolCard
+          {...defaultRetryProps}
+          bindingJobDescription={false}
+          canDelete={false}
+          canEnterRecruiting={true}
+          canRecommend={false}
+          deleting={false}
+          enteringRecruiting={false}
+          onBindJobDescription={() => {}}
+          onDelete={() => {}}
+          onEnterRecruiting={() => {}}
+          onOpenDetail={onOpenDetail}
+          onOpenDuplicateMatches={() => {}}
+          onPreviewResume={onPreviewResume}
+          record={{ ...record, jobDescriptionId: null, jobDescriptionName: null }}
+          slug="test-workspace"
+        />,
+      );
+    });
+
+    act(() => {
+      document.querySelector<HTMLButtonElement>('[aria-label="查看简历"]')?.click();
+    });
+    expect(onPreviewResume).toHaveBeenCalledWith(expect.objectContaining({ id: record.id }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
 
     act(() => root.unmount());
   });

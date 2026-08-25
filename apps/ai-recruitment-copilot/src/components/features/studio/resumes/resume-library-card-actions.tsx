@@ -10,14 +10,8 @@ import {
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
-import {
-  UnsupportedResumeDocumentPreviewTooltip,
-  isPreviewableResumeDocumentInput,
-} from "@/components/features/resume/resume-document-preview-button";
-import {
-  ResumeDocumentFileIcon,
-  getResumeDocumentFileIconKind,
-} from "@/components/features/resume/resume-document-file-icon";
+import { isPreviewableResumeDocumentInput } from "@/components/features/resume/resume-document-preview-button";
+import { ResumeDocumentPreviewAction } from "@/components/features/resume/resume-document-preview-action";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -86,58 +80,6 @@ function TextActionButton({
       {children}
       <span>{label}</span>
     </Button>
-  );
-}
-
-function PreviewAction({
-  onPreviewResume,
-  record,
-}: Pick<ResumeLibraryCardProps, "onPreviewResume" | "record">) {
-  const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
-  const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
-  const canPreview = record.hasResumeFile && previewable;
-  const previewTitle = record.resumeFileName ?? "查看简历";
-
-  if (canPreview) {
-    return (
-      <TextActionButton
-        className="group/pdf"
-        label="简历"
-        onClick={() => onPreviewResume(record)}
-        title={previewTitle}
-      >
-        <ResumeDocumentFileIcon
-          className={cn(
-            ACTION_ICON_CLASS,
-            "transition-transform duration-200 group-hover/pdf:scale-[1.03] motion-reduce:group-hover/pdf:scale-100",
-          )}
-          kind={documentKind}
-        />
-      </TextActionButton>
-    );
-  }
-
-  const disabledControl = (
-    <span
-      aria-disabled="true"
-      aria-label={record.hasResumeFile ? "该格式不支持预览" : "暂无可预览简历"}
-      className={cn(
-        ACTION_BUTTON_CLASS,
-        "inline-flex shrink-0 items-center justify-center rounded-md opacity-45 grayscale",
-      )}
-      title={record.hasResumeFile ? previewTitle : "暂无可预览简历"}
-    >
-      <ResumeDocumentFileIcon className={ACTION_ICON_CLASS} kind={documentKind} />
-      <span>简历</span>
-    </span>
-  );
-
-  return record.hasResumeFile ? (
-    <UnsupportedResumeDocumentPreviewTooltip>
-      {disabledControl}
-    </UnsupportedResumeDocumentPreviewTooltip>
-  ) : (
-    disabledControl
   );
 }
 
@@ -295,7 +237,11 @@ export function ResumeLibraryCardActions({
   return (
     <div className="flex justify-end self-center">
       <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
-        <PreviewAction onPreviewResume={onPreviewResume} record={record} />
+        <ResumeDocumentPreviewAction
+          fileName={record.resumeFileName}
+          hasResumeFile={record.hasResumeFile}
+          onPreview={() => onPreviewResume(record)}
+        />
         {flags.canRetry ? (
           <Button
             className={ACTION_BUTTON_CLASS}

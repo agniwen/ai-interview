@@ -12,6 +12,7 @@ import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
+import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
@@ -93,6 +94,7 @@ export function ResumePoolPage() {
   const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumePoolListRecord | null>(
     null,
   );
+  const [previewRecord, setPreviewRecord] = useState<ResumePoolListRecord | null>(null);
   const [enteringRecruitingRecordId, setEnteringRecruitingRecordId] = useState<string | null>(null);
   const [loadedPoolResult, setLoadedPoolResult] = useState<{
     records: ResumePoolListRecord[];
@@ -488,6 +490,7 @@ export function ResumePoolPage() {
             onEnterRecruiting={enterRecruiting}
             onOpenDetail={openPoolDetail}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
+            onPreviewResume={setPreviewRecord}
             onRetryParse={retryParseMutation.mutate}
             onResetFilters={grid.bind.onResetFilters}
             onUpload={() => setUploadEntryOpen(true)}
@@ -593,6 +596,15 @@ export function ResumePoolPage() {
           duplicateMatchRecord
             ? `${getCandidateTitleWithId(duplicateMatchRecord)} 的疑似重复简历`
             : "疑似重复简历"
+        }
+      />
+      <ResumeDocumentPreviewModal
+        fileName={previewRecord?.resumeFileName}
+        onClose={() => setPreviewRecord(null)}
+        url={
+          previewRecord?.resumeStorageKey
+            ? `/api/w/${slug}/studio/resume-pool/${previewRecord.id}/resume`
+            : null
         }
       />
       <AlertDialog
