@@ -55,7 +55,7 @@ export function CustomFilterInput({
       <PopoverTrigger render={<Button variant="outline" />}>
         {value ? config.formatValue(value) : (config.label ?? config.placeholder)}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
+      <PopoverContent className="w-auto bg-background p-0">
         <Editor
           autoFocusProps={{
             autoFocus: true,

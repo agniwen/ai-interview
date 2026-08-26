@@ -26,6 +26,8 @@ describe("Toolbar", () => {
     expect(html).toContain('data-slot="data-grid-toolbar-search"');
     expect(html).toContain("--data-grid-filter-min-width:15rem");
     expect(html).not.toContain('style="min-width:15rem"');
+    expect(html).not.toContain("has-focus-visible:shadow-none");
+    expect(html).toContain("has-focus-visible:shadow-[");
   });
 
   it("keeps multi-select condition previews compact by default", () => {

@@ -319,7 +319,7 @@ export function ResumeLibraryCardList({
 
   return (
     <div
-      className="flex flex-col gap-4 [&_[data-slot=combobox-chips]]:!rounded-lg [&_[data-slot=input-control]]:!rounded-lg [&_[data-slot=input-group]]:!rounded-lg"
+      className="flex flex-col gap-4 [&_[data-slot=combobox-chips]]:!rounded-lg [&_[data-slot=input-control]:not([data-slot=filter-chip]_*)]:!rounded-lg [&_[data-slot=input-group]]:!rounded-lg"
       ref={listRootRef}
     >
       <Toolbar

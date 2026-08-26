@@ -1895,7 +1895,7 @@ export function FiltersAdvanced<V, O>({
         /* THE POPUP'S OWN NAME: it is a `role="dialog"`, and the panel's is
            one level in, on its `role="group"`. */
         aria-label={actions.labels.advancedFilter}
-        className={cn("w-[42rem] max-w-[95vw] p-0", className)}
+        className={cn("w-[42rem] max-w-[95vw] bg-background p-0", className)}
       >
         {/* `mode` defaults to "popover", which keeps the panel's padding. */}
         <FiltersAdvancedPanel<V, O> reorderable={reorderable} />

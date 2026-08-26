@@ -107,8 +107,8 @@ export function filterDraftReducer<V = unknown>(
 
     case "selectField": {
       if (!state) return state;
-      // Choosing a field COMMITS at once; the condition is picked on the chip,
-      // so the popover never holds a second and third step to walk.
+      // Choosing a field commits its default operator at once; the chip takes
+      // over value editing without another operator-selection step.
       return {
         ...state,
         path: action.path,

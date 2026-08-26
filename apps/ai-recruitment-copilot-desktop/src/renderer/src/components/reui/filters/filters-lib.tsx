@@ -25,7 +25,7 @@ import type {
  * `FILTER_MENU_LABEL_CLASS`.
  */
 export const FILTER_MENU_CLASS =
-  "w-max min-w-32 max-w-[min(24rem,calc(100vw-2rem))] [&_[data-slot=dropdown-menu-item]]:min-w-0";
+  "w-max min-w-32 max-w-[min(24rem,calc(100vw-2rem))] bg-background [&_[data-slot=dropdown-menu-item]]:min-w-0";
 
 /**
  * What a menu row's LABEL wears, and it has to be a real span: `text-overflow`
@@ -42,7 +42,7 @@ export const FILTER_MENU_LABEL_CLASS = "min-w-0 truncate";
  * Measured: 224px still clears the search input, the breadcrumb and a leaf
  * row's icon-plus-label.
  */
-export const FILTER_FIELD_PICKER_CLASS = "w-auto min-w-56 p-0";
+export const FILTER_FIELD_PICKER_CLASS = "w-auto min-w-56 bg-background p-0";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Paths                                   */

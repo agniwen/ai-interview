@@ -34,6 +34,7 @@ import {
   visibleFilterOperators,
 } from "@/components/reui/filters/filters-operators";
 import { findFilterNode, isFilterGroup } from "@/components/reui/filters/filters-query";
+import { FilterInlineText } from "@/components/reui/filters/filters-inline-text";
 import type {
   FilterEditorProps,
   FilterField,
@@ -482,7 +483,7 @@ export function FilterValuePopover<V, O>({
         disabled={actions.disabled}
         {...filterReadOnlyProps(actions)}
       />
-      <PopoverContent align="start" className={cn("w-auto p-0", className)}>
+      <PopoverContent align="start" className={cn("w-auto bg-background p-0", className)}>
         <FilterValueEditor<V, O>
           rule={rule}
           field={field}
@@ -608,7 +609,7 @@ export function FilterOperatorPopover<V, O>({
         finalFocus={() => !handoff.current}
         /* `w-auto` with a FLOOR: a catalog sizes to its longest label, and a
            boolean field's "is" and "is not" would read as a scrap of paper. */
-        className={cn("w-auto min-w-40 p-0", className)}
+        className={cn("w-auto min-w-40 bg-background p-0", className)}
       >
         {/* INSIDE the panel deliberately: only a child of the content is
             unmounted by the exit transition rather than by the close. */}
@@ -900,6 +901,16 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
   // The same test the value segment renders under, so the name matches the
   // chip: `valueText` alone appended a placeholder to valueless conditions.
   const hasValue = Boolean(rule.operator) && operatorTakesValue(operator);
+  const inlineText =
+    actions.variant === "basic" &&
+    (field.type ?? "text") === "text" &&
+    !field.editor &&
+    !field.options &&
+    !field.loadOptions &&
+    !field.renderValue &&
+    !field.valueText &&
+    !render.renderValue &&
+    getFilterArity(operator) === "one";
 
   // The value's spoken form in the chip's NAME: a name is not a prompt, so
   // "Description contains enter text..." becomes "no value".
@@ -959,7 +970,9 @@ function FilterChipImpl<V, O>({ rule, index }: FilterChipProps<V>) {
 
       {/* No condition, no value: `getFilterArity(undefined)` defaults to "one",
           so testing the operator alone renders a stray value segment. */}
-      {hasValue ? (
+      {hasValue && inlineText ? (
+        <FilterInlineText rule={rule} field={field} />
+      ) : hasValue ? (
         <FilterValuePopover
           rule={rule}
           field={field}

@@ -56,7 +56,6 @@ export function buildResumeLibraryFiltersConfig({
       label: "技能",
       match: "all" as const,
       options: skillSuggestions.map((item) => ({
-        description: `${item.count} 位候选人`,
         label: item.skill,
         value: item.skill,
       })),

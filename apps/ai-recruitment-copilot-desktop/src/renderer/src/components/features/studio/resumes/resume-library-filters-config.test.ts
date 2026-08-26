@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { buildResumeLibraryFiltersConfig } from "./resume-library-filters-config";
 
 describe("recruitment atomic filters", () => {
+  it("shows skill names without candidate counts", () => {
+    const filters = buildResumeLibraryFiltersConfig({
+      jobDescriptions: [],
+      selectedStructuredJob: undefined,
+      skillSuggestions: [{ count: 272, skill: "Docker" }],
+      workspaceMembers: [],
+    });
+    const skills = filters.find((filter) => filter.key === "skills");
+    expect(skills && "options" in skills ? skills.options : []).toEqual([
+      { label: "Docker", value: "Docker" },
+    ]);
+  });
   it("keeps all visible pipeline stages in Filters after removing the stage tabs", () => {
     const filters = buildResumeLibraryFiltersConfig({
       jobDescriptions: [],

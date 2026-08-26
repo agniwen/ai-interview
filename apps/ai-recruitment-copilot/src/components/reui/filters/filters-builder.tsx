@@ -197,13 +197,13 @@ export interface FiltersBuilderProps {
 
 /**
  * The Add filter popover. ONE panel, the field step: picking a field commits
- * the rule and opens the operator menu on the new chip. `open` derives from the
+ * the rule with its default operator and focuses its value. `open` derives from the
  * draft and `openCreate` is gated, so read-only and disabled shut every route.
  */
 export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps) {
   const actions = useFilterActions<V, O>();
   const sizes = filterControlSizes(actions);
-  const { draft, ruleCount } = useFilterState<V>();
+  const { draft } = useFilterState<V>();
   const open = draft !== null && draft.ruleId === null;
   // The HANDOFF close, the one that must not FADE: the panel is a 224px card
   // dissolving over the very menu the user is now meant to read.
@@ -213,15 +213,6 @@ export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps
   const [instantExit, setInstantExit] = React.useState(false);
   if (committing && !instantExit) setInstantExit(true);
   else if (open && !committing && instantExit) setInstantExit(false);
-  // Icon-only once chips sit beside it. Both states come off ONE size ladder,
-  // so they share height and radius in every style at every bar size. The
-  // hardcoded `icon`/`default` pair this replaced IS the `default` rung, so it
-  // drifted the moment the bar was `sm`.
-  const compact = ruleCount > 0;
-
-  // Base UI's own microtask-then-rAF ordering hands focus to the new chip, NOT
-  // anything this file arranges. Suppressing the close restore with
-  // `finalFocus` only removes the fallback that keeps focus off the BODY.
 
   return (
     <Popover
@@ -241,16 +232,12 @@ export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps
           ) : (
             <Button
               variant="outline"
-              size={compact ? sizes.icon : sizes.button}
-              aria-label={compact ? actions.labels.addFilter : undefined}
-              /* THE RESET BOUNCE: the button's base class carries
-                 `transition-all`, so flipping the size class eased padding 0 to
-                 `px-6` in sera over 150ms. Naming a transition REPLACES it. */
+              size={sizes.button}
               className="transition-[color,background-color,border-color,box-shadow]"
             >
               {/* No filter-plus glyph in phosphor or remixicon. */}
-              <IconFilterPlus />
-              {compact ? null : actions.labels.addFilter}
+              <IconFilterPlus data-icon="inline-start" />
+              {actions.labels.addFilter}
             </Button>
           )
         }
@@ -259,6 +246,8 @@ export function FiltersBuilder<V, O>({ trigger, className }: FiltersBuilderProps
         the specific wins. */}
       <PopoverContent
         align="start"
+        // Keep the focus handed to the new value instead of restoring the trigger.
+        finalFocus={instantExit ? false : undefined}
         className={cn(
           FILTER_FIELD_PICKER_CLASS,
           /* See `instantExit`. Both PROPERTIES (an `exit` animation AND a

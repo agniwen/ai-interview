@@ -244,15 +244,15 @@ export function Toolbar({
         data-slot="data-grid-toolbar-actions"
       >
         {onResetFilters ? (
-          <Button disabled={!canClear} onClick={clearFilterValues} size="icon" variant="outline">
-            <IconFilterX />
-            <span className="sr-only">清空筛选</span>
+          <Button disabled={!canClear} onClick={clearFilterValues} size="default" variant="outline">
+            <IconFilterX data-icon="inline-start" />
+            <span>清空筛选</span>
           </Button>
         ) : null}
         {onRefresh ? (
-          <Button disabled={refreshing} onClick={onRefresh} size="icon" variant="outline">
-            <IconRefresh className={cn(refreshing && "animate-spin")} />
-            <span className="sr-only">刷新</span>
+          <Button disabled={refreshing} onClick={onRefresh} size="default" variant="outline">
+            <IconRefresh data-icon="inline-start" className={cn(refreshing && "animate-spin")} />
+            <span>刷新</span>
           </Button>
         ) : null}
         {toolbarRight ? <div>{toolbarRight}</div> : null}

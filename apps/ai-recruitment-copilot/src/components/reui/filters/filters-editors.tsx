@@ -1127,7 +1127,8 @@ function OptionEditor<V, O>(props: FilterEditorProps<V, O> & { multiple: boolean
             return;
           }
           onValueChange(values as V);
-          // Multi-select edits remain local until Apply; Escape/outside press discards them.
+          // Apply each toggle without closing the candidate list.
+          commit(values as V, { close: false });
         }}
         labels={labels}
         ariaLabel={field.label}
@@ -1144,16 +1145,6 @@ function OptionEditor<V, O>(props: FilterEditorProps<V, O> & { multiple: boolean
         state={options}
         autoFocusProps={autoFocusProps}
       />
-      {multiple ? (
-        <div className="border-t p-2">
-          <EditorFooter
-            host="amend"
-            labels={labels}
-            onCancel={cancel}
-            onCommit={() => commit(selected as V)}
-          />
-        </div>
-      ) : null}
     </EditorPanel>
   );
 }

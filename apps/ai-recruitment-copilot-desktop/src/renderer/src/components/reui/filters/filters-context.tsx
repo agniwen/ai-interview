@@ -292,9 +292,8 @@ export interface FilterFocus {
     | "remove"
     | "drag"
     | null;
-  /** Open that segment's popover, not merely focus it. Picking a field commits
-   *  the rule straight away and the chip appears with no condition yet, so the
-   *  operator menu has to open ON THE CHIP without a second click. */
+  /** Open that segment's editor, or focus its inline input. New fields use
+   *  their default operator and hand focus directly to the value. */
   autoOpen: boolean;
 }
 

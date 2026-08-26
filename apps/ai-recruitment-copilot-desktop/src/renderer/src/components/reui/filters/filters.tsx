@@ -753,16 +753,20 @@ export function Filters<V = unknown, O = unknown>({
       // Asked here too: this branch burns an id and points the focus store at
       // it, and a store naming a chip that never existed eats the tab stop.
       const id = nextId();
+      const field = getFilterField(latest.current.index, draft.path);
+      const operator = field
+        ? getFilterOperator(latest.current.resolveOperators(field), draft.operator)
+        : undefined;
+      const hasValue = Boolean(operator && operatorTakesValue(operator));
       addRule(
         createFilterRule<V>({
           id,
           path: draft.path,
-          // Empty on purpose: the chip renders "Select condition" and opens.
-          operator: "",
+          operator: draft.operator ?? "",
           value: undefined,
         }),
       );
-      focusStore.set({ id, segment: "operator", autoOpen: true });
+      focusStore.set({ id, segment: hasValue ? "value" : "operator", autoOpen: hasValue });
     }
     dispatchDraftRaw({ type: "close" });
   }, [draft, addRule, updateRule, nextId, focusStore, locked]);

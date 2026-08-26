@@ -70,8 +70,8 @@ function ToolbarSkeleton({
         className="flex min-w-0 flex-wrap items-center gap-2"
         data-slot="toolbar-actions-skeleton"
       >
-        <Skeleton className="size-9 rounded-lg" data-slot="clear-filter-skeleton" />
-        <Skeleton className="size-9 rounded-lg" data-slot="refresh-skeleton" />
+        <Skeleton className="h-9 w-28 rounded-lg" data-slot="clear-filter-skeleton" />
+        <Skeleton className="h-9 w-20 rounded-lg" data-slot="refresh-skeleton" />
         {primaryAction ? <Skeleton className="h-9 w-28 rounded-lg" /> : null}
       </div>
     </div>
