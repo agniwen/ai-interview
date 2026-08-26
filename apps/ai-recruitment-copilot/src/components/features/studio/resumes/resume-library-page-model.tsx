@@ -313,6 +313,7 @@ export function useResumeLibrarySearchState({
 
   const updateRouteSearchAndResetPage = useCallback(
     (updates: Record<string, string | undefined>) => {
+      setRowSelection({});
       updateRouteSearch({ ...updates, page: 1 });
     },
     [updateRouteSearch],
@@ -348,6 +349,7 @@ export function useResumeLibrarySearchState({
     RESUME_LIBRARY_FILTER_KEYS.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
 
   const onResetFilters = useCallback(() => {
+    setRowSelection({});
     updateRouteSearch({
       page: 1,
       search: undefined,

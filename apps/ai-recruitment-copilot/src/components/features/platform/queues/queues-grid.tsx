@@ -762,6 +762,7 @@ export function QueuesGrid({
             options: [...JOB_STATE_OPTIONS],
             placeholder: "任务状态",
             type: "select",
+            unfilteredValue: "all",
           },
           ...(isResumeParseQueue
             ? [
@@ -770,12 +771,14 @@ export function QueuesGrid({
                   options: [...UPLOAD_STATUS_FILTER_OPTIONS],
                   placeholder: "上传任务状态",
                   type: "select" as const,
+                  unfilteredValue: "all",
                 },
                 {
                   key: "parseStatus",
                   options: [...PARSE_STATUS_FILTER_OPTIONS],
                   placeholder: "解析状态",
                   type: "select" as const,
+                  unfilteredValue: "all",
                 },
               ]
             : []),

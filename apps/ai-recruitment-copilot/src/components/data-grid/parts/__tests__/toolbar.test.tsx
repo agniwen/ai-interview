@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Toolbar } from "../toolbar";
 
 describe("Toolbar", () => {
-  it("lays out filter items in two columns on mobile", () => {
+  it("keeps keyword search above the condition chips without a mobile minimum width", () => {
     const html = renderToStaticMarkup(
       <Toolbar
         filterValues={{ creator: "", search: "" }}
@@ -23,9 +23,7 @@ describe("Toolbar", () => {
       />,
     );
 
-    expect(html).toContain("grid w-full");
-    expect(html).toContain("grid-cols-2");
-    expect(html).toContain("sm:flex");
+    expect(html).toContain('data-slot="data-grid-toolbar-search"');
     expect(html).toContain("--data-grid-filter-min-width:15rem");
     expect(html).not.toContain('style="min-width:15rem"');
   });
@@ -49,10 +47,29 @@ describe("Toolbar", () => {
       />,
     );
 
-    expect(html).toContain('title="岗位 A"');
-    expect(html).toContain('title="岗位 B"');
-    expect(html).not.toContain('title="岗位 C"');
+    expect(html).toContain("岗位 A");
+    expect(html).toContain("岗位 B");
     expect(html).toContain("+1");
+    expect(html).toContain("属于任意");
+    expect(html).toContain("移除全部岗位筛选");
+  });
+
+  it("offers adding a condition instead of rendering empty dropdowns", () => {
+    const html = renderToStaticMarkup(
+      <Toolbar
+        filterValues={{ status: "" }}
+        filters={[
+          {
+            key: "status",
+            options: [{ label: "完成", value: "done" }],
+            placeholder: "状态",
+            type: "select",
+          },
+        ]}
+      />,
+    );
+    expect(html).toContain("添加筛选");
+    expect(html).not.toContain('data-slot="filter-chip"');
   });
 
   it("explains why a select filter is disabled", () => {

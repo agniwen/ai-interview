@@ -175,11 +175,15 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     [updateRouteSearch],
   );
   const setFilter = useCallback(
-    (key: keyof F & string, value: string) => updateRouteSearch({ [key]: value || undefined }),
+    (key: keyof F & string, value: string) => {
+      setRowSelection({});
+      updateRouteSearch({ [key]: value || undefined, page: 1 });
+    },
     [updateRouteSearch],
   );
   const updateRouteSearchAndResetPage = useCallback(
     (updates: Record<string, string | undefined>) => {
+      setRowSelection({});
       updateRouteSearch({ ...updates, page: 1 });
     },
     [updateRouteSearch],
@@ -307,6 +311,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     search.trim() !== "" || filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
 
   const onResetFilters = () => {
+    setRowSelection({});
     const updates = Object.fromEntries([
       ["page", 1],
       ["search", undefined],

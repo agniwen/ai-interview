@@ -44,7 +44,7 @@ import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-q
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-import { ResumePoolCreatedAtFilter } from "./resume-pool-created-at-filter";
+import { ResumePoolCreatedAtEditor } from "./resume-pool-created-at-filter";
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
 import { ResumePoolListContent, ResumePoolToolbarActions } from "./resume-pool-list";
 import {
@@ -58,6 +58,7 @@ import {
   getCandidateTitle,
   getCandidateTitleWithId,
   resumePoolCreatedAtBounds,
+  resumePoolCreatedAtRangeLabel,
   sessionUserId,
 } from "./resume-pool-page-model";
 import type { ResumePoolFilters } from "./resume-pool-page-model";
@@ -383,8 +384,8 @@ export function ResumePoolPage() {
         type: "search" as const,
       },
       {
-        clearable: false,
         key: "sourceType" as const,
+        label: "来源类型",
         options: [
           { label: "全部", value: "all" },
           { label: "内推", value: "referral" },
@@ -393,6 +394,7 @@ export function ResumePoolPage() {
         placeholder: "按类型筛选",
         searchPlaceholder: "搜索类型…",
         type: "select" as const,
+        unfilteredValue: "all",
       },
       {
         emptyMessage: uploadersQuery.isFetching ? "正在加载上传用户…" : "没有可选择的上传用户",
@@ -405,6 +407,7 @@ export function ResumePoolPage() {
       },
       {
         key: "importStatus" as const,
+        label: "招聘状态",
         options: [
           { label: "已进入招聘", value: "imported" },
           { label: "未进入招聘", value: "not_imported" },
@@ -413,17 +416,15 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
       {
+        editor: ResumePoolCreatedAtEditor,
+        formatValue: resumePoolCreatedAtRangeLabel,
         key: "createdAtRange" as const,
-        render: (
-          <ResumePoolCreatedAtFilter
-            onValueChange={(value) => grid.bind.onFilterChange("createdAtRange", value)}
-            value={grid.bind.filterValues.createdAtRange}
-          />
-        ),
+        label: "加入时间",
+        operator: { label: "在", value: "is" },
         type: "custom" as const,
       },
     ],
-    [grid.bind, uploaderFilterOptions, uploadersQuery.isFetching],
+    [uploaderFilterOptions, uploadersQuery.isFetching],
   );
   let loadMoreStatusText = "暂无可加载简历";
   if (hasMoreRecords) {

@@ -534,12 +534,14 @@ export function NotificationsGrid() {
             options: STATUS_OPTIONS,
             placeholder: "状态",
             type: "select",
+            unfilteredValue: "all",
           },
           {
             key: "providerId",
             options: PROVIDER_OPTIONS,
             placeholder: "机器人",
             type: "select",
+            unfilteredValue: "all",
           },
         ]}
         getRowId={(record) => record.id}

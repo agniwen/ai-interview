@@ -117,6 +117,24 @@ describe("useDataGridState", () => {
     expect(harness.router.state.location.href).not.toContain('"2"');
   });
 
+  it("commits a filter and page reset together and clears selected records", async () => {
+    const harness = await renderGridHook({ searchParams: "?page=3" });
+    act(() => harness.current.setRowSelection({ candidate: true }));
+    harness.queryFn.mockClear();
+
+    await act(async () => {
+      harness.current.setFilter("status", "done");
+      await Promise.resolve();
+    });
+
+    expect(harness.current.page).toBe(1);
+    expect(harness.current.rowSelection).toEqual({});
+    expect(harness.router.state.location.search).toMatchObject({ page: 1, status: "done" });
+    expect(harness.queryFn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ filters: { status: "done" }, page: 1 }),
+    );
+  });
+
   it("exposes a failed list query and a retry callback", async () => {
     const failure = new Error("加载部门列表失败");
     const queryFn = vi.fn<

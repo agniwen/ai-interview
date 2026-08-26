@@ -54,20 +54,16 @@ function ToolbarSkeleton({
   primaryAction?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
-        {Array.from({ length: filterCount }).map((_, index) => (
-          <Skeleton
-            className={index === 0 ? "h-9 min-w-0 sm:w-60" : "h-9 min-w-0 sm:w-44"}
-            key={index}
-          />
-        ))}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Skeleton className="h-9 w-full sm:w-60" />
+        <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+          <Skeleton className="size-9" />
+          <Skeleton className="size-9" />
+          {primaryAction ? <Skeleton className="h-9 w-28" /> : null}
+        </div>
       </div>
-      <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-        <Skeleton className="size-9" />
-        <Skeleton className="size-9" />
-        {primaryAction ? <Skeleton className="h-9 w-28" /> : null}
-      </div>
+      {filterCount > 1 ? <Skeleton className="h-8 w-24" /> : null}
     </div>
   );
 }

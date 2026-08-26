@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { DatePicker } from "@/components/date-time-picker";
 import { customColumn, DataGrid, dateColumn, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -208,7 +207,7 @@ export function MailIngestLogPage() {
     const nextTo = key === "receivedTo" ? value : grid.filters.receivedTo;
     try {
       serializeDateRange(nextFrom || null, nextTo || null);
-      grid.setFilter(key, value);
+      grid.bind.onFilterChange(key, value);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "日期不合法");
     }
@@ -353,24 +352,35 @@ export function MailIngestLogPage() {
         }
         filters={[
           { key: "search", minWidth: "20rem", placeholder: "搜索主题或发件人", type: "search" },
-          { key: "status", options: STATUS_OPTIONS, placeholder: "全部状态", type: "select" },
+          {
+            key: "status",
+            label: "状态",
+            options: STATUS_OPTIONS,
+            placeholder: "全部状态",
+            type: "select",
+          },
+          {
+            boundary: "from",
+            key: "receivedFrom",
+            label: "收到时间（起始）",
+            max: grid.filters.receivedTo,
+            type: "date",
+          },
+          {
+            boundary: "to",
+            key: "receivedTo",
+            label: "收到时间（截止）",
+            min: grid.filters.receivedFrom,
+            type: "date",
+          },
         ]}
-        filtersExtra={
-          <div className="grid grid-cols-2 gap-3">
-            <DatePicker
-              aria-label="起始日期"
-              onValueChange={(value) => applyDate("receivedFrom", value)}
-              placeholder="起始日期"
-              value={grid.filters.receivedFrom}
-            />
-            <DatePicker
-              aria-label="结束日期"
-              onValueChange={(value) => applyDate("receivedTo", value)}
-              placeholder="结束日期"
-              value={grid.filters.receivedTo}
-            />
-          </div>
-        }
+        onFilterChange={(key, value) => {
+          if (key === "receivedFrom" || key === "receivedTo") {
+            applyDate(key, value);
+          } else {
+            grid.bind.onFilterChange(key, value);
+          }
+        }}
         getRowId={(record) => record.id}
       />
     </div>

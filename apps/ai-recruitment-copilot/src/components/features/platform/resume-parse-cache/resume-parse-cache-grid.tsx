@@ -177,6 +177,7 @@ const FILTERS = [
     ],
     placeholder: "缓存内容",
     type: "select" as const,
+    unfilteredValue: "all",
   },
   {
     key: "parsedStatus",
@@ -188,6 +189,7 @@ const FILTERS = [
     ],
     placeholder: "解析状态",
     type: "select" as const,
+    unfilteredValue: "all",
   },
   {
     key: "textSource",
@@ -197,6 +199,7 @@ const FILTERS = [
     ],
     placeholder: "文本来源",
     type: "select" as const,
+    unfilteredValue: "all",
   },
 ];
 

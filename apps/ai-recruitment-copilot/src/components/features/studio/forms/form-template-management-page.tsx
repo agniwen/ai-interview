@@ -1,4 +1,4 @@
-import { IconChevronDown, IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
@@ -15,17 +15,9 @@ import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-c
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   actionsColumn,
   customColumn,
@@ -55,18 +47,6 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";
 }
-
-function archivedFilterLabelOf(value: "active" | "archived" | "all"): string {
-  if (value === "archived") {
-    return "已归档";
-  }
-  if (value === "all") {
-    return "全部";
-  }
-  return "未归档";
-}
-
-const archivedFilterSchema = z.enum(["active", "archived", "all"]);
 
 interface TemplateListQuery {
   archived?: string;
@@ -150,9 +130,6 @@ export function CandidateFormTemplateManagementPage({
     queryFn: fetchTemplates,
     queryKeyBase: ["candidate-form-templates", slug],
   });
-  const parsedArchivedFilter = archivedFilterSchema.safeParse(grid.filters.archivedFilter);
-  const archivedFilter = parsedArchivedFilter.success ? parsedArchivedFilter.data : "active";
-  const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
 
   const routeSearch = coerceSearchParams(useSearch({ from: "/w/$slug/studio/forms" }));
   const navigate = useNavigate({ from: "/w/$slug/studio/forms" });
@@ -435,6 +412,16 @@ export function CandidateFormTemplateManagementPage({
   const filtersConfig = useMemo(
     () => [
       {
+        key: "archivedFilter",
+        label: "归档状态",
+        options: [
+          { label: "未归档", value: "active" },
+          { label: "已归档", value: "archived" },
+        ],
+        type: "select" as const,
+        unfilteredValue: "all",
+      },
+      {
         key: "search" as const,
         minWidth: "15rem",
         placeholder: "搜索表单标题或说明",
@@ -539,28 +526,6 @@ export function CandidateFormTemplateManagementPage({
             </Empty>
           }
           filters={filtersConfig}
-          filtersExtra={
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button type="button" variant="outline">
-                    {archivedFilterLabel}
-                    <IconChevronDown className="size-4" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  onValueChange={(v) => grid.setFilter("archivedFilter", v)}
-                  value={archivedFilter}
-                >
-                  <DropdownMenuRadioItem value="active">未归档</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="archived">已归档</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="all">全部</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
           getRowId={(r) => r.id}
           toolbarRight={
             canCreateCandidateForm ? (

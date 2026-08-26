@@ -32,6 +32,7 @@ export function buildResumeLibraryFiltersConfig({
     {
       emptyMessage: "没有匹配的创建人",
       key: "creatorIds" as const,
+      label: "创建人",
       options: workspaceMembers.map((member) => ({
         avatarUrl: member.image,
         label: member.name,
@@ -46,6 +47,8 @@ export function buildResumeLibraryFiltersConfig({
     {
       emptyMessage: "没有匹配的技能",
       key: "skills" as const,
+      label: "技能",
+      match: "all" as const,
       options: skillSuggestions.map((item) => ({
         description: `${item.count} 位候选人`,
         label: item.skill,
@@ -59,6 +62,7 @@ export function buildResumeLibraryFiltersConfig({
     {
       emptyMessage: "没有匹配的岗位",
       key: "jdIds" as const,
+      label: "关联岗位",
       options: jobDescriptions.map((jd) => ({
         label: jd.departmentName ? `${jd.departmentName} / ${jd.name}` : jd.name,
         value: jd.id,
@@ -71,6 +75,7 @@ export function buildResumeLibraryFiltersConfig({
     {
       emptyMessage: "没有匹配的评价等级",
       key: "recommendationLevels" as const,
+      label: "AI 评价",
       options: [
         { label: "非常推荐", value: "highly_recommended" },
         { label: "推荐", value: "recommended" },
