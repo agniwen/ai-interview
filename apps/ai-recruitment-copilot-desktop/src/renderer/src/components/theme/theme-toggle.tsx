@@ -1,4 +1,4 @@
-import { useTheme } from "next-themes";
+import { useThemeTransition } from "./use-theme-transition";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import type { AppIconName } from "@/components/ui/icon";
@@ -36,7 +36,7 @@ const noDragStyle: ElectronNoDragStyle = {
  * not only the resolved color scheme.
  */
 export function ThemeToggle({ className }: { className?: string }): React.JSX.Element {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useThemeTransition();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -60,12 +60,7 @@ export function ThemeToggle({ className }: { className?: string }): React.JSX.El
         <Icon className="size-4" icon={current.icon} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40" sideOffset={6}>
-        <DropdownMenuRadioGroup
-          onValueChange={(value) => {
-            setTheme(value);
-          }}
-          value={activeTheme}
-        >
+        <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
           {THEME_OPTIONS.map((option) => (
             <DropdownMenuRadioItem key={option.value} value={option.value}>
               <Icon className="size-4" icon={option.icon} />

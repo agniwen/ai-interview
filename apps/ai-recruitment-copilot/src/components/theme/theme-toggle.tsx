@@ -1,6 +1,6 @@
 "use client";
 import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
-import { useTheme } from "next-themes";
+import { useThemeTransition } from "./use-theme-transition";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,7 +25,7 @@ export function ThemeToggle({
   className?: string;
   size?: "icon-xs" | "icon-sm" | "icon" | "icon-lg";
 }) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useThemeTransition();
   const isHydrated = useHydrated();
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
 
