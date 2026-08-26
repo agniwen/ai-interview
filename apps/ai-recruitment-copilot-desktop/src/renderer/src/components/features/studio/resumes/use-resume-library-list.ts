@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
 import type { PaginatedResumeLibraryResult } from "@arc/shared/studio-resumes";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
@@ -104,8 +105,11 @@ export function useResumeLibraryList() {
         ? { knownTotal: allPages[0]?.total, page: lastPage.page + 1 }
         : undefined,
     initialPageParam: initialResumeLibraryPage,
-    queryFn: ({ pageParam }) =>
-      fetchStudioResumes(requireWorkspaceSlug(slug), {
+    queryFn: ({ pageParam }) => {
+      const bounds = dateRangeFilterBounds(effectiveFilters.createdAtRange);
+      return fetchStudioResumes(requireWorkspaceSlug(slug), {
+        createdFrom: bounds?.from,
+        createdTo: bounds?.to,
         creatorIds: parseCsvValues(effectiveFilters.creatorIds),
         jobDescriptionIds: parseCsvValues(effectiveFilters.jdIds),
         knownTotal: pageParam.knownTotal,
@@ -123,7 +127,8 @@ export function useResumeLibraryList() {
           ? Number(effectiveFilters.structuredMinScore)
           : undefined,
         textFilters: effectiveFilters.textFilters || undefined,
-      }),
+      });
+    },
     queryKey: [
       "studio-resumes",
       slug,
@@ -174,14 +179,14 @@ export function useResumeLibraryList() {
 
   const onResetFilters = useCallback(() => {
     setSearch("");
-    setFilters(EMPTY_RESUME_LIBRARY_FILTERS);
+    setFilters((current) => ({ ...EMPTY_RESUME_LIBRARY_FILTERS, stage: current.stage }));
   }, []);
 
   return {
     canResetFilters,
     fetchNextPage: listQuery.fetchNextPage,
     filters: effectiveFilters,
-    hasActiveFilters: canResetFilters,
+    hasActiveFilters: canResetFilters || Boolean(filters.stage),
     hasNextPage: Boolean(listQuery.hasNextPage),
     isFetchingNextPage: listQuery.isFetchingNextPage,
     isInitialLoading: workspaceQuery.isPending || (Boolean(slug) && listQuery.isPending),

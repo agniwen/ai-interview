@@ -1,5 +1,6 @@
 import type { ToolbarFilterConfig } from "@/components/data-grid";
-import { PIPELINE_STAGE_TABS } from "./resume-library-filter-model";
+import { DateRangeFilterEditor } from "@/components/data-grid/parts/date-range-filter";
+import { dateRangeFilterLabel } from "@arc/shared/date-range-filter";
 import type {
   RecruitingJobDescriptionOption,
   SkillSuggestion,
@@ -20,12 +21,12 @@ export function buildResumeLibraryFiltersConfig({
   return [
     { key: "textFilters", resource: "resumes" as const, type: "text-filters" as const },
     {
-      key: "stage",
-      label: "招聘阶段",
-      options: PIPELINE_STAGE_TABS.filter((stage) => stage.value !== "all").map(
-        ({ label, value }) => ({ label, value }),
-      ),
-      type: "select",
+      editor: DateRangeFilterEditor,
+      formatValue: (value) => dateRangeFilterLabel(value, "创建时间"),
+      key: "createdAtRange",
+      label: "创建时间",
+      operator: { label: "在", value: "is" },
+      type: "custom",
     },
     {
       emptyMessage: "没有匹配的创建人",

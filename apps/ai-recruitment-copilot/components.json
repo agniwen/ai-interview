@@ -25,6 +25,7 @@
     "@extend": "https://ui.extend.ai/r/{name}.json",
     "@ogimagecn": "https://ogimagecn.vercel.app/r/{name}.json",
     "@coss": "https://coss.com/ui/r/{name}.json",
-    "@reui": "https://reui.io/r/base-nova/{name}.json"
+    "@reui": "https://reui.io/r/base-nova/{name}.json",
+    "@ncdai": "https://chanhdai.com/r/{name}.json"
   }
 }

@@ -1,6 +1,6 @@
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
-import { and, arrayContains, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -78,6 +78,8 @@ const resumeSkillsSchema = z.array(z.string());
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
 // buildWhere drops blanks before using them so we don't need to error here.
 const filtersSchema = z.object({
+  createdAtBefore: z.date().optional(),
+  createdAtFrom: z.date().optional(),
   creatorIds: z.array(z.string()).max(50).optional().nullable(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   outcomes: z.array(z.string()).max(10).optional().nullable(),
@@ -172,6 +174,9 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
   }
   const conditions = [
     eq(studioInterview.organizationId, organizationId),
+    filters?.createdAtFrom ? gte(studioInterview.createdAt, filters.createdAtFrom) : null,
+    // Exclusive next-day midnight includes the entire end date, including fractional seconds.
+    filters?.createdAtBefore ? lt(studioInterview.createdAt, filters.createdAtBefore) : null,
     buildSearchCondition(filters?.search),
     buildResumeAtomicSearch(studioInterview, filters?.textFilters),
     buildSkillsCondition(filters?.skills),
@@ -599,6 +604,8 @@ function toRecord(
 export async function queryPaginatedResumeRecords(
   organizationId: string,
   filters?: {
+    createdAtBefore?: Date;
+    createdAtFrom?: Date;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;
@@ -701,6 +708,8 @@ export async function queryPaginatedResumeRecords(
 export function listResumeRecords(
   organizationId: string,
   filters?: {
+    createdAtBefore?: Date;
+    createdAtFrom?: Date;
     search?: string | null;
     textFilters?: string;
     creatorIds?: string[] | null;

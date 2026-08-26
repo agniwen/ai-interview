@@ -8,6 +8,9 @@ import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
 export interface ResumeListParams {
+  /** 北京时间自然日，包含起止日期，格式 YYYY-MM-DD。 */
+  createdFrom?: string;
+  createdTo?: string;
   /** 创建人用户 id 列表（OR）。 */
   creatorIds?: string[];
   /** 关联岗位 id 列表（OR）。 */
@@ -46,6 +49,15 @@ export interface SkillSuggestion {
   skill: string;
 }
 
+function appendCreatedAtQuery(query: URLSearchParams, params: ResumeListParams) {
+  if (params.createdFrom) {
+    query.set("createdFrom", params.createdFrom);
+  }
+  if (params.createdTo) {
+    query.set("createdTo", params.createdTo);
+  }
+}
+
 /**
  * 招聘台简历列表（分页 / 关键词 / 排序 / 筛选）。
  * Maps to GET /api/w/:slug/studio/resumes
@@ -55,6 +67,7 @@ export function fetchStudioResumes(
   params: ResumeListParams = {},
 ): Promise<PaginatedResumeLibraryResult> {
   const query = new URLSearchParams();
+  appendCreatedAtQuery(query, params);
   if (params.page !== undefined) {
     query.set("page", String(params.page));
   }

@@ -33,6 +33,9 @@ import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
 
 export interface ResumeListParams {
+  /** 北京时间自然日，包含起止日期，格式 YYYY-MM-DD。 */
+  createdFrom?: string;
+  createdTo?: string;
   /** 已知的列表总数；后续分页用于跳过重复 COUNT。 */
   knownTotal?: number;
   page?: number;
@@ -57,6 +60,8 @@ export interface ResumeListParams {
 }
 
 interface ResumeListQuery {
+  createdFrom?: string;
+  createdTo?: string;
   creatorIds?: string;
   jdIds?: string;
   knownTotal?: string;
@@ -75,7 +80,10 @@ interface ResumeListQuery {
 }
 
 function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
-  const query: ResumeListQuery = {};
+  const query: ResumeListQuery = {
+    createdFrom: params.createdFrom,
+    createdTo: params.createdTo,
+  };
   if (params.knownTotal !== undefined) {
     query.knownTotal = String(params.knownTotal);
   }

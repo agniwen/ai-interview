@@ -1,4 +1,8 @@
-import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import {
+  nextShanghaiCalendarDayStart,
+  shanghaiCalendarDayStart,
+} from "@arc/shared/date-range-filter";
+import { resumeLibraryListQuerySchema } from "./list-schema";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
@@ -84,27 +88,7 @@ export const resumeLibraryReadRouter = factory
   .get(
     "/",
     requirePermission("resumeLibrary", "read"),
-    zValidator(
-      "query",
-      z.object({
-        creatorIds: z.string().optional(),
-        jdIds: z.string().optional(),
-        knownTotal: z.coerce.number().int().min(0).max(10_000_000).optional(),
-        outcomes: z.string().optional(),
-        page: z.string().optional(),
-        pageSize: z.string().optional(),
-        pipelineStages: z.string().optional(),
-        recommendationLevels: z.string().optional(),
-        search: z.string().optional(),
-        skills: z.string().optional(),
-        sortBy: z.string().optional(),
-        sortOrder: z.string().optional(),
-        structuredMaxScore: z.coerce.number().int().min(0).max(100).optional(),
-        structuredMinScore: z.coerce.number().int().min(0).max(100).optional(),
-        textFilters: listTextFiltersSchema("resumes"),
-      }),
-      jsonValidatorError("查询参数无效。"),
-    ),
+    zValidator("query", resumeLibraryListQuerySchema, jsonValidatorError("查询参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
@@ -120,6 +104,8 @@ export const resumeLibraryReadRouter = factory
         const result = await queryPaginatedResumeRecords(
           activeOrg.id,
           {
+            createdAtBefore: q.createdTo ? nextShanghaiCalendarDayStart(q.createdTo) : undefined,
+            createdAtFrom: q.createdFrom ? shanghaiCalendarDayStart(q.createdFrom) : undefined,
             creatorIds: parseCsvParam(q.creatorIds),
             jobDescriptionIds: parseCsvParam(q.jdIds),
             outcomes: parseCsvParam(q.outcomes),

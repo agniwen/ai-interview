@@ -7,17 +7,9 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { WheelPicker, WheelPickerWrapper } from "@/components/wheel-picker";
 import {
   formatDatePickerValue,
   formatDateTimePickerValue,
@@ -28,6 +20,7 @@ import { cn } from "@arc/shared/utils";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+const HOUR_OPTIONS = HOURS.map((value) => ({ label: value, value }));
 
 interface PickerProps {
   "aria-label"?: string;
@@ -167,7 +160,7 @@ function getMinuteOptions(step: number, selectedMinute: string | undefined): str
 
 export function DateTimePicker({
   className,
-  defaultTime = "00:00",
+  defaultTime,
   disabled,
   minuteStep = 1,
   onValueChange,
@@ -180,14 +173,27 @@ export function DateTimePicker({
   const [draft, setDraft] = React.useState<Date | undefined>(selected);
   const hour = draft ? String(draft.getHours()).padStart(2, "0") : undefined;
   const minute = draft ? String(draft.getMinutes()).padStart(2, "0") : undefined;
-  const minuteOptions = getMinuteOptions(minuteStep, minute);
+  const minuteOptions = React.useMemo(
+    () => getMinuteOptions(minuteStep, minute).map((option) => ({ label: option, value: option })),
+    [minuteStep, minute],
+  );
   const displayValue = selected
     ? format(selected, "yyyy年M月d日 HH:mm", { locale: zhCN })
     : undefined;
 
+  function getDefaultDateTime() {
+    const now = new Date();
+    if (defaultTime) {
+      const [hours = 0, minutes = 0] = defaultTime.split(":").map(Number);
+      now.setHours(hours, minutes);
+    }
+    now.setSeconds(0, 0);
+    return now;
+  }
+
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
-      setDraft(parseDateTimePickerValue(value));
+      setDraft(parseDateTimePickerValue(value) ?? getDefaultDateTime());
     }
     setOpen(nextOpen);
   }
@@ -198,14 +204,9 @@ export function DateTimePicker({
       return;
     }
 
-    const [defaultHour = 0, defaultMinute = 0] = defaultTime.split(":").map(Number);
+    const time = draft ?? getDefaultDateTime();
     const nextValue = new Date(date);
-    nextValue.setHours(
-      draft?.getHours() ?? defaultHour,
-      draft?.getMinutes() ?? defaultMinute,
-      0,
-      0,
-    );
+    nextValue.setHours(time.getHours(), time.getMinutes(), 0, 0);
     setDraft(nextValue);
   }
 
@@ -217,9 +218,6 @@ export function DateTimePicker({
     nextValue.setHours(Number(nextHour), Number(nextMinute), 0, 0);
     setDraft(nextValue);
   }
-
-  const hourId = React.useId();
-  const minuteId = React.useId();
 
   return (
     <Popover onOpenChange={handleOpenChange} open={open}>
@@ -235,54 +233,47 @@ export function DateTimePicker({
           />
         }
       />
-      <PopoverContent align="start" className="w-auto overflow-hidden bg-background p-0">
-        <Calendar autoFocus locale={zhCN} mode="single" onSelect={updateDate} selected={draft} />
-        <Separator />
-        <div className="flex items-end gap-2 p-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={hourId}>小时</Label>
-            <Select
-              disabled={!draft}
-              onValueChange={(nextHour) => updateTime(nextHour ?? "00", minute ?? "00")}
-              value={hour}
+      <PopoverContent
+        align="start"
+        className="w-auto max-w-[calc(100vw-2rem)] overflow-hidden bg-background p-0"
+      >
+        <div className="flex flex-col min-[480px]:flex-row">
+          <Calendar
+            autoFocus
+            defaultMonth={draft}
+            locale={zhCN}
+            mode="single"
+            onSelect={updateDate}
+            selected={draft}
+          />
+          <div className="flex flex-col justify-center gap-2 border-t p-3 min-[480px]:w-44 min-[480px]:border-t-0 min-[480px]:border-l">
+            <div
+              aria-hidden="true"
+              className="grid grid-cols-2 gap-2 text-center text-xs text-muted-foreground"
             >
-              <SelectTrigger aria-label="小时" className="w-24" id={hourId}>
-                <SelectValue placeholder="时" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {HOURS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-          <span aria-hidden="true" className="pb-2 text-muted-foreground">
-            :
-          </span>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={minuteId}>分钟</Label>
-            <Select
-              disabled={!draft}
-              onValueChange={(nextMinute) => updateTime(hour ?? "00", nextMinute ?? "00")}
-              value={minute}
-            >
-              <SelectTrigger aria-label="分钟" className="w-24" id={minuteId}>
-                <SelectValue placeholder="分" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {minuteOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+              <span>时</span>
+              <span>分</span>
+            </div>
+            <div className={cn(!draft && "opacity-40")} inert={!draft}>
+              <WheelPickerWrapper className="gap-2">
+                <WheelPicker
+                  aria-label="小时"
+                  infinite
+                  onValueChange={(nextHour) => updateTime(nextHour, minute ?? "00")}
+                  options={HOUR_OPTIONS}
+                  value={hour ?? "00"}
+                  visibleCount={16}
+                />
+                <WheelPicker
+                  aria-label="分钟"
+                  infinite
+                  onValueChange={(nextMinute) => updateTime(hour ?? "00", nextMinute)}
+                  options={minuteOptions}
+                  value={minute ?? "00"}
+                  visibleCount={16}
+                />
+              </WheelPickerWrapper>
+            </div>
           </div>
         </div>
         <Separator />

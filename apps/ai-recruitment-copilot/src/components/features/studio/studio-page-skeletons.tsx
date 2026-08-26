@@ -38,7 +38,7 @@ function TabsSkeleton({ count }: { count: 2 | 6 }) {
     <div className="grid w-full grid-cols-2 gap-1 rounded-lg bg-muted p-0.5 sm:flex sm:w-fit sm:flex-wrap">
       {Array.from({ length: count }).map((_, index) => (
         <Skeleton
-          className={count === 6 ? "h-12 w-full sm:w-32" : "h-9 w-full sm:w-36"}
+          className={count === 6 ? "h-10 w-full sm:w-28" : "h-9 w-full sm:w-36"}
           key={index}
         />
       ))}
@@ -178,6 +178,7 @@ export function RecruitingPageSkeleton() {
     <PageShell label="招聘台">
       <HeaderSkeleton />
       <ChartGridSkeleton />
+      <TabsSkeleton count={6} />
       <ToolbarSkeleton filterCount={4} />
       <RecruitingListSkeleton />
     </PageShell>

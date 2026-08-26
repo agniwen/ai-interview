@@ -29,6 +29,7 @@ export const ResumeDocumentPreviewDialog = lazy(async () => {
 });
 
 export interface ResumeFilters extends Record<string, string> {
+  createdAtRange: string;
   creatorIds: string;
   jdIds: string;
   skills: string;
@@ -43,6 +44,7 @@ export interface ResumeFilters extends Record<string, string> {
 // jdIds = candidate's linked JD is one of the selection (OR — a resume can
 //          link to only one JD, so AND would always be empty for >1).
 export const EMPTY_FILTERS: ResumeFilters = {
+  createdAtRange: "",
   creatorIds: "",
   jdIds: "",
   recommendationLevels: "",
@@ -55,7 +57,9 @@ export const EMPTY_FILTERS: ResumeFilters = {
 export const RESUME_LIBRARY_FILTER_KEYS =
   // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
   Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
-const resumeLibraryFilterKeySet = new Set<string>(RESUME_LIBRARY_FILTER_KEYS);
+// Stage is URL/query state controlled by tabs, not a resettable toolbar condition.
+const resumeLibraryToolbarFilterKeys = RESUME_LIBRARY_FILTER_KEYS.filter((key) => key !== "stage");
+const resumeLibraryFilterKeySet = new Set<string>(resumeLibraryToolbarFilterKeys);
 
 function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & string {
   return resumeLibraryFilterKeySet.has(key);
@@ -344,13 +348,16 @@ export function useResumeLibrarySearchState({
   );
 
   const filterValues = useMemo(
-    () => ({ ...query.filters, search: query.search }),
+    () => ({
+      ...Object.fromEntries(resumeLibraryToolbarFilterKeys.map((key) => [key, query.filters[key]])),
+      search: query.search,
+    }),
     [query.filters, query.search],
   );
 
   const canResetFilters =
     query.search.trim() !== "" ||
-    RESUME_LIBRARY_FILTER_KEYS.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
+    resumeLibraryToolbarFilterKeys.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
 
   const onResetFilters = useCallback(() => {
     setRowSelection({});
@@ -358,7 +365,7 @@ export function useResumeLibrarySearchState({
       page: 1,
       search: undefined,
       ...Object.fromEntries(
-        RESUME_LIBRARY_FILTER_KEYS.map((key) => [key, EMPTY_FILTERS[key] || undefined]),
+        resumeLibraryToolbarFilterKeys.map((key) => [key, EMPTY_FILTERS[key] || undefined]),
       ),
     });
   }, [updateRouteSearch]);

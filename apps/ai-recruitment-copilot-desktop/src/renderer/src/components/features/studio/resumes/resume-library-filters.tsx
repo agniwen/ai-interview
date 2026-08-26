@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Toolbar } from "@/components/data-grid";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   RecruitingJobDescriptionOption,
   SkillSuggestion,
@@ -8,6 +9,7 @@ import type {
 import { buildResumeLibraryFiltersConfig } from "./resume-library-filters-config";
 import {
   EMPTY_RESUME_LIBRARY_FILTERS,
+  PIPELINE_STAGE_TABS,
   RESUME_LIBRARY_FILTER_KEYS,
 } from "./resume-library-filter-model";
 import type { ResumeLibraryFilters } from "./resume-library-filter-model";
@@ -64,6 +66,18 @@ export function ResumeLibraryFiltersBar({
 
   return (
     <div className="flex flex-col gap-3">
+      <Tabs
+        onValueChange={(value) => onFilterChange("stage", value === "all" ? "" : value)}
+        value={filters.stage || "all"}
+      >
+        <TabsList aria-label="招聘阶段">
+          {PIPELINE_STAGE_TABS.map((stage) => (
+            <TabsTrigger key={stage.value} value={stage.value}>
+              {stage.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       <Toolbar
         filterStorageKey="studio-resumes"
         canResetFilters={canResetFilters}

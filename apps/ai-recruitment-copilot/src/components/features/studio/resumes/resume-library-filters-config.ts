@@ -1,6 +1,6 @@
-import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import { VISIBLE_PIPELINE_STAGES } from "./resume-library-page-model";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
+import { DateRangeFilterEditor } from "@/components/data-grid/parts/date-range-filter";
+import { dateRangeFilterLabel } from "@arc/shared/date-range-filter";
 import type { WorkspaceMember } from "./resume-library-page-model";
 
 interface JobDescriptionOption {
@@ -27,13 +27,12 @@ export function buildResumeLibraryFiltersConfig({
   return [
     { key: "textFilters" as const, resource: "resumes" as const, type: "text-filters" as const },
     {
-      key: "stage",
-      label: "招聘阶段",
-      options: VISIBLE_PIPELINE_STAGES.map((stage) => ({
-        label: pipelineStageMeta[stage].label,
-        value: stage,
-      })),
-      type: "select" as const,
+      editor: DateRangeFilterEditor,
+      formatValue: (value) => dateRangeFilterLabel(value, "创建时间"),
+      key: "createdAtRange",
+      label: "创建时间",
+      operator: { label: "在", value: "is" },
+      type: "custom",
     },
     {
       emptyMessage: "没有匹配的创建人",

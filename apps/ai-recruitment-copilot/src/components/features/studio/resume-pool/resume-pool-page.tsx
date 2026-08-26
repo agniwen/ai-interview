@@ -45,7 +45,7 @@ import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-q
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-import { ResumePoolCreatedAtEditor } from "./resume-pool-created-at-filter";
+import { DateRangeFilterEditor } from "@/components/data-grid/parts/date-range-filter";
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
 import { ResumePoolListContent, ResumePoolToolbarActions } from "./resume-pool-list";
 import {
@@ -413,7 +413,7 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
       {
-        editor: ResumePoolCreatedAtEditor,
+        editor: DateRangeFilterEditor,
         formatValue: resumePoolCreatedAtRangeLabel,
         key: "createdAtRange" as const,
         label: "加入时间",

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
-import { resumePoolCreatedAtBounds } from "./resume-pool-page-model";
+import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
 
 const QUICK_RANGES = [
   { label: "今天", value: "today" },
@@ -27,7 +27,7 @@ function calendarKey(value: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function ResumePoolCreatedAtEditor({
+export function DateRangeFilterEditor({
   cancel,
   commit,
   value,
@@ -35,7 +35,7 @@ export function ResumePoolCreatedAtEditor({
 }: FilterEditorProps<ToolbarFilterValue>) {
   const current = Array.isArray(value) ? "" : (value ?? "");
   const [draft, setDraft] = useState<DateRange | undefined>(() => {
-    const bounds = resumePoolCreatedAtBounds(current);
+    const bounds = dateRangeFilterBounds(current);
     return bounds
       ? { from: dateFromCalendarKey(bounds.from), to: dateFromCalendarKey(bounds.to) }
       : undefined;
@@ -57,7 +57,7 @@ export function ResumePoolCreatedAtEditor({
             className="justify-start"
             key={option.value || "all"}
             onClick={() => {
-              const bounds = resumePoolCreatedAtBounds(option.value);
+              const bounds = dateRangeFilterBounds(option.value);
               if (bounds) {
                 commit(`custom:${bounds.from}:${bounds.to}`);
               }
@@ -72,13 +72,15 @@ export function ResumePoolCreatedAtEditor({
       </div>
       <Separator />
       <Calendar
+        defaultMonth={draft?.from}
         locale={zhCN}
         mode="range"
         numberOfMonths={1}
         onSelect={setDraft}
         selected={draft}
       />
-      <div className="flex justify-end gap-2 border-t p-2">
+      <Separator />
+      <div className="flex justify-end gap-2 p-2">
         <Button onClick={cancel} size="sm" type="button" variant="ghost">
           取消
         </Button>

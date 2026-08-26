@@ -42,6 +42,7 @@
         "@livekit/components-react": "^2.9.21",
         "@lukeed/uuid": "^2.0.1",
         "@modelcontextprotocol/sdk": "^1.29.0",
+        "@ncdai/react-wheel-picker": "^1.2.3",
         "@outpacelabs/avatars": "^0.4.1",
         "@paper-design/shaders-react": "0.0.77",
         "@posthog/react": "^1.10.0",
@@ -1021,6 +1022,8 @@
     "@napi-rs/canvas-win32-x64-msvc": ["@napi-rs/canvas-win32-x64-msvc@0.1.100", "", { "os": "win32", "cpu": "x64" }, "sha512-MyT1j3mHC2+Lu4pBi9mKyMJhtP6U7k7EldY7sj/uS5gJA65gTXt8MefJQXLJo5d/vZbuWmfxzkEUNc/urV3pHA=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.6", "", { "dependencies": { "@tybys/wasm-util": "0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg=="],
+
+    "@ncdai/react-wheel-picker": ["@ncdai/react-wheel-picker@1.2.3", "", { "peerDependencies": { "react": "^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc" } }, "sha512-TQjDfuDH9Ss7sgacSRPnakqWfkR8E1w6g7Pkt7bTYX35SfdHbGSzC8g/lXKFeMyNIikOWD9wC3uFPLy+Ui/R0g=="],
 
     "@noble/ciphers": ["@noble/ciphers@2.2.0", "", {}, "sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA=="],
 

@@ -50,6 +50,7 @@
     "@livekit/components-react": "^2.9.21",
     "@lukeed/uuid": "^2.0.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@ncdai/react-wheel-picker": "^1.2.3",
     "@outpacelabs/avatars": "^0.4.1",
     "@paper-design/shaders-react": "0.0.77",
     "@posthog/react": "^1.10.0",

@@ -56,7 +56,7 @@ describe("resume pool uploader filter", () => {
       to: "2026-08-08",
     });
     expect(resumePoolCreatedAtBounds("custom:2026-08-08:2026-08-01", now)).toBeNull();
-    expect(resumePoolCreatedAtRangeLabel("custom:2026-08-01:2026-08-08")).toBe("8月1日–8月8日");
+    expect(resumePoolCreatedAtRangeLabel("custom:2026-08-01:2026-08-08")).toBe("26年8月1日-8月8日");
   });
 
   it("labels a referral with its referrer instead of calling it an upload", () => {

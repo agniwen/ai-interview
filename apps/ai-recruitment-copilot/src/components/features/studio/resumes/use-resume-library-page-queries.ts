@@ -9,6 +9,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
+import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
@@ -79,8 +80,11 @@ export function useResumeLibraryPageQueries({
 
   const fetcher = useMemo(
     () =>
-      (params: FetchParams): Promise<PaginatedResumeLibraryResult> =>
-        fetchStudioResumes(slug, {
+      (params: FetchParams): Promise<PaginatedResumeLibraryResult> => {
+        const bounds = dateRangeFilterBounds(params.filters.createdAtRange);
+        return fetchStudioResumes(slug, {
+          createdFrom: bounds?.from,
+          createdTo: bounds?.to,
           creatorIds: parseCsvParam(params.filters.creatorIds),
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           knownTotal: params.knownTotal,
@@ -99,7 +103,8 @@ export function useResumeLibraryPageQueries({
             ? Number(params.filters.structuredMinScore)
             : undefined,
           textFilters: params.filters.textFilters || undefined,
-        }),
+        });
+      },
     [slug],
   );
 

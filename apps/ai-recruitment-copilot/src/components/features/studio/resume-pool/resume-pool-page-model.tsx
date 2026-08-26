@@ -10,6 +10,7 @@ import type {
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import { formatDateInAppTimeZone } from "@arc/shared/utils/time";
+import { dateRangeFilterLabel } from "@arc/shared/date-range-filter";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
@@ -28,6 +29,8 @@ import { rpcFetch } from "@/lib/client/api";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
+export { dateRangeFilterBounds as resumePoolCreatedAtBounds } from "@arc/shared/date-range-filter";
+
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 
 export type ResumePoolCreatedAtRange =
@@ -36,11 +39,6 @@ export type ResumePoolCreatedAtRange =
   | "yesterday"
   | "last_7_days"
   | `custom:${string}:${string}`;
-
-export interface ResumePoolCreatedAtBounds {
-  from: string;
-  to: string;
-}
 
 export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
   refetchOnMount: "always",
@@ -230,79 +228,8 @@ export function uploaderMetaLabel(record: ResumePoolListRecord) {
   return `${userName} ${trailingText}`;
 }
 
-function isCalendarDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-  if (!match) {
-    return false;
-  }
-  const [, year, month, day] = match;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  return (
-    date.getUTCFullYear() === Number(year) &&
-    date.getUTCMonth() === Number(month) - 1 &&
-    date.getUTCDate() === Number(day)
-  );
-}
-
-function addCalendarDays(value: string, days: number): string {
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + days));
-  return date.toISOString().slice(0, 10);
-}
-
-function dateKeyInAppTimeZone(value: string | Date) {
-  return formatDateInAppTimeZone(value, "YYYY-MM-DD");
-}
-
-function formatCreatedAtRangeDate(date: string) {
-  return `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;
-}
-
-function customCreatedAtRange(value: string): ResumePoolCreatedAtBounds | null {
-  const match = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/u.exec(value);
-  if (!match) {
-    return null;
-  }
-  const [, from, to] = match;
-  return isCalendarDate(from) && isCalendarDate(to) && from <= to ? { from, to } : null;
-}
-
-export function resumePoolCreatedAtBounds(
-  value: string,
-  now: Date = new Date(),
-): ResumePoolCreatedAtBounds | null {
-  if (value === "") {
-    return null;
-  }
-  const today = dateKeyInAppTimeZone(now);
-  if (value === "today") {
-    return { from: today, to: today };
-  }
-  if (value === "yesterday") {
-    const yesterday = addCalendarDays(today, -1);
-    return { from: yesterday, to: yesterday };
-  }
-  if (value === "last_7_days") {
-    return { from: addCalendarDays(today, -6), to: today };
-  }
-  return customCreatedAtRange(value);
-}
-
 export function resumePoolCreatedAtRangeLabel(value: string): string {
-  if (value === "today") {
-    return "今天";
-  }
-  if (value === "yesterday") {
-    return "昨天";
-  }
-  if (value === "last_7_days") {
-    return "最近 7 天";
-  }
-  const range = customCreatedAtRange(value);
-  if (!range) {
-    return "加入时间";
-  }
-  return `${formatCreatedAtRangeDate(range.from)}–${formatCreatedAtRangeDate(range.to)}`;
+  return dateRangeFilterLabel(value, "加入时间");
 }
 
 export function sourceActorLabel(record: ResumePoolListRecord) {

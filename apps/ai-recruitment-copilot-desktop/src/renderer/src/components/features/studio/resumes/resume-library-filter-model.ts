@@ -1,6 +1,6 @@
 /**
  * Desktop 招聘台筛选模型 — 与 web 端 `resume-library-page-model` / filters-config 对齐：
- * - stage 条件（隐藏 written_test）
+ * - 独立 stage tabs（隐藏 written_test，不参与清空筛选）
  * - 原子文本条件 / creatorIds / skills / jdIds
  * - 单选 structured 岗位时的 structuredMinScore / structuredMaxScore
  *
@@ -8,6 +8,7 @@
  */
 
 export interface ResumeLibraryFilters {
+  createdAtRange: string;
   textFilters: string;
   creatorIds: string;
   jdIds: string;
@@ -19,6 +20,7 @@ export interface ResumeLibraryFilters {
 }
 
 export const EMPTY_RESUME_LIBRARY_FILTERS: ResumeLibraryFilters = {
+  createdAtRange: "",
   creatorIds: "",
   jdIds: "",
   skills: "",
@@ -30,10 +32,10 @@ export const EMPTY_RESUME_LIBRARY_FILTERS: ResumeLibraryFilters = {
 
 export const RESUME_LIBRARY_FILTER_KEYS = [
   "textFilters",
+  "createdAtRange",
   "creatorIds",
   "jdIds",
   "skills",
-  "stage",
   "structuredMaxScore",
   "structuredMinScore",
 ] as const satisfies readonly (keyof ResumeLibraryFilters)[];

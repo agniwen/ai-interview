@@ -151,6 +151,7 @@ export function ResumeLibraryPage() {
   return (
     <>
       <ResumeLibraryPageShell
+        grid={grid}
         metrics={metricsQuery.data}
         metricsChartKey={metricsChartKey}
         metricsError={metricsQuery.error}
