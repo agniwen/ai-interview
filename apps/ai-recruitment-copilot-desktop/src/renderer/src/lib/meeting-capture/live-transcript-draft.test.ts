@@ -1,6 +1,11 @@
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
 // oxlint-disable promise/avoid-new, promise/prefer-await-to-callbacks -- Deferred provider callbacks are the behavior under test.
 import { describe, expect, it, vi } from "vitest";
-import { createLiveTranscriptDraft } from "./live-transcript-draft";
+import {
+  createLiveTranscriptDraft,
+  createDurableLiveTranscriptDraft,
+} from "./live-transcript-draft";
+import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 import type {
   LiveTranscriptConnection,
   LiveTranscriptEvent,
@@ -10,6 +15,211 @@ import type {
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
+  it("starts three stars immediately, sends one cross-track batch, atomically applies and cancels on pause", async () => {
+    const events = new Map<string, (event: LiveTranscriptEvent) => void>();
+    const results = new Map<string, (event: LiveCorrectionEvent) => void>();
+    const correct = vi.fn<(batch: LiveCorrectionBatch) => boolean>().mockReturnValue(true);
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "qwen-audio-3.0-asr-flash-streaming",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ authorization, onTranscript, onCorrection }) => {
+        events.set(authorization.track, onTranscript);
+        results.set(authorization.track, onCorrection);
+        return Promise.resolve({ close: vi.fn(), correct, sendPcm: () => true });
+      },
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+    // SAFETY: This test never accesses media track properties.
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    const emit = (track: string, event: LiveTranscriptEvent) => events.get(track)?.(event);
+    const mic = events.get("microphone");
+    const system = events.get("system");
+    mic?.({ itemId: "1", text: "第一块。第二句。", type: "completed" });
+    system?.({ itemId: "1", text: "第二块", type: "completed" });
+    mic?.({ itemId: "2", text: "第三块", type: "snapshot" });
+    expect(correct).not.toHaveBeenCalled();
+    mic?.({ itemId: "2", text: "第三块", type: "completed" });
+    expect(correct).toHaveBeenCalledOnce();
+    expect(draft.getSnapshot().turns.map((turn) => turn.correcting)).toEqual([true, true, true]);
+    const [[first]] = correct.mock.calls;
+    expect(first.blocks.map((block) => [block.track, block.itemId])).toEqual([
+      ["microphone", "1"],
+      ["system", "1"],
+      ["microphone", "2"],
+    ]);
+    expect(createDurableLiveTranscriptDraft(draft.getSnapshot())?.turns[0]).not.toHaveProperty(
+      "correcting",
+    );
+    const snapshots: string[][] = [];
+    draft.observe((snapshot) => snapshots.push(snapshot.turns.map((turn) => turn.text)));
+    results.get("microphone")?.({
+      batchId: first.batchId,
+      blocks: first.blocks.map((block, index) => ({ id: block.id, text: `校正${index}` })),
+      model: "asr+llm",
+      status: "completed",
+      type: "meeting.transcription.correction-batch",
+    });
+    expect(snapshots.at(-1)).toEqual(["校正0", "校正1", "校正2"]);
+    expect(snapshots).toHaveLength(2);
+    expect(
+      draft
+        .getSnapshot()
+        .turns.every((turn) => !turn.correcting && turn.correctionModel === "asr+llm"),
+    ).toBe(true);
+    mic?.({ itemId: "2", text: "第三块", type: "completed" });
+    expect(correct).toHaveBeenCalledOnce();
+    for (const i of [3, 4, 5]) {
+      mic?.({ itemId: String(i), text: `原文${i}`, type: "completed" });
+    }
+    expect(correct).toHaveBeenCalledTimes(2);
+    draft.pause();
+    expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
+    const [, [second]] = correct.mock.calls;
+    results.get("microphone")?.({
+      batchId: second.batchId,
+      blocks: second.blocks.map((block) => ({ id: block.id, text: "迟到" })),
+      model: "asr+llm",
+      status: "completed",
+      type: "meeting.transcription.correction-batch",
+    });
+    expect(draft.getSnapshot().turns.some((turn) => turn.text === "迟到")).toBe(false);
+    await draft.resume();
+    emit("microphone", { itemId: "1", text: "恢复一", type: "completed" });
+    emit("system", { itemId: "1", text: "恢复二", type: "completed" });
+    expect(correct).toHaveBeenCalledTimes(2);
+    emit("microphone", { itemId: "2", text: "恢复三", type: "completed" });
+    expect(correct).toHaveBeenCalledTimes(3);
+    const [[third]] = correct.mock.calls.slice(2);
+    results.get("microphone")?.({
+      batchId: third.batchId,
+      status: "finished",
+      type: "meeting.transcription.correction-batch",
+    });
+    expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
+    for (const i of [3, 4, 5]) {
+      emit("microphone", { itemId: String(i), text: `新版${i}`, type: "completed" });
+    }
+    const [[fourth]] = correct.mock.calls.slice(3);
+    emit("microphone", { itemId: "3", text: "用户新版本", type: "completed" });
+    results.get("microphone")?.({
+      batchId: fourth.batchId,
+      blocks: fourth.blocks.map((block) => ({ id: block.id, text: "不应回填" })),
+      model: "asr+llm",
+      status: "completed",
+      type: "meeting.transcription.correction-batch",
+    });
+    expect(
+      draft
+        .getSnapshot()
+        .turns.slice(-3)
+        .map((turn) => turn.text),
+    ).toEqual(["用户新版本", "新版4", "新版5"]);
+    expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
+    correct.mockReturnValue(false);
+    for (const i of [6, 7, 8]) {
+      emit("microphone", { itemId: String(i), text: `离线${i}`, type: "completed" });
+    }
+    expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
+    draft.stop();
+  });
+
+  it("replaces only an unchanged completed turn, persists its original, and ignores late events", async () => {
+    const events = new Map<string, (event: LiveTranscriptEvent) => void>();
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2026-08-26T12:00:00Z",
+          model: "qwen-audio-3.0-asr-flash-streaming",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ authorization, onTranscript }) => {
+        events.set(authorization.track, onTranscript);
+        return Promise.resolve({ close: vi.fn(), sendPcm: () => true });
+      },
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+    await draft.start({
+      captureId: CAPTURE_ID,
+      // SAFETY: This test never accesses media track properties.
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    const mic = events.get("microphone");
+    const remote = events.get("system");
+    if (!mic || !remote) {
+      throw new Error("Missing track callback");
+    }
+    const correction: LiveTranscriptEvent = {
+      correctionModel: "qwen-audio-3.0-asr-flash",
+      itemId: "1",
+      originalText: "库伯内提斯",
+      text: "Kubernetes",
+      type: "corrected",
+    };
+    const correcting: LiveTranscriptEvent = { ...correction, text: "", type: "correction-started" };
+    mic({ itemId: "1", text: "库伯内提斯", type: "snapshot" });
+    mic(correcting);
+    expect(draft.getSnapshot().turns[0].correcting).toBeUndefined();
+    mic(correction);
+    expect(draft.getSnapshot().turns[0].text).toBe("库伯内提斯");
+    mic({ itemId: "1", text: "库伯内提斯", type: "completed" });
+    remote({ itemId: "1", text: "另一轨内容", type: "completed" });
+    mic({ ...correcting, originalText: "旧版本" });
+    mic({ ...correcting, itemId: "missing" });
+    expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
+    mic(correcting);
+    expect(draft.getSnapshot().turns.map((turn) => Boolean(turn.correcting))).toEqual([
+      true,
+      false,
+    ]);
+    const inFlightDraft = meetingLiveTranscriptDraftSchema.parse(
+      createDurableLiveTranscriptDraft(draft.getSnapshot()),
+    );
+    expect(inFlightDraft.turns[0]).not.toHaveProperty("correcting");
+    mic({ ...correcting, type: "correction-finished" });
+    expect(draft.getSnapshot().turns[0]).toMatchObject({ correcting: false, text: "库伯内提斯" });
+    mic(correcting);
+    mic({ itemId: "2", text: "正在说的新句子", type: "snapshot" });
+    mic({ ...correction, originalText: "过期版本" });
+    expect(draft.getSnapshot().turns[0].text).toBe("库伯内提斯");
+    mic(correction);
+    expect(draft.getSnapshot().turns[0].correcting).toBe(false);
+    mic({ itemId: "1", text: "库伯内提斯", type: "completed" });
+    mic({ ...correction, itemId: "missing" });
+    expect(draft.getSnapshot().turns.map((turn) => turn.text)).toEqual([
+      "Kubernetes",
+      "另一轨内容",
+      "正在说的新句子",
+    ]);
+    const durable = meetingLiveTranscriptDraftSchema.parse(
+      createDurableLiveTranscriptDraft(draft.getSnapshot()),
+    );
+    expect(durable.turns[0]).toMatchObject({
+      correctionModel: "qwen-audio-3.0-asr-flash",
+      originalText: "库伯内提斯",
+      text: "Kubernetes",
+    });
+    remote({ ...correcting, originalText: "另一轨内容" });
+    expect(draft.getSnapshot().turns[1].correcting).toBe(true);
+    draft.pause();
+    remote({ ...correcting, originalText: "另一轨内容" });
+    expect(draft.getSnapshot().turns[1].correcting).toBe(false);
+    mic({ ...correction, itemId: "2", originalText: "正在说的新句子" });
+    expect(draft.getSnapshot().turns[2].text).toBe("正在说的新句子");
+    draft.stop();
+    mic(correction);
+    expect(draft.getSnapshot().turns).toEqual([]);
+  });
   it("keeps durable turns when a recovered capture starts a new transcription segment", async () => {
     const draft = createLiveTranscriptDraft({
       authorize: ({ track }) =>
@@ -78,7 +288,14 @@ describe("Live Transcript Draft", () => {
           text: "保留的字幕",
           type: "completed",
         });
-        const connection = { close: vi.fn(), sendPcm: vi.fn().mockReturnValue(true) };
+        if (authorization.track === "microphone") {
+          onTranscript({ itemId: "second-mic", text: "第二个麦克风块", type: "completed" });
+        }
+        const connection = {
+          close: vi.fn(),
+          correct: vi.fn().mockReturnValue(true),
+          sendPcm: vi.fn().mockReturnValue(true),
+        };
         connections.push(connection);
         return Promise.resolve(connection);
       },
@@ -95,7 +312,15 @@ describe("Live Transcript Draft", () => {
       // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
-    const turnsBeforePause = draft.getSnapshot().turns;
+    const turnsBeforePause = draft
+      .getSnapshot()
+      .turns.map((turn) => ({ ...turn, correcting: false }));
+    expect(connections[0].correct).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        blocks: expect.arrayContaining([expect.objectContaining({ itemId: "item-system" })]),
+      }),
+    );
+    expect(connections[1].correct).not.toHaveBeenCalled();
     draft.pause();
 
     expect(
@@ -112,6 +337,13 @@ describe("Live Transcript Draft", () => {
     expect(connections).toHaveLength(4);
     expect(taps).toHaveLength(4);
     expect(draft.getSnapshot().sections).toHaveLength(4);
+    expect(connections[2].correct).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        blocks: expect.arrayContaining([expect.objectContaining({ itemId: "item-system" })]),
+      }),
+    );
+    expect(connections[3].correct).not.toHaveBeenCalled();
+    draft.stop();
   });
 
   it("replaces cumulative provider snapshots instead of appending repeated prefixes", async () => {
@@ -297,10 +529,19 @@ describe("Live Transcript Draft", () => {
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     events[0]?.({ itemId: "item-1", text: "第一段", type: "completed" });
-    const [originalTurn] = draft.getSnapshot().turns;
+    const originalTurn = { ...draft.getSnapshot().turns[0], correcting: false };
+    const correcting: LiveTranscriptEvent = {
+      itemId: "item-1",
+      originalText: "第一段",
+      text: "",
+      type: "correction-started",
+    };
+    events[0]?.(correcting);
+    expect(draft.getSnapshot().turns[0].correcting).toBe(true);
     disconnects[0]?.("network-lost");
     expect(draft.getSnapshot().status).toBe("interrupted");
     events[0]?.({ itemId: "item-1", text: "不应回写", type: "delta" });
+    events[0]?.(correcting);
     expect(draft.getSnapshot().turns[0]).toEqual(originalTurn);
 
     scheduled[0]?.();

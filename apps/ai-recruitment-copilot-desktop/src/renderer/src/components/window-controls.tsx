@@ -15,7 +15,7 @@ function ControlButton({
   return (
     <button
       aria-label={ariaLabel}
-      className={`app-no-drag flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:bg-accent/80 ${className ?? ""}`}
+      className={`app-no-drag flex h-full w-11 items-center justify-center text-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:bg-accent/80 ${className ?? ""}`}
       onClick={onClick}
       type="button"
     >

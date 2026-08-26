@@ -1,5 +1,5 @@
 import { meetingLiveTranscriptTrackSchema } from "@arc/shared/meeting-transcription";
-import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import type { LiveTranscriptPortAuthorization } from "@arc/shared/meeting-live-correction";
 import { z } from "zod";
 
 const liveTranscriptClientMessageSchema = z
@@ -7,11 +7,13 @@ const liveTranscriptClientMessageSchema = z
     authorization: z
       .object({
         baseUrl: z.string(),
+        captureId: z.string().min(1).max(256),
         clientSecret: z.string(),
         expiresAt: z.string(),
         language: z.string().optional(),
         model: z.string(),
         provider: z.literal("qwen"),
+        sectionId: z.string().min(1).max(512),
         track: meetingLiveTranscriptTrackSchema,
       })
       .strict(),
@@ -23,7 +25,7 @@ interface MessagePortHandoff {
   page: Pick<Window, "location">;
   postMessage: (
     channel: string,
-    message: MeetingLiveTranscriptAuthorization | null,
+    message: LiveTranscriptPortAuthorization | null,
     ports: MessagePort[],
   ) => void;
 }

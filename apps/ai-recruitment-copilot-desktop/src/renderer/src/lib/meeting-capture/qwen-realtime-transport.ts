@@ -1,3 +1,5 @@
+import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
+import type { LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
 // oxlint-disable promise/avoid-new -- The IPC handshake is confirmed by the first provider event.
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
 import { z } from "zod";
@@ -10,7 +12,10 @@ const CONNECTION_TIMEOUT_MS = 10_000;
 
 const dashScopeServerEventSchema = z.object({
   item_id: z.string().optional(),
+  model: z.string().optional(),
+  original_text: z.string().optional(),
   stash: z.string().optional(),
+  status: z.string().optional(),
   text: z.string().optional(),
   transcript: z.string().optional(),
   type: z.string().optional(),
@@ -51,6 +56,33 @@ function handleDashScopeEvent(
     onTranscript: (event: LiveTranscriptEvent) => void;
   },
 ): void {
+  if (event.type === "meeting.transcription.correction-status") {
+    if (
+      event.item_id &&
+      event.original_text &&
+      (event.status === "started" || event.status === "finished")
+    ) {
+      input.onTranscript({
+        itemId: event.item_id,
+        originalText: event.original_text,
+        text: "",
+        type: event.status === "started" ? "correction-started" : "correction-finished",
+      });
+    }
+    return;
+  }
+  if (event.type === "meeting.transcription.corrected") {
+    if (event.item_id && event.model && event.original_text && event.transcript?.trim()) {
+      input.onTranscript({
+        correctionModel: event.model,
+        itemId: event.item_id,
+        originalText: event.original_text,
+        text: event.transcript,
+        type: "corrected",
+      });
+    }
+    return;
+  }
   if (event.type === "conversation.item.input_audio_transcription.text") {
     if (event.item_id) {
       const text = [event.text, event.stash].filter((part) => part !== undefined).join("");
@@ -83,6 +115,9 @@ function handleDashScopeEvent(
  */
 export async function connectQwenRealtimeTranscription(input: {
   authorization: MeetingLiveTranscriptAuthorization;
+  captureId: string;
+  sectionId: string;
+  onCorrection: (event: LiveCorrectionEvent) => void;
   onDisconnect: (reason: string) => void;
   onTranscript: (event: LiveTranscriptEvent) => void;
   onWritable: () => void;
@@ -94,7 +129,9 @@ export async function connectQwenRealtimeTranscription(input: {
   let closing = false;
   let peakInFlightBytes = 0;
   let providerWritable = true;
+  let renewTimer: ReturnType<typeof setTimeout> | undefined;
   const disconnect = (reason: string) => {
+    clearTimeout(renewTimer);
     if (!closing) {
       input.onDisconnect(reason);
     }
@@ -152,6 +189,13 @@ export async function connectQwenRealtimeTranscription(input: {
   });
 
   clientPort.addEventListener("message", (event: MessageEvent) => {
+    const correction = z
+      .object({ event: liveCorrectionEventSchema, type: z.literal("event") })
+      .safeParse(event.data);
+    if (correction.success && !closing) {
+      input.onCorrection(correction.data.event);
+      return;
+    }
     const parsedMessage = portMessageSchema.safeParse(event.data);
     if (!parsedMessage.success || closing) {
       return;
@@ -191,7 +235,11 @@ export async function connectQwenRealtimeTranscription(input: {
   clientPort.start();
   window.postMessage(
     {
-      authorization: input.authorization,
+      authorization: {
+        ...input.authorization,
+        captureId: input.captureId,
+        sectionId: input.sectionId,
+      },
       type: "start-meeting-live-transcript-client",
     },
     "*",
@@ -207,12 +255,37 @@ export async function connectQwenRealtimeTranscription(input: {
   }
   input.onWritable();
 
+  // The WebSocket may outlive its temporary key, but correction HTTP calls cannot.
+  // Rotate via the existing track reconnect path before the key expires.
+  const expiresInMs = Date.parse(input.authorization.expiresAt) - Date.now();
+  if (Number.isFinite(expiresInMs)) {
+    renewTimer = setTimeout(
+      () => disconnect("authorization-expiring"),
+      Math.max(1000, expiresInMs - 30_000),
+    );
+  }
+
   return {
     close: () => {
       closing = true;
+      clearTimeout(renewTimer);
       clientPort.postMessage({ type: "close" }, []);
       clientPort.close();
     },
+    correct: input.authorization.model.startsWith("qwen-audio-3.0-asr-flash-streaming")
+      ? (batch) => {
+          if (closing) {
+            return false;
+          }
+          try {
+            clientPort.postMessage({ batch, type: "correct" }, []);
+            return true;
+          } catch {
+            // Correction is best effort; a closed port must not interrupt recording.
+            return false;
+          }
+        }
+      : undefined,
     sendPcm: (frame) => {
       if (closing) {
         return false;

@@ -82,8 +82,10 @@ const meetingLiveTranscriptDraftSectionSchema = z
 
 const meetingLiveTranscriptDraftTurnSchema = z
   .object({
+    correctionModel: z.string().min(1).max(128).optional(),
     final: z.boolean(),
     id: z.string().min(1).max(512),
+    originalText: z.string().min(1).max(10_000).optional(),
     sectionId: z.string().min(1).max(256),
     text: z.string().trim().min(1).max(10_000),
     track: meetingLiveTranscriptTrackSchema,

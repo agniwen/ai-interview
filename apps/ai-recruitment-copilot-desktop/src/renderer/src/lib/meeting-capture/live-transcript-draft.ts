@@ -1,9 +1,16 @@
 // oxlint-disable promise/prefer-await-to-callbacks -- Reconnect scheduling is callback-based by design.
+import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
 } from "@arc/shared/meeting-transcription";
+import {
+  appendLiveTranscriptTurn,
+  createLiveTranscriptCorrectionBatches,
+} from "./live-transcript-draft-turns";
+export { createDurableLiveTranscriptDraft } from "./live-transcript-draft-turns";
+
 export type LiveTranscriptDraftStatus =
   | "idle"
   | "starting"
@@ -13,20 +20,11 @@ export type LiveTranscriptDraftStatus =
   | "interrupted"
   | "reconnecting";
 
-export interface LiveTranscriptDraftSection {
-  id: string;
-  sequence: number;
-  startedAt: string;
-  track: MeetingLiveTranscriptTrack;
-}
+export type LiveTranscriptDraftSection = MeetingLiveTranscriptDraft["sections"][number];
 
-export interface LiveTranscriptDraftTurn {
-  final: boolean;
-  id: string;
-  sectionId: string;
-  text: string;
-  track: MeetingLiveTranscriptTrack;
-}
+export type LiveTranscriptDraftTurn = MeetingLiveTranscriptDraft["turns"][number] & {
+  correcting?: boolean;
+};
 
 export interface LiveTranscriptDraftSnapshot {
   captureId: string | null;
@@ -45,34 +43,24 @@ export interface LiveTranscriptDraftSnapshot {
   turns: LiveTranscriptDraftTurn[];
 }
 
-export function createDurableLiveTranscriptDraft(
-  snapshot: LiveTranscriptDraftSnapshot,
-  captureId?: string,
-): MeetingLiveTranscriptDraft | null {
-  if (!snapshot.captureId || (captureId && snapshot.captureId !== captureId)) {
-    return null;
-  }
-  const turns = snapshot.turns.filter((turn) => turn.text.trim().length > 0);
-  const referencedSectionIds = new Set(turns.map((turn) => turn.sectionId));
-  return {
-    capturedAt: new Date().toISOString(),
-    droppedAudioMs: snapshot.droppedAudioMs,
-    droppedPcmFrames: snapshot.droppedPcmFrames,
-    error: snapshot.error,
-    sections: snapshot.sections.filter((section) => referencedSectionIds.has(section.id)),
-    turns: turns.map((turn) => ({ ...turn, text: turn.text.trim() })),
-  };
-}
-
 export interface LiveTranscriptConnection {
   close: () => void;
+  correct?: (batch: LiveCorrectionBatch) => boolean;
   sendPcm: (frame: Int16Array) => boolean;
 }
 
 export interface LiveTranscriptEvent {
+  correctionModel?: string;
   itemId: string;
+  originalText?: string;
   text: string;
-  type: "completed" | "delta" | "snapshot";
+  type:
+    | "completed"
+    | "corrected"
+    | "correction-started"
+    | "correction-finished"
+    | "delta"
+    | "snapshot";
 }
 
 export interface LiveTranscriptPcmTap {
@@ -87,6 +75,9 @@ interface LiveTranscriptDraftDependencies {
   }) => Promise<MeetingLiveTranscriptAuthorization>;
   connect: (input: {
     authorization: MeetingLiveTranscriptAuthorization;
+    captureId: string;
+    sectionId: string;
+    onCorrection: (event: LiveCorrectionEvent) => void;
     onDisconnect: (reason: string) => void;
     onTranscript: (event: LiveTranscriptEvent) => void;
     onWritable: () => void;
@@ -136,7 +127,6 @@ const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
-const MAX_DRAFT_TURN_CHARS = 10_000;
 const PCM_SAMPLE_RATE = 24_000;
 const TRACKS: MeetingLiveTranscriptTrack[] = ["microphone", "system"];
 
@@ -236,11 +226,6 @@ function publicError(reason: string): string {
   return "实时字幕已中断，录音仍在继续";
 }
 
-function closeConnection(runtime: TrackRuntime): void {
-  runtime.connection?.close();
-  runtime.connection = null;
-}
-
 /**
  * 管理双轨实时字幕草稿、独立重连和服务端容量租约。Draft 永远不是最终权威转录。
  * Manages dual-track live drafts, independent reconnects, and the server capacity lease; drafts are never authoritative.
@@ -270,12 +255,28 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       const timer = setTimeout(callback, delayMs);
       return () => clearTimeout(timer);
     });
+  const correctionBatches = createLiveTranscriptCorrectionBatches();
   let snapshot = initialSnapshot();
   let sectionSequence = 0;
   let cancelLeaseHeartbeat: (() => void) | null = null;
   let leaseHeartbeatFailures = 0;
   let releasedLeaseCaptureId: string | null = null;
   let paused = false;
+
+  const closeConnection = (runtime: TrackRuntime): void => {
+    runtime.connection?.close();
+    runtime.connection = null;
+    snapshot = {
+      ...snapshot,
+      turns: correctionBatches
+        .cancelSection(snapshot.turns, runtime.sectionId)
+        .map((turn) =>
+          turn.sectionId === runtime.sectionId && turn.correcting
+            ? { ...turn, correcting: false }
+            : turn,
+        ),
+    };
+  };
 
   const releaseLeaseBestEffort = async (captureId: string): Promise<void> => {
     try {
@@ -376,6 +377,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       runtime.status = "idle";
     }
     sectionSequence = 0;
+    correctionBatches.clear();
     snapshot = initialSnapshot();
     publish();
     if (releasedCaptureId) {
@@ -464,38 +466,29 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     }, delayMs);
   }
 
+  const requestCorrections = () =>
+    correctionBatches.request(snapshot.turns, runtimes, (ids, correcting) => {
+      publish({
+        turns: snapshot.turns.map((turn) =>
+          ids.includes(turn.id) ? { ...turn, correcting } : turn,
+        ),
+      });
+    });
+
   const appendTranscript = (
     track: MeetingLiveTranscriptTrack,
     sectionId: string,
     event: LiveTranscriptEvent,
   ) => {
-    const id = `${sectionId}:${event.itemId}`;
-    const index = snapshot.turns.findIndex((turn) => turn.id === id);
-    const turns = [...snapshot.turns];
-    if (index === -1) {
-      turns.push({
-        final: event.type === "completed",
-        id,
-        sectionId,
-        text: event.text.slice(0, MAX_DRAFT_TURN_CHARS),
-        track,
-      });
-    } else {
-      const current = turns[index];
-      if (!current) {
-        return;
-      }
-      turns[index] = {
-        ...current,
-        final: event.type === "completed",
-        text: (event.type === "delta" ? `${current.text}${event.text}` : event.text).slice(
-          0,
-          MAX_DRAFT_TURN_CHARS,
-        ),
-      };
+    const turns = appendLiveTranscriptTurn(snapshot.turns, track, sectionId, event);
+    if (!turns) {
+      return;
     }
     const maxTurns = dependencies.maxDraftTurns ?? DEFAULT_MAX_DRAFT_TURNS;
     publish({ turns: turns.slice(-maxTurns) });
+    if (event.type === "completed") {
+      requestCorrections();
+    }
   };
 
   const flush = (track: MeetingLiveTranscriptTrack): boolean => {
@@ -585,6 +578,12 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       scheduleLeaseHeartbeat(captureId);
       const connection = await dependencies.connect({
         authorization,
+        captureId,
+        onCorrection: (event) => {
+          if (runtime.generation === generation && runtime.sectionId === sectionId) {
+            publish({ turns: correctionBatches.apply(snapshot.turns, event) });
+          }
+        },
         onDisconnect: (reason) => interrupt(reason),
         onTranscript: (event) => {
           if (runtime.generation === generation && runtime.sectionId === sectionId) {
@@ -606,12 +605,14 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
             publish({ error: null });
           }
         },
+        sectionId,
       });
       if (runtime.generation !== generation || snapshot.captureId !== captureId) {
         connection.close();
         return;
       }
       runtime.connection = connection;
+      requestCorrections();
       if (flush(track)) {
         runtime.status = "live";
       } else {

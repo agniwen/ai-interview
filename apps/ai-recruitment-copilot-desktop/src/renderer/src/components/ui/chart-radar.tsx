@@ -33,15 +33,12 @@ export interface RadarDimensionPoint {
 }
 
 /**
- * Match the Web radar palette: forest green in light mode, blue in dark mode.
+ * Follow Desktop's themed chart palette in both color modes.
  */
 const DEFAULT_CONFIG: ChartConfig = {
   score: {
+    color: "var(--chart-1)",
     label: "评分",
-    theme: {
-      dark: "#7699ef",
-      light: "#2d6a4f",
-    },
   },
 };
 

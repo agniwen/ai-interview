@@ -21,10 +21,12 @@ function loadPreloadBeforeCsp() {
 function authorization(track: "microphone" | "system") {
   return {
     baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+    captureId: "capture",
     clientSecret: "test-only-token",
     expiresAt: "2099-01-01T00:00:00.000Z",
     model: "qwen3-asr-flash-realtime",
     provider: "qwen",
+    sectionId: `capture:${track}:0`,
     track,
   };
 }

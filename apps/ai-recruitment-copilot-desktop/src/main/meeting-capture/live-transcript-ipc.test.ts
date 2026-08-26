@@ -1,5 +1,6 @@
 // oxlint-disable no-promise-executor-return, prefer-await-to-callbacks, promise/avoid-new -- The fake MessagePort mirrors Electron's event API.
 import { runInNewContext } from "node:vm";
+import { liveCorrectionEventSchema } from "@arc/shared/meeting-live-correction";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { JsonValue } from "@arc/db-schema/json";
 import { registerLiveTranscriptIpcHandlers } from "./live-transcript-ipc-handlers";
@@ -82,9 +83,10 @@ function createFakePort(): FakePort {
   return new FakePort();
 }
 
-function registerAndGetHandler() {
+function registerAndGetHandler(fetch?: typeof globalThis.fetch) {
   registerLiveTranscriptIpcHandlers({
     connect: connectDashScopeRealtimeWsMock,
+    fetch,
     isTrustedMainFrame: isTrustedMainFrameMock,
     onPort: (handler) => {
       registeredHandler = handler;
@@ -99,10 +101,12 @@ function registerAndGetHandler() {
 function validAuthorization(): LiveTranscriptAuthorization {
   return {
     baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+    captureId: "capture",
     clientSecret: "st-temp-token",
     expiresAt: "2026-08-09T01:21:00.000Z",
     model: "qwen3-asr-flash-realtime",
     provider: "qwen",
+    sectionId: "capture:microphone:0",
     track: "microphone",
   };
 }
@@ -118,6 +122,225 @@ describe("registerLiveTranscriptIpcHandlers", () => {
         sendPcm: vi.fn().mockReturnValue(true),
       }),
     );
+  });
+
+  it("combines both ports into one correction request and returns all three blocks together", async () => {
+    const take = vi.fn(() => Buffer.alloc(32_000));
+    connectDashScopeRealtimeWsMock.mockImplementation(() => ({
+      close: vi.fn(),
+      sendPcm: () => true,
+      takeCorrectionAudio: take,
+    }));
+    const blocks = [0, 1, 2].map((i) => {
+      const track = i === 1 ? "system" : "microphone";
+      const sectionId = `capture:${track}:0`;
+      return {
+        id: `${sectionId}:${i}`,
+        itemId: String(i),
+        originalText: `实时${i}`,
+        sectionId,
+        track,
+      };
+    });
+    const batch = {
+      batchId: "00000000-0000-4000-8000-000000000001",
+      blocks,
+      context: { after: [], before: [] },
+    };
+    const result = blocks.map((block) => ({ id: block.id, text: "校正" }));
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(Response.json({ output: { text: "整段识别" } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          choices: [
+            { finish_reason: "stop", message: { content: JSON.stringify({ blocks: result }) } },
+          ],
+        }),
+      );
+    const handler = registerAndGetHandler(fetch);
+    const mic = createFakePort();
+    const system = createFakePort();
+    handler({ ports: [mic] }, validAuthorization());
+    handler(
+      { ports: [system] },
+      { ...validAuthorization(), sectionId: "capture:system:0", track: "system" },
+    );
+    const observe = (block: (typeof blocks)[number]) => {
+      const [provider] =
+        connectDashScopeRealtimeWsMock.mock.calls[block.track === "system" ? 1 : 0];
+      provider.onEvent?.({
+        item_id: block.itemId,
+        transcript: block.originalText,
+        type: "conversation.item.input_audio_transcription.completed",
+      });
+    };
+    for (const block of blocks) {
+      observe(block);
+    }
+    mic.emit("message", {
+      data: { batch: { ...batch, blocks: blocks.slice(0, 2) }, type: "correct" },
+    });
+    expect(take).not.toHaveBeenCalled();
+    mic.emit("message", { data: { batch, type: "correct" } });
+    await vi.waitFor(() =>
+      expect(mic.posted).toContainEqual({
+        event: expect.objectContaining({ blocks: result, status: "completed" }),
+        type: "event",
+      }),
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(take.mock.calls).toEqual([
+      ["0", "实时0"],
+      ["1", "实时1"],
+      ["2", "实时2"],
+    ]);
+    // A repeated provider final must not downgrade previously corrected context.
+    observe(blocks[0]);
+    const nextBlocks = blocks.map((block) => ({
+      ...block,
+      id: `${block.id}-next`,
+      itemId: `${block.itemId}-next`,
+    }));
+    for (const block of nextBlocks) {
+      observe(block);
+    }
+    fetch
+      .mockResolvedValueOnce(Response.json({ output: { text: "下一组识别" } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify({
+                  blocks: nextBlocks.map((block) => ({ id: block.id, text: "下一组校正" })),
+                }),
+              },
+            },
+          ],
+        }),
+      );
+    mic.emit("message", {
+      data: {
+        batch: { ...batch, batchId: "00000000-0000-4000-8000-000000000002", blocks: nextBlocks },
+        type: "correct",
+      },
+    });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
+    const [[, nextOptions]] = fetch.mock.calls.slice(3);
+    expect(
+      JSON.parse(JSON.parse(String(nextOptions?.body)).messages[1].content).context.before,
+    ).toEqual(["校正", "校正", "校正"]);
+    mic.emit("close");
+    mic.emit("message", { data: { batch, type: "correct" } });
+    expect(fetch).toHaveBeenCalledTimes(4);
+    system.emit("close");
+  });
+
+  it("includes following speech arriving during ASR and cancels a batch when its other track closes", async () => {
+    const take = vi.fn(() => Buffer.alloc(32_000));
+    connectDashScopeRealtimeWsMock.mockImplementation(() => ({
+      close: vi.fn(),
+      sendPcm: () => true,
+      takeCorrectionAudio: take,
+    }));
+    let resolveAsr: ((response: Response) => void) | undefined;
+    let resolveLlm: ((response: Response) => void) | undefined;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveAsr = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveLlm = resolve;
+          }),
+      );
+    const handler = registerAndGetHandler(fetch);
+    const mic = createFakePort();
+    const system = createFakePort();
+    handler({ ports: [mic] }, validAuthorization());
+    handler(
+      { ports: [system] },
+      { ...validAuthorization(), sectionId: "capture:system:0", track: "system" },
+    );
+    const [[micProvider], [systemProvider]] = connectDashScopeRealtimeWsMock.mock.calls;
+    const blocks = [0, 1, 2].map((i) => {
+      const track = i === 1 ? "system" : "microphone";
+      const sectionId = `capture:${track}:0`;
+      const provider = i === 1 ? systemProvider : micProvider;
+      provider.onEvent?.({
+        item_id: String(i),
+        transcript: `实时${i}`,
+        type: "conversation.item.input_audio_transcription.completed",
+      });
+      return {
+        id: `${sectionId}:${i}`,
+        itemId: String(i),
+        originalText: `实时${i}`,
+        sectionId,
+        track,
+      };
+    });
+    const batch = {
+      batchId: "00000000-0000-4000-8000-000000000001",
+      blocks,
+      context: { after: [], before: ["已有校正前文"] },
+    };
+    mic.emit("message", { data: { batch, type: "correct" } });
+    systemProvider.onEvent?.({
+      item_id: "next",
+      text: "刚刚说出的后文",
+      type: "conversation.item.input_audio_transcription.text",
+    });
+    resolveAsr?.(Response.json({ output: { text: "整体识别" } }));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const [, llmCall] = fetch.mock.calls;
+    const body = JSON.parse(String(llmCall[1]?.body));
+    expect(JSON.parse(body.messages[1].content).context).toEqual({
+      after: ["刚刚说出的后文"],
+      before: ["已有校正前文"],
+    });
+    system.emit("close");
+    expect(llmCall[1]?.signal?.aborted).toBe(true);
+    const finished = {
+      event: {
+        batchId: batch.batchId,
+        status: "finished",
+        type: "meeting.transcription.correction-batch",
+      },
+      type: "event",
+    };
+    expect(mic.posted).toContainEqual(finished);
+    resolveLlm?.(
+      Response.json({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: JSON.stringify({
+                blocks: blocks.map((block) => ({ id: block.id, text: "迟到" })),
+              }),
+            },
+          },
+        ],
+      }),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(
+      mic.posted.filter(
+        (message) =>
+          message.type === "event" && liveCorrectionEventSchema.safeParse(message.event).success,
+      ),
+    ).toEqual([finished]);
+    mic.emit("close");
   });
 
   it("opens a DashScope connection with the temp token and relays events back", () => {

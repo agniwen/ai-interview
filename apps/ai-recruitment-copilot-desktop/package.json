@@ -49,6 +49,7 @@
     "date-fns": "4.4.0",
     "dayjs": "^1.11.20",
     "drizzle-orm": "catalog:",
+    "glimm": "0.3.0",
     "jotai": "^2.20.2",
     "livekit-client": "^2.20.1",
     "misans": "4.1.0",

@@ -79,8 +79,8 @@ export function WorkspaceSelect(): React.JSX.Element | null {
       <DropdownMenuTrigger
         aria-label="选择工作区"
         className={cn(
-          "app-no-drag inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-1 rounded-[8px] px-1.5 text-xs text-muted-foreground opacity-80 transition-[opacity,background-color]",
-          "hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12",
+          "app-no-drag inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-1 rounded-[8px] px-1.5 text-xs text-foreground transition-colors",
+          "hover:bg-foreground/8 dark:hover:bg-foreground/12",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-50",
         )}
@@ -89,7 +89,7 @@ export function WorkspaceSelect(): React.JSX.Element | null {
         type="button"
       >
         <span className="min-w-0 truncate">{label}</span>
-        <Icon className="size-3 shrink-0 opacity-70" icon="ph:caret-down" />
+        <Icon className="size-3 shrink-0" icon="ph:caret-down" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="z-[250] min-w-[10rem]" sideOffset={6}>
         {orgs.map((org) => (

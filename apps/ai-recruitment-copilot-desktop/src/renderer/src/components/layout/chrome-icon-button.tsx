@@ -14,11 +14,11 @@ const noDragStyle: ElectronNoDragStyle = {
 
 /** Shared square chrome icon control (toggle / history / settings). */
 export const chromeIconControlClassName =
-  "app-no-drag flex size-6 shrink-0 items-center justify-center rounded-[8px] text-muted-foreground opacity-80 transition-[opacity,background-color] hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12";
+  "app-no-drag flex size-6 shrink-0 items-center justify-center rounded-[8px] text-foreground transition-colors hover:bg-foreground/8 dark:hover:bg-foreground/12";
 
 /**
  * Shared chrome control style (sidebar history nav, sidebar toggle, content
- * settings): square hit target, muted icon, gray hover fill + light radius.
+ * settings): square hit target, foreground icon, gray hover fill + light radius.
  */
 export function ChromeIconButton({
   ariaLabel,

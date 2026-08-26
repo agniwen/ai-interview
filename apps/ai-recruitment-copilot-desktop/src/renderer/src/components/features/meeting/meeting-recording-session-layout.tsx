@@ -40,8 +40,8 @@ export function MeetingRecordingSessionLayout({
 }
 
 /** Shared radius for the floating bar, inner chips, and end-cap actions. */
-export const MEETING_COMPOSER_RADIUS = "rounded-md";
-export const MEETING_COMPOSER_ACTION_CLASS = cn("shrink-0", MEETING_COMPOSER_RADIUS);
+export const MEETING_COMPOSER_RADIUS = "rounded-xl";
+export const MEETING_COMPOSER_ACTION_CLASS = cn("shrink-0", "rounded-md");
 
 /**
  * Shared floating-bar chrome used by record, setup, interrupt, and playback composers.
@@ -57,7 +57,7 @@ export function MeetingComposerFrame({
   return (
     <div
       className={cn(
-        "min-w-0 border border-border/70 bg-background p-1.5 shadow-[0_2px_10px_rgb(0_0_0/0.07)]",
+        "min-w-0 border border-border/70 bg-background p-1.5 shadow-[0_4px_6px_-4px_rgb(0_0_0/0.06)]",
         MEETING_COMPOSER_RADIUS,
         className,
       )}

@@ -1,6 +1,8 @@
 // oxlint-disable promise/prefer-await-to-callbacks -- MessagePort and provider callbacks are event based.
 import type { JsonValue } from "@arc/db-schema/json";
 import { z } from "zod";
+import { liveCorrectionBatchSchema } from "@arc/shared/meeting-live-correction";
+import { createLiveTranscriptCorrectionSession } from "./live-transcript-correction-session";
 import type {
   DashScopeRealtimeWsConnection,
   DashScopeRealtimeWsDependencies,
@@ -29,6 +31,7 @@ function isWssAliyunUrl(value: unknown): value is string {
 
 const liveTranscriptAuthorizationSchema = z.object({
   baseUrl: z.custom<string>(isWssAliyunUrl),
+  captureId: z.string().min(1).max(256),
   clientSecret: z.string().min(1).max(TOKEN_MAX_LENGTH),
   expiresAt: z
     .string()
@@ -37,6 +40,7 @@ const liveTranscriptAuthorizationSchema = z.object({
   language: z.string().optional(),
   model: z.string().max(128).regex(MODEL_PATTERN),
   provider: z.literal("qwen"),
+  sectionId: z.string().min(1).max(512),
   track: z.enum(["microphone", "system"]),
 });
 
@@ -53,6 +57,10 @@ const pcmFrameSchema = z.object({
   type: z.literal("pcm"),
 });
 const closeMessageSchema = z.object({ type: z.literal("close") });
+const correctionMessageSchema = z.object({
+  batch: liveCorrectionBatchSchema,
+  type: z.literal("correct"),
+});
 
 type RendererPortMessage =
   | JsonValue
@@ -80,6 +88,7 @@ export interface LiveTranscriptIpcEvent {
 }
 
 export interface LiveTranscriptIpcDependencies<Event extends LiveTranscriptIpcEvent> {
+  fetch?: typeof globalThis.fetch;
   connect: (dependencies: DashScopeRealtimeWsDependencies) => DashScopeRealtimeWsConnection;
   isTrustedMainFrame: (event: Event) => boolean;
   onPort: (handler: (event: Event, rawAuthorization: JsonValue) => void) => void;
@@ -88,6 +97,7 @@ export interface LiveTranscriptIpcDependencies<Event extends LiveTranscriptIpcEv
 export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIpcEvent>(
   dependencies: LiveTranscriptIpcDependencies<Event>,
 ): void {
+  const sessions = new Map<string, ReturnType<typeof createLiveTranscriptCorrectionSession>>();
   dependencies.onPort((event, rawAuthorization) => {
     const [port] = event.ports;
     if (event.ports.length !== 1 || !dependencies.isTrustedMainFrame(event)) {
@@ -99,14 +109,29 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
       port.close();
       return;
     }
-    const { baseUrl, clientSecret, language, model, track } = parsedAuthorization.data;
+    const { baseUrl, captureId, sectionId, clientSecret, language, model, track } =
+      parsedAuthorization.data;
     let connection: DashScopeRealtimeWsConnection | null = null;
     let portClosed = false;
+    const session =
+      sessions.get(captureId) ?? createLiveTranscriptCorrectionSession(dependencies.fetch);
+    sessions.set(captureId, session);
+    let removed = false;
+    const removeSection = () => {
+      if (removed) {
+        return;
+      }
+      removed = true;
+      if (!session.remove(sectionId) && sessions.get(captureId) === session) {
+        sessions.delete(captureId);
+      }
+    };
     const closePort = () => {
       if (portClosed) {
         return;
       }
       portClosed = true;
+      removeSection();
       port.close();
     };
     const deliver = (message: MainToRendererMessage) => {
@@ -124,10 +149,12 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
           reason,
           track,
         });
+        removeSection();
         deliver({ reason, type: "close" });
       },
       onDrain: () => deliver({ type: "drain" }),
       onEvent: (providerEvent) => {
+        session.observe(sectionId, providerEvent);
         const providerEventType = z
           .object({ type: z.string().optional() })
           .safeParse(providerEvent);
@@ -156,11 +183,23 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
       },
       token: clientSecret,
     });
+    session.add({
+      baseUrl,
+      connection,
+      language,
+      onCorrection: (correction) => deliver({ event: correction, type: "event" }),
+      sectionId,
+      token: clientSecret,
+      track,
+    });
     console.info("[live-transcript] provider connection opened", {
       model,
       track,
     });
     port.on("message", ({ data }) => {
+      if (portClosed) {
+        return;
+      }
       const pcmFrame = pcmFrameSchema.safeParse(data);
       if (pcmFrame.success) {
         const accepted = connection?.sendPcm(pcmFrame.data.bytes) ?? false;
@@ -170,12 +209,19 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
         deliver({ byteLength: pcmFrame.data.bytes.byteLength, type: "pcm-ack" });
         return;
       }
+      const correctionMessage = correctionMessageSchema.safeParse(data);
+      if (correctionMessage.success) {
+        session.correct(sectionId, correctionMessage.data.batch);
+        return;
+      }
       if (closeMessageSchema.safeParse(data).success) {
         connection?.close();
         closePort();
       }
     });
     port.on("close", () => {
+      portClosed = true;
+      removeSection();
       connection?.close();
     });
     port.start();

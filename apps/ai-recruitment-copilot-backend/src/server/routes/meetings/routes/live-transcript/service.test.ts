@@ -6,7 +6,7 @@ const mocks = {
   claimLease: vi.fn<WorkspaceMeetingLiveTranscriptAuthorizationDependencies["claimLease"]>(),
   createQwenAuthorization:
     vi.fn<WorkspaceMeetingLiveTranscriptAuthorizationDependencies["createQwenAuthorization"]>(),
-  defaultQwenModel: "qwen3-asr-flash-realtime",
+  defaultQwenModel: "qwen-audio-3.0-asr-flash-streaming",
   gateIssue: vi.fn<WorkspaceMeetingLiveTranscriptAuthorizationDependencies["gateIssue"]>(),
   releaseLease: vi.fn<WorkspaceMeetingLiveTranscriptAuthorizationDependencies["releaseLease"]>(),
   releaseTrackLease:
@@ -31,10 +31,10 @@ describe("createWorkspaceMeetingLiveTranscriptAuthorization", () => {
     process.env.ALIBABA_API_KEY = "sk-test";
     mocks.claimLease.mockResolvedValue("created");
     mocks.createQwenAuthorization.mockResolvedValue({
-      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
       clientSecret: "st-temp-token",
       expiresAt: "2026-08-09T01:21:00.000Z",
-      model: "qwen3-asr-flash-realtime",
+      model: "qwen-audio-3.0-asr-flash-streaming",
       provider: "qwen",
       track: "microphone",
     });
@@ -55,7 +55,7 @@ describe("createWorkspaceMeetingLiveTranscriptAuthorization", () => {
       expect.objectContaining({
         apiKey: "sk-test",
         baseUrl: "https://dashscope.aliyuncs.com",
-        model: "qwen3-asr-flash-realtime",
+        model: "qwen-audio-3.0-asr-flash-streaming",
       }),
     );
   });

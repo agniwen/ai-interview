@@ -7,7 +7,7 @@ interface FakeWebSocketInstance {
   bufferedAmount: number;
   options: { headers?: Record<string, string>; handshakeTimeout?: number };
   readyState: number;
-  sent: string[];
+  sent: (string | Uint8Array)[];
   url: string;
   onclose: ((code: number, reason: Buffer) => void) | null;
   onerror: ((event: { message?: string }) => void) | null;
@@ -15,7 +15,7 @@ interface FakeWebSocketInstance {
   onopen: (() => void) | null;
   terminate: ReturnType<typeof vi.fn>;
   close: () => void;
-  send: (data: string, callback?: (error?: Error) => void) => void;
+  send: (data: string | Uint8Array, callback?: (error?: Error) => void) => void;
 }
 
 interface ParsedSessionUpdate {
@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => {
     static CLOSED = 3;
     bufferedAmount = 0;
     readyState = FakeWebSocket.CONNECTING;
-    sent: string[] = [];
+    sent: (string | Uint8Array)[] = [];
     onclose: ((code: number, reason: Buffer) => void) | null = null;
     onerror: ((event: { message?: string }) => void) | null = null;
     onmessage: ((data: Buffer | string, isBinary: boolean) => void) | null = null;
@@ -92,7 +92,7 @@ const mocks = vi.hoisted(() => {
       return this;
     }
 
-    send(data: string, callback?: (error?: Error) => void) {
+    send(data: string | Uint8Array, callback?: (error?: Error) => void) {
       this.sent.push(data);
       callback?.();
     }
@@ -100,8 +100,8 @@ const mocks = vi.hoisted(() => {
   return { FakeWebSocket, instances };
 });
 
-function parseSent(raw: string | undefined): ParsedWebSocketMessage {
-  if (!raw) {
+function parseSent(raw: string | Uint8Array | undefined): ParsedWebSocketMessage {
+  if (!raw || raw instanceof Uint8Array) {
     return {};
   }
   try {
@@ -135,6 +135,147 @@ describe("connectDashScopeRealtimeWs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.instances.length = 0;
+  });
+
+  it("makes accepted timed PCM available before notifying the renderer and feeds corrected context back", () => {
+    const onEvent = vi.fn();
+    const { connection, instance } = createConnection({
+      model: "qwen-audio-3.0-asr-flash-streaming",
+      onEvent,
+    });
+    instance.onopen?.();
+    const run = JSON.parse(String(instance.sent[0]));
+    const emit = (event: string, payload = {}) =>
+      instance.onmessage?.(
+        JSON.stringify({ header: { event, task_id: run.header.task_id }, payload }),
+        false,
+      );
+    emit("task-started");
+    connection.sendPcm(Buffer.alloc(32_000, 7));
+    onEvent.mockImplementation((event) => {
+      if (event.type === "conversation.item.input_audio_transcription.completed") {
+        expect(connection.takeCorrectionAudio?.("0", "实时")).toEqual(Buffer.alloc(32_000, 7));
+      }
+    });
+    emit("result-generated", {
+      output: {
+        sentence: {
+          begin_time: 0,
+          end_time: 1000,
+          sentence_end: true,
+          sentence_id: 0,
+          text: "实时",
+        },
+      },
+    });
+    expect(connection.takeCorrectionAudio?.("0", "实时")).toBeNull();
+    connection.sendCorrectionContext?.(["校正后的术语"]);
+    expect(JSON.parse(String(instance.sent.at(-1)))).toMatchObject({
+      header: { action: "continue-task" },
+      payload: { input: { context: [{ content: [{ text: "校正后的术语" }] }] } },
+    });
+    connection.close();
+  });
+
+  it("starts the new task protocol before sending binary PCM and normalizes timed sentences", () => {
+    const { connection, dependencies, instance } = createConnection({
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+      language: "zh",
+      model: "qwen-audio-3.0-asr-flash-streaming",
+    });
+    instance.onopen?.();
+    const run = JSON.parse(String(instance.sent[0]));
+    expect(instance.url).toBe("wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+    expect(run).toMatchObject({
+      header: { action: "run-task", streaming: "duplex" },
+      payload: {
+        model: "qwen-audio-3.0-asr-flash-streaming",
+        parameters: { format: "pcm", heartbeat: true, language_hints: ["zh"], sample_rate: 16_000 },
+      },
+    });
+    const emit = (event: string, payload = {}) =>
+      instance.onmessage?.(
+        JSON.stringify({ header: { event, task_id: run.header.task_id }, payload }),
+        false,
+      );
+    expect(connection.sendPcm(new Uint8Array(320))).toBe(false);
+    emit("task-started");
+    expect(dependencies.onEvent).toHaveBeenCalledWith({ type: "session.created" });
+    const pcm = new Uint8Array(320);
+    expect(connection.sendPcm(pcm)).toBe(true);
+    expect(instance.sent.at(-1)).toEqual(pcm);
+    emit("result-generated", {
+      output: {
+        sentence: {
+          begin_time: 0,
+          end_time: null,
+          sentence_end: false,
+          sentence_id: 1,
+          text: "你好",
+        },
+      },
+    });
+    emit("result-generated", {
+      output: {
+        sentence: {
+          begin_time: 0,
+          end_time: 10,
+          sentence_end: true,
+          sentence_id: 1,
+          text: "你好。",
+        },
+      },
+    });
+    expect(dependencies.onEvent).toHaveBeenCalledWith({
+      item_id: "1",
+      text: "你好",
+      type: "conversation.item.input_audio_transcription.text",
+    });
+    expect(dependencies.onEvent).toHaveBeenCalledWith({
+      item_id: "1",
+      transcript: "你好。",
+      type: "conversation.item.input_audio_transcription.completed",
+    });
+    emit("task-failed");
+    expect(dependencies.onClose).toHaveBeenCalledWith("provider-error:task-failed");
+    expect(instance.terminate).toHaveBeenCalled();
+    expect(connection.sendPcm(pcm)).toBe(false);
+  });
+
+  it("ignores heartbeat and foreign-task events and sends finish-task with the same task id", () => {
+    vi.useFakeTimers();
+    try {
+      const { connection, dependencies, instance } = createConnection({
+        model: "qwen-audio-3.0-asr-flash-streaming",
+      });
+      instance.onopen?.();
+      const run = JSON.parse(String(instance.sent[0]));
+      instance.onmessage?.(
+        JSON.stringify({ header: { event: "task-started", task_id: "another-task" } }),
+        false,
+      );
+      instance.onmessage?.(
+        JSON.stringify({
+          header: { event: "result-generated", task_id: run.header.task_id },
+          payload: {
+            output: {
+              sentence: { begin_time: 0, heartbeat: true, sentence_id: 0, text: "ignored" },
+            },
+          },
+        }),
+        false,
+      );
+      expect(dependencies.onEvent).not.toHaveBeenCalled();
+      connection.close();
+      expect(JSON.parse(String(instance.sent.at(-1)))).toMatchObject({
+        header: { action: "finish-task", task_id: run.header.task_id },
+        payload: { input: {} },
+      });
+      vi.advanceTimersByTime(2000);
+      expect(instance.terminate).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("connects with the temp token in the Authorization header and sends session.update on open", () => {
