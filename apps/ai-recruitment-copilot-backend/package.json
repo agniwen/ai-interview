@@ -13,6 +13,7 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "maintain:resume-search": "bun src/scripts/resume-search-maintenance.ts",
     "backfill:job-evaluations": "bun src/scripts/backfill-job-evaluations.ts",
     "backfill:recent-resume-evaluations": "bun src/scripts/backfill-recent-resume-evaluations.ts",
     "backfill:interview-snapshots": "bun src/scripts/backfill-interview-snapshots.ts",

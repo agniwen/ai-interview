@@ -1,5 +1,5 @@
 /* oxlint-disable max-lines -- resume-pool DAO assertions share one integration fixture. */
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -150,6 +150,47 @@ function basePoolInput(overrides: Partial<Parameters<typeof createResumePoolItem
 }
 
 describe("queryResumePoolItems", () => {
+  it("searches companies and schools with consistent totals, pages and private visibility", async () => {
+    const ids: string[] = [];
+    try {
+      for (const overrides of [
+        {},
+        {},
+        { createdBy: USER_B },
+        { organizationId: ORG_B },
+        { scope: "public" as const },
+      ]) {
+        ids.push(
+          await createResumePoolItem(
+            basePoolInput({
+              ...overrides,
+              resumeProfile: PROFILE_WITH_HIGHLIGHTS,
+            }),
+          ),
+        );
+      }
+      const input = {
+        creatorIds: [USER_A],
+        limit: 1,
+        organizationId: ORG_A,
+        scope: "private" as const,
+      };
+      const first = await queryResumePoolItems({ ...input, search: "极光" });
+      const second = await queryResumePoolItems({ ...input, offset: 1, search: "极光" });
+      const school = await queryResumePoolItems({ ...input, search: "华南农业" });
+      expect(first.total).toBe(2);
+      expect(second.total).toBe(2);
+      expect(school.total).toBe(2);
+      expect(first.records).toHaveLength(1);
+      expect(second.records).toHaveLength(1);
+      expect(first.records[0]?.id).not.toBe(second.records[0]?.id);
+      expect(first.records[0]).not.toHaveProperty("searchText");
+      expect(first.records[0]).not.toHaveProperty("searchCjkBigrams");
+    } finally {
+      await db.delete(resumePoolItem).where(inArray(resumePoolItem.id, ids));
+    }
+  });
+
   it("only lists the current user's private items in the current organization", async () => {
     await createResumePoolItem(basePoolInput());
     await createResumePoolItem(basePoolInput({ createdBy: USER_B, organizationId: ORG_A }));

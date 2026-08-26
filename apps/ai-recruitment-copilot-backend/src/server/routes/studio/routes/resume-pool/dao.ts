@@ -6,6 +6,7 @@ import {
   desc,
   eq,
   exists,
+  getColumns,
   gte,
   inArray,
   isNull,
@@ -15,7 +16,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { SQL, SQLWrapper } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { omit } from "lodash-es";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   jobDescription,
@@ -59,6 +61,7 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { buildResumeKeywordSearch } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/keyword-search";
 import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
@@ -66,7 +69,8 @@ import { admitResumePoolItem } from "./utils/admission";
 
 export { buildMasteredSkills, buildProfileHighlights } from "./dao/presenters";
 
-type PoolRow = typeof resumePoolItem.$inferSelect;
+type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
+const POOL_LIST_COLUMNS = omit(getColumns(resumePoolItem), ["searchText", "searchCjkBigrams"]);
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface CreateResumePoolItemInput {
@@ -601,23 +605,8 @@ function resumePoolListOrder(input: QueryResumePoolItemsInput): [SQL, SQL] {
   return [ascending ? asc(resumePoolItem.createdAt) : desc(resumePoolItem.createdAt), idOrder];
 }
 
-function literalLikePattern(value: string) {
-  return `%${value.replaceAll(/[!%_]/g, "!$&")}%`;
-}
-
-function literalIlike(column: SQLWrapper, pattern: string): SQL {
-  return sql`${column} ILIKE ${pattern} ESCAPE '!'`;
-}
-
 function resumePoolSearchWhere(search: string): SQL | undefined {
-  const pattern = literalLikePattern(search);
-  return or(
-    literalIlike(resumePoolItem.candidateName, pattern),
-    literalIlike(resumePoolItem.candidateEmail, pattern),
-    literalIlike(resumePoolItem.candidatePhone, pattern),
-    literalIlike(resumePoolItem.resumeFileName, pattern),
-    literalIlike(resumePoolItem.targetRole, pattern),
-  );
+  return buildResumeKeywordSearch(resumePoolItem, search);
 }
 
 async function loadSourceChannels(
@@ -696,7 +685,7 @@ export async function queryResumePoolItems(
   const [totalRow] = await db.select({ total: count() }).from(resumePoolItem).where(where);
   const rows = await db
     .select({
-      item: resumePoolItem,
+      item: POOL_LIST_COLUMNS,
       jobDescriptionName: jobDescription.name,
       uploaderEmail: user.email,
       uploaderImage: user.image,

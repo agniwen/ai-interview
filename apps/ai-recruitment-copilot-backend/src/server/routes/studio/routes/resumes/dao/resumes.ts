@@ -1,18 +1,5 @@
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
-import {
-  and,
-  arrayContains,
-  asc,
-  count,
-  desc,
-  eq,
-  gte,
-  ilike,
-  inArray,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, arrayContains, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -45,6 +32,7 @@ import {
   qualitativeResumeEvaluationSchema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { normalizeSkill } from "./skills";
+import { buildResumeKeywordSearch } from "./keyword-search";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/feishu-document-urls";
 
@@ -116,20 +104,7 @@ export class ResumeStructuredScoreQueryError extends Error {
 // Filter compilation helpers split out of buildWhere to keep its complexity low.
 
 function buildSearchCondition(search: string | null | undefined) {
-  const trimmed = search?.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const like = `%${trimmed}%`;
-  return (
-    or(
-      ilike(studioInterview.candidateName, like),
-      ilike(studioInterview.candidateEmail, like),
-      ilike(studioInterview.candidatePhone, like),
-      ilike(studioInterview.resumeFileName, like),
-      ilike(studioInterview.targetRole, like),
-    ) ?? null
-  );
+  return buildResumeKeywordSearch(studioInterview, search) ?? null;
 }
 
 // 输入按存储归一化规则同样处理后再 dedupe；空字符串丢弃。

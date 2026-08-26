@@ -26,7 +26,7 @@ export function buildResumeLibraryFiltersConfig({
     {
       key: "search" as const,
       minWidth: "15rem",
-      placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
+      placeholder: "搜索候选人、公司、学校、邮箱、电话、简历名或目标岗位",
       type: "search" as const,
     },
     {

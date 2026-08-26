@@ -14,7 +14,7 @@ import type {
   ResumePoolSourceChannel,
 } from "@arc/shared/resume-pool";
 
-type PoolRow = typeof resumePoolItem.$inferSelect;
+type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
 interface PoolImportRow {
   creatorImage: string | null;
   creatorName: string | null;

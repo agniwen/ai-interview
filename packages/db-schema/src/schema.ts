@@ -1386,6 +1386,9 @@ export const studioInterview = pgTable(
     resumeSourceType: text("resume_source_type").$type<StudioInterviewResumeSourceType>(),
     resumeStorageKey: text("resume_storage_key"),
     resumeText: text("resume_text"),
+    // Database-maintained keyword projection. NULL means historical backfill is pending.
+    searchCjkBigrams: text("search_cjk_bigrams").array(),
+    searchText: text("search_text"),
     // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
     // GIN 索引支持 `@>` 包含匹配。display 形态保存在 studioOrgSkill 表里，每 org 一份。
     // Derived from resume_profile->'skills': trim + collapse whitespace + lowercase.
@@ -1413,6 +1416,12 @@ export const studioInterview = pgTable(
     writtenTestScore: text("written_test_score"),
   },
   (table) => [
+    // Created concurrently by the resume-search maintenance script after backfill.
+    index("studio_interview_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.asc().op("gin_trgm_ops"),
+    ),
+    index("studio_interview_search_cjk_bigrams_idx").using("gin", table.searchCjkBigrams),
     // 新模型的索引：tabs 通常 WHERE pipeline_stage = ? AND outcome = ?。
     index("studio_interview_pipeline_stage_idx").on(table.pipelineStage),
     index("studio_interview_outcome_idx").on(table.outcome),
@@ -2319,6 +2328,9 @@ export const resumePoolItem = pgTable(
     resumeStorageKey: text("resume_storage_key"),
     resumeText: text("resume_text"),
     scope: text("scope").$type<ResumePoolScope>().notNull(),
+    // Database-maintained keyword projection. NULL means historical backfill is pending.
+    searchCjkBigrams: text("search_cjk_bigrams").array(),
+    searchText: text("search_text"),
     skillsNormalized: text("skills_normalized")
       .array()
       .notNull()
@@ -2338,6 +2350,12 @@ export const resumePoolItem = pgTable(
   },
   (table) => [
     index("resume_pool_item_scope_created_idx").on(table.scope, table.createdAt),
+    // Created concurrently by the resume-search maintenance script after backfill.
+    index("resume_pool_item_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.asc().op("gin_trgm_ops"),
+    ),
+    index("resume_pool_item_search_cjk_bigrams_idx").using("gin", table.searchCjkBigrams),
     index("resume_pool_item_org_user_scope_created_idx").on(
       table.organizationId,
       table.createdBy,
