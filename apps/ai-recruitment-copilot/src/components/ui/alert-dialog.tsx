@@ -4,6 +4,7 @@ import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog
 import * as React from "react";
 
 import { Button, ButtonSizeProvider } from "@/components/ui/button";
+import { cossModalMotionClass, cossModalOverlayMotionClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
@@ -22,10 +23,7 @@ function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdr
   return (
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-background/80 duration-200 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0",
-        className,
-      )}
+      className={cn("fixed inset-0 z-50 bg-background/80", cossModalOverlayMotionClass, className)}
       {...props}
     />
   );
@@ -45,7 +43,8 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-sm duration-200 data-[size=sm]:max-w-xs data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[size=default]:sm:max-w-lg",
+          cossModalMotionClass,
+          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-sm data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-lg",
           className,
         )}
         {...props}

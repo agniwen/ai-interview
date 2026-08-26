@@ -82,7 +82,7 @@ const principlesRow2: HiringPrinciple[] = [
 
 function PrincipleCard({ description, label, title }: HiringPrinciple) {
   return (
-    <div className="mr-6 flex h-full w-[320px] flex-col rounded-2xl bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] ring-1 ring-foreground/5 backdrop-blur transition-[translate,box-shadow,background-color] duration-[240ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] hover:-translate-y-px hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] hover:ring-foreground/[0.08] motion-reduce:translate-y-0 motion-reduce:transition-none sm:w-[360px] sm:p-6">
+    <div className="mr-6 flex h-full w-[320px] flex-col rounded-2xl bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] ring-1 ring-foreground/5 backdrop-blur transition-[translate,box-shadow,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:-translate-y-px hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] hover:ring-foreground/[0.08] motion-reduce:translate-y-0 motion-reduce:transition-none sm:w-[360px] sm:p-6">
       <p className="font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">{label}</p>
       <h3 className="mt-4 text-balance font-medium text-foreground text-xl leading-tight tracking-tight">
         {title}

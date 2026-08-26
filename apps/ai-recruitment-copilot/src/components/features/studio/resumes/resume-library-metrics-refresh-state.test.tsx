@@ -39,20 +39,18 @@ describe("ResumeLibraryMetricsSection refresh state", () => {
     const { root } = await renderInAct(renderSection("team:1"));
     roots.push(root);
 
-    const periodButton = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
-      (button) => button.textContent === "今日",
-    );
+    const periodButton = document.querySelector<HTMLButtonElement>('[role="tab"]');
+    expect(periodButton?.textContent).toBe("今日");
     act(() => periodButton?.click());
-    expect(periodButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(periodButton?.getAttribute("aria-selected")).toBe("true");
 
     await act(async () => {
       root.render(renderSection("team:2"));
       await Promise.resolve();
     });
 
-    const refreshedPeriodButton = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
-      (button) => button.textContent === "今日",
-    );
-    expect(refreshedPeriodButton?.getAttribute("aria-pressed")).toBe("true");
+    const refreshedPeriodButton = document.querySelector<HTMLButtonElement>('[role="tab"]');
+    expect(refreshedPeriodButton?.textContent).toBe("今日");
+    expect(refreshedPeriodButton?.getAttribute("aria-selected")).toBe("true");
   });
 });

@@ -13,6 +13,7 @@ import {
   isCascaderRtl,
 } from "@/components/reui/cascader/cascader-lib";
 import type { CascaderActionItem } from "@/components/reui/cascader/cascader-types";
+import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 import { Popover as PopoverPrimitive } from "@base-ui/react";
 import { useDirection } from "@base-ui/react/direction-provider";
 
@@ -226,7 +227,7 @@ export interface CascaderActionProps extends Omit<React.ComponentProps<"button">
  * rather than ReUI theme CSS so an installed footer needs only Tailwind.
  */
 const FLYOUT_SURFACE_CLASS =
-  "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 max-h-72 overflow-hidden ring-1 duration-100 ring-foreground/10 shadow-md rounded-lg";
+  "max-h-72 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
 
 /**
  * One footer command, shaped like a row and deliberately NOT one. A real
@@ -673,6 +674,7 @@ function CascaderSubmenuContent({
           data-menu-target=""
           className={cn(
             FLYOUT_SURFACE_CLASS,
+            cossAnchoredPopupMotionClass,
             "flex max-w-(--available-width) min-w-48 flex-col gap-0.5 outline-hidden",
             CASCADER_LIST_PAD_CLASS,
             "p-(--cascader-list-pad,4px)",

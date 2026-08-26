@@ -169,7 +169,7 @@ function Sidebar({
       data-collapsible={state === "collapsed" ? collapsible : ""}
       className={cn(
         // Overlay so backdrop-filter can sample the content canvas underneath.
-        "group peer absolute inset-y-0 z-30 flex flex-col text-sidebar-foreground transition-[width,opacity,transform] duration-200 ease-linear",
+        "group peer absolute inset-y-0 z-30 flex flex-col text-sidebar-foreground transition-[width,opacity,transform] duration-200 ease-linear motion-reduce:transition-none",
         side === "left" ? "left-0" : "right-0",
         state === "expanded" && "w-(--sidebar-width)",
         state === "collapsed" && collapsible === "icon" && "w-(--sidebar-width-icon)",
@@ -226,7 +226,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
       onClick={toggleSidebar}
       title="Toggle Sidebar"
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 outline-hidden transition-all ease-linear sm:flex",
+        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 outline-hidden transition-transform ease-linear motion-reduce:transition-none sm:flex",
         "group-data-[side=left]/sidebar:right-0 group-data-[side=left]/sidebar:translate-x-1/2",
         "group-data-[side=right]/sidebar:left-0 group-data-[side=right]/sidebar:-translate-x-1/2",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-px hover:after:bg-sidebar-border",
@@ -250,7 +250,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
         // Opaque content only — use margin (not padding) so the strip under
         // the glass sidebar stays a transparent hole in the window. Padding
         // would still paint opaque bg under the sidebar and kill vibrancy.
-        "relative z-0 flex min-h-0 min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-linear",
+        "relative z-0 flex min-h-0 min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-linear motion-reduce:transition-none",
         state === "expanded" && "ml-(--sidebar-width)",
         className,
       )}
@@ -334,7 +334,7 @@ function SidebarGroupLabel({ className, render, ...props }: useRender.ComponentP
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-normal text-sidebar-foreground/65 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-3.5 [&>svg]:shrink-0",
+          "flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-normal text-sidebar-foreground/65 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear motion-reduce:transition-none focus-visible:ring-2 [&>svg]:size-3.5 [&>svg]:shrink-0",
           "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
           className,
         ),
@@ -406,7 +406,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 const sidebarMenuButtonVariants = cva(
   // Hover / active use translucent --sidebar-accent* tokens so chips match
   // the glass sidebar (no solid opaque pills on a frosted panel).
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm border border-transparent p-2 text-left text-[13px] font-normal ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent-active active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:border-sidebar-border/40 data-[active=true]:bg-sidebar-accent-active data-[active=true]:font-normal data-[active=true]:text-sidebar-accent-foreground [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:last-child]:hidden [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-sm border border-transparent p-2 text-left text-[13px] font-normal ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent-active active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:border-sidebar-border/40 data-[active=true]:bg-sidebar-accent-active data-[active=true]:font-normal data-[active=true]:text-sidebar-accent-foreground [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:last-child]:hidden [&>svg]:size-4 [&>svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   desktopMeetingKeys,
@@ -448,19 +449,15 @@ export function MeetingDetailPage({
   }
 
   const meeting = detailQuery.data;
-  if (
-    isMeetingSessionPagePending({
-      detailPending: detailQuery.isPending,
-      hasLocalSession: isLocalSession,
-      hasRemoteMeeting: Boolean(meeting),
-      transcriptPending: transcriptQuery.isPending,
-      workspacePending: workspaceQuery.isPending,
-    })
-  ) {
-    return <MeetingSessionPageSkeleton />;
-  }
+  const isInitialLoading = isMeetingSessionPagePending({
+    detailPending: detailQuery.isPending,
+    hasLocalSession: isLocalSession,
+    hasRemoteMeeting: Boolean(meeting),
+    transcriptPending: transcriptQuery.isPending,
+    workspacePending: workspaceQuery.isPending,
+  });
 
-  if (!(meeting || isLocalSession)) {
+  if (!isInitialLoading && !(meeting || isLocalSession)) {
     const error = workspaceQuery.error ?? detailQuery.error;
     return (
       <MeetingDetailUnavailable
@@ -494,97 +491,104 @@ export function MeetingDetailPage({
   const showPlaybackBar = Boolean(playback) && localSession?.state !== "interrupted";
 
   return (
-    <MeetingRecordingSessionLayout
-      composer={sessionComposer({
-        interrupted: localSession?.state === "interrupted",
-        onContinueInterrupted: () => {
-          continueInterruptedRecording(meetingId);
-        },
-        onPlaybackError: playbackQuery.refetch,
-        onSaveInterrupted: () => {
-          saveRecording(meetingId);
-        },
-        playback,
-        seekToSeconds,
-      })}
-      overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
-      main={
-        <div
-          className={
-            showPlaybackBar
-              ? "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6"
-              : "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6"
-          }
-        >
-          <MeetingDetailHeader
-            canRename={canRename}
-            draftBadge={showDraftBadge ? <SessionDraftBadge /> : null}
-            editingTitle={editingTitle}
-            isEditingTitle={isEditingTitle}
-            meeting={meeting ?? undefined}
-            onCancelTitleEditing={() => {
-              setIsEditingTitle(false);
-              setEditingTitle("");
-            }}
-            onChangeTitle={setEditingTitle}
-            onEditTitle={() => {
-              setEditingTitle(title);
-              setIsEditingTitle(true);
-            }}
-            onRenameTitle={() => {
-              const normalizedTitle = editingTitle.trim();
-              if (
-                !normalizedTitle ||
-                normalizedTitle.length > RECORDING_TITLE_MAX_LENGTH ||
-                normalizedTitle === title
-              ) {
-                if (normalizedTitle === title) {
+    <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
+      {isInitialLoading ? null : (
+        <MeetingRecordingSessionLayout
+          composer={sessionComposer({
+            interrupted: localSession?.state === "interrupted",
+            onContinueInterrupted: () => {
+              continueInterruptedRecording(meetingId);
+            },
+            onPlaybackError: playbackQuery.refetch,
+            onSaveInterrupted: () => {
+              saveRecording(meetingId);
+            },
+            playback,
+            seekToSeconds,
+          })}
+          overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
+          main={
+            <div
+              className={
+                showPlaybackBar
+                  ? "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6"
+                  : "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6"
+              }
+            >
+              <MeetingDetailHeader
+                canRename={canRename}
+                draftBadge={showDraftBadge ? <SessionDraftBadge /> : null}
+                editingTitle={editingTitle}
+                isEditingTitle={isEditingTitle}
+                meeting={meeting ?? undefined}
+                onCancelTitleEditing={() => {
                   setIsEditingTitle(false);
                   setEditingTitle("");
-                }
-                return;
-              }
-              if (localSession) {
-                renameMutation.mutate({
-                  meetingId,
-                  source: "local",
-                  title: normalizedTitle,
-                });
-                return;
-              }
-              if (workspace) {
-                renameMutation.mutate({
-                  meetingId,
-                  slug: workspace.slug,
-                  source: "remote",
-                  title: normalizedTitle,
-                });
-              }
-            }}
-            onRetryPlayback={() => retryPlaybackMutation.mutate()}
-            onRetryTranscript={() => retryTranscriptMutation.mutate()}
-            onRetryUpload={() => {
-              saveRecording(meetingId);
-            }}
-            renamePending={renameMutation.isPending}
-            retryPlaybackPending={retryPlaybackMutation.isPending}
-            retryTranscriptPending={retryTranscriptMutation.isPending}
-            status={sessionDetailStatus({
-              playbackState: meeting?.processingState,
-              transcript: transcriptQuery.data,
-              uploadFailed: workspaceSave?.state === "action-required",
-              uploadLabel,
-            })}
-            title={title}
-          />
-          {meeting ? (
-            <MeetingTranscriptStage error={transcriptQuery.error} result={transcriptQuery.data} />
-          ) : (
-            <MeetingLocalTranscriptStage localDraft={localDraft} />
-          )}
-        </div>
-      }
-      scrollFade={isCompletedSession}
-    />
+                }}
+                onChangeTitle={setEditingTitle}
+                onEditTitle={() => {
+                  setEditingTitle(title);
+                  setIsEditingTitle(true);
+                }}
+                onRenameTitle={() => {
+                  const normalizedTitle = editingTitle.trim();
+                  if (
+                    !normalizedTitle ||
+                    normalizedTitle.length > RECORDING_TITLE_MAX_LENGTH ||
+                    normalizedTitle === title
+                  ) {
+                    if (normalizedTitle === title) {
+                      setIsEditingTitle(false);
+                      setEditingTitle("");
+                    }
+                    return;
+                  }
+                  if (localSession) {
+                    renameMutation.mutate({
+                      meetingId,
+                      source: "local",
+                      title: normalizedTitle,
+                    });
+                    return;
+                  }
+                  if (workspace) {
+                    renameMutation.mutate({
+                      meetingId,
+                      slug: workspace.slug,
+                      source: "remote",
+                      title: normalizedTitle,
+                    });
+                  }
+                }}
+                onRetryPlayback={() => retryPlaybackMutation.mutate()}
+                onRetryTranscript={() => retryTranscriptMutation.mutate()}
+                onRetryUpload={() => {
+                  saveRecording(meetingId);
+                }}
+                renamePending={renameMutation.isPending}
+                retryPlaybackPending={retryPlaybackMutation.isPending}
+                retryTranscriptPending={retryTranscriptMutation.isPending}
+                status={sessionDetailStatus({
+                  playbackState: meeting?.processingState,
+                  transcript: transcriptQuery.data,
+                  uploadFailed: workspaceSave?.state === "action-required",
+                  uploadLabel,
+                })}
+                title={title}
+              />
+              {meeting ? (
+                <MeetingTranscriptStage
+                  error={transcriptQuery.error}
+                  result={transcriptQuery.data}
+                />
+              ) : (
+                <MeetingLocalTranscriptStage localDraft={localDraft} />
+              )}
+            </div>
+          }
+          scrollFade={isCompletedSession}
+        />
+      )}
+    </SkeletonReveal>
   );
 }

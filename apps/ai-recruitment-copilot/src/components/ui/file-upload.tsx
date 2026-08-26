@@ -115,7 +115,7 @@ function UploadIconCluster({
       <div className="grid h-14 w-14 place-items-center">
         <div
           className={cn(
-            "grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
+            "grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)]",
             "motion-reduce:transition-none",
             isDragging && "scale-[1.08] bg-popover text-foreground shadow-sm",
           )}
@@ -134,7 +134,7 @@ function UploadIconCluster({
         return (
           <div
             className={cn(
-              "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
+              "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)]",
               "motion-reduce:transition-none",
               index === 1 && "z-10",
               isDragging && "bg-popover text-foreground shadow-sm",
@@ -308,7 +308,7 @@ export function FileUpload({
       aria-disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
-        "relative flex min-h-52 cursor-pointer flex-col items-center justify-center gap-5 overflow-hidden rounded-[1.125rem] border border-dashed bg-background px-6 py-8 text-center transition-[border-color,background-color] duration-200 ease-out",
+        "relative flex min-h-52 cursor-pointer flex-col items-center justify-center gap-5 overflow-hidden rounded-[1.125rem] border border-dashed bg-background px-6 py-8 text-center transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)]",
         "motion-reduce:transition-none",
         disabled
           ? "pointer-events-none cursor-not-allowed opacity-60"

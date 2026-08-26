@@ -13,20 +13,23 @@ import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 
 function JobDescriptionPreviewSkeleton() {
   return (
-    <div className="space-y-4" data-slot="job-description-preview-skeleton">
-      <div className="space-y-2">
-        <Skeleton className="h-5 w-2/3" />
-        <Skeleton className="h-4 w-24" />
+    <div className="flex flex-col gap-4" data-slot="job-description-preview-skeleton">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-start justify-between gap-3">
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+        </div>
+        <Skeleton className="h-4 w-36" />
       </div>
-      <div className="space-y-2">
+      <div className="flex flex-col gap-1">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-4/5" />
       </div>
-      <Skeleton className="h-4 w-28" />
     </div>
   );
 }
@@ -121,11 +124,14 @@ export function JobDescriptionHoverCardView({
         onPointerDown={(event) => event.stopPropagation()}
         sideOffset={8}
       >
-        {isPending ? <JobDescriptionPreviewSkeleton /> : null}
+        {isPending || record ? (
+          <SkeletonReveal loading={isPending} skeleton={<JobDescriptionPreviewSkeleton />}>
+            {record ? <JobDescriptionPreview record={record} /> : null}
+          </SkeletonReveal>
+        ) : null}
         {isError ? (
           <p className="text-destructive text-sm">岗位详情加载失败，请稍后重试。</p>
         ) : null}
-        {record ? <JobDescriptionPreview record={record} /> : null}
       </HoverCardContent>
     </HoverCard>
   );

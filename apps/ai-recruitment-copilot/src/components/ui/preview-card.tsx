@@ -3,6 +3,7 @@
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
 import type React from "react";
 import { cn } from "@arc/shared/utils";
+import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 
 export const PreviewCard: typeof PreviewCardPrimitive.Root = PreviewCardPrimitive.Root;
 
@@ -37,7 +38,8 @@ export function PreviewCardPopup({
       >
         <PreviewCardPrimitive.Popup
           className={cn(
-            "relative flex w-64 origin-(--transform-origin) text-balance rounded-lg border bg-popover p-4 text-popover-foreground text-sm shadow-sm transition-[scale,opacity] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0",
+            "relative flex w-64 text-balance rounded-lg border bg-popover p-4 text-popover-foreground text-sm shadow-sm",
+            cossAnchoredPopupMotionClass,
             className,
           )}
           data-slot="preview-card-content"

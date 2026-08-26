@@ -7,6 +7,7 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  cossAnchoredPopupMotionClass,
   cossFieldSurfaceClass,
   cossMenuItemClass,
   cossPopupSurfaceClass,
@@ -150,7 +151,8 @@ function ComboboxContent({
           data-chips={!!anchor}
           className={cn(
             cossPopupSurfaceClass,
-            "group/combobox-content pointer-events-auto max-h-96 w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] origin-(--transform-origin) overflow-hidden transition-[scale,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] data-[chips=true]:min-w-(--anchor-width) data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 motion-reduce:transition-none *:data-[slot=input-group]:m-1 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-8",
+            cossAnchoredPopupMotionClass,
+            "group/combobox-content pointer-events-auto max-h-96 w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] overflow-hidden data-[chips=true]:min-w-(--anchor-width) *:data-[slot=input-group]:m-1 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-8",
             className,
           )}
           {...props}

@@ -753,5 +753,5 @@ export const Route = createFileRoute("/w/$slug/studio/mail-ingest-accounts")({
   head: () => ({
     meta: [{ title: formatDocumentTitle("邮箱监听") }],
   }),
-  pendingComponent: () => <StudioTablePageSkeleton label="邮箱监听" />,
+  pendingComponent: () => <StudioTablePageSkeleton columnCount={10} label="邮箱监听" />,
 });

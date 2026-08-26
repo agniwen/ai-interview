@@ -212,6 +212,7 @@ export function JobDescriptionFormDialog({
         title={record ? "编辑在招岗位" : "创建在招岗位"}
       >
         <form
+          className="relative"
           id="job-description-form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -219,7 +220,7 @@ export function JobDescriptionFormDialog({
             void form.handleSubmit();
           }}
         >
-          <TabsContent value="basic">
+          <TabsContent motion="page" value="basic">
             <FieldGroup className="mt-2 gap-4">
               <JobDescriptionBasicSettingsFields
                 allowCrossDepartmentInterviewers={allowCrossDepartmentInterviewers}
@@ -242,7 +243,7 @@ export function JobDescriptionFormDialog({
             </FieldGroup>
           </TabsContent>
           {record ? (
-            <TabsContent value="interview-questions">
+            <TabsContent motion="page" value="interview-questions">
               <LinkedInterviewQuestionTemplatesList
                 isLoading={isInterviewQuestionsLoading}
                 jobDescriptionId={record.id}
@@ -251,7 +252,7 @@ export function JobDescriptionFormDialog({
             </TabsContent>
           ) : null}
           {record ? (
-            <TabsContent value="forms">
+            <TabsContent motion="page" value="forms">
               <LinkedFormsList
                 isLoading={isFormsLoading}
                 jobDescriptionId={record.id}

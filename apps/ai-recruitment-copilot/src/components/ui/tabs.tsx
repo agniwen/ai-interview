@@ -103,7 +103,7 @@ export function TabsList({
       {children}
       <TabsPrimitive.Indicator
         className={cn(
-          "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-200 ease-in-out",
+          "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
           resolvedVariant === "underline"
             ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px data-[orientation=horizontal]:translate-y-px"
             : "-z-1 rounded-md bg-background dark:bg-input",
@@ -131,11 +131,17 @@ export function TabsPanel({
   className,
   forceMount,
   keepMounted,
+  motion,
   ...props
-}: TabsPrimitive.Panel.Props & { forceMount?: boolean }): React.ReactElement {
+}: TabsPrimitive.Panel.Props & { forceMount?: boolean; motion?: "page" }): React.ReactElement {
   return (
     <TabsPrimitive.Panel
-      className={cn("flex-1 outline-none", className)}
+      className={cn(
+        "flex-1 outline-none",
+        motion === "page" &&
+          "transition-[opacity,translate,filter] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-ending-style:absolute data-ending-style:inset-0 data-ending-style:pointer-events-none data-[activation-direction=left]:data-ending-style:translate-x-(--distance-base) data-[activation-direction=right]:data-ending-style:-translate-x-(--distance-base) data-ending-style:opacity-0 data-ending-style:blur-(--blur-medium) data-[activation-direction=left]:data-starting-style:-translate-x-(--distance-base) data-[activation-direction=right]:data-starting-style:translate-x-(--distance-base) data-starting-style:opacity-0 data-starting-style:blur-(--blur-medium) motion-reduce:transition-none motion-reduce:data-ending-style:translate-x-0 motion-reduce:data-starting-style:translate-x-0 motion-reduce:data-ending-style:blur-none motion-reduce:data-starting-style:blur-none",
+        className,
+      )}
       data-slot="tabs-content"
       keepMounted={keepMounted ?? forceMount}
       {...props}

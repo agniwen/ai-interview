@@ -3,6 +3,18 @@ import { describe, expect, it } from "vitest";
 import { CandidateTimeline } from "./candidate-timeline";
 
 describe("CandidateTimeline", () => {
+  it("keeps the real activity layer mounted while its skeleton is loading", () => {
+    const html = renderToStaticMarkup(
+      <CandidateTimeline data={null} isLoading showHeading={false} />,
+    );
+
+    expect(html).toContain('data-slot="skeleton-reveal"');
+    expect(html).toContain('data-state="loading"');
+    expect(html).toContain('data-slot="skeleton-reveal-placeholder"');
+    expect(html).toContain('data-slot="skeleton-reveal-content"');
+    expect(html).toContain('aria-hidden="true"');
+  });
+
   it("renders no placeholder when the activity list is empty", () => {
     const html = renderToStaticMarkup(
       <CandidateTimeline
@@ -22,5 +34,6 @@ describe("CandidateTimeline", () => {
 
     expect(html).not.toContain("暂无活动记录");
     expect(html).not.toContain('data-slot="empty-icon"');
+    expect(html).toContain('data-state="revealed"');
   });
 });

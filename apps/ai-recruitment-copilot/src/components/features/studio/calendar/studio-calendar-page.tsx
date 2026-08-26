@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Frame, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { fetchStudioCalendar } from "@/lib/client/api";
@@ -287,9 +288,10 @@ export function StudioCalendarPage({
         </Alert>
       ) : null}
       <Frame className="min-w-0 rounded-xl">
-        {calendarQuery.isPending ? (
-          <CalendarSkeleton />
-        ) : (
+        <SkeletonReveal
+          loading={calendarQuery.isPending && !calendarQuery.data}
+          skeleton={<CalendarSkeleton />}
+        >
           <EventCalendar
             className="h-[min(760px,calc(100vh-12rem))] min-h-[560px] overflow-hidden rounded-lg"
             defaultView="week"
@@ -322,7 +324,7 @@ export function StudioCalendarPage({
               render={<FramePanel className="min-h-0 flex-1 overflow-hidden rounded-lg p-0" />}
             />
           </EventCalendar>
-        )}
+        </SkeletonReveal>
       </Frame>
     </div>
   );

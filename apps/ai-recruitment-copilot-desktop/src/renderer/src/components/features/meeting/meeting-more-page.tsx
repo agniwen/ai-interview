@@ -4,6 +4,7 @@ import { useEffect, useReducer } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Frame, FramePanel } from "@/components/ui/frame";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   desktopMeetingKeys,
   fetchMeetingDetail,
@@ -96,12 +97,10 @@ export function MeetingMorePage({
     },
   });
 
-  if (workspaceQuery.isPending || detailQuery.isPending) {
-    return <MeetingMorePageSkeleton />;
-  }
+  const isInitialLoading = workspaceQuery.isPending || Boolean(workspace && detailQuery.isPending);
 
   const error = workspaceQuery.error ?? detailQuery.error ?? playbackQuery.error;
-  if (error) {
+  if (!isInitialLoading && error) {
     return (
       <MeetingMoreStatus>
         <p className="text-muted-foreground text-sm">
@@ -126,7 +125,7 @@ export function MeetingMorePage({
     );
   }
 
-  if (!detailQuery.data) {
+  if (!(isInitialLoading || detailQuery.data)) {
     return (
       <MeetingMoreStatus>
         <p className="font-medium text-sm">会议不存在或你无权访问</p>
@@ -144,48 +143,54 @@ export function MeetingMorePage({
   const meeting = detailQuery.data;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-4 pb-10 sm:px-6">
-      <MeetingDetailView
-        meeting={meeting}
-        onPlaybackError={() => {
-          void playbackQuery.refetch();
-        }}
-        onRetryProcessing={
-          canRetryMeetingProcessing(meeting.accessRole) ? () => retryMutation.mutate() : undefined
-        }
-        playback={playbackQuery.data ?? null}
-        retryProcessing={retryMutation.isPending}
-        seekRequestId={seekRequest.id}
-        seekToSeconds={seekRequest.seconds}
-      />
-      <MeetingRecruitingContextPanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingIntelligencePanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        onSeek={requestSeek}
-        slug={workspaceSlug}
-      />
-      <MeetingQuestionsPanel meetingId={meetingId} onSeek={requestSeek} slug={workspaceSlug} />
-      <MeetingNotesPanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingTranscriptPanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        onSeek={requestSeek}
-        slug={workspaceSlug}
-      />
-      <MeetingLifecyclePanel
-        accessRole={meeting.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-    </div>
+    <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingMorePageSkeleton />}>
+      {meeting ? (
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-4 pb-10 sm:px-6">
+          <MeetingDetailView
+            meeting={meeting}
+            onPlaybackError={() => {
+              void playbackQuery.refetch();
+            }}
+            onRetryProcessing={
+              canRetryMeetingProcessing(meeting.accessRole)
+                ? () => retryMutation.mutate()
+                : undefined
+            }
+            playback={playbackQuery.data ?? null}
+            retryProcessing={retryMutation.isPending}
+            seekRequestId={seekRequest.id}
+            seekToSeconds={seekRequest.seconds}
+          />
+          <MeetingRecruitingContextPanel
+            accessRole={meeting.accessRole}
+            meetingId={meetingId}
+            slug={workspaceSlug}
+          />
+          <MeetingIntelligencePanel
+            accessRole={meeting.accessRole}
+            meetingId={meetingId}
+            onSeek={requestSeek}
+            slug={workspaceSlug}
+          />
+          <MeetingQuestionsPanel meetingId={meetingId} onSeek={requestSeek} slug={workspaceSlug} />
+          <MeetingNotesPanel
+            accessRole={meeting.accessRole}
+            meetingId={meetingId}
+            slug={workspaceSlug}
+          />
+          <MeetingTranscriptPanel
+            accessRole={meeting.accessRole}
+            meetingId={meetingId}
+            onSeek={requestSeek}
+            slug={workspaceSlug}
+          />
+          <MeetingLifecyclePanel
+            accessRole={meeting.accessRole}
+            meetingId={meetingId}
+            slug={workspaceSlug}
+          />
+        </div>
+      ) : null}
+    </SkeletonReveal>
   );
 }

@@ -37,6 +37,31 @@ const recordSelectorSource = readFileSync(
 );
 
 describe("AI 面试详情 tabs", () => {
+  it("switches detail panels without tweening the outer container height", () => {
+    expect(bodySource).not.toContain("AnimatedHeight");
+    expect(bodySource).not.toContain("clip={!showTimelineRail}");
+
+    for (const value of [
+      "overview",
+      "ai-analysis",
+      "experience",
+      "rounds",
+      "human-interview",
+      "offer",
+      "instructions",
+    ]) {
+      expect(bodySource).toContain(`<TabsContent motion="page" value="${value}">`);
+    }
+  });
+
+  it("reveals cold-loaded detail slots without replaying a container height tween", () => {
+    expect(headerSource).toContain("<SkeletonReveal loading={isLoading}");
+    expect(bodySource).toContain("<SkeletonReveal");
+    expect(bodySource).toContain("loading={isLoading}");
+    expect(bodySource).toContain("skeleton={<DetailBodySkeleton mode={mode} />}");
+    expect(detailRailSource).toContain("isLoading={isTimelineLoading}");
+  });
+
   it("places resume summary and activity tabs in a right rail on wide screens", () => {
     expect(headerSource).toContain(
       'const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview"',
@@ -55,6 +80,8 @@ describe("AI 面试详情 tabs", () => {
     expect(detailRailSource).toContain("履历概要");
     expect(detailRailSource).toContain('value="activity"');
     expect(detailRailSource).toContain("活动记录");
+    expect(detailRailSource).toContain('<TabsContent motion="page" value="career-summary">');
+    expect(detailRailSource).toContain('<TabsContent motion="page" value="activity">');
     expect(detailRailSource).toContain("<CandidateTimeline");
     expect(detailRailSource).toContain("showHeading={false}");
     expect(detailRailSource.match(/<ScrollArea/g)).toHaveLength(2);
@@ -146,12 +173,12 @@ describe("AI 面试详情 tabs", () => {
 
   it("reuses the result layout in interview detail and recruitment detail", () => {
     const overviewBranch = bodySource.slice(
-      bodySource.indexOf('<TabsContent value="overview">'),
-      bodySource.indexOf('<TabsContent value="ai-analysis">'),
+      bodySource.indexOf('<TabsContent motion="page" value="overview">'),
+      bodySource.indexOf('<TabsContent motion="page" value="ai-analysis">'),
     );
     const recruitmentAiBranch = bodySource.slice(
-      bodySource.indexOf('<TabsContent value="rounds">'),
-      bodySource.indexOf('<TabsContent value="human-interview">'),
+      bodySource.indexOf('<TabsContent motion="page" value="rounds">'),
+      bodySource.indexOf('<TabsContent motion="page" value="human-interview">'),
     );
     expect(overviewBranch).toContain("<InterviewResultTabContent");
     expect(recruitmentAiBranch).toContain("<InterviewResultTabContent");

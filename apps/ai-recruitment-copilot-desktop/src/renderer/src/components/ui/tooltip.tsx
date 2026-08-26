@@ -5,7 +5,7 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "@arc/shared/utils";
 
 function TooltipProvider({
-  delay = 0,
+  delay = 80,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
@@ -41,7 +41,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "bg-foreground text-background animate-in fade-in-0 zoom-in-95 data-ending-style:animate-out data-ending-style:fade-out-0 data-ending-style:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",
+            "t-tooltip z-50 w-fit rounded-md bg-foreground px-3 py-1.5 text-background text-xs text-balance",
             className,
           )}
           {...props}

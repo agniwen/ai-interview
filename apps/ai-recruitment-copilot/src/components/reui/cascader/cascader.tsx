@@ -78,6 +78,7 @@ import { useRender } from "@base-ui/react/use-render";
 
 import { cn } from "@arc/shared/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 import { IconChevronDown, IconX } from "@tabler/icons-react";
 
 /** Stable `filteredItems` for a level swap; a fixed identity cannot loop. */
@@ -2150,7 +2151,7 @@ const CHIP_REMOVE_CLASS = "opacity-50 hover:opacity-100 -ml-1";
  * left out (mirrored in `cascader-nav.tsx`), as are its `max-h-72` and
  * `min-w-*`: `CascaderContent` sets both from the positioner's variables. */
 const CONTENT_SURFACE_CLASS =
-  "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 overflow-hidden ring-1 duration-100 ring-foreground/10 shadow-md rounded-lg data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2";
+  "overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10";
 
 const EMPTY_CLASS =
   "text-muted-foreground hidden w-full justify-center py-2 text-center group-data-empty/combobox-content:flex text-sm";
@@ -2471,6 +2472,7 @@ function CascaderContent({
           initialFocus={initialFocus}
           className={cn(
             CONTENT_SURFACE_CLASS,
+            cossAnchoredPopupMotionClass,
             "group/combobox-content relative flex max-h-(--available-height) max-w-(--available-width) min-w-(--anchor-width) origin-(--transform-origin) flex-col",
             className,
           )}

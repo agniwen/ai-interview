@@ -53,14 +53,34 @@ describe("DataGrid initial loading", () => {
     const container = renderGrid({ loading: true });
 
     expect(container.querySelector('[data-slot="data-grid-skeleton"]')).not.toBeNull();
-    expect(container.textContent).not.toContain("暂无记录");
+    expect(
+      container.querySelectorAll('[data-slot="data-grid-skeleton"] [data-slot="table-body"] tr'),
+    ).toHaveLength(20);
+    expect(container.querySelector('[data-slot="pagination-bar-skeleton"]')).not.toBeNull();
+    expect(
+      container.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state,
+    ).toBe("loading");
+    expect(
+      container.querySelector('[data-slot="skeleton-reveal-content"]')?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(
+      [...container.querySelectorAll('[data-slot="data-grid-skeleton"] tbody tr')].every((row) =>
+        row.classList.contains("h-[53px]"),
+      ),
+    ).toBe(true);
   });
 
   it("keeps existing rows visible while loading", () => {
     const container = renderGrid({ data: [{ id: "1", name: "张三" }], loading: true });
 
     expect(container.querySelector('[data-slot="data-grid-skeleton"]')).toBeNull();
+    expect(container.querySelector('[data-slot="pagination-bar-skeleton"]')).toBeNull();
+    expect(container.querySelector('[data-slot="pagination-bar"]')).not.toBeNull();
     expect(container.textContent).toContain("张三");
+    expect(container.querySelector("tbody tr")?.classList.contains("h-[53px]")).toBe(true);
+    expect(
+      container.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state,
+    ).toBe("revealed");
   });
 
   it("shows the empty state after an empty initial request finishes", () => {
@@ -68,5 +88,8 @@ describe("DataGrid initial loading", () => {
 
     expect(container.querySelector('[data-slot="data-grid-skeleton"]')).toBeNull();
     expect(container.textContent).toContain("暂无记录");
+    expect(
+      container.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state,
+    ).toBe("revealed");
   });
 });

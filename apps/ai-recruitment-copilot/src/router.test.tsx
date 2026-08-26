@@ -15,11 +15,9 @@ describe("router candidate detail navigation", () => {
     );
   });
 
-  it("resets the studio viewport when navigating to recruiter resume detail", async () => {
+  it("resets the studio viewport on default Studio navigation", async () => {
     const routerSource = await readFile(new URL("router.tsx", import.meta.url), "utf-8");
 
-    expect(routerSource).toContain(
-      "scrollToTopSelectors: [getRecruiterResumeDetailScrollToTopElement]",
-    );
+    expect(routerSource).toContain("scrollToTopSelectors: [getStudioMainScrollToTopElement]");
   });
 });

@@ -6,7 +6,11 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { Button, ButtonSizeProvider } from "@/components/ui/button";
-import { cossModalSurfaceClass } from "@/components/ui/coss-style";
+import {
+  cossModalMotionClass,
+  cossModalOverlayMotionClass,
+  cossModalSurfaceClass,
+} from "@/components/ui/coss-style";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
@@ -105,7 +109,10 @@ function DialogClose({ render, ...props }: DialogPrimitive.Close.Props) {
 function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
   const { isMobile } = useResponsiveDialog();
   const overlayClassName = cn(
-    "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-200",
+    "fixed inset-0 z-50 bg-background/80 backdrop-blur-xs",
+    isMobile
+      ? "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-[state=closed]:duration-[var(--duration-quick)] motion-reduce:animate-none"
+      : cossModalOverlayMotionClass,
     className,
   );
 
@@ -137,7 +144,7 @@ function DialogContent({
       <DrawerPrimitive.Portal data-slot="dialog-portal">
         <DrawerPrimitive.Overlay
           data-slot="dialog-overlay"
-          className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80"
+          className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-[state=closed]:duration-[var(--duration-quick)] motion-reduce:animate-none"
         />
         <DrawerPrimitive.Content
           data-slot="dialog-content"
@@ -164,7 +171,10 @@ function DialogContent({
     <DialogPrimitive.Portal data-slot="dialog-portal">
       <DialogPrimitive.Backdrop
         data-slot="dialog-overlay"
-        className="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-200"
+        className={cn(
+          "fixed inset-0 z-50 bg-background/80 backdrop-blur-xs",
+          cossModalOverlayMotionClass,
+        )}
       />
       <DialogPrimitive.Popup
         ref={popupRef}
@@ -173,7 +183,8 @@ function DialogContent({
         tabIndex={-1}
         className={cn(
           cossModalSurfaceClass,
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",
+          cossModalMotionClass,
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 outline-none sm:max-w-lg",
           className,
         )}
         {...props}

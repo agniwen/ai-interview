@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { LazyMotion, domAnimation } from "motion/react";
+import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import {
   HeadContent,
   Outlet,
@@ -54,22 +54,24 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      <LazyMotion features={domAnimation}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          disableTransitionOnChange
-          enableSystem
-        >
-          <QueryProvider queryClient={queryClient}>
-            <TooltipProvider>
-              <Outlet />
-              <AppWatermark />
-              <Toaster />
-            </TooltipProvider>
-          </QueryProvider>
-        </ThemeProvider>
-      </LazyMotion>
+      <MotionConfig reducedMotion="user">
+        <LazyMotion features={domAnimation}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            disableTransitionOnChange
+            enableSystem
+          >
+            <QueryProvider queryClient={queryClient}>
+              <TooltipProvider>
+                <Outlet />
+                <AppWatermark />
+                <Toaster />
+              </TooltipProvider>
+            </QueryProvider>
+          </ThemeProvider>
+        </LazyMotion>
+      </MotionConfig>
     </RootDocument>
   );
 }

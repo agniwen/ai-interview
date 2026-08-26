@@ -7,5 +7,7 @@ import { formatDocumentTitle } from "@/lib/start/document-title";
 export const Route = createFileRoute("/w/$slug/studio/mail-ingest-accounts/$id")({
   component: MailIngestLogPage,
   head: () => ({ meta: [{ title: formatDocumentTitle("入库记录") }] }),
-  pendingComponent: () => <StudioTablePageSkeleton filterCount={4} label="入库记录" />,
+  pendingComponent: () => (
+    <StudioTablePageSkeleton columnCount={6} filterCount={4} label="入库记录" />
+  ),
 });

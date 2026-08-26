@@ -3,7 +3,7 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import * as React from "react";
 
-import { cossPopupSurfaceClass } from "@/components/ui/coss-style";
+import { cossAnchoredPopupMotionClass, cossPopupSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
@@ -39,7 +39,8 @@ function PopoverContent({
           data-vaul-no-drag=""
           className={cn(
             cossPopupSurfaceClass,
-            "z-50 w-72 origin-(--transform-origin) p-4 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
+            cossAnchoredPopupMotionClass,
+            "z-50 w-72 p-4",
             className,
           )}
           {...props}

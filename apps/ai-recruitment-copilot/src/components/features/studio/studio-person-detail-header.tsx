@@ -15,6 +15,7 @@ import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
@@ -269,61 +270,62 @@ export function buildStudioPersonDetailHeader({
   const headerActionBar = layoutMode === "modal" ? actionBar : null;
   const floatingActionBar = layoutMode === "page" ? actionBar : null;
 
-  let headerExtra: ReactNode = null;
-  if (isLoading) {
-    headerExtra = <DetailHeaderSkeleton mode={mode} />;
-  } else if (record) {
-    headerExtra = (
-      <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <TabsList className="mt-0 w-full sm:w-auto">
-          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
-            {mode === "interview" ? "结果" : "概览"}
+  const headerControls = record ? (
+    <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <TabsList className="mt-0 w-full sm:w-auto">
+        <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+          {mode === "interview" ? "结果" : "概览"}
+        </TabsTrigger>
+        {mode === "interview" ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+            经历
           </TabsTrigger>
-          {mode === "interview" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
-              经历
-            </TabsTrigger>
-          ) : null}
-          {mode === "resume" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-              AI评价
-            </TabsTrigger>
-          ) : null}
-          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
-              AI 面试
-            </TabsTrigger>
-          ) : null}
-          {mode === "resume" &&
-          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
-              真人复面
-            </TabsTrigger>
-          ) : null}
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
-              Offer
-            </TabsTrigger>
-          ) : null}
-          {showAgentInstructions ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
-              Agent 提示词
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-          {headerActionBar}
-          <ResumeDocumentPreviewButton
-            className="w-full sm:w-auto"
-            disabled={!record.hasResumeFile}
-            filename={record.resumeFileName ?? undefined}
-            label="预览简历"
-            url={resumePreviewUrl}
-          />
-        </div>
+        ) : null}
+        {mode === "resume" ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+            AI评价
+          </TabsTrigger>
+        ) : null}
+        {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
+            AI 面试
+          </TabsTrigger>
+        ) : null}
+        {mode === "resume" &&
+        shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
+            真人复面
+          </TabsTrigger>
+        ) : null}
+        {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
+            Offer
+          </TabsTrigger>
+        ) : null}
+        {showAgentInstructions ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+            Agent 提示词
+          </TabsTrigger>
+        ) : null}
+      </TabsList>
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+        {headerActionBar}
+        <ResumeDocumentPreviewButton
+          className="w-full sm:w-auto"
+          disabled={!record.hasResumeFile}
+          filename={record.resumeFileName ?? undefined}
+          label="预览简历"
+          url={resumePreviewUrl}
+        />
       </div>
-    );
-  }
+    </div>
+  ) : null;
+  const headerExtra =
+    isLoading || record ? (
+      <SkeletonReveal loading={isLoading} skeleton={<DetailHeaderSkeleton mode={mode} />}>
+        {headerControls}
+      </SkeletonReveal>
+    ) : null;
 
   const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
   const canUseTimelineRailScroll = showTimelineRail && layoutMode === "modal";

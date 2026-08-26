@@ -349,7 +349,8 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
           <RecruitingToolRenderers />
           {showConversationThread ? (
             <RecruitingThread
-              historyLoadingFallback={isHistoryReady ? undefined : <ChatMessageSkeletonContent />}
+              historyLoading={!isHistoryReady}
+              historyLoadingFallback={<ChatMessageSkeletonContent />}
               isRunning={isStreaming}
             />
           ) : (

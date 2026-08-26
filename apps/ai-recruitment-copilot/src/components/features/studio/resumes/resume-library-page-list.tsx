@@ -10,11 +10,11 @@ import type { ToolbarFilterConfig } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ResumeUploadEntryButton } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-library-card";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ListLoadError } from "@/components/data-grid/list-load-error";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
@@ -24,6 +24,7 @@ import {
   buildStudioStickyDateHeaderPositions,
   useStudioStickyDateGroup,
 } from "@/components/features/studio/studio-date-group-virtual-list";
+import { shouldShowStudioListLoadingState } from "@/components/features/studio/studio-list-loading-state";
 
 import {
   formatResumeLibraryJobDescriptionLabel,
@@ -32,6 +33,7 @@ import {
   useResumeLibraryScrollElement,
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
+import { ResumeLibraryCardSkeleton } from "./resume-library-card-skeleton";
 
 function getResumeLibrarySortBy(grid: ResumeLibraryGridState) {
   return grid.sorting[0]?.id ?? "createdAt";
@@ -39,12 +41,33 @@ function getResumeLibrarySortBy(grid: ResumeLibraryGridState) {
 
 function ResumeLibraryLoadingState({ showDateGroup }: { showDateGroup: boolean }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid">
       {showDateGroup ? <StudioDateGroupHeaderSkeleton /> : null}
       {Array.from({ length: 4 }, (_, index) => (
-        <Skeleton className="h-44 rounded-xl" key={index} />
+        <ResumeLibraryCardSkeleton key={index} />
       ))}
     </div>
+  );
+}
+
+export function shouldShowResumeLibraryLoadingState({
+  error,
+  isInitialLoading,
+  isRefetching,
+  recordCount,
+}: {
+  error: Error | null;
+  isInitialLoading: boolean;
+  isRefetching: boolean;
+  recordCount: number;
+}) {
+  return (
+    !error &&
+    shouldShowStudioListLoadingState({
+      isInitialLoading,
+      isRefetching,
+      recordCount,
+    })
   );
 }
 
@@ -230,8 +253,6 @@ export function ResumeLibraryCardList({
   let listContent: ReactNode = empty;
   if (error && records.length === 0) {
     listContent = <ListLoadError error={error} onRetry={onRetry} />;
-  } else if (isInitialLoading) {
-    listContent = <ResumeLibraryLoadingState showDateGroup={sortBy === "createdAt"} />;
   } else if (records.length > 0) {
     listContent = (
       <>
@@ -351,7 +372,17 @@ export function ResumeLibraryCardList({
         }
       />
 
-      {listContent}
+      <SkeletonReveal
+        loading={shouldShowResumeLibraryLoadingState({
+          error,
+          isInitialLoading,
+          isRefetching,
+          recordCount: records.length,
+        })}
+        skeleton={<ResumeLibraryLoadingState showDateGroup={sortBy === "createdAt"} />}
+      >
+        {listContent}
+      </SkeletonReveal>
       {canShowFloatingActionBar ? (
         <ResumeLibraryFloatingActionBar
           disabled={hasLockedSelection}

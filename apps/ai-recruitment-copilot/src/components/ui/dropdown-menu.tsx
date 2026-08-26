@@ -4,7 +4,11 @@ import { IconCheck, IconChevronRight, IconCircle } from "@tabler/icons-react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import * as React from "react";
 
-import { cossMenuItemClass, cossPopupSurfaceClass } from "@/components/ui/coss-style";
+import {
+  cossAnchoredPopupMotionClass,
+  cossMenuItemClass,
+  cossPopupSurfaceClass,
+} from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -42,7 +46,8 @@ function DropdownMenuContent({
           data-vaul-no-drag=""
           className={cn(
             cossPopupSurfaceClass,
-            "z-50 max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) touch-pan-y overflow-x-hidden overflow-y-auto bg-background p-1 text-foreground transition-[scale,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] data-instant:transition-none data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 motion-reduce:transition-none",
+            cossAnchoredPopupMotionClass,
+            "z-50 max-h-(--available-height) min-w-[8rem] touch-pan-y overflow-x-hidden overflow-y-auto bg-background p-1 text-foreground",
             className,
           )}
           {...props}

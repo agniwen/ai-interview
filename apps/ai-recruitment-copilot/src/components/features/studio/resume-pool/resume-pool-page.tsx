@@ -16,6 +16,7 @@ import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume
 import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
+import { shouldShowStudioListLoadingState } from "@/components/features/studio/studio-list-loading-state";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
 import { ResumeUploadEntryDialog } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
@@ -60,6 +61,7 @@ import {
   getCandidateTitleWithId,
   resumePoolCreatedAtBounds,
   resumePoolCreatedAtRangeLabel,
+  resolveLoadedResumePoolRecords,
   sessionUserId,
 } from "./resume-pool-page-model";
 import type { ResumePoolFilters } from "./resume-pool-page-model";
@@ -198,13 +200,22 @@ export function ResumePoolPage() {
     poolQuerySignature,
   ]);
 
-  const loadedPoolRecords =
-    loadedPoolResult.signature === poolQuerySignature ? loadedPoolResult.records : [];
+  const loadedPoolRecords = resolveLoadedResumePoolRecords({
+    accumulated: loadedPoolResult,
+    currentData: grid.bind.data,
+    isBusy: grid.bind.loading || grid.bind.refetching,
+    page: grid.bind.pagination.page,
+    signature: poolQuerySignature,
+  });
   const visibleRecordCount = loadedPoolRecords.length;
   const totalRecordCount = grid.bind.total;
   const isPoolBusy = grid.bind.loading || grid.bind.refetching;
   const hasMoreRecords = visibleRecordCount < totalRecordCount;
-  const isInitialPoolLoading = isPoolBusy && visibleRecordCount === 0;
+  const isInitialPoolLoading = shouldShowStudioListLoadingState({
+    isInitialLoading: grid.bind.loading,
+    isRefetching: grid.bind.refetching,
+    recordCount: visibleRecordCount,
+  });
   const showEmptyState = !isInitialPoolLoading && loadedPoolRecords.length === 0;
   const canUploadResumePool = canUploadToResumePool(
     canCreateResumePool,

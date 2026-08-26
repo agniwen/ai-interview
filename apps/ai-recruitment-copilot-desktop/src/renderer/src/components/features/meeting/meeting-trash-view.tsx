@@ -1,12 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { TrashedMeetingItem } from "@arc/shared/meeting-recording";
 import { DEFAULT_PAGE_SIZE } from "@arc/shared/pagination";
 import type { KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
-import { PaginationBar } from "@/components/data-grid/parts/pagination-bar";
+import { PaginationBar, PaginationBarSkeleton } from "@/components/data-grid/parts/pagination-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   Table,
   TableBody,
@@ -145,6 +147,55 @@ function ArchivedMeetingTable({
   );
 }
 
+function ArchivedMeetingResultsSkeleton({ pageSize }: { pageSize: number }) {
+  return (
+    <div className="flex flex-col gap-3" data-slot="archived-meeting-results-skeleton">
+      <div className="w-full overflow-hidden rounded-lg border">
+        <Table className="min-w-[720px] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[220px]">
+                <Skeleton className="h-4 w-20" />
+              </TableHead>
+              <TableHead className="w-[160px]">
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead className="w-[160px]">
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead className="w-[180px]">
+                <Skeleton className="h-4 w-10" />
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: pageSize }, (_, index) => (
+              <TableRow key={index}>
+                <TableCell>
+                  <Skeleton className="h-4 w-36" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-28" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-28" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-14" />
+                    <Skeleton className="h-8 w-24" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <PaginationBarSkeleton />
+    </div>
+  );
+}
+
 /**
  * 七天恢复窗口的归档记录表。二次点击只是防误触，永久删除的幂等与对象清扫由服务端 Tombstone 保证。
  * Archived-record table for the seven-day restore window; confirm click is UX only, while server tombstones own durable purge.
@@ -170,11 +221,13 @@ export function MeetingTrashView({ slug }: { slug: string }) {
     sortOrder: "desc" as const,
   };
   const trashQuery = useQuery({
+    placeholderData: keepPreviousData,
     queryFn: () => fetchTrashedMeetings(slug, query),
     queryKey: desktopMeetingKeys.trash(slug, query),
     staleTime: 5000,
   });
   const paged = trashQuery.data;
+  const isColdLoading = trashQuery.isPending && !paged;
   const records = paged?.records ?? [];
   const meetingsCount = paged?.total ?? 0;
   const navigate = useNavigate();
@@ -212,61 +265,63 @@ export function MeetingTrashView({ slug }: { slug: string }) {
         type="search"
         value={searchText}
       />
-      {status === "loading" ? (
-        <p className="text-muted-foreground text-sm">正在加载归档记录…</p>
-      ) : null}
-      {status === "error" ? (
-        <div className="flex flex-col items-start gap-2">
-          <p className="text-destructive text-sm">
-            {trashQuery.error instanceof Error ? trashQuery.error.message : "加载归档记录失败"}
-          </p>
-          <Button
-            onClick={() => {
-              trashQuery.refetch();
-            }}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            重试
-          </Button>
-        </div>
-      ) : null}
-      {status === "empty" || status === "unmatched" ? (
-        <ArchivedMeetingEmptyState status={status} />
-      ) : null}
-      {status === "ready" && paged ? (
-        <div className="flex flex-col gap-3">
-          <ArchivedMeetingTable
-            busy={busy}
-            confirmPurgeId={confirmPurgeId}
-            meetings={records}
-            onConfirmPurge={(meetingId) => {
-              if (confirmPurgeId === meetingId) {
-                purgeMutation.mutate(meetingId);
-                return;
-              }
-              setConfirmPurgeId(meetingId);
-            }}
-            onOpenDetail={(meetingId) => {
-              void navigate({
-                params: { meetingId },
-                to: "/meetings/$meetingId",
-              });
-            }}
-            onRestore={(meetingId) => restoreMutation.mutate(meetingId)}
-          />
-          <PaginationBar
-            loading={trashQuery.isFetching}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            page={paged.page}
-            pageSize={paged.pageSize}
-            total={paged.total}
-            totalPages={paged.totalPages}
-          />
-        </div>
-      ) : null}
+      <SkeletonReveal
+        loading={isColdLoading}
+        skeleton={<ArchivedMeetingResultsSkeleton pageSize={pageSize} />}
+      >
+        {status === "error" ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-destructive text-sm">
+              {trashQuery.error instanceof Error ? trashQuery.error.message : "加载归档记录失败"}
+            </p>
+            <Button
+              onClick={() => {
+                trashQuery.refetch();
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              重试
+            </Button>
+          </div>
+        ) : null}
+        {status === "empty" || status === "unmatched" ? (
+          <ArchivedMeetingEmptyState status={status} />
+        ) : null}
+        {status === "ready" && paged ? (
+          <div className="flex flex-col gap-3">
+            <ArchivedMeetingTable
+              busy={busy}
+              confirmPurgeId={confirmPurgeId}
+              meetings={records}
+              onConfirmPurge={(meetingId) => {
+                if (confirmPurgeId === meetingId) {
+                  purgeMutation.mutate(meetingId);
+                  return;
+                }
+                setConfirmPurgeId(meetingId);
+              }}
+              onOpenDetail={(meetingId) => {
+                void navigate({
+                  params: { meetingId },
+                  to: "/meetings/$meetingId",
+                });
+              }}
+              onRestore={(meetingId) => restoreMutation.mutate(meetingId)}
+            />
+            <PaginationBar
+              loading={trashQuery.isFetching}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              page={paged.page}
+              pageSize={paged.pageSize}
+              total={paged.total}
+              totalPages={paged.totalPages}
+            />
+          </div>
+        ) : null}
+      </SkeletonReveal>
       {restoreMutation.error || purgeMutation.error ? (
         <p className="text-destructive text-sm">
           {(restoreMutation.error ?? purgeMutation.error) instanceof Error

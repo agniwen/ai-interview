@@ -537,7 +537,7 @@ const CascaderItem = React.memo(function CascaderItem({
             <Icon
               icon="ph:caret-right"
               className={cn(
-                "size-4 transition-transform",
+                "size-4 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
                 /* Collapsed it points INTO the level, so it mirrors; expanded
                                                  it points DOWN, the same in both writing modes, so the mirror
                                                  has to come off or `scaleX(-1)` composed with `rotate(90deg)`

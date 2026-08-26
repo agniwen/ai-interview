@@ -18,7 +18,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { SortableQuestionListEditor } from "@/components/features/studio/sortable-question-list-editor";
-import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -293,7 +292,7 @@ export function HumanInterviewQuestionDialog({
   return (
     <>
       {/* 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
-      TabsContent 走 AnimatedHeight，切换时高度平滑过渡。 */}
+      内容层横向切换，Modal 高度由自然布局直接决定。 */}
       <Tabs
         key={recordId ?? "empty"}
         onValueChange={(value) => {
@@ -384,51 +383,48 @@ export function HumanInterviewQuestionDialog({
           }
         >
           <div className="relative">
-            <AnimatedHeight>
-              <TabsContent value="questions">
-                {questionGenerationNotice ? (
-                  <Card className="mb-3 gap-0 rounded-md py-0">
-                    <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-                      {questionGenerationNotice}
-                    </CardContent>
-                  </Card>
-                ) : null}
-                <SortableQuestionListEditor
-                  arrayFieldName="interviewQuestions"
-                  contentFieldName="question"
-                  contentPlaceholder="输入面试题目"
-                  createItem={(sortIndex) => ({
-                    difficulty: "easy",
-                    evaluationFocus: "",
-                    followUpDirections: "",
-                    order: sortIndex + 1,
-                    question: "",
-                  })}
-                  disabled={isBusy}
-                  emptyDescription={
-                    env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
-                      ? "简历解析完成后会自动填入，也可以手动添加。"
-                      : "自动生成已关闭，可以手动添加，也可以留空确认。"
-                  }
-                  emptyTitle="暂无面试题"
-                  form={form}
-                  resetKey={recordId ?? "new"}
-                />
-              </TabsContent>
-
-              <TabsContent value="overview">
-                {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
-              </TabsContent>
-
-              <TabsContent value="experience">
-                <Card className="gap-0 rounded-2xl border-border bg-background py-0">
-                  <CardContent className="p-5">
-                    <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
+            <TabsContent motion="page" value="questions">
+              {questionGenerationNotice ? (
+                <Card className="mb-3 gap-0 rounded-md py-0">
+                  <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                    {questionGenerationNotice}
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </AnimatedHeight>
+              ) : null}
+              <SortableQuestionListEditor
+                arrayFieldName="interviewQuestions"
+                contentFieldName="question"
+                contentPlaceholder="输入面试题目"
+                createItem={(sortIndex) => ({
+                  difficulty: "easy",
+                  evaluationFocus: "",
+                  followUpDirections: "",
+                  order: sortIndex + 1,
+                  question: "",
+                })}
+                disabled={isBusy}
+                emptyDescription={
+                  env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
+                    ? "简历解析完成后会自动填入，也可以手动添加。"
+                    : "自动生成已关闭，可以手动添加，也可以留空确认。"
+                }
+                emptyTitle="暂无面试题"
+                form={form}
+                resetKey={recordId ?? "new"}
+              />
+            </TabsContent>
 
+            <TabsContent motion="page" value="overview">
+              {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
+            </TabsContent>
+
+            <TabsContent motion="page" value="experience">
+              <Card className="gap-0 rounded-2xl border-border bg-background py-0">
+                <CardContent className="p-5">
+                  <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
+                </CardContent>
+              </Card>
+            </TabsContent>
             {isGenerating ? (
               <m.div
                 animate={{ opacity: 1 }}

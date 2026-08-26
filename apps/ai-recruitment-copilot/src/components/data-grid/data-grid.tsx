@@ -21,8 +21,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { cn } from "@arc/shared/utils";
-import { PaginationBar } from "./parts/pagination-bar";
+import { PaginationBar, PaginationBarSkeleton } from "./parts/pagination-bar";
 import {
   getPinnedEdgeClassName,
   getPinnedEdgeSides,
@@ -39,7 +40,20 @@ import { dataGridFeatures } from "./table-features";
 import type { DataGridFeatures } from "./table-features";
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
+const DATA_GRID_ROW_CLASS = "h-[53px]";
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
+
+function isColdLoading({
+  error,
+  loading,
+  rowCount,
+}: {
+  error: unknown;
+  loading: boolean;
+  rowCount: number;
+}) {
+  return loading && rowCount === 0 && !error;
+}
 
 function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowCount: number }) {
   const columnIndexes = Array.from({ length: Math.max(columnCount, 1) }, (_, index) => index);
@@ -69,7 +83,7 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
         </TableHeader>
         <TableBody>
           {rowIndexes.map((rowIndex) => (
-            <TableRow key={`row-${rowIndex}`}>
+            <TableRow className={DATA_GRID_ROW_CLASS} key={`row-${rowIndex}`}>
               {columnIndexes.map((columnIndex) => (
                 <TableCell key={`cell-${rowIndex}-${columnIndex}`}>
                   <Skeleton
@@ -84,6 +98,21 @@ function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowC
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+export function DataGridContentSkeleton({
+  columnCount = 5,
+  rowCount = 10,
+}: {
+  columnCount?: number;
+  rowCount?: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4" data-slot="data-grid-content-skeleton">
+      <DataGridSkeleton columnCount={columnCount} rowCount={rowCount} />
+      <PaginationBarSkeleton />
     </div>
   );
 }
@@ -225,17 +254,14 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
 
   const { rows } = table.getRowModel();
   let emptyContent = empty;
-  if (loading) {
-    emptyContent = (
-      <DataGridSkeleton
-        columnCount={table.getAllLeafColumns().length}
-        rowCount={Math.min(pagination.pageSize, 6)}
-      />
-    );
-  }
   if (error) {
     emptyContent = <ListLoadError error={error} onRetry={onRetry ?? onRefresh} />;
   }
+  const isInitialLoading = isColdLoading({
+    error,
+    loading: Boolean(loading),
+    rowCount: rows.length,
+  });
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollOverflow, setScrollOverflow] = useState({
@@ -312,114 +338,132 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
       ) : null}
 
-      {rows.length > 0 ? (
-        <div className="w-full overflow-hidden rounded-lg border">
-          <Table
-            render={
-              <div
-                className={cn(maxHeight ? "overflow-auto" : "overflow-x-auto")}
-                onScroll={hasPinning ? updateScrollOverflow : undefined}
-                ref={setScrollNode}
-                style={maxHeight ? { maxHeight } : undefined}
-              />
-            }
-          >
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    const pin = header.column.getIsPinned();
-                    const edge = getPinnedEdgeSides(header.column);
-                    const canSort = Boolean(onSortingChange && header.column.getCanSort());
-                    const headerContent = header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext());
-                    return (
-                      <TableHead
-                        className={cn(
-                          "bg-background",
-                          maxHeight && STICKY_HEADER_CLASS,
-                          pin && PINNED_HEADER_CLASS,
-                          getPinnedEdgeClassName({
-                            isEndEdge: edge.isEndEdge,
-                            isStartEdge: edge.isStartEdge,
-                            showEndEdge: scrollOverflow.canScrollEnd,
-                            showStartEdge: scrollOverflow.canScrollStart,
-                          }),
-                        )}
-                        key={header.id}
-                        style={getPinningStyles(header.column, {
-                          isHeader: true,
-                          stickToTop: !!maxHeight,
-                        })}
-                      >
-                        {canSort && headerContent ? (
-                          <div className="flex items-center gap-0.5">
-                            <span>{headerContent}</span>
-                            <Button
-                              aria-label="切换排序"
-                              onClick={() =>
-                                header.column.toggleSorting(header.column.getIsSorted() === "asc")
-                              }
-                              size="icon-xs"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <IconArrowsUpDown />
-                            </Button>
-                          </div>
-                        ) : (
-                          headerContent
-                        )}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow data-state={row.getIsSelected() ? "selected" : undefined} key={row.id}>
-                  {row.getAllCells().map((cell) => {
-                    const pin = cell.column.getIsPinned();
-                    const edge = getPinnedEdgeSides(cell.column);
-                    return (
-                      <TableCell
-                        className={cn(
-                          pin && PINNED_CELL_CLASS,
-                          getPinnedEdgeClassName({
-                            isEndEdge: edge.isEndEdge,
-                            isStartEdge: edge.isStartEdge,
-                            showEndEdge: scrollOverflow.canScrollEnd,
-                            showStartEdge: scrollOverflow.canScrollStart,
-                          }),
-                        )}
-                        key={cell.id}
-                        style={getPinningStyles(cell.column)}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        emptyContent
-      )}
+      <SkeletonReveal
+        loading={isInitialLoading}
+        skeleton={
+          <DataGridContentSkeleton
+            columnCount={table.getAllLeafColumns().length}
+            rowCount={pagination.pageSize}
+          />
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {rows.length > 0 ? (
+            <div className="w-full overflow-hidden rounded-lg border">
+              <Table
+                render={
+                  <div
+                    className={cn(maxHeight ? "overflow-auto" : "overflow-x-auto")}
+                    onScroll={hasPinning ? updateScrollOverflow : undefined}
+                    ref={setScrollNode}
+                    style={maxHeight ? { maxHeight } : undefined}
+                  />
+                }
+              >
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        const pin = header.column.getIsPinned();
+                        const edge = getPinnedEdgeSides(header.column);
+                        const canSort = Boolean(onSortingChange && header.column.getCanSort());
+                        const headerContent = header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext());
+                        return (
+                          <TableHead
+                            className={cn(
+                              "bg-background",
+                              maxHeight && STICKY_HEADER_CLASS,
+                              pin && PINNED_HEADER_CLASS,
+                              getPinnedEdgeClassName({
+                                isEndEdge: edge.isEndEdge,
+                                isStartEdge: edge.isStartEdge,
+                                showEndEdge: scrollOverflow.canScrollEnd,
+                                showStartEdge: scrollOverflow.canScrollStart,
+                              }),
+                            )}
+                            key={header.id}
+                            style={getPinningStyles(header.column, {
+                              isHeader: true,
+                              stickToTop: !!maxHeight,
+                            })}
+                          >
+                            {canSort && headerContent ? (
+                              <div className="flex items-center gap-0.5">
+                                <span>{headerContent}</span>
+                                <Button
+                                  aria-label="切换排序"
+                                  onClick={() =>
+                                    header.column.toggleSorting(
+                                      header.column.getIsSorted() === "asc",
+                                    )
+                                  }
+                                  size="icon-xs"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <IconArrowsUpDown />
+                                </Button>
+                              </div>
+                            ) : (
+                              headerContent
+                            )}
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow
+                      className={DATA_GRID_ROW_CLASS}
+                      data-state={row.getIsSelected() ? "selected" : undefined}
+                      key={row.id}
+                    >
+                      {row.getAllCells().map((cell) => {
+                        const pin = cell.column.getIsPinned();
+                        const edge = getPinnedEdgeSides(cell.column);
+                        return (
+                          <TableCell
+                            className={cn(
+                              pin && PINNED_CELL_CLASS,
+                              getPinnedEdgeClassName({
+                                isEndEdge: edge.isEndEdge,
+                                isStartEdge: edge.isStartEdge,
+                                showEndEdge: scrollOverflow.canScrollEnd,
+                                showStartEdge: scrollOverflow.canScrollStart,
+                              }),
+                            )}
+                            key={cell.id}
+                            style={getPinningStyles(cell.column)}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            emptyContent
+          )}
 
-      <PaginationBar
-        loading={loading || refetching}
-        onPageChange={pagination.onPageChange}
-        onPageSizeChange={pagination.onPageSizeChange}
-        page={pagination.page}
-        pageSize={pagination.pageSize}
-        pageSizeOptions={pageSizeOptions}
-        total={total}
-        totalPages={totalPages}
-      />
+          <PaginationBar
+            loading={loading || refetching}
+            onPageChange={pagination.onPageChange}
+            onPageSizeChange={pagination.onPageSizeChange}
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            pageSizeOptions={pageSizeOptions}
+            total={total}
+            totalPages={totalPages}
+          />
+        </div>
+      </SkeletonReveal>
     </div>
   );
 }

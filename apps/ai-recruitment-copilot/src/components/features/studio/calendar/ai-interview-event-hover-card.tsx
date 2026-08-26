@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { fetchStudioAiCalendarEventPreview } from "@/lib/client/api/endpoints/studio-calendar";
 import { studioCalendarKeys } from "@/lib/client/api/query-keys";
 
@@ -88,22 +89,37 @@ function roundStatusMeta(status: StudioAiCalendarEventPreview["round"]["status"]
     : scheduleEntryStatusMeta[status];
 }
 
-function PreviewSkeleton() {
+function PreviewSkeleton({ source }: { source: StudioAiCalendarEvent["source"] }) {
+  const detailRows = source === "result" ? 5 : 3;
+
   return (
     <output
       aria-label="正在加载 AI 面试详情"
-      className="block w-88 max-w-[calc(100vw-2rem)] space-y-3"
+      className="flex w-88 max-w-[calc(100vw-2rem)] flex-col gap-3"
     >
-      <div className="flex items-center justify-between gap-3">
-        <Skeleton className="h-5 w-28" />
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-3 w-40" />
+        </div>
         <Skeleton className="h-5 w-14 rounded-full" />
       </div>
-      <Skeleton className="h-4 w-48" />
-      <Skeleton className="h-4 w-56" />
-      <div className="space-y-2 pt-1">
+      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-1.5">
+        {Array.from({ length: detailRows }, (_, index) => (
+          <div className="contents" key={index}>
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className={index % 2 === 0 ? "h-4 w-40" : "h-4 w-48"} />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2 border-border/70 border-t pt-3">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-4/5" />
+      </div>
+      <div className="flex justify-end gap-1 border-border/70 border-t pt-2">
+        <Skeleton className="h-7 w-20" />
+        <Skeleton className="h-7 w-20" />
       </div>
     </output>
   );
@@ -224,7 +240,21 @@ export function AiInterviewEventHoverCard({
         side="top"
         sideOffset={8}
       >
-        {previewQuery.isPending ? <PreviewSkeleton /> : null}
+        {previewQuery.isPending || previewQuery.data ? (
+          <SkeletonReveal
+            loading={previewQuery.isPending}
+            skeleton={<PreviewSkeleton source={event.source} />}
+          >
+            {previewQuery.data ? (
+              <PreviewContent
+                preview={previewQuery.data}
+                renderNavigation={dependencies.renderNavigation}
+                slug={slug}
+                source={event.source}
+              />
+            ) : null}
+          </SkeletonReveal>
+        ) : null}
         {previewQuery.isError || previewQuery.data === null ? (
           <div className="w-72 text-sm">
             <p className="font-medium">{candidate?.candidateName ?? event.title}</p>
@@ -233,14 +263,6 @@ export function AiInterviewEventHoverCard({
             </p>
             <p className="mt-1 text-muted-foreground">AI 面试详情加载失败，请稍后重试。</p>
           </div>
-        ) : null}
-        {previewQuery.data ? (
-          <PreviewContent
-            preview={previewQuery.data}
-            renderNavigation={dependencies.renderNavigation}
-            slug={slug}
-            source={event.source}
-          />
         ) : null}
       </HoverCardContent>
     </HoverCard>

@@ -5,9 +5,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
-import { useCallback, useRef } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
-import type { ChevronsUpDownIconHandle } from "@/components/icons/chevrons-up-down-icon";
 import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -144,21 +142,6 @@ export interface ExperiencePositionItemProps {
 }
 
 function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
-  const chevronsUpDownIconRef = useRef<ChevronsUpDownIconHandle>(null);
-
-  const handleOpenChange = useCallback((open: boolean) => {
-    const controls = chevronsUpDownIconRef.current;
-    if (!controls) {
-      return;
-    }
-
-    if (open) {
-      controls.startAnimation();
-    } else {
-      controls.stopAnimation();
-    }
-  }, []);
-
   const { end, start } = position.employmentPeriod;
   const isOngoing = !end;
   const duration = formatWorkExperienceDuration(start, end);
@@ -167,7 +150,6 @@ function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
     <Collapsible
       defaultOpen={position.isExpanded}
       disabled={!position.description}
-      onOpenChange={handleOpenChange}
       render={<div className="relative" />}
     >
       <CollapsibleTrigger
@@ -191,7 +173,7 @@ function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
           <h4 className="flex-1 text-balance font-medium text-foreground">{position.title}</h4>
 
           <div className="shrink-0 text-muted-foreground group-disabled/experience-position:hidden [&_svg]:h-lh [&_svg]:w-4">
-            <ChevronsUpDownIcon ref={chevronsUpDownIconRef} duration={0.15} />
+            <ChevronsUpDownIcon />
           </div>
         </div>
 

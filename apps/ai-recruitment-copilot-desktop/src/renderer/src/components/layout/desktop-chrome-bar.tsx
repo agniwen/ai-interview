@@ -202,12 +202,11 @@ export function DesktopChromeBar(): React.JSX.Element {
 
       {showHistoryNav ? (
         <div
-          className="app-no-drag absolute inset-y-0 z-10 flex items-center"
+          className="app-no-drag absolute inset-y-0 z-10 flex items-center transition-[left,transform] duration-200 ease-[ease] motion-reduce:transition-none"
           style={{
             ...noDragStyle,
             left: historyLeft,
             transform: collapsed ? "none" : "translateX(-100%)",
-            transition: "left 200ms ease, transform 200ms ease",
           }}
         >
           <HistoryNav />
@@ -217,11 +216,10 @@ export function DesktopChromeBar(): React.JSX.Element {
       {/* Content-header product name (visual only — drag strip sits above). */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 z-10 flex min-w-0 items-center"
+        className="pointer-events-none absolute inset-y-0 z-10 flex min-w-0 items-center transition-[left] duration-200 ease-[ease] motion-reduce:transition-none"
         style={{
           left: appTitleLeft,
           right: settingsClusterPx,
-          transition: "left 200ms ease",
         }}
       >
         <span className="truncate select-none font-medium text-foreground text-sm tracking-tight">

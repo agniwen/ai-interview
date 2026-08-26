@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
@@ -182,12 +183,9 @@ export function ResumePoolListContent({
     virtualizer.measure();
   }, [cardHeight, virtualizer]);
 
-  if (isInitialPoolLoading) {
-    return <ResumePoolLoadingState showDateGroup={sortBy === "createdAt"} />;
-  }
-
+  let listContent: ReactNode = null;
   if (showEmptyState) {
-    return (
+    listContent = (
       <ResumePoolEmptyState
         canUpload={canUpload}
         canResetFilters={canResetFilters}
@@ -196,84 +194,89 @@ export function ResumePoolListContent({
         onUpload={onUpload}
       />
     );
-  }
-
-  if (records.length === 0) {
-    return null;
+  } else if (records.length > 0) {
+    listContent = (
+      <div ref={listRootRef}>
+        <div
+          className="relative [overflow-anchor:none]"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = virtualRows[virtualRow.index];
+            if (!row) {
+              return null;
+            }
+            if (row.type === "date-header") {
+              const active = virtualRow.index === stickyState.index;
+              return (
+                <StudioStickyDateGroupHeader
+                  active={active}
+                  headingId={`resume-pool-${row.id}`}
+                  isStuck={active && stickyState.isStuck}
+                  key={virtualRow.key}
+                  label={row.label}
+                  onNavigate={() =>
+                    virtualizer.scrollToIndex(virtualRow.index, {
+                      align: "start",
+                      behavior: "smooth",
+                    })
+                  }
+                  pushOffset={active ? stickyState.pushOffset : 0}
+                  recordCount={row.recordCount}
+                  start={virtualRow.start}
+                  stickyTop={stickyState.stickyTop}
+                />
+              );
+            }
+            const { record } = row;
+            const canDelete =
+              canDeletePoolRecords &&
+              canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
+            return (
+              <div
+                className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
+                data-index={virtualRow.index}
+                data-resume-pool-record-id={record.id}
+                key={virtualRow.key}
+                style={{
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <ResumePoolCard
+                  bindingJobDescription={bindingJobDescriptionRecordId === record.id}
+                  canDelete={canDelete}
+                  canEnterRecruiting={canEnterRecruiting}
+                  canRecommend={canRecommend}
+                  canRetryParse={canRetryResumeParse}
+                  deleting={deletingRecordId === record.id}
+                  enteringRecruiting={enteringRecruitingRecordId === record.id}
+                  onBindJobDescription={onBindJobDescription}
+                  onDelete={onDelete}
+                  onEnterRecruiting={onEnterRecruiting}
+                  onOpenDetail={onOpenDetail}
+                  onOpenDuplicateMatches={onOpenDuplicateMatches}
+                  onPreviewResume={onPreviewResume}
+                  onRetryParse={onRetryParse}
+                  record={record}
+                  retrying={retryingRecordId === record.id}
+                  slug={slug}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div ref={listRootRef}>
-      <div
-        className="relative [overflow-anchor:none]"
-        style={{ height: virtualizer.getTotalSize() }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const row = virtualRows[virtualRow.index];
-          if (!row) {
-            return null;
-          }
-          if (row.type === "date-header") {
-            const active = virtualRow.index === stickyState.index;
-            return (
-              <StudioStickyDateGroupHeader
-                active={active}
-                headingId={`resume-pool-${row.id}`}
-                isStuck={active && stickyState.isStuck}
-                key={virtualRow.key}
-                label={row.label}
-                onNavigate={() =>
-                  virtualizer.scrollToIndex(virtualRow.index, {
-                    align: "start",
-                    behavior: "smooth",
-                  })
-                }
-                pushOffset={active ? stickyState.pushOffset : 0}
-                recordCount={row.recordCount}
-                start={virtualRow.start}
-                stickyTop={stickyState.stickyTop}
-              />
-            );
-          }
-          const { record } = row;
-          const canDelete =
-            canDeletePoolRecords &&
-            canDeletePoolRecord(record, { currentOrganizationId, currentUserId });
-          return (
-            <div
-              className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
-              data-index={virtualRow.index}
-              data-resume-pool-record-id={record.id}
-              key={virtualRow.key}
-              style={{
-                height: virtualRow.size,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              <ResumePoolCard
-                bindingJobDescription={bindingJobDescriptionRecordId === record.id}
-                canDelete={canDelete}
-                canEnterRecruiting={canEnterRecruiting}
-                canRecommend={canRecommend}
-                canRetryParse={canRetryResumeParse}
-                deleting={deletingRecordId === record.id}
-                enteringRecruiting={enteringRecruitingRecordId === record.id}
-                onBindJobDescription={onBindJobDescription}
-                onDelete={onDelete}
-                onEnterRecruiting={onEnterRecruiting}
-                onOpenDetail={onOpenDetail}
-                onOpenDuplicateMatches={onOpenDuplicateMatches}
-                onPreviewResume={onPreviewResume}
-                onRetryParse={onRetryParse}
-                record={record}
-                retrying={retryingRecordId === record.id}
-                slug={slug}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <SkeletonReveal
+      loading={isInitialPoolLoading}
+      skeleton={<ResumePoolLoadingState showDateGroup={sortBy === "createdAt"} />}
+    >
+      {listContent}
+    </SkeletonReveal>
   );
 }
 

@@ -21,6 +21,13 @@ describe("resume pool list", () => {
     expect(source).toContain("StudioStickyDateGroupHeader");
     expect(source).toContain("StudioDateGroupHeaderSkeleton");
     expect(source).toContain("STUDIO_DATE_GROUP_ROW_HEIGHT");
+    expect(source).toContain('import { SkeletonReveal } from "@/components/ui/skeleton-reveal";');
+    expect(source).toContain("<SkeletonReveal");
+    expect(source).toContain("loading={isInitialPoolLoading}");
+    expect(source).toContain(
+      'skeleton={<ResumePoolLoadingState showDateGroup={sortBy === "createdAt"} />}',
+    );
+    expect(source).not.toContain("if (isInitialPoolLoading)");
     expect(sharedSource).toContain("STUDIO_DATE_GROUP_HEADER_GAP = 12");
     expect(sharedSource).toContain("height: STUDIO_DATE_GROUP_HEADER_HEIGHT");
     expect(sharedSource).toContain('active ? "sticky" : "absolute"');

@@ -55,7 +55,7 @@ function NavigationMenuItem({
 }
 
 const navigationMenuTriggerStyle = cva(
-  "group/navigation-menu-trigger inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 font-medium text-sm outline-none transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-accent/50 data-popup-open:text-accent-foreground data-popup-open:hover:bg-accent data-popup-open:focus:bg-accent",
+  "group/navigation-menu-trigger inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 font-medium text-sm outline-none transition-[background-color,border-color,color,box-shadow] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-accent/50 data-popup-open:text-accent-foreground data-popup-open:hover:bg-accent data-popup-open:focus:bg-accent motion-reduce:transition-none",
 );
 
 function NavigationMenuTrigger({
@@ -72,7 +72,7 @@ function NavigationMenuTrigger({
       {children}{" "}
       <IconChevronDown
         aria-hidden="true"
-        className="relative top-[1px] ml-1 size-3 transition duration-300 group-data-popup-open/navigation-menu-trigger:rotate-180"
+        className="relative top-[1px] ml-1 size-3 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] group-data-popup-open/navigation-menu-trigger:rotate-180 motion-reduce:transition-none"
       />
     </NavigationMenuPrimitive.Trigger>
   );
@@ -83,7 +83,7 @@ function NavigationMenuContent({ className, ...props }: NavigationMenuPrimitive.
     <NavigationMenuPrimitive.Content
       data-slot="navigation-menu-content"
       className={cn(
-        "h-full w-auto p-2 pr-2.5 transition-[opacity,transform,translate] duration-[0.35s] data-ending-style:data-activation-direction=left:translate-x-[50%] data-ending-style:data-activation-direction=right:translate-x-[-50%] data-ending-style:opacity-0 data-starting-style:data-activation-direction=left:translate-x-[-50%] data-starting-style:data-activation-direction=right:translate-x-[50%] data-starting-style:opacity-0 **:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
+        "h-full w-auto p-2 pr-2.5 transition-[opacity,translate,filter] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-ending-style:data-activation-direction=left:translate-x-(--distance-base) data-ending-style:data-activation-direction=right:-translate-x-(--distance-base) data-ending-style:opacity-0 data-ending-style:blur-(--blur-medium) data-starting-style:data-activation-direction=left:-translate-x-(--distance-base) data-starting-style:data-activation-direction=right:translate-x-(--distance-base) data-starting-style:opacity-0 data-starting-style:blur-(--blur-medium) motion-reduce:transition-none motion-reduce:data-ending-style:translate-x-0 motion-reduce:data-starting-style:translate-x-0 motion-reduce:data-ending-style:blur-none motion-reduce:data-starting-style:blur-none **:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
         className,
       )}
       {...props}
@@ -107,12 +107,12 @@ function NavigationMenuPositioner({
         side={side}
         sideOffset={sideOffset}
         className={cn(
-          "isolate z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-[top,left,right,bottom] duration-[0.35s] data-instant:transition-none",
+          "isolate z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-[top,left,right,bottom] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-instant:transition-none motion-reduce:transition-none",
           className,
         )}
         {...props}
       >
-        <NavigationMenuPrimitive.Popup className="relative h-(--popup-height) w-(--popup-width) origin-(--transform-origin) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow transition-[opacity,transform,width,height,scale,translate] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:opacity-0 data-ending-style:scale-95 data-starting-style:opacity-0 data-starting-style:scale-95">
+        <NavigationMenuPrimitive.Popup className="relative h-(--popup-height) w-(--popup-width) origin-(--transform-origin) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow transition-[opacity,width,height,scale] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-ending-style:opacity-0 data-ending-style:scale-(--scale-tiny) data-ending-style:duration-[var(--duration-quick)] data-starting-style:opacity-0 data-starting-style:scale-(--scale-medium) motion-reduce:transition-none">
           <NavigationMenuPrimitive.Viewport className="relative size-full overflow-hidden" />
         </NavigationMenuPrimitive.Popup>
       </NavigationMenuPrimitive.Positioner>
@@ -125,7 +125,7 @@ function NavigationMenuLink({ className, ...props }: NavigationMenuPrimitive.Lin
     <NavigationMenuPrimitive.Link
       data-slot="navigation-menu-link"
       className={cn(
-        "flex flex-col gap-1 rounded-sm p-2 text-sm outline-none transition-all hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 data-active:bg-accent/50 data-active:text-accent-foreground data-active:hover:bg-accent data-active:focus:bg-accent [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        "flex flex-col gap-1 rounded-sm p-2 text-sm outline-none transition-[background-color,border-color,color,box-shadow] duration-[var(--duration-quick)] ease-[var(--ease-smooth-out)] hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 data-active:bg-accent/50 data-active:text-accent-foreground data-active:hover:bg-accent data-active:focus:bg-accent motion-reduce:transition-none [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
         className,
       )}
       {...props}

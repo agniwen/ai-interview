@@ -9,6 +9,7 @@ import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { cn } from "@arc/shared/utils";
 import { formatRelativeTime } from "@arc/shared/utils/time";
 
@@ -297,41 +298,47 @@ export function CandidateTimeline({
   const isRail = density === "rail";
   const canUseInternalScroll = isRail && scrollMode === "internal";
 
-  if (isLoading) {
-    return <CandidateTimelineSkeleton className={className} showHeading={showHeading} />;
-  }
-
   const events = data?.events ?? [];
 
   return (
-    <div
+    <SkeletonReveal
       className={cn(
-        "max-w-full overflow-hidden",
-        canUseInternalScroll && "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden",
+        "min-h-0 max-w-full overflow-hidden",
+        canUseInternalScroll && "xl:h-full",
         className,
       )}
+      contentClassName={cn(canUseInternalScroll && "xl:min-h-0")}
+      loading={isLoading}
+      skeleton={<CandidateTimelineSkeleton showHeading={showHeading} />}
     >
-      {showHeading ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="font-medium text-sm">活动记录</h3>
+      <div
+        className={cn(
+          "max-w-full overflow-hidden",
+          canUseInternalScroll && "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden",
+        )}
+      >
+        {showHeading ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-medium text-sm">活动记录</h3>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {events.length > 0 ? (
-        <ol
-          className={cn(
-            "relative flex min-w-0 max-w-full flex-col gap-4",
-            showHeading && "mt-5",
-            canUseInternalScroll && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
-          )}
-        >
-          {events.map((event) => (
-            <TimelineEventItem event={event} key={event.id} />
-          ))}
-        </ol>
-      ) : null}
-    </div>
+        {events.length > 0 ? (
+          <ol
+            className={cn(
+              "relative flex min-w-0 max-w-full flex-col gap-4",
+              showHeading && "mt-5",
+              canUseInternalScroll && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
+            )}
+          >
+            {events.map((event) => (
+              <TimelineEventItem event={event} key={event.id} />
+            ))}
+          </ol>
+        ) : null}
+      </div>
+    </SkeletonReveal>
   );
 }
