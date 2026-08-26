@@ -179,13 +179,14 @@ describe("AI interview candidate response notification", () => {
       .select()
       .from(interviewNotification)
       .where(eq(interviewNotification.eventId, event.id));
+    // Do not assert the mutable delivery status: a concurrently running local
+    // Worker may claim this real-DB fixture after its immutable routing fields are written.
     expect(delivery).toMatchObject({
       audienceType: "initiator_fallback",
       channel: "feishu",
       providerId: "feishu",
       recipientAddress: "ou_ai_initial_notification_test",
       recipientUserId: USER_ID,
-      status: "pending",
       templateVersionId: "system_ai_accepted_initiator_feishu_v3",
     });
     expect(delivery?.renderedContent).toContain("接受 第一轮 HR 面试");
