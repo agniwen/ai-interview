@@ -3,7 +3,12 @@ import type {
   StructuredResumeGateStatus,
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
-import type { PaginatedResumeLibraryResult, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type {
+  ResumeEvaluationHistoryRecord,
+  ResumeEvaluationFailureRecord,
+  PaginatedResumeLibraryResult,
+  ResumeLibraryDetail,
+} from "@arc/shared/studio-resumes";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
@@ -26,8 +31,7 @@ export interface ResumeListParams {
   skills?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
-  structuredMaxScore?: number;
-  structuredMinScore?: number;
+  recommendationLevels?: string[];
 }
 
 export interface WorkspaceMemberOption {
@@ -39,7 +43,7 @@ export interface WorkspaceMemberOption {
 
 export interface RecruitingJobDescriptionOption {
   departmentName: string | null;
-  evaluationMode: "legacy" | "structured";
+  evaluationMode: "legacy" | "structured" | "qualitative";
   id: string;
   name: string;
 }
@@ -101,11 +105,8 @@ export function fetchStudioResumes(
   if (params.sortOrder) {
     query.set("sortOrder", params.sortOrder);
   }
-  if (params.structuredMinScore !== undefined) {
-    query.set("structuredMinScore", String(params.structuredMinScore));
-  }
-  if (params.structuredMaxScore !== undefined) {
-    query.set("structuredMaxScore", String(params.structuredMaxScore));
+  if (params.recommendationLevels?.length) {
+    query.set("recommendationLevels", params.recommendationLevels.join(","));
   }
 
   const qs = query.toString();
@@ -194,4 +195,12 @@ export function correctStructuredResumeGate(
     headers: { "Content-Type": "application/json" },
     method: "PATCH",
   });
+}
+
+export function fetchResumeEvaluationHistory(slug: string, id: string) {
+  const path = `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(id)}/evaluation-history`;
+  return apiJson<{
+    failures: ResumeEvaluationFailureRecord[];
+    records: ResumeEvaluationHistoryRecord[];
+  }>(apiUrl(path), "加载评价历史失败");
 }

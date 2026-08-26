@@ -27,7 +27,11 @@ export function contentHeaderTitle(input: {
   if (pathname === "/meetings") {
     return "录制记录";
   }
-  if (pathname === "/recruitment" || pathname.startsWith("/resumes/")) {
+  if (
+    pathname === "/recruitment" ||
+    pathname.startsWith("/recruitment/overlay/") ||
+    pathname.startsWith("/resumes/")
+  ) {
     return "AI Recruitment Copilot 招聘台";
   }
   if (pathname === "/settings/general") {

@@ -19,6 +19,8 @@ export function ResumeOverviewCandidateInfoSection({
   const displayName = detail.candidateName || detail.resumeProfile?.name || null;
   const displayEmail = detail.candidateEmail ?? detail.resumeProfile?.email ?? null;
   const displayPhone = detail.candidatePhone ?? detail.resumeProfile?.phone ?? null;
+  const targetRoles = detail.resumeProfile?.targetRoles ?? [];
+  const displayTargetRoles = targetRoles.length ? targetRoles.join("、") : detail.targetRole;
   const jobName = detail.jobDescriptionName?.trim() || "暂未关联岗位";
 
   return (
@@ -30,6 +32,7 @@ export function ResumeOverviewCandidateInfoSection({
       <DataFields columns={3} density="compact">
         <DataField label="姓名" value={displayName} />
         <DataField label="关联岗位" value={jobName} valueClassName="font-medium" />
+        <DataField label="求职意向" value={displayTargetRoles} />
         <DataField label="简历评估" value={resumeEvaluation.label} valueClassName="font-medium" />
         <DataField label="性别" value={detail.resumeProfile?.gender} />
         <DataField kind="number" label="年龄" value={detail.resumeProfile?.age} />

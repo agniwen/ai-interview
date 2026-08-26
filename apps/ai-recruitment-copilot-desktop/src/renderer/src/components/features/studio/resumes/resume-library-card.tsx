@@ -1,13 +1,12 @@
-import Avvvatars from "avvvatars-react";
+import { ResumeLibraryEvaluationSummary } from "./resume-library-evaluation-summary";
 import { m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
-import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
   ResumeLibraryListRecord,
@@ -20,13 +19,6 @@ import {
   formatResumeRecordDisplayId,
   getResumeLibraryJobDescriptionLabel,
 } from "./resume-display";
-
-const REVIEW_ACTION_TONE_CLASS = {
-  danger: "text-rose-700 dark:text-rose-300",
-  muted: "text-muted-foreground",
-  success: "text-emerald-700 dark:text-emerald-300",
-  warning: "text-amber-700 dark:text-amber-300",
-} satisfies Record<ResumeReviewActionTone, string>;
 
 const LIFECYCLE_TONE_CLASS = {
   info: "border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200",
@@ -44,9 +36,8 @@ function getCreatorInitial(name: string | null | undefined) {
   return name?.trim().slice(0, 1).toUpperCase() || "?";
 }
 
-/** Stable seed for Avvvatars — same as web resume library card. */
-function getResumeAvatarValue(record: ResumeLibraryListRecord) {
-  return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
+function getCandidateAvatarSeed(candidateName: string) {
+  return candidateName.trim() || "未命名候选人";
 }
 
 function describeCompactAiLifecycle(record: ResumeLibraryListRecord): string {
@@ -138,55 +129,6 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
   };
 }
 
-interface StructuredReviewCardDescription {
-  label: string;
-  tone: ResumeReviewActionTone;
-}
-
-function describeStructuredReviewCard(
-  record: ResumeLibraryListRecord,
-): StructuredReviewCardDescription {
-  if (record.resumeEvaluationStatus === "pass") {
-    return { label: "HR 已通过", tone: "success" };
-  }
-  if (record.resumeEvaluationStatus === "fail") {
-    return { label: "HR 未通过", tone: "danger" };
-  }
-  if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
-    return { label: "AI 评估中", tone: "muted" };
-  }
-  if (record.structuredGateStatus === "failed") {
-    return {
-      label:
-        record.structuredCompositeScore === null
-          ? "未通过门槛"
-          : `未通过门槛 · ${record.structuredCompositeScore} 分`,
-      tone: "danger",
-    };
-  }
-  if (record.structuredGateStatus === "needs_verification") {
-    return { label: "门槛待核实", tone: "warning" };
-  }
-  if (record.structuredCompositeScore !== null) {
-    const gradeLabel = {
-      matched: "匹配",
-      recommended: "推荐",
-      unmatched: "不匹配",
-    }[record.structuredScoreGrade ?? "unmatched"];
-    let tone: ResumeReviewActionTone = "danger";
-    if (record.structuredScoreGrade === "recommended") {
-      tone = "success";
-    } else if (record.structuredScoreGrade === "matched") {
-      tone = "warning";
-    }
-    return {
-      label: `${gradeLabel} · ${record.structuredCompositeScore} 分`,
-      tone,
-    };
-  }
-  return { label: "待 AI 评估", tone: "muted" };
-}
-
 function ResumeCardMetaItem({
   children,
   className,
@@ -201,7 +143,7 @@ function ResumeCardMetaItem({
   return (
     <div
       className={cn(
-        "flex min-h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
+        "flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
         className,
       )}
     >
@@ -343,30 +285,13 @@ function ResumeLibraryCardComponent({
   const lifecycle = describeLifecycleCell(record);
   const profileSnapshot = record.resumeProfileSnapshot;
   const skills = record.resumeSkills;
-  const summary = record.resumeSummary;
-  const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
-  const hasRetainedLegacyReview =
-    artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
-  const baseReviewCard =
-    artifactMode === "structured"
-      ? describeStructuredReviewCard(record)
-      : describeResumeLibraryReviewCard({
-          baseScore: record.resumeReviewBaseScore,
-          nextStepAction: record.resumeReviewNextStepAction,
-          status: hasRetainedLegacyReview ? "ready" : record.resumeReviewStatus,
-        });
-  const reviewCard = hasRetainedLegacyReview
-    ? { ...baseReviewCard, label: `旧版本结果 · ${baseReviewCard.label}` }
-    : baseReviewCard;
-  // Profile (work / education) only at xl+ as a side column. On narrow /
-  // min-width layouts it stacks and bloats the card — hide it entirely.
   const showProfile = hasProfileSnapshotContent(profileSnapshot);
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <article
       className={cn(
-        "relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card",
+        "relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card",
         "transition-colors hover:border-border hover:bg-muted/30",
         "dark:bg-background dark:hover:bg-input/30",
       )}
@@ -375,14 +300,19 @@ function ResumeLibraryCardComponent({
       onPointerLeave={handlePointerLeave}
     >
       <div className="flex gap-3 p-4">
-        <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
-          <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
-        </div>
+        <Avatar
+          className="mt-0.5 size-12"
+          generatedSize={48}
+          label={`${record.candidateName}的头像`}
+          seed={getCandidateAvatarSeed(record.candidateName)}
+        >
+          <AvatarFallback>{record.candidateName.slice(0, 1)}</AvatarFallback>
+        </Avatar>
 
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              "grid min-w-0 gap-x-4 gap-y-3",
+              "grid min-w-0 gap-x-4 gap-y-2",
               showProfile && "xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8",
             )}
           >
@@ -393,7 +323,16 @@ function ResumeLibraryCardComponent({
               )}
             >
               <p className="min-w-0 truncate font-semibold text-base">
-                <span>{record.candidateName}</span>{" "}
+                <button
+                  className="rounded-sm text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openDetail();
+                  }}
+                  type="button"
+                >
+                  {record.candidateName}
+                </button>{" "}
                 <span className="font-normal text-muted-foreground/60 text-xs">
                   ({formatResumeRecordDisplayId(record.id)})
                 </span>
@@ -418,9 +357,9 @@ function ResumeLibraryCardComponent({
             </div>
 
             <div className="min-w-0">
-              <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <ResumeCardMetaItem
-                  className="sm:col-span-2 2xl:col-span-1"
+                  className="max-w-full"
                   icon={<Icon className="size-3.5" icon="ph:briefcase" />}
                   label="关联岗位"
                 >
@@ -434,13 +373,19 @@ function ResumeLibraryCardComponent({
                   </span>
                 </ResumeCardMetaItem>
 
-                <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+                <span className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
                   <Icon
                     className="size-3.5 shrink-0 text-muted-foreground/70"
                     icon="ph:upload-simple"
                   />
                   <span className="shrink-0">上传人</span>
-                  <Avatar className="size-4! shrink-0" size="sm">
+                  <Avatar
+                    className="size-4! shrink-0"
+                    generatedSize={16}
+                    label={`${textOrDash(record.creatorName)}的头像`}
+                    seed={`recruiter:${textOrDash(record.creatorName)}`}
+                    size="sm"
+                  >
                     {record.creatorImage ? (
                       <AvatarImage alt={textOrDash(record.creatorName)} src={record.creatorImage} />
                     ) : null}
@@ -452,37 +397,33 @@ function ResumeLibraryCardComponent({
                 <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
                   {formatLocalDateTime(record.createdAt)}
                 </span>
-
-                <ResumeCardMetaItem
-                  icon={
-                    <span className={REVIEW_ACTION_TONE_CLASS[reviewCard.tone]}>
-                      <Icon className="size-3.5" icon="ph:sparkle" />
-                    </span>
-                  }
-                  label="下一步建议"
-                >
-                  <span
-                    className={cn(
-                      "min-w-0 truncate font-medium",
-                      REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                    )}
-                  >
-                    {reviewCard.label}
-                  </span>
-                </ResumeCardMetaItem>
+                {showProfile && profileSnapshot ? (
+                  <Popover>
+                    <PopoverTrigger
+                      aria-label="更多工作与教育经历"
+                      className="inline-flex min-h-6 items-center gap-1 text-muted-foreground text-xs hover:text-foreground xl:hidden"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <Icon icon="ph:info" className="size-3.5" />
+                      更多
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[28rem] max-w-[calc(100vw-1.5rem)]"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <PopoverTitle className="mb-3">工作与教育经历</PopoverTitle>
+                      <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+                    </PopoverContent>
+                  </Popover>
+                ) : null}
               </div>
-
-              {summary ? (
-                <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
-                  {summary}
-                </p>
-              ) : null}
+              <ResumeLibraryEvaluationSummary record={record} />
 
               {skills.length > 0 ? (
-                <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
+                <div className="mt-3 flex h-6 gap-1.5 overflow-hidden mask-[linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
                   {skills.map((item) => (
                     <span
-                      className="inline-flex max-w-52 truncate rounded-md border border-border px-2 py-0.5 text-xs"
+                      className="inline-flex max-w-52 shrink-0 truncate rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs"
                       key={item}
                     >
                       {item}

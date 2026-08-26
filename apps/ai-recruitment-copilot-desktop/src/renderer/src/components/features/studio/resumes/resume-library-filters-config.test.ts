@@ -9,7 +9,6 @@ describe("recruitment atomic filters", () => {
   it("provides creation time as a resettable date-range filter", () => {
     const filters = buildResumeLibraryFiltersConfig({
       jobDescriptions: [],
-      selectedStructuredJob: undefined,
       skillSuggestions: [],
       workspaceMembers: [],
     });
@@ -27,7 +26,6 @@ describe("recruitment atomic filters", () => {
   it("shows skill names without candidate counts", () => {
     const filters = buildResumeLibraryFiltersConfig({
       jobDescriptions: [],
-      selectedStructuredJob: undefined,
       skillSuggestions: [{ count: 272, skill: "Docker" }],
       workspaceMembers: [],
     });
@@ -39,7 +37,6 @@ describe("recruitment atomic filters", () => {
   it("keeps pipeline stages out of the configurable filters", () => {
     const filters = buildResumeLibraryFiltersConfig({
       jobDescriptions: [],
-      selectedStructuredJob: undefined,
       skillSuggestions: [],
       workspaceMembers: [],
     });
@@ -49,6 +46,34 @@ describe("recruitment atomic filters", () => {
       type: "text-filters",
     });
     expect(filters.some((filter) => filter.key === "stage")).toBe(false);
+  });
+
+  it("offers the four advisory levels without numeric score filters", () => {
+    const filters = buildResumeLibraryFiltersConfig({
+      jobDescriptions: [
+        { departmentName: null, evaluationMode: "structured", id: "job-1", name: "工程师" },
+      ],
+      skillSuggestions: [],
+      workspaceMembers: [],
+    });
+    const recommendation = filters.find((filter) => filter.key === "recommendationLevels");
+    expect(recommendation && "options" in recommendation ? recommendation.options : []).toEqual([
+      { label: "非常推荐", value: "highly_recommended" },
+      { label: "推荐", value: "recommended" },
+      { label: "待定", value: "undecided" },
+      { label: "不推荐", value: "not_recommended" },
+    ]);
+    expect(
+      filters.some(
+        (filter) => filter.key === "structuredMinScore" || filter.key === "structuredMaxScore",
+      ),
+    ).toBe(false);
+    expect(
+      hasActiveResumeLibraryFilters("", {
+        ...EMPTY_RESUME_LIBRARY_FILTERS,
+        recommendationLevels: "recommended",
+      }),
+    ).toBe(true);
   });
 
   it("does not count the active stage as a resettable filter", () => {

@@ -20,12 +20,12 @@ export function LoginPage(): React.JSX.Element {
           </div>
 
           <div className="flex w-full flex-col items-center gap-3">
-            <FeishuSignInButton />
             <FeishuSignInButton
               label="极光 HR 飞书登录"
               providerId="feishu-jiguang-hr"
               variant="default"
             />
+            <FeishuSignInButton />
           </div>
         </div>
       </div>

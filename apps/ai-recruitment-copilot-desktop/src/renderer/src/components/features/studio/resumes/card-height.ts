@@ -21,13 +21,13 @@ export const DESKTOP_SIDEBAR_EXPANDED_PX = 17 * 16;
  */
 export const RESUME_LIBRARY_CARD_HEIGHTS = {
   /** viewport < 640 — single-col meta, no profile */
-  base: 312,
-  /** viewport 640–1279 — 2-col meta, no profile */
-  md: 296,
+  base: 280,
+  /** viewport 640–1279 — wrapped meta, compact profile trigger */
+  md: 260,
   /** viewport 1280–1535 — profile side-by-side */
-  xl: 288,
-  /** viewport ≥ 1536 — 3-col meta + side-by-side */
-  xxl: 260,
+  xl: 219,
+  /** viewport ≥ 1536 — wrapped meta + side-by-side */
+  xxl: 217,
 } as const;
 
 export function getResumeLibraryCardHeight(viewportWidth: number) {

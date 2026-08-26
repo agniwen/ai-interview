@@ -1,4 +1,4 @@
-import { useThemeTransition } from "@/components/theme/use-theme-transition";
+import { useTheme } from "next-themes";
 import type { AppIconName } from "@/components/ui/icon";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -19,15 +19,15 @@ const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = 
 ];
 
 function ThemeSelect(): React.JSX.Element {
-  const { theme, setTheme } = useThemeTransition();
+  const { theme, setTheme } = useTheme();
 
   return (
     <Select
       aria-label="主题"
-      onValueChange={(value, details) => {
+      onValueChange={(value) => {
         const parsedTheme = themeModeSchema.safeParse(value);
         if (parsedTheme.success) {
-          setTheme(parsedTheme.data, details);
+          setTheme(parsedTheme.data);
         }
       }}
       value={theme}

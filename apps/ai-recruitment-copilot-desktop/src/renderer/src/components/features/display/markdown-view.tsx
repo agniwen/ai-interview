@@ -52,3 +52,29 @@ export function MarkdownView({ content, className }: { content: string; classNam
     </div>
   );
 }
+
+const RESTRICTED_MARKDOWN_ELEMENTS = ["p", "strong", "em", "ul", "ol", "li"];
+const INLINE_UNORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*-[ \t]+/g;
+const INLINE_ORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*(\d{1,2}[.)])[ \t]+/g;
+
+function normalizeRestrictedMarkdown(content: string) {
+  return content
+    .replace(INLINE_UNORDERED_LIST_MARKER_RE, "$1\n- ")
+    .replace(INLINE_ORDERED_LIST_MARKER_RE, "$1\n$2 ");
+}
+
+export function RestrictedMarkdownView({
+  content,
+  className,
+}: {
+  content: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("typeset typeset-compact min-w-0 max-w-full text-foreground", className)}>
+      <Markdown allowedElements={RESTRICTED_MARKDOWN_ELEMENTS} skipHtml unwrapDisallowed>
+        {normalizeRestrictedMarkdown(content)}
+      </Markdown>
+    </div>
+  );
+}

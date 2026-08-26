@@ -2,7 +2,11 @@ import type { CSSProperties, ReactNode } from "react";
 import { ContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
-import { DESKTOP_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/resumes/scroll-restore";
+import { DESKTOP_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/resumes/scroll-element";
+import {
+  StudioContentOverlayProvider,
+  StudioContentOverlayTarget,
+} from "@/components/features/studio/studio-content-route-overlay";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
@@ -53,14 +57,19 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
             <AppSidebar />
             <AuthenticatedSidebarFooter />
             <SidebarInset>
-              <ContentTitleBar />
-              <ScrollArea
-                className="min-h-0 flex-1"
-                scrollRestorationId={DESKTOP_MAIN_SCROLL_RESTORATION_ID}
-                scrollbars="leave"
-              >
-                {children}
-              </ScrollArea>
+              <StudioContentOverlayProvider>
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  <ScrollArea
+                    className="min-h-0 flex-1 [&_[data-overlayscrollbars-viewport]]:z-auto!"
+                    scrollRestorationId={DESKTOP_MAIN_SCROLL_RESTORATION_ID}
+                    scrollbars="leave"
+                  >
+                    <ContentTitleBar />
+                    {children}
+                  </ScrollArea>
+                  <StudioContentOverlayTarget className="pointer-events-none absolute inset-0 z-10" />
+                </div>
+              </StudioContentOverlayProvider>
             </SidebarInset>
           </SidebarProvider>
         </SidebarFooterPortalProvider>

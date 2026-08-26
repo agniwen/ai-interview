@@ -72,29 +72,6 @@ export function useResumeLibraryList() {
   const workspaceMembers = membersQuery.data ?? [];
   const skillSuggestions = skillSuggestionsQuery.data ?? [];
 
-  const selectedJobIds = useMemo(() => parseCsvValues(filters.jdIds), [filters.jdIds]);
-  const selectedStructuredJob =
-    selectedJobIds.length === 1
-      ? jobDescriptions.find(
-          (job) => job.id === selectedJobIds[0] && job.evaluationMode === "structured",
-        )
-      : undefined;
-
-  // Clear score filters when structured single-JD gate no longer applies (matches web).
-  const effectiveFilters = useMemo(() => {
-    if (selectedStructuredJob) {
-      return filters;
-    }
-    if (!filters.structuredMinScore && !filters.structuredMaxScore) {
-      return filters;
-    }
-    return {
-      ...filters,
-      structuredMaxScore: "",
-      structuredMinScore: "",
-    };
-  }, [filters, selectedStructuredJob]);
-
   const listQuery = useInfiniteQuery({
     enabled: Boolean(slug),
     getNextPageParam: (
@@ -106,27 +83,22 @@ export function useResumeLibraryList() {
         : undefined,
     initialPageParam: initialResumeLibraryPage,
     queryFn: ({ pageParam }) => {
-      const bounds = dateRangeFilterBounds(effectiveFilters.createdAtRange);
+      const bounds = dateRangeFilterBounds(filters.createdAtRange);
       return fetchStudioResumes(requireWorkspaceSlug(slug), {
         createdFrom: bounds?.from,
         createdTo: bounds?.to,
-        creatorIds: parseCsvValues(effectiveFilters.creatorIds),
-        jobDescriptionIds: parseCsvValues(effectiveFilters.jdIds),
+        creatorIds: parseCsvValues(filters.creatorIds),
+        jobDescriptionIds: parseCsvValues(filters.jdIds),
         knownTotal: pageParam.knownTotal,
         page: pageParam.page,
         pageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
-        pipelineStages: parseCsvValues(effectiveFilters.stage),
+        pipelineStages: parseCsvValues(filters.stage),
+        recommendationLevels: parseCsvValues(filters.recommendationLevels),
         search: deferredSearch.trim() || undefined,
-        skills: parseCsvValues(effectiveFilters.skills),
+        skills: parseCsvValues(filters.skills),
         sortBy: "createdAt",
         sortOrder: "desc",
-        structuredMaxScore: effectiveFilters.structuredMaxScore
-          ? Number(effectiveFilters.structuredMaxScore)
-          : undefined,
-        structuredMinScore: effectiveFilters.structuredMinScore
-          ? Number(effectiveFilters.structuredMinScore)
-          : undefined,
-        textFilters: effectiveFilters.textFilters || undefined,
+        textFilters: filters.textFilters || undefined,
       });
     },
     queryKey: [
@@ -134,7 +106,7 @@ export function useResumeLibraryList() {
       slug,
       "infinite",
       {
-        filters: effectiveFilters,
+        filters,
         search: deferredSearch.trim(),
         sortBy: "createdAt",
         sortOrder: "desc",
@@ -157,24 +129,9 @@ export function useResumeLibraryList() {
         setSearch(value);
         return;
       }
-      setFilters((prev) => {
-        const next = { ...prev, [key]: value };
-        // Changing JD selection may invalidate score filters; clear when multi/none/legacy.
-        if (key === "jdIds") {
-          const ids = parseCsvValues(value);
-          const jobs = jobDescriptionsQuery.data ?? [];
-          const structuredOnly =
-            ids.length === 1 &&
-            jobs.some((job) => job.id === ids[0] && job.evaluationMode === "structured");
-          if (!structuredOnly) {
-            next.structuredMaxScore = "";
-            next.structuredMinScore = "";
-          }
-        }
-        return next;
-      });
+      setFilters((prev) => ({ ...prev, [key]: value }));
     },
-    [jobDescriptionsQuery.data],
+    [],
   );
 
   const onResetFilters = useCallback(() => {
@@ -182,12 +139,26 @@ export function useResumeLibraryList() {
     setFilters((current) => ({ ...EMPTY_RESUME_LIBRARY_FILTERS, stage: current.stage }));
   }, []);
 
+  const { fetchNextPage: fetchNextResumePage } = listQuery;
+  const fetchNextPage = useCallback(async () => {
+    await fetchNextResumePage({ cancelRefetch: false });
+  }, [fetchNextResumePage]);
+
+  const retry = () => {
+    if (listQuery.isFetchNextPageError) {
+      void fetchNextPage();
+    } else {
+      void listQuery.refetch();
+    }
+  };
+
   return {
     canResetFilters,
-    fetchNextPage: listQuery.fetchNextPage,
-    filters: effectiveFilters,
+    fetchNextPage,
+    filters,
     hasActiveFilters: canResetFilters || Boolean(filters.stage),
     hasNextPage: Boolean(listQuery.hasNextPage),
+    isFetching: listQuery.isFetching,
     isFetchingNextPage: listQuery.isFetchingNextPage,
     isInitialLoading: workspaceQuery.isPending || (Boolean(slug) && listQuery.isPending),
     isRefetching: listQuery.isRefetching && !listQuery.isFetchingNextPage,
@@ -197,8 +168,8 @@ export function useResumeLibraryList() {
     onResetFilters,
     records,
     refetch: listQuery.refetch,
+    retry,
     search,
-    selectedStructuredJob,
     skillSuggestions,
     total,
     workspace: workspaceQuery.data ?? null,

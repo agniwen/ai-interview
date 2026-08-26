@@ -3,6 +3,10 @@ import {
   formatResumeEducationItem,
   sortResumeEducationExperiences,
 } from "@arc/shared/resume-education";
+import {
+  isCurrentResumePeriod,
+  sortResumeExperiencesByPeriod,
+} from "@arc/shared/resume-experience";
 import { cn } from "@arc/shared/utils";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { DataField } from "@/components/features/display/data-field";
@@ -16,10 +20,10 @@ import { WorkExperience } from "@/components/features/resume/work-experience";
 interface ResumeProfileViewProps {
   profile: ResumeProfile | null;
   showBasicInfo?: boolean;
+  showTargetRoles?: boolean;
 }
 
 const PLACEHOLDER = "未发现信息";
-const CURRENT_PERIOD_PATTERN = /至今|现在|目前|当前|present|current|now/i;
 const MARKDOWN_LIST_PATTERN = /^\s*(?:[-*+•·]|\d+[.)、])\s+/m;
 
 function isPresent(value: string | null | undefined) {
@@ -32,13 +36,6 @@ type ResumeEducationExperience = NonNullable<ResumeProfile["educationExperiences
 function cleanText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed !== PLACEHOLDER ? trimmed : null;
-}
-
-function isCurrentEmploymentPeriod(period: string | null): boolean {
-  if (!period) {
-    return false;
-  }
-  return CURRENT_PERIOD_PATTERN.test(period);
 }
 
 function normalizePeriodDate(input: string): string | null {
@@ -72,7 +69,7 @@ export function parseResumeEmploymentPeriod(
 
   const dates = extractNormalizedPeriodDates(text);
   const start = dates[0] ?? text;
-  if (isCurrentEmploymentPeriod(text)) {
+  if (isCurrentResumePeriod(text)) {
     return { start };
   }
 
@@ -111,7 +108,7 @@ export function toWorkExperienceItems(experiences: ResumeWorkExperience[]): Expe
   const groups: ExperienceItemType[] = [];
   const groupIndexByCompany = new Map<string, ExperienceItemType>();
 
-  for (const experience of experiences) {
+  for (const experience of sortResumeExperiencesByPeriod(experiences)) {
     const companyName = cleanText(experience.company) ?? "未发现公司";
     let group = groupIndexByCompany.get(companyName);
     if (!group) {
@@ -126,7 +123,7 @@ export function toWorkExperienceItems(experiences: ResumeWorkExperience[]): Expe
     }
 
     const period = cleanText(experience.period);
-    group.isCurrentEmployer ||= isCurrentEmploymentPeriod(period);
+    group.isCurrentEmployer ||= isCurrentResumePeriod(period);
     const description = formatResumeExperienceDescription(experience.summary);
     group.positions.push({
       description,
@@ -256,12 +253,17 @@ function ResumeProfileBasicFields({ profile }: { profile: ResumeProfile }) {
   );
 }
 
-export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfileViewProps) {
+export function ResumeProfileView({
+  profile,
+  showBasicInfo = true,
+  showTargetRoles = true,
+}: ResumeProfileViewProps) {
   if (!profile) {
     return <p className="text-muted-foreground text-sm">暂无结构化简历，仅有候选人基础信息。</p>;
   }
 
   const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);
+  const projectExperiences = sortResumeExperiencesByPeriod(profile.projectExperiences);
 
   return (
     <div className="space-y-8">
@@ -271,8 +273,14 @@ export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfi
         </DataFields>
       ) : null}
 
-      <ResumeProfileSection title="求职意向">
-        <ChipList items={profile.targetRoles} />
+      {showTargetRoles ? (
+        <ResumeProfileSection title="求职意向">
+          <ChipList items={profile.targetRoles} />
+        </ResumeProfileSection>
+      ) : null}
+
+      <ResumeProfileSection title="工作经历">
+        <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
 
       <ResumeProfileSection title="教育经历">
@@ -283,16 +291,12 @@ export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfi
         )}
       </ResumeProfileSection>
 
-      <ResumeProfileSection title="工作经历">
-        <WorkExperienceTimeline experiences={profile.workExperiences} />
-      </ResumeProfileSection>
-
       <ResumeProfileSection title="项目经历">
-        {profile.projectExperiences.length === 0 ? (
+        {projectExperiences.length === 0 ? (
           <EmptyValue className="text-sm" />
         ) : (
           <ul className="flex flex-col gap-3">
-            {profile.projectExperiences.map((proj) => (
+            {projectExperiences.map((proj) => (
               <li
                 className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
                 key={[

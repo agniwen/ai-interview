@@ -36,6 +36,7 @@ function getInitials(name?: string | null, email?: string | null) {
 }
 
 interface SessionUser {
+  id: string;
   email?: string | null;
   feishuTenantName?: string | null;
   image?: string | null;
@@ -55,7 +56,7 @@ function UserMenuDropdown({ onSignOut, user }: { onSignOut: () => void; user: Se
       <DropdownMenuTrigger
         render={
           <Button className={userTriggerClassName} type="button" variant="ghost">
-            <Avatar size="sm">
+            <Avatar label={`${userName}的头像`} seed={`user:${userEmail || user.id}`} size="sm">
               <AvatarImage alt={userName} src={user.image ?? undefined} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>

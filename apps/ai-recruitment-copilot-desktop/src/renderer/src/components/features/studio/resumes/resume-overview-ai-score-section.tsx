@@ -5,9 +5,18 @@ import { getResumeReviewBaseScore, resumeReviewActionLabel } from "@arc/shared/r
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
+import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  resumeEvaluationNotice,
+  getResumeEvaluationMode,
+} from "./resume-library-evaluation-summary";
 import { OverviewDimensionRadar } from "./resume-overview-dimension-radar";
+import {
+  QualitativeDimensionRadar,
+  QUALITATIVE_RECOMMENDATION_LABEL,
+} from "./qualitative-resume-evaluation-panel";
 import {
   actionVariant,
   getReviewDimensionDisplays,
@@ -25,6 +34,71 @@ export function ResumeOverviewAiScoreSection({
   detail: ResumeLibraryDetail;
   onViewAiScore?: () => void;
 }) {
+  const mode = getResumeEvaluationMode(detail);
+  const notice = resumeEvaluationNotice(detail);
+  if (mode === "qualitative" && detail.qualitativeResumeEvaluation) {
+    const evaluation = detail.qualitativeResumeEvaluation;
+    return (
+      <section className="space-y-4">
+        <div className="flex min-h-10 flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">AI评价</h3>
+        </div>
+        {notice ? (
+          <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+            {notice}
+          </p>
+        ) : null}
+        <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+          <div className="min-w-0">
+            <QualitativeDimensionRadar compact evaluation={evaluation} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="text-muted-foreground text-xs">综合评价</div>
+              <div
+                className="font-semibold text-4xl leading-none tracking-tight"
+                data-qualitative-overview-recommendation
+              >
+                {QUALITATIVE_RECOMMENDATION_LABEL[evaluation.recommendationLevel]}
+              </div>
+            </div>
+            <div data-qualitative-overview-judgment>
+              <RestrictedMarkdownView
+                className="text-sm leading-6"
+                content={evaluation.detailedOverall.judgment}
+              />
+            </div>
+            {onViewAiScore ? (
+              <Button
+                className="h-auto self-center px-0 text-xs lg:self-start"
+                onClick={onViewAiScore}
+                type="button"
+                variant="link"
+              >
+                查看详情
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+  if (!detail.resumeEvaluationArtifactMode || mode === "qualitative") {
+    return (
+      <section className="space-y-3">
+        <h3 className="font-medium text-sm">AI评价</h3>
+        <p className="text-muted-foreground text-sm">
+          {notice ??
+            (detail.jobDescriptionId ? "暂无 AI 评价。" : "请先为候选人关联岗位，再生成 AI 评价。")}
+        </p>
+        {onViewAiScore ? (
+          <Button onClick={onViewAiScore} type="button" variant="link">
+            查看详情
+          </Button>
+        ) : null}
+      </section>
+    );
+  }
   const review = detail.resumeReview;
   const structuredEvaluation =
     detail.resumeEvaluationArtifactMode === "structured" ? detail.structuredResumeEvaluation : null;
@@ -71,45 +145,18 @@ export function ResumeOverviewAiScoreSection({
     }
   }
 
-  if (detail.resumeEvaluationArtifactMode === "legacy" && review) {
-    statusBadges = (
-      <>
-        <Badge variant="outline">老版本结果</Badge>
-        {statusBadges}
-      </>
-    );
-  }
-
-  const isPriorStructuredRun =
-    Boolean(structuredEvaluation?.runId) &&
-    Boolean(detail.resumeReviewRunId) &&
-    structuredEvaluation?.runId !== detail.resumeReviewRunId;
-  let retainedResultNotice: string | null = null;
-  if (
-    detail.resumeEvaluationArtifactMode === "legacy" &&
-    detail.resumeEvaluationAttemptMode === "structured" &&
-    detail.resumeReviewStatus === "failed"
-  ) {
-    retainedResultNotice = `${detail.resumeReviewError || "新版评估失败"} 当前展示老版本结果。`;
-  } else if (
-    detail.resumeEvaluationArtifactMode === "legacy" &&
-    detail.resumeEvaluationAttemptMode === "structured" &&
-    (detail.resumeReviewStatus === "processing" || detail.resumeReviewStatus === "queued")
-  ) {
-    retainedResultNotice = "正在使用新版重新评估，当前展示老版本结果。";
-  } else if (isPriorStructuredRun && detail.resumeReviewStatus === "failed") {
-    retainedResultNotice = `${detail.resumeReviewError || "评估失败"} 当前展示上一次已完成的评估结果。`;
-  } else if (
-    isPriorStructuredRun &&
-    (detail.resumeReviewStatus === "processing" || detail.resumeReviewStatus === "queued")
-  ) {
-    retainedResultNotice = "正在重新评估，当前展示上一次已完成的评估结果。";
-  }
+  statusBadges = (
+    <>
+      <Badge variant="outline">历史评分</Badge>
+      {statusBadges}
+    </>
+  );
+  const retainedResultNotice = notice;
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-medium text-sm">AI评分</h3>
+      <div className="flex min-h-10 flex-wrap items-center gap-2">
+        <h3 className="font-medium text-sm">AI评价</h3>
         {statusBadges}
       </div>
 

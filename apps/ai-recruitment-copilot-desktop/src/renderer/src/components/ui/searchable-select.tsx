@@ -105,7 +105,7 @@ function SearchableSelectOptionAvatar({ option }: { option: SearchableSelectOpti
     return null;
   }
   return (
-    <Avatar size="sm">
+    <Avatar label={`${option.label}的头像`} seed={`option:${option.value}`} size="sm">
       {option.avatarUrl ? <AvatarImage alt={option.label} src={option.avatarUrl} /> : null}
       <AvatarFallback>{getOptionInitials(option.label)}</AvatarFallback>
     </Avatar>

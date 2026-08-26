@@ -28,7 +28,6 @@ export function ResumeLibraryFiltersBar({
   onRefresh,
   onResetFilters,
   search,
-  selectedStructuredJob,
   skillSuggestions,
   workspaceMembers,
 }: {
@@ -41,7 +40,6 @@ export function ResumeLibraryFiltersBar({
   onRefresh: () => void;
   onResetFilters: () => void;
   search: string;
-  selectedStructuredJob: RecruitingJobDescriptionOption | undefined;
   skillSuggestions: SkillSuggestion[];
   workspaceMembers: WorkspaceMemberOption[];
 }) {
@@ -49,16 +47,14 @@ export function ResumeLibraryFiltersBar({
     () =>
       buildResumeLibraryFiltersConfig({
         jobDescriptions,
-        selectedStructuredJob,
         skillSuggestions,
         workspaceMembers,
       }),
-    [jobDescriptions, selectedStructuredJob, skillSuggestions, workspaceMembers],
+    [jobDescriptions, skillSuggestions, workspaceMembers],
   );
 
   const filterValues = useMemo(() => {
     const filterEntries = RESUME_LIBRARY_FILTER_KEYS.map(
-      // Score filters may be cleared in effectiveFilters when no structured JD.
       (key) => [key, filters[key] ?? EMPTY_RESUME_LIBRARY_FILTERS[key]] as const,
     );
     return Object.fromEntries([["search", search], ...filterEntries]);

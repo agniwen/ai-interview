@@ -39,7 +39,11 @@ export function ResumeOverviewPanel({
       />
 
       <section className="border-t border-border/50 pt-6">
-        <ResumeProfileView profile={detail.resumeProfile ?? null} showBasicInfo={false} />
+        <ResumeProfileView
+          profile={detail.resumeProfile ?? null}
+          showBasicInfo={false}
+          showTargetRoles={false}
+        />
       </section>
     </div>
   );

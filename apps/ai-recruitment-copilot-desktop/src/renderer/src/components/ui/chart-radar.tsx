@@ -33,15 +33,14 @@ export interface RadarDimensionPoint {
 }
 
 /**
- * Soft sky-blue matching the previous Recharts radar look
- * (light: brand blue #3D8EEE family; dark: soft periwinkle).
+ * Match the Web radar palette: forest green in light mode, blue in dark mode.
  */
 const DEFAULT_CONFIG: ChartConfig = {
   score: {
     label: "评分",
     theme: {
-      dark: "#a5b4fc",
-      light: "oklch(0.68 0.135 254)",
+      dark: "#7699ef",
+      light: "#2d6a4f",
     },
   },
 };
@@ -56,6 +55,7 @@ export function DimensionRadarChart({
   config = DEFAULT_CONFIG,
   ariaLabel = "维度评分雷达图",
   fillOpacity = 0.16,
+  maxScore = 100,
   empty,
   tooltipBody,
 }: {
@@ -65,6 +65,7 @@ export function DimensionRadarChart({
   config?: ChartConfig;
   ariaLabel?: string;
   fillOpacity?: number;
+  maxScore?: number;
   empty?: ReactNode;
   tooltipBody?: (point: RadarDimensionPoint) => ReactNode;
 }) {
@@ -94,7 +95,7 @@ export function DimensionRadarChart({
             wrap: true,
           },
           radius: {
-            scale: scaleLinear().domain([0, 100]),
+            scale: scaleLinear().domain([0, maxScore]),
           },
           guides: [
             radialGrid({
@@ -169,7 +170,7 @@ export function DimensionRadarChart({
             },
           },
     });
-  }, [compact, fillOpacity, labels, scored, tooltipBody]);
+  }, [compact, fillOpacity, labels, maxScore, scored, tooltipBody]);
 
   if (scored.length === 0 || !definition) {
     return (
@@ -198,6 +199,7 @@ export function DimensionRadarChart({
       )}
       config={config}
       data-radar-order={orderAttr}
+      data-radar-max-score={maxScore}
     >
       <ChartComponent
         ariaLabel={ariaLabel}

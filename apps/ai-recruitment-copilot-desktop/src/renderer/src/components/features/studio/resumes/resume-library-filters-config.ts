@@ -9,12 +9,10 @@ import type {
 
 export function buildResumeLibraryFiltersConfig({
   jobDescriptions,
-  selectedStructuredJob,
   skillSuggestions,
   workspaceMembers,
 }: {
   jobDescriptions: RecruitingJobDescriptionOption[];
-  selectedStructuredJob: RecruitingJobDescriptionOption | undefined;
   skillSuggestions: SkillSuggestion[];
   workspaceMembers: WorkspaceMemberOption[];
 }): ToolbarFilterConfig[] {
@@ -70,29 +68,19 @@ export function buildResumeLibraryFiltersConfig({
       selectedFormat: (count: number) => `已选 ${count} 个岗位`,
       type: "multi-select" as const,
     },
-    ...(selectedStructuredJob
-      ? [
-          {
-            clearable: true,
-            key: "structuredMinScore" as const,
-            options: [60, 75, 85, 90].map((score) => ({
-              label: `最低 ${score} 分`,
-              value: String(score),
-            })),
-            placeholder: "最低综合分",
-            type: "select" as const,
-          },
-          {
-            clearable: true,
-            key: "structuredMaxScore" as const,
-            options: [60, 75, 85, 90].map((score) => ({
-              label: `最高 ${score} 分`,
-              value: String(score),
-            })),
-            placeholder: "最高综合分",
-            type: "select" as const,
-          },
-        ]
-      : []),
+    {
+      emptyMessage: "没有匹配的评价等级",
+      key: "recommendationLevels",
+      label: "AI 评价",
+      options: [
+        { label: "非常推荐", value: "highly_recommended" },
+        { label: "推荐", value: "recommended" },
+        { label: "待定", value: "undecided" },
+        { label: "不推荐", value: "not_recommended" },
+      ],
+      placeholder: "按 AI 评价筛选",
+      selectedFormat: (count: number) => `已选 ${count} 个评价等级`,
+      type: "multi-select",
+    },
   ];
 }
