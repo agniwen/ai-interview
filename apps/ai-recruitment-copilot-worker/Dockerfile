@@ -53,6 +53,11 @@ ENV WORKER_HOST=0.0.0.0
 ENV WORKER_PORT=8790
 ENV LIBREOFFICE_BIN=/usr/bin/soffice
 ENV TZ=UTC
+# Match the web image's Recording R2 defaults. Runtime values override these;
+# endpoint, bucket and credentials must point to the same storage as the web app.
+ENV RECORDING_R2_REGION=auto
+ENV RECORDING_R2_FORCE_PATH_STYLE=true
+ENV RECORDING_R2_KEY_PREFIX=recordings
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
