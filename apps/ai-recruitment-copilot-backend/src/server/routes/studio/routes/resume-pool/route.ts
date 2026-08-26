@@ -249,6 +249,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             sortBy: q.sortBy,
             sortOrder: q.sortOrder,
             sourceType: q.sourceType,
+            textFilters: q.textFilters,
           });
           return c.json(result, 200);
         },

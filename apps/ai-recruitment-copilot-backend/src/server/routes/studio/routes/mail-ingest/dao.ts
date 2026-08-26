@@ -1,5 +1,8 @@
-import { and, asc, count, desc, eq, ilike, isNull, lt, or, sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
+import {
+  buildWorkspaceMailIngestFilters,
+  buildPlatformMailIngestFilters,
+} from "./dao/account-filters";
+import { and, asc, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   calcTotalPages,
@@ -139,52 +142,6 @@ export async function listMailIngestAccounts(
   return rows.map(toMailIngestAccountDto);
 }
 
-function buildWorkspaceMailIngestFilters({
-  organizationId,
-  search,
-  userId,
-}: {
-  organizationId: string;
-  search?: string;
-  userId?: string;
-}) {
-  const filters: SQL[] = [eq(member.organizationId, organizationId)];
-  if (userId) {
-    filters.push(eq(member.userId, userId));
-  }
-  if (search) {
-    const pattern = `%${search}%`;
-    const searchCondition = or(
-      ilike(userTable.name, pattern),
-      ilike(userTable.email, pattern),
-      ilike(mailIngestAccount.emailAddress, pattern),
-      ilike(mailIngestAccount.username, pattern),
-      ilike(mailIngestAccount.imapHost, pattern),
-      ilike(mailIngestAccount.subjectKeyword, pattern),
-    );
-    if (searchCondition) {
-      filters.push(searchCondition);
-    }
-  }
-  return and(...filters);
-}
-
-function buildPlatformMailIngestFilters({ search }: { search?: string }) {
-  if (search) {
-    const pattern = `%${search}%`;
-    return or(
-      ilike(organization.name, pattern),
-      ilike(organization.slug, pattern),
-      ilike(userTable.name, pattern),
-      ilike(userTable.email, pattern),
-      ilike(mailIngestAccount.emailAddress, pattern),
-      ilike(mailIngestAccount.username, pattern),
-      ilike(mailIngestAccount.imapHost, pattern),
-      ilike(mailIngestAccount.subjectKeyword, pattern),
-    );
-  }
-}
-
 function buildWorkspaceMailIngestOrderBy(
   sortBy: WorkspaceMailIngestSortColumn,
   sortOrder: "asc" | "desc",
@@ -208,6 +165,7 @@ function listWorkspaceMailIngestAccountRows({
   limit,
   offset,
   organizationId,
+  textFilters,
   search,
   sortBy = "userName",
   sortOrder = "asc",
@@ -216,12 +174,13 @@ function listWorkspaceMailIngestAccountRows({
   limit?: number;
   offset?: number;
   organizationId: string;
+  textFilters?: string;
   search?: string;
   sortBy?: WorkspaceMailIngestSortColumn;
   sortOrder?: "asc" | "desc";
   userId?: string;
 }) {
-  const where = buildWorkspaceMailIngestFilters({ organizationId, search, userId });
+  const where = buildWorkspaceMailIngestFilters({ organizationId, search, textFilters, userId });
   let query = db
     .select({
       accountCreatedAt: mailIngestAccount.createdAt,
@@ -280,17 +239,19 @@ function listWorkspaceMailIngestAccountRows({
 function listPlatformMailIngestAccountRows({
   limit,
   offset,
+  textFilters,
   search,
   sortBy = "userName",
   sortOrder = "asc",
 }: {
   limit?: number;
   offset?: number;
+  textFilters?: string;
   search?: string;
   sortBy?: WorkspaceMailIngestSortColumn;
   sortOrder?: "asc" | "desc";
 }) {
-  const where = buildPlatformMailIngestFilters({ search });
+  const where = buildPlatformMailIngestFilters({ search, textFilters });
   let query = db
     .select({
       accountCreatedAt: mailIngestAccount.createdAt,
@@ -356,14 +317,16 @@ function listPlatformMailIngestAccountRows({
 
 async function countWorkspaceMailIngestAccountRows({
   organizationId,
+  textFilters,
   search,
   userId,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   userId?: string;
 }) {
-  const where = buildWorkspaceMailIngestFilters({ organizationId, search, userId });
+  const where = buildWorkspaceMailIngestFilters({ organizationId, search, textFilters, userId });
   const [result] = await db
     .select({ count: count() })
     .from(member)
@@ -379,8 +342,14 @@ async function countWorkspaceMailIngestAccountRows({
   return result?.count ?? 0;
 }
 
-async function countPlatformMailIngestAccountRows({ search }: { search?: string }) {
-  const where = buildPlatformMailIngestFilters({ search });
+async function countPlatformMailIngestAccountRows({
+  textFilters,
+  search,
+}: {
+  textFilters?: string;
+  search?: string;
+}) {
+  const where = buildPlatformMailIngestFilters({ search, textFilters });
   const [result] = await db
     .select({ count: count() })
     .from(member)
@@ -439,11 +408,12 @@ function parseWorkspaceMailIngestSearch(search?: string | null) {
 
 export async function listWorkspaceMailIngestAccounts(
   organizationId: string,
-  options: { search?: string | null; userId?: string } = {},
+  options: { textFilters?: string; search?: string | null; userId?: string } = {},
 ): Promise<WorkspaceMailIngestAccountRow[]> {
   const rows = await listWorkspaceMailIngestAccountRows({
     organizationId,
     search: parseWorkspaceMailIngestSearch(options.search),
+    textFilters: options.textFilters,
     userId: options.userId,
   });
 
@@ -461,13 +431,14 @@ export async function getWorkspaceMailIngestAccount(
 
 export async function queryPaginatedWorkspaceMailIngestAccounts(
   organizationId: string,
-  options: { search?: string | null; userId?: string } = {},
+  options: { textFilters?: string; search?: string | null; userId?: string } = {},
   pagination?: MailIngestPaginationInput,
 ): Promise<PaginatedWorkspaceMailIngestAccountResult> {
   const { page, pageSize, sortBy, sortOrder } = workspaceMailIngestPaginationSchema.parse(
     pagination ?? {},
   );
   const search = parseWorkspaceMailIngestSearch(options.search);
+  const { textFilters } = options;
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
@@ -478,11 +449,13 @@ export async function queryPaginatedWorkspaceMailIngestAccounts(
       search,
       sortBy,
       sortOrder,
+      textFilters,
       userId: options.userId,
     }),
     countWorkspaceMailIngestAccountRows({
       organizationId,
       search,
+      textFilters,
       userId: options.userId,
     }),
   ]);
@@ -497,13 +470,14 @@ export async function queryPaginatedWorkspaceMailIngestAccounts(
 }
 
 export async function queryPaginatedPlatformMailIngestAccounts(
-  options: { search?: string | null } = {},
+  options: { textFilters?: string; search?: string | null } = {},
   pagination?: MailIngestPaginationInput,
 ): Promise<PaginatedPlatformMailIngestAccountResult> {
   const { page, pageSize, sortBy, sortOrder } = workspaceMailIngestPaginationSchema.parse(
     pagination ?? {},
   );
   const search = parseWorkspaceMailIngestSearch(options.search);
+  const { textFilters } = options;
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
@@ -513,8 +487,9 @@ export async function queryPaginatedPlatformMailIngestAccounts(
       search,
       sortBy,
       sortOrder,
+      textFilters,
     }),
-    countPlatformMailIngestAccountRows({ search }),
+    countPlatformMailIngestAccountRows({ search, textFilters }),
   ]);
 
   return {

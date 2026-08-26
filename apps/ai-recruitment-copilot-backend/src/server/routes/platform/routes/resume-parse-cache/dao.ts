@@ -1,3 +1,4 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -35,6 +36,14 @@ function buildCacheConditions(query: ResumeParseCacheQuery): SQL | undefined {
     isNotNull(chatAttachment.contentHash),
     ne(chatAttachment.contentHash, ""),
     or(isNotNull(chatAttachment.parsedStructured), isNotNull(chatAttachment.parsedText)),
+    buildListTextFilterWhere("parseCache", query.textFilters, {
+      contentHash: chatAttachment.contentHash,
+      filename: chatAttachment.filename,
+      organizationName: organization.name,
+      storageKey: chatAttachment.storageKey,
+      userEmail: user.email,
+      userName: user.name,
+    }),
   ];
   const search = query.search?.trim();
   if (search) {

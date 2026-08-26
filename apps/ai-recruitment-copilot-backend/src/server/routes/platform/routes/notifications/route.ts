@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -45,6 +46,7 @@ const querySchema = z.object({
     .default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   status: z.enum(platformNotificationStatusFilterValues).default("all"),
+  textFilters: listTextFiltersSchema("notifications"),
 });
 
 export function createPlatformNotificationsRouter(

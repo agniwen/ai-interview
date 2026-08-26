@@ -1,3 +1,4 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
 // LEFT JOIN job_description LEFT JOIN user LEFT JOIN (conversations 是否存在) AS hasReport。
@@ -92,6 +93,7 @@ function buildWhere(
   filters?: {
     creatorIds?: string[];
     forceEmpty?: boolean;
+    textFilters?: string;
     search?: string;
     statuses?: ScheduleEntryStatus[];
   },
@@ -121,7 +123,16 @@ function buildWhere(
   if (filters?.creatorIds && filters.creatorIds.length > 0) {
     conditions.push(inArray(studioInterviewSchedule.createdBy, filters.creatorIds));
   }
-  return and(...conditions);
+  return and(
+    ...conditions,
+    buildListTextFilterWhere("interviews", filters?.textFilters, {
+      candidateName: studioInterview.candidateName,
+      email: studioInterview.candidateEmail,
+      resumeFileName: studioInterview.resumeFileName,
+      targetRole: studioInterview.targetRole,
+      title: studioInterviewSchedule.roundLabel,
+    }),
+  );
 }
 
 function serializeRoundDerivedTimestamp(value: Date | string | null): string | null {
@@ -203,7 +214,12 @@ function resolveRoundFeishuDocumentUrl(
 
 export async function queryPaginatedInterviewRounds(
   organizationId: string,
-  filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
+  filters?: {
+    creatorIds?: string[] | null;
+    textFilters?: string;
+    search?: string | null;
+    status?: string | null;
+  },
   pagination?: RoundsPaginationInput,
   visibilityScope?: RecruitingVisibilityScope,
 ): Promise<PaginatedStudioInterviewRoundsResult> {
@@ -221,17 +237,19 @@ export async function queryPaginatedInterviewRounds(
     forceEmpty: Array.isArray(scopedCreatorIds) && scopedCreatorIds.length === 0,
     search,
     statuses,
+    textFilters: filters?.textFilters,
   });
-  const countQuery = search
-    ? db
-        .select({ count: count() })
-        .from(studioInterviewSchedule)
-        .leftJoin(
-          studioInterview,
-          eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
-        )
-        .where(where)
-    : db.select({ count: count() }).from(studioInterviewSchedule).where(where);
+  const countQuery =
+    search || filters?.textFilters
+      ? db
+          .select({ count: count() })
+          .from(studioInterviewSchedule)
+          .leftJoin(
+            studioInterview,
+            eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
+          )
+          .where(where)
+      : db.select({ count: count() }).from(studioInterviewSchedule).where(where);
 
   const [rows, [totalRow]] = await Promise.all([
     db
@@ -338,7 +356,12 @@ export async function queryPaginatedInterviewRounds(
 /** Cached version for Server Components */
 export function listInterviewRounds(
   organizationId: string,
-  filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
+  filters?: {
+    creatorIds?: string[] | null;
+    textFilters?: string;
+    search?: string | null;
+    status?: string | null;
+  },
   pagination?: RoundsPaginationInput,
   visibilityScope?: RecruitingVisibilityScope,
 ) {

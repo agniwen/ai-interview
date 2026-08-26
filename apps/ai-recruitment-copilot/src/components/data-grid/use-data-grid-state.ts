@@ -34,6 +34,7 @@ export interface UseDataGridStateOptions<TData, F extends Record<string, string>
   defaultPageSize?: number;
   defaultSorting?: SortingState;
   initialFilters: F;
+  keywordSearch?: boolean;
   maxPageSize?: number;
   refetchOnWindowFocus?: boolean;
   staleTime?: number;
@@ -113,7 +114,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     firstSearchValue(routeSearch.pageSize),
     defaultPageSize,
   );
-  const search = firstSearchValue(routeSearch.search) ?? "";
+  const search = opts.keywordSearch ? (firstSearchValue(routeSearch.search) ?? "") : "";
   const deferredSearch = useDeferredValue(search);
 
   // Multi-key filter state via route search (each filter gets its own URL key).
@@ -126,7 +127,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
       // SAFETY: this hook accepts only string-valued filter maps; URL values are normalized to strings.
       out[key] = (firstSearchValue(routeSearch[key]) ?? opts.initialFilters[key]) as F[typeof key];
     }
-    return out;
+    return { ...out, textFilters: firstSearchValue(routeSearch.textFilters) ?? "" };
   }, [filterKeys, opts.initialFilters, routeSearch]);
 
   const initialSortFirst = opts.defaultSorting?.[0];
@@ -190,7 +191,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   );
 
   const filterResetSig = buildDataGridFilterResetSignature({
-    filterKeys,
+    filterKeys: [...filterKeys, "textFilters"],
     filters,
     search: deferredSearch,
   });
@@ -308,14 +309,22 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   // 是否处于"非默认"过滤状态（用于决定 reset 按钮的 disabled 态）。
   // / Whether any filter (incl. search) deviates from initialFilters defaults.
   const canResetFilters =
-    search.trim() !== "" || filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
+    search.trim() !== "" ||
+    Boolean(filters.textFilters) ||
+    filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
 
-  const onResetFilters = () => {
+  const onResetFilters = (clearedValues?: Record<string, string>) => {
     setRowSelection({});
     const updates = Object.fromEntries([
+      ...(clearedValues
+        ? Object.entries(clearedValues).map(([key, value]) => [key, value || undefined])
+        : [
+            ["page", 1],
+            ["search", undefined],
+            ["textFilters", undefined],
+            ...filterKeys.map((key) => [key, opts.initialFilters[key] || undefined]),
+          ]),
       ["page", 1],
-      ["search", undefined],
-      ...filterKeys.map((key) => [key, opts.initialFilters[key] || undefined]),
     ]);
     updateRouteSearch(updates);
   };
@@ -324,6 +333,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     canResetFilters,
     data: data.records,
     error: listQuery.error,
+    filterStorageKey: String(opts.queryKeyBase[0]),
     filterValues,
     loading,
     onFilterChange,

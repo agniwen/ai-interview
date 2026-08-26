@@ -54,16 +54,26 @@ function ToolbarSkeleton({
   primaryAction?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Skeleton className="h-9 w-full sm:w-60" />
-        <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-          <Skeleton className="size-9" />
-          <Skeleton className="size-9" />
-          {primaryAction ? <Skeleton className="h-9 w-28" /> : null}
-        </div>
+    <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="list-toolbar-skeleton">
+      {filterCount > 2 ? (
+        <Skeleton className="h-9 w-28 rounded-lg" data-slot="filter-control-skeleton" />
+      ) : (
+        Array.from({ length: filterCount }, (_, index) => (
+          <Skeleton
+            className="h-9 w-full rounded-lg sm:w-60"
+            data-slot="filter-control-skeleton"
+            key={index}
+          />
+        ))
+      )}
+      <div
+        className="flex min-w-0 flex-wrap items-center gap-2"
+        data-slot="toolbar-actions-skeleton"
+      >
+        <Skeleton className="size-9 rounded-lg" data-slot="clear-filter-skeleton" />
+        <Skeleton className="size-9 rounded-lg" data-slot="refresh-skeleton" />
+        {primaryAction ? <Skeleton className="h-9 w-28 rounded-lg" /> : null}
       </div>
-      {filterCount > 1 ? <Skeleton className="h-8 w-24" /> : null}
     </div>
   );
 }
@@ -168,7 +178,6 @@ export function RecruitingPageSkeleton() {
     <PageShell label="招聘台">
       <HeaderSkeleton />
       <ChartGridSkeleton />
-      <TabsSkeleton count={6} />
       <ToolbarSkeleton filterCount={4} />
       <RecruitingListSkeleton />
     </PageShell>
@@ -187,7 +196,7 @@ export function ResumePoolPageSkeleton() {
 }
 
 export function StudioTablePageSkeleton({
-  filterCount = 1,
+  filterCount = 2,
   label = "数据列表",
   summary = false,
 }: {
@@ -264,7 +273,7 @@ export function MembersPageSkeleton() {
     <PageShell label="工作区管理">
       <HeaderSkeleton />
       <TabsSkeleton count={2} />
-      <ToolbarSkeleton filterCount={1} />
+      <ToolbarSkeleton filterCount={2} />
       <TableSkeleton rows={4} />
     </PageShell>
   );

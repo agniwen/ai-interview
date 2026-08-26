@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconListCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -80,6 +81,7 @@ export function InterviewQuestionTemplateManagementPage({
       sortOrder: "asc" | "desc" | undefined;
     }): Promise<PaginatedInterviewQuestionTemplateResult> => {
       const query: TemplateListQuery = {
+        ...listTextQuery(params),
         page: String(params.page),
         pageSize: String(params.pageSize),
         sortBy: params.sortBy ?? "createdAt",
@@ -431,10 +433,9 @@ export function InterviewQuestionTemplateManagementPage({
         unfilteredValue: "all",
       },
       {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索模版标题或说明",
-        type: "search" as const,
+        key: "textFilters" as const,
+        resource: "questions" as const,
+        type: "text-filters" as const,
       },
       {
         key: "scope" as const,

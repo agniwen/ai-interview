@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -67,6 +68,7 @@ const candidateFormListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+  textFilters: listTextFiltersSchema("forms"),
 });
 
 function parseArchivedFilter(value: string | undefined): "active" | "archived" | "all" {
@@ -96,6 +98,7 @@ export const candidateFormsRouter = factory
           jobDescriptionId: q.jobDescriptionId,
           scope: q.scope,
           search: q.search,
+          textFilters: q.textFilters,
         },
         {
           page: q.page,

@@ -1,5 +1,6 @@
-/* oxlint-disable complexity -- page controller coordinates filters, incremental loading, uploads, and route navigation. */
 "use client";
+
+/* oxlint-disable complexity -- page controller coordinates filters, incremental loading, uploads, and route navigation. */
 
 import { IconLoader2, IconRefresh, IconTrash } from "@tabler/icons-react";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
@@ -105,7 +106,7 @@ export function ResumePoolPage() {
   const fetcher = useMemo(
     () =>
       async (params: {
-        filters: ResumePoolFilters;
+        filters: ResumePoolFilters & { textFilters?: string };
         page: number;
         pageSize: number;
         search: string;
@@ -132,6 +133,7 @@ export function ResumePoolPage() {
               : undefined,
           sortOrder: params.sortOrder,
           sourceType: params.filters.sourceType,
+          textFilters: params.filters.textFilters || undefined,
           uploaderIds: params.filters.uploaderIds || undefined,
         });
         return {
@@ -377,12 +379,7 @@ export function ResumePoolPage() {
   );
   const filtersConfig = useMemo(
     () => [
-      {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索候选人、公司、学校、邮箱、电话、简历名或目标岗位",
-        type: "search" as const,
-      },
+      { key: "textFilters" as const, resource: "resumes" as const, type: "text-filters" as const },
       {
         key: "sourceType" as const,
         label: "来源类型",
@@ -445,6 +442,7 @@ export function ResumePoolPage() {
         />
         <div className="flex flex-col gap-4">
           <Toolbar
+            filterStorageKey="resume-pool"
             canResetFilters={grid.bind.canResetFilters}
             filterValues={grid.bind.filterValues}
             filters={filtersConfig}

@@ -1,5 +1,7 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
-import { eq, sql, count, ilike, or, desc, asc } from "drizzle-orm";
+import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
@@ -51,6 +53,7 @@ const orgQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["name", "slug", "createdAt", "memberCount"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  textFilters: listTextFiltersSchema("organizations"),
 });
 
 function orgOrderExpr(sortBy: string) {
@@ -72,15 +75,21 @@ const platformOrganizations = factory
     "/organizations",
     zValidator("query", orgQuerySchema, jsonValidatorError("参数校验失败")),
     async (c) => {
-      const { page, pageSize, search, sortBy, sortOrder } = c.req.valid("query");
+      const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
       const offset = (page - 1) * pageSize;
 
-      const searchFilter = search?.trim()
-        ? or(
-            ilike(organization.name, `%${search.trim()}%`),
-            ilike(organization.slug, `%${search.trim()}%`),
-          )
-        : undefined;
+      const searchFilter = and(
+        buildListTextFilterWhere("organizations", textFilters, {
+          name: organization.name,
+          slug: organization.slug,
+        }),
+        search?.trim()
+          ? or(
+              ilike(organization.name, `%${search.trim()}%`),
+              ilike(organization.slug, `%${search.trim()}%`),
+            )
+          : undefined,
+      );
 
       const memberCountSubquery = db
         .select({ count: count(member.id).as("cnt"), organizationId: member.organizationId })
@@ -209,6 +218,7 @@ const userQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["name", "email", "role", "createdAt", "lastActiveAt"]).default("lastActiveAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  textFilters: listTextFiltersSchema("users"),
 });
 
 const updateUserRemarkSchema = z.object({
@@ -258,12 +268,15 @@ const platformUsers = factory
     "/users",
     zValidator("query", userQuerySchema, jsonValidatorError("参数校验失败")),
     async (c) => {
-      const { page, pageSize, search, sortBy, sortOrder } = c.req.valid("query");
+      const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
       const offset = (page - 1) * pageSize;
 
-      const searchFilter = search?.trim()
-        ? or(ilike(user.name, `%${search.trim()}%`), ilike(user.email, `%${search.trim()}%`))
-        : undefined;
+      const searchFilter = and(
+        buildListTextFilterWhere("users", textFilters, { email: user.email, name: user.name }),
+        search?.trim()
+          ? or(ilike(user.name, `%${search.trim()}%`), ilike(user.email, `%${search.trim()}%`))
+          : undefined,
+      );
 
       const [rows, [{ total }]] = await Promise.all([
         db
@@ -400,6 +413,7 @@ const mailIngestAccountsQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["userName", "userEmail", "emailAddress", "lastCheckedAt"]).default("userName"),
   sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  textFilters: listTextFiltersSchema("platformMailAccounts"),
 });
 
 const createPlatformMailIngestAccountSchema = createMailIngestAccountSchema.extend({
@@ -438,9 +452,9 @@ function createPlatformMailIngestAccounts(
       "/mail-ingest-accounts",
       zValidator("query", mailIngestAccountsQuerySchema, jsonValidatorError("参数校验失败")),
       async (c) => {
-        const { page, pageSize, search, sortBy, sortOrder } = c.req.valid("query");
+        const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
         const result = await dependencies.queryPaginatedPlatformMailIngestAccounts(
-          { search },
+          { search, textFilters },
           { page, pageSize, sortBy, sortOrder },
         );
         return c.json(result, 200);

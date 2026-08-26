@@ -61,7 +61,10 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
-import { buildResumeKeywordSearch } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/keyword-search";
+import {
+  buildResumeKeywordSearch,
+  buildResumeAtomicSearch,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/keyword-search";
 import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
@@ -119,6 +122,7 @@ export interface QueryResumePoolItemsInput {
   offset?: number;
   organizationId: string;
   search?: string;
+  textFilters?: string;
   sortBy?: "candidateName" | "createdAt" | "updatedAt";
   sortOrder?: "asc" | "desc";
   scope: ResumePoolScope;
@@ -681,6 +685,7 @@ export async function queryResumePoolItems(
       : undefined,
     buildResumePoolImportStatusWhere(input.importStatus, input.organizationId),
     input.search ? resumePoolSearchWhere(input.search) : undefined,
+    buildResumeAtomicSearch(resumePoolItem, input.textFilters),
   );
   const [totalRow] = await db.select({ total: count() }).from(resumePoolItem).where(where);
   const rows = await db

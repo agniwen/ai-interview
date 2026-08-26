@@ -1,3 +1,5 @@
+import { listTextFiltersSchema, parseListTextFilters } from "@arc/shared/list-text-filters";
+import { literalTextContains } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
 import { and, sql } from "drizzle-orm";
 import type { SQL, SQLWrapper } from "drizzle-orm";
 
@@ -36,4 +38,48 @@ export function buildResumeKeywordSearch(
     sql`, `,
   );
   return and(sql`${columns.searchCjkBigrams} @> ARRAY[${words}]::text[]`, contains);
+}
+type ResumeAtomicSources = Record<
+  "candidateName" | "email" | "phone" | "resumeFileName" | "targetRole" | "company" | "school",
+  SQLWrapper
+>;
+
+interface ResumeAtomicSearchColumns extends ResumeSearchColumns {
+  candidateName: SQLWrapper;
+  candidateEmail: SQLWrapper;
+  candidatePhone: SQLWrapper;
+  resumeFileName: SQLWrapper;
+  targetRole: SQLWrapper;
+  resumeProfile: SQLWrapper;
+}
+
+/** Reuse the indexed search document as a necessary prefilter, then verify the specific field. */
+export function buildResumeAtomicSearch(columns: ResumeAtomicSearchColumns, raw?: string | null) {
+  const values = parseListTextFilters(listTextFiltersSchema("resumes").parse(raw ?? undefined));
+  const profile = columns.resumeProfile;
+  const sources = {
+    candidateName: columns.candidateName,
+    company: sql`resume_search_text(NULL, NULL, NULL, NULL, NULL, jsonb_build_object(\'workExperiences\', ${profile}->\'workExperiences\'))`,
+    email: columns.candidateEmail,
+    phone: columns.candidatePhone,
+    resumeFileName: columns.resumeFileName,
+    school: sql`resume_search_text(NULL, NULL, NULL, NULL, NULL, jsonb_build_object(\'educationExperiences\', ${profile}->\'educationExperiences\', \'schools\', ${profile}->\'schools\'))`,
+    targetRole: columns.targetRole,
+  } satisfies ResumeAtomicSources;
+  return and(
+    ...Object.entries(sources)
+      .filter(([key]) => values[key])
+      .map(([key, rawSource]) => {
+        const value = values[key];
+        const normalized = value.replaceAll(/\s+/gu, " ").trim();
+        const source =
+          key === "company" || key === "school"
+            ? rawSource
+            : sql`resume_search_text(${rawSource}, NULL, NULL, NULL, NULL, NULL)`;
+        return and(
+          buildResumeKeywordSearch(columns, normalized),
+          literalTextContains(source, normalized),
+        );
+      }),
+  );
 }

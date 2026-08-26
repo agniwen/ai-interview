@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Toolbar } from "../toolbar";
 
 describe("Toolbar", () => {
-  it("keeps keyword search above the condition chips without a mobile minimum width", () => {
+  it("renders two direct fields without a mobile minimum width", () => {
     const html = renderToStaticMarkup(
       <Toolbar
         filterValues={{ creator: "", search: "" }}
@@ -28,11 +28,13 @@ describe("Toolbar", () => {
     expect(html).not.toContain('style="min-width:15rem"');
   });
 
-  it("keeps multi-select filter previews compact by default", () => {
+  it("keeps multi-select condition previews compact by default", () => {
     const html = renderToStaticMarkup(
       <Toolbar
         filterValues={{ jobIds: "job-a,job-b,job-c" }}
         filters={[
+          { key: "name", label: "名称", type: "search" },
+          { key: "email", label: "邮箱", type: "search" },
           {
             key: "jobIds",
             options: [
@@ -47,6 +49,7 @@ describe("Toolbar", () => {
       />,
     );
 
+    expect(html).not.toContain('data-slot="data-grid-toolbar-search"');
     expect(html).toContain("岗位 A");
     expect(html).toContain("岗位 B");
     expect(html).toContain("+1");
@@ -54,7 +57,7 @@ describe("Toolbar", () => {
     expect(html).toContain("移除全部岗位筛选");
   });
 
-  it("offers adding a condition instead of rendering empty dropdowns", () => {
+  it("renders one or two independent filters directly", () => {
     const html = renderToStaticMarkup(
       <Toolbar
         filterValues={{ status: "" }}
@@ -68,8 +71,30 @@ describe("Toolbar", () => {
         ]}
       />,
     );
-    expect(html).toContain("添加筛选");
+    expect(html).not.toContain("添加筛选");
+    expect(html).toContain("状态");
     expect(html).not.toContain('data-slot="filter-chip"');
+  });
+
+  it("puts conditions and actions in one wrapping row in the requested order", () => {
+    const html = renderToStaticMarkup(
+      <Toolbar
+        filters={[{ key: "textFilters", resource: "resumes", type: "text-filters" }]}
+        onResetFilters={() => {
+          /* test callback */
+        }}
+        onRefresh={() => {
+          /* test callback */
+        }}
+        toolbarRight={<button type="button">创建记录</button>}
+      />,
+    );
+    expect(html.indexOf('data-slot="data-grid-toolbar-filters"')).toBeLessThan(
+      html.indexOf("清空筛选"),
+    );
+    expect(html.indexOf("清空筛选")).toBeLessThan(html.indexOf(">刷新<"));
+    expect(html.indexOf(">刷新<")).toBeLessThan(html.indexOf("创建记录"));
+    expect(html).not.toContain('class="flex min-w-0 flex-col gap-3"');
   });
 
   it("explains why a select filter is disabled", () => {

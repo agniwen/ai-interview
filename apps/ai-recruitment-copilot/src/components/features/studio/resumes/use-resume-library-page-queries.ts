@@ -98,6 +98,7 @@ export function useResumeLibraryPageQueries({
           structuredMinScore: params.filters.structuredMinScore
             ? Number(params.filters.structuredMinScore)
             : undefined,
+          textFilters: params.filters.textFilters || undefined,
         }),
     [slug],
   );

@@ -6,7 +6,7 @@ import type { JsonObject } from "@arc/db-schema/json";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { buildResumeKeywordSearch } from "./keyword-search";
+import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "./keyword-search";
 import {
   backfillResumeSearchBatch,
   checkResumeSearch,
@@ -78,7 +78,57 @@ describe.skipIf(!testUrl)("resume keyword search lifecycle (PostgreSQL)", () => 
     return rows.map((row) => row.id);
   }
 
+  async function atomicSearch(table: string, values: Record<string, string>) {
+    const condition = buildResumeAtomicSearch(
+      {
+        candidateEmail: sql.identifier("candidate_email"),
+        candidateName: sql.identifier("candidate_name"),
+        candidatePhone: sql.identifier("candidate_phone"),
+        resumeFileName: sql.identifier("resume_file_name"),
+        resumeProfile: sql.identifier("resume_profile"),
+        searchCjkBigrams: sql.identifier("search_cjk_bigrams"),
+        searchText: sql.identifier("search_text"),
+        targetRole: sql.identifier("target_role"),
+      },
+      JSON.stringify(values),
+    );
+    const compiled = dialect.sqlToQuery(condition ?? sql.raw("true"));
+    const rows = await client.unsafe<{ id: string }[]>(
+      `SELECT id FROM "${table}" WHERE organization_id = 'org-a' AND (${compiled.sql}) ORDER BY id`,
+      z.array(z.string()).parse(compiled.params),
+    );
+    return rows.map((row) => row.id);
+  }
+
   for (const table of tables) {
+    it(`${table}: combines company and school without cross-field matches`, async () => {
+      await insert(table, "both", {
+        educationExperiences: [{ school: "清华大学" }],
+        schools: ["旧学校"],
+        workExperiences: [{ company: "腾讯" }],
+      });
+      await insert(table, "company-only", {
+        schools: ["北京大学"],
+        workExperiences: [{ company: "腾讯清华" }],
+      });
+      await insert(table, "school-only", {
+        schools: ["清华大学"],
+        workExperiences: [{ company: "网易" }],
+      });
+      expect(await atomicSearch(table, { company: "腾讯", school: "清华" })).toEqual(["both"]);
+      expect(await atomicSearch(table, { company: "清华大学" })).toEqual([]);
+      expect(await atomicSearch(table, { school: "腾讯" })).toEqual([]);
+      expect(await atomicSearch(table, { school: "旧学校" })).toEqual([]);
+      expect(await atomicSearch(table, { school: "北京" })).toEqual(["company-only"]);
+      expect(await atomicSearch(table, { candidateName: "腾讯" })).toEqual([]);
+    });
+
+    it(`${table}: treats wildcard characters literally in atomic filters`, async () => {
+      await insert(table, "literal", { workExperiences: [{ company: "100%_真诚" }] });
+      await insert(table, "other", { workExperiences: [{ company: "100X真诚" }] });
+      expect(await atomicSearch(table, { company: "%_" })).toEqual(["literal"]);
+    });
+
     it(`${table}: searches all employers and education schools`, async () => {
       await client.unsafe(
         `INSERT INTO "${

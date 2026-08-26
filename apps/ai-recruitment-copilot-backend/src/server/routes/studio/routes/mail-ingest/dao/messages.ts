@@ -1,3 +1,4 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
 import {
   and,
   asc,
@@ -277,6 +278,7 @@ function buildWhere(input: {
   accountId: string;
   jdBindStatus?: MailIngestJdBindStatus;
   keyword?: string;
+  textFilters?: string;
   receivedFrom?: Date;
   receivedTo?: Date;
   skipReason?: MailIngestSkipReason;
@@ -284,6 +286,10 @@ function buildWhere(input: {
 }) {
   return and(
     eq(mailIngestMessage.accountId, input.accountId),
+    buildListTextFilterWhere("mailLogs", input.textFilters, {
+      fromAddress: mailIngestMessage.fromAddress,
+      subject: mailIngestMessage.subject,
+    }),
     ...(input.status ? [eq(mailIngestMessage.status, input.status)] : []),
     ...(input.skipReason ? [eq(mailIngestMessage.skipReason, input.skipReason)] : []),
     ...(input.jdBindStatus ? [eq(mailIngestMessage.jdBindStatus, input.jdBindStatus)] : []),
@@ -304,6 +310,7 @@ export async function listAccountMailMessages(input: {
   accountId: string;
   jdBindStatus?: MailIngestJdBindStatus;
   keyword?: string;
+  textFilters?: string;
   organizationId: string;
   page: number;
   pageSize: number;

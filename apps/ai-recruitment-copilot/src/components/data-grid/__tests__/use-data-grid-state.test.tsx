@@ -28,11 +28,13 @@ interface GridSearchParams {
 async function renderGridHook({
   queryFn = vi.fn(() => Promise.resolve({ records: [], total: 0, totalPages: 5 })),
   searchParams = "",
+  keywordSearch = false,
 }: {
   queryFn?: ReturnType<
     typeof vi.fn<() => Promise<{ records: { id: string }[]; total: number; totalPages: number }>>
   >;
   searchParams?: string;
+  keywordSearch?: boolean;
 }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -45,6 +47,7 @@ async function renderGridHook({
   function Harness() {
     current = useDataGridState<{ id: string }, { status: string }>({
       initialFilters: { status: "" },
+      keywordSearch,
       queryFn,
       queryKeyBase: ["test-grid"],
     });
@@ -95,6 +98,59 @@ afterEach(() => {
 });
 
 describe("useDataGridState", () => {
+  it("ignores legacy mixed search unless the page explicitly enables task-ID lookup", async () => {
+    const migrated = await renderGridHook({ searchParams: "?search=hidden" });
+    expect(migrated.current.search).toBe("");
+    expect(migrated.queryFn).toHaveBeenLastCalledWith(expect.objectContaining({ search: "" }));
+    const queue = await renderGridHook({ keywordSearch: true, searchParams: "?search=job-1" });
+    expect(queue.current.search).toBe("job-1");
+  });
+  it("clears condition values in one update without changing page context or sorting", async () => {
+    const harness = await renderGridHook({
+      searchParams: "?page=3&status=done&context=queue-2&sortBy=createdAt&sortOrder=asc",
+    });
+    act(() => harness.current.setRowSelection({ candidate: true }));
+    harness.queryFn.mockClear();
+    await act(async () => {
+      harness.current.bind.onResetFilters({ status: "all", textFilters: "" });
+      await Promise.resolve();
+    });
+    expect(harness.router.state.location.search).toMatchObject({
+      context: "queue-2",
+      page: 1,
+      sortBy: "createdAt",
+      sortOrder: "asc",
+      status: "all",
+    });
+    expect(harness.current.rowSelection).toEqual({});
+    expect(harness.queryFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps atomic conditions together in the URL, request and page reset", async () => {
+    const harness = await renderGridHook({ searchParams: "?page=3" });
+    harness.queryFn.mockClear();
+    await act(async () => {
+      harness.current.bind.onFilterChange("textFilters", '{"company":"腾讯","school":"清华"}');
+      await Promise.resolve();
+    });
+    expect(harness.router.state.location.search).toMatchObject({
+      page: 1,
+      textFilters: '{"company":"腾讯","school":"清华"}',
+    });
+    expect(harness.queryFn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        filters: { status: "", textFilters: '{"company":"腾讯","school":"清华"}' },
+        page: 1,
+      }),
+    );
+    await act(async () => {
+      harness.current.bind.onResetFilters();
+      await Promise.resolve();
+    });
+    expect(harness.current.filters.textFilters).toBe("");
+    expect(harness.current.bind.canResetFilters).toBe(false);
+  });
+
   it("hydrates a non-default page from the URL", async () => {
     const harness = await renderGridHook({ searchParams: "?page=2" });
 
@@ -131,7 +187,7 @@ describe("useDataGridState", () => {
     expect(harness.current.rowSelection).toEqual({});
     expect(harness.router.state.location.search).toMatchObject({ page: 1, status: "done" });
     expect(harness.queryFn).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ filters: { status: "done" }, page: 1 }),
+      expect.objectContaining({ filters: { status: "done", textFilters: "" }, page: 1 }),
     );
   });
 

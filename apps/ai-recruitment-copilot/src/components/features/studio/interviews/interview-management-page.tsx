@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
@@ -119,6 +120,7 @@ export function InterviewManagementPage() {
     () =>
       (params: FetchParams): Promise<PaginatedStudioInterviewRoundsResult> => {
         const query: SearchParamsRecord = {
+          ...listTextQuery(params),
           page: String(params.page),
           pageSize: String(params.pageSize),
           sortBy: params.sortBy ?? "createdAt",
@@ -458,10 +460,9 @@ export function InterviewManagementPage() {
   const filtersConfig = useMemo(
     () => [
       {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索候选人、岗位、轮次或简历名",
-        type: "search" as const,
+        key: "textFilters" as const,
+        resource: "interviews" as const,
+        type: "text-filters" as const,
       },
       {
         emptyMessage: "没有匹配的创建人",

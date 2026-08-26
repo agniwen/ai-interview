@@ -1,13 +1,14 @@
 /**
  * Desktop 招聘台筛选模型 — 与 web 端 `resume-library-page-model` / filters-config 对齐：
- * - stage tabs（隐藏 written_test）
- * - search / creatorIds / skills / jdIds
+ * - stage 条件（隐藏 written_test）
+ * - 原子文本条件 / creatorIds / skills / jdIds
  * - 单选 structured 岗位时的 structuredMinScore / structuredMaxScore
  *
  * 多选字段以 CSV 字符串保存在 state（与 web data-grid 约定一致）。
  */
 
 export interface ResumeLibraryFilters {
+  textFilters: string;
   creatorIds: string;
   jdIds: string;
   skills: string;
@@ -24,9 +25,11 @@ export const EMPTY_RESUME_LIBRARY_FILTERS: ResumeLibraryFilters = {
   stage: "",
   structuredMaxScore: "",
   structuredMinScore: "",
+  textFilters: "",
 };
 
 export const RESUME_LIBRARY_FILTER_KEYS = [
+  "textFilters",
   "creatorIds",
   "jdIds",
   "skills",

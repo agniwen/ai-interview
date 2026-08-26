@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
 import { and, arrayContains, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -32,7 +33,7 @@ import {
   qualitativeResumeEvaluationSchema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { normalizeSkill } from "./skills";
-import { buildResumeKeywordSearch } from "./keyword-search";
+import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "./keyword-search";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 import { loadLatestFeishuDocumentUrls } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/feishu-document-urls";
 
@@ -86,6 +87,7 @@ const filtersSchema = z.object({
   skills: z.array(z.string()).max(20).optional().nullable(),
   structuredMaxScore: z.number().int().min(0).max(100).optional().nullable(),
   structuredMinScore: z.number().int().min(0).max(100).optional().nullable(),
+  textFilters: listTextFiltersSchema("resumes"),
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
@@ -171,6 +173,7 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
   const conditions = [
     eq(studioInterview.organizationId, organizationId),
     buildSearchCondition(filters?.search),
+    buildResumeAtomicSearch(studioInterview, filters?.textFilters),
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
@@ -597,6 +600,7 @@ export async function queryPaginatedResumeRecords(
   organizationId: string,
   filters?: {
     search?: string | null;
+    textFilters?: string;
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
@@ -698,6 +702,7 @@ export function listResumeRecords(
   organizationId: string,
   filters?: {
     search?: string | null;
+    textFilters?: string;
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;

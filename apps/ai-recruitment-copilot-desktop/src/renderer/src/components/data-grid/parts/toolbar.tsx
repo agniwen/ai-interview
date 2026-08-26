@@ -1,25 +1,35 @@
+import { useFilterSelection } from "./filter-selection";
+import { CustomFilterInput } from "./custom-filter-input";
 import { Icon } from "@/components/ui/icon";
 import type { CSSProperties, ReactNode } from "react";
 import { useMemo } from "react";
+import {
+  listTextFields,
+  parseListTextFilters,
+  serializeListTextFilters,
+} from "@arc/shared/list-text-filters";
+import { parseCsvParam } from "@arc/shared/csv";
+import { Input } from "@/components/ui/input";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@arc/shared/utils";
 import { DebouncedSearchInput } from "./debounced-search-input";
 import { FilterConditions } from "./filter-conditions";
-import { isToolbarCondition } from "./filter-config";
-import type { ToolbarFilterConfig } from "./filter-config";
+import type { ToolbarConditionConfig, ToolbarFilterConfig } from "./filter-config";
 
 export type { ToolbarFilterConfig } from "./filter-config";
 
 export interface ToolbarProps {
   filters?: ToolbarFilterConfig[];
+  filterStorageKey?: string;
   filterValues?: Record<string, string>;
   onFilterChange?: (key: string, value: string) => void;
   searchLoading?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
-  onResetFilters?: () => void;
+  onResetFilters?: (clearedValues?: Record<string, string>) => void;
   canResetFilters?: boolean;
   toolbarRight?: ReactNode;
   filtersExtra?: ReactNode;
@@ -38,36 +48,92 @@ export function Toolbar({
   canResetFilters,
   filters,
   filtersExtra,
-  filterValues = EMPTY_VALUES,
-  onFilterChange,
+  filterValues: rawValues = EMPTY_VALUES,
+  filterStorageKey,
+  onFilterChange: onRawChange,
   onRefresh,
   onResetFilters,
   refreshing,
   searchLoading,
   toolbarRight,
 }: ToolbarProps) {
-  const conditions = useMemo(
-    () => filters?.filter(isToolbarCondition).filter((filter) => !isFixedFilter(filter)) ?? [],
+  const textConfig = filters?.find((filter) => filter.type === "text-filters");
+  const textValues = parseListTextFilters(rawValues.textFilters);
+  const filterValues = {
+    ...rawValues,
+    ...Object.fromEntries(Object.entries(textValues).map(([key, value]) => [`text:${key}`, value])),
+  };
+  const expanded = useMemo(
+    () =>
+      filters?.flatMap((filter): ToolbarConditionConfig[] =>
+        filter.type === "text-filters"
+          ? Object.entries(listTextFields[filter.resource]).map(([key, label]) => ({
+              key: `text:${key}`,
+              label,
+              placeholder: `搜索${label}`,
+              type: "search",
+            }))
+          : [filter],
+      ) ?? [],
     [filters],
   );
+  const advanced = expanded.length > 2;
+  const conditions = advanced ? expanded.filter((filter) => !isFixedFilter(filter)) : [];
+  const directFilters = advanced ? expanded.filter(isFixedFilter) : expanded;
+  const [selected, setSelected] = useFilterSelection(
+    filterStorageKey ?? textConfig?.resource ?? "list",
+    conditions.map((filter) => filter.key),
+  );
+  const activeFields = expanded.filter(
+    (filter) =>
+      !isFixedFilter(filter) &&
+      Boolean(filterValues[filter.key]) &&
+      filterValues[filter.key] !== filter.unfilteredValue,
+  );
+  const canClear = expanded.length ? activeFields.length > 0 : canResetFilters;
+  function clearFilterValues() {
+    if (advanced) {
+      setSelected(
+        conditions
+          .filter((filter) => selected.includes(filter.key) || activeFields.includes(filter))
+          .map((filter) => filter.key),
+      );
+    }
+    const clearedValues = Object.fromEntries(
+      (filters ?? [])
+        .filter((filter) => !isFixedFilter(filter))
+        .map((filter) => [
+          filter.key,
+          filter.type === "text-filters" ? "" : (filter.unfilteredValue ?? ""),
+        ]),
+    );
+    onResetFilters?.(clearedValues);
+  }
+  function onFilterChange(key: string, value: string) {
+    if (key.startsWith("text:")) {
+      onRawChange?.(
+        "textFilters",
+        serializeListTextFilters({ ...textValues, [key.slice(5)]: value }),
+      );
+    } else {
+      onRawChange?.(key, value);
+    }
+  }
   if (
-    !filters?.length &&
-    !filtersExtra &&
-    !toolbarRight &&
-    !onRefresh &&
-    !onResetFilters &&
-    !bulkActionsSlot
+    ![filters?.length, filtersExtra, toolbarRight, onRefresh, onResetFilters, bulkActionsSlot].some(
+      Boolean,
+    )
   ) {
     return null;
   }
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-slot="data-grid-toolbar">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex min-w-0 flex-wrap items-center gap-2" data-slot="data-grid-toolbar">
+      {directFilters.length > 0 ? (
         <div
           className="flex w-full min-w-0 flex-wrap gap-3 sm:w-auto"
           data-slot="data-grid-toolbar-search"
         >
-          {filters?.map((filter) => {
+          {directFilters.map((filter) => {
             if (filter.type === "search") {
               const style: FilterItemStyle | undefined = filter.minWidth
                 ? { "--data-grid-filter-min-width": filter.minWidth }
@@ -84,15 +150,54 @@ export function Toolbar({
                 />
               );
             }
-            if (filter.type !== "select" || !isFixedFilter(filter)) {
-              return null;
+            if (filter.type === "multi-select") {
+              return (
+                <SearchableMultiSelect
+                  key={filter.key}
+                  options={filter.options}
+                  value={parseCsvParam(filterValues[filter.key] ?? "")}
+                  onChange={(values) => onFilterChange(filter.key, values.join(","))}
+                  placeholder={filter.label ?? filter.placeholder}
+                  selectedPreviewLimit={filter.selectedPreviewLimit ?? 2}
+                  modal={false}
+                />
+              );
+            }
+            if (filter.type === "date") {
+              return (
+                <Input
+                  key={filter.key}
+                  aria-label={filter.label ?? filter.placeholder}
+                  type="date"
+                  min={filter.min}
+                  max={filter.max}
+                  value={filterValues[filter.key] ?? ""}
+                  onChange={(event) => {
+                    if (event.currentTarget.validity.valid) {
+                      onFilterChange(filter.key, event.target.value);
+                    }
+                  }}
+                />
+              );
+            }
+            if (filter.type === "custom") {
+              return (
+                <CustomFilterInput
+                  key={filter.key}
+                  config={filter}
+                  value={filterValues[filter.key] ?? ""}
+                  onChange={(value) => onFilterChange(filter.key, value)}
+                />
+              );
             }
             const control = (
               <SearchableSelect
-                clearable={false}
+                clearable={!isFixedFilter(filter)}
                 disabled={filter.disabled}
                 modal={false}
-                onChange={(value) => onFilterChange?.(filter.key, value ?? "")}
+                onChange={(value) =>
+                  onFilterChange(filter.key, value ?? filter.unfilteredValue ?? "")
+                }
                 options={filter.options}
                 placeholder={filter.label ?? filter.placeholder}
                 required={filter.required}
@@ -116,31 +221,7 @@ export function Toolbar({
             );
           })}
         </div>
-        <div
-          className="flex shrink-0 flex-wrap items-center gap-2"
-          data-slot="data-grid-toolbar-actions"
-        >
-          {onRefresh ? (
-            <Button disabled={refreshing} onClick={onRefresh} size="icon" variant="outline">
-              <Icon icon="ph:arrows-clockwise" className={cn(refreshing && "animate-spin")} />
-              <span className="sr-only">刷新</span>
-            </Button>
-          ) : null}
-          {onResetFilters ? (
-            <Button
-              disabled={!canResetFilters}
-              onClick={onResetFilters}
-              size="icon"
-              variant="outline"
-            >
-              <Icon icon="ph:funnel-simple-x" />
-              <span className="sr-only">重置筛选</span>
-            </Button>
-          ) : null}
-          {toolbarRight ? <div>{toolbarRight}</div> : null}
-          {bulkActionsSlot}
-        </div>
-      </div>
+      ) : null}
       {conditions.length > 0 || filtersExtra ? (
         <div
           className="flex min-w-0 flex-wrap items-center gap-2"
@@ -149,6 +230,8 @@ export function Toolbar({
           {conditions.length > 0 ? (
             <FilterConditions
               configs={conditions}
+              selected={selected}
+              onSelectionChange={setSelected}
               onChange={onFilterChange}
               values={filterValues}
             />
@@ -156,6 +239,25 @@ export function Toolbar({
           {filtersExtra}
         </div>
       ) : null}
+      <div
+        className="flex min-w-0 flex-wrap items-center gap-2"
+        data-slot="data-grid-toolbar-actions"
+      >
+        {onResetFilters ? (
+          <Button disabled={!canClear} onClick={clearFilterValues} size="icon" variant="outline">
+            <Icon icon="ph:funnel-simple-x" />
+            <span className="sr-only">清空筛选</span>
+          </Button>
+        ) : null}
+        {onRefresh ? (
+          <Button disabled={refreshing} onClick={onRefresh} size="icon" variant="outline">
+            <Icon icon="ph:arrows-clockwise" className={cn(refreshing && "animate-spin")} />
+            <span className="sr-only">刷新</span>
+          </Button>
+        ) : null}
+        {toolbarRight ? <div>{toolbarRight}</div> : null}
+        {bulkActionsSlot}
+      </div>
     </div>
   );
 }

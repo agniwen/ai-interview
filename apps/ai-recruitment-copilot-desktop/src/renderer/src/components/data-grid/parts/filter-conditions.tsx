@@ -20,6 +20,9 @@ function buildField(
     label: config.label ?? config.placeholder ?? config.key,
     operators: [operator],
   };
+  if (config.type === "search") {
+    return { ...field, placeholder: config.placeholder, type: "text" };
+  }
   if (config.type === "custom") {
     return {
       ...field,
@@ -56,7 +59,7 @@ function buildField(
       disabled: option.disabled,
       icon:
         option.avatarUrl === undefined ? undefined : (
-          <Avatar aria-label={option.label} size="sm">
+          <Avatar size="sm">
             {option.avatarUrl ? <AvatarImage alt={option.label} src={option.avatarUrl} /> : null}
             <AvatarFallback>{option.label.slice(0, 1)}</AvatarFallback>
           </Avatar>
@@ -66,7 +69,10 @@ function buildField(
       value: option.value,
     })),
     placeholder: config.searchPlaceholder,
-    renderValue: ({ values }) => {
+    renderValue: ({ values, labels: displayLabels }) => {
+      if (values.length === 0) {
+        return displayLabels.selectPlaceholder;
+      }
       const limit = config.type === "multi-select" ? (config.selectedPreviewLimit ?? 2) : 1;
       const labels = values.map(
         (value) => options.find((option) => option.value === value)?.label ?? String(value),
@@ -84,18 +90,23 @@ function buildField(
 
 export function FilterConditions({
   configs,
+  selected,
+  onSelectionChange,
   values,
   onChange,
 }: {
   configs: ToolbarConditionConfig[];
+  selected: string[];
+  onSelectionChange: (keys: string[]) => void;
   values: Record<string, string>;
   onChange?: (key: string, value: string) => void;
 }) {
-  // Incomplete chips are UI drafts, not active filters. URL changes (including
-  // browser navigation and reset) replace them; option refreshes do not.
-  const signature = JSON.stringify(configs.map((config) => [config.key, values[config.key] ?? ""]));
+  const signature = JSON.stringify([
+    selected,
+    configs.map((config) => [config.key, values[config.key] ?? ""]),
+  ]);
   const [state, setState] = useState(() => ({
-    query: buildToolbarFilterQuery(configs, values),
+    query: buildToolbarFilterQuery(configs, values, {}, selected),
     signature,
   }));
   let { query } = state;
@@ -105,7 +116,7 @@ export function FilterConditions({
         .filter((rule) => rule.type === "rule")
         .map((rule) => [rule.path[0], rule.id]),
     );
-    query = buildToolbarFilterQuery(configs, values, ids);
+    query = buildToolbarFilterQuery(configs, values, ids, selected);
     setState({ query, signature });
   }
   const fields = useMemo(
@@ -124,7 +135,15 @@ export function FilterConditions({
     if (!changes) {
       return;
     }
-    setState({ query: next, signature });
+    const nextSelected = next.rules.flatMap((rule) => (rule.type === "rule" ? [rule.path[0]] : []));
+    onSelectionChange(nextSelected);
+    setState({
+      query: next,
+      signature: JSON.stringify([
+        nextSelected,
+        configs.map((config) => [config.key, values[config.key] ?? ""]),
+      ]),
+    });
     for (const [key, value] of Object.entries(changes)) {
       onChange?.(key, value);
     }

@@ -323,6 +323,7 @@ export function ResumeLibraryCardList({
       ref={listRootRef}
     >
       <Toolbar
+        filterStorageKey="studio-resumes"
         canResetFilters={grid.bind.canResetFilters}
         filterValues={grid.bind.filterValues}
         filters={filters}

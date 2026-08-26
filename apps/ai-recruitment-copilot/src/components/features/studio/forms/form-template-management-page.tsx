@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -82,6 +83,7 @@ export function CandidateFormTemplateManagementPage({
         sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedCandidateFormTemplateResult> => {
         const query: TemplateListQuery = {
+          ...listTextQuery(params),
           page: String(params.page),
           pageSize: String(params.pageSize),
           sortBy: params.sortBy ?? "createdAt",
@@ -421,12 +423,7 @@ export function CandidateFormTemplateManagementPage({
         type: "select" as const,
         unfilteredValue: "all",
       },
-      {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索表单标题或说明",
-        type: "search" as const,
-      },
+      { key: "textFilters" as const, resource: "forms" as const, type: "text-filters" as const },
       {
         key: "scope" as const,
         options: [

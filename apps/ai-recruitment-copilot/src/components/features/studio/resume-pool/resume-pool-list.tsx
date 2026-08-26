@@ -51,7 +51,7 @@ export function ResumePoolEmptyState({
   if (canResetFilters) {
     action = (
       <EmptyContent>
-        <Button onClick={onResetFilters} variant="outline">
+        <Button onClick={() => onResetFilters()} variant="outline">
           清除筛选
         </Button>
       </EmptyContent>

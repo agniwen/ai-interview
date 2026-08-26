@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
@@ -313,6 +315,7 @@ export function NotificationsGrid() {
     sortOrder?: "asc" | "desc";
   }): Promise<NotificationsResult> {
     const query: NotificationQuery = {
+      ...listTextQuery(params),
       page: String(params.page),
       pageSize: String(params.pageSize),
       providerId: params.filters.providerId,
@@ -524,10 +527,9 @@ export function NotificationsGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "22rem",
-            placeholder: "搜索候选人、接收人、工作区、消息 ID",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "notifications" as const,
+            type: "text-filters" as const,
           },
           {
             key: "status",

@@ -1,3 +1,4 @@
+import type { ListTextResource } from "@arc/shared/list-text-filters";
 import type { FilterEditor, FilterOperator } from "@/components/reui/filters/filters-types";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 
@@ -12,7 +13,8 @@ interface FilterConfigBase {
 }
 
 export type ToolbarFilterConfig =
-  | { type: "search"; key: string; placeholder?: string; minWidth?: string }
+  | { type: "text-filters"; key: "textFilters"; resource: ListTextResource }
+  | (FilterConfigBase & { type: "search"; minWidth?: string; operator?: FilterOperator })
   | (FilterConfigBase & {
       type: "custom";
       editor: FilterEditor<ToolbarFilterValue>;
@@ -45,9 +47,12 @@ export type ToolbarFilterConfig =
       selectedPreviewLimit?: number;
     });
 
-export type ToolbarConditionConfig = Exclude<ToolbarFilterConfig, { type: "search" }>;
+export type ToolbarConditionConfig = Exclude<ToolbarFilterConfig, { type: "text-filters" }>;
 
 export function getToolbarFilterOperator(config: ToolbarConditionConfig): FilterOperator {
+  if (config.type === "search") {
+    return config.operator ?? { label: "包含", value: "contains" };
+  }
   if (config.type === "multi-select") {
     return config.match === "all"
       ? { arity: "many", label: "同时具备", value: "has_all_of" }
@@ -62,8 +67,4 @@ export function getToolbarFilterOperator(config: ToolbarConditionConfig): Filter
     return config.operator;
   }
   return { label: "是", value: "is" };
-}
-
-export function isToolbarCondition(config: ToolbarFilterConfig): config is ToolbarConditionConfig {
-  return config.type !== "search";
 }

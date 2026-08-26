@@ -8,19 +8,22 @@ export function buildToolbarFilterQuery(
   configs: ToolbarConditionConfig[],
   values: Record<string, string>,
   ids: Record<string, string> = {},
+  selected: string[] = [],
 ): FilterQuery<ToolbarFilterValue> {
   const rules: FilterRule<ToolbarFilterValue>[] = [];
   for (const config of configs) {
     const value = values[config.key] ?? "";
-    if (!value || value === config.unfilteredValue) {
+    const active = Boolean(value) && value !== config.unfilteredValue;
+    if (!active && !selected.includes(config.key)) {
       continue;
     }
+    const activeValue = config.type === "multi-select" ? parseCsvParam(value) : value;
     rules.push({
       id: ids[config.key] ?? config.key,
       operator: getToolbarFilterOperator(config).value,
       path: [config.key],
       type: "rule",
-      value: config.type === "multi-select" ? parseCsvParam(value) : value,
+      value: active ? activeValue : undefined,
     });
   }
   return { combinator: "and", id: "filters", rules, type: "group" };

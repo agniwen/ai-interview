@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconArrowLeft, IconInbox } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -171,6 +172,7 @@ export function MailIngestLogPage() {
       params.filters.receivedTo || null,
     );
     const query: MailIngestMessagesQuery = {
+      ...listTextQuery(params),
       page: String(params.page),
       pageSize: String(params.pageSize),
       ...range,
@@ -351,7 +353,11 @@ export function MailIngestLogPage() {
           </Empty>
         }
         filters={[
-          { key: "search", minWidth: "20rem", placeholder: "搜索主题或发件人", type: "search" },
+          {
+            key: "textFilters" as const,
+            resource: "mailLogs" as const,
+            type: "text-filters" as const,
+          },
           {
             key: "status",
             label: "状态",

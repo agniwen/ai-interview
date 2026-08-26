@@ -46,6 +46,36 @@ afterEach(() => {
 });
 
 describe("platform LiveKit routes", () => {
+  it("rejects unknown or malformed atomic conditions before loading records", async () => {
+    for (const textFilters of ['{"company":"Tencent"}', '{"name":[]}', "null", "not-json"]) {
+      const response = await app.request(
+        `/livekit/rooms?textFilters=${encodeURIComponent(textFilters)}`,
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(roomServiceMocks.listRooms).not.toHaveBeenCalled();
+  });
+
+  it("combines room name and SID before counting and paginating", async () => {
+    configureLiveKit();
+    roomServiceMocks.listRooms.mockResolvedValue([
+      { creationTime: 1_720_000_000n, name: "room-a", sid: "RM_a" },
+      { creationTime: 1_720_000_000n, name: "room-a", sid: "RM_b" },
+      { creationTime: 1_720_000_000n, name: "RM_a", sid: "RM_c" },
+    ]);
+    const response = await app.request(
+      `/livekit/rooms?pageSize=1&textFilters=${encodeURIComponent(
+        '{"name":"room-a","sid":"RM_b"}',
+      )}`,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      records: [{ name: "room-a", sid: "RM_b" }],
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
   it("reports an offline overview without exposing credentials when config is missing", async () => {
     const response = await app.request("/livekit/overview");
     const body = await response.json();

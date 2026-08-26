@@ -1,4 +1,5 @@
 import type { ToolbarFilterConfig } from "@/components/data-grid";
+import { PIPELINE_STAGE_TABS } from "./resume-library-filter-model";
 import type {
   RecruitingJobDescriptionOption,
   SkillSuggestion,
@@ -17,11 +18,14 @@ export function buildResumeLibraryFiltersConfig({
   workspaceMembers: WorkspaceMemberOption[];
 }): ToolbarFilterConfig[] {
   return [
+    { key: "textFilters", resource: "resumes" as const, type: "text-filters" as const },
     {
-      key: "search" as const,
-      minWidth: "15rem",
-      placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
-      type: "search" as const,
+      key: "stage",
+      label: "招聘阶段",
+      options: PIPELINE_STAGE_TABS.filter((stage) => stage.value !== "all").map(
+        ({ label, value }) => ({ label, value }),
+      ),
+      type: "select",
     },
     {
       emptyMessage: "没有匹配的创建人",

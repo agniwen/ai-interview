@@ -1,3 +1,5 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 /* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
   JobDescriptionInterviewerSummary,
@@ -43,6 +45,7 @@ const jobDescriptionListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),
   interviewerId: z.string().trim().max(120).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
+  textFilters: listTextFiltersSchema("jobs"),
 });
 
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
@@ -87,6 +90,7 @@ function parseStructuredConfig(value: JsonObject | null) {
 
 function buildWhereConditions({
   organizationId,
+  textFilters,
   search,
   departmentIds,
   interviewerIds,
@@ -94,6 +98,7 @@ function buildWhereConditions({
   recruitingOnly = false,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
@@ -129,6 +134,13 @@ function buildWhereConditions({
   if (conditions.length === 0) {
     return;
   }
+  const atomic = buildListTextFilterWhere("jobs", textFilters, {
+    name: jobDescription.name,
+    prompt: jobDescription.prompt,
+  });
+  if (atomic) {
+    conditions.push(atomic);
+  }
   return and(...conditions);
 }
 
@@ -155,6 +167,7 @@ async function resolveJdIdsForInterviewers(
 
 function listJobDescriptionRows({
   organizationId,
+  textFilters,
   search,
   departmentIds,
   interviewerIds,
@@ -166,6 +179,7 @@ function listJobDescriptionRows({
   recruitingOnly = false,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
@@ -183,6 +197,7 @@ function listJobDescriptionRows({
     organizationId,
     recruitingOnly,
     search,
+    textFilters,
   });
 
   let query = db
@@ -235,12 +250,14 @@ function listJobDescriptionRows({
 
 async function countJobDescriptionRows({
   organizationId,
+  textFilters,
   search,
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
@@ -252,6 +269,7 @@ async function countJobDescriptionRows({
     jdIdsForInterviewers,
     organizationId,
     search,
+    textFilters,
   });
   const [result] = await db.select({ count: count() }).from(jobDescription).where(where);
   return result?.count ?? 0;
@@ -403,18 +421,25 @@ function csvToIds(value?: string | null): string[] | undefined {
 }
 
 function parseFilters(filters?: {
+  textFilters?: string;
   search?: string | null;
   departmentId?: string | null;
   interviewerId?: string | null;
 }) {
   const parsed = jobDescriptionListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
-    return { departmentIds: undefined, interviewerIds: undefined, search: undefined };
+    return {
+      departmentIds: undefined,
+      interviewerIds: undefined,
+      search: undefined,
+      textFilters: undefined,
+    };
   }
   return {
     departmentIds: csvToIds(parsed.data.departmentId),
     interviewerIds: csvToIds(parsed.data.interviewerId),
     search: parsed.data.search?.trim() || undefined,
+    textFilters: parsed.data.textFilters,
   };
 }
 
@@ -427,13 +452,14 @@ export function parseJobDescriptionPagination(
 export async function queryPaginatedJobDescriptions(
   organizationId: string,
   filters?: {
+    textFilters?: string;
     search?: string | null;
     departmentId?: string | null;
     interviewerId?: string | null;
   },
   pagination?: JobDescriptionPaginationInput,
 ): Promise<PaginatedJobDescriptionResult> {
-  const { search, departmentIds, interviewerIds } = parseFilters(filters);
+  const { textFilters, search, departmentIds, interviewerIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseJobDescriptionPagination(pagination);
   const offset = (page - 1) * pageSize;
   const jdIdsForInterviewers = await resolveJdIdsForInterviewers(organizationId, interviewerIds);
@@ -449,6 +475,7 @@ export async function queryPaginatedJobDescriptions(
       search,
       sortBy,
       sortOrder,
+      textFilters,
     }),
     countJobDescriptionRows({
       departmentIds,
@@ -456,6 +483,7 @@ export async function queryPaginatedJobDescriptions(
       jdIdsForInterviewers,
       organizationId,
       search,
+      textFilters,
     }),
   ]);
 
@@ -485,6 +513,7 @@ export async function queryPaginatedJobDescriptions(
 export function listJobDescriptions(
   organizationId: string,
   filters?: {
+    textFilters?: string;
     search?: string | null;
     departmentId?: string | null;
     interviewerId?: string | null;

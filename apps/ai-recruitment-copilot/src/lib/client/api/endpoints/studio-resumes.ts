@@ -38,6 +38,7 @@ export interface ResumeListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  textFilters?: string;
   /** 创建人用户 id 列表。Creator user id filter (OR semantics). */
   creatorIds?: string[];
   /** 任一匹配的技能（CSV-encoded on the wire）。Any-of skill filter. */
@@ -65,6 +66,7 @@ interface ResumeListQuery {
   pageSize?: string;
   pipelineStages?: string;
   search?: string;
+  textFilters?: string;
   skills?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
@@ -82,6 +84,9 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   }
   if (params.pageSize !== undefined) {
     query.pageSize = String(params.pageSize);
+  }
+  if (params.textFilters) {
+    query.textFilters = params.textFilters;
   }
   if (params.search) {
     query.search = params.search;

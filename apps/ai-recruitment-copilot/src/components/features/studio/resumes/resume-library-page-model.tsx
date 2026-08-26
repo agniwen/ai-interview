@@ -50,6 +50,7 @@ export const EMPTY_FILTERS: ResumeFilters = {
   stage: "",
   structuredMaxScore: "",
   structuredMinScore: "",
+  textFilters: "",
 };
 export const RESUME_LIBRARY_FILTER_KEYS =
   // SAFETY: Object.keys returns own keys from the fixed ResumeFilters owner contract above.
@@ -270,12 +271,15 @@ export interface UseResumeLibrarySearchStateOptions {
 }
 
 export function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibraryQueryState {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: resumeLibrarySortIds,
-    defaultPageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
-    defaultSorting: RESUME_LIBRARY_DEFAULT_SORTING,
-    initialFilters: EMPTY_FILTERS,
-  });
+  return parseDataGridSearchParams(
+    { ...searchParams, search: undefined },
+    {
+      allowedSortIds: resumeLibrarySortIds,
+      defaultPageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
+      defaultSorting: RESUME_LIBRARY_DEFAULT_SORTING,
+      initialFilters: EMPTY_FILTERS,
+    },
+  );
 }
 
 export function useResumeLibrarySearchState({

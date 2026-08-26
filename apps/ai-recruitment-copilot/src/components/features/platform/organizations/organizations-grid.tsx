@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { IconBuilding, IconUsers } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +63,7 @@ export function OrganizationsGrid() {
         sortOrder?: "asc" | "desc";
       }): Promise<OrganizationsResult> => {
         const query: OrganizationsQuery = {
+          ...listTextQuery(params),
           page: String(params.page),
           pageSize: String(params.pageSize),
           sortBy:
@@ -148,10 +151,9 @@ export function OrganizationsGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索名称或 slug",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "organizations" as const,
+            type: "text-filters" as const,
           },
         ]}
         getRowId={(r) => r.id}

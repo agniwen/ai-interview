@@ -1,3 +1,5 @@
+import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
+import { VISIBLE_PIPELINE_STAGES } from "./resume-library-page-model";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
 import type { WorkspaceMember } from "./resume-library-page-model";
 
@@ -23,11 +25,15 @@ export function buildResumeLibraryFiltersConfig({
   workspaceMembers: WorkspaceMember[];
 }): ToolbarFilterConfig[] {
   return [
+    { key: "textFilters" as const, resource: "resumes" as const, type: "text-filters" as const },
     {
-      key: "search" as const,
-      minWidth: "15rem",
-      placeholder: "搜索候选人、公司、学校、邮箱、电话、简历名或目标岗位",
-      type: "search" as const,
+      key: "stage",
+      label: "招聘阶段",
+      options: VISIBLE_PIPELINE_STAGES.map((stage) => ({
+        label: pipelineStageMeta[stage].label,
+        value: stage,
+      })),
+      type: "select" as const,
     },
     {
       emptyMessage: "没有匹配的创建人",

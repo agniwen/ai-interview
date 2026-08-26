@@ -56,6 +56,7 @@ describe("resume library virtual list", () => {
 
   it("does not expose AI recommendation sorting", () => {
     expect(resumeLibrarySortIds).not.toContain("aiRecommendation");
+    expect(parseResumeQuery({ search: "hidden-legacy-keyword" }).search).toBe("");
     expect(parseResumeQuery({ sortBy: "aiRecommendation", sortOrder: "desc" }).sortBy).toBe(
       "createdAt",
     );

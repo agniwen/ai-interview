@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
@@ -100,6 +101,7 @@ export const resumeLibraryReadRouter = factory
         sortOrder: z.string().optional(),
         structuredMaxScore: z.coerce.number().int().min(0).max(100).optional(),
         structuredMinScore: z.coerce.number().int().min(0).max(100).optional(),
+        textFilters: listTextFiltersSchema("resumes"),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -127,6 +129,7 @@ export const resumeLibraryReadRouter = factory
             skills: parseCsvParam(q.skills),
             structuredMaxScore: q.structuredMaxScore,
             structuredMinScore: q.structuredMinScore,
+            textFilters: q.textFilters,
           },
           {
             page: q.page,

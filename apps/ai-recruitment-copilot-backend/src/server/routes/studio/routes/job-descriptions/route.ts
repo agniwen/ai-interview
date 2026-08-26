@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 /* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, max, ne } from "drizzle-orm";
@@ -152,6 +153,7 @@ const jobDescriptionListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+  textFilters: listTextFiltersSchema("jobs"),
 });
 
 const recommendationBodySchema = z.object({
@@ -273,6 +275,7 @@ export function createJobDescriptionsRouter(
             departmentId: q.departmentId,
             interviewerId: q.interviewerId,
             search: q.search,
+            textFilters: q.textFilters,
           },
           {
             page: q.page,

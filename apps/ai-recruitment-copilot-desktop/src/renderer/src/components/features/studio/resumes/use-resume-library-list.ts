@@ -122,6 +122,7 @@ export function useResumeLibraryList() {
         structuredMinScore: effectiveFilters.structuredMinScore
           ? Number(effectiveFilters.structuredMinScore)
           : undefined,
+        textFilters: effectiveFilters.textFilters || undefined,
       }),
     queryKey: [
       "studio-resumes",

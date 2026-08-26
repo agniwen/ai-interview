@@ -41,6 +41,14 @@ describe("Studio page skeletons", () => {
 
     expect(recruiting).toContain("lg:grid-cols-3");
     expect(recruiting).toContain("h-44 w-full");
+    expect(recruiting).not.toContain("h-12 w-full sm:w-32");
+    expect(recruiting).not.toContain("h-9 w-full rounded-lg sm:w-60");
+    expect(recruiting.indexOf('data-slot="filter-control-skeleton"')).toBeLessThan(
+      recruiting.indexOf('data-slot="clear-filter-skeleton"'),
+    );
+    expect(recruiting.indexOf('data-slot="clear-filter-skeleton"')).toBeLessThan(
+      recruiting.indexOf('data-slot="refresh-skeleton"'),
+    );
     expect(recruiting).toContain('data-slot="date-group-header-skeleton"');
     expect(resumePool).toContain('data-slot="date-group-header-skeleton"');
     expect(resumePool).toContain("h-[218px]");

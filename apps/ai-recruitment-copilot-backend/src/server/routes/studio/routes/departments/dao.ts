@@ -1,3 +1,5 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
@@ -16,6 +18,7 @@ import { department, interviewer, jobDescription } from "@arc/db-schema/schema";
 
 const departmentListFiltersSchema = z.object({
   search: z.string().trim().max(120).optional().nullable(),
+  textFilters: listTextFiltersSchema("departments"),
 });
 
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
@@ -42,24 +45,32 @@ export type PaginatedDepartmentResult = PaginatedResult<DepartmentListRecord>;
 
 function buildWhereConditions({
   organizationId,
+  textFilters,
   search,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
 }) {
   const orgFilter = eq(department.organizationId, organizationId);
+  const atomic = buildListTextFilterWhere("departments", textFilters, {
+    description: department.description,
+    name: department.name,
+  });
   if (!search) {
-    return orgFilter;
+    return and(orgFilter, atomic);
   }
 
   return and(
     orgFilter,
+    atomic,
     or(ilike(department.name, `%${search}%`), ilike(department.description, `%${search}%`)),
   );
 }
 
 function listDepartmentRows({
   organizationId,
+  textFilters,
   search,
   sortBy = "createdAt",
   sortOrder = "desc",
@@ -67,13 +78,14 @@ function listDepartmentRows({
   offset,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ organizationId, search });
+  const where = buildWhereConditions({ organizationId, search, textFilters });
 
   let query = db
     .select()
@@ -94,12 +106,14 @@ function listDepartmentRows({
 
 async function countDepartmentRows({
   organizationId,
+  textFilters,
   search,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
 }) {
-  const where = buildWhereConditions({ organizationId, search });
+  const where = buildWhereConditions({ organizationId, search, textFilters });
   const [result] = await db.select({ count: count() }).from(department).where(where);
   return result?.count ?? 0;
 }
@@ -164,12 +178,12 @@ function toDepartmentListRecord(
   };
 }
 
-function parseFilters(filters?: { search?: string | null }) {
+function parseFilters(filters?: { textFilters?: string; search?: string | null }) {
   const parsed = departmentListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
-    return { search: undefined };
+    return { search: undefined, textFilters: undefined };
   }
-  return { search: parsed.data.search?.trim() || undefined };
+  return { search: parsed.data.search?.trim() || undefined, textFilters: parsed.data.textFilters };
 }
 
 export function parseDepartmentPagination(
@@ -179,17 +193,25 @@ export function parseDepartmentPagination(
 }
 
 export async function queryPaginatedDepartments(
-  filters: { organizationId: string; search?: string | null },
+  filters: { organizationId: string; textFilters?: string; search?: string | null },
   pagination?: DepartmentPaginationInput,
 ): Promise<PaginatedDepartmentResult> {
-  const { search } = parseFilters(filters);
+  const { textFilters, search } = parseFilters(filters);
   const { organizationId } = filters;
   const { page, pageSize, sortBy, sortOrder } = parseDepartmentPagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [records, total] = await Promise.all([
-    listDepartmentRows({ limit: pageSize, offset, organizationId, search, sortBy, sortOrder }),
-    countDepartmentRows({ organizationId, search }),
+    listDepartmentRows({
+      limit: pageSize,
+      offset,
+      organizationId,
+      search,
+      sortBy,
+      sortOrder,
+      textFilters,
+    }),
+    countDepartmentRows({ organizationId, search, textFilters }),
   ]);
 
   const refsMap = await loadReferenceCounts(records.map((record) => record.id));
@@ -209,7 +231,7 @@ export async function queryPaginatedDepartments(
 }
 
 export function listDepartments(
-  filters: { organizationId: string; search?: string | null },
+  filters: { organizationId: string; textFilters?: string; search?: string | null },
   pagination?: DepartmentPaginationInput,
 ) {
   return queryPaginatedDepartments(filters, pagination);

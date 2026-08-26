@@ -1,3 +1,8 @@
+import {
+  listTextFiltersSchema,
+  parseListTextFilters,
+  matchesListTextFilters,
+} from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
@@ -114,14 +119,25 @@ export function createPlatformLiveKitRouter(
     })
     .get(
       "/rooms",
-      zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
+      zValidator(
+        "query",
+        listQuerySchema.extend({ textFilters: listTextFiltersSchema("rooms") }),
+        jsonValidatorError("参数校验失败"),
+      ),
       async (c) => {
-        const { page, pageSize, search } = c.req.valid("query");
+        const { page, pageSize, search, textFilters } = c.req.valid("query");
         try {
           const rooms = await dependencies.getRoomServiceClient().listRooms();
           const keyword = search?.trim().toLocaleLowerCase();
+          const textValues = parseListTextFilters(textFilters);
           const records = rooms
             .map(toRoomRecord)
+            .filter((room) =>
+              matchesListTextFilters(textValues, {
+                name: room.name,
+                sid: room.sid,
+              }),
+            )
             .filter(
               (room) =>
                 !keyword ||
@@ -174,9 +190,13 @@ export function createPlatformLiveKitRouter(
     })
     .get(
       "/metrics",
-      zValidator("query", listQuerySchema, jsonValidatorError("参数校验失败")),
+      zValidator(
+        "query",
+        listQuerySchema.extend({ textFilters: listTextFiltersSchema("metrics") }),
+        jsonValidatorError("参数校验失败"),
+      ),
       async (c) => {
-        const { page, pageSize, search } = c.req.valid("query");
+        const { page, pageSize, search, textFilters } = c.req.valid("query");
         const metricsUrl = process.env.LIVEKIT_PROMETHEUS_URL;
         if (!metricsUrl) {
           return c.json({ configured: false as const, ...paginate([], page, pageSize) }, 200);
@@ -184,12 +204,20 @@ export function createPlatformLiveKitRouter(
         try {
           const text = await dependencies.fetchPrometheusText(metricsUrl);
           const keyword = search?.trim().toLocaleLowerCase();
-          const records = parsePrometheusMetrics(text).filter(
-            (metric) =>
-              !keyword ||
-              metric.name.toLocaleLowerCase().includes(keyword) ||
-              metric.help?.toLocaleLowerCase().includes(keyword) === true,
-          );
+          const textValues = parseListTextFilters(textFilters);
+          const records = parsePrometheusMetrics(text)
+            .filter((metric) =>
+              matchesListTextFilters(textValues, {
+                help: metric.help,
+                name: metric.name,
+              }),
+            )
+            .filter(
+              (metric) =>
+                !keyword ||
+                metric.name.toLocaleLowerCase().includes(keyword) ||
+                metric.help?.toLocaleLowerCase().includes(keyword) === true,
+            );
           return c.json({ configured: true as const, ...paginate(records, page, pageSize) }, 200);
         } catch (error) {
           return c.json(

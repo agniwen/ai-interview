@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -474,6 +476,7 @@ export function PlatformMailIngestAccountsGrid() {
   ): Promise<PlatformMailIngestAccountsResult> {
     const sortBy = normalizeSortBy(params.sortBy);
     const query: PlatformMailIngestAccountsQuery = {
+      ...listTextQuery(params),
       page: String(params.page),
       pageSize: String(params.pageSize),
     };
@@ -647,10 +650,9 @@ export function PlatformMailIngestAccountsGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索工作区、成员、邮箱、IMAP 或监听平台",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "platformMailAccounts" as const,
+            type: "text-filters" as const,
           },
         ]}
         getRowId={(row) => `${row.organization.id}:${row.user.id}:${row.account?.id ?? "empty"}`}

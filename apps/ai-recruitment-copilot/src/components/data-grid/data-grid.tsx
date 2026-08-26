@@ -123,6 +123,7 @@ export interface DataGridProps<TData extends RowData> {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 
   filters?: ToolbarFilterConfig[];
+  filterStorageKey?: string;
   filterValues?: Record<string, string>;
   onFilterChange?: (key: string, value: string) => void;
   /**
@@ -138,7 +139,7 @@ export interface DataGridProps<TData extends RowData> {
   error?: unknown;
   onRefresh?: () => void;
   onRetry?: () => void;
-  onResetFilters?: () => void;
+  onResetFilters?: (clearedValues?: Record<string, string>) => void;
   canResetFilters?: boolean;
   /**
    * 表格滚动区最大高度。默认不限制高度，页面滚动交给外层 layout。
@@ -157,6 +158,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
     empty,
     error,
     filterValues,
+    filterStorageKey,
     filters,
     filtersExtra,
     getRowId,
@@ -296,6 +298,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
         canResetFilters={canResetFilters}
         filterValues={filterValues}
         filters={filters}
+        filterStorageKey={filterStorageKey}
         filtersExtra={filtersExtra}
         onFilterChange={onFilterChange}
         onRefresh={onRefresh}

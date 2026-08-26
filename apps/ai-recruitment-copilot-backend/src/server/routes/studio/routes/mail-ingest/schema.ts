@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 
 const nonEmptyString = z.string().trim().min(1);
@@ -28,6 +29,7 @@ export const managedMailIngestAccountListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+  textFilters: listTextFiltersSchema("mailAccounts"),
 });
 
 export const updateMailIngestAccountSchema = createMailIngestAccountSchema
@@ -46,4 +48,5 @@ export const listMailMessagesQuerySchema = z.object({
   receivedTo: z.coerce.date().optional(),
   skipReason: z.enum(["no_supported_attachment"]).optional(),
   status: z.enum(["processing", "queued", "skipped", "failed"]).optional(),
+  textFilters: listTextFiltersSchema("mailLogs"),
 });

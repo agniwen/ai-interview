@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClientOnly, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
@@ -92,6 +93,7 @@ export function JobDescriptionManagementPage({
       sortOrder: "asc" | "desc" | undefined;
     }): Promise<PaginatedJobDescriptionResult> => {
       const query: JobDescriptionListQuery = {
+        ...listTextQuery(params),
         page: String(params.page),
         pageSize: String(params.pageSize),
         sortBy: params.sortBy ?? "createdAt",
@@ -362,12 +364,7 @@ export function JobDescriptionManagementPage({
 
   const filtersConfig = useMemo(
     () => [
-      {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索在招岗位名称或 JD",
-        type: "search" as const,
-      },
+      { key: "textFilters" as const, resource: "jobs" as const, type: "text-filters" as const },
       {
         emptyMessage: "没有匹配的部门",
         key: "departmentId" as const,

@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconBuilding, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -47,6 +48,7 @@ export function DepartmentManagementPage() {
         sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedDepartmentResult> => {
         const query = {
+          ...listTextQuery(params),
           page: String(params.page),
           pageSize: String(params.pageSize),
           sortBy: params.sortBy ?? "createdAt",
@@ -188,10 +190,9 @@ export function DepartmentManagementPage() {
   const filtersConfig = useMemo(
     () => [
       {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索部门名称或描述",
-        type: "search" as const,
+        key: "textFilters" as const,
+        resource: "departments" as const,
+        type: "text-filters" as const,
       },
     ],
     [],

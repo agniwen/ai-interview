@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconInbox } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -514,6 +515,7 @@ function ManagedMailIngestPage() {
     params: DataGridFetchParams<Record<string, never>>,
   ): Promise<ManagedMailIngestResult> {
     const query: ManagedMailIngestQuery = {
+      ...listTextQuery(params),
       page: String(params.page),
       pageSize: String(params.pageSize),
     };
@@ -711,10 +713,9 @@ function ManagedMailIngestPage() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索成员、邮箱、IMAP 或监听平台",
-            type: "search",
+            key: "textFilters" as const,
+            type: "text-filters" as const,
+            resource: "mailAccounts" as const,
           },
         ]}
         getRowId={(row) => `${row.user.id}:${row.account?.id ?? "empty"}`}

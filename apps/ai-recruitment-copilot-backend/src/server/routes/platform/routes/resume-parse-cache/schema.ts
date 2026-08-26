@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { attachmentParseStatusValues, attachmentTextSourceValues } from "@arc/db-schema/db-enums";
 import { z } from "zod";
 
@@ -13,6 +14,7 @@ export const resumeParseCacheQuerySchema = resumeParseCacheFilterSchema.extend({
   search: z.string().optional(),
   sortBy: z.enum(["filename", "size", "parsedAt", "createdAt", "parsedStatus"]).default("parsedAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  textFilters: listTextFiltersSchema("parseCache"),
 });
 
 export type ResumeParseCacheFilters = z.infer<typeof resumeParseCacheFilterSchema> &

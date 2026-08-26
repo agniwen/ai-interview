@@ -1,3 +1,4 @@
+import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconPlus, IconUserCircle } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -61,6 +62,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
               page: String(params.page),
               pageSize: String(params.pageSize),
               search: params.search || undefined,
+              ...listTextQuery(params),
               sortBy: params.sortBy ?? "createdAt",
               sortOrder: params.sortOrder ?? "desc",
             },
@@ -199,10 +201,9 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
   const filtersConfig = useMemo(
     () => [
       {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索名称或描述",
-        type: "search" as const,
+        key: "textFilters" as const,
+        resource: "interviewers" as const,
+        type: "text-filters" as const,
       },
     ],
     [],

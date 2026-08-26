@@ -100,6 +100,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
           activeOrg.id,
           {
             search: q.search,
+            textFilters: q.textFilters,
           },
           {
             page: q.page,

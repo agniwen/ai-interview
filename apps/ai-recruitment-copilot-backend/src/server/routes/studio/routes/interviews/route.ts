@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { studioInterviewCollectionRouter } from "./collection-route";
 import { studioInterviewDetailRouter } from "./detail-route";
@@ -205,6 +206,7 @@ export const studioInterviewsRouter = factory
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
         status: z.string().optional(),
+        textFilters: listTextFiltersSchema("interviews"),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -221,7 +223,12 @@ export const studioInterviewsRouter = factory
       );
       const result = await queryPaginatedInterviewRounds(
         activeOrg.id,
-        { creatorIds: parseCsvParam(q.creatorIds), search: q.search, status: q.status },
+        {
+          creatorIds: parseCsvParam(q.creatorIds),
+          search: q.search,
+          status: q.status,
+          textFilters: q.textFilters,
+        },
         { page: q.page, pageSize: q.pageSize, sortBy: q.sortBy, sortOrder: q.sortOrder },
         visibilityScope,
       );

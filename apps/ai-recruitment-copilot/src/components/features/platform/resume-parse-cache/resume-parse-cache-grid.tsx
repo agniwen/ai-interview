@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { IconDatabase } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
@@ -162,12 +164,7 @@ function isResumeParseCacheSortColumn(sortBy: string): sortBy is ResumeParseCach
 }
 
 const FILTERS = [
-  {
-    key: "search",
-    minWidth: "20rem",
-    placeholder: "搜索文件名、Hash、用户或工作区",
-    type: "search" as const,
-  },
+  { key: "textFilters" as const, resource: "parseCache" as const, type: "text-filters" as const },
   {
     key: "cacheType",
     options: [
@@ -310,6 +307,7 @@ export function ResumeParseCacheGrid({
       sortOrder?: "asc" | "desc";
     }): Promise<ResumeParseCacheResult> => {
       const query: ResumeParseCacheQuery = {
+        ...listTextQuery(params),
         cacheType: params.filters.cacheType,
         page: String(params.page),
         pageSize: String(params.pageSize),

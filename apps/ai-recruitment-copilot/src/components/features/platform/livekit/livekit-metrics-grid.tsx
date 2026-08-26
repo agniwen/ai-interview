@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { IconChartHistogram, IconTags } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -46,21 +48,30 @@ const metricsResultMetadataSchema = z.object({ configured: z.boolean() });
 
 export function LiveKitMetricsGrid() {
   const [selected, setSelected] = useState<LiveKitMetricRecord | null>(null);
-  const fetchMetrics = useCallback((params: { page: number; pageSize: number; search: string }) => {
-    const query: MetricsQuery = {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-    };
-    if (params.search) {
-      query.search = params.search;
-    }
-    return rpcFetch<MetricsResult>(
-      rpc.api.platform.livekit.metrics.$get({
-        query,
-      }),
-      "加载 LiveKit Prometheus 指标失败",
-    );
-  }, []);
+  const fetchMetrics = useCallback(
+    (params: {
+      page: number;
+      pageSize: number;
+      search: string;
+      filters: Record<string, string>;
+    }) => {
+      const query: MetricsQuery = {
+        ...listTextQuery(params),
+        page: String(params.page),
+        pageSize: String(params.pageSize),
+      };
+      if (params.search) {
+        query.search = params.search;
+      }
+      return rpcFetch<MetricsResult>(
+        rpc.api.platform.livekit.metrics.$get({
+          query,
+        }),
+        "加载 LiveKit Prometheus 指标失败",
+      );
+    },
+    [],
+  );
   const grid = useDataGridState<LiveKitMetricRecord, Record<string, never>>({
     defaultPageSize: 20,
     initialFilters: EMPTY_FILTERS,
@@ -130,10 +141,9 @@ export function LiveKitMetricsGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索指标名称或说明",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "metrics" as const,
+            type: "text-filters" as const,
           },
         ]}
         getRowId={(metric) => `${metric.name}:${JSON.stringify(metric.labels)}`}

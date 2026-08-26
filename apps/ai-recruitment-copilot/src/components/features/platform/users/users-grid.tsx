@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import {
   IconBan,
   IconBuilding,
@@ -287,6 +289,7 @@ export function UsersGrid() {
     sortOrder?: "asc" | "desc";
   }): Promise<UsersResult> {
     const query: PlatformUsersQuery = {
+      ...listTextQuery(params),
       page: String(params.page),
       pageSize: String(params.pageSize),
       sortBy: params.sortBy && isUserSortColumn(params.sortBy) ? params.sortBy : "lastActiveAt",
@@ -560,10 +563,9 @@ export function UsersGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索邮箱或姓名",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "users" as const,
+            type: "text-filters" as const,
           },
         ]}
         getRowId={(r) => r.id}

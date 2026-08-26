@@ -1,5 +1,7 @@
 "use client";
 
+import { listTextQuery } from "@arc/shared/list-text-filters";
+
 import { IconMicrophone, IconRadio, IconUsers, IconVideo } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
@@ -181,19 +183,28 @@ function RoomDetailDrawer({
 export function LiveKitRoomsGrid() {
   const [detailRoomName, setDetailRoomName] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const fetchRooms = useCallback((params: { page: number; pageSize: number; search: string }) => {
-    const query: LiveKitRoomsQuery = {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-    };
-    if (params.search) {
-      query.search = params.search;
-    }
-    return rpcFetch<PaginatedResult<LiveKitRoomRecord>>(
-      rpc.api.platform.livekit.rooms.$get({ query }),
-      "加载 LiveKit 房间失败",
-    );
-  }, []);
+  const fetchRooms = useCallback(
+    (params: {
+      page: number;
+      pageSize: number;
+      search: string;
+      filters: Record<string, string>;
+    }) => {
+      const query: LiveKitRoomsQuery = {
+        ...listTextQuery(params),
+        page: String(params.page),
+        pageSize: String(params.pageSize),
+      };
+      if (params.search) {
+        query.search = params.search;
+      }
+      return rpcFetch<PaginatedResult<LiveKitRoomRecord>>(
+        rpc.api.platform.livekit.rooms.$get({ query }),
+        "加载 LiveKit 房间失败",
+      );
+    },
+    [],
+  );
   const grid = useDataGridState<LiveKitRoomRecord, Record<string, never>>({
     defaultPageSize: 20,
     initialFilters: EMPTY_FILTERS,
@@ -266,10 +277,9 @@ export function LiveKitRoomsGrid() {
         }
         filters={[
           {
-            key: "search",
-            minWidth: "20rem",
-            placeholder: "搜索房间名称或 SID",
-            type: "search",
+            key: "textFilters" as const,
+            resource: "rooms" as const,
+            type: "text-filters" as const,
           },
         ]}
         getRowId={(room) => room.sid}

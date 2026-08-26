@@ -1,3 +1,4 @@
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -21,6 +22,7 @@ const departmentListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+  textFilters: listTextFiltersSchema("departments"),
 });
 
 export const departmentsRouter = factory
@@ -36,7 +38,7 @@ export const departmentsRouter = factory
       }
       const q = c.req.valid("query");
       const result = await queryPaginatedDepartments(
-        { organizationId: activeOrg.id, search: q.search },
+        { organizationId: activeOrg.id, search: q.search, textFilters: q.textFilters },
         {
           page: q.page,
           pageSize: q.pageSize,

@@ -1,3 +1,5 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
 import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
@@ -18,6 +20,7 @@ import { department, interviewer, jobDescriptionInterviewer } from "@arc/db-sche
 const interviewerListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
+  textFilters: listTextFiltersSchema("interviewers"),
 });
 
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
@@ -44,10 +47,12 @@ export type PaginatedInterviewerResult = PaginatedResult<InterviewerListRecord>;
 
 function buildWhereConditions({
   organizationId,
+  textFilters,
   search,
   departmentId,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentId?: string;
 }) {
@@ -70,6 +75,13 @@ function buildWhereConditions({
   if (departmentId) {
     conditions.push(eq(interviewer.departmentId, departmentId));
   }
+  const atomic = buildListTextFilterWhere("interviewers", textFilters, {
+    description: interviewer.description,
+    name: interviewer.name,
+  });
+  if (atomic) {
+    conditions.push(atomic);
+  }
   if (conditions.length === 1) {
     return conditions[0];
   }
@@ -78,6 +90,7 @@ function buildWhereConditions({
 
 function listInterviewerRows({
   organizationId,
+  textFilters,
   search,
   departmentId,
   sortBy = "createdAt",
@@ -86,6 +99,7 @@ function listInterviewerRows({
   offset,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentId?: string;
   sortBy?: SortColumn;
@@ -93,7 +107,7 @@ function listInterviewerRows({
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ departmentId, organizationId, search });
+  const where = buildWhereConditions({ departmentId, organizationId, search, textFilters });
 
   let query = db
     .select({
@@ -126,14 +140,16 @@ function listInterviewerRows({
 
 async function countInterviewerRows({
   organizationId,
+  textFilters,
   search,
   departmentId,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   departmentId?: string;
 }) {
-  const where = buildWhereConditions({ departmentId, organizationId, search });
+  const where = buildWhereConditions({ departmentId, organizationId, search, textFilters });
   const [result] = await db.select({ count: count() }).from(interviewer).where(where);
   return result?.count ?? 0;
 }
@@ -181,14 +197,19 @@ function toInterviewerListRecord(
   };
 }
 
-function parseFilters(filters?: { search?: string | null; departmentId?: string | null }) {
+function parseFilters(filters?: {
+  textFilters?: string;
+  search?: string | null;
+  departmentId?: string | null;
+}) {
   const parsed = interviewerListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
-    return { departmentId: undefined, search: undefined };
+    return { departmentId: undefined, search: undefined, textFilters: undefined };
   }
   return {
     departmentId: parsed.data.departmentId?.trim() || undefined,
     search: parsed.data.search?.trim() || undefined,
+    textFilters: parsed.data.textFilters,
   };
 }
 
@@ -200,10 +221,10 @@ export function parseInterviewerPagination(
 
 export async function queryPaginatedInterviewers(
   organizationId: string,
-  filters?: { search?: string | null; departmentId?: string | null },
+  filters?: { textFilters?: string; search?: string | null; departmentId?: string | null },
   pagination?: InterviewerPaginationInput,
 ): Promise<PaginatedInterviewerResult> {
-  const { search, departmentId } = parseFilters(filters);
+  const { textFilters, search, departmentId } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseInterviewerPagination(pagination);
   const offset = (page - 1) * pageSize;
 
@@ -216,8 +237,9 @@ export async function queryPaginatedInterviewers(
       search,
       sortBy,
       sortOrder,
+      textFilters,
     }),
-    countInterviewerRows({ departmentId, organizationId, search }),
+    countInterviewerRows({ departmentId, organizationId, search, textFilters }),
   ]);
 
   const countsMap = await loadJobDescriptionCounts(records.map((record) => record.id));
@@ -235,7 +257,7 @@ export async function queryPaginatedInterviewers(
 
 export function listInterviewers(
   organizationId: string,
-  filters?: { search?: string | null; departmentId?: string | null },
+  filters?: { textFilters?: string; search?: string | null; departmentId?: string | null },
   pagination?: InterviewerPaginationInput,
 ) {
   return queryPaginatedInterviewers(organizationId, filters, pagination);

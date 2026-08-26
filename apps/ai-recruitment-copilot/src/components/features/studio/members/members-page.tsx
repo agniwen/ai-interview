@@ -1,3 +1,4 @@
+import { matchesListTextFilters, parseListTextFilters } from "@arc/shared/list-text-filters";
 import { IconSettings, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -196,18 +197,16 @@ export function MembersManagementPage() {
       };
     });
   }, [org?.members, lastActiveMap]);
-  const normalizedMemberSearch = memberSearch.trim().toLowerCase();
-  const hasMemberSearch = normalizedMemberSearch.length > 0;
+  const hasMemberSearch = memberSearch.length > 0;
   const filteredRows = useMemo(() => {
     if (!hasMemberSearch) {
       return allRows;
     }
-    return allRows.filter((row) => {
-      const email = row.email.toLowerCase();
-      const name = row.name.toLowerCase();
-      return email.includes(normalizedMemberSearch) || name.includes(normalizedMemberSearch);
-    });
-  }, [allRows, hasMemberSearch, normalizedMemberSearch]);
+    const conditions = parseListTextFilters(memberSearch);
+    return allRows.filter((row) =>
+      matchesListTextFilters(conditions, { email: row.email, name: row.name }),
+    );
+  }, [allRows, hasMemberSearch, memberSearch]);
 
   useEffect(() => {
     setGroupNameDrafts((current) => {
@@ -606,19 +605,22 @@ export function MembersManagementPage() {
                 )}
               </Empty>
             }
-            filterValues={{ search: memberSearch }}
+            onResetFilters={() => {
+              setMemberSearch("");
+              setPage(1);
+            }}
+            filterValues={{ textFilters: memberSearch }}
             filters={[
               {
-                key: "search",
-                minWidth: "20rem",
-                placeholder: "搜索邮箱或姓名",
-                type: "search",
+                key: "textFilters" as const,
+                resource: "members" as const,
+                type: "text-filters" as const,
               },
             ]}
             getRowId={(r) => r.id}
             loading={isPending}
             onFilterChange={(key, value) => {
-              if (key !== "search") {
+              if (key !== "textFilters") {
                 return;
               }
               setMemberSearch(value);

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { createStore, Provider } from "jotai";
+import { listFilterSelectionAtom } from "../filter-selection";
+
+import { act, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   enableReactActEnvironment,
@@ -23,7 +26,7 @@ afterEach(async () => {
 
 async function clickText(selector: string, text: string) {
   const element = [...document.querySelectorAll<HTMLElement>(selector)].find(
-    (item) => item.textContent?.trim() === text,
+    (item) => item.textContent?.trim() === text || item.getAttribute("aria-label") === text,
   );
   expect(element, `Missing ${selector}: ${text}`).toBeDefined();
   await act(async () => {
@@ -46,11 +49,112 @@ async function enterDate(value: string) {
 }
 
 describe("Toolbar filter editing", () => {
+  it("clears only values in one commit and retains active fields restored from the URL", async () => {
+    const store = createStore();
+    store.set(listFilterSelectionAtom, {});
+    const onClear = vi.fn();
+    function Harness() {
+      const [values, setValues] = useState<Record<string, string>>({
+        archivedFilter: "active",
+        textFilters: '{"company":"极光"}',
+      });
+      return (
+        <Provider store={store}>
+          <Toolbar
+            canResetFilters={false}
+            filterStorageKey="clear-test"
+            filters={[
+              { key: "textFilters", resource: "resumes", type: "text-filters" },
+              {
+                key: "archivedFilter",
+                label: "归档状态",
+                options: [{ label: "未归档", value: "active" }],
+                type: "select",
+                unfilteredValue: "all",
+              },
+            ]}
+            filterValues={values}
+            onResetFilters={(next = {}) => {
+              onClear(next);
+              setValues(next);
+            }}
+            onRefresh={vi.fn()}
+            toolbarRight={<button type="button">创建记录</button>}
+          />
+        </Provider>
+      );
+    }
+    const { root } = await renderInAct(<Harness />);
+    roots.push(root);
+    await clickText("button", "清空筛选");
+    expect(onClear).toHaveBeenCalledExactlyOnceWith({ archivedFilter: "all", textFilters: "" });
+    expect(store.get(listFilterSelectionAtom)["clear-test"]).toEqual([
+      "text:company",
+      "archivedFilter",
+    ]);
+    expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(2);
+    expect(document.body.textContent).not.toContain("极光");
+    expect(document.body.textContent).not.toContain("未归档");
+    expect(document.body.textContent).toContain("选择…");
+    const actions = [
+      ...document.querySelectorAll('[data-slot="data-grid-toolbar-actions"] button'),
+    ];
+    expect(actions.map((item) => item.textContent?.trim())).toEqual([
+      "清空筛选",
+      "刷新",
+      "创建记录",
+    ]);
+    expect(actions[0]).toHaveProperty("disabled", true);
+  });
+
+  it("remembers selected fields without persisting values, including empty conditions", async () => {
+    const saved = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => saved.get(key) ?? null,
+        removeItem: (key: string) => saved.delete(key),
+        setItem: (key: string, value: string) => saved.set(key, value),
+      },
+    });
+    const store = createStore();
+    const onChange = vi.fn();
+    const renderToolbar = (textFilters: string) => (
+      <Provider store={store}>
+        <Toolbar
+          filterStorageKey="persist-test"
+          filters={[{ key: "textFilters", resource: "resumes", type: "text-filters" }]}
+          filterValues={{ textFilters }}
+          onFilterChange={onChange}
+        />
+      </Provider>
+    );
+    const { root } = await renderInAct(renderToolbar('{"candidateName":"Alice"}'));
+    roots.push(root);
+    await clickText("button", "添加筛选");
+    await clickText('[role="option"]', "公司");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(store.get(listFilterSelectionAtom)["persist-test"]).toEqual([
+      "text:candidateName",
+      "text:company",
+    ]);
+    expect(window.localStorage.getItem("arc:list-filter-selection:v1")).not.toContain("Alice");
+    await act(async () => {
+      root.render(renderToolbar(""));
+      await Promise.resolve();
+    });
+    expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(2);
+    expect(document.body.textContent).not.toContain("Alice");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("validates date bounds before applying an edited date", async () => {
     const onChange = vi.fn();
     const { root } = await renderInAct(
       <Toolbar
         filters={[
+          { key: "extraA", label: "备注", type: "search" },
+          { key: "extraB", label: "编号", type: "search" },
           {
             boundary: "from",
             key: "from",
@@ -79,6 +183,8 @@ describe("Toolbar filter editing", () => {
     const { root } = await renderInAct(
       <Toolbar
         filters={[
+          { key: "extraA", label: "备注", type: "search" },
+          { key: "extraB", label: "编号", type: "search" },
           {
             key: "status",
             label: "状态",
@@ -105,6 +211,8 @@ describe("Toolbar filter editing", () => {
     const { root } = await renderInAct(
       <Toolbar
         filters={[
+          { key: "extraA", label: "备注", type: "search" },
+          { key: "extraB", label: "编号", type: "search" },
           {
             key: "skills",
             label: "技能",

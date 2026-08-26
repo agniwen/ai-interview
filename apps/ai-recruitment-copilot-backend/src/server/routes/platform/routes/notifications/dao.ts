@@ -1,3 +1,4 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -27,6 +28,7 @@ export interface PlatformNotificationsQuery {
   pageSize: number;
   providerId?: PlatformNotificationProviderFilter;
   search?: string;
+  textFilters?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   status?: PlatformNotificationStatusFilter;
@@ -144,7 +146,22 @@ export async function queryPaginatedPlatformNotifications(
         ilike(interviewNotification.error, `%${search}%`),
       )
     : undefined;
-  const where = and(providerFilter, statusFilter, searchFilter);
+  const where = and(
+    providerFilter,
+    statusFilter,
+    searchFilter,
+    buildListTextFilterWhere("notifications", query.textFilters, {
+      candidateName: studioInterview.candidateName,
+      error: interviewNotification.error,
+      messageId: interviewNotification.feishuMessageId,
+      organizationName: organization.name,
+      organizationSlug: organization.slug,
+      recipientEmail: user.email,
+      recipientName: user.name,
+      recipientOpenId: interviewNotification.recipientOpenId,
+      targetRole: studioInterview.targetRole,
+    }),
+  );
 
   const [rows, [{ total }]] = await Promise.all([
     db

@@ -18,6 +18,7 @@ export interface ResumeListParams {
   /** pipeline 阶段过滤（OR）。 */
   pipelineStages?: string[];
   search?: string;
+  textFilters?: string;
   /** 技能筛选（后端 AND / 同时具备）。 */
   skills?: string[];
   sortBy?: string;
@@ -62,6 +63,9 @@ export function fetchStudioResumes(
   }
   if (params.knownTotal !== undefined) {
     query.set("knownTotal", String(params.knownTotal));
+  }
+  if (params.textFilters) {
+    query.set("textFilters", params.textFilters);
   }
   if (params.search) {
     query.set("search", params.search);

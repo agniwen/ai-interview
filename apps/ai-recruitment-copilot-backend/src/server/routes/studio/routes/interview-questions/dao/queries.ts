@@ -1,3 +1,5 @@
+import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateQuestionRecord,
@@ -36,6 +38,7 @@ const templateListFiltersSchema = z.object({
   jobDescriptionId: z.string().trim().max(2000).optional().nullable(),
   scope: z.string().trim().max(120).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
+  textFilters: listTextFiltersSchema("questions"),
 });
 
 const SORT_COLUMNS = ["createdAt", "title", "updatedAt"] as const;
@@ -66,12 +69,14 @@ export type ArchivedFilter = "active" | "archived" | "all";
 
 function buildWhereConditions({
   organizationId,
+  textFilters,
   search,
   scopes,
   jobDescriptionIds,
   archivedFilter,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
@@ -118,6 +123,13 @@ function buildWhereConditions({
           ),
       ),
     );
+  }
+  const atomic = buildListTextFilterWhere("questions", textFilters, {
+    description: interviewQuestionTemplate.description,
+    title: interviewQuestionTemplate.title,
+  });
+  if (atomic) {
+    conditions.push(atomic);
   }
   return and(...conditions);
 }
@@ -172,6 +184,7 @@ async function loadJobDescriptionRefs(templateId: string): Promise<JobDescriptio
 
 function listTemplateRows({
   organizationId,
+  textFilters,
   search,
   scopes,
   jobDescriptionIds,
@@ -182,6 +195,7 @@ function listTemplateRows({
   offset,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
@@ -197,6 +211,7 @@ function listTemplateRows({
     organizationId,
     scopes,
     search,
+    textFilters,
   });
 
   let query = db
@@ -227,12 +242,14 @@ function listTemplateRows({
 
 async function countTemplateRows({
   organizationId,
+  textFilters,
   search,
   scopes,
   jobDescriptionIds,
   archivedFilter,
 }: {
   organizationId: string;
+  textFilters?: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
@@ -244,6 +261,7 @@ async function countTemplateRows({
     organizationId,
     scopes,
     search,
+    textFilters,
   });
   const [result] = await db.select({ count: count() }).from(interviewQuestionTemplate).where(where);
   return result?.count ?? 0;
@@ -333,6 +351,7 @@ function parseScopes(value?: string | null): InterviewQuestionTemplateScope[] | 
 }
 
 function parseFilters(filters?: {
+  textFilters?: string;
   search?: string | null;
   scope?: string | null;
   jobDescriptionId?: string | null;
@@ -343,12 +362,14 @@ function parseFilters(filters?: {
       jobDescriptionIds: undefined,
       scopes: undefined,
       search: undefined,
+      textFilters: undefined,
     };
   }
   return {
     jobDescriptionIds: csvToIds(parsed.data.jobDescriptionId),
     scopes: parseScopes(parsed.data.scope),
     search: parsed.data.search?.trim() || undefined,
+    textFilters: parsed.data.textFilters,
   };
 }
 
@@ -365,6 +386,7 @@ function parseInterviewQuestionTemplatePagination(
 export async function queryPaginatedInterviewQuestionTemplates(
   organizationId: string,
   filters?: {
+    textFilters?: string;
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
@@ -372,7 +394,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
   },
   pagination?: InterviewQuestionTemplatePaginationInput,
 ): Promise<PaginatedInterviewQuestionTemplateResult> {
-  const { search, scopes, jobDescriptionIds } = parseFilters(filters);
+  const { textFilters, search, scopes, jobDescriptionIds } = parseFilters(filters);
   const archivedFilter: ArchivedFilter = filters?.archivedFilter ?? "active";
   const { page, pageSize, sortBy, sortOrder } =
     parseInterviewQuestionTemplatePagination(pagination);
@@ -389,8 +411,16 @@ export async function queryPaginatedInterviewQuestionTemplates(
       search,
       sortBy,
       sortOrder,
+      textFilters,
     }),
-    countTemplateRows({ archivedFilter, jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({
+      archivedFilter,
+      jobDescriptionIds,
+      organizationId,
+      scopes,
+      search,
+      textFilters,
+    }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -419,6 +449,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
 export function listInterviewQuestionTemplates(
   organizationId: string,
   filters?: {
+    textFilters?: string;
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
