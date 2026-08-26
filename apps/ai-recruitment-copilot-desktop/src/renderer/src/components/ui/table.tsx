@@ -90,7 +90,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<"th">): 
   return (
     <th
       className={cn(
-        "h-10 whitespace-nowrap px-2.5 text-left align-middle font-medium text-muted-foreground leading-none not-in-data-[variant=card]:border-r not-in-data-[variant=card]:bg-sidebar not-in-data-[variant=card]:dark:bg-muted not-in-data-[variant=card]:last:border-r-0 has-[[role=checkbox]]:w-px has-[[role=checkbox]]:text-center",
+        "h-10 whitespace-nowrap bg-background px-2.5 text-left align-middle font-medium text-muted-foreground leading-none not-in-data-[variant=card]:border-r not-in-data-[variant=card]:last:border-r-0 has-[[role=checkbox]]:w-px has-[[role=checkbox]]:text-center",
         className,
       )}
       data-slot="table-head"

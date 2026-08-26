@@ -1,57 +1,23 @@
 import { electronAPI } from "@electron-toolkit/preload";
-import { meetingLiveTranscriptTrackSchema } from "@arc/shared/meeting-transcription";
 import { contextBridge, ipcRenderer } from "electron";
-import { z } from "zod";
 import type { AuthApi } from "./auth-api";
 import type { DownloadApi } from "./download-api";
 import type { MeetingCaptureApi } from "./meeting-capture-api";
+import { createMessagePortHandoff } from "./message-port-handoff";
 import type { WindowApi } from "./window-api";
-
-const liveTranscriptClientMessageSchema = z
-  .object({
-    authorization: z
-      .object({
-        baseUrl: z.string(),
-        clientSecret: z.string(),
-        expiresAt: z.string(),
-        language: z.string().optional(),
-        model: z.string(),
-        provider: z.literal("qwen"),
-        track: meetingLiveTranscriptTrackSchema,
-      })
-      .strict(),
-    type: z.literal("start-meeting-live-transcript-client"),
-  })
-  .strict();
 
 /**
  * oRPC MessageChannel handoff: the renderer creates a MessageChannel and
  * posts one port through the window; we forward it to the main process where
  * the oRPC `RPCHandler` upgrades it. See `src/renderer/src/lib/orpc.ts`.
  */
-window.addEventListener("message", (event) => {
-  if (
-    event.source !== window ||
-    event.origin !== window.location.origin ||
-    event.ports.length !== 1
-  ) {
-    return;
-  }
-  if (event.data === "start-orpc-client") {
-    const [serverPort] = event.ports;
-    ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);
-  }
-  const liveTranscriptMessage = liveTranscriptClientMessageSchema.safeParse(event.data);
-  if (liveTranscriptMessage.success) {
-    const [serverPort] = event.ports;
-    console.log("[preload] forwarding live-transcript port");
-    ipcRenderer.postMessage(
-      "meeting-live-transcript:port",
-      liveTranscriptMessage.data.authorization,
-      [serverPort],
-    );
-  }
-});
+window.addEventListener(
+  "message",
+  createMessagePortHandoff({
+    page: window,
+    postMessage: (channel, message, ports) => ipcRenderer.postMessage(channel, message, ports),
+  }),
+);
 
 const windowApi: WindowApi = {
   close: () => ipcRenderer.invoke("window:close"),

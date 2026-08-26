@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,8 @@ import {
   FramePanel,
   FrameTitle,
 } from "@/components/ui/frame";
-import { desktopMeetingKeys, trashMeeting } from "@/lib/client/meetings";
+import { desktopMeetingKeys, restoreMeeting, trashMeeting } from "@/lib/client/meetings";
+import { showMeetingArchivedToast } from "./meeting-archive-toast";
 
 export function canManageMeetingLifecycle(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
@@ -31,13 +33,26 @@ export function MeetingLifecyclePanel({
 }) {
   const navigate = useNavigate({ from: "/meetings/$meetingId" });
   const queryClient = useQueryClient();
+  const refreshMeetingLists = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.all(slug) }),
+      queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.trash(slug) }),
+    ]);
+  const restoreMutation = useMutation({
+    mutationFn: (_toastId: string | number) => restoreMeeting(slug, meetingId),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "撤回归档失败");
+    },
+    onSuccess: async (_, toastId) => {
+      await refreshMeetingLists();
+      toast.dismiss(toastId);
+    },
+  });
   const trashMutation = useMutation({
     mutationFn: () => trashMeeting(slug, meetingId),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.all(slug) }),
-        queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.trash(slug) }),
-      ]);
+      await refreshMeetingLists();
+      showMeetingArchivedToast((toastId) => restoreMutation.mutate(toastId));
       await navigate({ to: "/meetings" });
     },
   });

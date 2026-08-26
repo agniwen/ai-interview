@@ -1,12 +1,14 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
   LiveTranscriptDraftSnapshot,
   LiveTranscriptDraftStatus,
+  LiveTranscriptDraftTurn,
 } from "@/lib/meeting-capture/live-transcript-draft";
 import { cn } from "@arc/shared/utils";
+import { playTranscriptCorrectionSweep } from "./live-transcript-correction-sweep";
 
 const STATUS_LABEL = {
   buffering: "延迟",
@@ -39,6 +41,65 @@ function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string 
   return "ph:circle-notch";
 }
 
+function TranscriptTurn({
+  turn,
+  playCorrectionSweep,
+}: {
+  turn: LiveTranscriptDraftTurn;
+  playCorrectionSweep: typeof playTranscriptCorrectionSweep;
+}) {
+  const blockRef = useRef<HTMLParagraphElement>(null);
+  const gradientId = useId();
+  // Already-corrected history must not replay when the panel mounts again.
+  const correctionSeen = useRef(Boolean(turn.correctionModel));
+  useEffect(() => {
+    if (correctionSeen.current || !turn.correctionModel) {
+      return;
+    }
+    correctionSeen.current = true;
+    if (!blockRef.current || !turn.originalText) {
+      return;
+    }
+    return playCorrectionSweep(blockRef.current);
+  }, [playCorrectionSweep, turn.correctionModel, turn.originalText, turn.text]);
+
+  return (
+    <p
+      className={cn(
+        "cursor-text! relative isolate flex items-start gap-2 py-1 text-sm leading-relaxed hover:bg-foreground/4",
+        !turn.final && "text-muted-foreground italic",
+      )}
+      ref={blockRef}
+    >
+      <span className="flex h-lh w-4 shrink-0 select-none items-center justify-center">
+        {turn.correcting ? (
+          <output
+            aria-label="AI 正在校正"
+            className="flex motion-safe:animate-pulse"
+            title="AI 正在校正"
+          >
+            <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
+              <defs>
+                <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#00b8ff" />
+                  <stop offset="45%" stopColor="#8955ff" />
+                  <stop offset="75%" stopColor="#ef62c9" />
+                  <stop offset="100%" stopColor="#ffb55e" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M10 2 12.7 9.3 20 12 12.7 14.7 10 22 7.3 14.7 0 12 7.3 9.3ZM20 1 21.1 3.9 24 5 21.1 6.1 20 9 18.9 6.1 16 5 18.9 3.9Z"
+                fill={`url(#${gradientId})`}
+              />
+            </svg>
+          </output>
+        ) : null}
+      </span>
+      <span className="min-w-0 flex-1">{turn.text}</span>
+    </p>
+  );
+}
+
 /**
  * Live transcript stage for the meeting session main area.
  * 会议 session 主区的实时字幕舞台。
@@ -48,11 +109,13 @@ export function LiveTranscriptDraftPanel({
   className,
   embedded = false,
   emptyHint = "等待检测到语音…",
+  playCorrectionSweep = playTranscriptCorrectionSweep,
 }: {
   snapshot: LiveTranscriptDraftSnapshot;
   className?: string;
   embedded?: boolean;
   emptyHint?: string;
+  playCorrectionSweep?: typeof playTranscriptCorrectionSweep;
 }) {
   const { status } = snapshot;
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -94,15 +157,7 @@ export function LiveTranscriptDraftPanel({
     return (
       <div aria-live="polite" className={cn("grid select-text", className)}>
         {snapshot.turns.map((turn) => (
-          <p
-            className={cn(
-              "cursor-text! rounded-sm p-1 text-sm leading-relaxed hover:bg-foreground/4",
-              !turn.final && "text-muted-foreground italic",
-            )}
-            key={turn.id}
-          >
-            {turn.text}
-          </p>
+          <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
         ))}
         {droppedWarning}
       </div>
@@ -176,15 +231,7 @@ export function LiveTranscriptDraftPanel({
             aria-live="polite"
           >
             {snapshot.turns.map((turn) => (
-              <p
-                className={cn(
-                  "cursor-text! rounded-sm p-1 text-sm leading-relaxed hover:bg-foreground/4",
-                  !turn.final && "text-muted-foreground italic",
-                )}
-                key={turn.id}
-              >
-                {turn.text}
-              </p>
+              <TranscriptTurn key={turn.id} playCorrectionSweep={playCorrectionSweep} turn={turn} />
             ))}
             {droppedWarning}
           </div>

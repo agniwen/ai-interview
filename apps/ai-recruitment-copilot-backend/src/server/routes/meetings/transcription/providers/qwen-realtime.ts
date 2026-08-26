@@ -4,7 +4,7 @@ import type {
   MeetingLiveTranscriptTrack,
 } from "@arc/shared/meeting-transcription";
 
-export const DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL = "qwen3-asr-flash-realtime";
+export const DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL = "qwen-audio-3.0-asr-flash-streaming";
 export const MAX_MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS = 1800;
 
 /**
@@ -81,7 +81,7 @@ export async function createQwenRealtimeTranscriptionAuthorization(
     throw new Error("DashScope live transcription base URL is not a valid URL");
   }
   return {
-    baseUrl: `wss://${hostname}/api-ws/v1/realtime`,
+    baseUrl: `wss://${hostname}/api-ws/v1/${dependencies.model.startsWith("qwen-audio-3.0-asr-flash-streaming") ? "inference" : "realtime"}`,
     clientSecret: parsed.token,
     expiresAt: new Date(parsed.expires_at * 1000).toISOString(),
     language: input.language,

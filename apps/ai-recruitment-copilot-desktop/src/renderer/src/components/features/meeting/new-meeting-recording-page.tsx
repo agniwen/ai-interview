@@ -65,7 +65,13 @@ function CreatorDetailRow({ record }: { record: ResumeLibraryListRecord }) {
         className="flex min-w-0 items-center gap-1.5 font-medium text-foreground"
         title={creatorName}
       >
-        <Avatar className="size-4!" size="sm">
+        <Avatar
+          className="size-4!"
+          generatedSize={16}
+          label={`${creatorName}的头像`}
+          seed={`recruiter:${creatorName}`}
+          size="sm"
+        >
           {record.creatorImage ? <AvatarImage alt={creatorName} src={record.creatorImage} /> : null}
           <AvatarFallback>{creatorInitial}</AvatarFallback>
         </Avatar>

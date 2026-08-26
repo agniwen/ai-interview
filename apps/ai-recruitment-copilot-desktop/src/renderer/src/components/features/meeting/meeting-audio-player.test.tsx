@@ -31,7 +31,7 @@ describe("MeetingAudioPlayer", () => {
       />,
     );
 
-    expect(html).toContain("rounded-md");
+    expect(html).toContain("rounded-xl");
     expect(html).toContain('data-slot="meeting-composer-frame"');
     expect(html).toContain('data-slot="meeting-audio-player"');
   });

@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import type { JsonValue } from "@arc/db-schema/json";
 import { WebSocket } from "ws";
 import { z } from "zod";
+import { transcriptContext } from "./live-transcript-correction";
+import { createLiveTranscriptAudio } from "./live-transcript-audio";
 
 const MAX_BUFFERED_BYTES = 256 * 1024;
 const LOW_WATER_BYTES = 64 * 1024;
@@ -12,6 +14,8 @@ const GRACEFUL_FINISH_TIMEOUT_MS = 1500;
 
 export interface DashScopeRealtimeWsConnection {
   close: () => void;
+  takeCorrectionAudio?: (itemId: string, originalText: string) => Buffer | null;
+  sendCorrectionContext?: (texts: string[]) => void;
   /** Returns false above the WebSocket high-water mark so the renderer's draft queue owns backpressure. */
   sendPcm: (bytes: Uint8Array) => boolean;
 }
@@ -35,7 +39,7 @@ interface RealtimeWebSocket {
     callback: (...args: RealtimeWebSocketEventMap[K]) => void,
   ): RealtimeWebSocket;
   readyState: number;
-  send: (data: string, callback?: (error?: Error) => void) => void;
+  send: (data: string | Uint8Array, callback?: (error?: Error) => void) => void;
   terminate: () => void;
   url: string;
 }
@@ -59,6 +63,28 @@ function pcmBytesToBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64");
 }
 
+const streamingEventSchema = z.object({
+  header: z.object({ event: z.string(), task_id: z.string() }),
+  payload: z
+    .object({
+      output: z
+        .object({
+          sentence: z
+            .object({
+              begin_time: z.number().int().nonnegative(),
+              end_time: z.number().int().nonnegative().nullable().optional(),
+              heartbeat: z.boolean().optional(),
+              sentence_end: z.boolean().optional(),
+              sentence_id: z.number().int().nonnegative(),
+              text: z.string().max(10_000),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
 /**
  * 主进程直连 DashScope Qwen-ASR-Realtime：只有 Node WebSocket 能在握手时携带
  * Authorization 头，短期 temp token 由 Backend 签发，长期 ALIBABA_API_KEY 不进入桌面。
@@ -69,14 +95,19 @@ export function connectDashScopeRealtimeWs(
   dependencies: DashScopeRealtimeWsDependencies,
 ): DashScopeRealtimeWsConnection {
   const WebSocketImpl = dependencies.webSocket ?? WebSocket;
+  const streaming = dependencies.model.startsWith("qwen-audio-3.0-asr-flash-streaming");
+  const taskId = randomUUID();
   const socket = new WebSocketImpl(
-    `${dependencies.baseUrl}?model=${encodeURIComponent(dependencies.model)}`,
+    streaming
+      ? dependencies.baseUrl
+      : `${dependencies.baseUrl}?model=${encodeURIComponent(dependencies.model)}`,
     {
       handshakeTimeout: CONNECTION_TIMEOUT_MS,
       headers: { Authorization: `Bearer ${dependencies.token}` },
     },
   );
   let closed = false;
+  let taskStarted = !streaming;
   let backpressureStartedAt: number | null = null;
   let bufferedBytesAtPause = 0;
   let backpressured = false;
@@ -84,15 +115,22 @@ export function connectDashScopeRealtimeWs(
   let finishSent = false;
   let sendCallbackErrorCount = 0;
   let drainTimer: ReturnType<typeof setInterval> | null = null;
+  let finishTimer: ReturnType<typeof setTimeout> | undefined;
+  const correction = streaming ? createLiveTranscriptAudio() : null;
 
   const notifyClose = (reason: string) => {
     if (closed) {
       return;
     }
     closed = true;
+    correction?.close();
     if (drainTimer) {
       clearInterval(drainTimer);
       drainTimer = null;
+    }
+    if (reason !== "closed-by-client") {
+      clearTimeout(finishTimer);
+      socket.terminate();
     }
     dependencies.onClose?.(reason);
   };
@@ -101,7 +139,7 @@ export function connectDashScopeRealtimeWs(
   // 异常不能从 ipcMain 的 port 消息处理器冒出去（会打崩主进程、连累分片 ack）。
   // ws send can throw synchronously when the socket closes between the readyState
   // check and the write; it must never escape into the IPC port handler.
-  const sendText = (payload: string): boolean => {
+  const sendText = (payload: string | Uint8Array): boolean => {
     try {
       // oxlint-disable-next-line promise/prefer-await-to-callbacks -- ws exposes write completion only through this callback.
       socket.send(payload, (error) => {
@@ -119,7 +157,9 @@ export function connectDashScopeRealtimeWs(
       return false;
     }
   };
-  const sendJson = (payload: JsonValue): boolean => sendText(JSON.stringify(payload));
+  function sendJson(payload: JsonValue): boolean {
+    return sendText(JSON.stringify(payload));
+  }
 
   const scheduleDrainPoll = () => {
     if (closed || !backpressured || drainTimer) {
@@ -158,6 +198,32 @@ export function connectDashScopeRealtimeWs(
       model: dependencies.model,
       url: socket.url,
     });
+    if (streaming) {
+      const parameters = {
+        format: "pcm",
+        heartbeat: true,
+        max_sentence_silence: 800,
+        sample_rate: 16_000,
+      };
+      if (
+        !sendJson({
+          header: { action: "run-task", streaming: "duplex", task_id: taskId },
+          payload: {
+            function: "recognition",
+            input: {},
+            model: dependencies.model,
+            parameters: dependencies.language
+              ? { ...parameters, language_hints: [dependencies.language] }
+              : parameters,
+            task: "asr",
+            task_group: "audio",
+          },
+        })
+      ) {
+        notifyClose("provider-error:start-failed");
+      }
+      return;
+    }
     const baseSession = {
       input_audio_format: "pcm",
       sample_rate: 16_000,
@@ -173,13 +239,59 @@ export function connectDashScopeRealtimeWs(
     sendJson({ event_id: randomUUID(), session, type: "session.update" });
   });
 
+  const handleStreamingEvent = (event: JsonValue) => {
+    const parsed = streamingEventSchema.safeParse(event);
+    if (!parsed.success || parsed.data.header.task_id !== taskId) {
+      return;
+    }
+    const { header, payload } = parsed.data;
+    if (header.event === "task-started") {
+      taskStarted = true;
+      dependencies.onEvent?.({ type: "session.created" });
+      dependencies.onDrain?.();
+    } else if (header.event === "task-failed") {
+      notifyClose("provider-error:task-failed");
+    } else if (header.event === "task-finished") {
+      notifyClose("provider-disconnected:task-finished");
+    } else if (header.event === "result-generated") {
+      const sentence = payload?.output?.sentence;
+      if (!sentence || sentence.heartbeat || !sentence.text.trim()) {
+        return;
+      }
+      const itemId = String(sentence.sentence_id);
+      if (sentence.sentence_end && sentence.end_time !== null && sentence.end_time !== undefined) {
+        correction?.complete({
+          endMs: sentence.end_time,
+          itemId,
+          startMs: sentence.begin_time,
+          text: sentence.text,
+        });
+      }
+      dependencies.onEvent?.(
+        sentence.sentence_end
+          ? {
+              item_id: itemId,
+              transcript: sentence.text,
+              type: "conversation.item.input_audio_transcription.completed",
+            }
+          : {
+              item_id: itemId,
+              text: sentence.text,
+              type: "conversation.item.input_audio_transcription.text",
+            },
+      );
+    }
+  };
+
   socket.on("message", (data, isBinary) => {
-    if (isBinary) {
+    if (isBinary || closed) {
       return;
     }
     try {
       const providerEvent = z.json().safeParse(JSON.parse(data.toString()));
-      if (providerEvent.success) {
+      if (providerEvent.success && streaming) {
+        handleStreamingEvent(providerEvent.data);
+      } else if (providerEvent.success) {
         dependencies.onEvent?.(providerEvent.data);
       }
     } catch {
@@ -203,8 +315,14 @@ export function connectDashScopeRealtimeWs(
       }
       if (socket.readyState === WebSocketImpl.OPEN && !finishSent) {
         finishSent = true;
-        if (sendJson({ event_id: randomUUID(), type: "session.finish" })) {
-          const timer = setTimeout(() => {
+        const finish = streaming
+          ? {
+              header: { action: "finish-task", streaming: "duplex", task_id: taskId },
+              payload: { input: {} },
+            }
+          : { event_id: randomUUID(), type: "session.finish" };
+        if (sendJson(finish)) {
+          finishTimer = setTimeout(() => {
             if (drainTimer) {
               clearInterval(drainTimer);
               drainTimer = null;
@@ -212,22 +330,36 @@ export function connectDashScopeRealtimeWs(
             closed = true;
             socket.terminate();
           }, GRACEFUL_FINISH_TIMEOUT_MS);
-          timer.unref();
+          finishTimer.unref();
         } else {
           socket.terminate();
         }
+      } else if (socket.readyState !== WebSocketImpl.OPEN) {
+        socket.terminate();
       }
       notifyClose("closed-by-client");
     },
+    sendCorrectionContext: streaming
+      ? (texts) => {
+          if (!closed && taskStarted) {
+            sendJson({
+              header: { action: "continue-task", streaming: "duplex", task_id: taskId },
+              payload: { input: { context: transcriptContext(texts) } },
+            });
+          }
+        }
+      : undefined,
     sendPcm: (bytes) => {
-      if (closed || socket.readyState !== WebSocketImpl.OPEN) {
+      if (closed || !taskStarted || socket.readyState !== WebSocketImpl.OPEN) {
         return false;
       }
-      const payload = JSON.stringify({
-        audio: pcmBytesToBase64(bytes),
-        event_id: randomUUID(),
-        type: "input_audio_buffer.append",
-      });
+      const payload = streaming
+        ? bytes
+        : JSON.stringify({
+            audio: pcmBytesToBase64(bytes),
+            event_id: randomUUID(),
+            type: "input_audio_buffer.append",
+          });
       const payloadBytes = Buffer.byteLength(payload);
       if (socket.bufferedAmount + payloadBytes > MAX_BUFFERED_BYTES) {
         if (!backpressured) {
@@ -243,7 +375,12 @@ export function connectDashScopeRealtimeWs(
         scheduleDrainPoll();
         return false;
       }
-      return sendText(payload);
+      const accepted = sendText(payload);
+      if (accepted) {
+        correction?.appendPcm(bytes);
+      }
+      return accepted;
     },
+    takeCorrectionAudio: correction ? correction.take : undefined,
   };
 }

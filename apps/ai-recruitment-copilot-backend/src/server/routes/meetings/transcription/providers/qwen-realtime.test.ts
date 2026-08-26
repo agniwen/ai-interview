@@ -41,6 +41,13 @@ function createAuthorization(options: {
 }
 
 describe("createQwenRealtimeTranscriptionAuthorization", () => {
+  it("keeps the legacy protocol endpoint when the old model is explicitly configured", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ expires_at: 1_752_654_000, token: "st-temp-token" }));
+    const result = await createAuthorization({ fetch, model: "qwen3-asr-flash-realtime" });
+    expect(result.baseUrl).toBe("wss://dashscope.aliyuncs.com/api-ws/v1/realtime");
+  });
   it("mints a DashScope temp token and returns a short-lived qwen authorization", async () => {
     const fetch = vi
       .fn()
@@ -56,7 +63,7 @@ describe("createQwenRealtimeTranscriptionAuthorization", () => {
       }),
     );
     expect(authorization).toEqual({
-      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
       clientSecret: "st-temp-token",
       expiresAt: "2025-07-16T08:20:00.000Z",
       language: "zh",
@@ -96,7 +103,7 @@ describe("createQwenRealtimeTranscriptionAuthorization", () => {
       fetch,
     });
 
-    expect(authorization.baseUrl).toBe("wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime");
+    expect(authorization.baseUrl).toBe("wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference");
   });
 
   it("rejects a missing API key before calling DashScope", async () => {

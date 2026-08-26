@@ -1,6 +1,6 @@
-import { useThemeTransition } from "./use-theme-transition";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import type { AppIconName } from "@/components/ui/icon";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -36,7 +36,7 @@ const noDragStyle: ElectronNoDragStyle = {
  * not only the resolved color scheme.
  */
 export function ThemeToggle({ className }: { className?: string }): React.JSX.Element {
-  const { theme, setTheme } = useThemeTransition();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

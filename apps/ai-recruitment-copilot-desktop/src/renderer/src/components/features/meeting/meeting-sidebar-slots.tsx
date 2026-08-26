@@ -9,7 +9,6 @@ import {
   SidebarHeaderPortalContent,
 } from "@/components/layout/app-sidebar/portals";
 import { SidebarNavItem } from "@/components/layout/app-sidebar/sidebar-nav-item";
-import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,6 +29,7 @@ import {
   trashMeeting,
 } from "@/lib/client/meetings";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
+import { showMeetingArchivedToast } from "./meeting-archive-toast";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { useMeetingCaptureSnapshot, useMeetingRecordingActions } from "./meeting-recording-context";
 import {
@@ -105,19 +105,7 @@ export function MeetingSidebarSlots() {
     onSuccess: async (_, { meetingId, slug }) => {
       void refreshMeetingLists(slug);
 
-      const toastId = toast.success("已归档", {
-        action: (
-          <Button
-            className="ml-auto"
-            onClick={() => restoreMutation.mutate({ meetingId, slug, toastId })}
-            size="sm"
-            type="button"
-          >
-            撤回
-          </Button>
-        ),
-        style: { paddingBlock: "8px" },
-      });
+      showMeetingArchivedToast((toastId) => restoreMutation.mutate({ meetingId, slug, toastId }));
 
       if (pathname === `/meetings/${meetingId}` || pathname.startsWith(`/meetings/${meetingId}/`)) {
         await navigate({ to: "/meetings" });
@@ -218,7 +206,11 @@ export function MeetingSidebarSlots() {
             />
           </SidebarMenuItem>
           <SidebarNavItem
-            active={pathname === "/recruitment"}
+            active={
+              pathname === "/recruitment" ||
+              pathname.startsWith("/recruitment/") ||
+              pathname.startsWith("/resumes/")
+            }
             item={{
               icon: "ph:briefcase",
               title: "AI Recruitment Copilot 招聘台",

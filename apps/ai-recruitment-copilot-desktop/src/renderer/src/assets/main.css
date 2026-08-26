@@ -1,3 +1,5 @@
+@layer properties, theme, base, components, utilities;
+
 /*
  * MiSans — same family/weights as the web app (misans@4.1.0 / jsDelivr CDN).
  *
@@ -15,53 +17,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./typeset.css";
-
-/* Triangle Blur by @ncdai (MIT), scoped to explicit theme changes.
-   https://chanhdai.com/components/theme-toggle-effect */
-@media (prefers-reduced-motion: no-preference) {
-  html[data-theme-transition="triangle-blur"] {
-    --theme-toggle-expo-out: linear(
-      0 0%,
-      0.1684 2.66%,
-      0.3165 5.49%,
-      0.446 8.52%,
-      0.5581 11.78%,
-      0.6535 15.29%,
-      0.7341 19.11%,
-      0.8011 23.3%,
-      0.8557 27.93%,
-      0.8962 32.68%,
-      0.9283 38.01%,
-      0.9529 44.08%,
-      0.9711 51.14%,
-      0.9833 59.06%,
-      0.9915 68.74%,
-      1 100%
-    );
-  }
-
-  html[data-theme-transition="triangle-blur"]::view-transition-group(root) {
-    animation-timing-function: var(--theme-toggle-expo-out);
-  }
-
-  html[data-theme-transition="triangle-blur"]::view-transition-old(root) {
-    animation: none;
-    animation-fill-mode: both;
-    z-index: -1;
-  }
-
-  html[data-theme-transition="triangle-blur"]::view-transition-new(root) {
-    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="m20 0 20 35H0z" fill="white" filter="url(%23blur)"/><defs><filter id="blur"><feGaussianBlur stdDeviation="1"/></filter></defs></svg>')
-      center / 0 no-repeat;
-    animation: theme-triangle-blur 0.7s var(--theme-toggle-expo-out) both;
-  }
-
-  @keyframes theme-triangle-blur {
-    to {
-      mask-size: 300vmax;
-    }
-  }
-}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -138,30 +93,32 @@
 :root {
   --radius: 0.875rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.28 0.04 254);
+  /* Main content and header share the sidebar's primary text color. */
+  --foreground: var(--sidebar-foreground);
   --card: var(--background);
-  --card-foreground: oklch(0.28 0.04 254);
+  --card-foreground: var(--foreground);
   --popover: #fafafa;
-  --popover-foreground: oklch(0.28 0.04 254);
-  /* Primary aligns with #3D8EEE; button surface slightly darker for AA contrast. */
-  --primary: oklch(0.62 0.17 254);
-  --primary-foreground: oklch(0.99 0.005 254);
+  --popover-foreground: var(--foreground);
+  /* Desktop uses Klein blue actions in both light and dark modes. */
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
-  --secondary-foreground: oklch(0.36 0.05 254);
+  --secondary-foreground: var(--foreground);
   --muted: #f5f5f5;
   --muted-foreground: oklch(0.52 0.035 254);
   --accent: #f5f5f5;
-  --accent-foreground: oklch(0.36 0.05 254);
+  --accent-foreground: var(--foreground);
+  --ai-correction-gradient: linear-gradient(135deg, #0891b2, #8b5cf6 48%, #ec4899);
   --destructive: oklch(0.577 0.245 27.325);
-  /* Soft window / pane dividers — keep light so glass chrome does not feel boxed-in. */
-  --border: oklch(0.55 0 0 / 0.08);
+  /* Content borders match Web; native chrome uses --sidebar-border below. */
+  --border: #eeeeed;
   --input: #eeeeed;
-  --ring: oklch(0.644 0.164 254);
-  --chart-1: oklch(0.62 0.17 254);
-  --chart-2: oklch(0.72 0.13 254);
-  --chart-3: oklch(0.8 0.09 254);
-  --chart-4: oklch(0.87 0.05 254);
-  --chart-5: oklch(0.5 0.16 254);
+  --ring: #4f70d2;
+  --chart-1: #1d4ed8;
+  --chart-2: #4f70d2;
+  --chart-3: #7699ef;
+  --chart-4: #9ebaf6;
+  --chart-5: #c7d8fa;
   /*
    * Sidebar chrome tokens. On macOS/Win the glass panel is mostly transparent
    * so native vibrancy/acrylic (window-level) shows through. A faint wash
@@ -172,8 +129,8 @@
   --sidebar-glass: oklch(1 0 0 / 0.08);
   /* Between main UI black and muted gray — readable on glass without feeling heavy. */
   --sidebar-foreground: oklch(0.36 0 0);
-  --sidebar-primary: oklch(0.3 0 0);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-primary: #1d4ed8;
+  --sidebar-primary-foreground: #ffffff;
   /* Menu hover / active — keep translucent so items match the glass sidebar. */
   --sidebar-accent: oklch(0.2 0 0 / 0.06);
   --sidebar-accent-active: oklch(0.2 0 0 / 0.1);
@@ -182,7 +139,7 @@
      so placeholders sit on the glass instead of painting solid blocks. */
   --sidebar-skeleton: oklch(0.2 0 0 / 0.06);
   --sidebar-border: oklch(0.55 0 0 / 0.08);
-  --sidebar-ring: oklch(0.55 0 0);
+  --sidebar-ring: #4f70d2;
   --destructive-foreground: var(--color-red-700);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-700);
@@ -194,40 +151,41 @@
 
 .dark {
   --background: oklch(0.215 0.018 254);
-  --foreground: oklch(0.97 0.006 254);
+  --foreground: var(--sidebar-foreground);
   --card: oklch(0.215 0.018 254);
-  --card-foreground: oklch(0.97 0.006 254);
+  --card-foreground: var(--foreground);
   --popover: oklch(0.215 0.018 254);
-  --popover-foreground: oklch(0.97 0.006 254);
-  --primary: #c4b5fd;
-  --primary-foreground: #241d3f;
+  --popover-foreground: var(--foreground);
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.255 0.02 254);
-  --secondary-foreground: oklch(0.97 0.006 254);
+  --secondary-foreground: var(--foreground);
   --muted: oklch(0.255 0.02 254);
   --muted-foreground: oklch(0.74 0.03 254);
   --accent: oklch(0.255 0.02 254);
-  --accent-foreground: oklch(0.97 0.006 254);
+  --accent-foreground: var(--foreground);
+  --ai-correction-gradient: linear-gradient(135deg, #67e8f9, #a78bfa 48%, #f472b6);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 7%);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: #a78bfa;
-  --chart-1: #c4b5fd;
-  --chart-2: #e0eaff;
-  --chart-3: #f0abfc;
-  --chart-4: #fbcfe8;
-  --chart-5: #a5b4fc;
+  --ring: #4f70d2;
+  --chart-1: #7699ef;
+  --chart-2: #86a9f4;
+  --chart-3: #9ebaf6;
+  --chart-4: #c7d8fa;
+  --chart-5: #7da1f3;
   --sidebar: #0e151e;
   --sidebar-glass: oklch(0.12 0.02 254 / 0.12);
   --sidebar-foreground: oklch(0.88 0.008 254);
-  --sidebar-primary: #c4b5fd;
-  --sidebar-primary-foreground: #241d3f;
+  --sidebar-primary: #1d4ed8;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(1 0 0 / 0.08);
   --sidebar-accent-active: oklch(1 0 0 / 0.14);
   --sidebar-accent-foreground: oklch(0.92 0.008 254);
   /* Skeleton bars — translucent light wash over the dark glass sidebar. */
   --sidebar-skeleton: oklch(1 0 0 / 0.07);
   --sidebar-border: oklch(1 0 0 / 7%);
-  --sidebar-ring: #a78bfa;
+  --sidebar-ring: #4f70d2;
   --destructive-foreground: var(--color-red-400);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-400);
@@ -262,6 +220,35 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     background: transparent;
+  }
+
+  h1 {
+    @apply text-3xl leading-tight tracking-tight text-foreground;
+    font-weight: 500;
+  }
+  h2 {
+    @apply text-2xl leading-tight tracking-tight text-foreground;
+    font-weight: 500;
+  }
+  h3 {
+    @apply text-lg text-foreground;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  h4 {
+    @apply text-sm text-foreground;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, white);
+    color: #173e2c;
+  }
+
+  .dark ::selection {
+    background: color-mix(in oklab, var(--primary) 45%, transparent);
+    color: var(--foreground);
   }
 
   /*
@@ -331,6 +318,16 @@
  */
 :where(:focus, :focus-visible, :focus-within) {
   outline: none !important;
+}
+
+/* Apple §12 — saturate(180%) on all translucent surfaces.
+   Without it, backdrop-blur desaturates the content underneath and the
+   material reads as flat gray. Tailwind v4 composes backdrop-filter from
+   --tw-backdrop-* variables, so setting --tw-backdrop-saturate here
+   augments every backdrop-blur-* utility without editing each call site.
+   Individual surfaces can opt out with backdrop-saturate-100. */
+[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]):not(.backdrop-saturate-100) {
+  --tw-backdrop-saturate: saturate(180%);
 }
 
 /* Project-themed OverlayScrollbars (ScrollArea). Light = lower opacity. */

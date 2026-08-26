@@ -491,7 +491,7 @@ async function loadCancelledProcessResult(
 async function processClaimedItem(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
-  options: { bypassCache?: boolean } = {},
+  options: { bypassCache?: boolean; retryParseFailure?: boolean } = {},
   dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
@@ -525,7 +525,12 @@ async function processClaimedItem(
     if (isBatchItemCancelledError(error)) {
       return loadCancelledProcessResult(item, batchRow, startedAt);
     }
-    outcome.errorMessage = truncate(error instanceof Error ? error.message : String(error));
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    if (options.retryParseFailure) {
+      await releaseBatchItemForRetry(batchRow.id, item.id);
+      throw normalizedError;
+    }
+    outcome.errorMessage = truncate(normalizedError.message);
     logStep("item.process.error", {
       batchId: batchRow.id,
       errorMessage: outcome.errorMessage,
@@ -590,7 +595,7 @@ async function processClaimedItem(
 
 export async function processBatchItem(
   itemId: string,
-  options: { bypassCache?: boolean } = {},
+  options: { bypassCache?: boolean; retryParseFailure?: boolean } = {},
   dependencies: ResumeUploadBatchProcessorDependencies = defaultResumeUploadBatchProcessorDependencies,
 ): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
@@ -709,8 +714,10 @@ export function createResumeUploadBatchProcessor(
   dependencies: ResumeUploadBatchProcessorDependencies,
 ) {
   return {
-    processBatchItem: (itemId: string, options: { bypassCache?: boolean } = {}) =>
-      processBatchItem(itemId, options, dependencies),
+    processBatchItem: (
+      itemId: string,
+      options: { bypassCache?: boolean; retryParseFailure?: boolean } = {},
+    ) => processBatchItem(itemId, options, dependencies),
     processNextItem: (batchId: string, organizationId: string, userId: string) =>
       processNextItem(batchId, organizationId, userId, dependencies),
   };

@@ -2,6 +2,7 @@ import {
   createHashHistory,
   createRootRouteWithContext,
   createRoute,
+  createRouteMask,
   createRouter,
   Outlet,
   redirect,
@@ -26,7 +27,7 @@ import { MeetingDetailRoutePage } from "@/routes/meeting-detail-page";
 import { MeetingLibraryRoutePage } from "@/routes/meeting-library-page";
 import { MeetingMoreRoutePage } from "@/routes/meeting-more-page";
 import { MeetingNewRoutePage } from "@/routes/meeting-new-page";
-import { ResumeDetailRoutePage } from "@/routes/resume-detail-page";
+import { ResumeDetailOverlayRoutePage, ResumeDetailRoutePage } from "@/routes/resume-detail-page";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -120,6 +121,12 @@ const recruitmentRoute = createRoute({
   path: "/recruitment",
 });
 
+const resumeDetailOverlayRoute = createRoute({
+  component: ResumeDetailOverlayRoutePage,
+  getParentRoute: () => recruitmentRoute,
+  path: "overlay/$recordId",
+});
+
 const resumeDetailRoute = createRoute({
   component: ResumeDetailRoutePage,
   getParentRoute: () => appRoute,
@@ -207,7 +214,7 @@ const routeTree = rootRoute.addChildren([
   authCallbackRoute,
   appRoute.addChildren([
     indexRoute,
-    recruitmentRoute,
+    recruitmentRoute.addChildren([resumeDetailOverlayRoute]),
     meetingLibraryRoute,
     meetingNewRoute,
     meetingDetailRoute,
@@ -218,6 +225,15 @@ const routeTree = rootRoute.addChildren([
     settingsAppearanceRoute,
   ]),
 ]);
+
+const resumeDetailOverlayMask = createRouteMask({
+  from: "/recruitment/overlay/$recordId",
+  params: true,
+  routeTree,
+  search: true,
+  to: "/resumes/$recordId",
+  unmaskOnReload: true,
+});
 
 /**
  * Hash history is the safe default for Electron:
@@ -231,6 +247,7 @@ export function createDesktopRouter(queryClient: QueryClient = getQueryClient())
     context: { queryClient },
     defaultPreload: "intent",
     history: hashHistory,
+    routeMasks: [resumeDetailOverlayMask],
     routeTree,
     scrollRestoration: true,
   });

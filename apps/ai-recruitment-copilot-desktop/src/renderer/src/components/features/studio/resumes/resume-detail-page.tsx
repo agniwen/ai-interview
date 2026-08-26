@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { QualitativeResumeEvaluationPanel } from "./qualitative-resume-evaluation-panel";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
@@ -70,10 +71,9 @@ function DetailHeaderText({ detail }: { detail: ResumeLibraryDetail }) {
   );
 }
 
-export function ResumeDetailPage() {
-  const { recordId } = useParams({ from: "/_app/resumes/$recordId" });
-  const { openMeetingRecording } = useMeetingRecordingActions();
+export function ResumeDetailPage({ recordId }: { recordId: string }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
+  const { openMeetingRecording } = useMeetingRecordingActions();
 
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
@@ -91,6 +91,10 @@ export function ResumeDetailPage() {
       return fetchStudioResume(slug, recordId);
     },
     queryKey: ["studio-resumes", slug, "detail", recordId],
+    refetchInterval: (query) => {
+      const status = query.state.data?.resumeReviewStatus;
+      return status === "queued" || status === "processing" ? 3000 : false;
+    },
     staleTime: 30_000,
   });
 
@@ -107,15 +111,6 @@ export function ResumeDetailPage() {
             ? workspaceQuery.error.message
             : "请先在网页端加入或创建工作区"}
         </p>
-        <Button
-          className="mt-4"
-          nativeButton={false}
-          render={<Link to="/recruitment" />}
-          type="button"
-          variant="outline"
-        >
-          返回招聘台
-        </Button>
       </div>
     );
   }
@@ -145,15 +140,33 @@ export function ResumeDetailPage() {
       <div className="px-6 py-16 text-center">
         <p className="font-medium text-sm">未找到招聘记录</p>
         <p className="mt-1 text-muted-foreground text-xs">记录可能已删除，或你没有查看权限</p>
-        <Button
-          className="mt-4"
-          nativeButton={false}
-          render={<Link to="/recruitment" />}
-          type="button"
-          variant="outline"
-        >
-          返回招聘台
-        </Button>
+      </div>
+    );
+  }
+
+  let historicalResult: ReactNode;
+  if (detail.resumeEvaluationArtifactMode === "structured") {
+    historicalResult = (
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-sm">历史结构化评分</p>
+        <StructuredResumeEvaluationPanel
+          canEdit={false}
+          detail={detail}
+          onUpdated={() => {
+            void detailQuery.refetch();
+          }}
+          slug={slug}
+        />
+      </div>
+    );
+  } else if (detail.resumeEvaluationArtifactMode === "legacy" && detail.resumeReview) {
+    historicalResult = (
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-sm">历史评分</p>
+        <ResumeReviewStructuredView
+          review={detail.resumeReview}
+          screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={detail} />}
+        />
       </div>
     );
   }
@@ -182,7 +195,7 @@ export function ResumeDetailPage() {
                   概览
                 </TabsTrigger>
                 <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-                  AI评分
+                  AI评价
                 </TabsTrigger>
               </TabsList>
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -216,21 +229,11 @@ export function ResumeDetailPage() {
 
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
-                {detail.resumeEvaluationArtifactMode === "structured" ? (
-                  <StructuredResumeEvaluationPanel
-                    canEdit={false}
-                    detail={detail}
-                    onUpdated={() => {
-                      void detailQuery.refetch();
-                    }}
-                    slug={slug}
-                  />
-                ) : (
-                  <ResumeReviewStructuredView
-                    review={detail.resumeReview}
-                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={detail} />}
-                  />
-                )}
+                <QualitativeResumeEvaluationPanel
+                  detail={detail}
+                  slug={slug}
+                  historicalResult={historicalResult}
+                />
               </div>
             </TabsContent>
           </div>

@@ -224,7 +224,7 @@ export function DesktopChromeBar(): React.JSX.Element {
           transition: "left 200ms ease",
         }}
       >
-        <span className="truncate select-none font-medium text-muted-foreground text-sm tracking-tight">
+        <span className="truncate select-none font-medium text-foreground text-sm tracking-tight">
           {headerTitle}
         </span>
       </div>

@@ -397,10 +397,14 @@ async function main() {
   }
   if (backgroundProcessingEnabled && isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
-    worker = createResumeParseWorker(async ({ bypassCache, itemId }) => {
+    worker = createResumeParseWorker(async ({ bypassCache, itemId }, context) => {
       const { runBulkResumeUploadWorkflow } =
         await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/bulk-resume-upload-workflow");
-      await runBulkResumeUploadWorkflow({ bypassCache, itemId });
+      await runBulkResumeUploadWorkflow({
+        bypassCache,
+        itemId,
+        retryParseFailure: context.hasAttemptsRemaining,
+      });
     });
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();

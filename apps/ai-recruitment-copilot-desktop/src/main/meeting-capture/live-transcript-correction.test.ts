@@ -1,0 +1,214 @@
+// oxlint-disable promise/avoid-new -- Deferred requests exercise in-flight cancellation.
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
+import {
+  createLiveTranscriptCorrection,
+  LIVE_CORRECTION_MODEL,
+  LIVE_CORRECTION_LLM,
+} from "./live-transcript-correction";
+
+const batch: LiveCorrectionBatch = {
+  batchId: "00000000-0000-4000-8000-000000000001",
+  blocks: [0, 1, 2].map((i) => ({
+    id: `section:${i}`,
+    itemId: String(i),
+    originalText: `实时${i}`,
+    sectionId: "section",
+    track: i === 1 ? "system" : "microphone",
+  })),
+  context: { after: [], before: ["前文"] },
+};
+const corrected = batch.blocks.map((block, i) => ({ id: block.id, text: `校正${i}` }));
+const asr = () => Response.json({ output: { text: "完整合并音频识别" } });
+const llm = (blocks = corrected) =>
+  Response.json({
+    choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ blocks }) } }],
+  });
+const clips = [1, 2, 3].map((value) => Buffer.alloc(32_000, value));
+function setup(
+  fetch = vi
+    .fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(asr())
+    .mockResolvedValueOnce(llm()),
+) {
+  const onEvent = vi.fn();
+  const sidecar = createLiveTranscriptCorrection({ fetch });
+  const request = {
+    baseUrl: "https://dashscope.aliyuncs.com",
+    batch,
+    clips,
+    getContext: () => ({ after: ["ASR 期间的新后文"], before: ["前文已校正"] }),
+    onEvent,
+    token: "temporary-token",
+  };
+  return { fetch, onEvent, request, sidecar };
+}
+afterEach(() => vi.useRealTimers());
+describe("three-block audio correction", () => {
+  it("concatenates three cross-track clips into ONE ASR request then ONE contextual LLM request", async () => {
+    const { sidecar, fetch, onEvent, request } = setup();
+    sidecar.correct(request);
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledOnce());
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const body = JSON.parse(String(fetch.mock.calls[0][1]?.body));
+    expect(body.model).toBe(LIVE_CORRECTION_MODEL);
+    const wav = Buffer.from(
+      body.input.messages.at(-1).content[0].input_audio.data.split(",")[1],
+      "base64",
+    );
+    expect(wav.readUInt32LE(24)).toBe(16_000);
+    expect(wav.subarray(44)).toEqual(Buffer.concat(clips));
+    const llmBody = JSON.parse(String(fetch.mock.calls[1][1]?.body));
+    expect(llmBody.model).toBe(LIVE_CORRECTION_LLM);
+    const prompt = JSON.parse(llmBody.messages[1].content);
+    expect(prompt).toMatchObject({
+      combinedTranscript: "完整合并音频识别",
+      context: request.getContext(),
+    });
+    expect(prompt.blocks.map((block: { id: string }) => block.id)).toEqual(
+      batch.blocks.map((block) => block.id),
+    );
+    expect(onEvent).toHaveBeenCalledWith({
+      batchId: batch.batchId,
+      blocks: corrected,
+      model: `${LIVE_CORRECTION_MODEL}+${LIVE_CORRECTION_LLM}`,
+      status: "completed",
+      type: "meeting.transcription.correction-batch",
+    });
+    sidecar.correct(request);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    sidecar.close();
+  });
+  it.each(
+    [
+      [],
+      corrected.slice(0, 2),
+      [corrected[0], corrected[0], corrected[2]],
+      [{ id: "wrong", text: "x" }, ...corrected.slice(1)],
+    ].map((blocks) => ({ blocks })),
+  )(
+    "rejects incomplete or mismatched LLM block IDs without partial updates: %j",
+    async ({ blocks }) => {
+      const { sidecar, onEvent, request } = setup(
+        vi
+          .fn<typeof globalThis.fetch>()
+          .mockResolvedValueOnce(asr())
+          .mockResolvedValueOnce(llm(blocks)),
+      );
+      sidecar.correct(request);
+      await vi.waitFor(() =>
+        expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" })),
+      );
+      expect(onEvent).toHaveBeenCalledOnce();
+      sidecar.close();
+    },
+  );
+  it("does not submit partial audio when any of the three clips is unavailable", () => {
+    const { sidecar, fetch, onEvent, request } = setup();
+    sidecar.correct({ ...request, clips: [clips[0], null, clips[2]] });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" }));
+    sidecar.close();
+  });
+  it("aborts either stage and clears pending status without delivering late text", async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const { sidecar, fetch, onEvent, request } = setup(
+      vi.fn<typeof globalThis.fetch>().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }),
+      ),
+    );
+    sidecar.correct(request);
+    sidecar.close();
+    expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" }));
+    resolveRequest?.(asr());
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledOnce();
+  });
+  it("keeps realtime text on provider failure", async () => {
+    const { sidecar, onEvent, request } = setup(
+      vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(null, { status: 429 })),
+    );
+    sidecar.correct(request);
+    await vi.waitFor(() =>
+      expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" })),
+    );
+    sidecar.close();
+  });
+  it("bounds queued batches, clearing evicted and cancelled work exactly once", async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }),
+      )
+      .mockImplementation((_url, options) => {
+        const body = JSON.parse(String(options?.body));
+        if (body.model === LIVE_CORRECTION_MODEL) {
+          return Promise.resolve(asr());
+        }
+        const data = JSON.parse(body.messages[1].content);
+        return Promise.resolve(
+          llm(data.blocks.map((block: { id: string }) => ({ id: block.id, text: "校正" }))),
+        );
+      });
+    const { sidecar, onEvent, request } = setup(fetch);
+    for (let index = 0; index < 6; index += 1) {
+      sidecar.correct({
+        ...request,
+        batch: { ...batch, batchId: `00000000-0000-4000-8000-00000000000${index}` },
+      });
+    }
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        batchId: "00000000-0000-4000-8000-000000000001",
+        status: "finished",
+      }),
+    );
+    resolveRequest?.(asr());
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledTimes(6));
+    expect(fetch).toHaveBeenCalledTimes(10);
+    sidecar.close();
+    expect(onEvent).toHaveBeenCalledTimes(6);
+  });
+
+  it("cancels during the LLM stage and ignores its late response", async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(asr())
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }),
+      );
+    const { sidecar, request, onEvent } = setup(fetch);
+    sidecar.correct(request);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    sidecar.cancelSection("unrelated");
+    expect(onEvent).not.toHaveBeenCalled();
+    sidecar.cancelSection("section");
+    sidecar.cancelSection("section");
+    expect(fetch.mock.calls[1][1]?.signal?.aborted).toBe(true);
+    expect(onEvent).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ status: "finished" }),
+    );
+    resolveRequest?.(llm());
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(onEvent).toHaveBeenCalledOnce();
+    sidecar.close();
+  });
+});

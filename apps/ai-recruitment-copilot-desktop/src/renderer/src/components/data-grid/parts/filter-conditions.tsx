@@ -59,7 +59,7 @@ function buildField(
       disabled: option.disabled,
       icon:
         option.avatarUrl === undefined ? undefined : (
-          <Avatar size="sm">
+          <Avatar label={option.label} seed={`filter:${option.value}`} size="sm">
             {option.avatarUrl ? <AvatarImage alt={option.label} src={option.avatarUrl} /> : null}
             <AvatarFallback>{option.label.slice(0, 1)}</AvatarFallback>
           </Avatar>

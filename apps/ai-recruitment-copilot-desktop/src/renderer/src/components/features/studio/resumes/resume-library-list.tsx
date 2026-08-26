@@ -1,6 +1,15 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useResumeLibraryLoadMore } from "./use-resume-library-load-more";
+import {
+  STUDIO_DATE_GROUP_ROW_HEIGHT,
+  StudioDateGroupHeaderSkeleton,
+  StudioStickyDateGroupHeader,
+  buildStudioDateGroupedVirtualRows,
+  buildStudioStickyDateHeaderPositions,
+  useStudioStickyDateGroup,
+} from "../studio-date-group-virtual-list";
+import { useElementScrollRestoration, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { DESKTOP_SCROLL_TO_TOP_EVENT } from "@/components/features/studio/desktop-scroll-to-top-button";
 import { Button } from "@/components/ui/button";
@@ -10,18 +19,16 @@ import { useResumeLibraryCardHeight } from "./card-height";
 import { ResumeLibraryCard } from "./resume-library-card";
 import {
   findDesktopMainScrollElement,
-  resumeLibraryScrollRestoreSnapshot,
-  setResumeLibraryScrollRestoreSnapshot,
-  useResumeLibraryInitialScrollRestore,
-  useResumeLibraryResizeScrollRestore,
+  DESKTOP_MAIN_SCROLL_RESTORATION_ID,
   useResumeLibraryScrollElement,
-} from "./scroll-restore";
+} from "./scroll-element";
 
 interface ResumeLibraryListProps {
   emptyHint?: string;
   error: Error | null;
   fetchNextPage: () => Promise<void>;
   hasNextPage: boolean;
+  isFetching: boolean;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   onRetry: () => void;
@@ -41,6 +48,7 @@ export function ResumeLibraryList({
   error,
   fetchNextPage,
   hasNextPage,
+  isFetching,
   isFetchingNextPage,
   isInitialLoading,
   onRetry,
@@ -49,26 +57,44 @@ export function ResumeLibraryList({
 }: ResumeLibraryListProps) {
   const navigate = useNavigate();
   const listRootRef = useRef<HTMLDivElement | null>(null);
+  const virtualListRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const [initialRestoreSnapshot] = useState(() => resumeLibraryScrollRestoreSnapshot.current);
-  const restoreSnapshotRef = useRef(initialRestoreSnapshot);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
-  const initialScrollRestore = useResumeLibraryInitialScrollRestore(initialRestoreSnapshot);
+  const scrollEntry = useElementScrollRestoration({ id: DESKTOP_MAIN_SCROLL_RESTORATION_ID });
 
-  const getVirtualItemKey = useCallback(
-    (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
+  const virtualRows = useMemo(
+    () => buildStudioDateGroupedVirtualRows(records, "createdAt"),
     [records],
   );
+  const getVirtualItemKey = useCallback(
+    (index: number) => virtualRows[index]?.id ?? `resume-placeholder-${index}`,
+    [virtualRows],
+  );
+  const getVirtualRowSize = useCallback(
+    (index: number) =>
+      virtualRows[index]?.type === "date-header" ? STUDIO_DATE_GROUP_ROW_HEIGHT : cardHeight,
+    [cardHeight, virtualRows],
+  );
+  const positions = useMemo(
+    () => buildStudioStickyDateHeaderPositions(virtualRows, cardHeight),
+    [cardHeight, virtualRows],
+  );
+  const getScrollElement = useCallback(() => scrollElement, [scrollElement]);
+  const { rangeExtractor, stickyState } = useStudioStickyDateGroup({
+    getScrollElement,
+    listRootRef: virtualListRootRef,
+    positions,
+  });
 
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
-    count: records.length,
-    estimateSize: () => cardHeight,
+    count: virtualRows.length,
+    estimateSize: getVirtualRowSize,
     getItemKey: getVirtualItemKey,
-    getScrollElement: () => scrollElement,
-    initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache,
-    initialOffset: initialScrollRestore.initialOffset,
+    getScrollElement,
+    initialOffset: scrollEntry?.scrollY,
     overscan: 6,
+    rangeExtractor,
   });
 
   useEffect(() => {
@@ -89,53 +115,28 @@ export function ResumeLibraryList({
 
   const handleOpenDetail = useCallback(
     (record: ResumeLibraryListRecord) => {
-      const viewport = scrollElement ?? findDesktopMainScrollElement();
-      const rowElement = listRootRef.current?.querySelector<HTMLElement>(
-        `[data-resume-record-id="${record.id}"]`,
-      );
-      if (viewport && rowElement) {
-        setResumeLibraryScrollRestoreSnapshot({
-          measurements: virtualizer.takeSnapshot(),
-          recordId: record.id,
-          recordTopInScrollElement:
-            rowElement.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
-          scrollOffset: viewport.scrollTop,
-          viewportWidth: viewport.clientWidth,
-        });
-      }
-      void navigate({ params: { recordId: record.id }, to: "/resumes/$recordId" });
+      void navigate({
+        params: { recordId: record.id },
+        resetScroll: false,
+        to: "/recruitment/overlay/$recordId",
+      });
     },
-    [navigate, scrollElement, virtualizer],
+    [navigate],
   );
 
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    const IntersectionObserverConstructor = globalThis.IntersectionObserver;
-    if (!node || !hasNextPage || !IntersectionObserverConstructor) {
-      return;
-    }
-    const observer = new IntersectionObserverConstructor(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
-          void fetchNextPage();
-        }
-      },
-      { root: scrollElement, rootMargin: "720px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, scrollElement]);
-
-  useResumeLibraryResizeScrollRestore({
-    listRootRef,
-    records,
-    restoreSnapshotRef,
+  useResumeLibraryLoadMore({
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    loadMoreRef,
     scrollElement,
-    virtualizer,
   });
 
   let loadMoreStatusText = "已显示全部简历";
-  if (hasNextPage) {
+  if (error) {
+    loadMoreStatusText = "加载失败，请重试";
+  } else if (hasNextPage) {
     loadMoreStatusText = isFetchingNextPage
       ? "正在加载更多简历"
       : `已显示 ${records.length} / ${total} 条，继续下滑加载更多`;
@@ -145,7 +146,7 @@ export function ResumeLibraryList({
 
   if (error && records.length === 0) {
     listContent = (
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border px-6 py-12 text-center">
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-border px-6 py-12 text-center">
         <p className="text-sm text-muted-foreground">{errorMessage(error)}</p>
         <Button onClick={onRetry} type="button" variant="outline">
           重试
@@ -155,14 +156,15 @@ export function ResumeLibraryList({
   } else if (isInitialLoading) {
     listContent = (
       <div className="grid gap-3">
+        <StudioDateGroupHeaderSkeleton />
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton className="h-44 rounded-2xl" key={index} />
+          <Skeleton className="h-44 rounded-xl" key={index} />
         ))}
       </div>
     );
   } else if (records.length === 0) {
     listContent = (
-      <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+      <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
         <p className="font-medium text-sm">暂无简历</p>
         <p className="mt-1 text-muted-foreground text-xs">{emptyHint}</p>
       </div>
@@ -171,20 +173,34 @@ export function ResumeLibraryList({
     const virtualItems = virtualizer.getVirtualItems();
     listContent = (
       <>
-        {error ? (
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
-            <span className="text-muted-foreground">{errorMessage(error)}</span>
-            <Button onClick={onRetry} size="sm" type="button" variant="outline">
-              重试
-            </Button>
-          </div>
-        ) : null}
-        <div className="relative transition-opacity" style={{ height: virtualizer.getTotalSize() }}>
+        <div
+          ref={virtualListRootRef}
+          className="relative transition-opacity"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
           {virtualItems.map((virtualRow) => {
-            const record = records[virtualRow.index];
-            if (!record) {
+            const row = virtualRows[virtualRow.index];
+            if (!row) {
               return null;
             }
+            if (row.type === "date-header") {
+              const active = virtualRow.index === stickyState.index;
+              return (
+                <StudioStickyDateGroupHeader
+                  active={active}
+                  headingId={`desktop-resumes-${row.id}`}
+                  isStuck={active && stickyState.isStuck}
+                  key={virtualRow.key}
+                  label={row.label}
+                  onNavigate={() => virtualizer.scrollToIndex(virtualRow.index, { align: "start" })}
+                  pushOffset={active ? stickyState.pushOffset : 0}
+                  recordCount={row.recordCount}
+                  start={virtualRow.start}
+                  stickyTop={stickyState.stickyTop}
+                />
+              );
+            }
+            const { record } = row;
             return (
               <div
                 className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
@@ -205,14 +221,24 @@ export function ResumeLibraryList({
           className="flex min-h-10 items-center justify-center text-muted-foreground text-sm"
           ref={loadMoreRef}
         >
-          {loadMoreStatusText}
+          {error ? (
+            <div className="flex items-center gap-3" role="alert">
+              <span>{errorMessage(error)}</span>
+              <Button disabled={isFetching} onClick={onRetry} size="sm" variant="outline">
+                重试
+              </Button>
+            </div>
+          ) : (
+            loadMoreStatusText
+          )}
         </div>
       </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4" ref={listRootRef}>
+    // Include the sentinel: anchoring to it would chase each appended page indefinitely.
+    <div className="flex flex-col gap-4 [overflow-anchor:none]" ref={listRootRef}>
       {listContent}
     </div>
   );

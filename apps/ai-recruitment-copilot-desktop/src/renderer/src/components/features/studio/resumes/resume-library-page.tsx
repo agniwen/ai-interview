@@ -4,13 +4,14 @@ import { ResumeLibraryFiltersBar } from "./resume-library-filters";
 import { ResumeLibraryList } from "./resume-library-list";
 import { useResumeLibraryList } from "./use-resume-library-list";
 
-export function ResumeLibraryPage() {
+export function ResumeLibraryPage({ isDetailOpen }: { isDetailOpen: boolean }) {
   const {
     canResetFilters,
     fetchNextPage,
     filters,
     hasActiveFilters,
     hasNextPage,
+    isFetching,
     isFetchingNextPage,
     isInitialLoading,
     isRefetching,
@@ -20,8 +21,8 @@ export function ResumeLibraryPage() {
     onResetFilters,
     records,
     refetch,
+    retry,
     search,
-    selectedStructuredJob,
     skillSuggestions,
     total,
     workspace,
@@ -78,7 +79,6 @@ export function ResumeLibraryPage() {
         }}
         onResetFilters={onResetFilters}
         search={search}
-        selectedStructuredJob={selectedStructuredJob}
         skillSuggestions={skillSuggestions}
         workspaceMembers={workspaceMembers}
       />
@@ -90,20 +90,17 @@ export function ResumeLibraryPage() {
             : "当前工作区还没有招聘台记录"
         }
         error={listError}
-        fetchNextPage={async () => {
-          await fetchNextPage();
-        }}
+        fetchNextPage={fetchNextPage}
         hasNextPage={hasNextPage}
+        isFetching={isFetching}
         isFetchingNextPage={isFetchingNextPage}
         isInitialLoading={isInitialLoading}
-        onRetry={() => {
-          void refetch();
-        }}
+        onRetry={retry}
         records={records}
         total={total}
       />
 
-      <DesktopScrollToTopButton />
+      {isDetailOpen ? null : <DesktopScrollToTopButton />}
     </div>
   );
 }

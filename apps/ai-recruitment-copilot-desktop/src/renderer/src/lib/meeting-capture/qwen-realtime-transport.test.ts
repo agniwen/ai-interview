@@ -1,22 +1,36 @@
+import type { LiveCorrectionBatch } from "@arc/shared/meeting-live-correction";
 // oxlint-disable no-promise-executor-return, promise/avoid-new -- MessagePort delivery is confirmed through deferred callbacks.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
+import type { LiveTranscriptEvent } from "./live-transcript-draft";
 import { connectQwenRealtimeTranscription } from "./qwen-realtime-transport";
 
 const AUTHORIZATION: MeetingLiveTranscriptAuthorization = {
-  baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+  baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
   clientSecret: "st-temp-token",
-  expiresAt: "2026-08-09T01:21:00.000Z",
-  model: "qwen3-asr-flash-realtime",
+  expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+  model: "qwen-audio-3.0-asr-flash-streaming",
   provider: "qwen",
   track: "microphone",
 };
 
-interface TranscriptEvent {
-  itemId: string;
-  text: string;
-  type: "completed" | "delta" | "snapshot";
-}
+const BATCH: LiveCorrectionBatch = {
+  batchId: "00000000-0000-4000-8000-000000000001",
+  blocks: [0, 1, 2].map((i) => ({
+    id: `capture:microphone:0:${i}`,
+    itemId: String(i),
+    originalText: `原文${i}`,
+    sectionId: "capture:microphone:0",
+    track: "microphone",
+  })),
+  context: { after: [], before: [] },
+};
+const CORRECTION_INPUT = {
+  captureId: "capture",
+  onCorrection: vi.fn(),
+  sectionId: "capture:microphone:0",
+};
+type TranscriptEvent = LiveTranscriptEvent;
 
 interface HandshakeMessage {
   authorization: MeetingLiveTranscriptAuthorization;
@@ -66,6 +80,7 @@ async function openConnection() {
   const disconnects: string[] = [];
   const writableCalls: unknown[] = [];
   const pending = connectQwenRealtimeTranscription({
+    ...CORRECTION_INPUT,
     authorization: AUTHORIZATION,
     onDisconnect: (reason) => disconnects.push(reason),
     onTranscript: (event) => transcripts.push(event),
@@ -78,13 +93,117 @@ async function openConnection() {
 }
 
 describe("connectQwenRealtimeTranscription", () => {
+  it("sends explicit block correction requests over the port only while open", async () => {
+    const { connection } = await openConnection();
+    const onMessage = vi.fn();
+    serverPort?.addEventListener("message", onMessage);
+    connection.correct?.(BATCH);
+    await tick();
+    expect(onMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ data: { batch: BATCH, type: "correct" } }),
+    );
+    connection.close();
+    await tick();
+    onMessage.mockClear();
+    connection.correct?.(BATCH);
+    await tick();
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it("delivers a batch result without losing its block payload at the schema boundary", async () => {
+    const { connection } = await openConnection();
+    const event = {
+      batchId: BATCH.batchId,
+      blocks: BATCH.blocks.map((block) => ({ id: block.id, text: "校正" })),
+      model: "model",
+      status: "completed",
+      type: "meeting.transcription.correction-batch",
+    };
+    serverPort?.postMessage({ event, type: "event" }, []);
+    await tick();
+    expect(CORRECTION_INPUT.onCorrection).toHaveBeenCalledWith(event);
+    connection.close();
+  });
+
+  it("forwards per-sentence correction status and ignores malformed status events", async () => {
+    const { connection, transcripts } = await openConnection();
+    for (const status of ["started", "finished", "unknown", undefined]) {
+      serverPort?.postMessage(
+        {
+          event: {
+            item_id: "3",
+            original_text: "原稿",
+            status,
+            type: "meeting.transcription.correction-status",
+          },
+          type: "event",
+        },
+        [],
+      );
+    }
+    await tick();
+    expect(transcripts).toEqual([
+      { itemId: "3", originalText: "原稿", text: "", type: "correction-started" },
+      { itemId: "3", originalText: "原稿", text: "", type: "correction-finished" },
+    ]);
+    connection.close();
+  });
+
+  it("forwards correction provenance separately from realtime completion", async () => {
+    const { connection, transcripts } = await openConnection();
+    serverPort?.postMessage(
+      {
+        event: {
+          item_id: "3",
+          model: "qwen-audio-3.0-asr-flash",
+          original_text: "原稿",
+          transcript: "校正版",
+          type: "meeting.transcription.corrected",
+        },
+        type: "event",
+      },
+      [],
+    );
+    await tick();
+    expect(transcripts).toEqual([
+      {
+        correctionModel: "qwen-audio-3.0-asr-flash",
+        itemId: "3",
+        originalText: "原稿",
+        text: "校正版",
+        type: "corrected",
+      },
+    ]);
+    connection.close();
+  });
   it("hands the authorization to the preload handshake and resolves on session.created", async () => {
-    const { writableCalls } = await openConnection();
+    const { connection, writableCalls } = await openConnection();
     expect(postedHandshake).toMatchObject({
-      authorization: AUTHORIZATION,
+      authorization: { ...AUTHORIZATION, captureId: "capture", sectionId: "capture:microphone:0" },
       type: "start-meeting-live-transcript-client",
     });
     expect(writableCalls.length).toBeGreaterThan(0);
+    connection.close();
+  });
+
+  it("rotates the connection before its correction key expires", async () => {
+    const timer = vi.spyOn(globalThis, "setTimeout");
+    try {
+      const { connection, disconnects } = await openConnection();
+      const renewal = timer.mock.calls.find(
+        ([, delay]) => delay !== undefined && delay > 1_700_000,
+      );
+      if (!renewal) {
+        throw new Error("Missing temporary-key renewal timer");
+      }
+      renewal[0]();
+      expect(disconnects).toEqual(["authorization-expiring"]);
+      connection.close();
+      renewal[0]();
+      expect(disconnects).toEqual(["authorization-expiring"]);
+    } finally {
+      timer.mockRestore();
+    }
   });
 
   it("routes text + stash partials and completed transcripts to onTranscript", async () => {
@@ -220,6 +339,7 @@ describe("connectQwenRealtimeTranscription", () => {
 
   it("rejects when the provider closes before session.created", async () => {
     const pending = connectQwenRealtimeTranscription({
+      ...CORRECTION_INPUT,
       authorization: AUTHORIZATION,
       onDisconnect: vi.fn(),
       onTranscript: vi.fn(),

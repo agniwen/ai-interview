@@ -1,14 +1,23 @@
+import { useParams } from "@tanstack/react-router";
 import { HomeSidebarSlots } from "@/components/features/home/home-sidebar-slots";
 import { ResumeDetailPage } from "@/components/features/studio/resumes/resume-detail-page";
+import { StudioContentRouteOverlay } from "@/components/features/studio/studio-content-route-overlay";
 
-/**
- * Page-level 招聘台候选人详情（对齐 web `/w/$slug/studio/resumes/$recordId`）。
- */
-export function ResumeDetailRoutePage(): React.JSX.Element {
+export function ResumeDetailRoutePage() {
+  const { recordId } = useParams({ from: "/_app/resumes/$recordId" });
   return (
     <>
       <HomeSidebarSlots />
-      <ResumeDetailPage />
+      <ResumeDetailPage recordId={recordId} />
     </>
+  );
+}
+
+export function ResumeDetailOverlayRoutePage() {
+  const { recordId } = useParams({ from: "/_app/recruitment/overlay/$recordId" });
+  return (
+    <StudioContentRouteOverlay>
+      <ResumeDetailPage recordId={recordId} />
+    </StudioContentRouteOverlay>
   );
 }

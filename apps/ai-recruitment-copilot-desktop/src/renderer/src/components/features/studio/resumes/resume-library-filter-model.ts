@@ -2,7 +2,7 @@
  * Desktop 招聘台筛选模型 — 与 web 端 `resume-library-page-model` / filters-config 对齐：
  * - 独立 stage tabs（隐藏 written_test，不参与清空筛选）
  * - 原子文本条件 / creatorIds / skills / jdIds
- * - 单选 structured 岗位时的 structuredMinScore / structuredMaxScore
+ * - 四档定性评价 recommendationLevels
  *
  * 多选字段以 CSV 字符串保存在 state（与 web data-grid 约定一致）。
  */
@@ -15,18 +15,16 @@ export interface ResumeLibraryFilters {
   skills: string;
   /** 空字符串 = 全部阶段 */
   stage: string;
-  structuredMaxScore: string;
-  structuredMinScore: string;
+  recommendationLevels: string;
 }
 
 export const EMPTY_RESUME_LIBRARY_FILTERS: ResumeLibraryFilters = {
   createdAtRange: "",
   creatorIds: "",
   jdIds: "",
+  recommendationLevels: "",
   skills: "",
   stage: "",
-  structuredMaxScore: "",
-  structuredMinScore: "",
   textFilters: "",
 };
 
@@ -36,8 +34,7 @@ export const RESUME_LIBRARY_FILTER_KEYS = [
   "creatorIds",
   "jdIds",
   "skills",
-  "structuredMaxScore",
-  "structuredMinScore",
+  "recommendationLevels",
 ] as const satisfies readonly (keyof ResumeLibraryFilters)[];
 
 /** 与 web `PIPELINE_STAGE_TAB_DESCRIPTIONS` + `pipelineStageMeta` 对齐；隐藏笔试。 */
@@ -51,8 +48,6 @@ export const PIPELINE_STAGE_TABS = [
 ] as const;
 
 export type PipelineStageTabValue = (typeof PIPELINE_STAGE_TABS)[number]["value"];
-
-export const STRUCTURED_SCORE_OPTIONS = [60, 75, 85, 90] as const;
 
 export function parseCsvValues(value: string): string[] {
   if (!value) {
