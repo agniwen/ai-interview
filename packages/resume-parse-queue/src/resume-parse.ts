@@ -30,7 +30,13 @@ export const resumeParseJobSchema = z.object({
 });
 
 export type ResumeParseJobData = z.infer<typeof resumeParseJobSchema>;
-export type ResumeParseJobProcessor = (payload: ResumeParseJobData) => Promise<void>;
+export interface ResumeParseJobContext {
+  hasAttemptsRemaining: boolean;
+}
+export type ResumeParseJobProcessor = (
+  payload: ResumeParseJobData,
+  context: ResumeParseJobContext,
+) => Promise<void>;
 type ResumeParseCountState = (typeof RESUME_PARSE_COUNT_TYPES)[number];
 export type ResumeParseJobListState = "all" | ResumeParseCountState;
 
@@ -89,7 +95,7 @@ export interface ResumeParseQueueJobsResult {
   totalPages: number;
 }
 
-const DEFAULT_ATTEMPTS = 3;
+const DEFAULT_ATTEMPTS = 2;
 const DEFAULT_BACKOFF_MS = 30_000;
 const DEFAULT_CONCURRENCY = 9;
 
@@ -198,6 +204,13 @@ export function defaultResumeParseJobOptions(env: NodeJS.ProcessEnv = process.en
     removeOnComplete: { count: 1000 },
     removeOnFail: { count: 5000 },
   };
+}
+
+export function hasResumeParseAttemptsRemaining(
+  attemptsMade: number,
+  maxAttempts: number | undefined,
+): boolean {
+  return attemptsMade + 1 < (maxAttempts ?? 1);
 }
 
 export function buildResumeParseJobId(itemId: string): string {
@@ -485,7 +498,9 @@ export function createResumeParseWorker(
     RESUME_PARSE_QUEUE_NAME,
     async (job) => {
       const payload = resumeParseJobSchema.parse(job.data);
-      await processJob(payload);
+      await processJob(payload, {
+        hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+      });
     },
     {
       concurrency: resolveResumeParseWorkerConcurrency(),

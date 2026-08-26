@@ -9,6 +9,7 @@ import {
   department,
   jobDescription,
   organization,
+  resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
@@ -48,7 +49,7 @@ const dependencies = {
     vi.fn<ResumeUploadBatchProcessorDependencies["updateParseResultByHash"]>(),
 } satisfies ResumeUploadBatchProcessorDependencies;
 
-const { processNextItem } = createResumeUploadBatchProcessor(dependencies);
+const { processBatchItem, processNextItem } = createResumeUploadBatchProcessor(dependencies);
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
@@ -482,5 +483,101 @@ describe("processNextItem — S3 missing object", () => {
     // Error message should mention S3 or 缺失.
     const errMsg = result?.item?.errorMessage ?? "";
     expect(errMsg.includes("S3") || errMsg.includes("缺失")).toBe(true);
+  });
+});
+
+describe("processBatchItem — one automatic retry", () => {
+  it("招聘台第一次解析失败恢复 pending，第二次失败才写入 failed", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+    const [item] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    expect(item?.resumeRecordId).toBeTruthy();
+    if (!item?.resumeRecordId) {
+      throw new Error("expected a queued resume record");
+    }
+
+    mockS3OK();
+    dependencies.parseResumeBytesToProfile.mockRejectedValue(new Error("parse failed"));
+    await expect(processBatchItem(item.id, { retryParseFailure: true })).rejects.toThrow(
+      "parse failed",
+    );
+    const [pendingItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.id, item.id));
+    expect(pendingItem).toMatchObject({ attemptCount: 1, status: "pending" });
+
+    mockS3OK();
+    await processBatchItem(item.id);
+    const [failedItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.id, item.id));
+    const [failedRecord] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, item.resumeRecordId));
+    expect(failedItem).toMatchObject({ attemptCount: 2, status: "failed" });
+    expect(failedRecord).toMatchObject({
+      resumeParseError: "parse failed",
+      resumeParseStatus: "failed",
+    });
+  });
+
+  it("人才库也在第一次解析失败后重试一次", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumePoolScope: "private",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+    const [item] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    expect(item?.poolItemId).toBeTruthy();
+    if (!item?.poolItemId) {
+      throw new Error("expected a queued resume-pool item");
+    }
+
+    mockS3OK();
+    dependencies.parseResumeBytesToProfile.mockRejectedValue(new Error("pool parse failed"));
+    await expect(processBatchItem(item.id, { retryParseFailure: true })).rejects.toThrow(
+      "pool parse failed",
+    );
+    const [pendingItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.id, item.id));
+    expect(pendingItem).toMatchObject({ attemptCount: 1, status: "pending" });
+
+    mockS3OK();
+    await processBatchItem(item.id);
+    const [failedItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.id, item.id));
+    const [failedPoolItem] = await db
+      .select()
+      .from(resumePoolItem)
+      .where(eq(resumePoolItem.id, item.poolItemId));
+    expect(failedItem).toMatchObject({ attemptCount: 2, status: "failed" });
+    expect(failedPoolItem).toMatchObject({
+      resumeParseError: "pool parse failed",
+      resumeParseStatus: "failed",
+    });
   });
 });

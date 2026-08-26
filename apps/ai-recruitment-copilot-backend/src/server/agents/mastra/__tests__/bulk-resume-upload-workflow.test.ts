@@ -17,12 +17,14 @@ describe("runBulkResumeUploadWorkflow", () => {
       {
         bypassCache: true,
         itemId: "item-1",
+        retryParseFailure: true,
       },
       workflow,
     );
 
     expect(processItem).toHaveBeenCalledWith("item-1", {
       bypassCache: true,
+      retryParseFailure: true,
     });
     expect(result).toEqual({
       batch: { id: "batch-1" },

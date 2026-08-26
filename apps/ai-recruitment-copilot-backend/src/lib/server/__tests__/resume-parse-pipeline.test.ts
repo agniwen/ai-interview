@@ -801,19 +801,19 @@ describe("generateResumeStructured", () => {
     expect(prompt).not.toContain("skills 最多 18 项");
   });
 
-  it("rejects repeated skills from a runaway structured response", async () => {
+  it("dedupes repeated skills from a structured response before persistence", async () => {
     mocks.generateStructuredWithMastraAgent.mockImplementation((input) => {
       const runaway = {
         ...STRUCTURED_RESUME,
-        skills: ["Go", "Python", "Go", "Python"],
+        skills: ["ReAct", "RAGFlow", " ReAct ", "ragflow", "Python"],
       };
       input.validate?.(runaway);
       return Promise.resolve(runaway);
     });
 
-    await expect(generateResumeStructured("候选人明确使用 Go 和 Python")).rejects.toThrow(
-      "skills 包含重复项",
-    );
+    await expect(
+      generateResumeStructured("候选人明确使用 ReAct、RAGFlow 和 Python"),
+    ).resolves.toMatchObject({ skills: ["ReAct", "RAGFlow", "Python"] });
   });
 
   it("rejects placeholder candidate names instead of persisting them as facts", async () => {

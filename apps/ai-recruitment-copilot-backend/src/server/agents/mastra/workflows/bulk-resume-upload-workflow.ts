@@ -5,6 +5,7 @@ import { processBatchItem } from "@arc/ai-recruitment-copilot-backend/server/rou
 const bulkResumeUploadInputSchema = z.object({
   bypassCache: z.boolean().optional(),
   itemId: z.string().trim().min(1),
+  retryParseFailure: z.boolean().optional(),
 });
 
 const bulkResumeUploadOutputSchema = z.object({
@@ -18,7 +19,7 @@ export type BulkResumeUploadWorkflowOutput = z.infer<typeof bulkResumeUploadOutp
 export interface BulkResumeUploadWorkflowDeps {
   processItem: (
     itemId: string,
-    options?: { bypassCache?: boolean },
+    options?: { bypassCache?: boolean; retryParseFailure?: boolean },
   ) => ReturnType<typeof processBatchItem>;
 }
 
@@ -27,6 +28,7 @@ export function createBulkResumeUploadWorkflow(deps: BulkResumeUploadWorkflowDep
     execute: async ({ inputData }) => {
       const result = await deps.processItem(inputData.itemId, {
         bypassCache: inputData.bypassCache,
+        retryParseFailure: inputData.retryParseFailure,
       });
       return {
         batch: result?.batch ?? null,
@@ -60,6 +62,7 @@ export async function runBulkResumeUploadWorkflow(
   input: {
     bypassCache?: boolean;
     itemId: string;
+    retryParseFailure?: boolean;
   },
   workflow = bulkResumeUploadWorkflow,
 ): Promise<BulkResumeUploadWorkflowOutput> {

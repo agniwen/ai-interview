@@ -630,18 +630,21 @@ function validateGeneratedResumeStructured(output: ResumeParserStructured): void
   if (output.name && missingValuePlaceholders.has(output.name.trim())) {
     throw new Error("name 不得使用缺失占位值，缺失时应返回 null");
   }
+}
+
+function dedupeResumeSkills(skills: readonly string[]): string[] {
   const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const skill of output.skills) {
-    const normalized = skill.trim().replaceAll(/\s+/g, " ").toLocaleLowerCase("en-US");
-    if (seen.has(normalized)) {
-      duplicates.add(skill.trim());
+  const unique: string[] = [];
+  for (const skill of skills) {
+    const display = skill.trim().replaceAll(/\s+/g, " ");
+    const normalized = display.toLocaleLowerCase("en-US");
+    if (!display || seen.has(normalized)) {
+      continue;
     }
     seen.add(normalized);
+    unique.push(display);
   }
-  if (duplicates.size > 0) {
-    throw new Error(`skills 包含重复项：${[...duplicates].join("、")}`);
-  }
+  return unique;
 }
 
 export async function generateResumeStructured(
@@ -679,7 +682,8 @@ export async function generateResumeStructured(
     inputChars: text.length,
     outputChars: JSON.stringify(output).length,
   });
-  return fileName ? { ...output, sourceFileName: fileName } : output;
+  const normalizedOutput = { ...output, skills: dedupeResumeSkills(output.skills) };
+  return fileName ? { ...normalizedOutput, sourceFileName: fileName } : normalizedOutput;
 }
 
 /**
