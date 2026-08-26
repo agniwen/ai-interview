@@ -123,6 +123,9 @@ function loadTimelineRows(interviewRecordId: string, organizationId: string) {
     db
       .select({
         allowTextInput: studioInterviewSchedule.allowTextInput,
+        candidateDeclineReason: studioInterviewSchedule.candidateDeclineReason,
+        candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
+        candidateRespondedAt: studioInterviewSchedule.candidateRespondedAt,
         createdAt: studioInterviewSchedule.createdAt,
         creatorImage: user.image,
         creatorName: user.name,
@@ -460,6 +463,22 @@ export async function loadCandidateTimeline(
         metadata: compactMeta([textMeta("轮次", round.roundLabel)]),
         occurredAt: round.disconnectedAt ?? round.updatedAt,
         title: "AI 面试中断",
+        tone: "warning",
+      });
+    }
+    if (round.candidateInviteStatus === "declined") {
+      addEvent(events, {
+        actorImage: null,
+        actorName: "候选人",
+        description: `${round.roundLabel}邀请`,
+        id: `ai-round:${round.id}:candidate-declined`,
+        kind: "ai_interview",
+        metadata: compactMeta([
+          textMeta("轮次", round.roundLabel),
+          textMeta("拒绝原因", round.candidateDeclineReason),
+        ]),
+        occurredAt: round.candidateRespondedAt,
+        title: "候选人已拒绝",
         tone: "warning",
       });
     }

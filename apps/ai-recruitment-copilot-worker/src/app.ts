@@ -9,8 +9,10 @@ import { getMeetingIntelligenceQueueStats } from "@arc/meeting-processing-queue/
 import { getMeetingPlaybackQueueStats } from "@arc/meeting-processing-queue/meeting-playback";
 import { getMeetingTranscriptionQueueStats } from "@arc/meeting-processing-queue/meeting-transcription";
 import { getResumeParseReadinessIssue } from "./parse-config";
+import { getInterviewNotificationSchedulerSnapshot } from "./interview-notifications/scheduler";
 
 export interface WorkerAppDependencies {
+  getInterviewNotificationSchedulerSnapshot: typeof getInterviewNotificationSchedulerSnapshot;
   getMeetingIntelligenceQueueStats: typeof getMeetingIntelligenceQueueStats;
   getMeetingOperationsSnapshot: () => Promise<{
     alerts: unknown[];
@@ -43,6 +45,7 @@ async function getMeetingOperationsSnapshot() {
 }
 
 const defaultDependencies: WorkerAppDependencies = {
+  getInterviewNotificationSchedulerSnapshot,
   getMeetingIntelligenceQueueStats,
   getMeetingOperationsSnapshot,
   getMeetingPlaybackQueueStats,
@@ -123,6 +126,10 @@ export function createWorkerApp(dependencies: WorkerAppDependencies = defaultDep
       200,
     );
   });
+
+  app.get("/operations/interview-notifications", (c) =>
+    c.json(dependencies.getInterviewNotificationSchedulerSnapshot(), 200),
+  );
 
   app.notFound((c) => c.json({ error: "Not Found" }, 404));
 

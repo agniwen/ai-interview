@@ -31,6 +31,8 @@ import {
   loadScheduleEntriesForRedirect,
 } from "./utils";
 import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
+import { enqueueAiInterviewCompletedEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 
 export const interviewRouter = factory
   .createApp()
@@ -146,6 +148,9 @@ export const interviewRouter = factory
               updatedAt: now,
             })
             .where(eq(studioInterviewSchedule.id, roundId));
+          if (isInterviewNotificationFlowEnabled()) {
+            await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: roundId });
+          }
           return { status: "grace_expired" };
         }
       }
@@ -475,6 +480,9 @@ export const interviewRouter = factory
           .update(studioInterviewSchedule)
           .set({ status: "completed" as const, updatedAt: now })
           .where(eq(studioInterviewSchedule.id, roundId));
+        if (isInterviewNotificationFlowEnabled()) {
+          await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: roundId });
+        }
       });
 
       // 候选人侧路由没有 activeOrg —— 反查 org 拼 org-scoped tag。

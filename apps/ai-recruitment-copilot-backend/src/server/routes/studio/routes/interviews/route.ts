@@ -29,6 +29,7 @@ import {
   summarizeInterviewRoundCounts,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { roundEmailsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/route";
+import { notificationRecipientsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/notification-recipients/route";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   cacheTags,
@@ -239,6 +240,7 @@ export const studioInterviewsRouter = factory
 
   .route("/", studioInterviewCollectionRouter)
   .route("/", studioInterviewDetailRouter)
+  .route("/", notificationRecipientsRouter)
   .post("/:id/reset", requirePermission("interview", "update"), async (c) => {
     // 平铺版重置：`:id` = roundId，保留绑定刷新 + 审计日志 + livekit 锚点清空。
     // Flat reset endpoint: `:id` = roundId; preserves binding refresh, audit log, and livekit anchor clearing.

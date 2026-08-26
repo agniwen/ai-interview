@@ -15,6 +15,12 @@ export const humanInterviewKeys = {
   studioResumes: () => ["studio-resumes"] as const,
 };
 
+export const interviewNotificationKeys = {
+  recipients: (slug: string, candidateId: string) =>
+    ["interview-notification-recipients", slug, candidateId] as const,
+  workspaceMembers: (slug: string) => ["workspace-members", slug] as const,
+};
+
 export const studioCalendarKeys = {
   aiEventPreview: (slug: string, roundId: string, conversationId: string | null) =>
     ["studio-calendar", slug, "ai-event-preview", roundId, conversationId] as const,

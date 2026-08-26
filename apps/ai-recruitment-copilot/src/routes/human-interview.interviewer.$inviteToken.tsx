@@ -16,9 +16,11 @@ interface HumanInterviewInterviewerState {
 }
 
 const interviewerPreviewSchema = z.object({
+  candidateName: z.string(),
   interviewerName: z.string(),
   meetingId: z.string(),
   role: humanInterviewMeetingInterviewerRoleSchema,
+  roundLabel: z.string(),
   scheduledAt: z.string().nullable(),
   status: humanInterviewMeetingStatusSchema,
   title: z.string(),

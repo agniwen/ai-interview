@@ -1,5 +1,5 @@
 import { buildListTextFilterWhere } from "@arc/ai-recruitment-copilot-backend/lib/server/db/list-text-filters";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -10,8 +10,10 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type { AgentNotificationStatus, AgentNotificationType } from "@arc/db-schema/db-enums";
+import { agentNotificationStatusSchema } from "@arc/db-schema/db-enums";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import type { InterviewNotificationEventType } from "@arc/db-schema/interview-notifications";
 
 export const platformNotificationStatusFilterValues = ["all", "pending", "sent", "failed"] as const;
 
@@ -60,7 +62,7 @@ export interface PlatformNotificationRecord {
   sentAt: string | null;
   status: AgentNotificationStatus;
   targetRole: string | null;
-  type: AgentNotificationType;
+  type: AgentNotificationType | InterviewNotificationEventType;
   updatedAt: string;
 }
 
@@ -147,6 +149,9 @@ export async function queryPaginatedPlatformNotifications(
       )
     : undefined;
   const where = and(
+    // Keep the legacy platform view focused on the original AI-report
+    // notifications; interview outbox deliveries have their own operations UI.
+    isNull(interviewNotification.eventId),
     providerFilter,
     statusFilter,
     searchFilter,
@@ -242,7 +247,7 @@ export async function queryPaginatedPlatformNotifications(
       },
       scheduleEntryId: row.scheduleEntryId,
       sentAt: toIsoString(row.sentAt),
-      status: row.status,
+      status: agentNotificationStatusSchema.parse(row.status),
       targetRole: row.targetRole,
       type: row.type,
       updatedAt: row.updatedAt.toISOString(),

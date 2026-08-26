@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Real-DB DAO scenarios intentionally share one seeded fixture. */
 // Real-DB integration test for the resume library DAO.
 // Per project memory: integration tests hit the actual database — no mocks.
 
@@ -24,6 +25,7 @@ import {
   queryPaginatedResumeRecords,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 
 const ORG_A = "test_org_resume_dao_a";
 const ORG_B = "test_org_resume_dao_b";
@@ -198,6 +200,50 @@ afterAll(async () => {
 });
 
 describe("queryPaginatedResumeRecords", () => {
+  it("shows a declined AI interview invitation in the candidate timeline", async () => {
+    const respondedAt = new Date("2026-05-13T12:00:00.000Z");
+    await db.insert(studioInterviewSchedule).values({
+      allowTextInput: false,
+      candidateDeclineReason: "时间不合适",
+      candidateInviteStatus: "declined",
+      candidateRespondedAt: respondedAt,
+      createdAt: NOW,
+      id: "sched_test_candidate_declined",
+      interviewRecordId: "ri_test_a_1",
+      organizationId: ORG_A,
+      roundLabel: "AI HR 初面",
+      sortOrder: 0,
+      status: "pending",
+      updatedAt: respondedAt,
+    });
+
+    try {
+      const timeline = await loadCandidateTimeline("ri_test_a_1", ORG_A);
+      const declinedEvent = timeline?.events.find(
+        (event) => event.id === "ai-round:sched_test_candidate_declined:candidate-declined",
+      );
+
+      expect(declinedEvent).toEqual({
+        actorImage: null,
+        actorName: "候选人",
+        description: "AI HR 初面邀请",
+        id: "ai-round:sched_test_candidate_declined:candidate-declined",
+        kind: "ai_interview",
+        metadata: [
+          { label: "轮次", value: "AI HR 初面" },
+          { label: "拒绝原因", value: "时间不合适" },
+        ],
+        occurredAt: respondedAt.toISOString(),
+        title: "候选人已拒绝",
+        tone: "warning",
+      });
+    } finally {
+      await db
+        .delete(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.id, "sched_test_candidate_declined"));
+    }
+  });
+
   it("lists rows scoped to the organization", async () => {
     const result = await queryPaginatedResumeRecords(ORG_A);
     expect(result.total).toBe(2);

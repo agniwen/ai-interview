@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { addMemberToDefaultRecruitingGroup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
+import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
 import { member } from "@arc/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
@@ -134,6 +135,13 @@ export async function acceptInviteLink(input: {
       createdBy: inviteLinkCreatorId,
       organizationId: result.organizationId,
       userId: input.userId,
+    });
+  }
+  if (result.status === "joined") {
+    await notifyWorkspaceInviteCreatorMemberJoinedSafely({
+      creatorUserId: inviteLinkCreatorId,
+      joinedUserId: input.userId,
+      organizationId: result.organizationId,
     });
   }
 

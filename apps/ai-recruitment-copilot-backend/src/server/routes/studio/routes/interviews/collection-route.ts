@@ -1,4 +1,4 @@
-/* oxlint-disable complexity -- collection router coordinates validation, persistence, and access policy. */
+/* oxlint-disable complexity, max-lines -- collection router coordinates validation, persistence, and access policy. */
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -26,7 +26,6 @@ import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend
 import { createInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
   createHumanInterviewMeeting,
-  deleteHumanInterviewMeeting,
   endHumanInterviewMeeting,
   HumanInterviewMeetingError,
   isHumanInterviewMeetingAfterValidUntil,
@@ -35,6 +34,7 @@ import {
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+import { cancelHumanInterviewMeeting } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meeting-cancellation";
 import { updateHumanInterviewMeetingSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meeting-schedule";
 import {
   deleteHumanInterviewLiveKitRoom,
@@ -74,6 +74,11 @@ import {
   parseResumeCreateDedupPolicy,
   resolveResumeCreateDedupConflict,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
+import { enqueueAiInterviewInvitedEvents } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { requireHumanMeetingUpdateAccess } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-meeting-update-access";
+import { addAiInterviewInvitationToSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
+import { loadHumanInterviewMeetingInterviewerIds } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meeting-input";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
@@ -104,9 +109,12 @@ function loadVisibilityScope(
 }
 
 export function createStudioInterviewCollectionRouter(dependencies?: {
+  humanMeetingUpdateAccess?: typeof requireHumanMeetingUpdateAccess;
   permission: typeof requirePermission;
 }) {
   const permission = dependencies?.permission ?? requirePermission;
+  const humanMeetingUpdateAccess =
+    dependencies?.humanMeetingUpdateAccess ?? requireHumanMeetingUpdateAccess;
   return (
     factory
       .createApp()
@@ -230,7 +238,8 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
             targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
             updatedAt: now,
           } satisfies typeof studioInterview.$inferInsert;
-          const scheduleRows = buildScheduleRows(
+          const notificationFlowEnabled = isInterviewNotificationFlowEnabled();
+          const baseScheduleRows = buildScheduleRows(
             activeOrg.id,
             interviewRecordId,
             input.data.scheduleEntries,
@@ -238,10 +247,22 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
             undefined,
             c.var.user?.id ?? null,
           );
+          const scheduleRows = notificationFlowEnabled
+            ? baseScheduleRows.map((schedule) => addAiInterviewInvitationToSchedule(schedule, now))
+            : baseScheduleRows;
 
           await db.transaction(async (tx) => {
             await tx.insert(studioInterview).values(record);
             await tx.insert(studioInterviewSchedule).values(scheduleRows);
+            if (notificationFlowEnabled) {
+              for (const schedule of scheduleRows) {
+                await enqueueAiInterviewInvitedEvents(tx, {
+                  actorUserId: c.var.user?.id ?? null,
+                  now,
+                  scheduleEntryId: schedule.id,
+                });
+              }
+            }
             await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
             await createInterviewContextSnapshot(tx, {
               createdAt: now,
@@ -352,16 +373,19 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           }
           try {
             const feishuEnabled = isFeishuHumanInterviewEnabled();
-            const providerId = feishuEnabled
-              ? await resolveHumanInterviewFeishuProviderId({
-                  interviewerIds: c.req.valid("json").interviewerIds,
-                  organizationId: activeOrg.id,
-                })
-              : null;
+            const input = c.req.valid("json");
+            const interviewerIds = await loadHumanInterviewMeetingInterviewerIds(input.roundIds);
+            const providerId =
+              feishuEnabled && interviewerIds.length > 0
+                ? await resolveHumanInterviewFeishuProviderId({
+                    interviewerIds,
+                    organizationId: activeOrg.id,
+                  })
+                : null;
             const created = await createHumanInterviewMeeting({
               createdBy: user.id,
               feishuProviderId: providerId,
-              input: c.req.valid("json"),
+              input,
               organizationId: activeOrg.id,
             });
             if (!feishuEnabled || !providerId) {
@@ -418,7 +442,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
       )
       .patch(
         "/human-interview-meetings/:meetingId",
-        permission("humanInterview", "update"),
+        humanMeetingUpdateAccess(),
         zValidator(
           "json",
           humanInterviewMeetingScheduleUpdateSchema,
@@ -432,6 +456,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           const meetingId = c.req.param("meetingId");
           try {
             const updated = await updateHumanInterviewMeetingSchedule({
+              actorUserId: user.id,
               input: c.req.valid("json"),
               meetingId,
               organizationId: activeOrg.id,
@@ -709,12 +734,13 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
         "/human-interview-meetings/:meetingId",
         permission("humanInterview", "delete"),
         async (c) => {
-          const { activeOrg } = c.var;
-          if (!activeOrg) {
+          const { activeOrg, user } = c.var;
+          if (!activeOrg || !user) {
             return c.json({ message: "Unauthorized" }, 401);
           }
           try {
-            const roomName = await deleteHumanInterviewMeeting({
+            const roomName = await cancelHumanInterviewMeeting({
+              actorUserId: user.id,
               meetingId: c.req.param("meetingId"),
               organizationId: activeOrg.id,
             });

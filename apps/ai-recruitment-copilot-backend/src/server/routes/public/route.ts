@@ -53,6 +53,17 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@arc/shared/referrals";
+import {
+  handleHumanInterviewInvitationResponseError,
+  respondHumanInterviewCandidateInvitation,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-candidate-response";
+import {
+  AiInterviewInvitationError,
+  previewAiInterviewInvitation,
+  recordAiInterviewInvitationException,
+  respondAiInterviewInvitation,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-candidate-response";
+import type { AiInterviewInvitationErrorCode } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-candidate-response";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   cancelBatch,
@@ -66,6 +77,16 @@ import {
 
 async function getResumeParseQueueApi() {
   return await import("@arc/resume-parse-queue/resume-parse");
+}
+
+function aiInvitationErrorTitle(code: AiInterviewInvitationErrorCode): string {
+  if (code === "response_conflict") {
+    return "无法变更确认结果";
+  }
+  if (code === "invitation_expired") {
+    return "面试邀请已过期";
+  }
+  return "邀请链接无效";
 }
 
 export interface PublicRouterDependencies {
@@ -204,6 +225,72 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         },
       });
     })
+    .get("/ai-interview-invitations/:token", async (c) => {
+      const preview = await previewAiInterviewInvitation(c.req.param("token"));
+      if (!preview) {
+        return c.json({ error: "AI 面试邀请不存在。" }, 404);
+      }
+      return c.json(preview, 200);
+    })
+    .post(
+      "/ai-interview-invitations/:token/respond",
+      zValidator(
+        "json",
+        z.object({
+          action: z.enum(["accept", "decline"]),
+          declineReason: z.string().trim().max(500).nullable().optional(),
+        }),
+        jsonValidatorError("邀请响应无效。"),
+      ),
+      async (c) => {
+        const token = c.req.param("token");
+        try {
+          const result = await respondAiInterviewInvitation({
+            ...c.req.valid("json"),
+            token,
+          });
+          return c.json(result, 200);
+        } catch (error) {
+          if (error instanceof AiInterviewInvitationError) {
+            if (error.code !== "invalid_link") {
+              await recordAiInterviewInvitationException({
+                exceptionType: error.code,
+                token,
+              }).catch((notificationError) => {
+                console.error("[ai-invitation-exception-notification] failed", {
+                  error: notificationError,
+                  exceptionType: error.code,
+                });
+              });
+            }
+            return c.json(
+              {
+                code: error.code,
+                error: error.message,
+                title: aiInvitationErrorTitle(error.code),
+              },
+              error.status,
+            );
+          }
+          await recordAiInterviewInvitationException({
+            exceptionType: "system_error",
+            token,
+          }).catch((notificationError) => {
+            console.error("[ai-invitation-exception-notification] failed", {
+              error: notificationError,
+              exceptionType: "system_error",
+            });
+          });
+          const response = createInternalErrorResponse({
+            error,
+            operation: "respond-ai-interview-invitation",
+            publicMessage:
+              "暂时无法完成您的面试确认操作，请稍后重新尝试。如果多次尝试仍然失败，请联系招聘负责人协调处理。",
+          });
+          return c.json({ ...response, code: "system_error", title: "接受面试异常" }, 500);
+        }
+      },
+    )
     .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
       const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
         c.req.param("inviteToken"),
@@ -213,9 +300,11 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       return c.json(
         {
+          candidateName: scope.candidateName,
           interviewerName: scope.interviewerName,
           meetingId: scope.meetingId,
           role: scope.role,
+          roundLabel: scope.roundLabel,
           scheduledAt: scope.scheduledAt,
           status: scope.status,
           title: scope.title,
@@ -301,6 +390,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       return c.json(
         {
+          candidateInviteStatus: scope.candidateInviteStatus,
           candidateName: scope.candidateName,
           meetingId: scope.meetingId,
           roundLabel: scope.roundLabel,
@@ -312,6 +402,30 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         200,
       );
     })
+    .post(
+      "/human-interview-meetings/:inviteToken/respond",
+      zValidator(
+        "json",
+        z.object({
+          action: z.enum(["accept", "decline"]),
+          declineReason: z.string().trim().max(500).nullable().optional(),
+        }),
+        jsonValidatorError("邀请响应无效。"),
+      ),
+      async (c) => {
+        const inviteToken = c.req.param("inviteToken");
+        try {
+          const result = await respondHumanInterviewCandidateInvitation({
+            ...c.req.valid("json"),
+            inviteToken,
+          });
+          return c.json(result, 200);
+        } catch (error) {
+          const response = await handleHumanInterviewInvitationResponseError(error, inviteToken);
+          return c.json(response.body, response.status);
+        }
+      },
+    )
     .post("/human-interview-meetings/:inviteToken/livekit-token", async (c) => {
       const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
       if (!scope) {
@@ -319,6 +433,9 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       if (scope.status === "cancelled" || scope.status === "ended") {
         return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
+      }
+      if (scope.candidateInviteStatus !== "accepted") {
+        return c.json({ error: "请先确认参加面试。" }, 403);
       }
       if (
         scope.status === "scheduled" &&

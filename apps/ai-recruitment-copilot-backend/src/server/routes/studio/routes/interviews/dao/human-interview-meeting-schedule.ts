@@ -1,23 +1,31 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
+  studioHumanInterviewRoundInterviewer,
 } from "@arc/db-schema/schema";
 import type { HumanInterviewMeetingScheduleUpdate } from "@arc/db-schema/studio-interviews";
 import type { HumanInterviewMeetingRecord } from "@arc/shared/studio-pipeline-stages";
 import {
+  buildCandidateInviteToken,
+  buildInviteExpiry,
+  hashInviteToken,
   HumanInterviewMeetingError,
   resolveValidUntilInput,
 } from "./human-interview-meeting-access";
 import { loadHumanInterviewMeetingById } from "./human-interview-meetings";
+import { enqueueHumanMeetingEvents } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 
 export async function updateHumanInterviewMeetingSchedule({
+  actorUserId,
   input,
   meetingId,
   organizationId,
 }: {
+  actorUserId: string | null;
   input: HumanInterviewMeetingScheduleUpdate;
   meetingId: string;
   organizationId: string;
@@ -65,7 +73,13 @@ export async function updateHumanInterviewMeetingSchedule({
     });
     const now = new Date();
     const roundLinks = await tx
-      .select({ roundId: studioHumanInterviewMeetingRound.roundId })
+      .select({
+        candidateInviteStatus: studioHumanInterviewMeetingRound.candidateInviteStatus,
+        candidateInviteTokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
+        candidateRespondedAt: studioHumanInterviewMeetingRound.candidateRespondedAt,
+        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
+        roundId: studioHumanInterviewMeetingRound.roundId,
+      })
       .from(studioHumanInterviewMeetingRound)
       .where(eq(studioHumanInterviewMeetingRound.meetingId, meetingId));
 
@@ -74,12 +88,14 @@ export async function updateHumanInterviewMeetingSchedule({
       .set({
         feishuLastError: null,
         feishuSyncStatus: existing.feishuProviderId ? "pending" : null,
+        scheduleVersion: sql`${studioHumanInterviewMeeting.scheduleVersion} + 1`,
         scheduledAt,
         updatedAt: now,
         validUntil,
       })
       .where(eq(studioHumanInterviewMeeting.id, meetingId));
     if (roundLinks.length > 0) {
+      const nextScheduleVersion = existing.scheduleVersion + 1;
       await tx
         .update(studioHumanInterviewRound)
         .set({ scheduledAt, updatedAt: now })
@@ -89,6 +105,64 @@ export async function updateHumanInterviewMeetingSchedule({
             roundLinks.map((round) => round.roundId),
           ),
         );
+      for (const roundLink of roundLinks) {
+        const candidateInviteExpiresAt = new Date(buildInviteExpiry(now.getTime()));
+        const candidateInviteTokenHash = roundLink.candidateInviteTokenHash
+          ? hashInviteToken(
+              buildCandidateInviteToken({
+                exp: candidateInviteExpiresAt.getTime(),
+                meetingId,
+                roundId: roundLink.roundId,
+              }),
+            )
+          : null;
+        await tx
+          .update(studioHumanInterviewMeetingRound)
+          .set({
+            candidateDeclineReason:
+              roundLink.candidateInviteStatus === "declined" ? undefined : null,
+            candidateInviteExpiresAt: roundLink.candidateInviteTokenHash
+              ? candidateInviteExpiresAt
+              : null,
+            candidateInviteStatus: roundLink.candidateInviteStatus,
+            candidateInviteTokenHash,
+            candidateRespondedAt: roundLink.candidateRespondedAt,
+            invitationVersion:
+              roundLink.candidateInviteStatus === "accepted" ||
+              roundLink.candidateInviteStatus === "declined"
+                ? roundLink.invitationVersion
+                : sql`${studioHumanInterviewMeetingRound.invitationVersion} + 1`,
+          })
+          .where(
+            and(
+              eq(studioHumanInterviewMeetingRound.meetingId, meetingId),
+              eq(studioHumanInterviewMeetingRound.roundId, roundLink.roundId),
+            ),
+          );
+      }
+      const roundIds = roundLinks.map((round) => round.roundId);
+      await tx
+        .update(studioHumanInterviewRoundInterviewer)
+        .set({
+          confirmedAt: now,
+          confirmedScheduleVersion: nextScheduleVersion,
+          declineReason: null,
+          declinedAt: null,
+          status: "confirmed",
+        })
+        .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
+    }
+    if (isInterviewNotificationFlowEnabled()) {
+      await enqueueHumanMeetingEvents(tx, {
+        actorUserId,
+        changeReason: input.reason,
+        meetingId,
+        now,
+        oldScheduledAt: existing.scheduledAt,
+        oldValidUntil: existing.validUntil,
+        scheduleVersion: existing.scheduleVersion + 1,
+        type: "human_interview_rescheduled",
+      });
     }
   });
 

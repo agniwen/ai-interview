@@ -15,6 +15,7 @@ import {
   studioHumanInterviewMeetingInterviewer,
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
+  studioHumanInterviewRoundInterviewer,
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
@@ -26,6 +27,7 @@ import {
 import { createStudioInterviewCollectionRouter } from "../collection-route";
 
 const studioInterviewCollectionRouter = createStudioInterviewCollectionRouter({
+  humanMeetingUpdateAccess: () => async (_c, next) => next(),
   permission: () => async (_c, next) => next(),
 });
 
@@ -40,6 +42,18 @@ const ROUND_ID = "test_feishu_meeting_round";
 const SECOND_INTERVIEW_ID = "test_feishu_meeting_candidate_2";
 const SECOND_ROUND_ID = "test_feishu_meeting_round_2";
 const SECONDARY_INTERVIEWER_ID = "test_feishu_meeting_secondary_interviewer";
+
+async function setRoundInterviewers(userIds: string[]) {
+  await db
+    .delete(studioHumanInterviewRoundInterviewer)
+    .where(eq(studioHumanInterviewRoundInterviewer.roundId, ROUND_ID));
+  await db.insert(studioHumanInterviewRoundInterviewer).values(
+    userIds.map((userId) => ({
+      roundId: ROUND_ID,
+      userId,
+    })),
+  );
+}
 
 async function seedReadyFeishuMeeting(meetingId: string, roundIds = [ROUND_ID]) {
   await db.insert(studioHumanInterviewMeeting).values({
@@ -335,6 +349,7 @@ beforeEach(async () => {
   await db
     .delete(studioHumanInterviewMeeting)
     .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
+  await setRoundInterviewers([INTERVIEWER_ID]);
 });
 
 describe("LiveKit entry with synchronized Feishu meetings", () => {
@@ -806,6 +821,7 @@ describe("POST /human-interview-meetings", () => {
   });
 
   it("rejects interviewers without a common Feishu app before calling Feishu", async () => {
+    await setRoundInterviewers([PRIMARY_INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID]);
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const response = await makeApp("feishu").request("/human-interview-meetings", {
@@ -1078,7 +1094,8 @@ describe("POST /human-interview-meetings", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a non-member interviewer before calling Feishu", async () => {
+  it("derives meeting interviewers from the round instead of deprecated request input", async () => {
+    process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "false";
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const response = await makeApp("feishu").request("/human-interview-meetings", {
@@ -1094,12 +1111,15 @@ describe("POST /human-interview-meetings", () => {
       method: "POST",
     });
 
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: "存在不属于当前工作区的真人面试官。" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      interviewers: [{ id: INTERVIEWER_ID }],
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("checkpoints partially added attendees and retries only the missing person", async () => {
+    await setRoundInterviewers([INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID]);
     const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_partial_attendees";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

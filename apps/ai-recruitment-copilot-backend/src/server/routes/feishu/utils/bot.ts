@@ -435,14 +435,13 @@ export async function postFeishuDirectCard(
   providerId: FeishuProviderId,
   openId: string,
   card: CardElement | unknown,
-): Promise<{ id: string | null }> {
-  return await trySendFeishuDirectCard(async () => {
-    const { adapter } = await ensureFeishuBotInitialized(providerId);
-    const channel = adapter._getChannel();
-    if (!channel) {
-      throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
-    }
-    const cardElement = resolveCardElement(card);
-    return await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
-  });
+): Promise<{ id: string }> {
+  const { adapter } = await ensureFeishuBotInitialized(providerId);
+  const channel = adapter._getChannel();
+  if (!channel) {
+    throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
+  }
+  const cardElement = resolveCardElement(card);
+  const sent = await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
+  return { id: sent.messageId };
 }

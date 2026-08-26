@@ -139,9 +139,9 @@ export function MeetingLinksDialogView({
     <Dialog onOpenChange={onOpenChange} open={meeting !== null}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>复制面试链接</DialogTitle>
+          <DialogTitle>候选人确认与面试官会议链接</DialogTitle>
           <DialogDescription>
-            {meeting?.title ?? "真人复面会议"} 的候选人和面试官入场链接。
+            {meeting?.title ?? "真人复面会议"} 的候选人确认入口和面试官会议入口。链接不可混用。
           </DialogDescription>
         </DialogHeader>
 
@@ -218,7 +218,7 @@ function MeetingLinksContent({
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconUsers className="size-4" />
-          候选人链接（当前使用）
+          候选人确认链接
         </h4>
         <div className="space-y-2">
           {links.candidateLinks.map((link) => (
@@ -235,7 +235,7 @@ function MeetingLinksContent({
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconLink className="size-4" />
-          面试官链接（当前使用）
+          面试官会议链接
         </h4>
         <div className="space-y-2">
           {links.interviewerLinks.map((link) => (

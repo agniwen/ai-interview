@@ -6,6 +6,7 @@ const __dirname = import.meta.dirname;
 
 loadEnv({ path: path.resolve(__dirname, ".env.local"), quiet: true });
 loadEnv({ path: path.resolve(__dirname, ".env"), quiet: true });
+process.env.BETTER_AUTH_SECRET ||= "test-only-backend-vitest-secret";
 
 const verbose =
   process.env.VITEST_VERBOSE === "1" ||

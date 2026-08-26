@@ -10,7 +10,12 @@ import {
   listLinkMembers,
   updateInviteLinkInitialRole,
 } from "./dao";
-import { inviteLinkIdParamsSchema, inviteLinkInitialRoleInputSchema } from "./schema";
+import { sendWorkspaceInviteLinkEmail } from "./email";
+import {
+  inviteLinkCreateInputSchema,
+  inviteLinkIdParamsSchema,
+  inviteLinkInitialRoleInputSchema,
+} from "./schema";
 
 export const inviteLinksRouter = factory
   .createApp()
@@ -34,13 +39,13 @@ export const inviteLinksRouter = factory
   })
   .post(
     "/",
-    zValidator("json", inviteLinkInitialRoleInputSchema, jsonValidatorError("初始化角色无效。")),
+    zValidator("json", inviteLinkCreateInputSchema, jsonValidatorError("邀请信息无效。")),
     async (c) => {
       const { activeOrg, member, user } = c.var;
       if (!(activeOrg && member && user)) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const { initialRole } = c.req.valid("json");
+      const { email, initialRole } = c.req.valid("json");
       const allowed = await canAssignWorkspaceRole({
         invokerRole: member.role,
         organizationId: activeOrg.id,
@@ -54,11 +59,31 @@ export const inviteLinksRouter = factory
         initialRole,
         organizationId: activeOrg.id,
       });
+      let emailDelivery: "failed" | "not_requested" | "sent" = "not_requested";
+      if (email) {
+        try {
+          await sendWorkspaceInviteLinkEmail({
+            code: link.code,
+            email,
+            inviteLinkId: link.id,
+            inviterName: user.name,
+            workspaceName: activeOrg.name,
+          });
+          emailDelivery = "sent";
+        } catch (error) {
+          emailDelivery = "failed";
+          console.warn("[workspace-invite] failed to send invitation email", {
+            error: error instanceof Error ? error.message : "unknown error",
+            inviteLinkId: link.id,
+          });
+        }
+      }
       return c.json(
         {
           ...link,
           createdAt: link.createdAt.toISOString(),
           disabledAt: link.disabledAt?.toISOString() ?? null,
+          emailDelivery,
         },
         200,
       );

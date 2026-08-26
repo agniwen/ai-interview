@@ -2,10 +2,16 @@ import path from "node:path";
 import { config as loadEnv } from "dotenv";
 import type { Config } from "drizzle-kit";
 
-// 中文：drizzle-kit 不会自动加载 .env，且 turbo 调度时 cwd 可能不在本目录，显式指向同级 .env。
-// English: drizzle-kit doesn't auto-load .env, and turbo may run from the repo root —
-// resolve the co-located .env explicitly so cwd doesn't matter.
-loadEnv({ path: path.resolve(import.meta.dirname, ".env") });
+// drizzle-kit preloads `.env` before evaluating this config. Force `.env.local`
+// to win when present, then use `.env` only as a fallback for missing values.
+// This matches Vite's local-first precedence and prevents a local migration from
+// silently falling through to the shared database.
+loadEnv({
+  override: true,
+  path: path.resolve(import.meta.dirname, ".env.local"),
+  quiet: true,
+});
+loadEnv({ path: path.resolve(import.meta.dirname, ".env"), quiet: true });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

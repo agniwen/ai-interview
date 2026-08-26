@@ -3,17 +3,29 @@
 // Shared DTOs for the late-pipeline stages (human interview / offer / closed).
 // Imported by both DAO and client; single source of truth.
 
+import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
 import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
+  HumanInterviewerAssignmentStatus,
   HumanInterviewFormat,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
 } from "@arc/db-schema/studio-interviews";
+
+export interface PublicAiInterviewInvitationPreview {
+  candidateName: string;
+  companyName: string;
+  expiresAt: string;
+  jobName: string | null;
+  roundName: string;
+  scheduledAt: string | null;
+  status: CandidateInterviewInvitationStatus;
+}
 
 /**
  * 真人复面单轮 DTO（DAO 返回 + 客户端消费）。
@@ -42,7 +54,18 @@ export interface HumanInterviewRoundRecord {
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
-  interviewers: { id: string; name: string; image: string | null }[];
+  interviewers: HumanInterviewRoundInterviewerRecord[];
+}
+
+export interface HumanInterviewRoundInterviewerRecord {
+  confirmedAt: string | null;
+  confirmedScheduleVersion: number | null;
+  declineReason: string | null;
+  declinedAt: string | null;
+  id: string;
+  image: string | null;
+  name: string;
+  status: HumanInterviewerAssignmentStatus;
 }
 
 export interface HumanInterviewMeetingRoundRecord {
@@ -53,6 +76,7 @@ export interface HumanInterviewMeetingRoundRecord {
   sortOrder: number;
   status: HumanInterviewRoundStatus;
   candidateInviteExpiresAt: string | null;
+  candidateInviteStatus: CandidateInterviewInvitationStatus;
   hasCandidateInvite: boolean;
   joinedAt: string | null;
   leftAt: string | null;
@@ -90,6 +114,7 @@ export interface HumanInterviewMeetingRecord {
   cancelledAt: string | null;
   recordingEgressId: string | null;
   recordingFileKey: string | null;
+  scheduleVersion: number;
   notes: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -136,6 +161,7 @@ export interface HumanInterviewMeetingTokenResponse {
 }
 
 export interface PublicHumanInterviewMeetingPreview {
+  candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateName: string;
   meetingId: string;
   roundLabel: string;
@@ -146,9 +172,11 @@ export interface PublicHumanInterviewMeetingPreview {
 }
 
 export interface PublicHumanInterviewInterviewerPreview {
+  candidateName: string;
   interviewerName: string;
   meetingId: string;
   role: HumanInterviewMeetingInterviewerRole;
+  roundLabel: string;
   scheduledAt: string | null;
   validUntil: string | null;
   status: HumanInterviewMeetingStatus;

@@ -29,9 +29,9 @@ export type CandidateInvitePayload = z.infer<typeof candidateInvitePayloadSchema
 export type InterviewerInvitePayload = z.infer<typeof interviewerInvitePayloadSchema>;
 
 export class HumanInterviewMeetingError extends Error {
-  readonly status: 400 | 404 | 500;
+  readonly status: 400 | 403 | 404 | 409 | 410 | 500;
 
-  constructor(message: string, status: 400 | 404 | 500) {
+  constructor(message: string, status: 400 | 403 | 404 | 409 | 410 | 500) {
     super(message);
     this.name = "HumanInterviewMeetingError";
     this.status = status;
@@ -132,6 +132,11 @@ function decodeSignedInviteToken(token: string): z.infer<typeof signedInvitePayl
 export function verifyCandidateInviteToken(token: string): CandidateInvitePayload | null {
   const parsed = candidateInvitePayloadSchema.safeParse(decodeSignedInviteToken(token));
   return parsed.success && parsed.data.exp >= Date.now() ? parsed.data : null;
+}
+
+export function decodeCandidateInviteToken(token: string): CandidateInvitePayload | null {
+  const parsed = candidateInvitePayloadSchema.safeParse(decodeSignedInviteToken(token));
+  return parsed.success ? parsed.data : null;
 }
 
 export function verifyInterviewerInviteToken(token: string): InterviewerInvitePayload | null {

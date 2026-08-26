@@ -187,6 +187,25 @@ describe("human interview rounds DAO", () => {
     expect(round1.sortOrder).toBe(0);
     expect(round1.interviewers.map((i) => i.id)).toEqual([INTERVIEWER_A]);
 
+    await expect(
+      createHumanInterviewRound({
+        input: {
+          format: "onsite",
+          interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+          label: "HR 复面",
+          location: "上海办公室",
+        },
+        interviewRecordId: RECORD_ID,
+        organizationId: ORG,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("标记完成") });
+    await completeHumanInterviewRound({
+      feedback: "技术能力符合要求",
+      organizationId: ORG,
+      outcome: "pass",
+      roundId: round1.id,
+    });
+
     const round2 = await createHumanInterviewRound({
       input: {
         format: "onsite",
@@ -220,6 +239,11 @@ describe("human interview rounds DAO", () => {
 
     // 已经在 human_interview 后，再调一次应该 no-op（不会倒退也不会重复跳）。
     // Re-running should be a no-op once we're already at human_interview or later.
+    const [firstRound] = await listHumanInterviewRounds(RECORD_ID, ORG);
+    if (!firstRound) {
+      throw new Error("首轮真人复面不存在");
+    }
+    await cancelHumanInterviewRound({ organizationId: ORG, roundId: firstRound.id });
     await resetCandidateStage("offer");
     await createHumanInterviewRound({
       input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "第 2 轮" },
@@ -289,9 +313,12 @@ describe("human interview rounds DAO", () => {
     });
     expect(cancelled.status).toBe("cancelled");
     expect(cancelled.cancelReason).toBe("候选人请假");
-    await expect(
-      listHumanInterviewMeetings({ interviewRecordId: RECORD_ID, organizationId: ORG }),
-    ).resolves.toEqual([]);
+    const meetings = await listHumanInterviewMeetings({
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    expect(meetings).toHaveLength(1);
+    expect(meetings[0]).toMatchObject({ status: "cancelled" });
 
     // 完成轮：再 cancel 应 400。
     const round2 = await createHumanInterviewRound({
@@ -317,17 +344,40 @@ describe("human interview rounds DAO", () => {
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
     });
+    await cancelHumanInterviewRound({ organizationId: ORG, roundId: r1.id });
     const r2 = await createHumanInterviewRound({
       input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "2" },
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
     });
-    await cancelHumanInterviewRound({ organizationId: ORG, roundId: r1.id });
 
     const list = await listHumanInterviewRounds(RECORD_ID, ORG);
     expect(list.map((r) => r.id)).toEqual([r1.id, r2.id]);
     expect(list[0]?.status).toBe("cancelled");
     expect(list[1]?.status).toBe("pending");
+  });
+
+  it("createHumanInterviewRound 只在上一轮完成且通过后推进", async () => {
+    await clearSubtables();
+    const failedRound = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术一面" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await completeHumanInterviewRound({
+      feedback: "未达到岗位要求",
+      organizationId: ORG,
+      outcome: "fail",
+      roundId: failedRound.id,
+    });
+
+    await expect(
+      createHumanInterviewRound({
+        input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术二面" },
+        interviewRecordId: RECORD_ID,
+        organizationId: ORG,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("未通过") });
   });
 
   it("editHumanInterviewRound 同步 scheduled 会议时间，已结束会议拒绝调整", async () => {

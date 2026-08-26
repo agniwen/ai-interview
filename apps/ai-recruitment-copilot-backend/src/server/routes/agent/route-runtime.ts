@@ -16,6 +16,8 @@ import {
 import { runKeyInformationJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-key-information-job";
 import { runSummaryJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
+import { enqueueAiInterviewCompletedEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 import {
   mergeInterviewQuestionOutcome,
   parseInterviewDataCollectionResults,
@@ -306,6 +308,9 @@ async function persistReport(options: {
           eq(studioInterviewSchedule.liveKitRoomName, data.conversationId),
         ),
       );
+    if (isInterviewNotificationFlowEnabled()) {
+      await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: data.scheduleEntryId });
+    }
     await tx.insert(interviewAuditLog).values({
       action: "agent_report_received",
       createdAt: now,

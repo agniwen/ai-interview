@@ -10,6 +10,42 @@ interface HumanInterviewStatusDescription {
   tone: "success" | "warning" | "info" | "outline";
 }
 
+export function getHumanInterviewBusinessRoundNumbers(
+  rounds: readonly Pick<HumanInterviewRoundRecord, "id" | "outcome" | "status">[],
+): Map<string, number> {
+  const roundNumbers = new Map<string, number>();
+  let passedRoundCount = 0;
+  for (const round of rounds) {
+    roundNumbers.set(round.id, passedRoundCount + 2);
+    if (round.status === "completed" && round.outcome === "pass") {
+      passedRoundCount += 1;
+    }
+  }
+  return roundNumbers;
+}
+
+export function getHumanInterviewScheduleBlockReason(
+  rounds: readonly Pick<HumanInterviewRoundRecord, "label" | "outcome" | "status">[],
+): string | null {
+  for (let index = rounds.length - 1; index >= 0; index -= 1) {
+    const round = rounds[index];
+    if (!round || round.status === "cancelled") {
+      continue;
+    }
+    if (round.status === "pending") {
+      return `请先结束并标记完成“${round.label}”，再安排下一轮真人面试。`;
+    }
+    if (round.outcome === "fail") {
+      return `“${round.label}”已标记为未通过，不能继续安排下一轮真人面试。`;
+    }
+    if (round.outcome !== "pass") {
+      return `请先将“${round.label}”明确标记为通过，再安排下一轮真人面试。`;
+    }
+    return null;
+  }
+  return null;
+}
+
 export function describeRoundSummaryStatus(
   round: HumanInterviewRoundRecord,
   meeting: HumanInterviewMeetingRecord | null,
