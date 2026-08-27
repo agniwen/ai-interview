@@ -7,14 +7,13 @@ import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import { paraglideCompilerOptions } from "./paraglide.config";
+import { shouldResolveTslibAsEsm } from "./src/build/tslib-esm-resolution";
 
 const requireFromQueuePackage = createRequire(
   new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
 );
 const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/package.json"));
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
-const bullmqDependencyPathPattern =
-  /[/\\]node_modules[/\\](?:\.bun[/\\]bullmq@[^/\\]+[/\\]node_modules[/\\])?bullmq[/\\]/;
 // Keep the dev config stable: Vite includes define values in its dependency cache key.
 const buildTime = process.env.NODE_ENV === "production" ? new Date().toISOString() : "development";
 export default defineConfig({
@@ -66,9 +65,9 @@ export default defineConfig({
     paraglideVitePlugin(paraglideCompilerOptions),
     {
       enforce: "pre",
-      name: "arc-bullmq-tslib-esm",
+      name: "arc-server-tslib-esm",
       resolveId(source, importer) {
-        if (source === "tslib" && importer && bullmqDependencyPathPattern.test(importer)) {
+        if (shouldResolveTslibAsEsm(source, importer)) {
           return tslibEsmEntry;
         }
 
