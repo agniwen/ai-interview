@@ -14,6 +14,19 @@ const FEISHU_API_ROOT = "https://open.feishu.cn/open-apis";
 const EDIT_THROTTLE_MS = 350;
 const MAX_BLOCKS_PER_REQUEST = 50;
 const MAX_ATTEMPTS = 3;
+const MAX_STALE_CREATED_BLOCK_ATTEMPTS = 5;
+
+class FeishuApiError extends Error {
+  readonly code: number;
+  readonly status: number;
+
+  constructor(code: number, status: number, message: string) {
+    super(`Feishu API request failed: ${code || status} ${message}`);
+    this.name = "FeishuApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
 
 function discardFeishuResponse(): undefined {
   return undefined;
@@ -53,6 +66,7 @@ const existingDocumentBlockSchema = z
     bullet: existingTextContentSchema.optional(),
     children: z.array(z.string().min(1)).optional(),
     heading2: existingTextContentSchema.optional(),
+    heading3: existingTextContentSchema.optional(),
     ordered: existingTextContentSchema.optional(),
     parent_id: z.string().optional(),
     text: existingTextContentSchema.optional(),
@@ -202,9 +216,7 @@ async function requestFeishu<T extends z.ZodType>(
       throw new Error("Feishu API returned an invalid success payload");
     }
 
-    const error = new Error(
-      `Feishu API request failed: ${result.code || response.status} ${result.msg ?? ""}`,
-    );
+    const error = new FeishuApiError(result.code, response.status, result.msg ?? "");
     const rateLimited = response.status === 429 || result.code === 99_991_400;
     if (!rateLimited || attempt === MAX_ATTEMPTS) {
       throw error;
@@ -285,7 +297,8 @@ async function listDocumentBlocks(
 }
 
 function plainText(block: ExistingDocumentBlock | undefined): string {
-  const content = block?.bullet ?? block?.heading2 ?? block?.ordered ?? block?.text;
+  const content =
+    block?.bullet ?? block?.heading2 ?? block?.heading3 ?? block?.ordered ?? block?.text;
   return (content?.elements ?? [])
     .flatMap((element) => {
       const parsed = existingTextRunSchema.safeParse(element);
@@ -551,26 +564,56 @@ async function insertTopLevelBlock(
   },
   dependencies: FeishuDocxDependencies,
 ): Promise<void> {
-  const created = await appendBlocks(
-    options.documentId,
-    options.documentId,
-    [options.block],
-    options.accessToken,
-    dependencies,
-    options.index,
-    `interview-evaluation:${options.documentId}:${options.idempotencyKey}:top-level`,
-  );
-  await populateNestedBlocks(
-    options.documentId,
-    [options.block],
-    created,
-    options.accessToken,
-    dependencies,
-    {
-      clientTokenSeed: `interview-evaluation:${options.documentId}:${options.idempotencyKey}`,
-      updateCalloutTitleAfterChildren: true,
-    },
-  );
+  const baseClientTokenSeed = `interview-evaluation:${options.documentId}:${options.idempotencyKey}`;
+  let clientTokenSeed = baseClientTokenSeed;
+  for (
+    let recoveryAttempt = 0;
+    recoveryAttempt < MAX_STALE_CREATED_BLOCK_ATTEMPTS;
+    recoveryAttempt += 1
+  ) {
+    const created = await appendBlocks(
+      options.documentId,
+      options.documentId,
+      [options.block],
+      options.accessToken,
+      dependencies,
+      options.index,
+      `${clientTokenSeed}:top-level`,
+    );
+    try {
+      await populateNestedBlocks(
+        options.documentId,
+        [options.block],
+        created,
+        options.accessToken,
+        dependencies,
+        {
+          clientTokenSeed,
+          updateCalloutTitleAfterChildren: true,
+        },
+      );
+      return;
+    } catch (error) {
+      const createdBlockId = created[0]?.block_id;
+      const isNotFound = error instanceof FeishuApiError && error.code === 1_770_002;
+      if (
+        !isNotFound ||
+        !createdBlockId ||
+        recoveryAttempt === MAX_STALE_CREATED_BLOCK_ATTEMPTS - 1
+      ) {
+        throw error;
+      }
+      const currentBlocks = await listDocumentBlocks(
+        options.documentId,
+        options.accessToken,
+        dependencies,
+      );
+      if (currentBlocks.some((block) => block.block_id === createdBlockId)) {
+        throw error;
+      }
+      clientTokenSeed = `${baseClientTokenSeed}:recover:${recoveryAttempt}:${createdBlockId}`;
+    }
+  }
 }
 
 async function uploadFeishuDocxAttachment(
@@ -789,32 +832,47 @@ interface RecommendedQuestionsPlacementPlan {
   shouldRelocate: boolean;
 }
 
+function isHrEvaluationTitle(title: string): boolean {
+  const normalized = title
+    .normalize("NFKC")
+    .trim()
+    .replace(/^(?:\p{Extended_Pictographic}\uFE0F?\s*)+/u, "");
+  return /^HR面试评价(?:$|[(:])/u.test(normalized);
+}
+
 function planRecommendedQuestionsPlacement(
   titles: string[],
   hasDesiredBlock: boolean,
 ): RecommendedQuestionsPlacementPlan {
   const currentIndex = titles.indexOf("推荐面试题");
-  const hrIndex = titles.indexOf("HR面试评价");
+  const hrIndex = titles.findIndex(isHrEvaluationTitle);
   const ratingIndex = titles.indexOf("评级等级确定");
   const hasExistingBlock = currentIndex !== -1;
   const isCorrectlyPlaced =
-    hasExistingBlock && currentIndex === hrIndex + 1 && ratingIndex === currentIndex + 1;
+    hasExistingBlock &&
+    hrIndex !== -1 &&
+    currentIndex > hrIndex &&
+    (ratingIndex === -1 || currentIndex < ratingIndex);
   const shouldInsert = hasDesiredBlock && !hasExistingBlock;
   const shouldRelocate = hasDesiredBlock && hasExistingBlock && !isCorrectlyPlaced;
   const hrIndexAfterRemoval = hrIndex - (shouldRelocate && currentIndex < hrIndex ? 1 : 0);
   const ratingIndexAfterRemoval =
     ratingIndex - (shouldRelocate && currentIndex < ratingIndex ? 1 : 0);
 
+  if ((shouldInsert || shouldRelocate) && hrIndexAfterRemoval === -1) {
+    throw new Error("飞书文档缺少“HR面试评价”板块，无法插入推荐面试题");
+  }
   if (
     (shouldInsert || shouldRelocate) &&
-    (hrIndexAfterRemoval === -1 || ratingIndexAfterRemoval !== hrIndexAfterRemoval + 1)
+    ratingIndexAfterRemoval !== -1 &&
+    ratingIndexAfterRemoval < hrIndexAfterRemoval
   ) {
-    throw new Error("飞书文档缺少相邻的“HR面试评价”和“评级等级确定”板块，无法插入推荐面试题");
+    throw new Error("飞书文档的“评级等级确定”板块位于“HR面试评价”之前，无法安全插入推荐面试题");
   }
 
   return {
     currentIndex,
-    insertIndex: ratingIndexAfterRemoval,
+    insertIndex: ratingIndexAfterRemoval === -1 ? hrIndexAfterRemoval + 1 : ratingIndexAfterRemoval,
     shouldInsert,
     shouldRelocate,
   };
@@ -862,7 +920,9 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
     !calloutMatches(existingRecommendedQuestions, options.recommendedQuestionsBlock, blocksById),
   );
 
-  const hrEvaluationIndex = shouldInsertResumeEvaluation ? titles.indexOf("HR面试评价") : -1;
+  const hrEvaluationIndex = shouldInsertResumeEvaluation
+    ? titles.findIndex(isHrEvaluationTitle)
+    : -1;
   if (shouldInsertResumeEvaluation && hrEvaluationIndex === -1) {
     throw new Error("飞书文档缺少“HR面试评价”板块，无法插入简历评价");
   }
