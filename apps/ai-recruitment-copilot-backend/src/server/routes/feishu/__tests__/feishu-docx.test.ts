@@ -28,6 +28,41 @@ function calloutBlock(title: string): FeishuDocumentBlock {
   };
 }
 
+function existingResumeEvaluationPage(bodyContent: string): JsonValue {
+  return {
+    code: 0,
+    data: {
+      has_more: false,
+      items: [
+        {
+          block_id: "docx-existing",
+          block_type: 1,
+          children: ["resume-callout"],
+          parent_id: "",
+        },
+        {
+          block_id: "resume-callout",
+          block_type: 19,
+          children: ["resume-title", "resume-body"],
+          parent_id: "docx-existing",
+        },
+        {
+          block_id: "resume-title",
+          block_type: 2,
+          parent_id: "resume-callout",
+          text: { elements: [{ text_run: { content: "简历评价" } }] },
+        },
+        {
+          block_id: "resume-body",
+          block_type: 2,
+          parent_id: "resume-callout",
+          text: { elements: [{ text_run: { content: bodyContent } }] },
+        },
+      ],
+    },
+  };
+}
+
 describe("createFeishuDocx", () => {
   it("grants edit access to an existing application-owned document", async () => {
     const fetcher = vi
@@ -381,6 +416,7 @@ describe("existing Feishu documents", () => {
                 block_id: "docx-existing",
                 block_type: 1,
                 children: ["resume-file", "hr-callout", "rating", "business-callout"],
+                parent_id: "",
               },
               { block_id: "resume-file", block_type: 23, parent_id: "docx-existing" },
               {
@@ -442,6 +478,7 @@ describe("existing Feishu documents", () => {
 
     expect(result).toEqual({
       insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+      updatedSections: [],
     });
     expect(fetcher.mock.calls[1]?.[0]).toContain(
       "/documents/docx-existing/blocks/docx-existing/children",
@@ -475,7 +512,7 @@ describe("existing Feishu documents", () => {
             {
               block_id: "resume-callout",
               block_type: 19,
-              children: ["resume-title"],
+              children: ["resume-title", "resume-body"],
               parent_id: "docx-existing",
             },
             {
@@ -490,9 +527,15 @@ describe("existing Feishu documents", () => {
               },
             },
             {
+              block_id: "resume-body",
+              block_type: 2,
+              parent_id: "resume-callout",
+              text: { elements: [{ text_run: { content: "简历评价正文" } }] },
+            },
+            {
               block_id: "recommended-callout",
               block_type: 19,
-              children: ["recommended-title"],
+              children: ["recommended-title", "recommended-body"],
               parent_id: "docx-existing",
             },
             {
@@ -500,6 +543,12 @@ describe("existing Feishu documents", () => {
               block_type: 2,
               parent_id: "recommended-callout",
               text: { elements: [{ text_run: { content: "推荐面试题" } }] },
+            },
+            {
+              block_id: "recommended-body",
+              block_type: 2,
+              parent_id: "recommended-callout",
+              text: { elements: [{ text_run: { content: "推荐面试题正文" } }] },
             },
           ],
         },
@@ -516,8 +565,108 @@ describe("existing Feishu documents", () => {
         },
         { fetcher, sleep: vi.fn(() => Promise.resolve()) },
       ),
-    ).resolves.toEqual({ insertedSections: [] });
+    ).resolves.toEqual({ insertedSections: [], updatedSections: [] });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates changed system-owned content and leaves matching content untouched", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(existingResumeEvaluationPage("旧正文")))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { document_revision_id: 2 } }))
+      .mockResolvedValueOnce(
+        jsonResponse({ code: 0, data: { children: [{ block_id: "resume-body-new" }] } }),
+      )
+      .mockResolvedValueOnce(jsonResponse(existingResumeEvaluationPage("简历评价正文")));
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      resumeEvaluationBlock: calloutBlock("简历评价"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({
+      insertedSections: [],
+      updatedSections: ["resumeEvaluation"],
+    });
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: [], updatedSections: [] });
+
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher.mock.calls[1]?.[0]).toContain(
+      "/blocks/resume-callout/children/batch_delete?client_token=",
+    );
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe("DELETE");
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      end_index: 2,
+      start_index: 1,
+    });
+    expect(fetcher.mock.calls[2]?.[0]).toContain("/blocks/resume-callout/children?client_token=");
+    expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
+      children: [textBlock("简历评价正文")],
+    });
+  });
+
+  it("uses a new idempotency token when the same Feishu block is edited again", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(existingResumeEvaluationPage("第一次漂移")))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse(existingResumeEvaluationPage("第二次漂移")))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }));
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      resumeEvaluationBlock: calloutBlock("简历评价"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await updateFeishuDocxInterviewEvaluationStructure(options, dependencies);
+    await updateFeishuDocxInterviewEvaluationStructure(options, dependencies);
+
+    expect(fetcher.mock.calls[4]?.[0]).not.toBe(fetcher.mock.calls[1]?.[0]);
+    expect(fetcher.mock.calls[5]?.[0]).not.toBe(fetcher.mock.calls[2]?.[0]);
+  });
+
+  it("serializes concurrent updates for the same document", async () => {
+    let appendCount = 0;
+    const { promise: firstDelete, resolve: resolveFirstDelete } = Promise.withResolvers<Response>();
+    const fetcher = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (init?.method === "GET") {
+        const body = appendCount === 0 ? "旧正文" : "简历评价正文";
+        return Promise.resolve(jsonResponse(existingResumeEvaluationPage(body)));
+      }
+      if (url.includes("batch_delete")) {
+        return firstDelete;
+      }
+      appendCount += 1;
+      return Promise.resolve(jsonResponse({ code: 0, data: { children: [] } }));
+    });
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      resumeEvaluationBlock: calloutBlock("简历评价"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    const firstUpdate = updateFeishuDocxInterviewEvaluationStructure(options, dependencies);
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    const secondUpdate = updateFeishuDocxInterviewEvaluationStructure(options, dependencies);
+    await Promise.resolve();
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    resolveFirstDelete(jsonResponse({ code: 0, data: {} }));
+    await expect(Promise.all([firstUpdate, secondUpdate])).resolves.toEqual([
+      { insertedSections: [], updatedSections: ["resumeEvaluation"] },
+      { insertedSections: [], updatedSections: [] },
+    ]);
+    expect(appendCount).toBe(1);
   });
 
   it("retries an interrupted insertion with stable Feishu idempotency tokens", async () => {
@@ -583,7 +732,7 @@ describe("existing Feishu documents", () => {
     ).rejects.toThrow("temporary failure");
     await expect(
       updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
-    ).resolves.toEqual({ insertedSections: ["recommendedQuestions"] });
+    ).resolves.toEqual({ insertedSections: ["recommendedQuestions"], updatedSections: [] });
 
     const firstTopLevelCreateUrl = String(fetcher.mock.calls[1]?.[0]);
     const retryTopLevelCreateUrl = String(fetcher.mock.calls[4]?.[0]);

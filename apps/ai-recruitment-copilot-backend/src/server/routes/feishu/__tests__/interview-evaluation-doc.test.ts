@@ -3,14 +3,17 @@ import { buildInterviewEvaluationDocument } from "../utils/interview-evaluation-
 import type { FeishuDocumentBlock } from "../utils/interview-evaluation-doc";
 
 const BLOCK_TYPE = {
+  BULLET: 12,
   CALLOUT: 19,
   HEADING_2: 4,
+  ORDERED: 13,
   TEXT: 2,
   TODO: 17,
 } as const;
 
 function blockText(block: FeishuDocumentBlock): string | undefined {
-  const content = block.heading2 ?? block.heading3 ?? block.text ?? block.todo;
+  const content =
+    block.bullet ?? block.heading2 ?? block.heading3 ?? block.ordered ?? block.text ?? block.todo;
   return content?.elements[0]?.text_run.content;
 }
 
@@ -22,8 +25,8 @@ describe("buildInterviewEvaluationDocument", () => {
       resumeEvaluation: {
         detailedOverall: {
           judgment: "候选人的核心技术经历与岗位要求高度一致。",
-          matchingEvidence: "1. 主导过同类系统建设\n2. 具备目标技术栈经验",
-          risks: "1. 团队管理跨度仍需确认",
+          matchingEvidence: "- 主导过同类系统建设\n- 具备目标技术栈经验",
+          risks: "1. 团队管理跨度仍需确认\n2. 海外协作经验需要核实",
         },
       },
       resumeUrl: "https://example.com/resume",
@@ -39,12 +42,23 @@ describe("buildInterviewEvaluationDocument", () => {
     });
     expect(document.blocks.at(2)?.children?.map(blockText)).toEqual([
       "简历评价",
-      "综合评价",
       "候选人的核心技术经历与岗位要求高度一致。",
       "匹配依据",
-      "1. 主导过同类系统建设\n2. 具备目标技术栈经验",
+      "主导过同类系统建设",
+      "具备目标技术栈经验",
       "风险与待确认项",
-      "1. 团队管理跨度仍需确认",
+      "团队管理跨度仍需确认",
+      "海外协作经验需要核实",
+    ]);
+    expect(document.blocks.at(2)?.children?.map((block) => block.block_type)).toEqual([
+      BLOCK_TYPE.TEXT,
+      BLOCK_TYPE.TEXT,
+      BLOCK_TYPE.TEXT,
+      BLOCK_TYPE.BULLET,
+      BLOCK_TYPE.BULLET,
+      BLOCK_TYPE.TEXT,
+      BLOCK_TYPE.ORDERED,
+      BLOCK_TYPE.ORDERED,
     ]);
   });
 

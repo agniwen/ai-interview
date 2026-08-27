@@ -19,9 +19,11 @@ interface FeishuTextRun {
 }
 
 const BLOCK_TYPE = {
+  BULLET: 12,
   CALLOUT: 19,
   HEADING_2: 4,
   HEADING_3: 5,
+  ORDERED: 13,
   TEXT: 2,
   TODO: 17,
 } as const;
@@ -42,6 +44,7 @@ interface FeishuTextContent {
 
 export interface FeishuDocumentBlock {
   block_type: number;
+  bullet?: FeishuTextContent;
   callout?: {
     background_color: number;
     border_color: number;
@@ -51,6 +54,7 @@ export interface FeishuDocumentBlock {
   file?: { token?: string; view_type?: 1 | 2 };
   heading2?: FeishuTextContent;
   heading3?: FeishuTextContent;
+  ordered?: FeishuTextContent;
   text?: FeishuTextContent;
   todo?: FeishuTextContent;
 }
@@ -181,6 +185,39 @@ function restrictedMarkdownText(value: string): string {
     .replaceAll(/\*(.+?)\*/g, "$1");
 }
 
+const INLINE_UNORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*-[ \t]+/g;
+const INLINE_ORDERED_LIST_MARKER_RE = /([。！？；])[ \t]*(\d{1,2}[.)])[ \t]+/g;
+const UNORDERED_LIST_ITEM_RE = /^\s*[-*+]\s+(.+)$/;
+const ORDERED_LIST_ITEM_RE = /^\s*\d{1,2}[.)]\s+(.+)$/;
+
+function restrictedMarkdownBlocks(value: string): FeishuDocumentBlock[] {
+  const normalized = value
+    .replace(INLINE_UNORDERED_LIST_MARKER_RE, "$1\n- ")
+    .replace(INLINE_ORDERED_LIST_MARKER_RE, "$1\n$2 ");
+  return normalized.split(/\r?\n/).flatMap((line) => {
+    const unorderedItem = line.match(UNORDERED_LIST_ITEM_RE)?.[1];
+    if (unorderedItem) {
+      return [
+        {
+          block_type: BLOCK_TYPE.BULLET,
+          bullet: textContent(restrictedMarkdownText(unorderedItem)),
+        },
+      ];
+    }
+    const orderedItem = line.match(ORDERED_LIST_ITEM_RE)?.[1];
+    if (orderedItem) {
+      return [
+        {
+          block_type: BLOCK_TYPE.ORDERED,
+          ordered: textContent(restrictedMarkdownText(orderedItem)),
+        },
+      ];
+    }
+    const content = restrictedMarkdownText(line);
+    return content ? [textBlock(content)] : [];
+  });
+}
+
 function buildResumeEvaluationBlocks(
   evaluation: InterviewEvaluationDocumentInput["resumeEvaluation"],
 ): FeishuDocumentBlock[] {
@@ -191,12 +228,11 @@ function buildResumeEvaluationBlocks(
   return [
     calloutBlock(CALLOUT_COLOR.BLUE, CALLOUT_COLOR.BLUE, "books", [
       textBlock("简历评价", true),
-      textBlock("综合评价", true),
-      textBlock(restrictedMarkdownText(detailedOverall.judgment)),
+      ...restrictedMarkdownBlocks(detailedOverall.judgment),
       textBlock("匹配依据", true),
-      textBlock(restrictedMarkdownText(detailedOverall.matchingEvidence)),
+      ...restrictedMarkdownBlocks(detailedOverall.matchingEvidence),
       textBlock("风险与待确认项", true),
-      textBlock(restrictedMarkdownText(detailedOverall.risks)),
+      ...restrictedMarkdownBlocks(detailedOverall.risks),
     ]),
   ];
 }

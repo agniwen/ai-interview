@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Feishu document transport, retry, and content-sync invariants stay in one adapter. */
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
@@ -39,18 +40,21 @@ const createBlocksResponseSchema = z.object({
     .optional(),
 });
 
+const existingTextContentSchema = z
+  .object({
+    elements: z.array(z.unknown()).optional(),
+  })
+  .passthrough();
+
 const existingDocumentBlockSchema = z
   .object({
     block_id: z.string().min(1),
     block_type: z.number().int(),
+    bullet: existingTextContentSchema.optional(),
     children: z.array(z.string().min(1)).optional(),
-    parent_id: z.string().min(1).optional(),
-    text: z
-      .object({
-        elements: z.array(z.unknown()),
-      })
-      .passthrough()
-      .optional(),
+    ordered: existingTextContentSchema.optional(),
+    parent_id: z.string().optional(),
+    text: existingTextContentSchema.optional(),
   })
   .passthrough();
 
@@ -79,12 +83,14 @@ interface FeishuDocxAttachment {
 
 interface FeishuRequestBody {
   children?: FeishuDocumentBlock[];
+  end_index?: number;
   folder_token?: string;
   index?: number;
   member_id?: string;
   member_type?: "openid";
   perm?: "edit";
   replace_file?: { token: string };
+  start_index?: number;
   title?: string;
   type?: "docx" | "user";
   update_text_elements?: {
@@ -278,13 +284,117 @@ async function listDocumentBlocks(
 }
 
 function plainText(block: ExistingDocumentBlock | undefined): string {
-  return (block?.text?.elements ?? [])
+  const content = block?.bullet ?? block?.ordered ?? block?.text;
+  return (content?.elements ?? [])
     .flatMap((element) => {
       const parsed = existingTextRunSchema.safeParse(element);
       return parsed.success ? [parsed.data.text_run.content] : [];
     })
     .join("")
     .trim();
+}
+
+function desiredBlockText(block: FeishuDocumentBlock): string {
+  const content = block.bullet ?? block.ordered ?? block.text;
+  return (content?.elements ?? [])
+    .map((element) => element.text_run.content)
+    .join("")
+    .trim();
+}
+
+function calloutBodyMatches(
+  existingCallout: ExistingDocumentBlock,
+  desiredCallout: FeishuDocumentBlock,
+  blocksById: Map<string, ExistingDocumentBlock>,
+): boolean {
+  const existingBody = (existingCallout.children ?? []).slice(1).map((blockId) => {
+    const block = blocksById.get(blockId);
+    return block ? { blockType: block.block_type, content: plainText(block) } : null;
+  });
+  const desiredBody = (desiredCallout.children ?? []).slice(1).map((block) => ({
+    blockType: block.block_type,
+    content: desiredBlockText(block),
+  }));
+  return JSON.stringify(existingBody) === JSON.stringify(desiredBody);
+}
+
+function syncTransitionFingerprint(
+  existingCallout: ExistingDocumentBlock,
+  desiredBody: FeishuDocumentBlock[],
+  blocksById: Map<string, ExistingDocumentBlock>,
+): string {
+  const existingBody = (existingCallout.children ?? []).slice(1).map((blockId) => {
+    const block = blocksById.get(blockId);
+    return {
+      blockId,
+      blockType: block?.block_type ?? null,
+      content: plainText(block),
+    };
+  });
+  return createHash("sha256").update(JSON.stringify({ desiredBody, existingBody })).digest("hex");
+}
+
+async function deleteBlockChildren(
+  documentId: string,
+  parentBlockId: string,
+  startIndex: number,
+  endIndex: number,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+  clientTokenSeed: string,
+): Promise<void> {
+  const clientToken = createHash("sha256").update(clientTokenSeed).digest("hex");
+  await requestFeishu(
+    `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children/batch_delete?client_token=${clientToken}`,
+    accessToken,
+    { end_index: endIndex, start_index: startIndex },
+    emptyFeishuResponseSchema,
+    dependencies,
+    "DELETE",
+  );
+  await dependencies.sleep(EDIT_THROTTLE_MS);
+}
+
+async function syncCalloutBody(
+  options: {
+    accessToken: string;
+    blocksById: Map<string, ExistingDocumentBlock>;
+    desiredCallout: FeishuDocumentBlock;
+    documentId: string;
+    existingCallout: ExistingDocumentBlock;
+    section: InterviewEvaluationStructureSection;
+  },
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const desiredBody = (options.desiredCallout.children ?? []).slice(1);
+  const fingerprint = syncTransitionFingerprint(
+    options.existingCallout,
+    desiredBody,
+    options.blocksById,
+  );
+  const existingChildCount = options.existingCallout.children?.length ?? 0;
+  if (existingChildCount > 1) {
+    await deleteBlockChildren(
+      options.documentId,
+      options.existingCallout.block_id,
+      1,
+      existingChildCount,
+      options.accessToken,
+      dependencies,
+      `interview-evaluation:${options.documentId}:${options.section}:${fingerprint}:delete`,
+    );
+  }
+  if (desiredBody.length > 0) {
+    await appendBlocks(
+      options.documentId,
+      options.existingCallout.block_id,
+      desiredBody,
+      options.accessToken,
+      dependencies,
+      undefined,
+      `interview-evaluation:${options.documentId}:${options.section}:${fingerprint}:body`,
+    );
+  }
 }
 
 function topLevelBlockTitle(
@@ -603,10 +713,34 @@ export async function createFeishuDocx(
   };
 }
 
-export async function updateFeishuDocxInterviewEvaluationStructure(
+const documentStructureUpdateTails = new Map<string, Promise<unknown>>();
+
+async function serializeDocumentStructureUpdate<T>(
+  documentId: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = documentStructureUpdateTails.get(documentId) ?? Promise.resolve();
+  const { promise: current, resolve: releaseCurrent } = Promise.withResolvers<boolean>();
+  documentStructureUpdateTails.set(documentId, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    releaseCurrent(true);
+    if (documentStructureUpdateTails.get(documentId) === current) {
+      documentStructureUpdateTails.delete(documentId);
+    }
+  }
+}
+
+// oxlint-disable-next-line complexity -- one maintenance command validates all anchors before coordinating two insert-or-sync section plans.
+async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   options: UpdateInterviewEvaluationStructureOptions,
-  dependencies: FeishuDocxDependencies = defaultDependencies,
-): Promise<{ insertedSections: InterviewEvaluationStructureSection[] }> {
+  dependencies: FeishuDocxDependencies,
+): Promise<{
+  insertedSections: InterviewEvaluationStructureSection[];
+  updatedSections: InterviewEvaluationStructureSection[];
+}> {
   const blocks = await listDocumentBlocks(options.documentId, options.accessToken, dependencies);
   const blocksById = new Map(blocks.map((block) => [block.block_id, block]));
   const root = blocksById.get(options.documentId);
@@ -617,11 +751,31 @@ export async function updateFeishuDocxInterviewEvaluationStructure(
   const titles = topLevelBlocks.map((block) => topLevelBlockTitle(block, blocksById));
   const hasResumeEvaluation = titles.includes("简历评价");
   const hasRecommendedQuestions = titles.includes("推荐面试题");
+  const existingResumeEvaluation = hasResumeEvaluation
+    ? topLevelBlocks[titles.indexOf("简历评价")]
+    : undefined;
+  const existingRecommendedQuestions = hasRecommendedQuestions
+    ? topLevelBlocks[titles.indexOf("推荐面试题")]
+    : undefined;
   const shouldInsertResumeEvaluation = Boolean(
     options.resumeEvaluationBlock && !hasResumeEvaluation,
   );
   const shouldInsertRecommendedQuestions = Boolean(
     options.recommendedQuestionsBlock && !hasRecommendedQuestions,
+  );
+  const shouldUpdateResumeEvaluation = Boolean(
+    options.resumeEvaluationBlock &&
+    existingResumeEvaluation &&
+    !calloutBodyMatches(existingResumeEvaluation, options.resumeEvaluationBlock, blocksById),
+  );
+  const shouldUpdateRecommendedQuestions = Boolean(
+    options.recommendedQuestionsBlock &&
+    existingRecommendedQuestions &&
+    !calloutBodyMatches(
+      existingRecommendedQuestions,
+      options.recommendedQuestionsBlock,
+      blocksById,
+    ),
   );
 
   const businessReviewIndex = shouldInsertRecommendedQuestions
@@ -633,6 +787,38 @@ export async function updateFeishuDocxInterviewEvaluationStructure(
   const hrEvaluationIndex = shouldInsertResumeEvaluation ? titles.indexOf("HR面试评价") : -1;
   if (shouldInsertResumeEvaluation && hrEvaluationIndex === -1) {
     throw new Error("飞书文档缺少“HR面试评价”板块，无法插入简历评价");
+  }
+
+  if (
+    shouldUpdateRecommendedQuestions &&
+    options.recommendedQuestionsBlock &&
+    existingRecommendedQuestions
+  ) {
+    await syncCalloutBody(
+      {
+        accessToken: options.accessToken,
+        blocksById,
+        desiredCallout: options.recommendedQuestionsBlock,
+        documentId: options.documentId,
+        existingCallout: existingRecommendedQuestions,
+        section: "recommendedQuestions",
+      },
+      dependencies,
+    );
+  }
+
+  if (shouldUpdateResumeEvaluation && options.resumeEvaluationBlock && existingResumeEvaluation) {
+    await syncCalloutBody(
+      {
+        accessToken: options.accessToken,
+        blocksById,
+        desiredCallout: options.resumeEvaluationBlock,
+        documentId: options.documentId,
+        existingCallout: existingResumeEvaluation,
+        section: "resumeEvaluation",
+      },
+      dependencies,
+    );
   }
 
   if (shouldInsertRecommendedQuestions && options.recommendedQuestionsBlock) {
@@ -666,7 +852,23 @@ export async function updateFeishuDocxInterviewEvaluationStructure(
       ...(shouldInsertResumeEvaluation ? (["resumeEvaluation"] as const) : []),
       ...(shouldInsertRecommendedQuestions ? (["recommendedQuestions"] as const) : []),
     ],
+    updatedSections: [
+      ...(shouldUpdateResumeEvaluation ? (["resumeEvaluation"] as const) : []),
+      ...(shouldUpdateRecommendedQuestions ? (["recommendedQuestions"] as const) : []),
+    ],
   };
+}
+
+export async function updateFeishuDocxInterviewEvaluationStructure(
+  options: UpdateInterviewEvaluationStructureOptions,
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<{
+  insertedSections: InterviewEvaluationStructureSection[];
+  updatedSections: InterviewEvaluationStructureSection[];
+}> {
+  return await serializeDocumentStructureUpdate(options.documentId, () =>
+    updateFeishuDocxInterviewEvaluationStructureUnlocked(options, dependencies),
+  );
 }
 
 export async function createFeishuInterviewEvaluationDocx(
@@ -696,7 +898,10 @@ export async function moveFeishuInterviewEvaluationDocx(
 export async function updateFeishuInterviewEvaluationDocxStructure(
   providerId: FeishuProviderId,
   options: Omit<UpdateInterviewEvaluationStructureOptions, "accessToken">,
-): Promise<{ insertedSections: InterviewEvaluationStructureSection[] }> {
+): Promise<{
+  insertedSections: InterviewEvaluationStructureSection[];
+  updatedSections: InterviewEvaluationStructureSection[];
+}> {
   const { appId, appSecret } = getFeishuAppCredentials(providerId);
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
   return await updateFeishuDocxInterviewEvaluationStructure({

@@ -204,6 +204,7 @@ describe("updatePlatformNotificationDocumentStructure", () => {
     });
     mocks.updateDocumentStructure.mockResolvedValueOnce({
       insertedSections: ["recommendedQuestions"],
+      updatedSections: ["resumeEvaluation"],
     });
 
     await expect(
@@ -211,6 +212,7 @@ describe("updatePlatformNotificationDocumentStructure", () => {
     ).resolves.toEqual({
       documentUrl: "https://feishu.cn/docx/docx-1",
       insertedSections: ["recommendedQuestions"],
+      updatedSections: ["resumeEvaluation"],
     });
     expect(mocks.updateDocumentStructure).toHaveBeenCalledWith(
       "feishu",

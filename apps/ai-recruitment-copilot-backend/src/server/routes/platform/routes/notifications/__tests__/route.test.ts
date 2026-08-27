@@ -88,6 +88,7 @@ describe("platform notifications routes", () => {
     mocks.updateDocumentStructure.mockResolvedValueOnce({
       documentUrl: "https://feishu.cn/docx/docx-1",
       insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+      updatedSections: [],
     });
 
     const response = await makeApp("admin").request(
@@ -99,6 +100,7 @@ describe("platform notifications routes", () => {
     await expect(response.json()).resolves.toEqual({
       documentUrl: "https://feishu.cn/docx/docx-1",
       insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+      updatedSections: [],
     });
     expect(mocks.updateDocumentStructure).toHaveBeenCalledWith("log_1");
     expect(mocks.resendNotification).not.toHaveBeenCalled();

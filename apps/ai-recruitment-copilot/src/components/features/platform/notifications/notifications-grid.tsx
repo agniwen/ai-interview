@@ -159,6 +159,10 @@ const STATUS_LABEL = {
   sent: "已发送",
 } satisfies Record<NotificationStatus, string>;
 
+function structureSectionLabel(section: "recommendedQuestions" | "resumeEvaluation") {
+  return section === "resumeEvaluation" ? "简历评价" : "推荐面试题";
+}
+
 function parseNotificationSortColumn(value: string | undefined): NotificationSortColumn {
   const parsed = notificationSortColumnSchema.safeParse(value);
   return parsed.success ? parsed.data : "createdAt";
@@ -370,14 +374,19 @@ export function NotificationsGrid() {
       setUpdatingStructureId(null);
     },
     onSuccess: (result) => {
-      if (result.insertedSections.length === 0) {
+      if (result.insertedSections.length === 0 && result.updatedSections.length === 0) {
         toast.success("飞书文档结构已是最新");
         return;
       }
-      const sectionLabels = result.insertedSections.map((section) =>
-        section === "resumeEvaluation" ? "简历评价" : "推荐面试题",
-      );
-      toast.success(`已插入${sectionLabels.join("、")}`);
+      const messages = [
+        result.insertedSections.length > 0
+          ? `已插入${result.insertedSections.map(structureSectionLabel).join("、")}`
+          : null,
+        result.updatedSections.length > 0
+          ? `已更新${result.updatedSections.map(structureSectionLabel).join("、")}`
+          : null,
+      ].filter(Boolean);
+      toast.success(messages.join("，"));
     },
   });
 

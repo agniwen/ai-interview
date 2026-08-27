@@ -234,6 +234,7 @@ export async function updatePlatformNotificationDocumentStructure(
 ): Promise<{
   documentUrl: string;
   insertedSections: InterviewEvaluationStructureSection[];
+  updatedSections: InterviewEvaluationStructureSection[];
 }> {
   const notification = await dependencies.loadStructure(notificationId);
   if (!notification) {
@@ -276,5 +277,6 @@ export async function updatePlatformNotificationDocumentStructure(
   return {
     documentUrl: notification.documentUrl,
     insertedSections: result.insertedSections,
+    updatedSections: result.updatedSections,
   };
 }
