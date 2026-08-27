@@ -29,7 +29,7 @@ function calloutBlock(title: string): FeishuDocumentBlock {
   };
 }
 
-function existingResumeEvaluationPage(bodyContent: string): JsonValue {
+function existingResumeEvaluationPage(bodyContent: string, titleContent = "简历评价"): JsonValue {
   return {
     code: 0,
     data: {
@@ -51,7 +51,7 @@ function existingResumeEvaluationPage(bodyContent: string): JsonValue {
           block_id: "resume-title",
           block_type: 2,
           parent_id: "resume-callout",
-          text: { elements: [{ text_run: { content: "简历评价" } }] },
+          text: { elements: [{ text_run: { content: titleContent } }] },
         },
         {
           block_id: "resume-body",
@@ -867,6 +867,38 @@ describe("existing Feishu documents", () => {
     expect(fetcher.mock.calls[2]?.[0]).toContain("/blocks/resume-callout/children?client_token=");
     expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
       children: [textBlock("简历评价正文")],
+    });
+  });
+
+  it("renames the legacy resume evaluation title without duplicating its block", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(existingResumeEvaluationPage("简历AI简历评价正文")))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(
+        jsonResponse(existingResumeEvaluationPage("简历AI简历评价正文", "简历AI简历评价")),
+      );
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      resumeEvaluationBlock: calloutBlock("简历AI简历评价"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: [], updatedSections: ["resumeEvaluation"] });
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: [], updatedSections: [] });
+
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher.mock.calls[1]?.[0]).toContain("/blocks/resume-title");
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      update_text_elements: {
+        elements: [{ text_run: { content: "简历AI简历评价" } }],
+      },
     });
   });
 

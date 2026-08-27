@@ -56,7 +56,7 @@ describe("buildInterviewEvaluationDocument", () => {
       emoji_id: "books",
     });
     expect(document.blocks.at(2)?.children?.map(blockText)).toEqual([
-      "简历评价",
+      "简历AI简历评价",
       "候选人的核心技术经历与岗位要求高度一致。",
       "匹配依据",
       "主导过同类系统建设",

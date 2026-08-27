@@ -319,6 +319,31 @@ function calloutBodyMatches(
   return JSON.stringify(existingBody) === JSON.stringify(desiredBody);
 }
 
+function calloutTitleMatches(
+  existingCallout: ExistingDocumentBlock,
+  desiredCallout: FeishuDocumentBlock,
+  blocksById: Map<string, ExistingDocumentBlock>,
+): boolean {
+  const existingTitleId = existingCallout.children?.[0];
+  const desiredTitle = desiredCallout.children?.[0];
+  return Boolean(
+    existingTitleId &&
+    desiredTitle &&
+    plainText(blocksById.get(existingTitleId)) === desiredBlockText(desiredTitle),
+  );
+}
+
+function calloutMatches(
+  existingCallout: ExistingDocumentBlock,
+  desiredCallout: FeishuDocumentBlock,
+  blocksById: Map<string, ExistingDocumentBlock>,
+): boolean {
+  return (
+    calloutTitleMatches(existingCallout, desiredCallout, blocksById) &&
+    calloutBodyMatches(existingCallout, desiredCallout, blocksById)
+  );
+}
+
 function syncTransitionFingerprint(
   existingCallout: ExistingDocumentBlock,
   desiredBody: FeishuDocumentBlock[],
@@ -356,7 +381,28 @@ async function deleteBlockChildren(
   await dependencies.sleep(EDIT_THROTTLE_MS);
 }
 
-async function syncCalloutBody(
+async function updateCalloutTitle(
+  documentId: string,
+  titleBlockId: string,
+  titleBlock: FeishuDocumentBlock,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const elements = titleBlock.text?.elements ?? titleBlock.heading3?.elements;
+  if (!elements) {
+    throw new Error("Feishu callout title must be a text block");
+  }
+  await requestFeishu(
+    `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(titleBlockId)}`,
+    accessToken,
+    { update_text_elements: { elements } },
+    emptyFeishuResponseSchema,
+    dependencies,
+    "PATCH",
+  );
+}
+
+async function syncCalloutContent(
   options: {
     accessToken: string;
     blocksById: Map<string, ExistingDocumentBlock>;
@@ -367,6 +413,25 @@ async function syncCalloutBody(
   },
   dependencies: FeishuDocxDependencies,
 ): Promise<void> {
+  const existingTitleId = options.existingCallout.children?.[0];
+  const desiredTitle = options.desiredCallout.children?.[0];
+  if (
+    existingTitleId &&
+    desiredTitle &&
+    !calloutTitleMatches(options.existingCallout, options.desiredCallout, options.blocksById)
+  ) {
+    await updateCalloutTitle(
+      options.documentId,
+      existingTitleId,
+      desiredTitle,
+      options.accessToken,
+      dependencies,
+    );
+    await dependencies.sleep(EDIT_THROTTLE_MS);
+  }
+  if (calloutBodyMatches(options.existingCallout, options.desiredCallout, options.blocksById)) {
+    return;
+  }
   const desiredBody = (options.desiredCallout.children ?? []).slice(1);
   const fingerprint = syncTransitionFingerprint(
     options.existingCallout,
@@ -413,27 +478,6 @@ function topLevelBlockTitle(
     }
   }
   return "";
-}
-
-async function updateCalloutTitle(
-  documentId: string,
-  titleBlockId: string,
-  titleBlock: FeishuDocumentBlock,
-  accessToken: string,
-  dependencies: FeishuDocxDependencies,
-): Promise<void> {
-  const elements = titleBlock.text?.elements ?? titleBlock.heading3?.elements;
-  if (!elements) {
-    throw new Error("Feishu callout title must be a text block");
-  }
-  await requestFeishu(
-    `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(titleBlockId)}`,
-    accessToken,
-    { update_text_elements: { elements } },
-    emptyFeishuResponseSchema,
-    dependencies,
-    "PATCH",
-  );
 }
 
 async function populateNestedBlocks(
@@ -792,13 +836,16 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   }
   const topLevelBlocks = (root.children ?? []).map((blockId) => blocksById.get(blockId));
   const titles = topLevelBlocks.map((block) => topLevelBlockTitle(block, blocksById));
-  const hasResumeEvaluation = titles.includes("简历评价");
+  const resumeEvaluationIndex = titles.findIndex(
+    (title) => title === "简历AI简历评价" || title === "简历评价",
+  );
+  const hasResumeEvaluation = resumeEvaluationIndex !== -1;
   const recommendedQuestionsPlacement = planRecommendedQuestionsPlacement(
     titles,
     Boolean(options.recommendedQuestionsBlock),
   );
   const existingResumeEvaluation = hasResumeEvaluation
-    ? topLevelBlocks[titles.indexOf("简历评价")]
+    ? topLevelBlocks[resumeEvaluationIndex]
     : undefined;
   const existingRecommendedQuestions = topLevelBlocks[recommendedQuestionsPlacement.currentIndex];
   const shouldInsertResumeEvaluation = Boolean(
@@ -807,16 +854,12 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   const shouldUpdateResumeEvaluation = Boolean(
     options.resumeEvaluationBlock &&
     existingResumeEvaluation &&
-    !calloutBodyMatches(existingResumeEvaluation, options.resumeEvaluationBlock, blocksById),
+    !calloutMatches(existingResumeEvaluation, options.resumeEvaluationBlock, blocksById),
   );
   const shouldUpdateRecommendedQuestions = Boolean(
     options.recommendedQuestionsBlock &&
     existingRecommendedQuestions &&
-    !calloutBodyMatches(
-      existingRecommendedQuestions,
-      options.recommendedQuestionsBlock,
-      blocksById,
-    ),
+    !calloutMatches(existingRecommendedQuestions, options.recommendedQuestionsBlock, blocksById),
   );
 
   const hrEvaluationIndex = shouldInsertResumeEvaluation ? titles.indexOf("HR面试评价") : -1;
@@ -830,7 +873,7 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
     options.recommendedQuestionsBlock &&
     existingRecommendedQuestions
   ) {
-    await syncCalloutBody(
+    await syncCalloutContent(
       {
         accessToken: options.accessToken,
         blocksById,
@@ -870,7 +913,7 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   }
 
   if (shouldUpdateResumeEvaluation && options.resumeEvaluationBlock && existingResumeEvaluation) {
-    await syncCalloutBody(
+    await syncCalloutContent(
       {
         accessToken: options.accessToken,
         blocksById,
@@ -897,7 +940,7 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   }
 
   if (shouldInsertResumeEvaluation && options.resumeEvaluationBlock) {
-    const resumeEvaluationIndex =
+    const resumeEvaluationInsertIndex =
       hrEvaluationIndex -
       (recommendedQuestionsPlacement.shouldRelocate &&
       recommendedQuestionsPlacement.currentIndex < hrEvaluationIndex
@@ -909,7 +952,7 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
         block: options.resumeEvaluationBlock,
         documentId: options.documentId,
         idempotencyKey: "resumeEvaluation",
-        index: resumeEvaluationIndex,
+        index: resumeEvaluationInsertIndex,
       },
       dependencies,
     );

@@ -34,6 +34,7 @@ import {
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 import { ResumeLibraryCardSkeleton } from "./resume-library-card-skeleton";
+import { ResumeLibraryLoadMore } from "./resume-library-load-more";
 
 function getResumeLibrarySortBy(grid: ResumeLibraryGridState) {
   return grid.sorting[0]?.id ?? "createdAt";
@@ -152,7 +153,6 @@ export function ResumeLibraryCardList({
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const virtualListRootRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
   const { setRowSelection } = grid;
@@ -225,24 +225,6 @@ export function ResumeLibraryCardList({
     ? "所选记录包含解析中的简历，暂不能删除"
     : undefined;
   const canShowFloatingActionBar = canDeleteResumeLibrary && selectedIds.length > 0;
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    const IntersectionObserverConstructor = globalThis.IntersectionObserver;
-    if (!node || !hasNextPage || !IntersectionObserverConstructor) {
-      return;
-    }
-    const observer = new IntersectionObserverConstructor(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
-          void fetchNextPage();
-        }
-      },
-      { root: scrollElement, rootMargin: "720px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, scrollElement]);
-
   let loadMoreStatusText = "已显示全部简历";
   if (hasNextPage) {
     loadMoreStatusText = isFetchingNextPage
@@ -328,12 +310,13 @@ export function ResumeLibraryCardList({
             );
           })}
         </div>
-        <div
-          className="flex min-h-10 items-center justify-center text-muted-foreground text-sm"
-          ref={loadMoreRef}
-        >
-          {loadMoreStatusText}
-        </div>
+        <ResumeLibraryLoadMore
+          fetchNextPage={fetchNextPage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          scrollElement={scrollElement}
+          statusText={loadMoreStatusText}
+        />
       </>
     );
   }

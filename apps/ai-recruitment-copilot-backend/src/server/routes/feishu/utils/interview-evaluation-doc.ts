@@ -227,7 +227,7 @@ function buildResumeEvaluationBlocks(
   const { detailedOverall } = evaluation;
   return [
     calloutBlock(CALLOUT_COLOR.BLUE, CALLOUT_COLOR.BLUE, "books", [
-      textBlock("简历评价", true),
+      textBlock("简历AI简历评价", true),
       ...restrictedMarkdownBlocks(detailedOverall.judgment),
       textBlock("匹配依据", true),
       ...restrictedMarkdownBlocks(detailedOverall.matchingEvidence),
