@@ -5,7 +5,7 @@ import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/typ
 import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { Fragment, lazy, Suspense, useState } from "react";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
@@ -28,6 +28,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -167,31 +168,38 @@ function AiEvaluationContent({
 }) {
   const { evaluation } = data.aiEvaluation;
   return (
-    <div className="flex flex-col gap-5 p-4">
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+    <div className="flex flex-col p-4">
+      <section className="flex flex-col gap-3 pb-4">
         <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground text-xs">综合建议</span>
           <QualitativeRecommendationIndicator level={evaluation.recommendationLevel} />
         </div>
         <p className="font-medium text-sm leading-6">{evaluation.conciseOverall}</p>
-      </div>
-      <div className="rounded-lg border bg-card p-3">
+      </section>
+      <Separator />
+      <div className="py-4">
         <QualitativeDimensionRadar compact evaluation={evaluation} />
       </div>
-      <div className="flex flex-col gap-2">
-        {DIMENSION_ENTRIES.map(([key, label]) => {
+      <Separator />
+      <div className="flex flex-col">
+        {DIMENSION_ENTRIES.map(([key, label], index) => {
           const dimension = evaluation.dimensions[key];
           return (
-            <section className="rounded-lg border bg-card p-3" key={key}>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-medium text-sm">{label}</h3>
-                <Badge variant="outline">{QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}</Badge>
-              </div>
-              <RestrictedMarkdownView
-                className="mt-2 text-muted-foreground text-xs leading-5"
-                content={dimension.evaluation}
-              />
-            </section>
+            <Fragment key={key}>
+              <section className="py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-medium text-sm">{label}</h3>
+                  <Badge variant="outline">
+                    {QUALITATIVE_RECOMMENDATION_LABEL[dimension.level]}
+                  </Badge>
+                </div>
+                <RestrictedMarkdownView
+                  className="mt-2 text-muted-foreground text-xs leading-5"
+                  content={dimension.evaluation}
+                />
+              </section>
+              {index < DIMENSION_ENTRIES.length - 1 ? <Separator /> : null}
+            </Fragment>
           );
         })}
       </div>
@@ -233,18 +241,22 @@ function CandidateHrInformation({ query }: { query: ReturnType<typeof useHrInfor
     return <EmptyBlock title="暂无 HR 初面信息" />;
   }
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <p className="text-muted-foreground text-xs leading-5">
+    <div className="flex flex-col px-4">
+      <p className="py-4 text-muted-foreground text-xs leading-5">
         {information.roundLabel ?? "AI 初面"} ·{" "}
         <LocalDateTimeText value={information.generatedAt} />
       </p>
-      {HR_INFORMATION_ENTRIES.map(([key, label]) => (
-        <section className="rounded-lg border bg-card p-3" key={key}>
-          <h3 className="font-medium text-sm">{label}</h3>
-          <p className="mt-2 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
-            {information.values[key] ?? "未收集到相关信息"}
-          </p>
-        </section>
+      <Separator />
+      {HR_INFORMATION_ENTRIES.map(([key, label], index) => (
+        <Fragment key={key}>
+          <section className="py-4">
+            <h3 className="font-medium text-sm">{label}</h3>
+            <p className="mt-2 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
+              {information.values[key] ?? "未收集到相关信息"}
+            </p>
+          </section>
+          {index < HR_INFORMATION_ENTRIES.length - 1 ? <Separator /> : null}
+        </Fragment>
       ))}
     </div>
   );
@@ -261,14 +273,11 @@ function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQu
     return <EmptyBlock title="暂无面试题参考" />;
   }
   return (
-    <ol className="flex flex-col gap-3 p-4">
-      {query.data.interviewQuestions.map((question) => {
+    <ol className="flex flex-col px-4">
+      {query.data.interviewQuestions.map((question, index) => {
         const dimension = question.dimension ?? "business";
         return (
-          <li
-            className="rounded-lg border bg-card p-3"
-            key={`${question.order}-${question.question}`}
-          >
+          <li className="py-4" key={`${question.order}-${question.question}`}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-primary text-xs">{question.order}</span>
               <Badge variant="outline">{INTERVIEW_QUESTION_DIMENSION_LABEL[dimension]}</Badge>
@@ -284,6 +293,9 @@ function CandidateQuestions({ query }: { query: ReturnType<typeof useQuestionsQu
               <p className="mt-1 text-muted-foreground text-xs leading-5">
                 追问方向：{question.followUpDirections}
               </p>
+            ) : null}
+            {index < query.data.interviewQuestions.length - 1 ? (
+              <Separator className="mt-4" />
             ) : null}
           </li>
         );
@@ -560,7 +572,7 @@ export function InterviewerCandidateMaterials({
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] lg:overflow-hidden min-[1440px]:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)_18rem]">
         <Tabs
-          className="min-h-[32rem] min-w-0 gap-0 overflow-hidden rounded-xl border bg-card lg:min-h-0"
+          className="min-h-[32rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
           onValueChange={(leftTab) => {
             if (isCandidateMaterialsLeftTab(leftTab)) {
               onStateChange({ ...state, leftTab });
@@ -600,7 +612,7 @@ export function InterviewerCandidateMaterials({
         </Tabs>
 
         <Tabs
-          className="min-h-[40rem] min-w-0 gap-0 overflow-hidden rounded-xl border bg-card lg:min-h-0"
+          className="min-h-[40rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
           onValueChange={(centerTab) => {
             if (isCandidateMaterialsCenterTab(centerTab)) {
               onStateChange({ ...state, centerTab });
@@ -629,7 +641,7 @@ export function InterviewerCandidateMaterials({
 
         <aside
           aria-label="预留扩展区域"
-          className="hidden min-h-0 rounded-xl border bg-card min-[1440px]:block"
+          className="hidden min-h-0 rounded-lg border bg-card min-[1440px]:block"
         />
       </div>
     </div>
