@@ -292,6 +292,29 @@
   --sidebar-ring: #4f70d2;
 }
 
+/* 真人面试沿用 LiveKit 舞台的中性黑灰色系。类放在 body 上，使 Select、
+   Tooltip 等 portal 浮层与页面主体共享同一组语义色。 */
+.human-interview-palette,
+.human-interview-palette .dark {
+  --background: var(--color-zinc-950);
+  --foreground: var(--color-white);
+  --card: var(--color-zinc-900);
+  --card-foreground: var(--color-white);
+  --popover: var(--color-zinc-900);
+  --popover-foreground: var(--color-white);
+  --primary: var(--color-sky-500);
+  --primary-foreground: var(--color-white);
+  --secondary: oklch(1 0 0 / 10%);
+  --secondary-foreground: var(--color-white);
+  --muted: oklch(1 0 0 / 10%);
+  --muted-foreground: oklch(1 0 0 / 60%);
+  --accent: oklch(1 0 0 / 15%);
+  --accent-foreground: var(--color-white);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--color-sky-400);
+}
+
 @layer base {
   html,
   body {
