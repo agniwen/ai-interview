@@ -29,14 +29,10 @@ import {
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { DetailFields, JsonBlock } from "./detail-fields";
-import type { LiveKitMetricRecord, PaginatedResult } from "./types";
+import type { LiveKitMetricRecord } from "./types";
 import { z } from "zod";
 
 const EMPTY_FILTERS = {};
-
-interface MetricsResult extends PaginatedResult<LiveKitMetricRecord> {
-  configured: boolean;
-}
 
 interface MetricsQuery {
   page: string;
@@ -63,7 +59,7 @@ export function LiveKitMetricsGrid() {
       if (params.search) {
         query.search = params.search;
       }
-      return rpcFetch<MetricsResult>(
+      return rpcFetch(
         rpc.api.platform.livekit.metrics.$get({
           query,
         }),

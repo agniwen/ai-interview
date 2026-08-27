@@ -66,7 +66,7 @@ export function ScopedInterviewersModal({
       if (!departmentId) {
         return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }
-      return rpcFetch<PaginatedInterviewerResult>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio.interviewers.$get({
           param: { slug },
           query: {

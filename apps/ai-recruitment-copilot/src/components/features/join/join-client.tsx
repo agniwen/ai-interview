@@ -22,11 +22,10 @@ export function JoinClient({ code, initialRole, workspace }: JoinClientProps) {
   async function onAccept() {
     setAccepting(true);
     try {
-      const result = await rpcFetch<{
-        organizationId: string;
-        organizationSlug: string;
-        status: "joined" | "already_member";
-      }>(rpc.api.join[":code"].accept.$post({ param: { code } }), "加入工作区失败");
+      const result = await rpcFetch(
+        rpc.api.join[":code"].accept.$post({ param: { code } }),
+        "加入工作区失败",
+      );
       await navigate({ href: `/w/${result.organizationSlug}/agent` });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加入工作区失败");

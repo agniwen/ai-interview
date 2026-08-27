@@ -392,7 +392,7 @@ export function confirmRecruitingAction(
     visibilityScope: RecruitingVisibilityScope;
   },
   dependencies: RecruitingActionDependencies = defaultDependencies,
-) {
+): Promise<ConfirmRecruitingActionResult> {
   if (input.decision === "ignore") {
     return ignoreRecruitingAction(
       {
@@ -406,7 +406,7 @@ export function confirmRecruitingAction(
   if (input.proposal.type === "bind_candidate_to_job") {
     const jobDescriptionId = input.proposal.payload.jobDescriptionId ?? null;
     if (!jobDescriptionId) {
-      return { message: "请先选择要绑定的岗位。", status: "failed" };
+      return Promise.resolve({ message: "请先选择要绑定的岗位。", status: "failed" });
     }
     return confirmBindCandidateToJob(
       {
@@ -422,7 +422,7 @@ export function confirmRecruitingAction(
   if (input.proposal.type === "bind_pool_item_to_job") {
     const jobDescriptionId = input.proposal.payload.jobDescriptionId ?? null;
     if (!jobDescriptionId) {
-      return { message: "请先选择要绑定的岗位。", status: "failed" };
+      return Promise.resolve({ message: "请先选择要绑定的岗位。", status: "failed" });
     }
     return confirmBindPoolItemToJob(
       {

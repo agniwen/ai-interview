@@ -1,6 +1,5 @@
 "use client";
 
-import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -21,7 +20,7 @@ export function JobDescriptionViewDialog({
   const { data: jobDescriptions = [], isLoading } = useQuery({
     enabled: jobDescriptionId !== null,
     queryFn: async () => {
-      const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
           param: { slug },
         }),

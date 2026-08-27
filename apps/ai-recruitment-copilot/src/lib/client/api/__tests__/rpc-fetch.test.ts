@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { ClientResponse } from "hono/client";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { rpcFetch } from "../rpc-fetch";
 
 interface RpcErrorPayload {
@@ -14,6 +15,11 @@ function failedRpcCall(payload: RpcErrorPayload) {
       statusText: "Bad Request",
     }),
   ) as never;
+}
+
+function successfulRpcCall<T>(payload: T) {
+  // SAFETY: Response.json creates a successful JSON response with the same payload value.
+  return Promise.resolve(Response.json(payload)) as Promise<ClientResponse<T, 200, "json">>;
 }
 
 describe("rpcFetch error compatibility", () => {
@@ -34,5 +40,22 @@ describe("rpcFetch error compatibility", () => {
     await expect(
       rpcFetch(failedRpcCall({ error: { code: "bad" } }), "fallback"),
     ).rejects.toMatchObject({ message: "fallback", status: 400 });
+  });
+});
+
+describe("rpcFetch response inference", () => {
+  it("preserves the successful response body type", async () => {
+    const result = rpcFetch(successfulRpcCall({ id: "candidate-1" }), "fallback");
+
+    expectTypeOf(result).toEqualTypeOf<Promise<{ id: string }>>();
+    await expect(result).resolves.toEqual({ id: "candidate-1" });
+  });
+
+  it("adds null only when 404 is allowed", () => {
+    const result = rpcFetch(successfulRpcCall({ deleted: true }), "fallback", {
+      allow404: true,
+    });
+
+    expectTypeOf(result).toEqualTypeOf<Promise<{ deleted: boolean } | null>>();
   });
 });

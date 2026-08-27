@@ -151,7 +151,7 @@ async function loadUserWorkspaces(
   userId: string,
 ): Promise<{ data: UserWorkspacesResult; error: null } | { data: null; error: string }> {
   try {
-    const data = await rpcFetch<UserWorkspacesResult>(
+    const data = await rpcFetch(
       rpc.api.platform.users[":userId"].workspaces.$get({
         param: { userId },
       }),
@@ -298,7 +298,7 @@ export function UsersGrid() {
     if (params.search) {
       query.search = params.search;
     }
-    return rpcFetch<UsersResult>(
+    return rpcFetch(
       rpc.api.platform.users.$get({
         query,
       }),

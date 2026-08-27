@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import type { HumanInterviewMeetingRecord } from "@arc/shared/studio-pipeline-stages";
 import {
   account,
   member,
@@ -87,6 +88,17 @@ interface CreateReserveResponse {
   reserve_correction_check_info?: {
     invalid_host_id_list?: string[];
   };
+}
+
+async function loadSyncedMeeting(
+  meetingId: string,
+  organizationId: string,
+): Promise<HumanInterviewMeetingRecord> {
+  const meeting = await loadHumanInterviewMeetingById(meetingId, organizationId);
+  if (!meeting) {
+    throw new Error("同步后的真人复面会议读取失败。");
+  }
+  return meeting;
 }
 
 interface CreateCalendarEventInput {
@@ -471,7 +483,7 @@ export async function syncHumanInterviewMeetingToFeishu({
   meetingId: string;
   organizationId: string;
   providerId: FeishuProviderId;
-}) {
+}): Promise<HumanInterviewMeetingRecord> {
   let [meeting] = await db
     .select()
     .from(studioHumanInterviewMeeting)
@@ -486,7 +498,7 @@ export async function syncHumanInterviewMeetingToFeishu({
     throw new Error("真人复面会议不存在。");
   }
   if (meeting.feishuSyncStatus === "ready") {
-    return loadHumanInterviewMeetingById(meetingId, organizationId);
+    return loadSyncedMeeting(meetingId, organizationId);
   }
   if (!meeting.scheduledAt) {
     throw new Error("请先设置真人复面时间，再创建飞书会议。");
@@ -554,7 +566,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       )
       .limit(1);
     if (currentMeeting?.feishuSyncStatus === "ready") {
-      return loadHumanInterviewMeetingById(meetingId, organizationId);
+      return loadSyncedMeeting(meetingId, organizationId);
     }
     if (currentMeeting?.feishuSyncStatus === "unknown") {
       throw createFeishuSyncConflictError(
@@ -817,7 +829,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       );
   }
 
-  return loadHumanInterviewMeetingById(meetingId, organizationId);
+  return loadSyncedMeeting(meetingId, organizationId);
 }
 
 export async function recordFeishuHumanInterviewSyncFailure({

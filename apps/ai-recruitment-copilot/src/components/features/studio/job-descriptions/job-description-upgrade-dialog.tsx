@@ -146,7 +146,7 @@ export function JobDescriptionUpgradeDialog({
         : rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$post({
             param: { id: record.id, slug },
           });
-      return rpcFetch<JobEvaluationUpgradeDraftDto>(request, "加载岗位升级草稿失败");
+      return rpcFetch(request, "加载岗位升级草稿失败");
     },
     queryKey,
     retry: false,
@@ -197,7 +197,7 @@ export function JobDescriptionUpgradeDialog({
     if (!structuredConfig || !prompt.trim()) {
       throw new Error("请填写新版岗位 JD");
     }
-    return rpcFetch<JobEvaluationUpgradeDraftDto>(
+    return rpcFetch(
       rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$put({
         json: {
           expectedVersion: currentDraft.version,
@@ -234,7 +234,7 @@ export function JobDescriptionUpgradeDialog({
         acceptDraft,
         currentDraft: draft,
         generatePreview: (savedDraft) =>
-          rpcFetch<JobEvaluationUpgradeDraftDto>(
+          rpcFetch(
             rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade[
               "evaluation-blueprint-preview"
             ].$post({
@@ -261,7 +261,7 @@ export function JobDescriptionUpgradeDialog({
       if (!draft || !draft.blueprintPreviewHash || !deductionRules || !ruleDraft) {
         throw new Error("评分规则尚未生成");
       }
-      return rpcFetch<JobEvaluationUpgradeDraftDto>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade["evaluation-rule-draft"].$put({
           json: {
             deductionRules,
@@ -288,11 +288,7 @@ export function JobDescriptionUpgradeDialog({
       if (!draft?.blueprintPreviewHash) {
         throw new Error("请先生成新版评分规则");
       }
-      return rpcFetch<{
-        invalidatedLegacyAttemptCount: number;
-        jobId: string;
-        status: "published";
-      }>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.publish.$post({
           json: {
             confirmedBlueprintHash: draft.blueprintPreviewHash,
@@ -319,7 +315,7 @@ export function JobDescriptionUpgradeDialog({
       if (!draft) {
         throw new Error("升级草稿尚未加载完成");
       }
-      return rpcFetch<{ success: true }>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$delete({
           param: { id: draft.jobDescriptionId, slug },
           query: { expectedVersion: String(draft.version) },

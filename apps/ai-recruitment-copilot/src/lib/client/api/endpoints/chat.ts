@@ -3,22 +3,36 @@
  * Chat-conversation API call collection.
  *
  * JSON 端点全部走 Hono RPC（{@link rpc}）+ {@link rpcFetch}；上传 (`uploadAttachment`)
- * 走 `apiFetch` + multipart 因为 RPC 不支持 FormData。
+ * 按项目约定继续使用 `apiFetch` + multipart。
  *
  * JSON endpoints use Hono RPC (`rpc`) + `rpcFetch`. The multipart upload path
- * (`uploadAttachment`) stays on `apiFetch` because RPC doesn't support FormData.
+ * (`uploadAttachment`) stays on `apiFetch` by project convention.
  */
 
+import { validateUIMessages } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
+import type { JsonValue } from "@arc/db-schema/json";
 import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
+
+const storedChatMessageSchema = z
+  .object({ role: z.enum(["assistant", "system", "tool", "user"]) })
+  .catchall(z.json());
+
+function normalizeStoredChatMessage(message: JsonValue): JsonValue {
+  const parsed = storedChatMessageSchema.safeParse(message);
+  if (!(parsed.success && parsed.data.role === "tool")) {
+    return message;
+  }
+  return { ...parsed.data, role: "assistant" };
+}
 
 /**
  * 会话摘要：用于侧边栏 / 列表展示。
@@ -154,7 +168,7 @@ export interface UploadedAttachment {
  * Fetch the full list of conversation summaries.
  */
 export async function fetchConversations(slug: string): Promise<ChatConversationSummary[]> {
-  const data = await rpcFetch<{ conversations: ChatConversationSummary[] }>(
+  const data = await rpcFetch(
     rpc.api.w[":slug"].chat.conversations.$get({ param: { slug } }),
     "加载会话列表失败",
   );
@@ -169,12 +183,19 @@ export async function fetchConversation(
   slug: string,
   id: string,
 ): Promise<ChatConversationDetail | null> {
-  const data = await rpcFetch<{ conversation: ChatConversationDetail }>(
+  const data = await rpcFetch(
     rpc.api.w[":slug"].chat.conversations[":id"].$get({ param: { id, slug } }),
     "加载会话失败",
     { allow404: true },
   );
-  return data?.conversation ?? null;
+  const conversation = data?.conversation;
+  if (!conversation) {
+    return null;
+  }
+  const messages = await validateUIMessages<UIMessage>({
+    messages: conversation.messages.map(normalizeStoredChatMessage),
+  });
+  return { ...conversation, messages };
 }
 
 /**
@@ -185,7 +206,7 @@ export async function upsertConversation(
   slug: string,
   payload: UpsertConversationPayload,
 ): Promise<void> {
-  await rpcFetch<{ ok: true }>(
+  await rpcFetch(
     rpc.api.w[":slug"].chat.conversations.$post({ json: payload, param: { slug } }),
     "保存会话失败",
   );
@@ -200,7 +221,7 @@ export async function patchConversation(
   id: string,
   payload: PatchConversationPayload,
 ): Promise<void> {
-  await rpcFetch<{ ok: true }>(
+  await rpcFetch(
     rpc.api.w[":slug"].chat.conversations[":id"].$patch({
       json: payload,
       param: { id, slug },
@@ -214,7 +235,7 @@ export async function patchConversation(
  * Delete a conversation; 404 from the server is treated as success (idempotent).
  */
 export async function deleteConversation(slug: string, id: string): Promise<void> {
-  await rpcFetch<{ ok: true }>(
+  await rpcFetch(
     rpc.api.w[":slug"].chat.conversations[":id"].$delete({ param: { id, slug } }),
     "删除会话失败",
     { allow404: true },
@@ -234,7 +255,7 @@ export async function upsertChatMessageOnServer(
     .object({ id: z.string(), role: z.enum(["system", "user", "assistant"]) })
     .catchall(z.json())
     .parse(message);
-  await rpcFetch<{ ok: true }>(
+  await rpcFetch(
     rpc.api.w[":slug"].chat.conversations[":id"].messages.$post({
       json: { message: wireMessage },
       param: { id: conversationId, slug },
@@ -249,7 +270,7 @@ export async function confirmRecruitingAction(
   proposal: RecruitingActionProposal,
   options?: { decision?: "confirm" | "ignore" },
 ): Promise<ConfirmRecruitingActionResult> {
-  return await rpcFetch<ConfirmRecruitingActionResult>(
+  return await rpcFetch(
     rpc.api.w[":slug"].chat.conversations[":id"].actions.confirm.$post({
       json: {
         decision: options?.decision ?? "confirm",
@@ -260,8 +281,6 @@ export async function confirmRecruitingAction(
     "确认动作失败",
   );
 }
-
-type UploadPreflightResponse = { hit: false } | (UploadedAttachment & { hit: true });
 
 /**
  * 仅对支持的简历文件尝试预检请求：命中缓存则直接返回已有附件，避免重复上传。
@@ -283,17 +302,17 @@ async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAtt
     return null;
   }
   try {
-    const result = await apiFetch<UploadPreflightResponse>(
-      `/api/w/${slug}/chat/uploads/preflight`,
-      {
-        body: {
+    const result = await rpcFetch(
+      rpc.api.w[":slug"].chat.uploads.preflight.$post({
+        json: {
           filename: file.name || "attachment.pdf",
           hash,
           mediaType: file.type,
           size: file.size,
         },
-        method: "POST",
-      },
+        param: { slug },
+      }),
+      "检查附件缓存失败",
     );
     if (!result.hit) {
       return null;

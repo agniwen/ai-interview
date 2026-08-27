@@ -11,7 +11,7 @@ export function createJobDescriptionReferralLink(
   slug: string,
   jobDescriptionId: string,
 ): Promise<ReferralLinkCreateResult> {
-  return rpcFetch<ReferralLinkCreateResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["job-descriptions"][":id"]["referral-link"].$post({
       param: { id: jobDescriptionId, slug },
     }),
@@ -20,7 +20,7 @@ export function createJobDescriptionReferralLink(
 }
 
 export function fetchPublicReferralPreview(token: string): Promise<PublicReferralPreview> {
-  return rpcFetch<PublicReferralPreview>(
+  return rpcFetch(
     rpc.api.public.referrals[":token"].$get({
       param: { token },
     }),

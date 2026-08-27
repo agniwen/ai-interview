@@ -404,10 +404,7 @@ export function QualitativeResumeEvaluationPanel({
   const { data } = useQuery({
     enabled: Boolean(detail.jobDescriptionId),
     queryFn: () =>
-      rpcFetch<{
-        failures: ResumeEvaluationFailureRecord[];
-        records: ResumeEvaluationHistoryRecord[];
-      }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.resumes[":id"]["evaluation-history"].$get({
           param: { id: detail.id, slug },
         }),

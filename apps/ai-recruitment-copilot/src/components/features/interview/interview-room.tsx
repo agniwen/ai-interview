@@ -2,10 +2,7 @@
 
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
-import type {
-  CandidateInterviewFeedback,
-  CandidateInterviewFeedbackInput,
-} from "@arc/db-schema/studio-interviews";
+import type { CandidateInterviewFeedbackInput } from "@arc/db-schema/studio-interviews";
 import { cn } from "@arc/shared/utils";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
@@ -394,7 +391,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         ),
       operation: async () => {
         const [data, nextFormsPayload] = await Promise.all([
-          rpcFetch<CandidateInterviewView>(
+          rpcFetch(
             rpc.api.interview[":id"][":roundId"].$get({
               param: { id: interviewId, roundId },
             }),
@@ -691,7 +688,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const handleSubmitFeedback = useCallback(
     async (input: CandidateInterviewFeedbackInput) => {
       try {
-        const { feedback } = await rpcFetch<{ feedback: CandidateInterviewFeedback }>(
+        const { feedback } = await rpcFetch(
           rpc.api.interview[":id"][":roundId"].feedback.$post({
             json: input,
             param: { id: interviewId, roundId },

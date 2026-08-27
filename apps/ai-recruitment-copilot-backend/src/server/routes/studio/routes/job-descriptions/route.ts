@@ -569,6 +569,9 @@ export function createJobDescriptionsRouter(
           });
           safeUpdateTag(`job-descriptions:${activeOrg.id}`);
           const record = await loadJobDescriptionById(activeOrg.id, id);
+          if (!record) {
+            return c.json({ error: "发布后的在招岗位读取失败。" }, 500);
+          }
           return c.json(record, 200);
         } catch (error) {
           if (error instanceof JobEvaluationLifecycleError) {
@@ -631,7 +634,11 @@ export function createJobDescriptionsRouter(
           jobDescriptionId: id,
           organizationId: activeOrg.id,
         });
-        return c.json(await loadJobDescriptionById(activeOrg.id, id), 200);
+        const updated = await loadJobDescriptionById(activeOrg.id, id);
+        if (!updated) {
+          return c.json({ error: "更新后的在招岗位读取失败。" }, 500);
+        }
+        return c.json(updated, 200);
       },
     )
     .post("/:id/referral-link", dependencies.requirePermission("jd", "read"), async (c) => {
@@ -816,6 +823,9 @@ export function createJobDescriptionsRouter(
         });
 
         const updated = await loadJobDescriptionById(activeOrg.id, id);
+        if (!updated) {
+          return c.json({ error: "保存后的在招岗位读取失败。" }, 500);
+        }
         return c.json(updated, 200);
       },
     )

@@ -540,6 +540,9 @@ export function createResumeLibraryRouter(
 
           invalidateStudioInterviewCaches(activeOrg.id);
           const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+          if (!detail) {
+            return c.json({ error: "更新后的候选人记录读取失败。" }, 500);
+          }
           return c.json(detail, 200);
         },
       )
@@ -704,6 +707,9 @@ export function createResumeLibraryRouter(
             });
           }
           const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+          if (!detail) {
+            return c.json({ error: "更新后的候选人记录读取失败。" }, 500);
+          }
           return c.json(detail, 200);
         },
       )
@@ -880,6 +886,9 @@ export function createResumeLibraryRouter(
             });
           }
           const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+          if (!detail) {
+            return c.json({ error: "更新后的候选人记录读取失败。" }, 500);
+          }
           return c.json(detail, 200);
         } catch (error) {
           const result = toBadRequest(error);

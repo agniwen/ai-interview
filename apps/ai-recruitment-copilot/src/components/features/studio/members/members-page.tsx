@@ -119,9 +119,7 @@ export function MembersManagementPage() {
   const { data: lastActiveMap = {} } = useQuery({
     enabled: Boolean(workspaceId),
     queryFn: async () => {
-      const payload = await rpcFetch<{
-        records: { lastActiveAt: string | null; userId: string }[];
-      }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio.workspace["member-last-actives"].$get({
           param: { slug },
         }),
@@ -135,7 +133,7 @@ export function MembersManagementPage() {
   const { data: groups = EMPTY_RECRUITING_GROUPS, refetch: refetchGroups } = useQuery({
     enabled: Boolean(workspaceId),
     queryFn: async () => {
-      const payload = await rpcFetch<{ groups: RecruitingGroupRow[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio.workspace.groups.$get({ param: { slug } }),
         "加载组别失败",
       );

@@ -1,10 +1,10 @@
 /**
  * 批量上传简历 API。映射到 `/api/w/:slug/studio/resume-upload-batches/*`。
- * 单文件上传走 apiFetch + FormData（hc 不支持 multipart）；其余 JSON 端点走 rpc + rpcFetch。
+ * 单文件上传按项目约定走 apiFetch + FormData；其余 JSON 端点走 rpc + rpcFetch。
  *
  * Bulk-resume-upload API — maps to `/api/w/:slug/studio/resume-upload-batches/*`.
- * Single-file uploads go through apiFetch + FormData (hc does not support
- * multipart); the rest of the JSON endpoints go through rpc + rpcFetch.
+ * Single-file uploads use apiFetch + FormData by project convention; the rest
+ * of the JSON endpoints go through rpc + rpcFetch.
  */
 
 import type {
@@ -43,7 +43,7 @@ export function createBulkResumeBatch(
   slug: string,
   input: CreateBulkResumeBatchInput,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch<BulkResumeBatchDetailDto>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"].$post({
       json: input,
       param: { slug },
@@ -57,7 +57,7 @@ export function createBulkResumeBatch(
  * List all batches.
  */
 export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[]> {
-  return rpcFetch<BulkResumeBatchDto[]>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"].$get({ param: { slug } }),
     "加载批次列表失败",
   );
@@ -68,7 +68,7 @@ export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[
  * Get active batch details; returns an empty array when there are no active batches.
  */
 export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatchDetailDto[]> {
-  return rpcFetch<BulkResumeBatchDetailDto[]>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
     "加载活跃批次失败",
   );
@@ -78,7 +78,7 @@ export function getUploadTaskInboxPage(
   slug: string,
   cursor: string | null,
 ): Promise<UploadTaskInboxPage> {
-  return rpcFetch<UploadTaskInboxPage>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"].inbox.$get({
       param: { slug },
       query: cursor ? { cursor } : {},
@@ -102,7 +102,7 @@ export function getBulkResumeBatchDetail(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch<BulkResumeBatchDetailDto>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$get({
       param: { id: batchId, slug },
     }),
@@ -118,7 +118,7 @@ export function processNextBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<ProcessNextResult> {
-  return rpcFetch<ProcessNextResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"][":id"]["process-next"].$post({
       param: { id: batchId, slug },
     }),
@@ -134,7 +134,7 @@ export function resumeBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch<BulkResumeBatchDetailDto>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].resume.$post({
       param: { id: batchId, slug },
     }),
@@ -150,7 +150,7 @@ export function cancelBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch<BulkResumeBatchDetailDto>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].cancel.$post({
       param: { id: batchId, slug },
     }),
@@ -166,7 +166,7 @@ export function deleteBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<{ success: boolean }> {
-  return rpcFetch<{ success: boolean }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$delete({
       param: { id: batchId, slug },
     }),

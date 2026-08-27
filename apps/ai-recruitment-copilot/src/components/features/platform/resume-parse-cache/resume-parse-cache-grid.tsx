@@ -135,19 +135,16 @@ export interface ResumeParseCacheDependencies {
 
 const defaultResumeParseCacheDependencies: ResumeParseCacheDependencies = {
   deleteCache: (contentHash) =>
-    rpcFetch<{ clearedCount: number }>(
+    rpcFetch(
       rpc.api.platform["resume-parse-cache"][":hash"].$delete({
         param: { hash: contentHash },
       }),
       "删除解析缓存失败",
     ),
   fetchCache: (query) =>
-    rpcFetch<ResumeParseCacheResult>(
-      rpc.api.platform["resume-parse-cache"].$get({ query }),
-      "加载解析缓存失败",
-    ),
+    rpcFetch(rpc.api.platform["resume-parse-cache"].$get({ query }), "加载解析缓存失败"),
   fetchDetail: (contentHash) =>
-    rpcFetch<ResumeParseCacheDetail>(
+    rpcFetch(
       rpc.api.platform["resume-parse-cache"][":hash"].$get({
         param: { hash: contentHash },
       }),

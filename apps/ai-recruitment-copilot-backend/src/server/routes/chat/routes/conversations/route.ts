@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
@@ -127,6 +128,7 @@ export function createConversationsRouter(
       if (!conversation) {
         return c.json({ error: "Not Found" }, 404);
       }
+      const messages = z.array(z.json()).parse(conversation.messages);
 
       return c.json(
         {
@@ -136,7 +138,7 @@ export function createConversationsRouter(
             isTitleGenerating: conversation.isTitleGenerating,
             jobDescription: conversation.jobDescription,
             jobDescriptionConfig: conversation.jobDescriptionConfig,
-            messages: conversation.messages,
+            messages,
             resumeImports: conversation.resumeImports,
             title: conversation.title,
             updatedAt: conversation.updatedAt.toISOString(),

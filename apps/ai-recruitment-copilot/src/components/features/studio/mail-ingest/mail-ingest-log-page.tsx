@@ -48,20 +48,6 @@ interface MailMessageRecord {
   subject: string | null;
 }
 
-interface AccountDetail {
-  account: {
-    emailAddress: string;
-    id: string;
-    lastCheckedAt: string | null;
-    lastError: string | null;
-  };
-  lastRunFailed: number | null;
-  lastRunMatched: number | null;
-  lastRunQueued: number | null;
-  lastRunReceived: number | null;
-  lastRunSubjectSkipped: number | null;
-}
-
 interface MessageFilters extends Record<string, string> {
   receivedFrom: string;
   receivedTo: string;
@@ -155,7 +141,7 @@ export function MailIngestLogPage() {
 
   const accountQuery = useQuery({
     queryFn: () =>
-      rpcFetch<AccountDetail>(
+      rpcFetch(
         rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$get({
           param: { id, slug },
         }),
@@ -184,7 +170,7 @@ export function MailIngestLogPage() {
     if (status.success) {
       query.status = status.data;
     }
-    const result = await rpcFetch<{ records: MailMessageRecord[]; total: number }>(
+    const result = await rpcFetch(
       rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
         param: { id, slug },
         query,

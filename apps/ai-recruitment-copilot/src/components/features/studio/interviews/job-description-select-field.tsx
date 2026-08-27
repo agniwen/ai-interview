@@ -70,7 +70,7 @@ export function JobDescriptionSelectField({
   const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useQuery({
     queryFn: async () => {
-      const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
           param: { slug },
         }),

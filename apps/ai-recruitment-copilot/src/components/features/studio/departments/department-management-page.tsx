@@ -57,7 +57,7 @@ export function DepartmentManagementPage() {
         if (params.search) {
           Object.assign(query, { search: params.search });
         }
-        return rpcFetch<PaginatedDepartmentResult>(
+        return rpcFetch(
           rpc.api.w[":slug"].studio.departments.$get({
             param: { slug },
             query,

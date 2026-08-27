@@ -71,7 +71,7 @@ function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProvi
 function useWorkspaceMembers(slug: string) {
   return useQuery({
     queryFn: () =>
-      rpcFetch<{ feishuHumanInterviewEnabled: boolean; records: WorkspaceMember[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),

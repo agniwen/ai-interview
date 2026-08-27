@@ -40,7 +40,7 @@ export interface ChatModelOption {
 
 export interface ChatModelsResponse {
   defaultId: string;
-  models: ChatModelOption[];
+  models: readonly ChatModelOption[];
 }
 
 /**
@@ -48,7 +48,7 @@ export interface ChatModelsResponse {
  * Fetch the list of models exposed in the chat composer picker.
  */
 export function fetchChatModels(): Promise<ChatModelsResponse> {
-  return rpcFetch<ChatModelsResponse>(rpc.api.resume.models.$get(), "加载模型列表失败");
+  return rpcFetch(rpc.api.resume.models.$get(), "加载模型列表失败");
 }
 
 /**
@@ -58,8 +58,5 @@ export function fetchChatModels(): Promise<ChatModelsResponse> {
 export function requestResumeChatTitle(
   payload: ResumeChatTitleRequest,
 ): Promise<{ title?: string }> {
-  return rpcFetch<{ title?: string }>(
-    rpc.api.resume.title.$post({ json: payload }),
-    "生成标题失败",
-  );
+  return rpcFetch(rpc.api.resume.title.$post({ json: payload }), "生成标题失败");
 }

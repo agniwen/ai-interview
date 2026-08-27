@@ -748,6 +748,9 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
             poolItemId: item.id,
             userId: user.id,
           });
+          if (!updated) {
+            return c.json({ error: "绑定后的入池记录读取失败。" }, 500);
+          }
           return c.json(updated, 200);
         },
       )

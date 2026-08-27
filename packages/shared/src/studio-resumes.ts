@@ -261,6 +261,11 @@ export interface ResumeEvaluationFailureRecord {
   jobDescriptionVersion: number | null;
 }
 
+export interface ResumeEvaluationHistoryResponse {
+  failures: ResumeEvaluationFailureRecord[];
+  records: ResumeEvaluationHistoryRecord[];
+}
+
 // ── 阶段子描述函数：每段独立逻辑，方便单测 ──
 // Per-stage sub-describers; pure functions, easy to unit-test.
 

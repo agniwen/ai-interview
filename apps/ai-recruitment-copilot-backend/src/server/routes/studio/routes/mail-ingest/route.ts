@@ -241,7 +241,7 @@ export function createMailIngestRouter(overrides: Partial<MailIngestRouteDepende
       if (!row?.account) {
         return c.json({ error: "邮箱配置不存在。" }, 404);
       }
-      return c.json(row, 200);
+      return c.json({ ...row, account: row.account }, 200);
     })
     .get(
       "/managed/:id/messages",

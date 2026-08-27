@@ -18,7 +18,7 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
 export function resolvePublicInterviewRecordId(recordId: string): Promise<string | null> {
-  return rpcFetch<{ roundId: string }>(
+  return rpcFetch(
     rpc.api.public["interview-rounds"].resolve.$get({ query: { id: recordId } }),
     "解析面试链接失败",
     { allow404: true },
@@ -28,17 +28,15 @@ export function resolvePublicInterviewRecordId(recordId: string): Promise<string
 export function fetchPublicInterviewRound(
   roundId: string,
 ): Promise<StudioInterviewRoundDetail | null> {
-  return rpcFetch<StudioInterviewRoundDetail>(
+  return rpcFetch(
     rpc.api.public["interview-rounds"][":id"].$get({ param: { id: roundId } }),
     "加载面试详情失败",
     { allow404: true },
   );
 }
 
-export function fetchPublicInterviewRoundReports(
-  roundId: string,
-): Promise<StudioInterviewConversationReport[]> {
-  return rpcFetch<StudioInterviewConversationReport[]>(
+export function fetchPublicInterviewRoundReports(roundId: string) {
+  return rpcFetch(
     rpc.api.public["interview-rounds"][":id"].reports.$get({ param: { id: roundId } }),
     "加载面试报告失败",
   );
@@ -48,7 +46,7 @@ export function fetchPublicInterviewRoundReport(
   roundId: string,
   conversationId: string,
 ): Promise<StudioInterviewConversationReport | null> {
-  return rpcFetch<StudioInterviewConversationReport>(
+  return rpcFetch(
     rpc.api.public["interview-rounds"][":id"].reports[":conversationId"].$get({
       param: { conversationId, id: roundId },
     }),
@@ -61,7 +59,7 @@ export function fetchPublicInterviewRecordingUrl(
   roundId: string,
   conversationId: string,
 ): Promise<{ url: string; expiresInSeconds: number }> {
-  return rpcFetch<{ url: string; expiresInSeconds: number }>(
+  return rpcFetch(
     rpc.api.public["interview-rounds"][":id"].recordings[":conversationId"].$get({
       param: { conversationId, id: roundId },
     }),
@@ -72,7 +70,7 @@ export function fetchPublicInterviewRecordingUrl(
 export async function fetchPublicInterviewRoundFormSubmissions(
   roundId: string,
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
-  const data = await rpcFetch<{ submissions: CandidateFormSubmissionWithSnapshot[] }>(
+  const data = await rpcFetch(
     rpc.api.public["interview-rounds"][":id"]["form-submissions"].$get({ param: { id: roundId } }),
     "加载面试表单填写失败",
   );
@@ -80,7 +78,7 @@ export async function fetchPublicInterviewRoundFormSubmissions(
 }
 
 export function fetchPublicResume(candidateId: string): Promise<ResumeLibraryDetail | null> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.public.resumes[":id"].$get({ param: { id: candidateId } }),
     "加载候选人详情失败",
     { allow404: true },
@@ -90,7 +88,7 @@ export function fetchPublicResume(candidateId: string): Promise<ResumeLibraryDet
 export function fetchPublicResumeRounds(
   candidateId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  return rpcFetch<StudioInterviewRoundListRecord[]>(
+  return rpcFetch(
     rpc.api.public.resumes[":id"].rounds.$get({ param: { id: candidateId } }),
     "加载面试轮次失败",
   );

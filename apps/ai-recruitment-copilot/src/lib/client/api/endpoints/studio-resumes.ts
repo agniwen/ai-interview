@@ -145,7 +145,7 @@ export function fetchStudioResumes(
   slug: string,
   params: ResumeListParams = {},
 ): Promise<PaginatedResumeLibraryResult> {
-  return rpcFetch<PaginatedResumeLibraryResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes.$get({
       param: { slug },
       query: buildResumeListQuery(params),
@@ -158,7 +158,7 @@ export function fetchStudioResumeMetrics(
   slug: string,
   scope: "team" | "personal" = "team",
 ): Promise<ResumeLibraryMetrics> {
-  return rpcFetch<ResumeLibraryMetrics>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes.metrics.$get({
       param: { slug },
       query: { scope },
@@ -192,7 +192,7 @@ export function fetchStudioResumeSkillSuggestions(
   if (params.limit !== undefined) {
     query.limit = String(params.limit);
   }
-  return rpcFetch<{ records: SkillSuggestion[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes["skill-suggestions"].$get({
       param: { slug },
       query,
@@ -206,7 +206,7 @@ export function fetchStudioResumeSkillSuggestions(
  * Fetch a single resume by id; returns null when not found.
  */
 export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail | null> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
@@ -214,7 +214,7 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
 }
 
 export function fetchStudioResumeMeetings(slug: string, id: string): Promise<MeetingLibraryItem[]> {
-  return rpcFetch<{ records: MeetingLibraryItem[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].meetings.$get({ param: { id, slug } }),
     "加载候选人关联会议失败",
   ).then((payload) => payload.records);
@@ -228,7 +228,7 @@ export function updateStudioResumeIdentity(
   id: string,
   input: ResumeIdentityUpdateInput,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].identity.$patch({
       json: input,
       param: { id, slug },
@@ -241,7 +241,7 @@ export function fetchStudioResumeDuplicateMatches(
   slug: string,
   id: string,
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"]["duplicate-matches"].$get({
       param: { id, slug },
     }),
@@ -258,7 +258,7 @@ export function fetchStudioResumeTimeline(
   slug: string,
   id: string,
 ): Promise<CandidateTimelineResponse | null> {
-  return rpcFetch<CandidateTimelineResponse>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].timeline.$get({ param: { id, slug } }),
     "加载候选人时间线失败",
     { allow404: true },
@@ -269,7 +269,7 @@ export function fetchStudioResumeReview(
   slug: string,
   id: string,
 ): Promise<ResumeLibraryDetail | null> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].review.$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
@@ -308,7 +308,7 @@ export function fetchStudioResumeReviewTimeline(
   slug: string,
   id: string,
 ): Promise<CandidateTimelineResponse | null> {
-  return rpcFetch<CandidateTimelineResponse>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].review.timeline.$get({ param: { id, slug } }),
     "加载候选人时间线失败",
     { allow404: true },
@@ -323,7 +323,7 @@ export function fetchStudioResumeRounds(
   slug: string,
   candidateId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  return rpcFetch<StudioInterviewRoundListRecord[]>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].rounds.$get({
       param: { id: candidateId, slug },
     }),
@@ -335,7 +335,7 @@ export function fetchStudioResumeReviewRounds(
   slug: string,
   candidateId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  return rpcFetch<StudioInterviewRoundListRecord[]>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].review.rounds.$get({
       param: { id: candidateId, slug },
     }),
@@ -357,7 +357,7 @@ export function fetchResumeDedup(
   },
   options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes["dedup-check"].$post(
       { json: input, param: { slug } },
       { init: { signal: options?.signal } },
@@ -383,7 +383,7 @@ export function launchInterviewFromResume(
     runId: string;
   } | null,
 ): Promise<StudioInterviewRoundDetail> {
-  return rpcFetch<StudioInterviewRoundDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
       json: { structuredEvaluationConfirmation },
       param: { id, slug },
@@ -397,7 +397,7 @@ export function submitResumeReviewEvaluation(
   id: string,
   status: ResumeEvaluationStatus,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].review.evaluation.$post({
       json: { status },
       param: { id, slug },
@@ -411,7 +411,7 @@ export function updateResumeEvaluationStatus(
   id: string,
   status: ResumeEvaluationStatus | null,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].evaluation.$patch({
       json: { status },
       param: { id, slug },
@@ -421,7 +421,7 @@ export function updateResumeEvaluationStatus(
 }
 
 export function reassessStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail> {
-  return rpcFetch<ResumeLibraryDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].reassess.$post({
       param: { id, slug },
     }),
@@ -434,14 +434,14 @@ export function reassessStudioResume(slug: string, id: string): Promise<ResumeLi
  * Delete a single resume record.
  */
 export async function deleteStudioResume(slug: string, id: string): Promise<void> {
-  await rpcFetch<{ success: boolean }>(
+  await rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"].$delete({ param: { id, slug } }),
     "删除简历失败",
   );
 }
 
 export function retryStudioResumeParse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch<{ status: "queued" }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"]["retry-parse"].$post({
       param: { id, slug },
     }),
@@ -451,7 +451,7 @@ export function retryStudioResumeParse(slug: string, id: string): Promise<{ stat
 
 /** Admin force reparse: re-run async parse from storage, bypassing parse cache. */
 export function forceStudioResumeReparse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch<{ status: "queued" }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"]["force-reparse"].$post({
       param: { id, slug },
     }),
@@ -471,7 +471,7 @@ export async function bulkDeleteStudioResumes(
   if (!firstId) {
     throw new Error("请至少选择一条简历记录");
   }
-  const data = await rpcFetch<{ deletedCount: number; success: boolean }>(
+  const data = await rpcFetch(
     rpc.api.w[":slug"].studio.resumes["bulk-delete"].$post({
       json: { ids: [firstId, ...remainingIds] },
       param: { slug },

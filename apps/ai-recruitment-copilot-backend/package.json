@@ -5,6 +5,10 @@
   "description": "Hono backend runtime for ARC",
   "type": "module",
   "exports": {
+    "./rpc-client": {
+      "types": "./dist/rpc-client.d.ts",
+      "default": "./src/rpc-client.ts"
+    },
     "./server/routes/feishu/utils/interview-summary-card": "./src/server/routes/feishu/utils/interview-summary-card.tsx",
     "./server/routes/studio/routes/workspace/utils/workspace-member-joined-notification": "./src/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification.tsx",
     "./server/routes/studio/routes/interviews/routes/round-emails/utils/templates": "./src/server/routes/studio/routes/interviews/routes/round-emails/utils/templates.tsx",
@@ -14,6 +18,7 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.rpc-client.json",
     "maintain:resume-search": "bun src/scripts/resume-search-maintenance.ts",
     "backfill:job-evaluations": "bun src/scripts/backfill-job-evaluations.ts",
     "backfill:recent-resume-evaluations": "bun src/scripts/backfill-recent-resume-evaluations.ts",

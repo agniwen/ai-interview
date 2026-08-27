@@ -1,12 +1,9 @@
-import type {
-  StudioAiCalendarEventPreview,
-  StudioCalendarResponse,
-} from "@arc/shared/studio-calendar";
+import type { StudioAiCalendarEventPreview } from "@arc/shared/studio-calendar";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
 export function fetchStudioCalendar(slug: string, start: string, end: string) {
-  return rpcFetch<StudioCalendarResponse>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.calendar.$get({
       param: { slug },
       query: { end, start },
@@ -20,7 +17,7 @@ export function fetchStudioAiCalendarEventPreview(
   roundId: string,
   conversationId: string | null,
 ): Promise<StudioAiCalendarEventPreview | null> {
-  return rpcFetch<StudioAiCalendarEventPreview>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio.calendar["ai-events"][":roundId"].preview.$get({
       param: { roundId, slug },
       query: conversationId ? { conversationId } : {},

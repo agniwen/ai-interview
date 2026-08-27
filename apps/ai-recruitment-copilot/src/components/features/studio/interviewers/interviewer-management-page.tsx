@@ -55,7 +55,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedInterviewerResult> =>
-        rpcFetch<PaginatedInterviewerResult>(
+        rpcFetch(
           rpc.api.w[":slug"].studio.interviewers.$get({
             param: { slug },
             query: {
@@ -73,7 +73,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
   );
 
   function loadInterviewerDetail(record: InterviewerListRecord): Promise<InterviewerRecord | null> {
-    return rpcFetch<InterviewerRecord>(
+    return rpcFetch(
       rpc.api.w[":slug"].studio.interviewers[":id"].$get({
         param: { id: record.id, slug },
       }),

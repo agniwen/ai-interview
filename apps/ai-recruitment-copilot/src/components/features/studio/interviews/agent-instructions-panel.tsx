@@ -11,13 +11,6 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 
-interface AgentInstructionVariant {
-  interviewerName: string | null;
-  instructions: string;
-  openingPrompt: string;
-  closingPrompt: string;
-}
-
 type ViewMode = "preview" | "raw";
 
 // 提示词块的统一展示：preview 模式走 MarkdownView，raw 模式保留 <pre> 原样。
@@ -46,7 +39,7 @@ export function AgentInstructionsPanel({
   const { data: variants = [], isLoading } = useQuery({
     enabled: enabled && !!recordId,
     queryFn: async () => {
-      const payload = await rpcFetch<{ variants: AgentInstructionVariant[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio.interviews[":id"]["agent-instructions"].$get({
           param: { id: recordId ?? "", slug },
         }),

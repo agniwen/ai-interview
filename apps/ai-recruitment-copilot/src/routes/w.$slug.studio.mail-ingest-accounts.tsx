@@ -269,7 +269,7 @@ function MailIngestAccountDialog({
 
       if (row.account) {
         const updatePayload = password ? { ...payload, password } : payload;
-        await rpcFetch<MailIngestAccountRecord>(
+        await rpcFetch(
           rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$patch({
             json: updatePayload,
             param: { id: row.account.id, slug },
@@ -282,7 +282,7 @@ function MailIngestAccountDialog({
       if (!password) {
         throw new Error("创建配置时必须填写客户端密码");
       }
-      await rpcFetch<MailIngestAccountRecord>(
+      await rpcFetch(
         rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$post({
           json: {
             ...payload,
@@ -528,7 +528,7 @@ function ManagedMailIngestPage() {
     if (params.sortOrder) {
       query.sortOrder = params.sortOrder;
     }
-    return rpcFetch<ManagedMailIngestResult>(
+    return rpcFetch(
       rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$get({
         param: { slug },
         query,

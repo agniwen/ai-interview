@@ -19,6 +19,7 @@ import {
   createAttachment,
   findAttachmentByContentHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
+import type { ChatAttachmentRow } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import {
   MAX_ATTACHMENT_SIZE,
   uploadPreflightSchema,
@@ -56,6 +57,26 @@ function getFilenameCompatibleStructured(
     : null;
 }
 
+type ReusableParsedAttachment = ChatAttachmentRow & {
+  parsedPageCount: number;
+  parsedStatus: "ready";
+  parsedText: string;
+  parsedTextSource: AttachmentTextSource;
+};
+
+function isReusableParsedAttachment(
+  attachment: ChatAttachmentRow | null,
+): attachment is ReusableParsedAttachment {
+  return Boolean(
+    attachment &&
+    attachment.parsedStatus === "ready" &&
+    attachment.parsedPageCount !== null &&
+    attachment.parsedText !== null &&
+    attachment.parsedTextSource !== null &&
+    isResumeParseCacheSourceCompatible(attachment.parsedTextSource),
+  );
+}
+
 // 构造上传/preflight 共用的响应结构。
 // 多租户改造后 chat 路由挂在 /api/w/:slug/chat 下，必须把 slug 拼进附件 URL，
 // 否则浏览器拉 `/api/chat/attachments/:id` 直接 404，预览/下载全坏。
@@ -81,17 +102,22 @@ function buildUploadResponse(args: {
     parsedText,
     parsedTextSource,
   } = args;
+  const parsed =
+    parsedStatus === "ready" &&
+    parsedPageCount !== null &&
+    parsedText !== null &&
+    parsedTextSource !== null
+      ? {
+          pageCount: parsedPageCount,
+          structured: parsedStructured,
+          text: parsedText,
+          textSource: parsedTextSource,
+        }
+      : null;
   return {
     id: attachmentId,
     parseStatus: parsedStatus,
-    ...(parsedStatus === "ready" && {
-      parsed: {
-        pageCount: parsedPageCount,
-        structured: parsedStructured,
-        text: parsedText,
-        textSource: parsedTextSource,
-      },
-    }),
+    ...(parsed && { parsed }),
     url: `/api/w/${slug}/chat/attachments/${attachmentId}`,
   };
 }
@@ -112,10 +138,9 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
       const { filename, hash, mediaType, size } = c.req.valid("json");
 
       const cached = isResumeParseCacheEnabled() ? await dependencies.findAttachment(hash) : null;
-      const existing =
-        cached && isResumeParseCacheSourceCompatible(cached.parsedTextSource) ? cached : null;
+      const existing = isReusableParsedAttachment(cached) ? cached : null;
       if (!existing) {
-        return c.json({ hit: false } as const);
+        return c.json({ hit: false } as const, 200);
       }
       const parsedStructured = getFilenameCompatibleStructured(existing.parsedStructured, filename);
 
@@ -138,18 +163,21 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
         userId: user.id,
       });
 
-      return c.json({
-        hit: true as const,
-        ...buildUploadResponse({
-          attachmentId,
-          parsedPageCount: existing.parsedPageCount,
-          parsedStatus: existing.parsedStatus,
-          parsedStructured,
-          parsedText: existing.parsedText,
-          parsedTextSource: existing.parsedTextSource,
-          slug: activeOrg.slug,
-        }),
-      });
+      return c.json(
+        {
+          hit: true as const,
+          ...buildUploadResponse({
+            attachmentId,
+            parsedPageCount: existing.parsedPageCount,
+            parsedStatus: existing.parsedStatus,
+            parsedStructured,
+            parsedText: existing.parsedText,
+            parsedTextSource: existing.parsedTextSource,
+            slug: activeOrg.slug,
+          }),
+        },
+        200,
+      );
     })
     .post("/", async (c) => {
       const { user, activeOrg } = c.var;
@@ -190,8 +218,7 @@ export function createUploadsRouter(overrides: Partial<UploadsRouterDependencies
       const cached = isResumeParseCacheEnabled()
         ? await dependencies.findAttachment(contentHash)
         : null;
-      const existing =
-        cached && isResumeParseCacheSourceCompatible(cached.parsedTextSource) ? cached : null;
+      const existing = isReusableParsedAttachment(cached) ? cached : null;
       if (existing) {
         const parsedStructured = getFilenameCompatibleStructured(
           existing.parsedStructured,

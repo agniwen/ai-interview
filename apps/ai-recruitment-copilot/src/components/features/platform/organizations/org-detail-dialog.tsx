@@ -160,7 +160,7 @@ export function OrgDetailDialog({
       setLoading(true);
       await withCleanup(
         async () => {
-          const result = await rpcFetch<OrgDetail>(
+          const result = await rpcFetch(
             rpc.api.platform.organizations[":orgId"].$get({
               param: { orgId },
               query: { page: String(p), pageSize: String(pageSize) },

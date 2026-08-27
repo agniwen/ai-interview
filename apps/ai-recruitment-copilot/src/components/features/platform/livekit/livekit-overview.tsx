@@ -145,11 +145,7 @@ function DeploymentCards({
 export function LiveKitOverview() {
   const [selected, setSelected] = useState<DeploymentComponent | null>(null);
   const query = useQuery({
-    queryFn: () =>
-      rpcFetch<OverviewResult>(
-        rpc.api.platform.livekit.overview.$get(),
-        "加载 LiveKit 服务概览失败",
-      ),
+    queryFn: () => rpcFetch(rpc.api.platform.livekit.overview.$get(), "加载 LiveKit 服务概览失败"),
     queryKey: ["platform-livekit-overview"],
     refetchInterval: 15_000,
   });

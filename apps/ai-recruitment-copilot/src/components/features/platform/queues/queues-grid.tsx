@@ -233,15 +233,14 @@ export interface QueuesGridDependencies {
 
 const defaultQueuesGridDependencies: QueuesGridDependencies = {
   fetchJobs: ({ query, queueName }) =>
-    rpcFetch<QueueJobsResult>(
+    rpcFetch(
       rpc.api.platform.queues[":queueName"].jobs.$get({
         param: { queueName },
         query,
       }),
       "加载队列任务失败",
     ),
-  fetchOverview: () =>
-    rpcFetch<QueuesOverviewResult>(rpc.api.platform.queues.$get(), "加载队列概览失败"),
+  fetchOverview: () => rpcFetch(rpc.api.platform.queues.$get(), "加载队列概览失败"),
 };
 
 export function createQueueJobsFetcher(fetchJobs: QueuesGridDependencies["fetchJobs"]) {

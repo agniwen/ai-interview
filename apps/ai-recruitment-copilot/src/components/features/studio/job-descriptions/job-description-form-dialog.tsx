@@ -1,8 +1,6 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
-import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import { buildJobDescriptionInterviewerOptions } from "@arc/shared/job-description-interviewers";
@@ -113,7 +111,7 @@ export function JobDescriptionFormDialog({
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && !!record?.id,
     queryFn: async () => {
-      const payload = await rpcFetch<{ records: CandidateFormTemplateListRecord[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio.forms.$get({
           param: { slug },
           query: {
@@ -133,7 +131,7 @@ export function JobDescriptionFormDialog({
   const { data: linkedInterviewQuestions = [], isLoading: isInterviewQuestionsLoading } = useQuery({
     enabled: open && !!record?.id,
     queryFn: async () => {
-      const payload = await rpcFetch<{ records: InterviewQuestionTemplateListRecord[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio["interview-questions"].$get({
           param: { slug },
           query: {

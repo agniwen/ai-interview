@@ -32,7 +32,7 @@ export function fetchPreInterviewForms(
   interviewId: string,
   roundId: string,
 ): Promise<FormsPayload> {
-  return rpcFetch<FormsPayload>(
+  return rpcFetch(
     rpc.api.interview[":id"][":roundId"].forms.$get({
       param: { id: interviewId, roundId },
     }),

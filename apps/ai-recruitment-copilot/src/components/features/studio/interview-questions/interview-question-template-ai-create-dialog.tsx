@@ -85,7 +85,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
         toast.error(error instanceof Error ? error.message : "AI 生成失败");
       },
       operation: async () => {
-        const result = await rpcFetch<{ questions: InterviewQuestionTemplateQuestionInput[] }>(
+        const result = await rpcFetch(
           rpc.api.w[":slug"].studio["interview-questions"]["ai-generate-questions"].$post({
             json: {
               jobDescriptionId,
