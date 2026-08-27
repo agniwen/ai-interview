@@ -27,15 +27,17 @@ function ResumePoolDetailOverlayRoute() {
   }, [navigate, router, slug]);
 
   return (
-    <StudioContentRouteOverlay onClose={navigateBackToList}>
-      {({ requestClose }) => <ResumePoolDetailPage onBack={requestClose} recordId={recordId} />}
+    <StudioContentRouteOverlay>
+      <ResumePoolDetailPage onBack={navigateBackToList} recordId={recordId} />
     </StudioContentRouteOverlay>
   );
 }
 
 function ResumePoolDetailOverlayPending() {
   return (
-    <StudioContentRouteOverlay>{() => <ResumePoolDetailPageSkeleton />}</StudioContentRouteOverlay>
+    <StudioContentRouteOverlay>
+      <ResumePoolDetailPageSkeleton />
+    </StudioContentRouteOverlay>
   );
 }
 

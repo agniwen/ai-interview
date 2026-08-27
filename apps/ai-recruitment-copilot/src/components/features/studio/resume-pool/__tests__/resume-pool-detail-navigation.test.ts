@@ -7,17 +7,10 @@ import { ResumePoolDetailPageSkeleton } from "../resume-pool-detail-page";
 
 describe("resume pool detail navigation", () => {
   it("keeps the pool list mounted behind an internal overlay route", async () => {
-    const [pageSource, routeSource, detailOverlayRouteSource] = await Promise.all([
+    const [pageSource, routeSource] = await Promise.all([
       readFile(new URL("../resume-pool-page.tsx", import.meta.url), "utf-8"),
       readFile(
         new URL("../../../../../routes/w.$slug.studio.resume-pool.tsx", import.meta.url),
-        "utf-8",
-      ),
-      readFile(
-        new URL(
-          "../../../../../routes/w.$slug.studio.resume-pool.overlay.$recordId.tsx",
-          import.meta.url,
-        ),
         "utf-8",
       ),
     ]);
@@ -30,10 +23,6 @@ describe("resume pool detail navigation", () => {
     );
     expect(routeSource).toContain("isListRoute || isOverlayRoute");
     expect(routeSource).toContain("inert={isOverlayRoute ? true : undefined}");
-    expect(detailOverlayRouteSource).toContain(
-      "StudioContentRouteOverlay onClose={navigateBackToList}",
-    );
-    expect(detailOverlayRouteSource).toContain("onBack={requestClose}");
   });
 
   it("maps the overlay route to a canonical shareable detail URL", async () => {

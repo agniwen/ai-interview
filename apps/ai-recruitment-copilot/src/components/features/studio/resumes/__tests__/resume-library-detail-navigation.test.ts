@@ -19,25 +19,14 @@ describe("recruitment desk detail navigation", () => {
   });
 
   it("fills the content area while keeping the fixed header above the overlay", async () => {
-    const [studioRouteSource, overlaySource, detailOverlayRouteSource] = await Promise.all([
+    const [studioRouteSource, overlaySource] = await Promise.all([
       readFile(new URL("../../../../../routes/w.$slug.studio.tsx", import.meta.url), "utf-8"),
       readFile(new URL("../../studio-content-route-overlay.tsx", import.meta.url), "utf-8"),
-      readFile(
-        new URL(
-          "../../../../../routes/w.$slug.studio.resumes.overlay.$recordId.tsx",
-          import.meta.url,
-        ),
-        "utf-8",
-      ),
     ]);
 
     expect(studioRouteSource).toContain('className="pointer-events-none absolute inset-0 z-10"');
     expect(studioRouteSource).toContain("[&_[data-overlayscrollbars-viewport]]:z-auto!");
     expect(overlaySource).toContain("pt-[calc(var(--header-height)+1rem)]");
-    expect(detailOverlayRouteSource).toContain(
-      "StudioContentRouteOverlay onClose={navigateBackToList}",
-    );
-    expect(detailOverlayRouteSource).toContain("onBack={requestClose}");
   });
 
   it("shows the same generated candidate avatar in recruiter detail headers", async () => {
