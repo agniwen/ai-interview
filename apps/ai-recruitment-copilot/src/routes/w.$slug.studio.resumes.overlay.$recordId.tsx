@@ -36,21 +36,21 @@ function RecruiterResumeDetailOverlayRoute() {
   }, [navigate, routeSearch, router, slug]);
 
   return (
-    <StudioContentRouteOverlay>
-      <RecruiterResumeDetailPage
-        onBack={navigateBackToList}
-        recordId={recordId}
-        routeSearch={routeSearch}
-      />
+    <StudioContentRouteOverlay onClose={navigateBackToList}>
+      {({ requestClose }) => (
+        <RecruiterResumeDetailPage
+          onBack={requestClose}
+          recordId={recordId}
+          routeSearch={routeSearch}
+        />
+      )}
     </StudioContentRouteOverlay>
   );
 }
 
 function RecruiterResumeDetailOverlayPending() {
   return (
-    <StudioContentRouteOverlay>
-      <RecruiterResumeDetailSkeleton />
-    </StudioContentRouteOverlay>
+    <StudioContentRouteOverlay>{() => <RecruiterResumeDetailSkeleton />}</StudioContentRouteOverlay>
   );
 }
 
