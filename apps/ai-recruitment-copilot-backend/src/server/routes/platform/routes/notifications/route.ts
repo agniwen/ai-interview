@@ -12,6 +12,7 @@ import {
   grantPlatformNotificationDocumentAccess,
   NotificationDocumentAccessError,
   previewPlatformFeishuNotification,
+  updatePlatformNotificationDocumentStructure,
 } from "./utils";
 
 export interface PlatformNotificationsRouterDependencies {
@@ -19,6 +20,7 @@ export interface PlatformNotificationsRouterDependencies {
   previewNotification: typeof previewPlatformFeishuNotification;
   queryNotifications: typeof queryPaginatedPlatformNotifications;
   resendNotification: typeof resendInterviewSummaryNotification;
+  updateDocumentStructure: typeof updatePlatformNotificationDocumentStructure;
 }
 
 const defaultDependencies: PlatformNotificationsRouterDependencies = {
@@ -26,6 +28,7 @@ const defaultDependencies: PlatformNotificationsRouterDependencies = {
   previewNotification: previewPlatformFeishuNotification,
   queryNotifications: queryPaginatedPlatformNotifications,
   resendNotification: resendInterviewSummaryNotification,
+  updateDocumentStructure: updatePlatformNotificationDocumentStructure,
 };
 
 const querySchema = z.object({
@@ -52,8 +55,13 @@ const querySchema = z.object({
 export function createPlatformNotificationsRouter(
   dependencies: PlatformNotificationsRouterDependencies = defaultDependencies,
 ) {
-  const { grantDocumentAccess, previewNotification, queryNotifications, resendNotification } =
-    dependencies;
+  const {
+    grantDocumentAccess,
+    previewNotification,
+    queryNotifications,
+    resendNotification,
+    updateDocumentStructure,
+  } = dependencies;
 
   return factory
     .createApp()
@@ -66,6 +74,17 @@ export function createPlatformNotificationsRouter(
       } catch (error) {
         const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
         return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
+      }
+    })
+    .post("/:id/update-document-structure", async (c) => {
+      try {
+        return c.json(await updateDocumentStructure(c.req.param("id")), 200);
+      } catch (error) {
+        if (error instanceof NotificationDocumentAccessError) {
+          return c.json({ code: error.code, error: error.message }, error.status);
+        }
+        const message = error instanceof Error ? error.message : "更新飞书文档结构失败";
+        return c.json({ error: message }, 500);
       }
     })
     .post("/:id/debug-preview", async (c) => {

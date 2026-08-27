@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlatformNotificationDependencies } from "../utils";
+import type {
+  PlatformNotificationDependencies,
+  PlatformNotificationStructureDependencies,
+} from "../utils";
 import {
   grantPlatformNotificationDocumentAccess,
   previewPlatformFeishuNotification,
+  updatePlatformNotificationDocumentStructure,
 } from "../utils";
 
 const mocks = {
@@ -11,6 +15,8 @@ const mocks = {
   loadCurrentUserAccount: vi.fn(),
   loadDocument: vi.fn(),
   loadPreview: vi.fn(),
+  loadStructure: vi.fn(),
+  updateDocumentStructure: vi.fn(),
 };
 
 const dependencies = {
@@ -20,6 +26,11 @@ const dependencies = {
   loadDocument: mocks.loadDocument,
   loadPreview: mocks.loadPreview,
 } satisfies PlatformNotificationDependencies;
+
+const structureDependencies = {
+  loadStructure: mocks.loadStructure,
+  updateDocumentStructure: mocks.updateDocumentStructure,
+} satisfies PlatformNotificationStructureDependencies;
 
 interface TestNotificationDocumentRow {
   documentId: string | null;
@@ -165,5 +176,69 @@ describe("previewPlatformFeishuNotification", () => {
     expect(JSON.stringify(preview.block.children)).toContain("1. 求职动机：");
     expect(JSON.stringify(preview.block.children)).toContain("希望承担更完整的系统架构职责。");
     expect(mocks.grantDocumentAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("updatePlatformNotificationDocumentStructure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("inserts current candidate sections into an existing summary document", async () => {
+    mocks.loadStructure.mockResolvedValueOnce({
+      documentId: "docx-1",
+      documentUrl: "https://feishu.cn/docx/docx-1",
+      interviewQuestions: [
+        {
+          difficulty: "medium",
+          evaluationFocus: "验证系统设计能力",
+          followUpDirections: "追问技术取舍",
+          order: 1,
+          question: "请介绍你主导的系统设计。",
+        },
+      ],
+      providerId: "feishu",
+      qualitativeResumeEvaluation: null,
+      resumeEvaluationArtifactMode: null,
+      type: "summary_ready",
+    });
+    mocks.updateDocumentStructure.mockResolvedValueOnce({
+      insertedSections: ["recommendedQuestions"],
+    });
+
+    await expect(
+      updatePlatformNotificationDocumentStructure("log-1", structureDependencies),
+    ).resolves.toEqual({
+      documentUrl: "https://feishu.cn/docx/docx-1",
+      insertedSections: ["recommendedQuestions"],
+    });
+    expect(mocks.updateDocumentStructure).toHaveBeenCalledWith(
+      "feishu",
+      expect.objectContaining({
+        documentId: "docx-1",
+        recommendedQuestionsBlock: expect.objectContaining({ block_type: 19 }),
+        resumeEvaluationBlock: undefined,
+      }),
+    );
+  });
+
+  it("requires an existing summary document", async () => {
+    mocks.loadStructure.mockResolvedValueOnce(null);
+    await expect(
+      updatePlatformNotificationDocumentStructure("missing", structureDependencies),
+    ).rejects.toThrow("通知记录不存在");
+
+    mocks.loadStructure.mockResolvedValueOnce({
+      documentId: null,
+      documentUrl: null,
+      interviewQuestions: [],
+      providerId: "feishu",
+      qualitativeResumeEvaluation: null,
+      resumeEvaluationArtifactMode: null,
+      type: "summary_ready",
+    });
+    await expect(
+      updatePlatformNotificationDocumentStructure("no-doc", structureDependencies),
+    ).rejects.toThrow("飞书文档尚未生成，请先重新发送通知");
   });
 });

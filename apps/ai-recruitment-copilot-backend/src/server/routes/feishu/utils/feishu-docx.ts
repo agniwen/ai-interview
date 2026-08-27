@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -38,6 +39,31 @@ const createBlocksResponseSchema = z.object({
     .optional(),
 });
 
+const existingDocumentBlockSchema = z
+  .object({
+    block_id: z.string().min(1),
+    block_type: z.number().int(),
+    children: z.array(z.string().min(1)).optional(),
+    parent_id: z.string().min(1).optional(),
+    text: z
+      .object({
+        elements: z.array(z.unknown()),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+const listDocumentBlocksResponseSchema = z.object({
+  has_more: z.boolean().optional(),
+  items: z.array(existingDocumentBlockSchema).optional(),
+  page_token: z.string().min(1).optional(),
+});
+
+const existingTextRunSchema = z
+  .object({ text_run: z.object({ content: z.string() }).passthrough() })
+  .passthrough();
+
 const uploadMediaResponseSchema = z.object({ file_token: z.string().min(1).optional() });
 
 const emptyFeishuResponseSchema = z
@@ -54,6 +80,7 @@ interface FeishuDocxAttachment {
 interface FeishuRequestBody {
   children?: FeishuDocumentBlock[];
   folder_token?: string;
+  index?: number;
   member_id?: string;
   member_type?: "openid";
   perm?: "edit";
@@ -89,6 +116,17 @@ interface MoveFeishuDocxOptions {
 interface FeishuDocxDependencies {
   fetcher: typeof fetch;
   sleep: (milliseconds: number) => Promise<void>;
+}
+
+type ExistingDocumentBlock = z.infer<typeof existingDocumentBlockSchema>;
+
+export type InterviewEvaluationStructureSection = "recommendedQuestions" | "resumeEvaluation";
+
+interface UpdateInterviewEvaluationStructureOptions {
+  accessToken: string;
+  documentId: string;
+  recommendedQuestionsBlock?: FeishuDocumentBlock;
+  resumeEvaluationBlock?: FeishuDocumentBlock;
 }
 
 const defaultDependencies: FeishuDocxDependencies = {
@@ -129,18 +167,19 @@ export function resolveFeishuDocxDocumentId(
 async function requestFeishu<T extends z.ZodType>(
   path: string,
   accessToken: string,
-  body: FeishuRequestBody,
+  body: FeishuRequestBody | undefined,
   responseDataSchema: T,
   dependencies: FeishuDocxDependencies,
-  method: "DELETE" | "PATCH" | "POST" = "POST",
+  method: "DELETE" | "GET" | "PATCH" | "POST" = "POST",
 ): Promise<z.output<T>> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const headers = new Headers({ authorization: `Bearer ${accessToken}` });
+    if (body) {
+      headers.set("content-type", "application/json; charset=utf-8");
+    }
     const response = await dependencies.fetcher(`${FEISHU_API_ROOT}${path}`, {
-      body: JSON.stringify(body),
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "content-type": "application/json; charset=utf-8",
-      },
+      body: body ? JSON.stringify(body) : undefined,
+      headers,
       method,
     });
     const parsedResponse = feishuApiResponseSchema.safeParse(await response.json());
@@ -175,20 +214,90 @@ async function appendBlocks(
   blocks: FeishuDocumentBlock[],
   accessToken: string,
   dependencies: FeishuDocxDependencies,
+  index?: number,
+  clientTokenSeed?: string,
 ): Promise<{ block_id?: string; children?: string[] }[]> {
   const created: { block_id?: string; children?: string[] }[] = [];
+  let nextIndex = index;
+  let chunkIndex = 0;
   for (const blockChunk of chunks(blocks, MAX_BLOCKS_PER_REQUEST)) {
+    const requestBody: FeishuRequestBody = {
+      children: blockChunk.map(withoutChildren),
+    };
+    if (nextIndex !== undefined) {
+      requestBody.index = nextIndex;
+    }
+    const clientToken = clientTokenSeed
+      ? createHash("sha256").update(`${clientTokenSeed}:${chunkIndex}`).digest("hex")
+      : undefined;
+    const path = `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children${clientToken ? `?client_token=${clientToken}` : ""}`;
     const response = await requestFeishu(
-      `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children`,
+      path,
       accessToken,
-      { children: blockChunk.map(withoutChildren) },
+      requestBody,
       createBlocksResponseSchema,
       dependencies,
     );
     created.push(...(response.children ?? []));
+    if (nextIndex !== undefined) {
+      nextIndex += blockChunk.length;
+    }
+    chunkIndex += 1;
     await dependencies.sleep(EDIT_THROTTLE_MS);
   }
   return created;
+}
+
+async function listDocumentBlocks(
+  documentId: string,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<ExistingDocumentBlock[]> {
+  const blocks: ExistingDocumentBlock[] = [];
+  let pageToken: string | undefined;
+  do {
+    const query = new URLSearchParams({ page_size: "500" });
+    if (pageToken) {
+      query.set("page_token", pageToken);
+    }
+    const page = await requestFeishu(
+      `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks?${query.toString()}`,
+      accessToken,
+      undefined,
+      listDocumentBlocksResponseSchema,
+      dependencies,
+      "GET",
+    );
+    blocks.push(...(page.items ?? []));
+    pageToken = page.has_more ? page.page_token : undefined;
+    if (page.has_more && !pageToken) {
+      throw new Error("Feishu document blocks response did not include page_token");
+    }
+  } while (pageToken);
+  return blocks;
+}
+
+function plainText(block: ExistingDocumentBlock | undefined): string {
+  return (block?.text?.elements ?? [])
+    .flatMap((element) => {
+      const parsed = existingTextRunSchema.safeParse(element);
+      return parsed.success ? [parsed.data.text_run.content] : [];
+    })
+    .join("")
+    .trim();
+}
+
+function topLevelBlockTitle(
+  block: ExistingDocumentBlock | undefined,
+  blocksById: Map<string, ExistingDocumentBlock>,
+): string {
+  for (const childId of block?.children ?? []) {
+    const content = plainText(blocksById.get(childId));
+    if (content) {
+      return content;
+    }
+  }
+  return "";
 }
 
 async function updateCalloutTitle(
@@ -209,6 +318,99 @@ async function updateCalloutTitle(
     emptyFeishuResponseSchema,
     dependencies,
     "PATCH",
+  );
+}
+
+async function populateNestedBlocks(
+  documentId: string,
+  documentBlocks: FeishuDocumentBlock[],
+  topLevelBlocks: { block_id?: string; children?: string[] }[],
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+  options?: { clientTokenSeed?: string; updateCalloutTitleAfterChildren?: boolean },
+): Promise<void> {
+  for (const [index, block] of documentBlocks.entries()) {
+    if (!block.children || block.children.length === 0) {
+      continue;
+    }
+    const parentBlockId = topLevelBlocks[index]?.block_id;
+    if (!parentBlockId) {
+      throw new Error(`Feishu did not return block_id for top-level block ${index}`);
+    }
+    const generatedTitleBlockId = topLevelBlocks[index]?.children?.[0];
+    if (block.block_type === 19 && generatedTitleBlockId) {
+      if (!options?.updateCalloutTitleAfterChildren) {
+        await updateCalloutTitle(
+          documentId,
+          generatedTitleBlockId,
+          block.children[0],
+          accessToken,
+          dependencies,
+        );
+        await dependencies.sleep(EDIT_THROTTLE_MS);
+      }
+      await appendBlocks(
+        documentId,
+        parentBlockId,
+        block.children.slice(1),
+        accessToken,
+        dependencies,
+        undefined,
+        options?.clientTokenSeed ? `${options.clientTokenSeed}:${index}:children` : undefined,
+      );
+      if (options?.updateCalloutTitleAfterChildren) {
+        await updateCalloutTitle(
+          documentId,
+          generatedTitleBlockId,
+          block.children[0],
+          accessToken,
+          dependencies,
+        );
+        await dependencies.sleep(EDIT_THROTTLE_MS);
+      }
+      continue;
+    }
+    await appendBlocks(
+      documentId,
+      parentBlockId,
+      block.children,
+      accessToken,
+      dependencies,
+      undefined,
+      options?.clientTokenSeed ? `${options.clientTokenSeed}:${index}:children` : undefined,
+    );
+  }
+}
+
+async function insertTopLevelBlock(
+  options: {
+    accessToken: string;
+    block: FeishuDocumentBlock;
+    documentId: string;
+    idempotencyKey: InterviewEvaluationStructureSection;
+    index: number;
+  },
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const created = await appendBlocks(
+    options.documentId,
+    options.documentId,
+    [options.block],
+    options.accessToken,
+    dependencies,
+    options.index,
+    `interview-evaluation:${options.documentId}:${options.idempotencyKey}:top-level`,
+  );
+  await populateNestedBlocks(
+    options.documentId,
+    [options.block],
+    created,
+    options.accessToken,
+    dependencies,
+    {
+      clientTokenSeed: `interview-evaluation:${options.documentId}:${options.idempotencyKey}`,
+      updateCalloutTitleAfterChildren: true,
+    },
   );
 }
 
@@ -365,41 +567,13 @@ export async function createFeishuDocx(
     await dependencies.sleep(EDIT_THROTTLE_MS);
   }
 
-  for (const [index, block] of documentBlocks.entries()) {
-    if (!block.children || block.children.length === 0) {
-      continue;
-    }
-    const parentBlockId = topLevelBlocks[index]?.block_id;
-    if (!parentBlockId) {
-      throw new Error(`Feishu did not return block_id for top-level block ${index}`);
-    }
-    const generatedTitleBlockId = topLevelBlocks[index]?.children?.[0];
-    if (block.block_type === 19 && generatedTitleBlockId) {
-      await updateCalloutTitle(
-        documentId,
-        generatedTitleBlockId,
-        block.children[0],
-        options.accessToken,
-        dependencies,
-      );
-      await dependencies.sleep(EDIT_THROTTLE_MS);
-      await appendBlocks(
-        documentId,
-        parentBlockId,
-        block.children.slice(1),
-        options.accessToken,
-        dependencies,
-      );
-      continue;
-    }
-    await appendBlocks(
-      documentId,
-      parentBlockId,
-      block.children,
-      options.accessToken,
-      dependencies,
-    );
-  }
+  await populateNestedBlocks(
+    documentId,
+    documentBlocks,
+    topLevelBlocks,
+    options.accessToken,
+    dependencies,
+  );
 
   await grantFeishuDocxAccess(
     {
@@ -429,6 +603,72 @@ export async function createFeishuDocx(
   };
 }
 
+export async function updateFeishuDocxInterviewEvaluationStructure(
+  options: UpdateInterviewEvaluationStructureOptions,
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<{ insertedSections: InterviewEvaluationStructureSection[] }> {
+  const blocks = await listDocumentBlocks(options.documentId, options.accessToken, dependencies);
+  const blocksById = new Map(blocks.map((block) => [block.block_id, block]));
+  const root = blocksById.get(options.documentId);
+  if (!root) {
+    throw new Error("飞书文档缺少根节点，无法更新结构");
+  }
+  const topLevelBlocks = (root.children ?? []).map((blockId) => blocksById.get(blockId));
+  const titles = topLevelBlocks.map((block) => topLevelBlockTitle(block, blocksById));
+  const hasResumeEvaluation = titles.includes("简历评价");
+  const hasRecommendedQuestions = titles.includes("推荐面试题");
+  const shouldInsertResumeEvaluation = Boolean(
+    options.resumeEvaluationBlock && !hasResumeEvaluation,
+  );
+  const shouldInsertRecommendedQuestions = Boolean(
+    options.recommendedQuestionsBlock && !hasRecommendedQuestions,
+  );
+
+  const businessReviewIndex = shouldInsertRecommendedQuestions
+    ? titles.indexOf("业务一面评价")
+    : -1;
+  if (shouldInsertRecommendedQuestions && businessReviewIndex === -1) {
+    throw new Error("飞书文档缺少“业务一面评价”板块，无法插入推荐面试题");
+  }
+  const hrEvaluationIndex = shouldInsertResumeEvaluation ? titles.indexOf("HR面试评价") : -1;
+  if (shouldInsertResumeEvaluation && hrEvaluationIndex === -1) {
+    throw new Error("飞书文档缺少“HR面试评价”板块，无法插入简历评价");
+  }
+
+  if (shouldInsertRecommendedQuestions && options.recommendedQuestionsBlock) {
+    await insertTopLevelBlock(
+      {
+        accessToken: options.accessToken,
+        block: options.recommendedQuestionsBlock,
+        documentId: options.documentId,
+        idempotencyKey: "recommendedQuestions",
+        index: businessReviewIndex,
+      },
+      dependencies,
+    );
+  }
+
+  if (shouldInsertResumeEvaluation && options.resumeEvaluationBlock) {
+    await insertTopLevelBlock(
+      {
+        accessToken: options.accessToken,
+        block: options.resumeEvaluationBlock,
+        documentId: options.documentId,
+        idempotencyKey: "resumeEvaluation",
+        index: hrEvaluationIndex,
+      },
+      dependencies,
+    );
+  }
+
+  return {
+    insertedSections: [
+      ...(shouldInsertResumeEvaluation ? (["resumeEvaluation"] as const) : []),
+      ...(shouldInsertRecommendedQuestions ? (["recommendedQuestions"] as const) : []),
+    ],
+  };
+}
+
 export async function createFeishuInterviewEvaluationDocx(
   providerId: FeishuProviderId,
   options: Omit<CreateFeishuDocxOptions, "accessToken">,
@@ -451,6 +691,18 @@ export async function moveFeishuInterviewEvaluationDocx(
   const { appId, appSecret } = getFeishuAppCredentials(providerId);
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
   await moveFeishuDocx({ accessToken, documentId, folderToken });
+}
+
+export async function updateFeishuInterviewEvaluationDocxStructure(
+  providerId: FeishuProviderId,
+  options: Omit<UpdateInterviewEvaluationStructureOptions, "accessToken">,
+): Promise<{ insertedSections: InterviewEvaluationStructureSection[] }> {
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
+  return await updateFeishuDocxInterviewEvaluationStructure({
+    ...options,
+    accessToken,
+  });
 }
 
 export async function grantFeishuInterviewEvaluationDocxAccess(

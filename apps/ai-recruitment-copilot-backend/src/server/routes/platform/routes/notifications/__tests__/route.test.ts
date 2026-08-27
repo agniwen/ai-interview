@@ -8,6 +8,7 @@ const mocks = {
   previewNotification: vi.fn(),
   queryNotifications: vi.fn(),
   resendNotification: vi.fn(),
+  updateDocumentStructure: vi.fn(),
 };
 
 function makeApp(role?: string) {
@@ -81,6 +82,38 @@ describe("platform notifications routes", () => {
     });
     expect(mocks.previewNotification).toHaveBeenCalledWith("log_1");
     expect(mocks.resendNotification).not.toHaveBeenCalled();
+  });
+
+  it("updates an existing Feishu document structure without resending the notification", async () => {
+    mocks.updateDocumentStructure.mockResolvedValueOnce({
+      documentUrl: "https://feishu.cn/docx/docx-1",
+      insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+    });
+
+    const response = await makeApp("admin").request(
+      "/platform/notifications/log_1/update-document-structure",
+      { method: "POST" },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      documentUrl: "https://feishu.cn/docx/docx-1",
+      insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+    });
+    expect(mocks.updateDocumentStructure).toHaveBeenCalledWith("log_1");
+    expect(mocks.resendNotification).not.toHaveBeenCalled();
+  });
+
+  it("reports unexpected Feishu update failures as server errors", async () => {
+    mocks.updateDocumentStructure.mockRejectedValueOnce(new Error("Feishu unavailable"));
+
+    const response = await makeApp("admin").request(
+      "/platform/notifications/log_1/update-document-structure",
+      { method: "POST" },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "Feishu unavailable" });
   });
 
   it("returns 500 when AI preview generation fails unexpectedly", async () => {

@@ -1,12 +1,10 @@
 import { eq } from "drizzle-orm";
-import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
 import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@arc/db-schema/qualitative-resume-evaluation";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { interviewNotification } from "@arc/db-schema/schema";
-import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { generateFeishuHrEvaluationForInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-hr-evaluation";
@@ -16,12 +14,11 @@ import {
   moveFeishuInterviewEvaluationDocx,
   resolveFeishuDocxDocumentId,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
-import { buildInterviewEvaluationDocument } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
+import {
+  buildInterviewEvaluationDocument,
+  buildInterviewEvaluationStructureSections,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
-
-type DocumentResumeEvaluation = Pick<QualitativeResumeEvaluation, "detailedOverall">;
-
-const persistedInterviewQuestionsSchema = studioInterviewQuestionClientSchema.array();
 
 interface FeishuInterviewDocumentContext {
   interviewQuestions: InterviewQuestion[];
@@ -42,21 +39,6 @@ function buildResumeUrl(roundId: string, organizationSlug: string | null): strin
   const root = baseUrl.replace(/\/$/, "");
   const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
   return `${root}/api${prefix}/studio/interviews/${encodeURIComponent(roundId)}/resume`;
-}
-
-function resolveDocumentResumeEvaluation(
-  context: FeishuInterviewDocumentContext,
-): DocumentResumeEvaluation | null {
-  if (context.resumeEvaluationArtifactMode !== "qualitative") {
-    return null;
-  }
-  const parsed = qualitativeResumeEvaluationSchema.safeParse(context.qualitativeResumeEvaluation);
-  return parsed.success ? { detailedOverall: parsed.data.detailedOverall } : null;
-}
-
-function resolveRecommendedQuestions(context: FeishuInterviewDocumentContext): InterviewQuestion[] {
-  const parsed = persistedInterviewQuestionsSchema.safeParse(context.interviewQuestions);
-  return parsed.success ? parsed.data : [];
 }
 
 export async function ensureInterviewEvaluationDocument({
@@ -100,12 +82,17 @@ export async function ensureInterviewEvaluationDocument({
     fileName: context.resumeFileName,
     storageKey: context.resumeStorageKey,
   });
+  const structureSections = buildInterviewEvaluationStructureSections(context);
   const document = buildInterviewEvaluationDocument({
     candidateName: input.candidateName,
     evaluation: { hrEvaluation },
     includeResumeLink: !resumePdf,
-    recommendedQuestions: resolveRecommendedQuestions(context),
-    resumeEvaluation: resolveDocumentResumeEvaluation(context),
+    recommendedQuestions: structureSections.recommendedQuestionsBlock
+      ? context.interviewQuestions
+      : [],
+    resumeEvaluation: structureSections.resumeEvaluationBlock
+      ? context.qualitativeResumeEvaluation
+      : null,
     resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
   });
   const created = await createFeishuInterviewEvaluationDocx(providerId, {

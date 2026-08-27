@@ -1,10 +1,23 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import type {
+  QualitativeResumeEvaluation,
+  ResumeEvaluationContractMode,
+} from "@arc/db-schema/qualitative-resume-evaluation";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { account, interviewNotification, studioInterview } from "@arc/db-schema/schema";
 import { generateFeishuHrEvaluationWithPromptForInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-hr-evaluation";
-import { buildHrInterviewEvaluationBlock } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
+import {
+  buildHrInterviewEvaluationBlock,
+  buildInterviewEvaluationStructureSections,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
 import type { HrInterviewEvaluationPreview } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
-import { grantFeishuInterviewEvaluationDocxAccess } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
+import {
+  grantFeishuInterviewEvaluationDocxAccess,
+  resolveFeishuDocxDocumentId,
+  updateFeishuInterviewEvaluationDocxStructure,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
+import type { InterviewEvaluationStructureSection } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 
@@ -22,6 +35,21 @@ interface NotificationPreviewRow {
   conversationId: string | null;
   interviewRecordId: string;
   type: string;
+}
+
+interface NotificationStructureRow {
+  documentId: string | null;
+  documentUrl: string | null;
+  interviewQuestions: InterviewQuestion[];
+  providerId: string;
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
+  resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
+  type: string;
+}
+
+export interface PlatformNotificationStructureDependencies {
+  loadStructure: (notificationId: string) => Promise<NotificationStructureRow | null>;
+  updateDocumentStructure: typeof updateFeishuInterviewEvaluationDocxStructure;
 }
 
 export interface PlatformNotificationDependencies {
@@ -76,6 +104,28 @@ const defaultDependencies: PlatformNotificationDependencies = {
   },
 };
 
+const defaultStructureDependencies: PlatformNotificationStructureDependencies = {
+  loadStructure: async (notificationId) => {
+    const { db } = await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
+    const [notification] = await db
+      .select({
+        documentId: interviewNotification.feishuDocumentId,
+        documentUrl: interviewNotification.feishuDocumentUrl,
+        interviewQuestions: studioInterview.interviewQuestions,
+        providerId: interviewNotification.providerId,
+        qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+        resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+        type: interviewNotification.type,
+      })
+      .from(interviewNotification)
+      .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
+      .where(eq(interviewNotification.id, notificationId))
+      .limit(1);
+    return notification ?? null;
+  },
+  updateDocumentStructure: updateFeishuInterviewEvaluationDocxStructure,
+};
+
 function isFeishuProviderId(value: string): value is FeishuProviderId {
   return feishuProviderIdSchema.safeParse(value).success;
 }
@@ -85,6 +135,7 @@ type NotificationDocumentAccessErrorCode =
   | "FEISHU_ACCOUNT_NOT_LINKED"
   | "NOTIFICATION_NOT_FOUND"
   | "PREVIEW_NOT_AVAILABLE"
+  | "STRUCTURE_UPDATE_NOT_AVAILABLE"
   | "UNSUPPORTED_FEISHU_PROVIDER";
 
 export class NotificationDocumentAccessError extends Error {
@@ -175,4 +226,55 @@ export async function previewPlatformFeishuNotification(
     evaluation: { hrEvaluation: generated.evaluation },
   });
   return { ...preview, prompt: generated.prompt };
+}
+
+export async function updatePlatformNotificationDocumentStructure(
+  notificationId: string,
+  dependencies: PlatformNotificationStructureDependencies = defaultStructureDependencies,
+): Promise<{
+  documentUrl: string;
+  insertedSections: InterviewEvaluationStructureSection[];
+}> {
+  const notification = await dependencies.loadStructure(notificationId);
+  if (!notification) {
+    throw new NotificationDocumentAccessError("NOTIFICATION_NOT_FOUND", "通知记录不存在", 404);
+  }
+  if (!notification.documentUrl) {
+    throw new NotificationDocumentAccessError(
+      "DOCUMENT_NOT_GENERATED",
+      "飞书文档尚未生成，请先重新发送通知",
+      409,
+    );
+  }
+  if (notification.type !== "summary_ready") {
+    throw new NotificationDocumentAccessError(
+      "STRUCTURE_UPDATE_NOT_AVAILABLE",
+      "只有 AI 面试报告通知支持更新文档结构",
+      409,
+    );
+  }
+  if (!isFeishuProviderId(notification.providerId)) {
+    throw new NotificationDocumentAccessError(
+      "UNSUPPORTED_FEISHU_PROVIDER",
+      "通知使用了不支持的飞书应用",
+      400,
+    );
+  }
+  const documentId = resolveFeishuDocxDocumentId(notification.documentId, notification.documentUrl);
+  if (!documentId) {
+    throw new NotificationDocumentAccessError(
+      "DOCUMENT_NOT_GENERATED",
+      "无法识别飞书文档 ID，请先重新发送通知",
+      409,
+    );
+  }
+  const sections = buildInterviewEvaluationStructureSections(notification);
+  const result = await dependencies.updateDocumentStructure(notification.providerId, {
+    documentId,
+    ...sections,
+  });
+  return {
+    documentUrl: notification.documentUrl,
+    insertedSections: result.insertedSections,
+  };
 }

@@ -301,6 +301,7 @@ export function NotificationsGrid() {
   const queryClient = useQueryClient();
   const [previewRecord, setPreviewRecord] = useState<PlatformNotificationRecord | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [updatingStructureId, setUpdatingStructureId] = useState<string | null>(null);
 
   function fetchNotifications(params: {
     search: string;
@@ -349,6 +350,34 @@ export function NotificationsGrid() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["platform-notifications"] });
       toast.success("飞书通知已重新发送");
+    },
+  });
+
+  const updateStructureMutation = useMutation({
+    mutationFn: async (record: PlatformNotificationRecord) => {
+      setUpdatingStructureId(record.id);
+      return await rpcFetch(
+        rpc.api.platform.notifications[":id"]["update-document-structure"].$post({
+          param: { id: record.id },
+        }),
+        "更新飞书文档结构失败",
+      );
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "更新飞书文档结构失败");
+    },
+    onSettled: () => {
+      setUpdatingStructureId(null);
+    },
+    onSuccess: (result) => {
+      if (result.insertedSections.length === 0) {
+        toast.success("飞书文档结构已是最新");
+        return;
+      }
+      const sectionLabels = result.insertedSections.map((section) =>
+        section === "resumeEvaluation" ? "简历评价" : "推荐面试题",
+      );
+      toast.success(`已插入${sectionLabels.join("、")}`);
     },
   });
 
@@ -487,6 +516,25 @@ export function NotificationsGrid() {
             if (record.feishuDocumentUrl) {
               window.open(record.feishuDocumentUrl, "_blank", "noopener,noreferrer");
             }
+          },
+        },
+        {
+          disabled: (record) =>
+            !record.feishuDocumentUrl ||
+            record.type !== "summary_ready" ||
+            (updateStructureMutation.isPending && updatingStructureId === record.id),
+          disabledReason: (record) => {
+            if (!record.feishuDocumentUrl) {
+              return "文档尚未生成，请先重新发送通知";
+            }
+            if (record.type !== "summary_ready") {
+              return "只有 AI 面试报告通知支持更新结构";
+            }
+            return "正在更新文档结构";
+          },
+          label: "更新文档结构",
+          onClick: async (record) => {
+            await updateStructureMutation.mutateAsync(record);
           },
         },
         {

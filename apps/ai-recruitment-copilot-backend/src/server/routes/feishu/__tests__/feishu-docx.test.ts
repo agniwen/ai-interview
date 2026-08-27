@@ -5,10 +5,27 @@ import {
   grantFeishuDocxAccess,
   moveFeishuDocx,
   resolveFeishuDocxDocumentId,
+  updateFeishuDocxInterviewEvaluationStructure,
 } from "../utils/feishu-docx";
+import type { FeishuDocumentBlock } from "../utils/interview-evaluation-doc";
 
 function jsonResponse(body: JsonValue, status = 200): Response {
   return Response.json(body, { status });
+}
+
+function textBlock(content: string): FeishuDocumentBlock {
+  return {
+    block_type: 2,
+    text: { elements: [{ text_run: { content } }] },
+  };
+}
+
+function calloutBlock(title: string): FeishuDocumentBlock {
+  return {
+    block_type: 19,
+    callout: { background_color: 5, border_color: 5 },
+    children: [textBlock(title), textBlock(`${title}正文`)],
+  };
 }
 
 describe("createFeishuDocx", () => {
@@ -349,5 +366,272 @@ describe("existing Feishu documents", () => {
         body: JSON.stringify({ folder_token: "fldcn-evaluations", type: "docx" }),
       }),
     );
+  });
+
+  it("inserts missing evaluation sections at their semantic anchors", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [
+              {
+                block_id: "docx-existing",
+                block_type: 1,
+                children: ["resume-file", "hr-callout", "rating", "business-callout"],
+              },
+              { block_id: "resume-file", block_type: 23, parent_id: "docx-existing" },
+              {
+                block_id: "hr-callout",
+                block_type: 19,
+                children: ["hr-title"],
+                parent_id: "docx-existing",
+              },
+              {
+                block_id: "hr-title",
+                block_type: 2,
+                parent_id: "hr-callout",
+                text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+              },
+              { block_id: "rating", block_type: 4, parent_id: "docx-existing" },
+              {
+                block_id: "business-callout",
+                block_type: 19,
+                children: ["business-title"],
+                parent_id: "docx-existing",
+              },
+              {
+                block_id: "business-title",
+                block_type: 2,
+                parent_id: "business-callout",
+                text: { elements: [{ text_run: { content: "业务一面评价" } }] },
+              },
+            ],
+          },
+          msg: "success",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: { children: [{ block_id: "recommended", children: ["recommended-title"] }] },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: { children: [{ block_id: "resume-evaluation", children: ["resume-title"] }] },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }));
+
+    const result = await updateFeishuDocxInterviewEvaluationStructure(
+      {
+        accessToken: "tenant-token",
+        documentId: "docx-existing",
+        recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+        resumeEvaluationBlock: calloutBlock("简历评价"),
+      },
+      { fetcher, sleep: vi.fn(() => Promise.resolve()) },
+    );
+
+    expect(result).toEqual({
+      insertedSections: ["resumeEvaluation", "recommendedQuestions"],
+    });
+    expect(fetcher.mock.calls[1]?.[0]).toContain(
+      "/documents/docx-existing/blocks/docx-existing/children",
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
+      index: 3,
+    });
+    expect(JSON.parse(String(fetcher.mock.calls[4]?.[1]?.body))).toEqual({
+      children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
+      index: 1,
+    });
+    expect(fetcher.mock.calls[2]?.[0]).toContain("/blocks/recommended/children");
+    expect(fetcher.mock.calls[3]?.[0]).toContain("/blocks/recommended-title");
+    expect(fetcher.mock.calls[5]?.[0]).toContain("/blocks/resume-evaluation/children");
+    expect(fetcher.mock.calls[6]?.[0]).toContain("/blocks/resume-title");
+  });
+
+  it("does not duplicate evaluation sections that already exist", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      jsonResponse({
+        code: 0,
+        data: {
+          has_more: false,
+          items: [
+            {
+              block_id: "docx-existing",
+              block_type: 1,
+              children: ["resume-callout", "recommended-callout"],
+            },
+            {
+              block_id: "resume-callout",
+              block_type: 19,
+              children: ["resume-title"],
+              parent_id: "docx-existing",
+            },
+            {
+              block_id: "resume-title",
+              block_type: 2,
+              parent_id: "resume-callout",
+              text: {
+                elements: [
+                  { mention_user: { user_id: "ou_admin" } },
+                  { text_run: { content: "简历评价" } },
+                ],
+              },
+            },
+            {
+              block_id: "recommended-callout",
+              block_type: 19,
+              children: ["recommended-title"],
+              parent_id: "docx-existing",
+            },
+            {
+              block_id: "recommended-title",
+              block_type: 2,
+              parent_id: "recommended-callout",
+              text: { elements: [{ text_run: { content: "推荐面试题" } }] },
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(
+        {
+          accessToken: "tenant-token",
+          documentId: "docx-existing",
+          recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+          resumeEvaluationBlock: calloutBlock("简历评价"),
+        },
+        { fetcher, sleep: vi.fn(() => Promise.resolve()) },
+      ),
+    ).resolves.toEqual({ insertedSections: [] });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries an interrupted insertion with stable Feishu idempotency tokens", async () => {
+    const missingSectionPage = {
+      code: 0,
+      data: {
+        has_more: false,
+        items: [
+          {
+            block_id: "docx-existing",
+            block_type: 1,
+            children: ["hr-callout", "business-callout"],
+          },
+          {
+            block_id: "hr-callout",
+            block_type: 19,
+            children: ["hr-title"],
+            parent_id: "docx-existing",
+          },
+          {
+            block_id: "hr-title",
+            block_type: 2,
+            parent_id: "hr-callout",
+            text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+          },
+          {
+            block_id: "business-callout",
+            block_type: 19,
+            children: ["business-title"],
+            parent_id: "docx-existing",
+          },
+          {
+            block_id: "business-title",
+            block_type: 2,
+            parent_id: "business-callout",
+            text: { elements: [{ text_run: { content: "业务一面评价" } }] },
+          },
+        ],
+      },
+    } satisfies JsonValue;
+    const createdCallout = {
+      code: 0,
+      data: { children: [{ block_id: "recommended", children: ["recommended-title"] }] },
+    } satisfies JsonValue;
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(missingSectionPage))
+      .mockResolvedValueOnce(jsonResponse(createdCallout))
+      .mockResolvedValueOnce(jsonResponse({ code: 1_770_001, msg: "temporary failure" }, 500))
+      .mockResolvedValueOnce(jsonResponse(missingSectionPage))
+      .mockResolvedValueOnce(jsonResponse(createdCallout))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }));
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).rejects.toThrow("temporary failure");
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: ["recommendedQuestions"] });
+
+    const firstTopLevelCreateUrl = String(fetcher.mock.calls[1]?.[0]);
+    const retryTopLevelCreateUrl = String(fetcher.mock.calls[4]?.[0]);
+    expect(firstTopLevelCreateUrl).toContain("client_token=");
+    expect(retryTopLevelCreateUrl).toBe(firstTopLevelCreateUrl);
+    expect(fetcher.mock.calls[6]?.[0]).toContain("/blocks/recommended-title");
+  });
+
+  it("validates every required anchor before changing the document", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      jsonResponse({
+        code: 0,
+        data: {
+          has_more: false,
+          items: [
+            {
+              block_id: "docx-existing",
+              block_type: 1,
+              children: ["business-callout"],
+            },
+            {
+              block_id: "business-callout",
+              block_type: 19,
+              children: ["business-title"],
+              parent_id: "docx-existing",
+            },
+            {
+              block_id: "business-title",
+              block_type: 2,
+              parent_id: "business-callout",
+              text: { elements: [{ text_run: { content: "业务一面评价" } }] },
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(
+        {
+          accessToken: "tenant-token",
+          documentId: "docx-existing",
+          recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+          resumeEvaluationBlock: calloutBlock("简历评价"),
+        },
+        { fetcher, sleep: vi.fn(() => Promise.resolve()) },
+      ),
+    ).rejects.toThrow("缺少“HR面试评价”板块");
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

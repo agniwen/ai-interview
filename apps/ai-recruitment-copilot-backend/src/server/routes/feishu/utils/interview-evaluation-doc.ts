@@ -1,7 +1,12 @@
 import { z } from "zod";
-import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
+import type {
+  QualitativeResumeEvaluation,
+  ResumeEvaluationContractMode,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { JsonObject } from "@arc/db-schema/json";
+import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
 
 interface FeishuTextRun {
   text_run: {
@@ -70,6 +75,17 @@ export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationI
   recommendedQuestions?: InterviewQuestion[];
   resumeEvaluation?: Pick<QualitativeResumeEvaluation, "detailedOverall"> | null;
   resumeUrl: string;
+}
+
+export interface InterviewEvaluationStructureSource {
+  interviewQuestions: InterviewQuestion[];
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
+  resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
+}
+
+export interface InterviewEvaluationStructureSections {
+  recommendedQuestionsBlock?: FeishuDocumentBlock;
+  resumeEvaluationBlock?: FeishuDocumentBlock;
 }
 
 export interface HrInterviewEvaluationPreview {
@@ -207,6 +223,27 @@ function buildRecommendedQuestionBlocks(
       ]),
     ]),
   ];
+}
+
+export function buildInterviewEvaluationStructureSections(
+  source: InterviewEvaluationStructureSource,
+): InterviewEvaluationStructureSections {
+  const parsedEvaluation = qualitativeResumeEvaluationSchema.safeParse(
+    source.qualitativeResumeEvaluation,
+  );
+  const resumeEvaluation =
+    source.resumeEvaluationArtifactMode === "qualitative" && parsedEvaluation.success
+      ? parsedEvaluation.data
+      : null;
+  const parsedQuestions = studioInterviewQuestionClientSchema
+    .array()
+    .safeParse(source.interviewQuestions);
+  return {
+    recommendedQuestionsBlock: buildRecommendedQuestionBlocks(
+      parsedQuestions.success ? parsedQuestions.data : [],
+    )[0],
+    resumeEvaluationBlock: buildResumeEvaluationBlocks(resumeEvaluation)[0],
+  };
 }
 
 function hrQuestionBlocks(
