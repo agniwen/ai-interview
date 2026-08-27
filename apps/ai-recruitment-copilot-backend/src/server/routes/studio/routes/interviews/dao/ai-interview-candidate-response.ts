@@ -12,16 +12,12 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
-import type {
-  AiInvitationExceptionType,
-  CandidateInterviewInvitationStatus,
-} from "@arc/db-schema/interview-notifications";
+import type { AiInvitationExceptionType } from "@arc/db-schema/interview-notifications";
 import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
 import {
   hashAiInterviewInvitationToken,
   parseSignedAiInterviewInvitationToken,
-  verifyAiInterviewInvitationToken,
 } from "./ai-interview-invitation-access";
 
 export type AiInterviewInvitationErrorCode =
@@ -49,27 +45,38 @@ export async function recordAiInterviewInvitationException(input: {
   exceptionType: AiInvitationExceptionType;
   occurredAt?: Date;
   token: string;
-}): Promise<void> {
+}): Promise<boolean> {
   if (!isInterviewNotificationFlowEnabled()) {
-    return;
+    return false;
   }
   const payload = parseSignedAiInterviewInvitationToken(input.token);
   if (!payload) {
-    return;
+    return false;
   }
-  await db.transaction((tx) =>
-    enqueueAiInvitationExceptionEvent(tx, {
+  const tokenHash = hashAiInterviewInvitationToken(input.token);
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ tokenHash: studioInterviewSchedule.candidateInviteTokenHash })
+      .from(studioInterviewSchedule)
+      .where(eq(studioInterviewSchedule.id, payload.scheduleEntryId))
+      .limit(1)
+      .for("update");
+    if (row?.tokenHash !== tokenHash) {
+      return false;
+    }
+    await enqueueAiInvitationExceptionEvent(tx, {
       exceptionType: input.exceptionType,
       occurredAt: input.occurredAt,
       scheduleEntryId: payload.scheduleEntryId,
-    }),
-  );
+    });
+    return true;
+  });
 }
 
 export async function previewAiInterviewInvitation(
   token: string,
 ): Promise<PublicAiInterviewInvitationPreview | null> {
-  const payload = verifyAiInterviewInvitationToken(token);
+  const payload = parseSignedAiInterviewInvitationToken(token);
   if (!payload) {
     return null;
   }
@@ -91,12 +98,17 @@ export async function previewAiInterviewInvitation(
     .leftJoin(globalConfig, eq(globalConfig.organizationId, studioInterviewSchedule.organizationId))
     .where(eq(studioInterviewSchedule.id, payload.scheduleEntryId))
     .limit(1);
-  if (
-    !row?.expiresAt ||
-    row.expiresAt.getTime() < Date.now() ||
-    row.tokenHash !== hashAiInterviewInvitationToken(token)
-  ) {
+  if (!row?.expiresAt || row.tokenHash !== hashAiInterviewInvitationToken(token)) {
     return null;
+  }
+  const expired = payload.exp < Date.now() || row.expiresAt.getTime() < Date.now();
+  if (expired) {
+    await recordAiInterviewInvitationException({
+      exceptionType: "invitation_expired",
+      token,
+    }).catch((error) => {
+      console.error("[ai-invitation-expired-notification] failed", { error });
+    });
   }
   return {
     candidateName: row.candidateName,
@@ -108,7 +120,7 @@ export async function previewAiInterviewInvitation(
     jobName: row.jobName,
     roundName: row.roundName,
     scheduledAt: row.scheduledAt?.toISOString() ?? null,
-    status: row.status,
+    status: expired ? "expired" : row.status,
   };
 }
 
@@ -116,7 +128,9 @@ export async function respondAiInterviewInvitation(input: {
   action: "accept" | "decline";
   declineReason?: string | null;
   token: string;
-}): Promise<{ interviewUrl: string; status: CandidateInterviewInvitationStatus }> {
+}): Promise<
+  { interviewUrl: string; status: "accepted" } | { interviewUrl: null; status: "declined" }
+> {
   const payload = parseSignedAiInterviewInvitationToken(input.token);
   if (!payload) {
     throw new AiInterviewInvitationError(
@@ -191,10 +205,12 @@ export async function respondAiInterviewInvitation(input: {
         });
       }
     }
-    return {
-      interviewUrl: buildInterviewLink(row.interviewRecordId, payload.scheduleEntryId),
-      status: nextStatus,
-    };
+    return nextStatus === "accepted"
+      ? {
+          interviewUrl: buildInterviewLink(row.interviewRecordId, payload.scheduleEntryId),
+          status: nextStatus,
+        }
+      : { interviewUrl: null, status: nextStatus };
   });
   return result;
 }

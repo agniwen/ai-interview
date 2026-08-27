@@ -94,6 +94,7 @@ function dependencies() {
           status: input.status,
         },
       ];
+      return true;
     }),
     markDeliverySent: vi.fn(async (input) => {
       rows = [
@@ -103,10 +104,10 @@ function dependencies() {
           status: "sent",
         },
       ];
+      return true;
     }),
-    prepareDeliveries: vi.fn(async () => undefined),
     send: vi.fn(async () => ({ providerMessageId: "provider_1" })),
-    updateEventState: vi.fn(async () => undefined),
+    updateEventState: vi.fn(async () => true),
   } satisfies InterviewNotificationProcessorDependencies;
   return mocks;
 }
@@ -145,12 +146,14 @@ describe("interview notification processor", () => {
     );
     expect(mocks.markDeliverySent).toHaveBeenCalledWith({
       deliveryId: "delivery_1",
+      leaseOwner: "worker_1",
       providerMessageId: "provider_1",
       sentAt: now,
     });
     expect(mocks.updateEventState).toHaveBeenLastCalledWith({
       completedAt: now,
       eventId: "event_1",
+      leaseOwner: "worker_1",
       status: "completed",
     });
   });
@@ -168,6 +171,7 @@ describe("interview notification processor", () => {
     expect(mocks.markDeliveryFailed).toHaveBeenCalledWith({
       code: "provider-rate-limited",
       deliveryId: "delivery_1",
+      leaseOwner: "worker_1",
       message: "请求过于频繁",
       nextAttemptAt: new Date("2026-08-20T02:01:00.000Z"),
       status: "failed",
@@ -191,5 +195,17 @@ describe("interview notification processor", () => {
     expect(mocks.updateEventState).toHaveBeenLastCalledWith(
       expect.objectContaining({ eventId: "event_1", status: "dead" }),
     );
+  });
+
+  it("stops finalization when the delivery lease was lost during send", async () => {
+    const mocks = dependencies();
+    mocks.markDeliverySent.mockResolvedValueOnce(false);
+
+    await processInterviewNotificationEvent(event(), { leaseOwner: "worker_1", now }, mocks);
+
+    expect(mocks.markDeliverySent).toHaveBeenCalledWith(
+      expect.objectContaining({ leaseOwner: "worker_1" }),
+    );
+    expect(mocks.updateEventState).not.toHaveBeenCalled();
   });
 });

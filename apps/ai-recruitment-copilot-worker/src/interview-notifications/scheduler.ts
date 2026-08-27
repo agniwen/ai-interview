@@ -87,16 +87,21 @@ export function startInterviewNotificationScheduler(
     const runAt = new Date();
     snapshot = { ...snapshot, enabled: true, lastRunAt: runAt.toISOString(), running: true };
     try {
-      const events = await dependencies.claimEvents({
-        leaseDurationMs: EVENT_LEASE_DURATION_MS,
-        leaseOwner,
-        limit: batchSize,
-        now: runAt,
-      });
-      snapshot = { ...snapshot, claimed: events.length };
-      for (const event of events) {
+      let claimed = 0;
+      while (claimed < batchSize) {
+        const [event] = await dependencies.claimEvents({
+          leaseDurationMs: EVENT_LEASE_DURATION_MS,
+          leaseOwner,
+          limit: 1,
+          now: new Date(),
+        });
+        if (!event) {
+          break;
+        }
+        claimed += 1;
         await dependencies.processEvent(event, leaseOwner);
       }
+      snapshot = { ...snapshot, claimed };
       snapshot = { ...snapshot, lastSuccessAt: new Date().toISOString() };
     } catch (error) {
       snapshot = { ...snapshot, lastErrorAt: new Date().toISOString() };

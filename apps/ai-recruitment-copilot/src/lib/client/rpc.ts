@@ -1,4 +1,9 @@
-import { hcWithType } from "@arc/ai-recruitment-copilot-backend/rpc-client";
+import {
+  hcChatWithType,
+  hcPublicWithType,
+  hcStudioInterviewsWithType,
+  hcWithType,
+} from "@arc/ai-recruitment-copilot-backend/rpc-client";
 
 // 中文：前端访问 Hono API 的统一 RPC 入口。AppType 由 src/server/app.ts 派生，
 // 路径形如 rpc.api.studio.interviews.$get(...)，第一段 `api` 对应 server 端
@@ -23,5 +28,17 @@ export const rpcClientOptions = {
 } as const;
 
 export const rpc = hcWithType("", rpcClientOptions);
+export const publicRpc = hcPublicWithType("/api/public", rpcClientOptions);
+
+export function chatRpc(slug: string) {
+  return hcChatWithType(`/api/w/${encodeURIComponent(slug)}/chat`, rpcClientOptions);
+}
+
+export function studioInterviewsRpc(slug: string) {
+  return hcStudioInterviewsWithType(
+    `/api/w/${encodeURIComponent(slug)}/studio/interviews`,
+    rpcClientOptions,
+  );
+}
 
 export type Rpc = typeof rpc;

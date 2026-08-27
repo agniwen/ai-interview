@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { prepareInterviewNotificationDeliveries } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/prepare-deliveries";
 import {
   account,
   globalConfig,
@@ -18,6 +17,7 @@ import {
   hashAiInterviewInvitationToken,
 } from "./ai-interview-invitation-access";
 import {
+  previewAiInterviewInvitation,
   recordAiInterviewInvitationException,
   respondAiInterviewInvitation,
 } from "./ai-interview-candidate-response";
@@ -143,6 +143,19 @@ beforeEach(async () => {
 });
 
 describe("AI interview candidate response notification", () => {
+  it("does not return an interview URL when the candidate declines", async () => {
+    const invitation = addAiInterviewInvitationToSchedule({ id: SCHEDULE_ID }, NOW);
+    const token = buildAiInterviewInvitationToken({
+      exp: invitation.candidateInviteExpiresAt.getTime(),
+      scheduleEntryId: SCHEDULE_ID,
+    });
+
+    await expect(respondAiInterviewInvitation({ action: "decline", token })).resolves.toEqual({
+      interviewUrl: null,
+      status: "declined",
+    });
+  });
+
   it("creates a first-round HR feedback event and a Feishu-card delivery for the initiator", async () => {
     const invitation = addAiInterviewInvitationToSchedule({ id: SCHEDULE_ID }, NOW);
     const token = buildAiInterviewInvitationToken({
@@ -174,7 +187,6 @@ describe("AI interview candidate response notification", () => {
       throw new Error("AI 候选人接受通知事件不存在");
     }
 
-    await prepareInterviewNotificationDeliveries(event);
     const [delivery] = await db
       .select()
       .from(interviewNotification)
@@ -211,7 +223,7 @@ describe("AI interview candidate response notification", () => {
       code: "invitation_expired",
       status: 410,
     });
-    await recordAiInterviewInvitationException({ exceptionType: "invitation_expired", token });
+    await expect(previewAiInterviewInvitation(token)).resolves.toMatchObject({ status: "expired" });
 
     const [event] = await db
       .select()
@@ -229,7 +241,6 @@ describe("AI interview candidate response notification", () => {
     if (!event) {
       throw new Error("AI 邀请过期通知事件不存在");
     }
-    await prepareInterviewNotificationDeliveries(event);
     const deliveries = await db
       .select()
       .from(interviewNotification)

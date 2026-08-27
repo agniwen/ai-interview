@@ -31,6 +31,7 @@ import {
   loadScheduleEntriesForRedirect,
 } from "./utils";
 import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
+import { canStartAiInterviewRound } from "./utils/ai-interview-access";
 import { enqueueAiInterviewCompletedEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 
@@ -103,6 +104,7 @@ export const interviewRouter = factory
           isReconnect: boolean;
         }
       | { status: "grace_expired" }
+      | { status: "invitation_unavailable" }
       | { status: "round_completed" };
 
     const participantName = interviewRecord.candidateName || "candidate";
@@ -111,6 +113,9 @@ export const interviewRouter = factory
     const resolution = await db.transaction(async (tx): Promise<TokenResolution> => {
       const [row] = await tx
         .select({
+          candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
+          candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
+          candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
           disconnectedAt: studioInterviewSchedule.disconnectedAt,
           liveKitParticipantIdentity: studioInterviewSchedule.liveKitParticipantIdentity,
           liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
@@ -131,6 +136,18 @@ export const interviewRouter = factory
       // /api/agent/report flipped status between our earlier read and now.
       if (row.status === "completed") {
         return { status: "round_completed" };
+      }
+
+      if (
+        !canStartAiInterviewRound({
+          candidateInviteExpiresAt: row.candidateInviteExpiresAt,
+          candidateInviteStatus: row.candidateInviteStatus,
+          candidateInviteTokenHash: row.candidateInviteTokenHash,
+          now,
+          roundStatus: row.status,
+        })
+      ) {
+        return { status: "invitation_unavailable" };
       }
 
       // interrupted 已过期：写 completed + 清 anchor 后返 410。
@@ -201,6 +218,10 @@ export const interviewRouter = factory
 
     if (resolution.status === "grace_expired") {
       return c.json({ code: "grace_expired", error: "重连超时，本轮面试已结束。" }, 410);
+    }
+
+    if (resolution.status === "invitation_unavailable") {
+      return c.json({ code: "invitation_unavailable", error: "请先接受有效的面试邀请。" }, 403);
     }
 
     const { roomName, participantIdentity, isReconnect } = resolution;

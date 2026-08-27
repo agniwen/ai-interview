@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   account,
   globalConfig,
@@ -22,10 +21,9 @@ import type {
 } from "@arc/db-schema/interview-notifications";
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { createInterviewNotificationDelivery } from "../dao";
-import type { InterviewNotificationEventRecord } from "../dao";
+import type { InterviewNotificationEventRecord, NotificationDatabase } from "../dao";
 import { renderInterviewNotificationTemplateContent } from "./templates";
 import { resolveInternalNotificationUserIds } from "./recipient-policy";
-import { resolveInterviewNotificationCompanyName } from "./events";
 import {
   buildInterviewerInviteToken,
   buildInviteExpiry,
@@ -115,10 +113,11 @@ function absoluteAppUrl(path: string): string {
 }
 
 async function loadInterviewerMeetingLink(
+  database: NotificationDatabase,
   meetingId: string,
   userId: string,
 ): Promise<string | undefined> {
-  const [assignment] = await db
+  const [assignment] = await database
     .select({ role: studioHumanInterviewMeetingInterviewer.role })
     .from(studioHumanInterviewMeetingInterviewer)
     .where(
@@ -141,11 +140,12 @@ async function loadInterviewerMeetingLink(
 }
 
 async function loadRecordContexts(
+  database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
 ): Promise<RecordContext[]> {
   let recordIds = event.interviewRecordId ? [event.interviewRecordId] : [];
   if (recordIds.length === 0 && event.scheduleEntryId) {
-    const [schedule] = await db
+    const [schedule] = await database
       .select({ interviewRecordId: studioInterviewSchedule.interviewRecordId })
       .from(studioInterviewSchedule)
       .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
@@ -153,7 +153,7 @@ async function loadRecordContexts(
     recordIds = schedule ? [schedule.interviewRecordId] : [];
   }
   if (recordIds.length === 0 && event.humanMeetingId) {
-    const rows = await db
+    const rows = await database
       .select({ interviewRecordId: studioHumanInterviewRound.interviewRecordId })
       .from(studioHumanInterviewMeetingRound)
       .innerJoin(
@@ -166,7 +166,7 @@ async function loadRecordContexts(
   if (recordIds.length === 0) {
     return [];
   }
-  const rows = await db
+  const rows = await database
     .select({
       candidateEmail: studioInterview.candidateEmail,
       candidateName: studioInterview.candidateName,
@@ -188,14 +188,15 @@ async function loadRecordContexts(
     );
   return rows.map(({ configuredCompanyName, workspaceName, ...record }) => ({
     ...record,
-    companyName: resolveInterviewNotificationCompanyName(configuredCompanyName, workspaceName),
+    companyName: configuredCompanyName?.trim() || workspaceName,
   }));
 }
 
 async function loadActiveTemplates(
+  database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
 ): Promise<ActiveTemplate[]> {
-  const rows = await db
+  const rows = await database
     .select({
       audienceType: interviewNotificationTemplate.audienceType,
       channel: interviewNotificationTemplate.channel,
@@ -227,11 +228,12 @@ async function loadActiveTemplates(
 }
 
 async function loadInitiatorUserId(
+  database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
   records: RecordContext[],
 ): Promise<string | null> {
   if (event.scheduleEntryId) {
-    const [row] = await db
+    const [row] = await database
       .select({ createdBy: studioInterviewSchedule.createdBy })
       .from(studioInterviewSchedule)
       .where(eq(studioInterviewSchedule.id, event.scheduleEntryId))
@@ -241,7 +243,7 @@ async function loadInitiatorUserId(
     }
   }
   if (event.humanMeetingId) {
-    const [row] = await db
+    const [row] = await database
       .select({ createdBy: studioHumanInterviewMeeting.createdBy })
       .from(studioHumanInterviewMeeting)
       .where(eq(studioHumanInterviewMeeting.id, event.humanMeetingId))
@@ -254,6 +256,7 @@ async function loadInitiatorUserId(
 }
 
 async function loadUserTargets(
+  database: NotificationDatabase,
   userIds: string[],
   channel: InterviewNotificationChannel,
   records: RecordContext[],
@@ -261,13 +264,13 @@ async function loadUserTargets(
   if (userIds.length === 0 || records.length === 0) {
     return [];
   }
-  const users = await db
+  const users = await database
     .select({ email: user.email, id: user.id, name: user.name })
     .from(user)
     .where(inArray(user.id, userIds));
   const usersById = new Map(users.map((item) => [item.id, item]));
 
-  const accounts = await db
+  const accounts = await database
     .select({
       accountId: account.accountId,
       providerId: account.providerId,
@@ -324,6 +327,7 @@ async function loadUserTargets(
 }
 
 async function loadTargets(
+  database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
   template: ActiveTemplate,
   records: RecordContext[],
@@ -354,6 +358,7 @@ async function loadTargets(
       return [];
     }
     return loadUserTargets(
+      database,
       resolveInternalNotificationUserIds({
         audienceType: template.audienceType,
         initiatorUserId,
@@ -368,6 +373,7 @@ async function loadTargets(
       return [];
     }
     return loadUserTargets(
+      database,
       resolveInternalNotificationUserIds({
         audienceType: template.audienceType,
         initiatorUserId,
@@ -380,11 +386,12 @@ async function loadTargets(
   if (!event.humanMeetingId) {
     return [];
   }
-  const interviewers = await db
+  const interviewers = await database
     .select({ userId: studioHumanInterviewMeetingInterviewer.userId })
     .from(studioHumanInterviewMeetingInterviewer)
     .where(eq(studioHumanInterviewMeetingInterviewer.meetingId, event.humanMeetingId));
   return loadUserTargets(
+    database,
     interviewers.map((item) => item.userId),
     template.channel,
     records,
@@ -392,13 +399,14 @@ async function loadTargets(
 }
 
 async function payloadForTarget(
+  database: NotificationDatabase,
   event: InterviewNotificationEventRecord,
   target: RecipientTarget,
   audienceType: InterviewNotificationAudienceType,
 ): Promise<InterviewNotificationPayloadSnapshot> {
   const interviewerLink =
     audienceType === "meeting_interviewer" && event.humanMeetingId && target.userId
-      ? await loadInterviewerMeetingLink(event.humanMeetingId, target.userId)
+      ? await loadInterviewerMeetingLink(database, event.humanMeetingId, target.userId)
       : undefined;
   return {
     ...event.payloadSnapshot,
@@ -411,17 +419,16 @@ async function payloadForTarget(
 
 export async function prepareInterviewNotificationDeliveries(
   event: InterviewNotificationEventRecord,
+  database: NotificationDatabase,
 ): Promise<void> {
-  const [records, templates] = await Promise.all([
-    loadRecordContexts(event),
-    loadActiveTemplates(event),
-  ]);
+  const records = await loadRecordContexts(database, event);
+  const templates = await loadActiveTemplates(database, event);
   if (records.length === 0 || templates.length === 0) {
     return;
   }
   const recipientRows = event.humanMeetingId
     ? []
-    : await db
+    : await database
         .select({ userId: studioInterviewNotificationRecipient.userId })
         .from(studioInterviewNotificationRecipient)
         .where(
@@ -431,16 +438,23 @@ export async function prepareInterviewNotificationDeliveries(
           ),
         );
   const selectedUserIds = [...new Set(recipientRows.map((row) => row.userId))];
-  const initiatorUserId = await loadInitiatorUserId(event, records);
+  const initiatorUserId = await loadInitiatorUserId(database, event, records);
 
   for (const template of templates) {
-    const targets = await loadTargets(event, template, records, selectedUserIds, initiatorUserId);
+    const targets = await loadTargets(
+      database,
+      event,
+      template,
+      records,
+      selectedUserIds,
+      initiatorUserId,
+    );
     for (const target of targets) {
       const rendered = renderInterviewNotificationTemplateContent(
         template,
-        await payloadForTarget(event, target, template.audienceType),
+        await payloadForTarget(database, event, target, template.audienceType),
       );
-      await createInterviewNotificationDelivery(db, {
+      await createInterviewNotificationDelivery(database, {
         audienceType: template.audienceType,
         channel: template.channel,
         error: target.errorMessage,

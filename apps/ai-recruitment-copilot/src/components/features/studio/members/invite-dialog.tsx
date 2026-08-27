@@ -39,11 +39,6 @@ import type { WorkspaceRoleOption } from "./role-display";
 
 const EMAIL_MAX_LENGTH = 200;
 
-interface WorkspaceInviteLinkResponse {
-  code: string;
-  emailDelivery: "failed" | "not_requested" | "sent";
-}
-
 interface InviteDialogProps {
   assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles?: readonly string[];
@@ -96,7 +91,7 @@ export function InviteDialog({
 
     setSubmitting(true);
     try {
-      const link = await rpcFetch<WorkspaceInviteLinkResponse>(
+      const link = await rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
           json: { email: trimmedEmail || undefined, initialRole: role },
           param: { slug: workspaceSlug },

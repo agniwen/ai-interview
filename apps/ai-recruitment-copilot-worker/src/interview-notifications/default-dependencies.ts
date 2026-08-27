@@ -8,7 +8,6 @@ import {
   updateInterviewNotificationEventState,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/dao";
 import { sendInterviewNotification } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/channel-adapters";
-import { prepareInterviewNotificationDeliveries } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/prepare-deliveries";
 import type { InterviewNotificationProcessorDependencies } from "./processor";
 
 export const defaultInterviewNotificationProcessorDependencies = {
@@ -16,7 +15,6 @@ export const defaultInterviewNotificationProcessorDependencies = {
   listDeliveries: (eventId) => listInterviewNotificationDeliveries(db, eventId),
   markDeliveryFailed: (input) => markInterviewNotificationDeliveryFailed(db, input),
   markDeliverySent: (input) => markInterviewNotificationDeliverySent(db, input),
-  prepareDeliveries: prepareInterviewNotificationDeliveries,
   send: sendInterviewNotification,
   updateEventState: (input) => updateInterviewNotificationEventState(db, input),
 } satisfies InterviewNotificationProcessorDependencies;

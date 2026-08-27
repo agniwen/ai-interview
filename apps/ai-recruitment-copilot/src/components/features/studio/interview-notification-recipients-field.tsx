@@ -36,11 +36,6 @@ interface NotificationRecipientsResponse {
   records: NotificationRecipient[];
 }
 
-interface WorkspaceMembersResponse {
-  feishuHumanInterviewEnabled: boolean;
-  records: WorkspaceMember[];
-}
-
 interface EditorProps {
   candidateId: string;
   disabled: boolean;
@@ -73,7 +68,7 @@ function NotificationRecipientsEditor({
   ).length;
   const mutation = useMutation({
     mutationFn: () =>
-      rpcFetch<NotificationRecipientsResponse>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.interviews[":interviewRecordId"]["notification-recipients"].$put({
           json: { userIds: selectedUserIds },
           param: { interviewRecordId: candidateId, slug },
@@ -147,7 +142,7 @@ export function InterviewNotificationRecipientsField({
   const slug = useWorkspaceSlug();
   const recipientsQuery = useQuery({
     queryFn: () =>
-      rpcFetch<NotificationRecipientsResponse>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.interviews[":interviewRecordId"]["notification-recipients"].$get({
           param: { interviewRecordId: candidateId, slug },
         }),
@@ -158,7 +153,7 @@ export function InterviewNotificationRecipientsField({
   });
   const membersQuery = useQuery({
     queryFn: () =>
-      rpcFetch<WorkspaceMembersResponse>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),

@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines -- Notification event builders share one audited transactional boundary. */
 import type { Transaction } from "../dao";
 import { enqueueInterviewNotificationEvent } from "../dao";
+import { prepareInterviewNotificationDeliveries } from "./prepare-deliveries";
 import {
   interviewConversation,
   globalConfig,
@@ -39,6 +40,17 @@ export function resolveInterviewNotificationCompanyName(
   workspaceName: string,
 ): string {
   return configuredCompanyName?.trim() || workspaceName;
+}
+
+async function enqueuePreparedInterviewNotificationEvent(
+  tx: Transaction,
+  input: Parameters<typeof enqueueInterviewNotificationEvent>[1],
+) {
+  const event = await enqueueInterviewNotificationEvent(tx, input);
+  // Keeping both writes on this transaction freezes template, recipient, and
+  // rendered content at the business-event boundary.
+  await prepareInterviewNotificationDeliveries(event, tx);
+  return event;
 }
 
 function absoluteAppUrl(path: string): string | undefined {
@@ -209,7 +221,7 @@ export async function enqueueAiInterviewInvitedEvents(
     supportContact: context.initiatorEmail ?? undefined,
     timeZone: "Asia/Shanghai",
   };
-  await enqueueInterviewNotificationEvent(tx, {
+  await enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: input.actorUserId,
     dedupeKey: buildInterviewNotificationDedupeKey({
       scopeId: input.scheduleEntryId,
@@ -225,7 +237,7 @@ export async function enqueueAiInterviewInvitedEvents(
   });
 
   for (const reminder of buildInterviewReminderSchedule(context.scheduledAt, now)) {
-    await enqueueInterviewNotificationEvent(tx, {
+    await enqueuePreparedInterviewNotificationEvent(tx, {
       actorUserId: input.actorUserId,
       availableAt: reminder.availableAt,
       dedupeKey: buildInterviewNotificationDedupeKey({
@@ -278,7 +290,7 @@ export async function enqueueAiInvitationResponseEvent(
     throw new Error("AI 面试邀请响应缺少轮次上下文。");
   }
   const type = input.action === "accept" ? "ai_invitation_accepted" : "ai_invitation_declined";
-  await enqueueInterviewNotificationEvent(tx, {
+  await enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: null,
     dedupeKey: buildInterviewNotificationDedupeKey({
       scopeId: input.scheduleEntryId,
@@ -360,7 +372,7 @@ export async function enqueueAiInvitationExceptionEvent(
   }
 
   const copy = AI_INVITATION_EXCEPTION_COPY[input.exceptionType];
-  await enqueueInterviewNotificationEvent(tx, {
+  await enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: null,
     dedupeKey: buildInterviewNotificationDedupeKey({
       discriminator: input.exceptionType,
@@ -417,7 +429,7 @@ export async function enqueueAiInterviewCompletedEvent(
   if (!context) {
     throw new Error("AI 面试完成通知缺少轮次上下文。");
   }
-  await enqueueInterviewNotificationEvent(tx, {
+  await enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: context.createdBy,
     dedupeKey: buildInterviewNotificationDedupeKey({
       scopeId: input.scheduleEntryId,
@@ -703,7 +715,7 @@ export async function enqueueHumanMeetingEvents(
       supportContact: row.initiatorEmail ?? undefined,
       timeZone: "Asia/Shanghai",
     };
-    await enqueueInterviewNotificationEvent(tx, {
+    await enqueuePreparedInterviewNotificationEvent(tx, {
       actorUserId: input.actorUserId,
       dedupeKey: buildInterviewNotificationDedupeKey({
         discriminator: input.dedupeDiscriminator
@@ -730,7 +742,7 @@ export async function enqueueHumanMeetingEvents(
     }
     for (const reminder of buildInterviewReminderSchedule(row.scheduledAt, now)) {
       const reminderType: InterviewNotificationEventType = "human_interview_reminder";
-      await enqueueInterviewNotificationEvent(tx, {
+      await enqueuePreparedInterviewNotificationEvent(tx, {
         actorUserId: input.actorUserId,
         availableAt: reminder.availableAt,
         dedupeKey: buildInterviewNotificationDedupeKey({
@@ -787,7 +799,7 @@ export async function enqueueAiReportReadyEvent(
   if (!context?.scheduleEntryId) {
     throw new Error("AI 报告通知事件缺少面试上下文。");
   }
-  return enqueueInterviewNotificationEvent(tx, {
+  return enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: context.createdBy,
     conversationId: input.conversationId,
     dedupeKey: buildInterviewNotificationDedupeKey({

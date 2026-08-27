@@ -17,6 +17,7 @@ import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type NotificationDatabase = Omit<Database, "$client" | "transaction">;
 
 const enqueueNotificationEventInputSchema = z
   .object({
@@ -229,7 +230,7 @@ export interface CreateInterviewNotificationDeliveryInput {
 }
 
 export async function createInterviewNotificationDelivery(
-  database: Database,
+  database: NotificationDatabase,
   input: CreateInterviewNotificationDeliveryInput,
 ): Promise<InterviewNotificationDeliveryRecord> {
   const [created] = await database
@@ -338,10 +339,15 @@ export async function claimInterviewNotificationDelivery(
 
 export async function markInterviewNotificationDeliverySent(
   database: Database,
-  input: { deliveryId: string; providerMessageId?: string | null; sentAt?: Date },
-): Promise<void> {
+  input: {
+    deliveryId: string;
+    leaseOwner: string;
+    providerMessageId?: string | null;
+    sentAt?: Date;
+  },
+): Promise<boolean> {
   const sentAt = input.sentAt ?? new Date();
-  await database
+  const [updated] = await database
     .update(interviewNotification)
     .set({
       error: null,
@@ -354,7 +360,15 @@ export async function markInterviewNotificationDeliverySent(
       status: "sent",
       updatedAt: sentAt,
     })
-    .where(eq(interviewNotification.id, input.deliveryId));
+    .where(
+      and(
+        eq(interviewNotification.id, input.deliveryId),
+        eq(interviewNotification.leaseOwner, input.leaseOwner),
+        eq(interviewNotification.status, "sending"),
+      ),
+    )
+    .returning({ id: interviewNotification.id });
+  return Boolean(updated);
 }
 
 export async function markInterviewNotificationDeliveryFailed(
@@ -362,13 +376,14 @@ export async function markInterviewNotificationDeliveryFailed(
   input: {
     code: string;
     deliveryId: string;
+    leaseOwner: string;
     message: string;
     nextAttemptAt: Date | null;
     status: Extract<InterviewNotificationDeliveryStatus, "dead" | "failed" | "unknown">;
   },
-): Promise<void> {
+): Promise<boolean> {
   const now = new Date();
-  await database
+  const [updated] = await database
     .update(interviewNotification)
     .set({
       error: input.message,
@@ -380,7 +395,15 @@ export async function markInterviewNotificationDeliveryFailed(
       status: input.status,
       updatedAt: now,
     })
-    .where(eq(interviewNotification.id, input.deliveryId));
+    .where(
+      and(
+        eq(interviewNotification.id, input.deliveryId),
+        eq(interviewNotification.leaseOwner, input.leaseOwner),
+        eq(interviewNotification.status, "sending"),
+      ),
+    )
+    .returning({ id: interviewNotification.id });
+  return Boolean(updated);
 }
 
 export async function updateInterviewNotificationEventState(
@@ -388,14 +411,15 @@ export async function updateInterviewNotificationEventState(
   input: {
     completedAt?: Date | null;
     eventId: string;
+    leaseOwner: string;
     lastErrorCode?: string | null;
     lastErrorMessage?: string | null;
     nextAttemptAt?: Date;
     status: "completed" | "dead" | "failed";
   },
-): Promise<void> {
+): Promise<boolean> {
   const now = new Date();
-  await database
+  const [updated] = await database
     .update(interviewNotificationEvent)
     .set({
       completedAt: input.completedAt ?? (input.status === "completed" ? now : null),
@@ -407,5 +431,13 @@ export async function updateInterviewNotificationEventState(
       status: input.status,
       updatedAt: now,
     })
-    .where(eq(interviewNotificationEvent.id, input.eventId));
+    .where(
+      and(
+        eq(interviewNotificationEvent.id, input.eventId),
+        eq(interviewNotificationEvent.leaseOwner, input.leaseOwner),
+        eq(interviewNotificationEvent.status, "processing"),
+      ),
+    )
+    .returning({ id: interviewNotificationEvent.id });
+  return Boolean(updated);
 }

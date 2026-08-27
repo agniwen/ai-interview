@@ -16,7 +16,7 @@ import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import type { JsonValue } from "@arc/db-schema/json";
 import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
-import { rpc } from "@/lib/client/rpc";
+import { chatRpc, rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { apiFetch } from "../client";
@@ -168,10 +168,7 @@ export interface UploadedAttachment {
  * Fetch the full list of conversation summaries.
  */
 export async function fetchConversations(slug: string): Promise<ChatConversationSummary[]> {
-  const data = await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations.$get({ param: { slug } }),
-    "加载会话列表失败",
-  );
+  const data = await rpcFetch(chatRpc(slug).conversations.$get(), "加载会话列表失败");
   return data.conversations;
 }
 
@@ -184,7 +181,7 @@ export async function fetchConversation(
   id: string,
 ): Promise<ChatConversationDetail | null> {
   const data = await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations[":id"].$get({ param: { id, slug } }),
+    chatRpc(slug).conversations[":id"].$get({ param: { id } }),
     "加载会话失败",
     { allow404: true },
   );

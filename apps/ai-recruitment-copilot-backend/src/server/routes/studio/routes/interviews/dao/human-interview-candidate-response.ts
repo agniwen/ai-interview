@@ -33,6 +33,26 @@ const HUMAN_INVITATION_EXCEPTION_COPY = {
   },
 } as const satisfies Record<AiInvitationExceptionType, { label: string; suggestedAction: string }>;
 
+export async function isCurrentHumanInterviewInvitationToken(
+  inviteToken: string,
+): Promise<boolean> {
+  const payload = decodeCandidateInviteToken(inviteToken);
+  if (!payload) {
+    return false;
+  }
+  const [row] = await db
+    .select({ tokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash })
+    .from(studioHumanInterviewMeetingRound)
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
+        eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+      ),
+    )
+    .limit(1);
+  return row?.tokenHash === hashInviteToken(inviteToken);
+}
+
 export async function recordHumanInterviewInvitationException(input: {
   exceptionType: AiInvitationExceptionType;
   inviteToken: string;
@@ -44,29 +64,31 @@ export async function recordHumanInterviewInvitationException(input: {
   if (!payload) {
     return false;
   }
-  const [row] = await db
-    .select({
-      invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
-      scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
-    })
-    .from(studioHumanInterviewMeetingRound)
-    .innerJoin(
-      studioHumanInterviewMeeting,
-      eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
-    )
-    .where(
-      and(
-        eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
-        eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
-      ),
-    )
-    .limit(1);
-  if (!row) {
-    return false;
-  }
-  const copy = HUMAN_INVITATION_EXCEPTION_COPY[input.exceptionType];
-  await db.transaction((tx) =>
-    enqueueHumanMeetingEvents(tx, {
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        invitationVersion: studioHumanInterviewMeetingRound.invitationVersion,
+        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
+        tokenHash: studioHumanInterviewMeetingRound.candidateInviteTokenHash,
+      })
+      .from(studioHumanInterviewMeetingRound)
+      .innerJoin(
+        studioHumanInterviewMeeting,
+        eq(studioHumanInterviewMeeting.id, studioHumanInterviewMeetingRound.meetingId),
+      )
+      .where(
+        and(
+          eq(studioHumanInterviewMeetingRound.meetingId, payload.meetingId),
+          eq(studioHumanInterviewMeetingRound.roundId, payload.roundId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!row || row.tokenHash !== hashInviteToken(input.inviteToken)) {
+      return false;
+    }
+    const copy = HUMAN_INVITATION_EXCEPTION_COPY[input.exceptionType];
+    await enqueueHumanMeetingEvents(tx, {
       actorUserId: null,
       dedupeDiscriminator: `${input.exceptionType}:${row.invitationVersion}`,
       exceptionType: copy.label,
@@ -75,9 +97,9 @@ export async function recordHumanInterviewInvitationException(input: {
       scheduleVersion: row.scheduleVersion,
       suggestedAction: copy.suggestedAction,
       type: "human_invitation_exception",
-    }),
-  );
-  return true;
+    });
+    return true;
+  });
 }
 
 async function tryRecordHumanInterviewInvitationException(

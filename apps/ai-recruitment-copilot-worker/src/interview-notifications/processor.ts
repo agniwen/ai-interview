@@ -28,16 +28,17 @@ export interface InterviewNotificationProcessorDependencies {
   markDeliveryFailed(input: {
     code: string;
     deliveryId: string;
+    leaseOwner: string;
     message: string;
     nextAttemptAt: Date | null;
     status: "dead" | "failed" | "unknown";
-  }): Promise<void>;
+  }): Promise<boolean>;
   markDeliverySent(input: {
     deliveryId: string;
+    leaseOwner: string;
     providerMessageId: string | null;
     sentAt: Date;
-  }): Promise<void>;
-  prepareDeliveries(event: InterviewNotificationEventRecord): Promise<void>;
+  }): Promise<boolean>;
   send(input: {
     address: string;
     audienceType: InterviewNotificationAudienceType;
@@ -52,11 +53,12 @@ export interface InterviewNotificationProcessorDependencies {
   updateEventState(input: {
     completedAt?: Date | null;
     eventId: string;
+    leaseOwner: string;
     lastErrorCode?: string | null;
     lastErrorMessage?: string | null;
     nextAttemptAt?: Date;
     status: "completed" | "dead" | "failed";
-  }): Promise<void>;
+  }): Promise<boolean>;
 }
 
 const DELIVERY_LEASE_DURATION_MS = 60_000;
@@ -70,6 +72,7 @@ function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now:
 
 async function finalizeEvent(
   eventId: string,
+  leaseOwner: string,
   now: Date,
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
@@ -79,6 +82,7 @@ async function finalizeEvent(
       eventId,
       lastErrorCode: "notification-no-delivery",
       lastErrorMessage: "通知事件没有可发送的接收人或模板。",
+      leaseOwner,
       status: "dead",
     });
     return;
@@ -92,6 +96,7 @@ async function finalizeEvent(
       eventId,
       lastErrorCode: "notification-delivery-pending",
       lastErrorMessage: "通知事件仍有待发送或待重试的投递。",
+      leaseOwner,
       nextAttemptAt: earliestRetryAt(retryable, now),
       status: "failed",
     });
@@ -104,12 +109,18 @@ async function finalizeEvent(
       eventId,
       lastErrorCode: manual.lastErrorCode ?? "notification-manual-action-required",
       lastErrorMessage: manual.error ?? "通知投递需要人工处理。",
+      leaseOwner,
       status: "dead",
     });
     return;
   }
 
-  await dependencies.updateEventState({ completedAt: now, eventId, status: "completed" });
+  await dependencies.updateEventState({
+    completedAt: now,
+    eventId,
+    leaseOwner,
+    status: "completed",
+  });
 }
 
 export async function processInterviewNotificationEvent(
@@ -118,7 +129,6 @@ export async function processInterviewNotificationEvent(
   dependencies: InterviewNotificationProcessorDependencies,
 ): Promise<void> {
   const now = input.now ?? new Date();
-  await dependencies.prepareDeliveries(event);
   const deliveries = await dependencies.listDeliveries(event.id);
   // Delivery preparation may insert rows a few milliseconds after the event's
   // claim timestamp. Use a fresh claim time so those new rows are immediately
@@ -156,11 +166,15 @@ export async function processInterviewNotificationEvent(
         renderedSubject: claimed.renderedSubject,
         type: event.type,
       });
-      await dependencies.markDeliverySent({
+      const completed = await dependencies.markDeliverySent({
         deliveryId: claimed.id,
+        leaseOwner: input.leaseOwner,
         providerMessageId: result.providerMessageId,
         sentAt: now,
       });
+      if (!completed) {
+        return;
+      }
     } catch (error) {
       const failure = classifyInterviewNotificationFailure(error);
       const retryAt =
@@ -173,15 +187,19 @@ export async function processInterviewNotificationEvent(
       } else if (retryAt) {
         status = "failed";
       }
-      await dependencies.markDeliveryFailed({
+      const completed = await dependencies.markDeliveryFailed({
         code: failure.code,
         deliveryId: claimed.id,
+        leaseOwner: input.leaseOwner,
         message: failure.message,
         nextAttemptAt: retryAt,
         status,
       });
+      if (!completed) {
+        return;
+      }
     }
   }
 
-  await finalizeEvent(event.id, now, dependencies);
+  await finalizeEvent(event.id, input.leaseOwner, now, dependencies);
 }

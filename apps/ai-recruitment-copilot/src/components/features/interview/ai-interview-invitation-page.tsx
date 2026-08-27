@@ -10,7 +10,7 @@ import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/intervie
 import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
 import { Button } from "@/components/ui/button";
 import { ApiError, rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { publicRpc } from "@/lib/client/rpc";
 
 interface InvitationResponseError {
   message: string;
@@ -68,8 +68,8 @@ export function AiInterviewInvitationPage({
   const [responseError, setResponseError] = useState<InvitationResponseError | null>(null);
   const responseMutation = useMutation({
     mutationFn: (action: "accept" | "decline") =>
-      rpcFetch<{ interviewUrl: string; status: CandidateInterviewInvitationStatus }>(
-        rpc.api.public["ai-interview-invitations"][":token"].respond.$post({
+      rpcFetch(
+        publicRpc["ai-interview-invitations"][":token"].respond.$post({
           json: { action },
           param: { token: inviteToken },
         }),

@@ -45,6 +45,12 @@ describe("interview notification scheduler", () => {
     release?.();
     await Promise.all([first, second]);
     expect(claimEvents).toHaveBeenCalledTimes(1);
+    expect(claimEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leaseDurationMs: 120_000,
+        limit: 1,
+      }),
+    );
     scheduler!.close();
   });
 });
