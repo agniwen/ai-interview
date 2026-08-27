@@ -15,6 +15,122 @@ function blockText(block: FeishuDocumentBlock): string | undefined {
 }
 
 describe("buildInterviewEvaluationDocument", () => {
+  it("places the qualitative resume evaluation directly below the resume", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      resumeEvaluation: {
+        detailedOverall: {
+          judgment: "候选人的核心技术经历与岗位要求高度一致。",
+          matchingEvidence: "1. 主导过同类系统建设\n2. 具备目标技术栈经验",
+          risks: "1. 团队管理跨度仍需确认",
+        },
+      },
+      resumeUrl: "https://example.com/resume",
+    });
+
+    expect(document.blocks.slice(0, 4).map((block) => block.block_type)).toEqual([4, 2, 19, 19]);
+    expect(document.blocks.slice(0, 2).map(blockText)).toEqual(["简历", "查看候选人简历"]);
+    expect(document.blocks.at(3)?.children?.map(blockText)).toContain("HR面试评价");
+    expect(document.blocks.at(2)?.callout).toEqual({
+      background_color: 5,
+      border_color: 5,
+      emoji_id: "books",
+    });
+    expect(document.blocks.at(2)?.children?.map(blockText)).toEqual([
+      "简历评价",
+      "综合评价",
+      "候选人的核心技术经历与岗位要求高度一致。",
+      "匹配依据",
+      "1. 主导过同类系统建设\n2. 具备目标技术栈经验",
+      "风险与待确认项",
+      "1. 团队管理跨度仍需确认",
+    ]);
+  });
+
+  it("places recommended interview questions immediately before the first business review", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      recommendedQuestions: [
+        {
+          difficulty: "medium",
+          evaluationFocus: "验证候选人的系统设计能力和技术取舍。",
+          followUpDirections: "继续追问容量估算、故障降级和替代方案。",
+          order: 2,
+          question: "请介绍你主导过的高并发系统设计。",
+        },
+        {
+          difficulty: "easy",
+          evaluationFocus: "确认候选人在项目中的实际职责。",
+          followUpDirections: "追问关键交付物以及与其他成员的分工。",
+          order: 1,
+          question: "请介绍你在最近项目中的角色。",
+        },
+      ],
+      resumeUrl: "https://example.com/resume",
+    });
+
+    const recommendedBlockIndex = document.blocks.findIndex((block) =>
+      block.children?.some((child) => blockText(child) === "推荐面试题"),
+    );
+    const businessReviewIndex = document.blocks.findIndex((block) =>
+      block.children?.some((child) => blockText(child) === "业务一面评价"),
+    );
+
+    expect(recommendedBlockIndex).toBeGreaterThanOrEqual(0);
+    expect(recommendedBlockIndex).toBe(businessReviewIndex - 1);
+    expect(document.blocks.at(recommendedBlockIndex)?.callout).toEqual({
+      background_color: 6,
+      border_color: 6,
+      emoji_id: "technologist",
+    });
+    expect(document.blocks.at(recommendedBlockIndex)?.children?.map(blockText)).toEqual([
+      "推荐面试题",
+      "1. 请介绍你在最近项目中的角色。",
+      "考核点",
+      "确认候选人在项目中的实际职责。",
+      "追问方向",
+      "追问关键交付物以及与其他成员的分工。",
+      "",
+      "2. 请介绍你主导过的高并发系统设计。",
+      "考核点",
+      "验证候选人的系统设计能力和技术取舍。",
+      "追问方向",
+      "继续追问容量估算、故障降级和替代方案。",
+    ]);
+  });
+
+  it("keeps manually edited questions when optional guidance is blank", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      recommendedQuestions: [
+        {
+          difficulty: "medium",
+          evaluationFocus: "",
+          followUpDirections: "",
+          order: 1,
+          question: "请介绍一次关键技术决策。",
+        },
+      ],
+      resumeUrl: "https://example.com/resume",
+    });
+
+    const recommendedBlock = document.blocks.find((block) =>
+      block.children?.some((child) => blockText(child) === "推荐面试题"),
+    );
+
+    expect(recommendedBlock?.children?.map(blockText)).toEqual([
+      "推荐面试题",
+      "1. 请介绍一次关键技术决策。",
+      "考核点",
+      "未提供",
+      "追问方向",
+      "未提供",
+    ]);
+  });
+
   it("omits the duplicate resume heading and link when a PDF attachment is present", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",

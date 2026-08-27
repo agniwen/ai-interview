@@ -15,18 +15,11 @@ import {
   getResendClient,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import {
-  createFeishuInterviewEvaluationDocx,
-  moveFeishuInterviewEvaluationDocx,
-  resolveFeishuDocxDocumentId,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
-import { buildInterviewEvaluationDocument } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
 import { InterviewSummaryCard } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import type { InterviewSummaryQuestionScore } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
-import { generateFeishuHrEvaluationForInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-hr-evaluation";
-import { loadResumePdfAttachment } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-resume-attachment";
+import { ensureInterviewEvaluationDocument } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-document";
 import {
   formatInterviewNotificationDateTime,
   formatInterviewNotificationDuration,
@@ -102,13 +95,6 @@ function buildStudioUrl(roundId: string, organizationSlug: string | null): strin
   return `${root}${prefix}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
 }
 
-function buildResumeUrl(roundId: string, organizationSlug: string | null): string {
-  const baseUrl = getRequiredEnv("BETTER_AUTH_URL");
-  const root = baseUrl.replace(/\/$/, "");
-  const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
-  return `${root}/api${prefix}/studio/interviews/${encodeURIComponent(roundId)}/resume`;
-}
-
 function truncateForCard(value: string, maxLength: number): string {
   const trimmed = value.trim().replaceAll(/\s+/g, " ");
   if (trimmed.length <= maxLength) {
@@ -175,8 +161,11 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
       createdBy: studioInterview.createdBy,
       endedAt: interviewConversation.endedAt,
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
+      interviewQuestions: studioInterview.interviewQuestions,
       organizationId: studioInterview.organizationId,
       organizationSlug: organization.slug,
+      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
+      resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
       resumeFileName: studioInterview.resumeFileName,
       resumeStorageKey: studioInterview.resumeStorageKey,
       scheduleEntryId: interviewConversation.scheduleEntryId,
@@ -360,77 +349,6 @@ async function markNotificationFailed(notificationId: string, error: Error) {
     .where(eq(interviewNotification.id, notificationId));
 }
 
-async function ensureInterviewEvaluationDocument({
-  conversationId,
-  input,
-  interviewRecordId,
-  notificationId,
-  providerId,
-  recipientOpenId,
-  resumeFileName,
-  resumeStorageKey,
-}: {
-  conversationId: string;
-  input: NotificationCardInput;
-  interviewRecordId: string;
-  notificationId: string;
-  providerId: FeishuProviderId;
-  recipientOpenId: string;
-  resumeFileName: string | null;
-  resumeStorageKey: string | null;
-}): Promise<string> {
-  const [existing] = await db
-    .select({
-      documentId: interviewNotification.feishuDocumentId,
-      documentUrl: interviewNotification.feishuDocumentUrl,
-    })
-    .from(interviewNotification)
-    .where(eq(interviewNotification.id, notificationId))
-    .limit(1);
-  if (existing?.documentUrl) {
-    const documentId = resolveFeishuDocxDocumentId(existing.documentId, existing.documentUrl);
-    if (documentId) {
-      await moveFeishuInterviewEvaluationDocx(providerId, documentId);
-    }
-    return existing.documentUrl;
-  }
-
-  const hrEvaluation = await generateFeishuHrEvaluationForInterview({
-    conversationId,
-    interviewRecordId,
-  });
-  const resumePdf = await loadResumePdfAttachment({
-    fileName: resumeFileName,
-    storageKey: resumeStorageKey,
-  });
-  const document = buildInterviewEvaluationDocument({
-    candidateName: input.candidateName,
-    evaluation: { hrEvaluation },
-    includeResumeLink: !resumePdf,
-    resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
-  });
-  const created = await createFeishuInterviewEvaluationDocx(providerId, {
-    attachment: resumePdf
-      ? {
-          bytes: resumePdf,
-          fileName: `${input.candidateName.slice(0, 200)}-简历.pdf`,
-        }
-      : undefined,
-    blocks: document.blocks,
-    recipientOpenId,
-    title: document.title,
-  });
-
-  await db
-    .update(interviewNotification)
-    .set({
-      feishuDocumentId: created.documentId,
-      feishuDocumentUrl: created.documentUrl,
-    })
-    .where(eq(interviewNotification.id, notificationId));
-  return created.documentUrl;
-}
-
 async function sendGoogleSummaryEmail({
   conversationId,
   context,
@@ -552,14 +470,13 @@ export async function resendInterviewSummaryNotification(
 
   try {
     const documentUrl = await ensureInterviewEvaluationDocument({
+      context,
       conversationId: notification.conversationId,
       input: notificationInput,
       interviewRecordId: notification.interviewRecordId,
       notificationId: notification.id,
       providerId: notification.providerId,
       recipientOpenId: notification.recipientOpenId,
-      resumeFileName: context.resumeFileName,
-      resumeStorageKey: context.resumeStorageKey,
     });
     const { card } = buildNotificationCard(notificationInput, documentUrl);
     const { postFeishuDirectCard } =
@@ -702,14 +619,13 @@ export async function notifyInterviewSummaryReady(
 
       try {
         const documentUrl = await ensureInterviewEvaluationDocument({
+          context,
           conversationId: options.conversationId,
           input: notificationInput,
           interviewRecordId: options.interviewRecordId,
           notificationId,
           providerId: recipient.providerId,
           recipientOpenId: recipient.accountId,
-          resumeFileName: context.resumeFileName,
-          resumeStorageKey: context.resumeStorageKey,
         });
         const { card } = buildNotificationCard(notificationInput, documentUrl);
         const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
