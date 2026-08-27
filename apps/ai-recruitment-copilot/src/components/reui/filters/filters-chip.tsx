@@ -359,10 +359,13 @@ function FilterValueEditor<V, O>({
 }: FilterValueEditorProps<V, O>) {
   const actions = useFilterActions<V, O>();
   const [draft, setDraft] = React.useState<V | undefined>(rule.value);
+  const [draftSource, setDraftSource] = React.useState({ open, value: rule.value });
 
-  React.useEffect(() => {
+  // Reset before the editor commits, but keep its draft while the popover exits.
+  if (draftSource.open !== open || (open && !Object.is(draftSource.value, rule.value))) {
+    setDraftSource({ open, value: rule.value });
     if (open) setDraft(rule.value);
-  }, [open, rule.value]);
+  }
 
   const options = useFilterOptions<V, O>(field, open);
   // A LOOKUP, not a definition: every result is a module-level built-in or the

@@ -206,11 +206,6 @@ export function HumanInterviewQuestionDialog({
   // Default to the questions tab; users can flip to overview / experience.
   const [activeTab, setActiveTab] = useState<"questions" | "overview" | "experience">("questions");
   const abortControllerRef = useRef<AbortController | null>(null);
-  const onConfirmedRef = useRef(onConfirmed);
-
-  useEffect(() => {
-    onConfirmedRef.current = onConfirmed;
-  }, [onConfirmed]);
 
   const form = useForm({
     defaultValues: EMPTY_FORM_VALUES,
@@ -224,7 +219,7 @@ export function HumanInterviewQuestionDialog({
         onError: (error) =>
           toast.error(error instanceof Error ? error.message : "准备真人面试失败"),
         operation: async () => {
-          const confirmed = await onConfirmedRef.current(
+          const confirmed = await onConfirmed(
             normalizeInterviewQuestions(value.interviewQuestions),
           );
           if (confirmed) {

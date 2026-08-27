@@ -1,28 +1,20 @@
 "use client";
 
-import {
-  createContext,
-  lazy,
-  Suspense,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import type { CSSProperties, PropsWithChildren } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState } from "react";
+import type { ComponentProps, ComponentType, CSSProperties, PropsWithChildren } from "react";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
 import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
+import type { ResumeDocumentPreviewDialogProps } from "@/components/features/resume/resume-document-preview-dialog";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-const ResumeDocumentPreviewDialog = lazy(async () => {
+const DefaultResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
   return { default: mod.ResumeDocumentPreviewDialog };
 });
@@ -47,6 +39,16 @@ export interface CandidateSummaryCard {
   updatedAt: string;
   workYears: number | null;
 }
+
+export interface RecruitingCopilotContextProviderDependencies {
+  ResumeDocumentPreviewDialog: ComponentType<ResumeDocumentPreviewDialogProps>;
+  StudioPersonDetailDialog: ComponentType<ComponentProps<typeof StudioPersonDetailDialog>>;
+}
+
+const defaultDependencies: RecruitingCopilotContextProviderDependencies = {
+  ResumeDocumentPreviewDialog: DefaultResumeDocumentPreviewDialog,
+  StudioPersonDetailDialog,
+};
 
 export interface SearchResumeRecordsResult {
   candidateSummaryCards?: CandidateSummaryCard[];
@@ -132,9 +134,15 @@ function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string)
 export function RecruitingCopilotContextProvider({
   children,
   conversationId,
+  dependencies = defaultDependencies,
 }: PropsWithChildren<{
   conversationId: string | null;
+  dependencies?: RecruitingCopilotContextProviderDependencies;
 }>) {
+  const {
+    ResumeDocumentPreviewDialog: PreviewDialog,
+    StudioPersonDetailDialog: PersonDetailDialog,
+  } = dependencies;
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
   const [detailTarget, setDetailTarget] = useState<
     | { defaultTab: StudioPersonDetailTab; kind: "resume_record"; recordId: string }
@@ -147,17 +155,18 @@ export function RecruitingCopilotContextProvider({
   > | null>(null);
   const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
   const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
+  const [stateConversationId, setStateConversationId] = useState(conversationId);
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
 
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
+  if (stateConversationId !== conversationId) {
+    setStateConversationId(conversationId);
     setCitations([]);
     setDetailTarget(null);
     setPreviewRecord(null);
     setProposals([]);
     setProposalStatuses({});
-  }, [conversationId]);
+  }
 
   const upsertCitations = useCallback((next: CopilotCitation[]) => {
     if (next.length === 0) {
@@ -241,7 +250,7 @@ export function RecruitingCopilotContextProvider({
   return (
     <RecruitingCopilotContext.Provider value={value}>
       {children}
-      <StudioPersonDetailDialog
+      <PersonDetailDialog
         defaultTab={resumeDetailTarget?.defaultTab}
         mode="resume"
         onOpenChange={(open) => {
@@ -270,7 +279,7 @@ export function RecruitingCopilotContextProvider({
       ) : null}
       {previewRecord && previewKind ? (
         <Suspense fallback={null}>
-          <ResumeDocumentPreviewDialog
+          <PreviewDialog
             filename={previewRecord.resumeFileName ?? undefined}
             kind={previewKind}
             onOpenChange={(open) => !open && setPreviewRecord(null)}

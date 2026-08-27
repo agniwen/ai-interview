@@ -69,6 +69,174 @@ afterEach(() => {
 });
 
 describe("ImportResumePoolDialog", () => {
+  it("preserves user choices when the source job option arrives later", async () => {
+    importResumePoolItemMock.mockResolvedValue({
+      resumeRecordId: "resume-record-new",
+      status: "imported",
+    });
+    let jobDescriptionOptions = [
+      { description: "产品部", label: "产品部 / 产品经理", value: "jd-2" },
+    ];
+    const delayedOptionsDependencies: ImportResumePoolDialogDependencies = {
+      ...dependencies,
+      useJobDescriptionOptions: () => ({ data: jobDescriptionOptions }),
+    };
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+
+    const renderDialog = () => (
+      <QueryClientProvider client={queryClient}>
+        <ImportResumePoolDialog
+          dependencies={delayedOptionsDependencies}
+          item={{ ...importedItem, importedRecords: [], importedResumeRecordId: null }}
+          onImported={vi.fn()}
+          onOpenChange={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    await act(async () => {
+      root.render(renderDialog());
+      await Promise.resolve();
+    });
+
+    const jobInput = document.querySelector<HTMLInputElement>("#resume-pool-import-jd");
+    await act(async () => {
+      jobInput?.focus();
+      jobInput?.click();
+      jobInput?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+      await Promise.resolve();
+    });
+    const productJobOption = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+    ].find((option) => option.textContent?.includes("产品部 / 产品经理"));
+    await act(async () => {
+      productJobOption?.click();
+      await Promise.resolve();
+    });
+    expect(jobInput?.value).toBe("产品部 / 产品经理");
+
+    const aiStage = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.includes("AI 面试"))
+      ?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    await act(async () => {
+      aiStage?.click();
+      await Promise.resolve();
+    });
+    const noJobMode = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.includes("不绑定岗位"))
+      ?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    await act(async () => {
+      noJobMode?.click();
+      await Promise.resolve();
+    });
+
+    jobDescriptionOptions = [
+      { description: "研发部", label: "研发部 / 前端工程师", value: "jd-1" },
+      ...jobDescriptionOptions,
+    ];
+    await act(async () => {
+      root.render(renderDialog());
+      await Promise.resolve();
+    });
+
+    expect(noJobMode?.getAttribute("aria-checked")).toBe("true");
+    const bindMode = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.includes("绑定岗位"))
+      ?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    await act(async () => {
+      bindMode?.click();
+      await Promise.resolve();
+    });
+    expect(document.querySelector<HTMLInputElement>("#resume-pool-import-jd")?.value).toBe(
+      "产品部 / 产品经理",
+    );
+    expect(aiStage?.getAttribute("aria-checked")).toBe("true");
+
+    const confirmButton = [...document.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("确认创建"),
+    );
+    await act(async () => {
+      confirmButton?.click();
+      await Promise.resolve();
+    });
+    expect(importResumePoolItemMock).toHaveBeenCalledWith("test-workspace", "pool-item-1", {
+      dedupPolicy: "check",
+      initialRecruitmentStage: "ai_interview",
+      jobDescriptionId: "jd-2",
+      jobDescriptionMode: "bind",
+      reimport: false,
+    });
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
+  it("resets draft and nested detail when switching items", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    const renderDialog = (item: ResumePoolListRecord) => (
+      <QueryClientProvider client={queryClient}>
+        <ImportResumePoolDialog
+          dependencies={dependencies}
+          item={item}
+          onImported={vi.fn()}
+          onOpenChange={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    await act(async () => {
+      root.render(renderDialog(importedItem));
+      await Promise.resolve();
+    });
+    const importedRecordButton = document.querySelector<HTMLButtonElement>(
+      '[aria-label="查看已创建的招聘记录 resume-record-2"]',
+    );
+    await act(async () => {
+      importedRecordButton?.click();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain("招聘台详情 resume-record-2");
+
+    await act(async () => {
+      root.render(
+        renderDialog({
+          ...importedItem,
+          id: "pool-item-2",
+          importedRecords: [],
+          importedResumeRecordId: null,
+          jobDescriptionId: null,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).not.toContain("招聘台详情 resume-record-2");
+    const bindMode = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.includes("绑定岗位"))
+      ?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    const screeningStage = [...document.querySelectorAll("label")]
+      .find((label) => label.textContent?.includes("简历筛选"))
+      ?.querySelector<HTMLElement>('[data-slot="radio-group-item"]');
+    expect(bindMode?.getAttribute("aria-checked")).toBe("true");
+    expect(screeningStage?.getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector<HTMLInputElement>("#resume-pool-import-jd")?.value).toBe("");
+
+    act(() => root.unmount());
+    queryClient.clear();
+    container.remove();
+  });
+
   it("keeps the selected job after rerender and submits its id", async () => {
     importResumePoolItemMock.mockResolvedValue({
       resumeRecordId: "resume-record-new",

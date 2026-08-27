@@ -24,7 +24,12 @@ import { Progress } from "@/components/ui/progress";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { getUploadTaskInboxPage } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getUploadTaskPreviewTarget, getUploadTaskStatusMeta } from "./upload-task-inbox-model";
+import {
+  getUploadTaskPreviewTarget,
+  getUploadTaskStatusMeta,
+  resolveUploadTaskPreviewState,
+} from "./upload-task-inbox-model";
+import type { UploadTaskPreviewState } from "./upload-task-inbox-model";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -128,7 +133,15 @@ export function UploadTaskInbox() {
   const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
   const canReadResumePool = useHasPermission("resumePool", "read");
   const [open, setOpen] = useState(false);
-  const [previewRecord, setPreviewRecord] = useState<UploadTaskInboxRecord | null>(null);
+  const [previewState, setPreviewState] = useState<UploadTaskPreviewState>(() => ({
+    record: null,
+    slug,
+  }));
+  const resolvedPreviewState = resolveUploadTaskPreviewState(previewState, slug);
+  if (resolvedPreviewState !== previewState) {
+    setPreviewState(resolvedPreviewState);
+  }
+  const previewRecord = resolvedPreviewState.record;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const query = useInfiniteQuery({
     enabled: open && canReadUploadTasks,
@@ -163,7 +176,7 @@ export function UploadTaskInbox() {
     if (!hasTargetPermission || !getUploadTaskPreviewTarget(record)) {
       return;
     }
-    setPreviewRecord(record);
+    setPreviewState({ record, slug });
   };
 
   const handleInboxOpenChange = (nextOpen: boolean) => {
@@ -179,10 +192,6 @@ export function UploadTaskInbox() {
       void fetchNextPage();
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, records.length, virtualRows]);
-
-  useEffect(() => {
-    setPreviewRecord(null);
-  }, [slug]);
 
   if (!canReadUploadTasks) {
     return null;
@@ -320,7 +329,7 @@ export function UploadTaskInbox() {
             kind={previewTarget.kind}
             onOpenChange={(nextOpen) => {
               if (!nextOpen) {
-                setPreviewRecord(null);
+                setPreviewState({ record: null, slug });
               }
             }}
             open

@@ -93,6 +93,43 @@ export interface RecruitingGroupRow {
 }
 
 export const EMPTY_RECRUITING_GROUPS: RecruitingGroupRow[] = [];
+
+export interface GroupNameDraftState {
+  drafts: Record<string, string>;
+  groupIdsKey: string;
+  workspaceId: string;
+}
+
+export function reconcileGroupNameDraftState(
+  groups: readonly Pick<RecruitingGroupRow, "id">[],
+  workspaceId: string,
+  state: GroupNameDraftState,
+): GroupNameDraftState {
+  const groupIds = groups.map((group) => group.id);
+  const groupIdsKey = JSON.stringify(groupIds);
+  if (state.workspaceId !== workspaceId) {
+    return { drafts: {}, groupIdsKey, workspaceId };
+  }
+  if (state.groupIdsKey === groupIdsKey) {
+    return state;
+  }
+  const visibleGroupIds = new Set(groupIds);
+  return {
+    drafts: Object.fromEntries(
+      Object.entries(state.drafts).filter(([groupId]) => visibleGroupIds.has(groupId)),
+    ),
+    groupIdsKey,
+    workspaceId,
+  };
+}
+
+export function resolveGroupNameDrafts(
+  groups: readonly Pick<RecruitingGroupRow, "id" | "name">[],
+  userDrafts: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(groups.map((group) => [group.id, userDrafts[group.id] ?? group.name]));
+}
+
 const WORKSPACE_ROLE_BADGE_VARIANT = {
   admin: "secondary",
   member: "outline",

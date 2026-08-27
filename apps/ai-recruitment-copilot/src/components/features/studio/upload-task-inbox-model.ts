@@ -1,6 +1,18 @@
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
 
+export interface UploadTaskPreviewState {
+  record: UploadTaskInboxRecord | null;
+  slug: string;
+}
+
+export function resolveUploadTaskPreviewState(
+  state: UploadTaskPreviewState,
+  slug: string,
+): UploadTaskPreviewState {
+  return state.slug === slug ? state : { record: null, slug };
+}
+
 export type UploadTaskStatusTone = "cancelled" | "completed" | "failed" | "pending" | "processing";
 
 interface UploadTaskStatusMeta {

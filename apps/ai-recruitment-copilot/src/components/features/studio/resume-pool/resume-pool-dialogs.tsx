@@ -8,7 +8,7 @@ import type {
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
 
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { getMemberInitials } from "@/components/data-grid/cells/member-cell";
@@ -107,6 +107,49 @@ function getImportDialogDescription(
   return isReimport ? "已存在招聘记录，是否再次创建。" : candidateTitle;
 }
 
+interface ImportResumePoolDialogState {
+  detailRecordId: string | null;
+  duplicates: ResumePoolImportDuplicateResult | null;
+  initialRecruitmentStage: ResumePoolInitialRecruitmentStage;
+  itemId: string | null;
+  jobDescriptionId: string;
+  jobDescriptionTouched: boolean;
+  mode: "none" | "bind";
+}
+
+function createImportResumePoolDialogState(itemId: string | null): ImportResumePoolDialogState {
+  return {
+    detailRecordId: null,
+    duplicates: null,
+    initialRecruitmentStage: "screening",
+    itemId,
+    jobDescriptionId: "",
+    jobDescriptionTouched: false,
+    mode: "bind",
+  };
+}
+
+function useImportResumePoolDialogState(itemId: string | null, sourceJobDescriptionId: string) {
+  const [state, setState] = useState(() => createImportResumePoolDialogState(itemId));
+  let ownedState = state;
+  if (state.itemId !== itemId) {
+    ownedState = createImportResumePoolDialogState(itemId);
+    setState(ownedState);
+  }
+
+  function update(patch: Partial<ImportResumePoolDialogState>) {
+    setState((current) => (current.itemId === itemId ? { ...current, ...patch, itemId } : current));
+  }
+
+  return {
+    ...ownedState,
+    jobDescriptionId: ownedState.jobDescriptionTouched
+      ? ownedState.jobDescriptionId
+      : sourceJobDescriptionId,
+    update,
+  };
+}
+
 export function ImportResumePoolDialog({
   dependencies = defaultImportResumePoolDialogDependencies,
   item,
@@ -120,33 +163,19 @@ export function ImportResumePoolDialog({
 }) {
   const slug = dependencies.useWorkspaceSlug();
   const { data: jobDescriptionOptions = [] } = dependencies.useJobDescriptionOptions(slug);
-  const [mode, setMode] = useState<"none" | "bind">("bind");
-  const [jobDescriptionId, setJobDescriptionId] = useState("");
-  const [initialRecruitmentStage, setInitialRecruitmentStage] =
-    useState<ResumePoolInitialRecruitmentStage>("screening");
-  const [duplicates, setDuplicates] = useState<ResumePoolImportDuplicateResult | null>(null);
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const isReimport = Boolean(item?.importedResumeRecordId);
   const importedRecords = item?.importedRecords ?? [];
   const candidateTitle = item ? getCandidateTitle(item) : "";
   const itemId = item?.id ?? null;
   const sourceJobDescriptionId = getAvailableSourceJobDescriptionId(item, jobDescriptionOptions);
-
-  useEffect(() => {
-    if (!itemId) {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setMode("bind");
-      setJobDescriptionId("");
-      setInitialRecruitmentStage("screening");
-      setDuplicates(null);
-      setDetailRecordId(null);
-      return;
-    }
-    setMode("bind");
-    setJobDescriptionId(sourceJobDescriptionId);
-    setInitialRecruitmentStage("screening");
-    setDuplicates(null);
-  }, [itemId, sourceJobDescriptionId]);
+  const {
+    detailRecordId,
+    duplicates,
+    initialRecruitmentStage,
+    jobDescriptionId,
+    mode,
+    update: updateDialogState,
+  } = useImportResumePoolDialogState(itemId, sourceJobDescriptionId);
 
   const mutation = useMutation({
     mutationFn: async (dedupPolicy: "check" | "force") => {
@@ -167,7 +196,7 @@ export function ImportResumePoolDialog({
         // its status discriminator is checked before any duplicate details are consumed.
         const payload = error.payload as ResumePoolImportDuplicateResult | null;
         if (payload?.status === "duplicate_found") {
-          setDuplicates(payload);
+          updateDialogState({ duplicates: payload });
           return;
         }
       }
@@ -175,7 +204,7 @@ export function ImportResumePoolDialog({
     },
     onSuccess: (result) => {
       if (result.status === "duplicate_found") {
-        setDuplicates(result);
+        updateDialogState({ duplicates: result });
         return;
       }
       dependencies.notifySuccess(isReimport ? "已再次创建招聘记录" : "已创建招聘记录");
@@ -234,7 +263,7 @@ export function ImportResumePoolDialog({
                         aria-label={`查看已创建的招聘记录 ${record.resumeRecordId}`}
                         className="h-auto w-full justify-between py-3"
                         key={record.resumeRecordId}
-                        onClick={() => setDetailRecordId(record.resumeRecordId)}
+                        onClick={() => updateDialogState({ detailRecordId: record.resumeRecordId })}
                         type="button"
                         variant="outline"
                       >
@@ -275,7 +304,9 @@ export function ImportResumePoolDialog({
               <RadioGroup
                 className="grid grid-cols-2 gap-2"
                 disabled={isPending}
-                onValueChange={(value) => setMode(value === "bind" ? "bind" : "none")}
+                onValueChange={(value) =>
+                  updateDialogState({ mode: value === "bind" ? "bind" : "none" })
+                }
                 value={mode}
               >
                 <FieldLabel className="w-full rounded-md border p-3">
@@ -298,7 +329,12 @@ export function ImportResumePoolDialog({
                     disabled={isPending}
                     id="resume-pool-import-jd"
                     invalid={bindInvalid}
-                    onChange={(next) => setJobDescriptionId(next ?? "")}
+                    onChange={(next) =>
+                      updateDialogState({
+                        jobDescriptionId: next ?? "",
+                        jobDescriptionTouched: true,
+                      })
+                    }
                     options={jobDescriptionOptions}
                     placeholder="请选择在招岗位"
                     searchPlaceholder="搜索岗位..."
@@ -318,7 +354,7 @@ export function ImportResumePoolDialog({
                         value === "ai_interview" ||
                         value === "human_interview"
                       ) {
-                        setInitialRecruitmentStage(value);
+                        updateDialogState({ initialRecruitmentStage: value });
                       }
                     }}
                     value={initialRecruitmentStage}
@@ -342,7 +378,10 @@ export function ImportResumePoolDialog({
           ) : null}
         </div>
       </Modal>
-      <AlertDialog onOpenChange={(open) => !open && setDuplicates(null)} open={duplicates !== null}>
+      <AlertDialog
+        onOpenChange={(open) => !open && updateDialogState({ duplicates: null })}
+        open={duplicates !== null}
+      >
         <AlertDialogContent className="sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>招聘台中可能已有相同候选人</AlertDialogTitle>
@@ -358,7 +397,7 @@ export function ImportResumePoolDialog({
               disabled={isPending}
               onClick={(event) => {
                 event.preventDefault();
-                setDuplicates(null);
+                updateDialogState({ duplicates: null });
                 mutation.mutate("force");
               }}
             >
@@ -371,7 +410,7 @@ export function ImportResumePoolDialog({
         ? dependencies.renderStudioPersonDetail({
             onOpenChange: (open) => {
               if (!open) {
-                setDetailRecordId(null);
+                updateDialogState({ detailRecordId: null });
               }
             },
             recordId: detailRecordId,

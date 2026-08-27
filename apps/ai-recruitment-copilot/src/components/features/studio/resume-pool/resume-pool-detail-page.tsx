@@ -2,7 +2,7 @@
 
 import { IconAlertCircle, IconArrowLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
@@ -27,6 +27,7 @@ import {
   ResumePoolRecommendationsDialog,
   ResumePoolStructuredInfoPanel,
   canManageResumePoolJobBinding,
+  useRecordOwnedOpenState,
 } from "./resume-pool-details";
 import {
   getCandidateTitle,
@@ -183,7 +184,12 @@ export function ResumePoolDetailPage({
   const canImportResumePool = useHasPermission("resumePool", "import");
   const canReadJobDescriptions = useHasPermission("jd", "read");
   const canRecommend = canImportResumePool && canReadJobDescriptions;
-  const [recommendationsOpen, setRecommendationsOpen] = useState(false);
+  const [
+    recommendationsOpen,
+    setRecommendationsOpen,
+    recommendationsRecordId,
+    handleRecommendationsOpenChangeComplete,
+  ] = useRecordOwnedOpenState(recordId);
   const detailQuery = useQuery({
     queryFn: () => fetchResumePoolItem(slug, recordId),
     queryKey: ["resume-pool", "detail", slug, recordId] as const,
@@ -201,11 +207,6 @@ export function ResumePoolDetailPage({
       ? `人才详情·${detail.candidateName}`
       : "人才详情";
   }, [detail?.candidateName]);
-
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- close nested recommendations when the route record changes
-    setRecommendationsOpen(false);
-  }, [recordId]);
 
   if (detailQuery.isLoading) {
     return <ResumePoolDetailPageSkeleton />;
@@ -294,8 +295,10 @@ export function ResumePoolDetailPage({
         canRecommend={canRecommend}
         currentUserId={currentUserId}
         onOpenChange={setRecommendationsOpen}
+        onOpenChangeComplete={handleRecommendationsOpenChangeComplete}
         open={canManageJobBinding && recommendationsOpen}
-        record={detail}
+        record={recommendationsRecordId === recordId ? detail : null}
+        recordId={recommendationsRecordId}
         slug={slug}
       />
     </>

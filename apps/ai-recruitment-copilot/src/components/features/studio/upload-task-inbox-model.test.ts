@@ -1,5 +1,11 @@
+import type { UploadTaskInboxRecord } from "@arc/shared/upload-task-inbox";
 import { describe, expect, it } from "vitest";
-import { getUploadTaskPreviewTarget, getUploadTaskStatusMeta } from "./upload-task-inbox-model";
+import {
+  getUploadTaskPreviewTarget,
+  getUploadTaskStatusMeta,
+  resolveUploadTaskPreviewState,
+} from "./upload-task-inbox-model";
+import type { UploadTaskPreviewState } from "./upload-task-inbox-model";
 
 describe("upload task inbox model", () => {
   it("maps queue states to concise Chinese status metadata", () => {
@@ -64,5 +70,25 @@ describe("upload task inbox model", () => {
         previewTarget: null,
       }),
     ).toBeNull();
+  });
+
+  it("clears a preview when its workspace changes and does not revive it on return", () => {
+    // SAFETY: Preview ownership only reads the record identity.
+    const record = { id: "task-1" } as UploadTaskInboxRecord;
+    let state: UploadTaskPreviewState = { record, slug: "workspace-a" };
+
+    state = resolveUploadTaskPreviewState(state, "workspace-b");
+    expect(state).toEqual({ record: null, slug: "workspace-b" });
+
+    state = resolveUploadTaskPreviewState(state, "workspace-a");
+    expect(state).toEqual({ record: null, slug: "workspace-a" });
+  });
+
+  it("retains the current workspace preview without allocating state", () => {
+    // SAFETY: Preview ownership only reads the record identity.
+    const record = { id: "task-1" } as UploadTaskInboxRecord;
+    const state: UploadTaskPreviewState = { record, slug: "workspace-a" };
+
+    expect(resolveUploadTaskPreviewState(state, "workspace-a")).toBe(state);
   });
 });

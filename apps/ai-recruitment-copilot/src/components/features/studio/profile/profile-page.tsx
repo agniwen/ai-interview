@@ -270,10 +270,6 @@ export function ProfilePage() {
     setSaveStatus("idle");
   }, [user?.name]);
 
-  useEffect(() => {
-    latestNameRef.current = name;
-  }, [name]);
-
   const tenantName = useMemo(
     () => sessionUserProfileSchema.safeParse(user).data?.feishuTenantName ?? null,
     [user],

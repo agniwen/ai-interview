@@ -9,7 +9,7 @@ import type {
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -55,6 +55,47 @@ function DetailSummaryItem({ children, label }: { label: string; children: React
 
 type ResumePoolDetailLike = ResumePoolDetail | ResumePoolListRecord;
 type ResumePoolProfile = ResumePoolDetail["resumeProfile"];
+
+interface RecordOwnedOpenState {
+  exiting: boolean;
+  open: boolean;
+  recordId: string;
+}
+
+export function useRecordOwnedOpenState(recordId: string) {
+  const [state, setState] = useState<RecordOwnedOpenState>({
+    exiting: false,
+    open: false,
+    recordId,
+  });
+  let ownedState = state;
+  if (state.recordId !== recordId && !state.exiting) {
+    ownedState = state.open ? { ...state, exiting: true, open: false } : { ...state, recordId };
+    setState(ownedState);
+  }
+  function setOpen(open: boolean) {
+    setState((current) => {
+      if (open) {
+        return { exiting: false, open: true, recordId };
+      }
+      return current.recordId === recordId && current.open
+        ? { ...current, exiting: true, open: false }
+        : current;
+    });
+  }
+  function handleOpenChangeComplete(open: boolean) {
+    if (open) {
+      return;
+    }
+    setState((current) => (current.open ? current : { exiting: false, open: false, recordId }));
+  }
+  return [
+    ownedState.recordId === recordId && ownedState.open,
+    setOpen,
+    ownedState.recordId,
+    handleOpenChangeComplete,
+  ] as const;
+}
 
 export function ResumePoolDetailSummaryPanel({
   detail,
@@ -257,6 +298,7 @@ export function ResumePoolRecommendationsDialog({
   canRecommend,
   currentUserId,
   onOpenChange,
+  onOpenChangeComplete,
   open,
   record,
   recordId,
@@ -265,6 +307,7 @@ export function ResumePoolRecommendationsDialog({
   canRecommend: boolean;
   currentUserId: string | null;
   onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
   open: boolean;
   record: ResumePoolDetail | ResumePoolListRecord | null;
   recordId?: string | null;
@@ -291,6 +334,7 @@ export function ResumePoolRecommendationsDialog({
   return (
     <Modal
       onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
       open={open && canManageJobBinding}
       size="xl"
       title="推荐岗位"
@@ -350,12 +394,12 @@ export function ResumePoolDetailDialog({
     detail,
   });
   const resumeProfile = detailQuery.data?.resumeProfile ?? null;
-  const [recommendationsOpen, setRecommendationsOpen] = useState(false);
-  // 切换到另一份简历时关闭推荐弹窗，避免状态残留
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-    setRecommendationsOpen(false);
-  }, [itemId]);
+  const [
+    recommendationsOpen,
+    setRecommendationsOpen,
+    recommendationsRecordId,
+    handleRecommendationsOpenChangeComplete,
+  ] = useRecordOwnedOpenState(itemId);
   return (
     <>
       <Modal
@@ -392,9 +436,10 @@ export function ResumePoolDetailDialog({
         canRecommend={canRecommend}
         currentUserId={currentUserId}
         onOpenChange={setRecommendationsOpen}
+        onOpenChangeComplete={handleRecommendationsOpenChangeComplete}
         open={canManageJobBinding && recommendationsOpen}
-        record={detailQuery.data ?? null}
-        recordId={itemId}
+        record={recommendationsRecordId === itemId ? (detailQuery.data ?? null) : null}
+        recordId={recommendationsRecordId}
         slug={slug}
       />
     </>

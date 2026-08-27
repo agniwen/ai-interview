@@ -3,7 +3,7 @@ import { IconSettings, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { actionsColumn, customColumn, DataGrid } from "@/components/data-grid";
@@ -64,6 +64,8 @@ import {
   canEditMemberWorkspaceRole,
   getWorkspaceRoleBadgeVariant,
   parseWorkspaceManagementTab,
+  reconcileGroupNameDraftState,
+  resolveGroupNameDrafts,
   useDynamicWorkspaceRoles,
   EMPTY_RECRUITING_GROUPS,
 } from "@/components/features/studio/members/members-page-model";
@@ -81,6 +83,7 @@ import {
   normalizeGroupName,
   readErrorMessage,
 } from "@/components/features/studio/members/members-groups";
+
 export function MembersManagementPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
@@ -106,7 +109,6 @@ export function MembersManagementPage() {
   });
   const groupsQueryKey = ["workspace-recruiting-groups", slug, workspaceId] as const;
   const [pending, setPending] = useState<string | null>(null);
-  const [groupNameDrafts, setGroupNameDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
 
@@ -142,6 +144,20 @@ export function MembersManagementPage() {
     queryKey: groupsQueryKey,
     refetchOnWindowFocus: false,
   });
+  const [groupNameDraftState, setGroupNameDraftState] = useState(() => ({
+    drafts: {},
+    groupIdsKey: JSON.stringify(groups.map((group) => group.id)),
+    workspaceId,
+  }));
+  const ownedGroupNameDraftState = reconcileGroupNameDraftState(
+    groups,
+    workspaceId,
+    groupNameDraftState,
+  );
+  if (ownedGroupNameDraftState !== groupNameDraftState) {
+    setGroupNameDraftState(ownedGroupNameDraftState);
+  }
+  const resolvedGroupNameDrafts = resolveGroupNameDrafts(groups, ownedGroupNameDraftState.drafts);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<RecruitingGroupRow | null>(null);
@@ -205,23 +221,6 @@ export function MembersManagementPage() {
       matchesListTextFilters(conditions, { email: row.email, name: row.name }),
     );
   }, [allRows, hasMemberSearch, memberSearch]);
-
-  useEffect(() => {
-    setGroupNameDrafts((current) => {
-      const next = Object.fromEntries(
-        groups.map((group) => [group.id, current[group.id] ?? group.name]),
-      );
-      const currentKeys = Object.keys(current);
-      const nextKeys = Object.keys(next);
-      if (
-        currentKeys.length === nextKeys.length &&
-        nextKeys.every((key) => current[key] === next[key])
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [groups]);
 
   // 成员列表按显式 workspaceId 拉取，这里做客户端切片
   // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
@@ -665,14 +664,17 @@ export function MembersManagementPage() {
           <RecruitingGroupsPanel
             allRows={allRows}
             canUpdate={canUpdate}
-            groupNameDrafts={groupNameDrafts}
+            groupNameDrafts={resolvedGroupNameDrafts}
             groups={groups}
             newGroupName={newGroupName}
             onAddMemberToGroup={addMemberToGroup}
             onCreateGroup={createGroup}
             onDeleteGroup={setDeleteGroupTarget}
             onGroupNameDraftChange={(groupId, value) =>
-              setGroupNameDrafts((current) => ({ ...current, [groupId]: value }))
+              setGroupNameDraftState((current) => {
+                const owned = reconcileGroupNameDraftState(groups, workspaceId, current);
+                return { ...owned, drafts: { ...owned.drafts, [groupId]: value } };
+              })
             }
             onRemoveGroupMember={removeGroupMember}
             onRenameGroup={renameGroup}

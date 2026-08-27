@@ -290,8 +290,6 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
 
   useEffect(() => {
     if (!hasPinning) {
-      // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
-      setScrollOverflow({ canScrollEnd: false, canScrollStart: false });
       return;
     }
 
