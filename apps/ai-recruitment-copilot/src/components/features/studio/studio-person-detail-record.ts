@@ -27,6 +27,7 @@ export interface UnifiedRecord {
   roundInterviewLink?: string;
   roundAllowTextInput?: boolean;
   roundCandidateFeedback?: StudioInterviewRoundDetail["candidateFeedback"];
+  roundCandidateInviteExpiresAt?: string | null;
   roundHasReport?: boolean;
 }
 
@@ -49,6 +50,7 @@ export function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): Unified
     resumeStorageKey: round.candidate.resumeStorageKey,
     roundAllowTextInput: round.allowTextInput,
     roundCandidateFeedback: round.candidateFeedback,
+    roundCandidateInviteExpiresAt: round.candidateInviteExpiresAt,
     roundHasReport: round.hasReport,
     roundId: round.id,
     roundInterviewLink: round.interviewLink,

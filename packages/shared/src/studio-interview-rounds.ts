@@ -34,6 +34,7 @@ export interface StudioInterviewRoundListRecord {
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
   conversationId: string | null;
+  candidateInviteExpiresAt: string | null;
   hasReport: boolean;
   feishuDocumentUrl: string | null;
   /** 完整面试链接相对路径 / Relative interview link path. */
@@ -61,6 +62,7 @@ export interface StudioInterviewRoundDetail {
   allowTextInput: boolean;
   candidateFeedback: CandidateInterviewFeedback | null;
   conversationId: string | null;
+  candidateInviteExpiresAt: string | null;
   sessionStartedAt: string | null;
   disconnectedAt: string | null;
   notes: string | null;

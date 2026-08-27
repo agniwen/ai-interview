@@ -64,6 +64,7 @@ import {
   copyInterviewLink,
   copyPublicInterviewLink,
 } from "@/components/features/studio/interviews/interview-link-actions";
+import { resolveAiInterviewLinkState } from "@/components/features/studio/interviews/ai-interview-link-state";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
@@ -427,8 +428,12 @@ export function InterviewManagementPage() {
         ],
         menu: [
           {
-            disabled: isAiStageLocked,
-            disabledReason: aiStageLockedReason,
+            disabled: (row) =>
+              isAiStageLocked(row) || resolveAiInterviewLinkState(row).copyDisabled,
+            disabledReason: (row) => {
+              const linkState = resolveAiInterviewLinkState(row);
+              return linkState.copyDisabled ? linkState.message : aiStageLockedReason(row);
+            },
             label: "复制面试链接",
             onClick: copyInterviewLink,
           },

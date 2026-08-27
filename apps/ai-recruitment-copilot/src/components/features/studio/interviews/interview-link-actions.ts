@@ -2,6 +2,7 @@ import { toast } from "sonner";
 
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import type { StudioInterviewRoundListRecord } from "@arc/shared/studio-interview-rounds";
+import { resolveAiInterviewLinkState } from "./ai-interview-link-state";
 
 async function copyInterviewUrl(url: string, successMessage: string) {
   try {
@@ -20,7 +21,17 @@ async function copyInterviewUrl(url: string, successMessage: string) {
   }
 }
 
-export function copyInterviewLink(record: Pick<StudioInterviewRoundListRecord, "interviewLink">) {
+export function copyInterviewLink(
+  record: Pick<
+    StudioInterviewRoundListRecord,
+    "candidateInviteExpiresAt" | "interviewLink" | "status"
+  >,
+) {
+  const linkState = resolveAiInterviewLinkState(record);
+  if (linkState.copyDisabled) {
+    toast.error(linkState.message);
+    return Promise.resolve();
+  }
   return copyInterviewUrl(record.interviewLink, "面试链接已复制");
 }
 

@@ -37,6 +37,7 @@ import {
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { transitionCandidateStage } from "./utils/candidate-stage-transition";
+import { buildResetAiInterviewInvitation } from "./dao/ai-interview-invitation-access";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -300,11 +301,17 @@ export const studioInterviewsRouter = factory
     const now = new Date();
     const previousConversationId = scheduleRow.conversationId;
     const previousStatus = scheduleRow.status;
+    const resetInvitation = buildResetAiInterviewInvitation({
+      currentTokenHash: scheduleRow.candidateInviteTokenHash,
+      invitationVersion: scheduleRow.invitationVersion,
+      now,
+    });
 
     await db.transaction(async (tx) => {
       await tx
         .update(studioInterviewSchedule)
         .set({
+          ...resetInvitation,
           conversationId: null,
           // 重置时一并清空热重连锚点，避免下一轮复用旧房间名/identity。
           // Clear hot-reconnect anchors so the next attempt mints a fresh room.

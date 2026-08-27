@@ -17,6 +17,7 @@ import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipe
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
 import {
   hashAiInterviewInvitationToken,
+  isAiInterviewInvitationExpired,
   parseSignedAiInterviewInvitationToken,
 } from "./ai-interview-invitation-access";
 
@@ -101,7 +102,7 @@ export async function previewAiInterviewInvitation(
   if (!row?.expiresAt || row.tokenHash !== hashAiInterviewInvitationToken(token)) {
     return null;
   }
-  const expired = payload.exp < Date.now() || row.expiresAt.getTime() < Date.now();
+  const expired = isAiInterviewInvitationExpired(row.expiresAt);
   if (expired) {
     await recordAiInterviewInvitationException({
       exceptionType: "invitation_expired",
@@ -140,13 +141,6 @@ export async function respondAiInterviewInvitation(input: {
     );
   }
   const now = new Date();
-  if (payload.exp < now.getTime()) {
-    throw new AiInterviewInvitationError(
-      "该面试邀请已经过期，暂时无法完成确认。请联系招聘负责人重新发起邀请。",
-      410,
-      "invitation_expired",
-    );
-  }
   const result = await db.transaction(async (tx) => {
     const [row] = await tx
       .select({
@@ -161,8 +155,8 @@ export async function respondAiInterviewInvitation(input: {
       .limit(1)
       .for("update");
     if (
-      !row?.expiresAt ||
-      row.expiresAt <= now ||
+      !row ||
+      isAiInterviewInvitationExpired(row.expiresAt, now) ||
       row.tokenHash !== hashAiInterviewInvitationToken(input.token) ||
       row.status === "expired"
     ) {

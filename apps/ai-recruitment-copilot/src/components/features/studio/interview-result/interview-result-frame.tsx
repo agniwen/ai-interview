@@ -12,6 +12,7 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/fram
 import { cn } from "@arc/shared/utils";
 
 import { copyInterviewLink } from "../interviews/interview-link-actions";
+import { resolveAiInterviewLinkState } from "../interviews/ai-interview-link-state";
 import {
   formatReportStatus,
   getReportBadgeVariant,
@@ -29,6 +30,12 @@ function InterviewResultActionRow({ record }: { record: InterviewResultRecord })
   const recommendedQuestions = record.interviewQuestions ?? [];
   const hasRecommendedQuestions = recommendedQuestions.length > 0;
   const showCopyInterviewLink = import.meta.env.DEV || record.roundStatus === "pending";
+  const interviewLinkState = record.roundStatus
+    ? resolveAiInterviewLinkState({
+        candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
+        status: record.roundStatus,
+      })
+    : null;
 
   if (!(hasRecommendedQuestions || showCopyInterviewLink)) {
     return null;
@@ -58,10 +65,14 @@ function InterviewResultActionRow({ record }: { record: InterviewResultRecord })
         {showCopyInterviewLink ? (
           <Button
             className="w-full"
-            disabled={!record.roundInterviewLink}
+            disabled={!record.roundInterviewLink || interviewLinkState?.copyDisabled}
             onClick={() => {
-              if (record.roundInterviewLink) {
-                void copyInterviewLink({ interviewLink: record.roundInterviewLink });
+              if (record.roundInterviewLink && record.roundStatus) {
+                void copyInterviewLink({
+                  candidateInviteExpiresAt: record.roundCandidateInviteExpiresAt ?? null,
+                  interviewLink: record.roundInterviewLink,
+                  status: record.roundStatus,
+                });
               }
             }}
             type="button"
@@ -72,6 +83,16 @@ function InterviewResultActionRow({ record }: { record: InterviewResultRecord })
           </Button>
         ) : null}
       </div>
+      {showCopyInterviewLink && interviewLinkState ? (
+        <p
+          className={cn(
+            "mt-2 w-full text-right text-xs",
+            interviewLinkState.copyDisabled ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {interviewLinkState.message}
+        </p>
+      ) : null}
       {hasRecommendedQuestions ? (
         <RecommendedQuestionsDialog
           onOpenChange={setRecommendedQuestionsOpen}

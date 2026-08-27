@@ -58,8 +58,12 @@ export interface PipelineStageActionBarProps {
     roundLabel: string;
     status: ScheduleEntryStatus;
   };
-  /** 待开始轮次的面试链接；有值时展示「复制面试链接」。 */
-  aiRoundInterviewLink?: string;
+  /** 待开始轮次的面试链接；有值时展示「复制面试链接」及有效期。 */
+  aiRoundInterviewLink?: {
+    candidateInviteExpiresAt: string | null;
+    interviewLink: string;
+    status: ScheduleEntryStatus;
+  };
   // 推进到指定阶段的回调（仅 stage 跳变，无元数据）。
   // Advance to a target stage (no metadata). May return a Promise so the bar can lock while pending.
   onAdvance: (target: PipelineStage) => void | Promise<void>;
@@ -122,7 +126,7 @@ export function PipelineStageActionBar({
         disabled={isBusy}
         key="copy-ai-interview-link"
         onClick={async () => {
-          await copyInterviewLink({ interviewLink: aiRoundInterviewLink });
+          await copyInterviewLink(aiRoundInterviewLink);
         }}
         size="sm"
         type="button"
@@ -201,7 +205,7 @@ function AiRoundResetAction({
 }: NonNullable<PipelineStageActionBarProps["aiRoundReset"]> & { isBusy: boolean }) {
   const [open, setOpen] = useState(false);
   const behavior = getAiRoundResetBehavior(status);
-  const buttonLabel = isResetting ? "重置中..." : "重置面试轮次";
+  const buttonLabel = getAiRoundResetButtonLabel(behavior, isResetting);
 
   if (behavior === "direct") {
     return (
@@ -271,6 +275,16 @@ function AiRoundResetAction({
       </PopoverContent>
     </Popover>
   );
+}
+
+function getAiRoundResetButtonLabel(
+  behavior: ReturnType<typeof getAiRoundResetBehavior>,
+  isResetting: boolean,
+): string {
+  if (isResetting) {
+    return "重置中...";
+  }
+  return behavior === "direct" ? "重置沟通" : "重置面试轮次";
 }
 
 const DEFAULT_FLOW_STEPS: PipelineStage[] = [

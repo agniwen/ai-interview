@@ -203,6 +203,7 @@ describe("AI 面试详情 tabs", () => {
     expect(resultFrameSource).toContain("copyInterviewLink");
     expect(resultFrameSource).toContain("<IconCopy");
     expect(resultFrameSource).toContain("复制面试链接");
+    expect(resultFrameSource).toContain('"mt-2 w-full text-right text-xs"');
     expect(resultFrameSource.indexOf("复制面试链接")).toBeLessThan(
       resultFrameSource.indexOf("</Frame>"),
     );

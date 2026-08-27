@@ -234,7 +234,11 @@ export function buildStudioPersonDetailHeader({
           actionBarPipelineStage === "ai_interview" &&
           !isRoundsLoading &&
           actionBarAiRound?.status === "pending"
-            ? actionBarAiRound.interviewLink
+            ? {
+                candidateInviteExpiresAt: actionBarAiRound.candidateInviteExpiresAt,
+                interviewLink: actionBarAiRound.interviewLink,
+                status: actionBarAiRound.status,
+              }
             : undefined
         }
         aiRoundReset={

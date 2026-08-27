@@ -65,6 +65,10 @@ export function verifyAiInterviewInvitationToken(
   return payload && payload.exp >= Date.now() ? payload : null;
 }
 
+export function isAiInterviewInvitationExpired(expiresAt: Date | null, now = new Date()): boolean {
+  return !expiresAt || expiresAt <= now;
+}
+
 export function addAiInterviewInvitationToSchedule<T extends { id: string }>(
   schedule: T,
   now: Date,
@@ -81,5 +85,22 @@ export function addAiInterviewInvitationToSchedule<T extends { id: string }>(
     ...schedule,
     candidateInviteExpiresAt: expiresAt,
     candidateInviteTokenHash: hashAiInterviewInvitationToken(token),
+  };
+}
+
+export function buildResetAiInterviewInvitation(input: {
+  currentTokenHash: string | null;
+  invitationVersion: number;
+  now: Date;
+}) {
+  return {
+    candidateDeclineReason: null,
+    candidateInviteExpiresAt: input.currentTokenHash
+      ? new Date(buildAiInterviewInvitationExpiry(input.now.getTime()))
+      : null,
+    candidateInviteStatus: "pending" as const,
+    candidateInviteTokenHash: input.currentTokenHash,
+    candidateRespondedAt: null,
+    invitationVersion: input.invitationVersion + 1,
   };
 }

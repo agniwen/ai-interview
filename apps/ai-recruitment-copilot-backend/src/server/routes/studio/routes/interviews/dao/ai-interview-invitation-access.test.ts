@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   addAiInterviewInvitationToSchedule,
   buildAiInterviewInvitationToken,
+  buildResetAiInterviewInvitation,
   hashAiInterviewInvitationToken,
+  isAiInterviewInvitationExpired,
   parseSignedAiInterviewInvitationToken,
   verifyAiInterviewInvitationToken,
 } from "./ai-interview-invitation-access";
@@ -53,5 +55,49 @@ describe("AI interview invitation token", () => {
     expect(parseSignedAiInterviewInvitationToken(token)).toMatchObject({
       scheduleEntryId: "round_expired",
     });
+  });
+
+  it("refreshes invitation access when an AI interview round is reset", () => {
+    const now = new Date("2026-08-27T00:00:00.000Z");
+    const currentInvitation = addAiInterviewInvitationToSchedule(
+      { id: "round_expired" },
+      new Date("2026-07-01T00:00:00.000Z"),
+    );
+    const reset = buildResetAiInterviewInvitation({
+      currentTokenHash: currentInvitation.candidateInviteTokenHash,
+      invitationVersion: 3,
+      now,
+    });
+
+    expect(reset).toMatchObject({
+      candidateDeclineReason: null,
+      candidateInviteStatus: "pending",
+      candidateRespondedAt: null,
+      invitationVersion: 4,
+    });
+    expect(reset.candidateInviteExpiresAt).toEqual(new Date("2026-09-26T00:00:00.000Z"));
+    expect(reset.candidateInviteTokenHash).toBe(currentInvitation.candidateInviteTokenHash);
+  });
+
+  it("keeps legacy rounds without invitation tokens non-expiring during reset", () => {
+    expect(
+      buildResetAiInterviewInvitation({
+        currentTokenHash: null,
+        invitationVersion: 1,
+        now: new Date("2026-08-27T00:00:00.000Z"),
+      }),
+    ).toMatchObject({
+      candidateInviteExpiresAt: null,
+      candidateInviteStatus: "pending",
+      candidateInviteTokenHash: null,
+      invitationVersion: 2,
+    });
+  });
+
+  it("uses the stored expiry after reset instead of the original token expiry", () => {
+    const now = new Date("2026-08-27T00:00:00.000Z");
+
+    expect(isAiInterviewInvitationExpired(new Date("2026-09-26T00:00:00.000Z"), now)).toBe(false);
+    expect(isAiInterviewInvitationExpired(now, now)).toBe(true);
   });
 });
