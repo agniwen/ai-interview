@@ -2,7 +2,7 @@ import { createRouteMask, createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { NotFoundPage } from "@/components/layout/not-found-view";
 import { RoutePendingView } from "@/components/layout/route-pending-view";
-import { getStudioMainScrollToTopElement } from "@/components/features/studio/studio-scroll-restoration";
+import { getStudioCandidateDetailScrollToTopElement } from "@/components/features/studio/studio-scroll-restoration";
 import { getQueryClient } from "@/lib/client/query-client";
 import { routeTree } from "./routeTree.gen";
 
@@ -45,7 +45,7 @@ export function getRouter() {
     routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask],
     routeTree,
     scrollRestoration: true,
-    scrollToTopSelectors: [getStudioMainScrollToTopElement],
+    scrollToTopSelectors: [getStudioCandidateDetailScrollToTopElement],
   });
 
   setupRouterSsrQueryIntegration({ queryClient, router });
