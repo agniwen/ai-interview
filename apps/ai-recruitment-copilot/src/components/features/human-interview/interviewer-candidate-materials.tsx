@@ -595,12 +595,15 @@ export function InterviewerCandidateMaterials({
           }}
           value={state.centerTab}
         >
-          <TabsList
-            className="w-full shrink-0 rounded-none border-b bg-transparent px-3 pt-2"
-            variant="underline"
-          >
-            <TabsTrigger value="detail">详情</TabsTrigger>
-            <TabsTrigger value="resume">简历</TabsTrigger>
+          <TabsList className="w-full shrink-0 rounded-none border-b bg-transparent p-2">
+            <TabsTrigger className="flex-1" value="detail">
+              <IconId />
+              详情
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="resume">
+              <IconFileDescription />
+              简历
+            </TabsTrigger>
           </TabsList>
           <TabsContent className="min-h-0 overflow-hidden" value="detail">
             <CandidateDetail query={overviewQuery} />
