@@ -40,7 +40,11 @@ import {
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { EndMeetingDialog, MeetingLinksDialog } from "./human-interview-stage-meetings";
 import { RoundCard } from "./human-interview-stage-rounds";
-import { buildHumanInterviewMeetingTitle } from "./human-interview-stage-utils";
+import {
+  buildHumanInterviewMeetingTitle,
+  getHumanInterviewBusinessRoundNumbers,
+  getHumanInterviewScheduleBlockReason,
+} from "./human-interview-stage-utils";
 
 interface PanelProps {
   candidateId: string;
@@ -124,6 +128,11 @@ export function HumanInterviewStagePanel({
         : false,
     refetchIntervalInBackground: false,
   });
+  const passedRoundCount = rounds.filter(
+    (round) => round.status === "completed" && round.outcome === "pass",
+  ).length;
+  const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
+  const scheduleBlockReason = getHumanInterviewScheduleBlockReason(rounds);
 
   function invalidateRounds() {
     void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
@@ -148,7 +157,6 @@ export function HumanInterviewStagePanel({
     mutationFn: async (round: HumanInterviewRoundRecord) => {
       try {
         await createHumanInterviewMeeting(slug, {
-          interviewerIds: round.interviewers.map((interviewer) => interviewer.id),
           notes: round.notes,
           roundIds: [round.id],
           scheduledAt: round.scheduledAt,
@@ -225,6 +233,7 @@ export function HumanInterviewStagePanel({
               onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
               onRescheduled={invalidateRescheduledMeeting}
               round={round}
+              roundNumber={businessRoundNumbers.get(round.id) ?? 2}
             />
           );
         })}
@@ -244,8 +253,9 @@ export function HumanInterviewStagePanel({
       {roundsContent}
 
       {disabled || !canCreate ? null : (
-        <div className="flex justify-end w-full">
+        <div className="w-full space-y-2">
           <Button
+            disabled={scheduleBlockReason !== null}
             onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
             size="lg"
             className="w-full"
@@ -253,13 +263,16 @@ export function HumanInterviewStagePanel({
             <IconPlus className="size-4" />
             安排真人复面
           </Button>
+          {scheduleBlockReason ? (
+            <p className="text-center text-muted-foreground text-xs">{scheduleBlockReason}</p>
+          ) : null}
         </div>
       )}
 
       <ScheduleRoundDialog
         candidateId={candidateId}
         candidateName={candidateName}
-        existingCount={rounds.length}
+        passedRoundCount={passedRoundCount}
         onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
         onScheduled={invalidateRounds}
         open={scheduleOpen}

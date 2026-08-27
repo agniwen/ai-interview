@@ -10,6 +10,7 @@
       "default": "./src/rpc-client.ts"
     },
     "./server/routes/feishu/utils/interview-summary-card": "./src/server/routes/feishu/utils/interview-summary-card.tsx",
+    "./server/routes/studio/routes/workspace/utils/workspace-member-joined-notification": "./src/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification.tsx",
     "./server/routes/studio/routes/interviews/routes/round-emails/utils/templates": "./src/server/routes/studio/routes/interviews/routes/round-emails/utils/templates.tsx",
     "./server/*": "./src/server/*.ts",
     "./lib/server/db": "./src/lib/server/db/index.ts",

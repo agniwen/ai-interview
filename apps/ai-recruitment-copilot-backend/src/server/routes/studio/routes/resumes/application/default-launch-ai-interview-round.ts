@@ -17,10 +17,14 @@ import {
   isStructuredEvaluationConfirmationValid,
 } from "./launch-ai-interview-round";
 import type { PersistLaunchInput } from "./launch-ai-interview-round";
+import { enqueueAiInterviewInvitedEvents } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { addAiInterviewInvitationToSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 
 export function persistLaunchAiInterviewRound(
   input: PersistLaunchInput<typeof studioInterviewSchedule.$inferInsert>,
 ) {
+  // oxlint-disable-next-line complexity -- candidate gates, launch persistence, and invitation setup share one transaction boundary.
   return db.transaction(async (tx) => {
     const {
       actorId,
@@ -128,7 +132,18 @@ export function persistLaunchAiInterviewRound(
       return { ok: false as const, reason: "stage_conflict" as const };
     }
 
-    await tx.insert(studioInterviewSchedule).values(schedule);
+    const notificationFlowEnabled = isInterviewNotificationFlowEnabled();
+    const scheduleToInsert = notificationFlowEnabled
+      ? addAiInterviewInvitationToSchedule(schedule, now)
+      : schedule;
+    await tx.insert(studioInterviewSchedule).values(scheduleToInsert);
+    if (notificationFlowEnabled) {
+      await enqueueAiInterviewInvitedEvents(tx, {
+        actorUserId: actorId,
+        now,
+        scheduleEntryId: schedule.id,
+      });
+    }
     await setResumeEvaluationStatusWithAuditTx(tx, {
       auditLogId: decisionAuditLogId,
       auditUnchanged: true,

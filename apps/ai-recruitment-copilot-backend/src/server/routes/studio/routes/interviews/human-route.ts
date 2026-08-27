@@ -95,33 +95,40 @@ export const studioInterviewHumanRouter = factory
         return c.json({ error: "候选人已进入 Offer 阶段，不能再创建真人面试轮次。" }, 400);
       }
 
-      const input = c.req.valid("json");
-      const created = await createHumanInterviewRound({
-        input: {
-          ...input,
-          format: "online",
-          location: null,
-          meetingUrl: null,
-        },
-        interviewRecordId: recordId,
-        organizationId: activeOrg.id,
-      });
-      // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
-      // Auto-advance pipelineStage when the first round goes in.
-      await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
-      await recordCandidateActivity({
-        action: "human_interview_round_created",
-        detail: {
-          roundId: created.id,
-          roundLabel: created.label,
-          scheduledAt: created.scheduledAt,
-        },
-        interviewRecordId: recordId,
-        operatorId: c.var.user?.id ?? null,
-        organizationId: activeOrg.id,
-      });
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(created, 200);
+      try {
+        const input = c.req.valid("json");
+        const created = await createHumanInterviewRound({
+          input: {
+            ...input,
+            format: "online",
+            location: null,
+            meetingUrl: null,
+          },
+          interviewRecordId: recordId,
+          organizationId: activeOrg.id,
+        });
+        // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
+        // Auto-advance pipelineStage when the first round goes in.
+        await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
+        await recordCandidateActivity({
+          action: "human_interview_round_created",
+          detail: {
+            roundId: created.id,
+            roundLabel: created.label,
+            scheduledAt: created.scheduledAt,
+          },
+          interviewRecordId: recordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(created, 200);
+      } catch (error) {
+        if (error instanceof EditRoundError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
     },
   )
   .patch(
@@ -181,6 +188,7 @@ export const studioInterviewHumanRouter = factory
       const { outcome, score, feedback } = c.req.valid("json");
       try {
         const updated = await completeHumanInterviewRound({
+          actorUserId: c.var.user?.id ?? null,
           feedback,
           organizationId: activeOrg.id,
           outcome,
@@ -238,6 +246,7 @@ export const studioInterviewHumanRouter = factory
       try {
         const { deletedLiveKitRoomNames, round: updated } =
           await cancelHumanInterviewRoundWithMeetings({
+            actorUserId: c.var.user?.id ?? null,
             organizationId: activeOrg.id,
             reason,
             roundId,

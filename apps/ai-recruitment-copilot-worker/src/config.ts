@@ -3,6 +3,10 @@ export interface WorkerServerConfig {
   port: number;
 }
 
+export function isWorkerBackgroundProcessingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.WORKER_BACKGROUND_PROCESSING_ENABLED?.trim().toLowerCase() !== "false";
+}
+
 function parsePort(raw: string | undefined, fallback: number): number {
   if (!raw) {
     return fallback;

@@ -69,7 +69,11 @@ afterEach(() => {
 });
 
 describe("ImportResumePoolDialog", () => {
-  it("keeps the selected job after the dialog rerenders", async () => {
+  it("keeps the selected job after rerender and submits its id", async () => {
+    importResumePoolItemMock.mockResolvedValue({
+      resumeRecordId: "resume-record-new",
+      status: "imported",
+    });
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -119,6 +123,19 @@ describe("ImportResumePoolDialog", () => {
       button.textContent?.includes("确认创建"),
     );
     expect(confirmButton?.disabled).toBe(false);
+
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(importResumePoolItemMock).toHaveBeenCalledWith("test-workspace", "pool-item-new", {
+      dedupPolicy: "check",
+      initialRecruitmentStage: "screening",
+      jobDescriptionId: "jd-1",
+      jobDescriptionMode: "bind",
+      reimport: false,
+    });
 
     act(() => root.unmount());
     queryClient.clear();

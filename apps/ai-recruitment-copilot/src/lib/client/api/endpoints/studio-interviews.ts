@@ -41,7 +41,7 @@ import type {
   OfferDraftRecord,
 } from "@arc/shared/studio-pipeline-stages";
 import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
-import { rpc } from "@/lib/client/rpc";
+import { rpc, studioInterviewsRpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
 /**
@@ -228,7 +228,7 @@ export function fetchStudioInterviewRound(
   roundId: string,
 ): Promise<StudioInterviewRoundDetail | null> {
   return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].$get({ param: { id: roundId, slug } }),
+    studioInterviewsRpc(slug)[":id"].$get({ param: { id: roundId } }),
     "加载面试详情失败",
     { allow404: true },
   );

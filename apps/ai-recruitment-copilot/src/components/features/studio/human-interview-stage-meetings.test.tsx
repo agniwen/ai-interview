@@ -58,6 +58,7 @@ const meeting: HumanInterviewMeetingRecord = {
   recordingEgressId: null,
   recordingFileKey: null,
   rounds: [],
+  scheduleVersion: 1,
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
@@ -112,16 +113,16 @@ describe("MeetingLinksDialog", () => {
       );
     });
     await vi.waitFor(() => {
-      expect(document.body.textContent).toContain("候选人链接");
+      expect(document.body.textContent).toContain("候选人确认链接");
     });
 
     const text = document.body.textContent ?? "";
     expect(text).toContain("飞书会议链接");
-    expect(text.indexOf("飞书会议链接")).toBeLessThan(text.indexOf("候选人链接"));
+    expect(text.indexOf("飞书会议链接")).toBeLessThan(text.indexOf("候选人确认链接"));
     expect(document.body.innerHTML).toContain("https://vc.feishu.cn/j/123456789");
     expect(text).not.toContain("飞书会议链接（当前使用）");
-    expect(text).toContain("候选人链接（当前使用）");
-    expect(text).toContain("面试官链接（当前使用）");
+    expect(text).toContain("候选人确认链接");
+    expect(text).toContain("面试官会议链接");
 
     act(() => root.unmount());
   });
@@ -165,14 +166,14 @@ describe("MeetingLinksDialog", () => {
       );
     });
     await vi.waitFor(() => {
-      expect(document.body.textContent).toContain("候选人链接");
+      expect(document.body.textContent).toContain("候选人确认链接");
     });
 
     const text = document.body.textContent ?? "";
     expect(text).toContain("飞书同步失败");
     expect(text).toContain("重试飞书同步");
-    expect(text).toContain("候选人链接");
-    expect(text).toContain("面试官链接");
+    expect(text).toContain("候选人确认链接");
+    expect(text).toContain("面试官会议链接");
 
     act(() => root.unmount());
   });
@@ -224,8 +225,8 @@ describe("MeetingLinksDialog", () => {
 
     const text = document.body.textContent ?? "";
     expect(text).toContain(scenario.buttonLabel);
-    expect(text).toContain("候选人链接");
-    expect(text).toContain("面试官链接");
+    expect(text).toContain("候选人确认链接");
+    expect(text).toContain("面试官会议链接");
 
     act(() => root.unmount());
   });
@@ -274,8 +275,8 @@ describe("MeetingLinksDialog", () => {
 
     const text = document.body.textContent ?? "";
     expect(text).not.toContain("重试飞书同步");
-    expect(text).toContain("候选人链接");
-    expect(text).toContain("面试官链接");
+    expect(text).toContain("候选人确认链接");
+    expect(text).toContain("面试官会议链接");
 
     act(() => root.unmount());
   });

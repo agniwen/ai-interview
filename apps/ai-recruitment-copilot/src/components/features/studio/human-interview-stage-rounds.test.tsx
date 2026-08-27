@@ -53,7 +53,18 @@ const round: HumanInterviewRoundRecord = {
   format: "online",
   id: "round-1",
   interviewRecordId: "candidate-1",
-  interviewers: [{ id: "interviewer-1", image: null, name: "光芒" }],
+  interviewers: [
+    {
+      confirmedAt: null,
+      confirmedScheduleVersion: null,
+      declineReason: null,
+      declinedAt: null,
+      id: "interviewer-1",
+      image: null,
+      name: "光芒",
+      status: "pending",
+    },
+  ],
   label: "真人复面",
   location: null,
   meetingUrl: "https://vc.feishu.cn/j/123456789",
@@ -89,6 +100,7 @@ const meeting: HumanInterviewMeetingRecord = {
   recordingEgressId: null,
   recordingFileKey: null,
   rounds: [],
+  scheduleVersion: 1,
   scheduledAt: "2026-08-05T09:30:00.000Z",
   startedAt: null,
   status: "scheduled",
@@ -96,6 +108,10 @@ const meeting: HumanInterviewMeetingRecord = {
   updatedAt: "2026-08-05T09:00:00.000Z",
   validUntil: "2026-08-05T10:30:00.000Z",
 };
+const [baseAssignment] = round.interviewers;
+if (!baseAssignment) {
+  throw new Error("RoundCard test requires one base interviewer assignment.");
+}
 
 beforeEach(() => {
   process.env.TZ = "Asia/Shanghai";
@@ -136,6 +152,7 @@ describe("RoundCard rescheduling", () => {
             onOpenLinks={vi.fn()}
             onRescheduled={onRescheduled}
             round={round}
+            roundNumber={2}
           />
         </QueryClientProvider>,
       );
@@ -211,6 +228,7 @@ describe("RoundCard rescheduling", () => {
             onOpenLinks={vi.fn()}
             onRescheduled={onRescheduled}
             round={round}
+            roundNumber={2}
           />
         </QueryClientProvider>,
       );
@@ -230,6 +248,109 @@ describe("RoundCard rescheduling", () => {
       expect(onRescheduled).toHaveBeenCalledOnce();
     });
     expect(toastMocks.error).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+});
+
+describe("RoundCard interviewer arrangement", () => {
+  it("shows interviewer assignments as HR-managed arrangements", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const statusRound: HumanInterviewRoundRecord = {
+      ...round,
+      interviewers: [
+        { ...baseAssignment, name: "待确认人员" },
+        {
+          ...baseAssignment,
+          confirmedAt: "2026-08-05T09:05:00.000Z",
+          confirmedScheduleVersion: 1,
+          id: "interviewer-2",
+          name: "已确认人员",
+          status: "confirmed",
+        },
+        {
+          ...baseAssignment,
+          confirmedAt: "2026-08-04T09:05:00.000Z",
+          confirmedScheduleVersion: 0,
+          id: "interviewer-3",
+          name: "旧时间人员",
+          status: "confirmed",
+        },
+        {
+          ...baseAssignment,
+          declinedAt: "2026-08-05T09:06:00.000Z",
+          id: "interviewer-4",
+          name: "拒绝人员",
+          status: "declined",
+        },
+      ],
+    };
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate
+            dependencies={dependencies}
+            meeting={meeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            round={statusRound}
+            roundNumber={2}
+          />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(host.textContent).toContain("待确认人员已安排");
+    expect(host.textContent).toContain("已确认人员已安排");
+    expect(host.textContent).toContain("旧时间人员安排已更新");
+    expect(host.textContent).toContain("拒绝人员需联系 HR");
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
+  it("does not expose confirmation or rescheduling controls without HR update permission", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RoundCard
+            canCreate
+            canDelete
+            canUpdate={false}
+            dependencies={dependencies}
+            meeting={meeting}
+            onCancel={vi.fn()}
+            onComplete={vi.fn()}
+            onCreateMeeting={vi.fn()}
+            onEndMeeting={vi.fn()}
+            onOpenLinks={vi.fn()}
+            onRescheduled={vi.fn()}
+            round={round}
+            roundNumber={2}
+          />
+        </QueryClientProvider>,
+      );
+    });
+    expect(host.textContent).not.toContain("确认安排");
+    expect(host.textContent).not.toContain("无法参加");
+    expect(host.querySelector('[aria-label="调整面试时间"]')).toBeNull();
 
     act(() => root.unmount());
     queryClient.clear();

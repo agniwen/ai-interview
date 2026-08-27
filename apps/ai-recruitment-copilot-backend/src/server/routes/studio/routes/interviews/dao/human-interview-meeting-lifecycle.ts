@@ -8,6 +8,7 @@ import type {
   HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingProvider,
 } from "@arc/db-schema/studio-interviews";
+import { cancelPendingHumanMeetingReminders } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
 type FeishuMeetingProviderId = "feishu" | "feishu-jiguang-hr";
@@ -94,11 +95,14 @@ export function applyHumanInterviewMeetingLifecycleEvent(
         updatedAt: new Date(),
       })
       .where(eq(studioHumanInterviewMeeting.id, meeting.id));
+    if (event.status === "ended") {
+      await cancelPendingHumanMeetingReminders(tx, meeting.id);
+    }
     return "applied";
   });
 }
 
-export async function forceEndHumanInterviewMeeting({
+export function forceEndHumanInterviewMeeting({
   meetingId,
   organizationId,
 }: {
@@ -109,43 +113,39 @@ export async function forceEndHumanInterviewMeeting({
   if (organizationId) {
     conditions.push(eq(studioHumanInterviewMeeting.organizationId, organizationId));
   }
-  const [meeting] = await db
-    .select({
-      liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
-      status: studioHumanInterviewMeeting.status,
-    })
-    .from(studioHumanInterviewMeeting)
-    .where(and(...conditions))
-    .limit(1);
-  if (!meeting) {
-    throw new HumanInterviewMeetingError("真人复面会议不存在。", 404);
-  }
-  if (meeting.status === "cancelled") {
-    return meeting.liveKitRoomName;
-  }
+  return db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({
+        id: studioHumanInterviewMeeting.id,
+        liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
+        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
+        status: studioHumanInterviewMeeting.status,
+      })
+      .from(studioHumanInterviewMeeting)
+      .where(and(...conditions))
+      .limit(1)
+      .for("update");
+    if (!meeting) {
+      throw new HumanInterviewMeetingError("真人复面会议不存在。", 404);
+    }
+    if (meeting.status === "cancelled" || meeting.status === "ended") {
+      return meeting.liveKitRoomName;
+    }
 
-  const now = new Date();
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({
-      endedAt: now,
-      lifecycleOccurredAt: now,
-      lifecycleSource: "manual",
-      status: "ended",
-      updatedAt: now,
-    })
-    .where(and(...conditions, eq(studioHumanInterviewMeeting.status, "scheduled")));
-  await db
-    .update(studioHumanInterviewMeeting)
-    .set({
-      endedAt: now,
-      lifecycleOccurredAt: now,
-      lifecycleSource: "manual",
-      status: "ended",
-      updatedAt: now,
-    })
-    .where(and(...conditions, eq(studioHumanInterviewMeeting.status, "in_progress")));
-  return meeting.liveKitRoomName;
+    const now = new Date();
+    await tx
+      .update(studioHumanInterviewMeeting)
+      .set({
+        endedAt: now,
+        lifecycleOccurredAt: now,
+        lifecycleSource: "manual",
+        status: "ended",
+        updatedAt: now,
+      })
+      .where(and(...conditions));
+    await cancelPendingHumanMeetingReminders(tx, meeting.id);
+    return meeting.liveKitRoomName;
+  });
 }
 
 export async function resolveHumanInterviewMeetingByFeishuMeeting({

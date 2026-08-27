@@ -37,6 +37,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as AiInterviewInviteInviteTokenRouteImport } from './routes/ai-interview-invite.$inviteToken'
 import { Route as PlatformLivekitIndexRouteImport } from './routes/platform.livekit.index'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
@@ -216,6 +217,12 @@ const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
   path: '/api/app-version',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiInterviewInviteInviteTokenRoute =
+  AiInterviewInviteInviteTokenRouteImport.update({
+    id: '/ai-interview-invite/$inviteToken',
+    path: '/ai-interview-invite/$inviteToken',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PlatformLivekitIndexRoute = PlatformLivekitIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -413,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/select-workspace': typeof SelectWorkspaceRoute
   '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -478,6 +486,7 @@ export interface FileRoutesByTo {
   '/select-workspace': typeof SelectWorkspaceRoute
   '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -541,6 +550,7 @@ export interface FileRoutesById {
   '/select-workspace': typeof SelectWorkspaceRoute
   '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
+  '/ai-interview-invite/$inviteToken': typeof AiInterviewInviteInviteTokenRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
@@ -608,6 +618,7 @@ export interface FileRouteTypes {
     | '/select-workspace'
     | '/studio'
     | '/wait'
+    | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -673,6 +684,7 @@ export interface FileRouteTypes {
     | '/select-workspace'
     | '/studio'
     | '/wait'
+    | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -735,6 +747,7 @@ export interface FileRouteTypes {
     | '/select-workspace'
     | '/studio'
     | '/wait'
+    | '/ai-interview-invite/$inviteToken'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
@@ -801,6 +814,7 @@ export interface RootRouteChildren {
   SelectWorkspaceRoute: typeof SelectWorkspaceRoute
   StudioRoute: typeof StudioRouteWithChildren
   WaitRoute: typeof WaitRoute
+  AiInterviewInviteInviteTokenRoute: typeof AiInterviewInviteInviteTokenRoute
   ApiAppVersionRoute: typeof ApiAppVersionRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -1008,6 +1022,13 @@ declare module '@tanstack/react-router' {
       path: '/api/app-version'
       fullPath: '/api/app-version'
       preLoaderRoute: typeof ApiAppVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-interview-invite/$inviteToken': {
+      id: '/ai-interview-invite/$inviteToken'
+      path: '/ai-interview-invite/$inviteToken'
+      fullPath: '/ai-interview-invite/$inviteToken'
+      preLoaderRoute: typeof AiInterviewInviteInviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/platform/livekit/': {
@@ -1491,6 +1512,7 @@ const rootRouteChildren: RootRouteChildren = {
   SelectWorkspaceRoute: SelectWorkspaceRoute,
   StudioRoute: StudioRouteWithChildren,
   WaitRoute: WaitRoute,
+  AiInterviewInviteInviteTokenRoute: AiInterviewInviteInviteTokenRoute,
   ApiAppVersionRoute: ApiAppVersionRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,

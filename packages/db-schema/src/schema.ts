@@ -9,7 +9,6 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "./candidate-forms";
 import type {
-  AgentNotificationStatus,
   AgentNotificationType,
   AttachmentParseStatus,
   AttachmentTextSource,
@@ -29,6 +28,18 @@ import type {
   InterviewSnapshotStatus,
 } from "./interview-snapshots";
 import type { InterviewKeyInformation } from "./interview-key-information";
+import type {
+  CandidateInterviewInvitationStatus,
+  InterviewNotificationAudienceType,
+  InterviewNotificationChannel,
+  InterviewNotificationDeliveryStatus,
+  InterviewNotificationEventStatus,
+  InterviewNotificationEventType,
+  InterviewNotificationPayloadSnapshot,
+  InterviewNotificationScopeType,
+  InterviewNotificationTemplateStatus,
+  InterviewNotificationTemplateVariable,
+} from "./interview-notifications";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { JsonObject, JsonValue } from "./json";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
@@ -53,6 +64,7 @@ import type {
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingProvider,
   HumanInterviewMeetingStatus,
+  HumanInterviewerAssignmentStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
@@ -1244,7 +1256,7 @@ export const invitation = pgTable(
   "invitation",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    email: text("email").notNull(),
+    email: text("email"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     inviterId: text("inviter_id")
@@ -1977,6 +1989,7 @@ export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
     allowTextInput: boolean("allow_text_input").notNull().default(false),
+    candidateDeclineReason: text("candidate_decline_reason"),
     candidateFeedbackCategories: jsonb("candidate_feedback_categories").$type<
       CandidateInterviewFeedbackCategory[] | null
     >(),
@@ -1984,6 +1997,13 @@ export const studioInterviewSchedule = pgTable(
     candidateFeedbackSubmittedAt: timestamp("candidate_feedback_submitted_at", {
       withTimezone: true,
     }),
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
+    candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -1998,6 +2018,7 @@ export const studioInterviewSchedule = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    invitationVersion: integer("invitation_version").notNull().default(1),
     liveKitParticipantIdentity: text("livekit_participant_identity"),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
@@ -2032,6 +2053,17 @@ export const studioInterviewSchedule = pgTable(
       table.organizationId,
       table.status,
       table.createdAt,
+    ),
+    uniqueIndex("studio_interview_schedule_invite_token_uq")
+      .on(table.candidateInviteTokenHash)
+      .where(sql`${table.candidateInviteTokenHash} IS NOT NULL`),
+    check(
+      "studio_interview_schedule_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check(
+      "studio_interview_schedule_invitation_version_check",
+      sql`${table.invitationVersion} > 0`,
     ),
   ],
 );
@@ -2118,6 +2150,7 @@ export const studioHumanInterviewMeeting = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     recordingEgressId: text("recording_egress_id"),
     recordingFileKey: text("recording_file_key"),
+    scheduleVersion: integer("schedule_version").notNull().default(1),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
@@ -2135,10 +2168,15 @@ export const studioHumanInterviewMeeting = pgTable(
       table.scheduledAt,
     ),
     index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    uniqueIndex("studio_human_interview_meeting_id_org_uq").on(table.id, table.organizationId),
     uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
     index("studio_human_interview_meeting_feishu_meeting_idx").on(
       table.feishuProviderId,
       table.feishuMeetingId,
+    ),
+    check(
+      "studio_human_interview_meeting_schedule_version_check",
+      sql`${table.scheduleVersion} > 0`,
     ),
   ],
 );
@@ -2174,8 +2212,15 @@ export const studioHumanInterviewMeetingEvent = pgTable(
 export const studioHumanInterviewMeetingRound = pgTable(
   "studio_human_interview_meeting_round",
   {
+    candidateDeclineReason: text("candidate_decline_reason"),
     candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
+    candidateInviteStatus: text("candidate_invite_status")
+      .$type<CandidateInterviewInvitationStatus>()
+      .notNull()
+      .default("pending"),
     candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    candidateRespondedAt: timestamp("candidate_responded_at", { withTimezone: true }),
+    invitationVersion: integer("invitation_version").notNull().default(1),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     leftAt: timestamp("left_at", { withTimezone: true }),
     meetingId: text("meeting_id")
@@ -2190,6 +2235,14 @@ export const studioHumanInterviewMeetingRound = pgTable(
     index("studio_human_interview_meeting_round_round_idx").on(table.roundId),
     uniqueIndex("studio_human_interview_meeting_round_invite_token_idx").on(
       table.candidateInviteTokenHash,
+    ),
+    check(
+      "studio_human_interview_meeting_round_invite_status_check",
+      sql`${table.candidateInviteStatus} IN ('pending', 'sent', 'accepted', 'declined', 'expired')`,
+    ),
+    check(
+      "studio_human_interview_meeting_round_invitation_version_check",
+      sql`${table.invitationVersion} > 0`,
     ),
   ],
 );
@@ -2226,9 +2279,14 @@ export const studioHumanInterviewMeetingInterviewer = pgTable(
 export const studioHumanInterviewRoundInterviewer = pgTable(
   "studio_human_interview_round_interviewer",
   {
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedScheduleVersion: integer("confirmed_schedule_version"),
+    declineReason: text("decline_reason"),
+    declinedAt: timestamp("declined_at", { withTimezone: true }),
     roundId: text("round_id")
       .notNull()
       .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    status: text("status").$type<HumanInterviewerAssignmentStatus>().notNull().default("pending"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -2236,6 +2294,14 @@ export const studioHumanInterviewRoundInterviewer = pgTable(
   (table) => [
     primaryKey({ columns: [table.roundId, table.userId] }),
     index("studio_human_interview_round_interviewer_user_idx").on(table.userId),
+    check(
+      "studio_human_interview_round_interviewer_status_check",
+      sql`${table.status} IN ('pending', 'confirmed', 'declined')`,
+    ),
+    check(
+      "studio_human_interview_round_interviewer_confirmed_version_check",
+      sql`${table.confirmedScheduleVersion} IS NULL OR ${table.confirmedScheduleVersion} > 0`,
+    ),
   ],
 );
 
@@ -3102,14 +3168,210 @@ export const interviewAuditLog = pgTable(
   ],
 );
 
+export const studioInterviewNotificationRecipient = pgTable(
+  "studio_interview_notification_recipient",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.interviewRecordId, table.userId] }),
+    foreignKey({
+      columns: [table.interviewRecordId, table.organizationId],
+      foreignColumns: [studioInterview.id, studioInterview.organizationId],
+      name: "studio_interview_notification_recipient_record_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId, table.organizationId],
+      foreignColumns: [member.userId, member.organizationId],
+      name: "studio_interview_notification_recipient_member_org_fk",
+    }).onDelete("cascade"),
+    index("studio_interview_notification_recipient_user_idx").on(
+      table.organizationId,
+      table.userId,
+    ),
+  ],
+);
+
+export const interviewNotificationTemplate = pgTable(
+  "interview_notification_template",
+  {
+    activeVersionId: text("active_version_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => interviewNotificationTemplateVersion.id,
+      { onDelete: "set null" },
+    ),
+    audienceType: text("audience_type").$type<InterviewNotificationAudienceType>().notNull(),
+    channel: text("channel").$type<InterviewNotificationChannel>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    eventType: text("event_type").$type<InterviewNotificationEventType>().notNull(),
+    id: text("id").primaryKey(),
+    locale: text("locale").default("zh-CN").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_template_workspace_uq")
+      .on(table.organizationId, table.eventType, table.audienceType, table.channel, table.locale)
+      .where(sql`${table.organizationId} IS NOT NULL`),
+    uniqueIndex("interview_notification_template_system_uq")
+      .on(table.eventType, table.audienceType, table.channel, table.locale)
+      .where(sql`${table.organizationId} IS NULL`),
+    index("interview_notification_template_org_enabled_idx").on(
+      table.organizationId,
+      table.enabled,
+    ),
+    check(
+      "interview_notification_template_audience_check",
+      sql`${table.audienceType} IN ('candidate', 'selected_hr_user', 'initiator_fallback', 'meeting_interviewer')`,
+    ),
+    check(
+      "interview_notification_template_channel_check",
+      sql`${table.channel} IN ('feishu', 'email', 'sms')`,
+    ),
+  ],
+);
+
+export const interviewNotificationTemplateVersion = pgTable(
+  "interview_notification_template_version",
+  {
+    contentTemplate: text("content_template").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    status: text("status").$type<InterviewNotificationTemplateStatus>().notNull().default("draft"),
+    subjectTemplate: text("subject_template"),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewNotificationTemplate.id, { onDelete: "cascade" }),
+    variables: jsonb("variables")
+      .$type<InterviewNotificationTemplateVariable[]>()
+      .notNull()
+      .default([]),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_template_version_uq").on(table.templateId, table.version),
+    index("interview_notification_template_version_status_idx").on(table.templateId, table.status),
+    check(
+      "interview_notification_template_version_status_check",
+      sql`${table.status} IN ('draft', 'published', 'archived')`,
+    ),
+    check("interview_notification_template_version_positive_check", sql`${table.version} > 0`),
+  ],
+);
+
+export const interviewNotificationEvent = pgTable(
+  "interview_notification_event",
+  {
+    actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    humanMeetingId: text("human_meeting_id").references(() => studioHumanInterviewMeeting.id, {
+      onDelete: "cascade",
+    }),
+    humanRoundId: text("human_round_id").references(() => studioHumanInterviewRound.id, {
+      onDelete: "cascade",
+    }),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
+      onDelete: "cascade",
+    }),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    payloadSnapshot: jsonb("payload_snapshot")
+      .$type<InterviewNotificationPayloadSnapshot>()
+      .notNull(),
+    scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
+      onDelete: "cascade",
+    }),
+    scopeType: text("scope_type").$type<InterviewNotificationScopeType>().notNull(),
+    status: text("status").$type<InterviewNotificationEventStatus>().notNull().default("pending"),
+    type: text("type").$type<InterviewNotificationEventType>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_notification_event_dedupe_uq").on(table.dedupeKey),
+    index("interview_notification_event_claim_idx").on(
+      table.status,
+      table.nextAttemptAt,
+      table.availableAt,
+    ),
+    index("interview_notification_event_org_created_idx").on(table.organizationId, table.createdAt),
+    index("interview_notification_event_record_created_idx").on(
+      table.interviewRecordId,
+      table.createdAt,
+    ),
+    index("interview_notification_event_meeting_created_idx").on(
+      table.humanMeetingId,
+      table.createdAt,
+    ),
+    check(
+      "interview_notification_event_status_check",
+      sql`${table.status} IN ('pending', 'processing', 'completed', 'failed', 'dead', 'cancelled')`,
+    ),
+    check(
+      "interview_notification_event_scope_check",
+      sql`(
+        (${table.scopeType} = 'interview_record' AND ${table.interviewRecordId} IS NOT NULL)
+        OR (${table.scopeType} = 'ai_round' AND ${table.scheduleEntryId} IS NOT NULL)
+        OR (${table.scopeType} = 'human_meeting' AND ${table.humanMeetingId} IS NOT NULL)
+      )`,
+    ),
+    check("interview_notification_event_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "interview_notification_event_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
+  ],
+);
+
 export const interviewNotification = pgTable(
   "interview_notification",
   {
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    audienceType: text("audience_type").$type<InterviewNotificationAudienceType>(),
+    channel: text("channel").$type<InterviewNotificationChannel>(),
     conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     error: text("error"),
+    eventId: text("event_id").references(() => interviewNotificationEvent.id, {
+      onDelete: "set null",
+    }),
     feishuDocumentId: text("feishu_document_id"),
     feishuDocumentUrl: text("feishu_document_url"),
     feishuMessageId: text("feishu_message_id"),
@@ -3117,17 +3379,35 @@ export const interviewNotification = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    lastErrorCode: text("last_error_code"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
     providerId: text("provider_id").notNull(),
+    providerMessageId: text("provider_message_id"),
+    providerRequestKey: text("provider_request_key"),
+    recipientAddress: text("recipient_address"),
+    recipientDisplayName: text("recipient_display_name"),
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
+    renderedContent: text("rendered_content"),
+    renderedSubject: text("rendered_subject"),
+    resultUnknownAt: timestamp("result_unknown_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
-    status: text("status").$type<AgentNotificationStatus>().notNull().default("pending"),
-    type: text("type").$type<AgentNotificationType>().notNull(),
+    status: text("status")
+      .$type<InterviewNotificationDeliveryStatus>()
+      .notNull()
+      .default("pending"),
+    templateVersionId: text("template_version_id").references(
+      () => interviewNotificationTemplateVersion.id,
+      { onDelete: "set null" },
+    ),
+    type: text("type").$type<AgentNotificationType | InterviewNotificationEventType>().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -3136,6 +3416,16 @@ export const interviewNotification = pgTable(
   (table) => [
     index("interview_notification_record_idx").on(table.interviewRecordId),
     index("interview_notification_recipient_idx").on(table.recipientUserId),
+    index("interview_notification_event_idx").on(table.eventId),
+    index("interview_notification_delivery_claim_idx").on(table.status, table.nextAttemptAt),
+    uniqueIndex("interview_notification_event_channel_recipient_uq")
+      .on(table.eventId, table.channel, table.recipientAddress)
+      .where(
+        sql`${table.eventId} IS NOT NULL AND ${table.channel} IS NOT NULL AND ${table.recipientAddress} IS NOT NULL`,
+      ),
+    uniqueIndex("interview_notification_provider_request_uq")
+      .on(table.providerRequestKey)
+      .where(sql`${table.providerRequestKey} IS NOT NULL`),
     uniqueIndex("interview_notification_once_uq").on(
       table.interviewRecordId,
       table.conversationId,
@@ -3144,6 +3434,15 @@ export const interviewNotification = pgTable(
       table.providerId,
     ),
     index("interview_notification_organization_idx").on(table.organizationId),
+    check(
+      "interview_notification_delivery_status_check",
+      sql`${table.status} IN ('pending', 'sending', 'sent', 'failed', 'dead', 'unknown', 'cancelled')`,
+    ),
+    check("interview_notification_attempt_count_check", sql`${table.attemptCount} >= 0`),
+    check(
+      "interview_notification_lease_pair_check",
+      sql`(${table.leaseOwner} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
+    ),
   ],
 );
 

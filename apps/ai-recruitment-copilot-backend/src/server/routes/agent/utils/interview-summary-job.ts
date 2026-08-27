@@ -9,6 +9,11 @@ import { formatCandidateFormSubmissions } from "@arc/ai-recruitment-copilot-back
 import type { InterviewEvaluationQuestion } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
 import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import { enqueueAiReportReadyEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import {
+  isInterviewNotificationFlowEnabled,
+  isInterviewNotificationWorkerEnabled,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 
 const LOG_PREFIX = "[interview-summary]";
 const jsonObjectSchema = z.record(z.string(), z.json());
@@ -143,29 +148,37 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       return;
     }
 
-    await db
-      .update(interviewConversation)
-      .set({
-        evaluationCriteriaResults: report.evaluation
-          ? jsonObjectSchema.parse(report.evaluation)
-          : {},
-        // Reset attempts on success so a future manual re-run has a full
-        // retry budget instead of starting from the accumulated count.
-        summaryAttempts: 0,
-        summaryError:
-          [report.summaryError, report.evaluationError].filter(Boolean).join(" | ") || null,
-        summaryStatus: "ready",
-        transcriptSummary: report.summary,
-      })
-      .where(eq(interviewConversation.conversationId, conversationId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(interviewConversation)
+        .set({
+          evaluationCriteriaResults: report.evaluation
+            ? jsonObjectSchema.parse(report.evaluation)
+            : {},
+          // Reset attempts on success so a future manual re-run has a full
+          // retry budget instead of starting from the accumulated count.
+          summaryAttempts: 0,
+          summaryError:
+            [report.summaryError, report.evaluationError].filter(Boolean).join(" | ") || null,
+          summaryStatus: "ready",
+          transcriptSummary: report.summary,
+        })
+        .where(eq(interviewConversation.conversationId, conversationId));
+
+      if (isInterviewNotificationFlowEnabled()) {
+        await enqueueAiReportReadyEvent(tx, { conversationId, interviewRecordId });
+      }
+    });
 
     safeUpdateTag(cacheTags.interviewConversations);
     safeUpdateTag(cacheTags.interviewConversationsByRecord(interviewRecordId));
 
-    void notifyInterviewSummaryReady({
-      conversationId,
-      interviewRecordId,
-    });
+    if (!isInterviewNotificationWorkerEnabled()) {
+      void notifyInterviewSummaryReady({
+        conversationId,
+        interviewRecordId,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // eslint-disable-next-line no-console

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -26,8 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { authClient } from "@/lib/client/auth-client";
-import { useWorkspaceId } from "@/lib/client/workspace-context";
+import { rpcFetch } from "@/lib/client/api";
+import { rpc } from "@/lib/client/rpc";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
   buildWorkspaceRoleOptions,
@@ -42,6 +44,7 @@ interface InviteDialogProps {
   assignableRoles?: readonly string[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
   trigger?: ReactElement;
+  workspaceSlug?: string;
 }
 
 function getDefaultInviteRole(assignableRoles: readonly string[]): string {
@@ -52,14 +55,22 @@ export function InviteDialog({
   assignableRoleOptions,
   assignableRoles = ASSIGNABLE_ROLES,
   trigger,
+  workspaceSlug: providedWorkspaceSlug,
 }: InviteDialogProps = {}) {
-  const workspaceId = useWorkspaceId();
+  const contextualWorkspaceSlug = useOptionalWorkspaceSlug();
+  const workspaceSlug = providedWorkspaceSlug ?? contextualWorkspaceSlug;
   const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState(() => getDefaultInviteRole(assignableRoles));
   const [submitting, setSubmitting] = useState(false);
   const canInviteWithSelectedRole = assignableRoles.includes(role);
+  let submitLabel = "生成并复制链接";
+  if (submitting) {
+    submitLabel = "处理中";
+  } else if (email.trim()) {
+    submitLabel = "发送邀请";
+  }
 
   function handleOpenChange(next: boolean) {
     if (next) {
@@ -70,34 +81,50 @@ export function InviteDialog({
 
   async function onSubmit() {
     const trimmedEmail = email.trim();
-    if (!(trimmedEmail && canInviteWithSelectedRole)) {
+    if (!canInviteWithSelectedRole) {
+      return;
+    }
+    if (!workspaceSlug) {
+      toast.error("缺少工作区信息，无法创建邀请");
       return;
     }
 
     setSubmitting(true);
-    const { data, error } = await authClient.organization
-      .inviteMember({
-        email: trimmedEmail,
-        organizationId: workspaceId,
-        // SAFETY: authClient is configured with the shared roles map, and the selected value
-        // is constrained by the caller-provided subset of those configured assignable roles.
-        role: role as "admin" | "member",
-      })
-      .finally(() => setSubmitting(false));
-    if (error || !data) {
-      toast.error(error?.message ?? "邀请失败");
-      return;
-    }
-    const url = `${window.location.origin}/invite/${data.id}`;
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success(`邀请链接已复制到剪贴板: ${url}`);
-    } catch {
-      toast.success(`邀请链接已生成: ${url}`);
+      const link = await rpcFetch(
+        rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
+          json: { email: trimmedEmail || undefined, initialRole: role },
+          param: { slug: workspaceSlug },
+        }),
+        "生成工作区邀请链接失败",
+      );
+      const url = `${window.location.origin}/join/${link.code}`;
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch {
+        // The invitation still exists and remains visible in invitation-link management.
+      }
+      if (link.emailDelivery === "sent") {
+        toast.success(copied ? "邀请邮件已发送，工作区链接已复制" : "邀请邮件已发送");
+      } else if (link.emailDelivery === "failed") {
+        toast.warning(
+          copied
+            ? "工作区链接已复制，但邀请邮件发送失败，请手动发送链接"
+            : `邀请邮件发送失败，请在邀请链接管理中复制链接：${url}`,
+        );
+      } else {
+        toast.success(copied ? "工作区邀请链接已复制" : `工作区邀请链接已生成：${url}`);
+      }
+      setOpen(false);
+      setEmail("");
+      setRole(getDefaultInviteRole(assignableRoles));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "生成工作区邀请链接失败");
+    } finally {
+      setSubmitting(false);
     }
-    setOpen(false);
-    setEmail("");
-    setRole(getDefaultInviteRole(assignableRoles));
   }
 
   return (
@@ -106,11 +133,14 @@ export function InviteDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>邀请新成员</DialogTitle>
+          <DialogDescription>
+            系统会生成工作区共享邀请链接；填写邮箱时会同时发送邀请邮件，对方打开链接后使用飞书登录即可加入。
+          </DialogDescription>
         </DialogHeader>
         <Separator />
         <FieldGroup className="gap-5">
           <Field>
-            <FieldLabel htmlFor="invite-email">成员邮箱</FieldLabel>
+            <FieldLabel htmlFor="invite-email">成员邮箱（可选）</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
                 <IconMail />
@@ -121,7 +151,7 @@ export function InviteDialog({
                 inputMode="email"
                 maxLength={EMAIL_MAX_LENGTH}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
+                placeholder="可不填；不填则只生成链接"
                 type="email"
                 value={email}
               />
@@ -158,12 +188,9 @@ export function InviteDialog({
           <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
-          <Button
-            disabled={submitting || !email.trim() || !canInviteWithSelectedRole}
-            onClick={onSubmit}
-          >
+          <Button disabled={submitting || !canInviteWithSelectedRole} onClick={onSubmit}>
             {submitting ? <Spinner data-icon="inline-start" /> : null}
-            {submitting ? "正在生成" : "生成邀请链接"}
+            {submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

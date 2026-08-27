@@ -14,7 +14,15 @@ function envPath(relativePath: string): string {
 
 export function loadWorkerEnv(): void {
   for (const relativePath of [...WEB_ENV_FILES, ...WORKER_ENV_FILES]) {
-    loadEnvFile({ path: envPath(relativePath), quiet: true });
+    // Bun can preload the workspace `.env` before this module runs. In local
+    // development, `.env.local` must therefore override that preloaded value;
+    // otherwise the worker can silently stay connected to the remote database
+    // while the Web process uses the isolated local database.
+    loadEnvFile({
+      override: relativePath.endsWith(".env.local") && process.env.NODE_ENV !== "production",
+      path: envPath(relativePath),
+      quiet: true,
+    });
   }
 }
 

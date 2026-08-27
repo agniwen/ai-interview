@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconCheck,
   IconDeviceDesktopUp,
   IconLoader2,
   IconLogin,
@@ -11,6 +12,7 @@ import {
   IconUsers,
   IconVideo,
   IconVideoOff,
+  IconX,
 } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
@@ -136,6 +138,34 @@ async function endInterviewerMeeting(inviteToken: string): Promise<void> {
         : `结束会议失败（${response.status}）`,
     );
   }
+}
+
+async function respondCandidateInvitation(
+  inviteToken: string,
+  action: "accept" | "decline",
+): Promise<"accepted" | "declined"> {
+  const response = await fetch(
+    `/api/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/respond`,
+    {
+      body: JSON.stringify({ action }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const errorPayload = tokenErrorPayloadSchema.safeParse(body);
+    throw new Error(
+      errorPayload.success
+        ? (errorPayload.data.error ?? errorPayload.data.message ?? "提交邀请响应失败")
+        : "提交邀请响应失败",
+    );
+  }
+  const parsed = z.object({ status: z.enum(["accepted", "declined"]) }).safeParse(body);
+  if (!parsed.success) {
+    throw new Error("邀请响应结果无效");
+  }
+  return parsed.data.status;
 }
 
 const interviewerRoleLabel = {
@@ -330,6 +360,10 @@ function meetingRoomReducer(state: MeetingRoomState, action: MeetingRoomAction):
 export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [candidateInviteStatus, setCandidateInviteStatus] = useState(() =>
+    props.mode === "candidate" ? props.preview.candidateInviteStatus : "accepted",
+  );
+  const [candidateResponsePending, setCandidateResponsePending] = useState(false);
   const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
     props.preview.scheduledAt,
@@ -384,6 +418,67 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     }
     toast.success("会议已结束");
     dispatch({ type: "disconnected" });
+  }
+
+  async function respondToInvitation(action: "accept" | "decline") {
+    if (props.mode !== "candidate") {
+      return;
+    }
+    setCandidateResponsePending(true);
+    try {
+      const status = await respondCandidateInvitation(props.inviteToken, action);
+      setCandidateInviteStatus(status);
+      toast.success(status === "accepted" ? "已确认参加面试" : "已拒绝本次面试");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "提交邀请响应失败");
+    } finally {
+      setCandidateResponsePending(false);
+    }
+  }
+
+  if (props.mode === "candidate" && candidateInviteStatus !== "accepted") {
+    const canRespond = candidateInviteStatus === "pending" || candidateInviteStatus === "sent";
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center px-6 py-16">
+        <p className="mb-3 text-muted-foreground text-sm">{props.preview.roundLabel}</p>
+        <h1 className="text-2xl font-semibold">{props.preview.title}</h1>
+        <p className="mt-2 text-muted-foreground">
+          {props.preview.candidateName}，请确认是否参加本次面试。
+        </p>
+        <div className="mt-8 border-border border-y py-5 font-medium">
+          {formatDateTime(props.preview.scheduledAt)}
+        </div>
+        {canRespond ? (
+          <div className="mt-8 flex gap-3">
+            <Button
+              disabled={candidateResponsePending}
+              onClick={async () => {
+                await respondToInvitation("accept");
+              }}
+            >
+              <IconCheck className="size-4" />
+              {candidateResponsePending ? "处理中…" : "确认参加"}
+            </Button>
+            <Button
+              disabled={candidateResponsePending}
+              onClick={async () => {
+                await respondToInvitation("decline");
+              }}
+              variant="outline"
+            >
+              <IconX className="size-4" />
+              无法参加
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-8 text-muted-foreground text-sm">
+            {candidateInviteStatus === "declined"
+              ? "你已拒绝本次面试，如需变更请联系 HR。"
+              : "该邀请已失效，请联系 HR。"}
+          </p>
+        )}
+      </main>
+    );
   }
 
   if (!token) {

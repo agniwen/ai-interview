@@ -1,5 +1,6 @@
 "use client";
 
+import { IconRefresh, IconUserPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -32,8 +33,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
+import { InviteDialog } from "./members/invite-dialog";
 import {
   addOneHourToDateTimeLocalInputValue,
   buildHumanInterviewMeetingTitle,
@@ -82,15 +85,16 @@ interface ScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
   candidateId: string;
   candidateName: string;
-  existingCount: number;
+  passedRoundCount: number;
   onScheduled: () => void;
 }
 
-// 预设轮次标签：第 N 轮根据现有数量推荐，HR 可以自定义。
-// Preset round labels picked from existing count; HR can override.
-function defaultRoundLabel(existingCount: number): string {
+// 预设轮次标签只按已完成且通过的真人面试推进；取消的排期不会消耗业务轮次。
+// Preset labels advance only after a passed human round; cancelled attempts stay
+// on the same business round.
+function defaultRoundLabel(passedRoundCount: number): string {
   const labels = ["技术复面", "HR 复面", "总监终面", "跨部门面"];
-  return labels[existingCount] ?? `第 ${existingCount + 1} 轮`;
+  return labels[passedRoundCount] ?? `业务复面 ${passedRoundCount + 1}`;
 }
 
 export interface ScheduleRoundDialogDependencies {
@@ -103,12 +107,13 @@ export function ScheduleRoundDialogView({
   onOpenChange,
   candidateId,
   candidateName,
-  existingCount,
+  passedRoundCount,
   onScheduled,
 }: ScheduleDialogProps & { dependencies: ScheduleRoundDialogDependencies }) {
   const { slug } = dependencies;
   const queryClient = useQueryClient();
-  const { data: members } = useWorkspaceMembers(slug);
+  const membersQuery = useWorkspaceMembers(slug);
+  const { data: members } = membersQuery;
   const [label, setLabel] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -139,10 +144,13 @@ export function ScheduleRoundDialogView({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const roundLabel = label.trim() || defaultRoundLabel(existingCount);
+      const roundLabel = label.trim() || defaultRoundLabel(passedRoundCount);
       const scheduledAtIso = dateTimeLocalInputToISOString(scheduledAt);
       if (!scheduledAtIso) {
         throw new Error("请填写面试时间");
+      }
+      if (interviewerIds.length === 0) {
+        throw new Error("请选择工作区面试官");
       }
       const round = await createHumanInterviewRound(slug, candidateId, {
         format: "online",
@@ -154,23 +162,22 @@ export function ScheduleRoundDialogView({
         scheduledAt: scheduledAtIso,
       });
       const validUntilIso = dateTimeLocalInputToISOString(validUntil);
+      let feishuFailure = null;
       try {
         await createHumanInterviewMeeting(slug, {
-          interviewerIds,
           notes: notes.trim() || null,
           roundIds: [round.id],
           scheduledAt: scheduledAtIso,
           title: buildHumanInterviewMeetingTitle(candidateName, roundLabel),
           validUntil: validUntilIso,
         });
-        return { feishuFailure: null, round };
       } catch (error) {
-        const feishuFailure = isApiError(error) ? getCreatedMeetingFeishuFailure(error) : null;
+        feishuFailure = isApiError(error) ? getCreatedMeetingFeishuFailure(error) : null;
         if (!feishuFailure) {
           throw error;
         }
-        return { feishuFailure, round };
       }
+      return { feishuFailure, round };
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
     onSuccess: ({ feishuFailure }) => {
@@ -184,6 +191,15 @@ export function ScheduleRoundDialogView({
       handleOpenChange(false);
     },
   });
+
+  async function refreshWorkspaceMembers() {
+    const result = await membersQuery.refetch();
+    if (result.error) {
+      toast.error(result.error instanceof Error ? result.error.message : "刷新面试官列表失败");
+      return;
+    }
+    toast.success("面试官列表已刷新");
+  }
 
   const memberRecords = members?.records ?? [];
   const selectedMembers = memberRecords.filter((member) => interviewerIds.includes(member.id));
@@ -218,7 +234,7 @@ export function ScheduleRoundDialogView({
               id="round-label"
               maxLength={50}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder={defaultRoundLabel(existingCount)}
+              placeholder={defaultRoundLabel(passedRoundCount)}
               value={label}
             />
           </div>
@@ -254,6 +270,38 @@ export function ScheduleRoundDialogView({
               selectedPreviewLimit={2}
               value={interviewerIds}
             />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs">
+                找不到面试官时，请先邀请对方加入工作区，加入后刷新列表。
+              </p>
+              <div className="flex items-center gap-1">
+                <InviteDialog
+                  assignableRoles={["member"]}
+                  trigger={
+                    <Button size="sm" type="button" variant="ghost">
+                      <IconUserPlus data-icon="inline-start" />
+                      邀请成员
+                    </Button>
+                  }
+                  workspaceSlug={slug}
+                />
+                <Button
+                  aria-label="刷新面试官列表"
+                  disabled={membersQuery.isFetching}
+                  onClick={refreshWorkspaceMembers}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {membersQuery.isFetching ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <IconRefresh data-icon="inline-start" />
+                  )}
+                  {membersQuery.isFetching ? "刷新中…" : "刷新"}
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-1.5">

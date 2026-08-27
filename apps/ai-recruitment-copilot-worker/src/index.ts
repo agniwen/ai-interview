@@ -47,11 +47,12 @@ import {
 } from "@arc/meeting-processing-queue/meeting-transcription";
 import { listMeetingTranscriptionProviderCandidates } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-registry";
 import { createWorkerApp } from "./app";
-import { resolveWorkerServerConfig } from "./config";
+import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
 import { getResumeParseConfigSummary } from "./parse-config";
 import { startMailIngestScheduler } from "./mail-ingest/scheduler";
 import type { MailIngestScheduler } from "./mail-ingest/scheduler";
+import { startInterviewNotificationScheduler } from "./interview-notifications/scheduler";
 
 loadWorkerEnv();
 
@@ -255,6 +256,7 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
 
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
+  const backgroundProcessingEnabled = isWorkerBackgroundProcessingEnabled();
   const app = createWorkerApp();
   const server = serve({
     fetch: app.fetch,
@@ -272,6 +274,29 @@ async function main() {
   const closeServer = promisify(server.close.bind(server));
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
+  // Notification outbox polling has its own feature flags and remains independent
+  // from the general background-processing switch used by resume/meeting queues.
+  const interviewNotificationScheduler = startInterviewNotificationScheduler({
+    claimEvents: async (input) => {
+      const { claimInterviewNotificationEvents } =
+        await import("./interview-notifications/default-dependencies");
+      return claimInterviewNotificationEvents(input);
+    },
+    processEvent: async (event, leaseOwner) => {
+      const [
+        { defaultInterviewNotificationProcessorDependencies },
+        { processInterviewNotificationEvent },
+      ] = await Promise.all([
+        import("./interview-notifications/default-dependencies"),
+        import("./interview-notifications/processor"),
+      ]);
+      await processInterviewNotificationEvent(
+        event,
+        { leaseOwner },
+        defaultInterviewNotificationProcessorDependencies,
+      );
+    },
+  });
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
@@ -286,7 +311,7 @@ async function main() {
   let meetingPurgeRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
   let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
-  if (isMeetingAnswerQueueConfigured()) {
+  if (backgroundProcessingEnabled && isMeetingAnswerQueueConfigured()) {
     meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
       const [{ defaultMeetingAnswerDependencies }, { runMeetingAnswerProcessing }] =
         await Promise.all([
@@ -301,7 +326,7 @@ async function main() {
     }, 60_000);
     meetingAnswerRecoveryTimer.unref();
   }
-  if (isMeetingProcessingQueueConfigured()) {
+  if (backgroundProcessingEnabled && isMeetingProcessingQueueConfigured()) {
     meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
       const { defaultMeetingPlaybackDependencies } =
         await import("./meeting-playback/default-dependencies");
@@ -314,7 +339,7 @@ async function main() {
     }, 60_000);
     meetingPlaybackRecoveryTimer.unref();
   }
-  if (isMeetingPurgeQueueConfigured()) {
+  if (backgroundProcessingEnabled && isMeetingPurgeQueueConfigured()) {
     meetingPurgeWorker = createMeetingPurgeWorker(async (payload) => {
       const { defaultMeetingPurgeDependencies } =
         await import("./meeting-purge/default-dependencies");
@@ -327,7 +352,7 @@ async function main() {
     }, 60_000);
     meetingPurgeRecoveryTimer.unref();
   }
-  if (isMeetingIntelligenceQueueConfigured()) {
+  if (backgroundProcessingEnabled && isMeetingIntelligenceQueueConfigured()) {
     meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
       const { defaultMeetingIntelligenceDependencies } =
         await import("./meeting-intelligence/default-dependencies");
@@ -345,6 +370,7 @@ async function main() {
     meetingIntelligenceRecoveryTimer.unref();
   }
   if (
+    backgroundProcessingEnabled &&
     isMeetingTranscriptionQueueConfigured() &&
     listMeetingTranscriptionProviderCandidates().length > 0
   ) {
@@ -369,7 +395,7 @@ async function main() {
     }, 60_000);
     meetingTranscriptionRecoveryTimer.unref();
   }
-  if (isResumeParseQueueConfigured()) {
+  if (backgroundProcessingEnabled && isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ bypassCache, itemId }, context) => {
       const { runBulkResumeUploadWorkflow } =
@@ -405,7 +431,7 @@ async function main() {
     });
     mailIngestScheduler = startMailIngestScheduler();
   }
-  if (!worker) {
+  if (backgroundProcessingEnabled && !worker) {
     console.warn("[worker] REDIS_URL is not set; resume parse worker is not started.");
     mailIngestScheduler = startMailIngestScheduler();
   }
@@ -413,6 +439,9 @@ async function main() {
     mailIngestTriggerWorker = createMailIngestTriggerWorker(async ({ organizationId }) => {
       await mailIngestScheduler?.runNow({ organizationId });
     });
+  }
+  if (!backgroundProcessingEnabled) {
+    console.info("[worker] general background processing disabled");
   }
 
   console.info(`[worker] listening on http://${hostname}:${port}`);
@@ -425,6 +454,7 @@ async function main() {
         console.info(`[worker] shutting down after ${signal}`);
         mailIngestScheduler?.close();
         await mailIngestTriggerWorker?.close();
+        interviewNotificationScheduler?.close();
         await closeServer();
         await worker?.close();
         await semanticIndexWorker?.close();

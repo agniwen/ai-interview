@@ -53,6 +53,13 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@arc/shared/referrals";
+import {
+  handleHumanInterviewInvitationResponseError,
+  isCurrentHumanInterviewInvitationToken,
+  recordHumanInterviewInvitationException,
+  respondHumanInterviewCandidateInvitation,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-candidate-response";
+import { aiInterviewInvitationsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/public/routes/ai-interview-invitations/route";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   cancelBatch,
@@ -204,6 +211,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         },
       });
     })
+    .route("/ai-interview-invitations", aiInterviewInvitationsRouter)
     .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
       const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
         c.req.param("inviteToken"),
@@ -213,9 +221,11 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       return c.json(
         {
+          candidateName: scope.candidateName,
           interviewerName: scope.interviewerName,
           meetingId: scope.meetingId,
           role: scope.role,
+          roundLabel: scope.roundLabel,
           scheduledAt: scope.scheduledAt,
           status: scope.status,
           title: scope.title,
@@ -295,12 +305,27 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       return c.json({ ok: true }, 200);
     })
     .get("/human-interview-meetings/:inviteToken", async (c) => {
-      const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
+      const inviteToken = c.req.param("inviteToken");
+      const scope = await resolveHumanInterviewMeetingInviteToken(inviteToken);
       if (!scope) {
+        const expired = await isCurrentHumanInterviewInvitationToken(inviteToken);
+        if (expired) {
+          await recordHumanInterviewInvitationException({
+            exceptionType: "invitation_expired",
+            inviteToken,
+          }).catch((error) => {
+            console.error("[human-invitation-expired-notification] failed", { error });
+          });
+          return c.json(
+            { code: "invitation_expired", error: "真人复面邀请已过期，请联系招聘负责人。" },
+            410,
+          );
+        }
         return c.json({ error: "真人复面链接不可用。" }, 404);
       }
       return c.json(
         {
+          candidateInviteStatus: scope.candidateInviteStatus,
           candidateName: scope.candidateName,
           meetingId: scope.meetingId,
           roundLabel: scope.roundLabel,
@@ -312,6 +337,30 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
         200,
       );
     })
+    .post(
+      "/human-interview-meetings/:inviteToken/respond",
+      zValidator(
+        "json",
+        z.object({
+          action: z.enum(["accept", "decline"]),
+          declineReason: z.string().trim().max(500).nullable().optional(),
+        }),
+        jsonValidatorError("邀请响应无效。"),
+      ),
+      async (c) => {
+        const inviteToken = c.req.param("inviteToken");
+        try {
+          const result = await respondHumanInterviewCandidateInvitation({
+            ...c.req.valid("json"),
+            inviteToken,
+          });
+          return c.json(result, 200);
+        } catch (error) {
+          const response = await handleHumanInterviewInvitationResponseError(error, inviteToken);
+          return c.json(response.body, response.status);
+        }
+      },
+    )
     .post("/human-interview-meetings/:inviteToken/livekit-token", async (c) => {
       const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
       if (!scope) {
@@ -319,6 +368,9 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
       }
       if (scope.status === "cancelled" || scope.status === "ended") {
         return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
+      }
+      if (scope.candidateInviteStatus !== "accepted") {
+        return c.json({ error: "请先确认参加面试。" }, 403);
       }
       if (
         scope.status === "scheduled" &&

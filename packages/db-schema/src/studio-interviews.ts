@@ -196,6 +196,14 @@ export const humanInterviewRoundStatusValues = ["pending", "completed", "cancell
 export const humanInterviewRoundStatusSchema = z.enum(humanInterviewRoundStatusValues);
 export type HumanInterviewRoundStatus = z.infer<typeof humanInterviewRoundStatusSchema>;
 
+export const humanInterviewerAssignmentStatusValues = ["pending", "confirmed", "declined"] as const;
+export const humanInterviewerAssignmentStatusSchema = z.enum(
+  humanInterviewerAssignmentStatusValues,
+);
+export type HumanInterviewerAssignmentStatus = z.infer<
+  typeof humanInterviewerAssignmentStatusSchema
+>;
+
 export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"] as const;
 export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
 export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
@@ -295,16 +303,13 @@ export type HumanInterviewMeetingInterviewerRole = z.infer<
 >;
 
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
-// 至少一名面试官；时间可空（未定档）；评分 0-100，可空。
-// Round input schema; interviewers must be non-empty, scheduledAt may be null,
-// score range 0-100.
+// 面试官可以暂为空，供“先创建会议，再由列表外人员接受邀请”流程使用；
+// 时间可空（未定档），评分 0-100，可空。
+// Interviewers may be empty while an external interviewer invitation is pending.
 export const humanInterviewRoundInputSchema = z.object({
   feedback: z.string().trim().max(5000, "面试反馈不能超过 5000 字").nullable().optional(),
   format: humanInterviewFormatSchema,
-  interviewerIds: z
-    .array(z.string().trim().min(1))
-    .min(1, "至少添加 1 位面试官")
-    .max(10, "面试官最多 10 人"),
+  interviewerIds: z.array(z.string().trim().min(1)).max(10, "面试官最多 10 人"),
   label: z.string().trim().min(1, "请输入轮次名称").max(50, "轮次名称不能超过 50 字"),
   location: z.string().trim().max(200).nullable().optional(),
   meetingUrl: z.string().trim().max(500).nullable().optional(),
@@ -317,10 +322,8 @@ export const humanInterviewRoundInputSchema = z.object({
 export type HumanInterviewRoundInput = z.infer<typeof humanInterviewRoundInputSchema>;
 
 export const humanInterviewMeetingInputSchema = z.object({
-  interviewerIds: z
-    .array(z.string().trim().min(1))
-    .min(1, "至少添加 1 位面试官")
-    .max(10, "面试官最多 10 人"),
+  // 兼容旧客户端；会议面试官由 roundIds 对应的轮次指派关系派生。
+  interviewerIds: z.array(z.string().trim().min(1)).max(10, "面试官最多 10 人").optional(),
   notes: z.string().trim().max(1000, "会议备注不能超过 1000 字").nullable().optional(),
   roundIds: z
     .array(z.string().trim().min(1))
@@ -333,6 +336,7 @@ export const humanInterviewMeetingInputSchema = z.object({
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 
 export const humanInterviewMeetingScheduleUpdateSchema = z.object({
+  reason: z.string().trim().max(500, "改期原因不能超过 500 字").nullable().optional(),
   scheduledAt: z
     .string()
     .trim()
@@ -631,7 +635,7 @@ export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewSchedu
   return {
     allowTextInput: false,
     notes: "",
-    roundLabel: sortOrder === 0 ? "一面" : `第 ${sortOrder + 1} 轮`,
+    roundLabel: sortOrder === 0 ? "AI HR 初面" : `第 ${sortOrder + 1} 轮`,
     scheduledAt: "",
     scheduledEndAt: "",
     sortOrder,

@@ -13,7 +13,7 @@ import {
   IconVideo,
   IconX,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,15 +25,18 @@ import type {
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   isApiError,
+  issueHumanInterviewMeetingLinks,
   patchHumanInterviewRound,
   updateHumanInterviewMeeting,
 } from "@/lib/client/api";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from "@/components/ui/label";
 import {
   addOneHourToDateTimeLocalInputValue,
@@ -89,6 +92,17 @@ const defaultRoundCardDependencies: RoundCardDependencies = {
   useWorkspaceSlug,
 };
 
+async function copyMeetingLink(url: string, label: string) {
+  const result = await copyTextToClipboard(toAbsoluteUrl(url));
+  if (result === "copied") {
+    toast.success(`${label}已复制`);
+  } else if (result === "manual") {
+    toast.info("已打开手动复制窗口");
+  } else {
+    toast.error("复制失败，请在全部链接中手动复制");
+  }
+}
+
 export function RoundCard({
   round,
   canCreate,
@@ -102,6 +116,7 @@ export function RoundCard({
   onEndMeeting,
   onOpenLinks,
   onRescheduled,
+  roundNumber,
   dependencies = defaultRoundCardDependencies,
 }: {
   round: HumanInterviewRoundRecord;
@@ -116,9 +131,11 @@ export function RoundCard({
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
   onRescheduled: () => void;
+  roundNumber: number;
   dependencies?: RoundCardDependencies;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
+  const slug = dependencies.useWorkspaceSlug();
   const canWrite = disabled !== true;
   const canCreateMeeting =
     canCreate &&
@@ -136,7 +153,7 @@ export function RoundCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm">
-                第 {round.sortOrder + 1} 轮 · {round.label}
+                第 {roundNumber} 轮 · {round.label}
               </span>
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
             </div>
@@ -159,6 +176,10 @@ export function RoundCard({
             </div>
           </div>
         </div>
+
+        {round.interviewers.length > 0 ? (
+          <InterviewerAssignmentList meeting={meeting} round={round} />
+        ) : null}
 
         {hasRoundDetails(round) ? (
           <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
@@ -190,9 +211,57 @@ export function RoundCard({
           onCreateMeeting={onCreateMeeting}
           onEndMeeting={onEndMeeting}
           onOpenLinks={onOpenLinks}
+          slug={slug}
         />
       </CardContent>
     </Card>
+  );
+}
+
+interface InterviewerAssignmentDescription {
+  label: string;
+  tone: "danger" | "outline" | "success" | "warning";
+}
+
+function describeInterviewerAssignment(
+  interviewer: HumanInterviewRoundRecord["interviewers"][number],
+  meeting: HumanInterviewMeetingRecord | null,
+): InterviewerAssignmentDescription {
+  if (interviewer.status === "declined") {
+    return { label: "需联系 HR", tone: "danger" };
+  }
+  if (
+    interviewer.status === "confirmed" &&
+    meeting &&
+    interviewer.confirmedScheduleVersion === meeting.scheduleVersion
+  ) {
+    return { label: "已安排", tone: "success" };
+  }
+  if (interviewer.status === "confirmed") {
+    return { label: "安排已更新", tone: "warning" };
+  }
+  return { label: "已安排", tone: "success" };
+}
+
+function InterviewerAssignmentList({
+  meeting,
+  round,
+}: {
+  meeting: HumanInterviewMeetingRecord | null;
+  round: HumanInterviewRoundRecord;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 border-border/40 border-t pt-3">
+      {round.interviewers.map((interviewer) => {
+        const status = describeInterviewerAssignment(interviewer, meeting);
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs" key={interviewer.id}>
+            <span>{interviewer.name}</span>
+            <Badge variant={status.tone}>{status.label}</Badge>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -388,6 +457,7 @@ function RoundCardActions({
   onCreateMeeting,
   onEndMeeting,
   onOpenLinks,
+  slug,
 }: {
   meeting: HumanInterviewMeetingRecord | null;
   canCreateMeeting: boolean;
@@ -400,6 +470,7 @@ function RoundCardActions({
   onCreateMeeting: () => void;
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
+  slug: string;
 }) {
   const hasActions =
     canCreateMeeting || canOpenLinks || canEndMeeting || canCancelRound || canCompleteRound;
@@ -428,10 +499,11 @@ function RoundCardActions({
         </Button>
       ) : null}
       {canOpenLinks ? (
-        <Button onClick={handleOpenLinks} size="sm" variant="outline">
-          <IconCopy className="size-4" />
-          复制链接
-        </Button>
+        <MeetingConfirmationLinkActions
+          meeting={meeting}
+          onOpenLinks={handleOpenLinks}
+          slug={slug}
+        />
       ) : null}
       {canEndMeeting ? (
         <Button onClick={handleEndMeeting} size="sm" variant="outline">
@@ -452,5 +524,85 @@ function RoundCardActions({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+function MeetingConfirmationLinkActions({
+  meeting,
+  onOpenLinks,
+  slug,
+}: {
+  meeting: HumanInterviewMeetingRecord | null;
+  onOpenLinks: () => void;
+  slug: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: links, isFetching } = useQuery({
+    enabled: open && Boolean(meeting),
+    queryFn: () => {
+      if (!meeting) {
+        throw new Error("missing meeting");
+      }
+      return issueHumanInterviewMeetingLinks(slug, meeting.id);
+    },
+    queryKey: ["human-interview-meeting-links", slug, meeting?.id],
+  });
+
+  return (
+    <HoverCard onOpenChange={setOpen}>
+      <HoverCardTrigger
+        render={
+          <Button onClick={onOpenLinks} size="sm" variant="outline">
+            <IconCopy className="size-4" />
+            会议链接
+          </Button>
+        }
+      />
+      <HoverCardContent align="end" className="w-80 space-y-3" sideOffset={6}>
+        <div>
+          <p className="font-medium text-sm">快速复制面试链接</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            候选人使用确认入口，面试官使用会议入口，请按接收人分别发送。
+          </p>
+        </div>
+        {isFetching ? (
+          <p className="flex items-center gap-2 text-muted-foreground text-xs">
+            <IconLoader2 className="size-3.5 animate-spin" />
+            正在生成当前有效链接…
+          </p>
+        ) : null}
+        {links ? (
+          <div className="space-y-2">
+            {links.candidateLinks.map((link) => (
+              <Button
+                className="w-full justify-start"
+                key={link.roundId}
+                onClick={() => copyMeetingLink(link.url, `${link.candidateName}的候选人确认链接`)}
+                size="sm"
+                variant="outline"
+              >
+                <IconCopy className="size-4" />
+                复制候选人确认链接 · {link.candidateName}
+              </Button>
+            ))}
+            {links.interviewerLinks.map((link) => (
+              <Button
+                className="w-full justify-start"
+                key={link.userId}
+                onClick={() => copyMeetingLink(link.url, `${link.name}的面试官会议链接`)}
+                size="sm"
+                variant="outline"
+              >
+                <IconCopy className="size-4" />
+                复制面试官会议链接 · {link.name}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        <Button className="w-full" onClick={onOpenLinks} size="sm" variant="ghost">
+          查看全部链接与有效期
+        </Button>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

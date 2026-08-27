@@ -8,6 +8,8 @@
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { enqueueHumanMeetingEvents } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
@@ -21,6 +23,7 @@ import type {
   HumanInterviewRoundOutcome,
 } from "@arc/db-schema/studio-interviews";
 import type { HumanInterviewRoundRecord } from "@arc/shared/studio-pipeline-stages";
+import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 import {
   COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
   HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
@@ -112,7 +115,16 @@ export async function assertCompletedHumanInterviewRoundsHaveFeedback(
 // Flatten the joined query result into the DTO shape.
 function toRecord(row: {
   round: typeof studioHumanInterviewRound.$inferSelect;
-  interviewers: { id: string; name: string | null; image: string | null }[];
+  interviewers: {
+    confirmedAt: Date | null;
+    confirmedScheduleVersion: number | null;
+    declineReason: string | null;
+    declinedAt: Date | null;
+    image: string | null;
+    name: string | null;
+    status: typeof studioHumanInterviewRoundInterviewer.$inferSelect.status;
+    userId: string;
+  }[];
 }): HumanInterviewRoundRecord {
   const { round, interviewers } = row;
   return {
@@ -125,9 +137,14 @@ function toRecord(row: {
     id: round.id,
     interviewRecordId: round.interviewRecordId,
     interviewers: interviewers.map((i) => ({
-      id: i.id,
+      confirmedAt: serializeDate(i.confirmedAt),
+      confirmedScheduleVersion: i.confirmedScheduleVersion,
+      declineReason: i.declineReason,
+      declinedAt: serializeDate(i.declinedAt),
+      id: i.userId,
       image: i.image,
       name: i.name ?? "未命名",
+      status: i.status,
     })),
     label: round.label,
     location: round.location,
@@ -167,18 +184,23 @@ export async function listHumanInterviewRounds(
   // Fetch junction rows + linked user info in one query.
   const interviewerRows = await db
     .select({
+      confirmedAt: studioHumanInterviewRoundInterviewer.confirmedAt,
+      confirmedScheduleVersion: studioHumanInterviewRoundInterviewer.confirmedScheduleVersion,
+      declineReason: studioHumanInterviewRoundInterviewer.declineReason,
+      declinedAt: studioHumanInterviewRoundInterviewer.declinedAt,
       image: user.image,
       name: user.name,
       roundId: studioHumanInterviewRoundInterviewer.roundId,
+      status: studioHumanInterviewRoundInterviewer.status,
       userId: user.id,
     })
     .from(studioHumanInterviewRoundInterviewer)
     .innerJoin(user, eq(studioHumanInterviewRoundInterviewer.userId, user.id))
     .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
-  const byRound = new Map<string, { id: string; name: string | null; image: string | null }[]>();
+  const byRound = new Map<string, (typeof interviewerRows)[number][]>();
   for (const ir of interviewerRows) {
     const list = byRound.get(ir.roundId) ?? [];
-    list.push({ id: ir.userId, image: ir.image, name: ir.name });
+    list.push(ir);
     byRound.set(ir.roundId, list);
   }
   return rounds.map((round) => toRecord({ interviewers: byRound.get(round.id) ?? [], round }));
@@ -204,6 +226,66 @@ export interface CreateRoundOptions {
   input: HumanInterviewRoundInput;
 }
 
+async function assertCanCreateHumanInterviewRound(
+  tx: Tx,
+  interviewRecordId: string,
+  organizationId: string,
+): Promise<void> {
+  const [candidate] = await tx
+    .select({ id: studioInterview.id })
+    .from(studioInterview)
+    .where(
+      and(
+        eq(studioInterview.id, interviewRecordId),
+        eq(studioInterview.organizationId, organizationId),
+      ),
+    )
+    .for("update")
+    .limit(1);
+  if (!candidate) {
+    throw new EditRoundError("候选人记录不存在。", 404);
+  }
+
+  const existingRounds = await tx
+    .select({
+      feedback: studioHumanInterviewRound.feedback,
+      label: studioHumanInterviewRound.label,
+      outcome: studioHumanInterviewRound.outcome,
+      status: studioHumanInterviewRound.status,
+    })
+    .from(studioHumanInterviewRound)
+    .where(
+      and(
+        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
+        eq(studioHumanInterviewRound.organizationId, organizationId),
+        ne(studioHumanInterviewRound.status, "cancelled"),
+      ),
+    )
+    .orderBy(desc(studioHumanInterviewRound.sortOrder));
+
+  const pendingRound = existingRounds.find((round) => round.status === "pending");
+  if (pendingRound) {
+    throw new EditRoundError(
+      `请先结束并标记完成“${pendingRound.label}”，再安排下一轮真人面试。`,
+      400,
+    );
+  }
+  const completedWithoutFeedback = existingRounds.find(
+    (round) => round.status === "completed" && !round.feedback?.trim(),
+  );
+  if (completedWithoutFeedback) {
+    throw new EditRoundError(COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE, 400);
+  }
+  const [latestCompletedRound] = existingRounds;
+  if (latestCompletedRound?.status === "completed" && latestCompletedRound.outcome !== "pass") {
+    const resultLabel = latestCompletedRound.outcome === "fail" ? "未通过" : "待定";
+    throw new EditRoundError(
+      `“${latestCompletedRound.label}”的结果为${resultLabel}，只有标记为通过后才能安排下一轮真人面试。`,
+      400,
+    );
+  }
+}
+
 // 加载单条详情（含 interviewers）。
 // Load a single round (with interviewers).
 export async function loadRoundById(
@@ -224,12 +306,21 @@ export async function loadRoundById(
     return null;
   }
   const interviewerRows = await db
-    .select({ image: user.image, name: user.name, userId: user.id })
+    .select({
+      confirmedAt: studioHumanInterviewRoundInterviewer.confirmedAt,
+      confirmedScheduleVersion: studioHumanInterviewRoundInterviewer.confirmedScheduleVersion,
+      declineReason: studioHumanInterviewRoundInterviewer.declineReason,
+      declinedAt: studioHumanInterviewRoundInterviewer.declinedAt,
+      image: user.image,
+      name: user.name,
+      status: studioHumanInterviewRoundInterviewer.status,
+      userId: user.id,
+    })
     .from(studioHumanInterviewRoundInterviewer)
     .innerJoin(user, eq(studioHumanInterviewRoundInterviewer.userId, user.id))
     .where(eq(studioHumanInterviewRoundInterviewer.roundId, roundId));
   return toRecord({
-    interviewers: interviewerRows.map((i) => ({ id: i.userId, image: i.image, name: i.name })),
+    interviewers: interviewerRows,
     round,
   });
 }
@@ -244,13 +335,12 @@ export async function createHumanInterviewRound({
   organizationId,
   input,
 }: CreateRoundOptions): Promise<HumanInterviewRoundRecord> {
-  await assertCompletedHumanInterviewRoundsHaveFeedback(interviewRecordId, organizationId);
-
   const id = crypto.randomUUID();
   const now = new Date();
   const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
 
   await db.transaction(async (tx) => {
+    await assertCanCreateHumanInterviewRound(tx, interviewRecordId, organizationId);
     const sortOrder = input.sortOrder ?? (await nextSortOrder(tx, interviewRecordId));
     await tx.insert(studioHumanInterviewRound).values({
       createdAt: now,
@@ -270,12 +360,14 @@ export async function createHumanInterviewRound({
       status: "pending",
       updatedAt: now,
     });
-    await tx.insert(studioHumanInterviewRoundInterviewer).values(
-      input.interviewerIds.map((userId) => ({
-        roundId: id,
-        userId,
-      })),
-    );
+    if (input.interviewerIds.length > 0) {
+      await tx.insert(studioHumanInterviewRoundInterviewer).values(
+        input.interviewerIds.map((userId) => ({
+          roundId: id,
+          userId,
+        })),
+      );
+    }
   });
 
   const created = await loadRoundById(id, organizationId);
@@ -499,14 +591,15 @@ export async function editHumanInterviewRound({
 // 标记完成：仅 pending → completed；带 outcome / 可选 score / feedback。
 // Mark a pending round as completed; outcome required, score/feedback optional.
 export interface CompleteRoundOptions {
+  actorUserId?: string | null;
   roundId: string;
   organizationId: string;
   outcome: HumanInterviewRoundOutcome;
   score?: number | null;
   feedback?: string | null;
 }
-
 export async function completeHumanInterviewRound({
+  actorUserId = null,
   roundId,
   organizationId,
   outcome,
@@ -522,17 +615,25 @@ export async function completeHumanInterviewRound({
     throw new EditRoundError("只有 pending 状态的轮次可以标记完成", 400);
   }
   const now = new Date();
-  await db
-    .update(studioHumanInterviewRound)
-    .set({
-      completedAt: now,
-      feedback: nextFeedback,
-      outcome,
-      score: score ?? null,
-      status: "completed",
-      updatedAt: now,
-    })
-    .where(eq(studioHumanInterviewRound.id, roundId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(studioHumanInterviewRound)
+      .set({
+        completedAt: now,
+        feedback: nextFeedback,
+        outcome,
+        score: score ?? null,
+        status: "completed",
+        updatedAt: now,
+      })
+      .where(eq(studioHumanInterviewRound.id, roundId));
+    await enqueueHumanInterviewRoundCompletion(tx, {
+      actorUserId,
+      now,
+      organizationId,
+      roundId,
+    });
+  });
   const updated = await loadRoundById(roundId, organizationId);
   if (!updated) {
     throw new Error("更新后查询失败");
@@ -543,6 +644,7 @@ export async function completeHumanInterviewRound({
 // 取消：pending → cancelled。已完成轮次不可取消（避免改写历史）。
 // Cancel a pending round; completed rounds are immutable.
 export interface CancelRoundOptions {
+  actorUserId?: string | null;
   roundId: string;
   organizationId: string;
   reason?: string | null;
@@ -554,6 +656,7 @@ export interface CancelRoundResult {
 }
 
 export async function cancelHumanInterviewRoundWithMeetings({
+  actorUserId = null,
   roundId,
   organizationId,
   reason,
@@ -572,6 +675,7 @@ export async function cancelHumanInterviewRoundWithMeetings({
       .select({
         id: studioHumanInterviewMeeting.id,
         liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
+        scheduleVersion: studioHumanInterviewMeeting.scheduleVersion,
         status: studioHumanInterviewMeeting.status,
       })
       .from(studioHumanInterviewMeetingRound)
@@ -593,13 +697,32 @@ export async function cancelHumanInterviewRoundWithMeetings({
     deletedLiveKitRoomNames.push(...uniq(meetingRows.map((meeting) => meeting.liveKitRoomName)));
     if (meetingIds.length > 0) {
       await tx
-        .delete(studioHumanInterviewMeeting)
+        .update(studioHumanInterviewMeeting)
+        .set({
+          cancelledAt: now,
+          lifecycleOccurredAt: now,
+          lifecycleSource: "manual",
+          status: "cancelled",
+          updatedAt: now,
+        })
         .where(
           and(
             eq(studioHumanInterviewMeeting.organizationId, organizationId),
             inArray(studioHumanInterviewMeeting.id, meetingIds),
           ),
         );
+      if (isInterviewNotificationFlowEnabled()) {
+        for (const meeting of meetingRows) {
+          await enqueueHumanMeetingEvents(tx, {
+            actorUserId,
+            changeReason: reason,
+            meetingId: meeting.id,
+            now,
+            scheduleVersion: meeting.scheduleVersion,
+            type: "human_interview_cancelled",
+          });
+        }
+      }
     }
 
     await tx

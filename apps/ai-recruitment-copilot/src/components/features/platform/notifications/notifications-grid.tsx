@@ -1,6 +1,8 @@
 "use client";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
+import type { AgentNotificationType } from "@arc/db-schema/db-enums";
+import type { InterviewNotificationEventType } from "@arc/db-schema/interview-notifications";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell, IconCircleCheck, IconCircleDashed, IconCircleX } from "@tabler/icons-react";
@@ -97,7 +99,7 @@ interface PlatformNotificationRecord {
   sentAt: string | null;
   status: NotificationStatus;
   targetRole: string | null;
-  type: "summary_ready";
+  type: AgentNotificationType | InterviewNotificationEventType;
   updatedAt: string;
 }
 

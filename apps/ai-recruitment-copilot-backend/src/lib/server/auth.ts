@@ -20,6 +20,7 @@ import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
+import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
 import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
@@ -338,13 +339,17 @@ export const auth = betterAuth({
       // separate better-auth flow.
       organizationHooks: {
         afterAcceptInvitation: async ({ invitation, member: acceptedMember, user }) => {
-          if (isNoAccessWorkspaceRole(acceptedMember.role) || acceptedMember.role !== "member") {
-            return;
+          if (!isNoAccessWorkspaceRole(acceptedMember.role) && acceptedMember.role === "member") {
+            await addMemberToDefaultRecruitingGroup({
+              createdBy: invitation.inviterId,
+              organizationId: acceptedMember.organizationId,
+              userId: user.id,
+            });
           }
-          await addMemberToDefaultRecruitingGroup({
-            createdBy: invitation.inviterId,
+          await notifyWorkspaceInviteCreatorMemberJoinedSafely({
+            creatorUserId: invitation.inviterId,
+            joinedUserId: user.id,
             organizationId: acceptedMember.organizationId,
-            userId: user.id,
           });
         },
         afterCreateOrganization: async ({ organization: org, user }) => {

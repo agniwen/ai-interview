@@ -3,6 +3,14 @@ import type { WorkerAppDependencies } from "./app";
 import { createWorkerApp } from "./app";
 
 const mocks = {
+  getInterviewNotificationSchedulerSnapshot: vi.fn(() => ({
+    claimed: 0,
+    enabled: false,
+    lastErrorAt: null,
+    lastRunAt: null,
+    lastSuccessAt: null,
+    running: false,
+  })),
   getMeetingIntelligenceQueueStats: vi.fn(() =>
     Promise.resolve({ active: 0, concurrency: 4, delayed: 0, failed: 0, waiting: 3 }),
   ),
@@ -128,5 +136,21 @@ describe("worker diagnostics", () => {
       },
     });
     expect(JSON.stringify(body)).not.toMatch(/secret|signed|transcript text|candidate/i);
+  });
+
+  it("exposes bounded notification scheduler state to an authorized operator", async () => {
+    vi.stubEnv("WORKER_DIAGNOSTICS_SECRET", "diagnostics-secret");
+    const response = await createTestWorkerApp().request("/operations/interview-notifications", {
+      headers: { Authorization: "Bearer diagnostics-secret" },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      claimed: 0,
+      enabled: false,
+      lastErrorAt: null,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      running: false,
+    });
   });
 });
