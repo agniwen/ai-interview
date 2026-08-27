@@ -52,6 +52,7 @@ const existingDocumentBlockSchema = z
     block_type: z.number().int(),
     bullet: existingTextContentSchema.optional(),
     children: z.array(z.string().min(1)).optional(),
+    heading2: existingTextContentSchema.optional(),
     ordered: existingTextContentSchema.optional(),
     parent_id: z.string().optional(),
     text: existingTextContentSchema.optional(),
@@ -284,7 +285,7 @@ async function listDocumentBlocks(
 }
 
 function plainText(block: ExistingDocumentBlock | undefined): string {
-  const content = block?.bullet ?? block?.ordered ?? block?.text;
+  const content = block?.bullet ?? block?.heading2 ?? block?.ordered ?? block?.text;
   return (content?.elements ?? [])
     .flatMap((element) => {
       const parsed = existingTextRunSchema.safeParse(element);
@@ -401,6 +402,10 @@ function topLevelBlockTitle(
   block: ExistingDocumentBlock | undefined,
   blocksById: Map<string, ExistingDocumentBlock>,
 ): string {
+  const directContent = plainText(block);
+  if (directContent) {
+    return directContent;
+  }
   for (const childId of block?.children ?? []) {
     const content = plainText(blocksById.get(childId));
     if (content) {
@@ -497,7 +502,7 @@ async function insertTopLevelBlock(
     accessToken: string;
     block: FeishuDocumentBlock;
     documentId: string;
-    idempotencyKey: InterviewEvaluationStructureSection;
+    idempotencyKey: string;
     index: number;
   },
   dependencies: FeishuDocxDependencies,
@@ -733,6 +738,44 @@ async function serializeDocumentStructureUpdate<T>(
   }
 }
 
+interface RecommendedQuestionsPlacementPlan {
+  currentIndex: number;
+  insertIndex: number;
+  shouldInsert: boolean;
+  shouldRelocate: boolean;
+}
+
+function planRecommendedQuestionsPlacement(
+  titles: string[],
+  hasDesiredBlock: boolean,
+): RecommendedQuestionsPlacementPlan {
+  const currentIndex = titles.indexOf("推荐面试题");
+  const hrIndex = titles.indexOf("HR面试评价");
+  const ratingIndex = titles.indexOf("评级等级确定");
+  const hasExistingBlock = currentIndex !== -1;
+  const isCorrectlyPlaced =
+    hasExistingBlock && currentIndex === hrIndex + 1 && ratingIndex === currentIndex + 1;
+  const shouldInsert = hasDesiredBlock && !hasExistingBlock;
+  const shouldRelocate = hasDesiredBlock && hasExistingBlock && !isCorrectlyPlaced;
+  const hrIndexAfterRemoval = hrIndex - (shouldRelocate && currentIndex < hrIndex ? 1 : 0);
+  const ratingIndexAfterRemoval =
+    ratingIndex - (shouldRelocate && currentIndex < ratingIndex ? 1 : 0);
+
+  if (
+    (shouldInsert || shouldRelocate) &&
+    (hrIndexAfterRemoval === -1 || ratingIndexAfterRemoval !== hrIndexAfterRemoval + 1)
+  ) {
+    throw new Error("飞书文档缺少相邻的“HR面试评价”和“评级等级确定”板块，无法插入推荐面试题");
+  }
+
+  return {
+    currentIndex,
+    insertIndex: ratingIndexAfterRemoval,
+    shouldInsert,
+    shouldRelocate,
+  };
+}
+
 // oxlint-disable-next-line complexity -- one maintenance command validates all anchors before coordinating two insert-or-sync section plans.
 async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   options: UpdateInterviewEvaluationStructureOptions,
@@ -750,18 +793,16 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   const topLevelBlocks = (root.children ?? []).map((blockId) => blocksById.get(blockId));
   const titles = topLevelBlocks.map((block) => topLevelBlockTitle(block, blocksById));
   const hasResumeEvaluation = titles.includes("简历评价");
-  const hasRecommendedQuestions = titles.includes("推荐面试题");
+  const recommendedQuestionsPlacement = planRecommendedQuestionsPlacement(
+    titles,
+    Boolean(options.recommendedQuestionsBlock),
+  );
   const existingResumeEvaluation = hasResumeEvaluation
     ? topLevelBlocks[titles.indexOf("简历评价")]
     : undefined;
-  const existingRecommendedQuestions = hasRecommendedQuestions
-    ? topLevelBlocks[titles.indexOf("推荐面试题")]
-    : undefined;
+  const existingRecommendedQuestions = topLevelBlocks[recommendedQuestionsPlacement.currentIndex];
   const shouldInsertResumeEvaluation = Boolean(
     options.resumeEvaluationBlock && !hasResumeEvaluation,
-  );
-  const shouldInsertRecommendedQuestions = Boolean(
-    options.recommendedQuestionsBlock && !hasRecommendedQuestions,
   );
   const shouldUpdateResumeEvaluation = Boolean(
     options.resumeEvaluationBlock &&
@@ -778,12 +819,6 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
     ),
   );
 
-  const businessReviewIndex = shouldInsertRecommendedQuestions
-    ? titles.indexOf("业务一面评价")
-    : -1;
-  if (shouldInsertRecommendedQuestions && businessReviewIndex === -1) {
-    throw new Error("飞书文档缺少“业务一面评价”板块，无法插入推荐面试题");
-  }
   const hrEvaluationIndex = shouldInsertResumeEvaluation ? titles.indexOf("HR面试评价") : -1;
   if (shouldInsertResumeEvaluation && hrEvaluationIndex === -1) {
     throw new Error("飞书文档缺少“HR面试评价”板块，无法插入简历评价");
@@ -791,6 +826,7 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
 
   if (
     shouldUpdateRecommendedQuestions &&
+    !recommendedQuestionsPlacement.shouldRelocate &&
     options.recommendedQuestionsBlock &&
     existingRecommendedQuestions
   ) {
@@ -802,6 +838,32 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
         documentId: options.documentId,
         existingCallout: existingRecommendedQuestions,
         section: "recommendedQuestions",
+      },
+      dependencies,
+    );
+  }
+
+  if (
+    recommendedQuestionsPlacement.shouldRelocate &&
+    options.recommendedQuestionsBlock &&
+    existingRecommendedQuestions
+  ) {
+    await deleteBlockChildren(
+      options.documentId,
+      options.documentId,
+      recommendedQuestionsPlacement.currentIndex,
+      recommendedQuestionsPlacement.currentIndex + 1,
+      options.accessToken,
+      dependencies,
+      `interview-evaluation:${options.documentId}:recommendedQuestions:${existingRecommendedQuestions.block_id}:relocate-delete`,
+    );
+    await insertTopLevelBlock(
+      {
+        accessToken: options.accessToken,
+        block: options.recommendedQuestionsBlock,
+        documentId: options.documentId,
+        idempotencyKey: "recommendedQuestions:after-hr:v1",
+        index: recommendedQuestionsPlacement.insertIndex,
       },
       dependencies,
     );
@@ -821,27 +883,33 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
     );
   }
 
-  if (shouldInsertRecommendedQuestions && options.recommendedQuestionsBlock) {
+  if (recommendedQuestionsPlacement.shouldInsert && options.recommendedQuestionsBlock) {
     await insertTopLevelBlock(
       {
         accessToken: options.accessToken,
         block: options.recommendedQuestionsBlock,
         documentId: options.documentId,
-        idempotencyKey: "recommendedQuestions",
-        index: businessReviewIndex,
+        idempotencyKey: "recommendedQuestions:after-hr:v1",
+        index: recommendedQuestionsPlacement.insertIndex,
       },
       dependencies,
     );
   }
 
   if (shouldInsertResumeEvaluation && options.resumeEvaluationBlock) {
+    const resumeEvaluationIndex =
+      hrEvaluationIndex -
+      (recommendedQuestionsPlacement.shouldRelocate &&
+      recommendedQuestionsPlacement.currentIndex < hrEvaluationIndex
+        ? 1
+        : 0);
     await insertTopLevelBlock(
       {
         accessToken: options.accessToken,
         block: options.resumeEvaluationBlock,
         documentId: options.documentId,
         idempotencyKey: "resumeEvaluation",
-        index: hrEvaluationIndex,
+        index: resumeEvaluationIndex,
       },
       dependencies,
     );
@@ -850,11 +918,13 @@ async function updateFeishuDocxInterviewEvaluationStructureUnlocked(
   return {
     insertedSections: [
       ...(shouldInsertResumeEvaluation ? (["resumeEvaluation"] as const) : []),
-      ...(shouldInsertRecommendedQuestions ? (["recommendedQuestions"] as const) : []),
+      ...(recommendedQuestionsPlacement.shouldInsert ? (["recommendedQuestions"] as const) : []),
     ],
     updatedSections: [
       ...(shouldUpdateResumeEvaluation ? (["resumeEvaluation"] as const) : []),
-      ...(shouldUpdateRecommendedQuestions ? (["recommendedQuestions"] as const) : []),
+      ...(shouldUpdateRecommendedQuestions || recommendedQuestionsPlacement.shouldRelocate
+        ? (["recommendedQuestions"] as const)
+        : []),
     ],
   };
 }

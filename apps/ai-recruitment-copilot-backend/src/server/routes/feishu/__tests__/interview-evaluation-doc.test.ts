@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { buildInterviewEvaluationDocument } from "../utils/interview-evaluation-doc";
 import type { FeishuDocumentBlock } from "../utils/interview-evaluation-doc";
 
@@ -15,6 +16,20 @@ function blockText(block: FeishuDocumentBlock): string | undefined {
   const content =
     block.bullet ?? block.heading2 ?? block.heading3 ?? block.ordered ?? block.text ?? block.todo;
   return content?.elements[0]?.text_run.content;
+}
+
+function interviewQuestion(
+  difficulty: InterviewQuestion["difficulty"],
+  order: number,
+  question: string,
+): InterviewQuestion {
+  return {
+    difficulty,
+    evaluationFocus: `${question}考核点`,
+    followUpDirections: `${question}追问方向`,
+    order,
+    question,
+  };
 }
 
 describe("buildInterviewEvaluationDocument", () => {
@@ -62,7 +77,7 @@ describe("buildInterviewEvaluationDocument", () => {
     ]);
   });
 
-  it("places recommended interview questions immediately before the first business review", () => {
+  it("places recommended interview questions after HR evaluation and before rating levels", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",
       evaluation: {},
@@ -88,12 +103,16 @@ describe("buildInterviewEvaluationDocument", () => {
     const recommendedBlockIndex = document.blocks.findIndex((block) =>
       block.children?.some((child) => blockText(child) === "推荐面试题"),
     );
-    const businessReviewIndex = document.blocks.findIndex((block) =>
-      block.children?.some((child) => blockText(child) === "业务一面评价"),
+    const hrEvaluationIndex = document.blocks.findIndex((block) =>
+      block.children?.some((child) => blockText(child) === "HR面试评价"),
+    );
+    const ratingLevelsIndex = document.blocks.findIndex(
+      (block) => blockText(block) === "评级等级确定",
     );
 
     expect(recommendedBlockIndex).toBeGreaterThanOrEqual(0);
-    expect(recommendedBlockIndex).toBe(businessReviewIndex - 1);
+    expect(recommendedBlockIndex).toBe(hrEvaluationIndex + 1);
+    expect(ratingLevelsIndex).toBe(recommendedBlockIndex + 1);
     expect(document.blocks.at(recommendedBlockIndex)?.callout).toEqual({
       background_color: 6,
       border_color: 6,
@@ -112,6 +131,41 @@ describe("buildInterviewEvaluationDocument", () => {
       "验证候选人的系统设计能力和技术取舍。",
       "追问方向",
       "继续追问容量估算、故障降级和替代方案。",
+    ]);
+  });
+
+  it("keeps the last easy question, the last two medium questions, and every hard question", () => {
+    const questions = [
+      interviewQuestion("easy", 1, "简单题一"),
+      interviewQuestion("medium", 3, "中等题一"),
+      interviewQuestion("hard", 6, "困难题一"),
+      interviewQuestion("easy", 2, "简单题二"),
+      interviewQuestion("medium", 5, "中等题三"),
+      interviewQuestion("hard", 8, "困难题三"),
+      interviewQuestion("medium", 4, "中等题二"),
+      interviewQuestion("hard", 7, "困难题二"),
+    ];
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      recommendedQuestions: questions,
+      resumeUrl: "https://example.com/resume",
+    });
+
+    const recommendedBlock = document.blocks.find((block) =>
+      block.children?.some((child) => blockText(child) === "推荐面试题"),
+    );
+    const displayedQuestions = (recommendedBlock?.children ?? [])
+      .map(blockText)
+      .filter((text) => /^\d+\. .*题[一二三]$/.test(text ?? ""));
+
+    expect(displayedQuestions).toEqual([
+      "1. 简单题二",
+      "2. 中等题二",
+      "3. 中等题三",
+      "4. 困难题一",
+      "5. 困难题二",
+      "6. 困难题三",
     ]);
   });
 

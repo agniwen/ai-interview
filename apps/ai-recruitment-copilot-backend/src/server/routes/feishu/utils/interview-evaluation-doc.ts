@@ -240,9 +240,14 @@ function buildResumeEvaluationBlocks(
 function buildRecommendedQuestionBlocks(
   questions: InterviewEvaluationDocumentInput["recommendedQuestions"],
 ): FeishuDocumentBlock[] {
-  const orderedQuestions = (questions ?? [])
+  const validQuestions = (questions ?? [])
     .filter((question) => question.question.trim())
     .toSorted((left, right) => left.order - right.order);
+  const orderedQuestions = [
+    ...validQuestions.filter((question) => question.difficulty === "easy").slice(-1),
+    ...validQuestions.filter((question) => question.difficulty === "medium").slice(-2),
+    ...validQuestions.filter((question) => question.difficulty === "hard"),
+  ];
   if (orderedQuestions.length === 0) {
     return [];
   }
@@ -250,7 +255,7 @@ function buildRecommendedQuestionBlocks(
     calloutBlock(CALLOUT_COLOR.PURPLE, CALLOUT_COLOR.PURPLE, "technologist", [
       textBlock("推荐面试题", true),
       ...orderedQuestions.flatMap((question, index) => [
-        textBlock(`${question.order}. ${question.question.trim()}`, true),
+        textBlock(`${index + 1}. ${question.question.trim()}`, true),
         textBlock("考核点", true),
         textBlock(stringValue(question.evaluationFocus ?? undefined, "未提供")),
         textBlock("追问方向", true),
@@ -337,12 +342,12 @@ export function buildInterviewEvaluationDocument(
       ...resumeLinkBlocks,
       ...buildResumeEvaluationBlocks(input.resumeEvaluation),
       hrEvaluationBlock.block,
+      ...buildRecommendedQuestionBlocks(input.recommendedQuestions),
       heading2Block("评级等级确定"),
       todoBlock("A-超出预期 薪资110%~130%"),
       todoBlock("B-完全匹配 薪资100%~120%"),
       todoBlock("C-基本匹配 薪资90%~110%"),
       todoBlock("D-勉强接受 薪资80%~100%"),
-      ...buildRecommendedQuestionBlocks(input.recommendedQuestions),
       interviewStageCallout("technologist", "业务一面评价", CALLOUT_COLOR.GREEN),
       interviewStageCallout("man_technologist", "业务二面评价", CALLOUT_COLOR.GREEN),
       interviewStageCallout(

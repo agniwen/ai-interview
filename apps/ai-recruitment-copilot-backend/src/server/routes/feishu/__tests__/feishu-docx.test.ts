@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Feishu document adapter scenarios share realistic API fixtures and request invariants. */
 import { describe, expect, it, vi } from "vitest";
 import type { JsonValue } from "@arc/db-schema/json";
 import {
@@ -61,6 +62,33 @@ function existingResumeEvaluationPage(bodyContent: string): JsonValue {
       ],
     },
   };
+}
+
+function existingRecommendedQuestionItems(
+  blockId: string,
+  titleId: string,
+  bodyId: string,
+): JsonValue[] {
+  return [
+    {
+      block_id: blockId,
+      block_type: 19,
+      children: [titleId, bodyId],
+      parent_id: "docx-existing",
+    },
+    {
+      block_id: titleId,
+      block_type: 2,
+      parent_id: blockId,
+      text: { elements: [{ text_run: { content: "推荐面试题" } }] },
+    },
+    {
+      block_id: bodyId,
+      block_type: 2,
+      parent_id: blockId,
+      text: { elements: [{ text_run: { content: "推荐面试题正文" } }] },
+    },
+  ];
 }
 
 describe("createFeishuDocx", () => {
@@ -431,7 +459,12 @@ describe("existing Feishu documents", () => {
                 parent_id: "hr-callout",
                 text: { elements: [{ text_run: { content: "HR面试评价" } }] },
               },
-              { block_id: "rating", block_type: 4, parent_id: "docx-existing" },
+              {
+                block_id: "rating",
+                block_type: 4,
+                heading2: { elements: [{ text_run: { content: "评级等级确定" } }] },
+                parent_id: "docx-existing",
+              },
               {
                 block_id: "business-callout",
                 block_type: 19,
@@ -485,7 +518,7 @@ describe("existing Feishu documents", () => {
     );
     expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
       children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
-      index: 3,
+      index: 2,
     });
     expect(JSON.parse(String(fetcher.mock.calls[4]?.[1]?.body))).toEqual({
       children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
@@ -507,7 +540,7 @@ describe("existing Feishu documents", () => {
             {
               block_id: "docx-existing",
               block_type: 1,
-              children: ["resume-callout", "recommended-callout"],
+              children: ["resume-callout", "hr-callout", "recommended-callout", "rating"],
             },
             {
               block_id: "resume-callout",
@@ -533,6 +566,18 @@ describe("existing Feishu documents", () => {
               text: { elements: [{ text_run: { content: "简历评价正文" } }] },
             },
             {
+              block_id: "hr-callout",
+              block_type: 19,
+              children: ["hr-title"],
+              parent_id: "docx-existing",
+            },
+            {
+              block_id: "hr-title",
+              block_type: 2,
+              parent_id: "hr-callout",
+              text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+            },
+            {
               block_id: "recommended-callout",
               block_type: 19,
               children: ["recommended-title", "recommended-body"],
@@ -549,6 +594,12 @@ describe("existing Feishu documents", () => {
               block_type: 2,
               parent_id: "recommended-callout",
               text: { elements: [{ text_run: { content: "推荐面试题正文" } }] },
+            },
+            {
+              block_id: "rating",
+              block_type: 4,
+              heading2: { elements: [{ text_run: { content: "评级等级确定" } }] },
+              parent_id: "docx-existing",
             },
           ],
         },
@@ -567,6 +618,215 @@ describe("existing Feishu documents", () => {
       ),
     ).resolves.toEqual({ insertedSections: [], updatedSections: [] });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves existing recommended questions after HR evaluation and before rating levels", async () => {
+    const sectionItems = [
+      {
+        block_id: "hr-callout",
+        block_type: 19,
+        children: ["hr-title"],
+        parent_id: "docx-existing",
+      },
+      {
+        block_id: "hr-title",
+        block_type: 2,
+        parent_id: "hr-callout",
+        text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+      },
+      {
+        block_id: "rating",
+        block_type: 4,
+        heading2: { elements: [{ text_run: { content: "评级等级确定" } }] },
+        parent_id: "docx-existing",
+      },
+      {
+        block_id: "business-callout",
+        block_type: 19,
+        children: ["business-title"],
+        parent_id: "docx-existing",
+      },
+      {
+        block_id: "business-title",
+        block_type: 2,
+        parent_id: "business-callout",
+        text: { elements: [{ text_run: { content: "业务一面评价" } }] },
+      },
+    ] satisfies JsonValue[];
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [
+              {
+                block_id: "docx-existing",
+                block_type: 1,
+                children: ["hr-callout", "rating", "recommended-callout", "business-callout"],
+              },
+              ...sectionItems,
+              ...existingRecommendedQuestionItems(
+                "recommended-callout",
+                "recommended-title",
+                "recommended-body",
+              ),
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            children: [
+              { block_id: "recommended-relocated", children: ["recommended-relocated-title"] },
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [
+              {
+                block_id: "docx-existing",
+                block_type: 1,
+                children: ["hr-callout", "recommended-relocated", "rating", "business-callout"],
+              },
+              ...sectionItems,
+              ...existingRecommendedQuestionItems(
+                "recommended-relocated",
+                "recommended-relocated-title",
+                "recommended-relocated-body",
+              ),
+            ],
+          },
+        }),
+      );
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: [], updatedSections: ["recommendedQuestions"] });
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: [], updatedSections: [] });
+
+    expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(fetcher.mock.calls[1]?.[0]).toContain(
+      "/blocks/docx-existing/children/batch_delete?client_token=",
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      end_index: 3,
+      start_index: 2,
+    });
+    expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
+      children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
+      index: 1,
+    });
+  });
+
+  it("recovers a relocation when rebuilding fails after the old block is deleted", async () => {
+    const anchorItems = [
+      {
+        block_id: "hr-callout",
+        block_type: 19,
+        children: ["hr-title"],
+        parent_id: "docx-existing",
+      },
+      {
+        block_id: "hr-title",
+        block_type: 2,
+        parent_id: "hr-callout",
+        text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+      },
+      {
+        block_id: "rating",
+        block_type: 4,
+        heading2: { elements: [{ text_run: { content: "评级等级确定" } }] },
+        parent_id: "docx-existing",
+      },
+    ] satisfies JsonValue[];
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [
+              {
+                block_id: "docx-existing",
+                block_type: 1,
+                children: ["hr-callout", "rating", "recommended-callout"],
+              },
+              ...anchorItems,
+              ...existingRecommendedQuestionItems(
+                "recommended-callout",
+                "recommended-title",
+                "recommended-body",
+              ),
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }))
+      .mockResolvedValueOnce(jsonResponse({ code: 1_770_001, msg: "temporary failure" }, 500))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [
+              {
+                block_id: "docx-existing",
+                block_type: 1,
+                children: ["hr-callout", "rating"],
+              },
+              ...anchorItems,
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: { children: [{ block_id: "recommended-new", children: ["recommended-title"] }] },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {} }));
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      recommendedQuestionsBlock: calloutBlock("推荐面试题"),
+    };
+    const dependencies = { fetcher, sleep: vi.fn(() => Promise.resolve()) };
+
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).rejects.toThrow("temporary failure");
+    await expect(
+      updateFeishuDocxInterviewEvaluationStructure(options, dependencies),
+    ).resolves.toEqual({ insertedSections: ["recommendedQuestions"], updatedSections: [] });
+
+    expect(fetcher.mock.calls[4]?.[0]).toBe(fetcher.mock.calls[2]?.[0]);
+    expect(JSON.parse(String(fetcher.mock.calls[4]?.[1]?.body))).toEqual({
+      children: [{ block_type: 19, callout: { background_color: 5, border_color: 5 } }],
+      index: 1,
+    });
   });
 
   it("updates changed system-owned content and leaves matching content untouched", async () => {
@@ -678,7 +938,7 @@ describe("existing Feishu documents", () => {
           {
             block_id: "docx-existing",
             block_type: 1,
-            children: ["hr-callout", "business-callout"],
+            children: ["hr-callout", "rating", "business-callout"],
           },
           {
             block_id: "hr-callout",
@@ -691,6 +951,12 @@ describe("existing Feishu documents", () => {
             block_type: 2,
             parent_id: "hr-callout",
             text: { elements: [{ text_run: { content: "HR面试评价" } }] },
+          },
+          {
+            block_id: "rating",
+            block_type: 4,
+            heading2: { elements: [{ text_run: { content: "评级等级确定" } }] },
+            parent_id: "docx-existing",
           },
           {
             block_id: "business-callout",
@@ -780,7 +1046,7 @@ describe("existing Feishu documents", () => {
         },
         { fetcher, sleep: vi.fn(() => Promise.resolve()) },
       ),
-    ).rejects.toThrow("缺少“HR面试评价”板块");
+    ).rejects.toThrow("缺少相邻的“HR面试评价”和“评级等级确定”板块");
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
