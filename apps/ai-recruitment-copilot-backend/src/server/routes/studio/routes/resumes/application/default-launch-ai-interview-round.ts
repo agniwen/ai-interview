@@ -19,7 +19,7 @@ import {
 import type { PersistLaunchInput } from "./launch-ai-interview-round";
 import { enqueueAiInterviewInvitedEvents } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
-import { addAiInterviewInvitationToSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
+import { applyAiInterviewInvitationValidityToSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 
 export function persistLaunchAiInterviewRound(
   input: PersistLaunchInput<typeof studioInterviewSchedule.$inferInsert>,
@@ -28,6 +28,7 @@ export function persistLaunchAiInterviewRound(
   return db.transaction(async (tx) => {
     const {
       actorId,
+      candidateInviteValidity = "permanent",
       decisionAuditLogId,
       interviewRecordId,
       launchAuditLogId,
@@ -133,9 +134,11 @@ export function persistLaunchAiInterviewRound(
     }
 
     const notificationFlowEnabled = isInterviewNotificationFlowEnabled();
-    const scheduleToInsert = notificationFlowEnabled
-      ? addAiInterviewInvitationToSchedule(schedule, now)
-      : schedule;
+    const scheduleToInsert = applyAiInterviewInvitationValidityToSchedule(
+      schedule,
+      now,
+      candidateInviteValidity,
+    );
     await tx.insert(studioInterviewSchedule).values(scheduleToInsert);
     if (notificationFlowEnabled) {
       await enqueueAiInterviewInvitedEvents(tx, {
@@ -183,6 +186,7 @@ export function persistLaunchAiInterviewRound(
       action: "ai_interview_launched",
       createdAt: now,
       detail: {
+        candidateInviteValidity,
         personalizedQuestionCount: 0,
         questionCount: requiredQuestionCount,
         roundId: schedule.id,

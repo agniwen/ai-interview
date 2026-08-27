@@ -39,7 +39,7 @@ describe("resolveAiInterviewLinkState", () => {
     ).toBe(true);
   });
 
-  it("keeps legacy links without an expiry copyable", () => {
+  it("labels permanent links and keeps them copyable", () => {
     expect(
       resolveAiInterviewLinkState({
         candidateInviteExpiresAt: null,
@@ -48,7 +48,7 @@ describe("resolveAiInterviewLinkState", () => {
       }),
     ).toEqual({
       copyDisabled: false,
-      message: "面试链接未设置过期时间",
+      message: "面试链接永久有效",
     });
   });
 });

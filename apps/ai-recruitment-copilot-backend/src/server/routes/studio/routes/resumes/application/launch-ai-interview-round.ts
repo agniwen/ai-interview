@@ -3,6 +3,7 @@ import type {
   StructuredResumeGrade,
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 
 interface LaunchSchedule {
   id: string;
@@ -17,6 +18,7 @@ export interface StructuredEvaluationConfirmation {
 
 export interface LaunchAiInterviewRoundCommand {
   actorId: string;
+  candidateInviteValidity?: AiInterviewLinkValidity;
   interviewRecordId: string;
   organizationId: string;
   structuredEvaluationConfirmation?: StructuredEvaluationConfirmation | null;

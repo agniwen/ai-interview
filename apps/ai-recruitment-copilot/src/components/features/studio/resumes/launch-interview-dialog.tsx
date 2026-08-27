@@ -21,6 +21,7 @@ import { SortableQuestionListEditor } from "@/components/features/studio/sortabl
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Modal } from "@/components/ui/modal";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
@@ -42,6 +51,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 import { ResumeOverviewPanel } from "./resume-overview-panel";
 
 interface LaunchFormValues {
@@ -54,6 +64,13 @@ const streamQuestionsPayloadSchema = z.object({
   interviewQuestions: z.array(generatedInterviewQuestionSchema),
 });
 const launchDialogTabSchema = z.enum(["questions", "overview", "experience"]);
+
+export const AI_INTERVIEW_LINK_VALIDITY_OPTIONS = [
+  { label: "永久", value: "permanent" },
+  { label: "1 天", value: "1_day" },
+  { label: "3 天", value: "3_days" },
+  { label: "7 天", value: "7_days" },
+] as const satisfies readonly { label: string; value: AiInterviewLinkValidity }[];
 
 export function requiresStructuredLaunchConfirmation(detail: ResumeLibraryDetail | null): boolean {
   return (
@@ -463,6 +480,8 @@ export function LaunchInterviewDialog({
 }: LaunchInterviewDialogProps) {
   const slug = useWorkspaceSlug();
   const [detail, setDetail] = useState<ResumeLibraryDetail | null>(null);
+  const [candidateInviteValidity, setCandidateInviteValidity] =
+    useState<AiInterviewLinkValidity>("permanent");
   const [isLoading, setIsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -473,6 +492,8 @@ export function LaunchInterviewDialog({
     let cancelled = false;
     // oxlint-disable-next-line react/set-state-in-effect -- opening on a different record must not display stale evaluation copy.
     setDetail(null);
+    // oxlint-disable-next-line react/set-state-in-effect -- each launch starts from the product default regardless of the previous candidate.
+    setCandidateInviteValidity("permanent");
     setIsLoading(true);
     void runAsyncAction({
       cleanup: () => {
@@ -514,11 +535,12 @@ export function LaunchInterviewDialog({
       cleanup: () => setSubmitting(false),
       onError: (error) => toast.error(error instanceof Error ? error.message : "发起 AI 面试失败"),
       operation: async () => {
-        const round = await launchInterviewFromResume(
-          slug,
-          recordId,
-          riskyEvaluation ? getStructuredLaunchConfirmation(detail) : null,
-        );
+        const round = await launchInterviewFromResume(slug, recordId, {
+          candidateInviteValidity,
+          structuredEvaluationConfirmation: riskyEvaluation
+            ? getStructuredLaunchConfirmation(detail)
+            : null,
+        });
         toast.success("AI 面试已发起");
         onLaunched(round);
         onOpenChange(false);
@@ -537,6 +559,32 @@ export function LaunchInterviewDialog({
               : `确认后将为${candidateName ?? "该候选人"}创建 AI 面试。`}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <Field>
+          <FieldLabel htmlFor="ai-interview-link-validity">面试链接有效期</FieldLabel>
+          <Select
+            disabled={isLoading || submitting}
+            onValueChange={(nextValidity) => {
+              if (nextValidity) {
+                setCandidateInviteValidity(nextValidity);
+              }
+            }}
+            value={candidateInviteValidity}
+          >
+            <SelectTrigger className="w-full" id="ai-interview-link-validity">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {AI_INTERVIEW_LINK_VALIDITY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldDescription>有限有效期从 AI 面试发起成功时开始计算。</FieldDescription>
+        </Field>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={submitting}>取消</AlertDialogCancel>
           <AlertDialogAction disabled={isLoading || submitting} onClick={handleConfirm}>

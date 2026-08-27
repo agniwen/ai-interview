@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   addAiInterviewInvitationToSchedule,
+  applyAiInterviewInvitationValidityToSchedule,
   buildAiInterviewInvitationToken,
   buildResetAiInterviewInvitation,
   hashAiInterviewInvitationToken,
@@ -24,6 +25,29 @@ afterEach(() => {
 });
 
 describe("AI interview invitation token", () => {
+  it("supports permanent, 1-day, 3-day, and 7-day launch validity", () => {
+    const now = new Date("2026-08-27T00:00:00.000Z");
+
+    expect(
+      applyAiInterviewInvitationValidityToSchedule({ id: "round_permanent" }, now, "permanent"),
+    ).toMatchObject({
+      candidateInviteExpiresAt: null,
+      candidateInviteTokenHash: null,
+    });
+    expect(
+      applyAiInterviewInvitationValidityToSchedule({ id: "round_1d" }, now, "1_day")
+        .candidateInviteExpiresAt,
+    ).toEqual(new Date("2026-08-28T00:00:00.000Z"));
+    expect(
+      applyAiInterviewInvitationValidityToSchedule({ id: "round_3d" }, now, "3_days")
+        .candidateInviteExpiresAt,
+    ).toEqual(new Date("2026-08-30T00:00:00.000Z"));
+    expect(
+      applyAiInterviewInvitationValidityToSchedule({ id: "round_7d" }, now, "7_days")
+        .candidateInviteExpiresAt,
+    ).toEqual(new Date("2026-09-03T00:00:00.000Z"));
+  });
+
   it("stores only a hash while keeping the signed token reproducible", () => {
     const now = new Date("2026-08-20T08:00:00.000Z");
     const schedule = addAiInterviewInvitationToSchedule({ id: "round_1" }, now);

@@ -17,6 +17,7 @@ const deps = {
 
 const command = {
   actorId: "user_1",
+  candidateInviteValidity: "7_days" as const,
   interviewRecordId: "record_1",
   organizationId: "org_1",
   visibilityScope: { kind: "all" } as const,
@@ -40,6 +41,7 @@ describe("launchAiInterviewRound", () => {
     expect(deps.persist).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: "user_1",
+        candidateInviteValidity: "7_days",
         decisionAuditLogId: "decision_audit_1",
         launchAuditLogId: "launch_audit_1",
         schedule,

@@ -9,6 +9,7 @@
  */
 
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
@@ -377,15 +378,18 @@ export function fetchResumeDedup(
 export function launchInterviewFromResume(
   slug: string,
   id: string,
-  structuredEvaluationConfirmation?: {
-    gateStatus: StructuredResumeGateStatus;
-    grade: StructuredResumeGrade;
-    runId: string;
-  } | null,
+  options: {
+    candidateInviteValidity: AiInterviewLinkValidity;
+    structuredEvaluationConfirmation?: {
+      gateStatus: StructuredResumeGateStatus;
+      grade: StructuredResumeGrade;
+      runId: string;
+    } | null;
+  },
 ): Promise<StudioInterviewRoundDetail> {
   return rpcFetch(
     rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
-      json: { structuredEvaluationConfirmation },
+      json: options,
       param: { id, slug },
     }),
     "发起 AI 面试失败",

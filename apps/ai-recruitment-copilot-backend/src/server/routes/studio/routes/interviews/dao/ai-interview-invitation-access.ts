@@ -1,8 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
+import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 
-const AI_INVITATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const AI_INVITATION_TTL_MS = 30 * DAY_MS;
+const CONFIGURED_VALIDITY_DAYS = {
+  "1_day": 1,
+  "3_days": 3,
+  "7_days": 7,
+} as const satisfies Record<Exclude<AiInterviewLinkValidity, "permanent">, number>;
 
 const aiInvitationPayloadSchema = z.object({
   exp: z.number().int().positive(),
@@ -77,6 +84,34 @@ export function addAiInterviewInvitationToSchedule<T extends { id: string }>(
   candidateInviteTokenHash: string;
 } {
   const expiresAt = new Date(buildAiInterviewInvitationExpiry(now.getTime()));
+  const token = buildAiInterviewInvitationToken({
+    exp: expiresAt.getTime(),
+    scheduleEntryId: schedule.id,
+  });
+  return {
+    ...schedule,
+    candidateInviteExpiresAt: expiresAt,
+    candidateInviteTokenHash: hashAiInterviewInvitationToken(token),
+  };
+}
+
+export function applyAiInterviewInvitationValidityToSchedule<T extends { id: string }>(
+  schedule: T,
+  now: Date,
+  validity: AiInterviewLinkValidity,
+): T & {
+  candidateInviteExpiresAt: Date | null;
+  candidateInviteTokenHash: string | null;
+} {
+  if (validity === "permanent") {
+    return {
+      ...schedule,
+      candidateInviteExpiresAt: null,
+      candidateInviteTokenHash: null,
+    };
+  }
+
+  const expiresAt = new Date(now.getTime() + CONFIGURED_VALIDITY_DAYS[validity] * DAY_MS);
   const token = buildAiInterviewInvitationToken({
     exp: expiresAt.getTime(),
     scheduleEntryId: schedule.id,

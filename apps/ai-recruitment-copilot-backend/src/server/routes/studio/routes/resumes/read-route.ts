@@ -48,6 +48,7 @@ import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backen
 import { launchAiInterviewRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
 import { LaunchAiInterviewMutationError } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/launch-ai-interview-round";
 import { loadResumeLibraryMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
+import { aiInterviewLinkValiditySchema } from "@arc/shared/interview/ai-interview-invitation";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -61,6 +62,7 @@ const dedupCheckInputSchema = z.object({
 // Launching AI only creates the default round. Candidate-specific questions
 // remain human-interviewer reference material and stay out of the AI context.
 const launchInterviewSchema = z.object({
+  candidateInviteValidity: aiInterviewLinkValiditySchema.default("permanent"),
   structuredEvaluationConfirmation: z
     .object({
       gateStatus: structuredResumeGateStatusSchema,
@@ -513,11 +515,12 @@ export const resumeLibraryReadRouter = factory
       const { member, organization, user } = getWorkspaceRequestContext(c);
       const id = c.req.param("id");
       const visibilityScope = await loadVisibilityScope(organization.id, member.role, user.id);
-      const { structuredEvaluationConfirmation } = c.req.valid("json");
+      const { candidateInviteValidity, structuredEvaluationConfirmation } = c.req.valid("json");
       let result;
       try {
         result = await launchAiInterviewRound({
           actorId: user.id,
+          candidateInviteValidity,
           interviewRecordId: id,
           organizationId: organization.id,
           structuredEvaluationConfirmation,

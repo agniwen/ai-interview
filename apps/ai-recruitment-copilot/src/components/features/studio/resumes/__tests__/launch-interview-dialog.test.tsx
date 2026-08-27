@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import {
+  AI_INTERVIEW_LINK_VALIDITY_OPTIONS,
   getStoredInterviewQuestions,
   getStructuredLaunchConfirmation,
   requiresStructuredLaunchConfirmation,
@@ -18,6 +19,15 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
 }
 
 describe("LaunchInterviewDialog structured launch confirmation", () => {
+  it("offers permanent validity by default plus 1, 3, and 7 day choices", () => {
+    expect(AI_INTERVIEW_LINK_VALIDITY_OPTIONS).toEqual([
+      { label: "永久", value: "permanent" },
+      { label: "1 天", value: "1_day" },
+      { label: "3 天", value: "3_days" },
+      { label: "7 天", value: "7_days" },
+    ]);
+  });
+
   it("requires confirmation for a below-threshold structured evaluation", () => {
     expect(requiresStructuredLaunchConfirmation(makeDetail())).toBe(true);
     expect(getStructuredLaunchConfirmation(makeDetail())).toEqual({

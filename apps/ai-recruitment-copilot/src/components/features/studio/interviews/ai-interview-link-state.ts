@@ -21,7 +21,7 @@ export function resolveAiInterviewLinkState({
   if (!expiresAt) {
     return {
       copyDisabled: false,
-      message: "面试链接未设置过期时间",
+      message: "面试链接永久有效",
     };
   }
 
