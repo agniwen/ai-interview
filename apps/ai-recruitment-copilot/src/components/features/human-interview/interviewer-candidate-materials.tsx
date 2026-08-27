@@ -1,6 +1,6 @@
 "use client";
 
-import { IconAlertTriangle, IconFileDescription, IconId } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileDescription } from "@tabler/icons-react";
 import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
 import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
@@ -10,6 +10,7 @@ import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
+import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
   QUALITATIVE_RECOMMENDATION_LABEL,
@@ -17,6 +18,7 @@ import {
   QualitativeRecommendationIndicator,
 } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Empty,
@@ -298,31 +300,49 @@ function CandidateDetail({ query }: { query: ReturnType<typeof useOverviewQuery>
     return <ErrorBlock error={query.error} title="候选人详情加载失败" />;
   }
   const { candidate } = query.data;
+  const candidateName = candidate.candidateName.trim() || "未命名候选人";
+  const avatarLabel =
+    candidate.candidateName.trim() || candidate.candidateEmail?.trim() || "候选人";
+  const avatarValue = avatarLabel.slice(0, 1).toUpperCase();
   return (
     <ScrollArea className="h-full" viewportClassName="h-full">
-      <div className="flex flex-col gap-6 p-5 lg:p-7">
-        <section className="rounded-xl border bg-card p-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <IconId className="size-5" />
+      <div className="flex flex-col gap-8 p-5 lg:p-7">
+        <header className="flex min-w-0 items-center gap-3">
+          <Avatar
+            className="size-14 shrink-0"
+            generatedSize={56}
+            label={`${avatarLabel}的头像`}
+            seed={candidateName}
+          >
+            <AvatarFallback>{avatarValue}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+              <h2 className="truncate font-semibold text-2xl tracking-normal">{candidateName}</h2>
+              <span className="font-normal text-[14px] text-muted-foreground/60">
+                ({formatResumeRecordDisplayId(candidate.id)})
+              </span>
             </div>
-            <div className="min-w-0">
-              <h2 className="truncate font-semibold text-lg">{candidate.candidateName}</h2>
-              <p className="truncate text-muted-foreground text-sm">
-                {candidate.targetRole ?? "未填写目标岗位"}
-              </p>
-            </div>
+            <p className="mt-2 truncate text-muted-foreground text-sm">
+              {candidate.jobDescriptionName ?? candidate.targetRole ?? "未关联岗位"}
+            </p>
           </div>
+        </header>
+
+        <section className="border-border/50 border-t pt-6">
+          <h3 className="mb-3 font-medium text-sm">候选人信息</h3>
           <DataFields columns={3} density="compact">
-            <DataField label="岗位" value={candidate.jobDescriptionName} />
+            <DataField label="姓名" value={candidateName} />
+            <DataField label="关联岗位" value={candidate.jobDescriptionName} />
+            <DataField label="求职意向" value={candidate.targetRole} />
             <DataField kind="email" label="邮箱" value={candidate.candidateEmail} />
             <DataField kind="phone" label="电话" value={candidate.candidatePhone} />
-            <DataField label="录入人" value={candidate.creatorName} />
-            <DataField label="简历文件" span={2} value={candidate.resumeFileName} />
+            <DataField label="创建人" value={candidate.creatorName} />
+            <DataField label="简历文件" span="full" value={candidate.resumeFileName} />
           </DataFields>
         </section>
-        <section className="rounded-xl border bg-card p-5">
-          <h2 className="mb-4 font-semibold text-base">简历信息</h2>
+
+        <section className="border-border/50 border-t pt-6">
           <ResumeProfileView
             profile={candidate.resumeProfile}
             showBasicInfo={false}
