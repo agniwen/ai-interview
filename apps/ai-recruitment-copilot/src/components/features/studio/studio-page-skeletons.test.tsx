@@ -56,7 +56,10 @@ describe("Studio page skeletons", () => {
     );
     expect(recruiting).toContain('data-slot="date-group-header-skeleton"');
     expect(resumePool).toContain('data-slot="date-group-header-skeleton"');
-    expect(resumePool).toContain("h-[218px]");
+    expect(resumePool).toContain('data-slot="resume-pool-card-skeleton"');
+    expect(resumePool).toContain('data-slot="resume-pool-card-skeleton-avatar"');
+    expect(resumePool).toContain("h-[356px]");
+    expect(resumePool).toContain("2xl:h-[218px]");
     expect(dashboard).toContain("grid-cols-2 gap-4 xl:grid-cols-4");
     expect(dashboard).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
     expect(dashboard.match(/data-slot="dashboard-panel-skeleton"/g)).toHaveLength(6);

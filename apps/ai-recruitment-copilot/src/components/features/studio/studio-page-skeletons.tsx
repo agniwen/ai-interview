@@ -7,6 +7,7 @@ import { StudioSummaryCardsSkeleton } from "./studio-summary-cards";
 import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description-charts-skeleton";
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
 import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
+import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
 import { DataGridContentSkeleton } from "@/components/data-grid";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -98,10 +99,10 @@ function RecruitingListSkeleton() {
 
 function ResumePoolCardsSkeleton() {
   return (
-    <div className="grid gap-3">
+    <div className="grid">
       <StudioDateGroupHeaderSkeleton />
       {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton className="h-[218px] rounded-xl max-lg:h-[246px] max-md:h-[286px]" key={index} />
+        <ResumePoolCardSkeleton key={index} />
       ))}
     </div>
   );

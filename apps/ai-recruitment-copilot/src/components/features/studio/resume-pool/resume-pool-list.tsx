@@ -10,7 +10,6 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import {
@@ -22,14 +21,15 @@ import {
 } from "@/components/features/studio/studio-date-group-virtual-list";
 
 import { ResumePoolCard, useResumePoolCardHeight } from "./resume-pool-card";
+import { ResumePoolCardSkeleton } from "./resume-pool-card-skeleton";
 import { buildResumePoolVirtualRows, canDeletePoolRecord } from "./resume-pool-page-model";
 
 export function ResumePoolLoadingState({ showDateGroup = true }: { showDateGroup?: boolean }) {
   return (
-    <output aria-label="正在加载简历" className="grid gap-3">
+    <output aria-label="正在加载简历" className="grid">
       {showDateGroup ? <StudioDateGroupHeaderSkeleton /> : null}
       {Array.from({ length: 4 }, (_, index) => (
-        <Skeleton className="h-[218px] rounded-xl max-lg:h-[246px] max-md:h-[286px]" key={index} />
+        <ResumePoolCardSkeleton key={index} />
       ))}
     </output>
   );

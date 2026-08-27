@@ -20,6 +20,8 @@ describe("resume pool list", () => {
     expect(source).toContain("buildResumePoolVirtualRows");
     expect(source).toContain("StudioStickyDateGroupHeader");
     expect(source).toContain("StudioDateGroupHeaderSkeleton");
+    expect(source).toContain("ResumePoolCardSkeleton");
+    expect(source).not.toContain('className="h-[218px] rounded-xl');
     expect(source).toContain("STUDIO_DATE_GROUP_ROW_HEIGHT");
     expect(source).toContain('import { SkeletonReveal } from "@/components/ui/skeleton-reveal";');
     expect(source).toContain("<SkeletonReveal");
