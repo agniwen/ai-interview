@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { canStartAiInterviewRound } from "./ai-interview-access";
+import { resolveAiInterviewAccess } from "./ai-interview-access";
 
-describe("canStartAiInterviewRound", () => {
+describe("resolveAiInterviewAccess", () => {
   it("allows legacy rounds that were created without a candidate invitation", () => {
     expect(
-      canStartAiInterviewRound({
+      resolveAiInterviewAccess({
         candidateInviteExpiresAt: null,
         candidateInviteStatus: "pending",
         candidateInviteTokenHash: null,
         roundStatus: "pending",
       }),
-    ).toBe(true);
+    ).toBe("allowed");
   });
 
-  it("requires an accepted current invitation before the first session starts", () => {
+  it("treats opening a current interview link as accepting the invitation", () => {
     const invitation = {
       candidateInviteExpiresAt: new Date("2026-08-28T00:00:00.000Z"),
       candidateInviteTokenHash: "current-token-hash",
@@ -21,36 +21,41 @@ describe("canStartAiInterviewRound", () => {
       roundStatus: "pending" as const,
     };
 
-    expect(canStartAiInterviewRound({ ...invitation, candidateInviteStatus: "declined" })).toBe(
-      false,
+    expect(resolveAiInterviewAccess({ ...invitation, candidateInviteStatus: "declined" })).toBe(
+      "unavailable",
     );
-    expect(canStartAiInterviewRound({ ...invitation, candidateInviteStatus: "sent" })).toBe(false);
-    expect(canStartAiInterviewRound({ ...invitation, candidateInviteStatus: "accepted" })).toBe(
-      true,
+    expect(resolveAiInterviewAccess({ ...invitation, candidateInviteStatus: "pending" })).toBe(
+      "auto_accept",
+    );
+    expect(resolveAiInterviewAccess({ ...invitation, candidateInviteStatus: "sent" })).toBe(
+      "auto_accept",
+    );
+    expect(resolveAiInterviewAccess({ ...invitation, candidateInviteStatus: "accepted" })).toBe(
+      "allowed",
     );
   });
 
-  it("blocks an accepted invitation that expired before the first session", () => {
+  it("blocks an invitation that expired before the first session", () => {
     expect(
-      canStartAiInterviewRound({
+      resolveAiInterviewAccess({
         candidateInviteExpiresAt: new Date("2026-08-26T00:00:00.000Z"),
-        candidateInviteStatus: "accepted",
+        candidateInviteStatus: "sent",
         candidateInviteTokenHash: "current-token-hash",
         now: new Date("2026-08-27T00:00:00.000Z"),
         roundStatus: "pending",
       }),
-    ).toBe(false);
+    ).toBe("unavailable");
   });
 
   it("allows an accepted candidate to reconnect after the invitation expiry", () => {
     expect(
-      canStartAiInterviewRound({
+      resolveAiInterviewAccess({
         candidateInviteExpiresAt: new Date("2026-08-26T00:00:00.000Z"),
         candidateInviteStatus: "accepted",
         candidateInviteTokenHash: "current-token-hash",
         now: new Date("2026-08-27T00:00:00.000Z"),
         roundStatus: "interrupted",
       }),
-    ).toBe(true);
+    ).toBe("allowed");
   });
 });

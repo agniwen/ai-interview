@@ -31,9 +31,75 @@ import {
   loadScheduleEntriesForRedirect,
 } from "./utils";
 import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
-import { canStartAiInterviewRound } from "./utils/ai-interview-access";
-import { enqueueAiInterviewCompletedEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
+import { resolveAiInterviewAccess } from "./utils/ai-interview-access";
+import {
+  enqueueAiInterviewCompletedEvent,
+  enqueueAiInvitationResponseEvent,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+
+type InterviewTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function recordDirectAiInterviewAcceptance(
+  tx: InterviewTransaction,
+  input: { invitationVersion: number; now: Date; roundId: string },
+): Promise<void> {
+  await tx
+    .update(studioInterviewSchedule)
+    .set({
+      candidateInviteStatus: "accepted" as const,
+      candidateRespondedAt: input.now,
+      updatedAt: input.now,
+    })
+    .where(eq(studioInterviewSchedule.id, input.roundId));
+  if (isInterviewNotificationFlowEnabled()) {
+    await enqueueAiInvitationResponseEvent(tx, {
+      action: "accept",
+      invitationVersion: input.invitationVersion,
+      respondedAt: input.now,
+      scheduleEntryId: input.roundId,
+    });
+  }
+}
+
+async function recordDirectAiInterviewVisit(roundId: string): Promise<boolean> {
+  const now = new Date();
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        candidateInviteExpiresAt: studioInterviewSchedule.candidateInviteExpiresAt,
+        candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
+        candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
+        invitationVersion: studioInterviewSchedule.invitationVersion,
+        status: studioInterviewSchedule.status,
+      })
+      .from(studioInterviewSchedule)
+      .where(eq(studioInterviewSchedule.id, roundId))
+      .for("update")
+      .limit(1);
+    if (!row) {
+      return false;
+    }
+    const decision = resolveAiInterviewAccess({
+      candidateInviteExpiresAt: row.candidateInviteExpiresAt,
+      candidateInviteStatus: row.candidateInviteStatus,
+      candidateInviteTokenHash: row.candidateInviteTokenHash,
+      now,
+      roundStatus: row.status,
+    });
+    if (decision === "unavailable") {
+      return false;
+    }
+    if (decision === "auto_accept") {
+      await recordDirectAiInterviewAcceptance(tx, {
+        invitationVersion: row.invitationVersion,
+        now,
+        roundId,
+      });
+    }
+    return true;
+  });
+}
 
 export const interviewRouter = factory
   .createApp()
@@ -117,6 +183,7 @@ export const interviewRouter = factory
           candidateInviteStatus: studioInterviewSchedule.candidateInviteStatus,
           candidateInviteTokenHash: studioInterviewSchedule.candidateInviteTokenHash,
           disconnectedAt: studioInterviewSchedule.disconnectedAt,
+          invitationVersion: studioInterviewSchedule.invitationVersion,
           liveKitParticipantIdentity: studioInterviewSchedule.liveKitParticipantIdentity,
           liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
           status: studioInterviewSchedule.status,
@@ -138,16 +205,22 @@ export const interviewRouter = factory
         return { status: "round_completed" };
       }
 
-      if (
-        !canStartAiInterviewRound({
-          candidateInviteExpiresAt: row.candidateInviteExpiresAt,
-          candidateInviteStatus: row.candidateInviteStatus,
-          candidateInviteTokenHash: row.candidateInviteTokenHash,
-          now,
-          roundStatus: row.status,
-        })
-      ) {
+      const accessDecision = resolveAiInterviewAccess({
+        candidateInviteExpiresAt: row.candidateInviteExpiresAt,
+        candidateInviteStatus: row.candidateInviteStatus,
+        candidateInviteTokenHash: row.candidateInviteTokenHash,
+        now,
+        roundStatus: row.status,
+      });
+      if (accessDecision === "unavailable") {
         return { status: "invitation_unavailable" };
+      }
+      if (accessDecision === "auto_accept") {
+        await recordDirectAiInterviewAcceptance(tx, {
+          invitationVersion: row.invitationVersion,
+          now,
+          roundId,
+        });
       }
 
       // interrupted 已过期：写 completed + 清 anchor 后返 410。
@@ -221,7 +294,7 @@ export const interviewRouter = factory
     }
 
     if (resolution.status === "invitation_unavailable") {
-      return c.json({ code: "invitation_unavailable", error: "请先接受有效的面试邀请。" }, 403);
+      return c.json({ code: "invitation_unavailable", error: "面试邀请已拒绝或已过期。" }, 403);
     }
 
     const { roomName, participantIdentity, isReconnect } = resolution;
@@ -322,6 +395,10 @@ export const interviewRouter = factory
 
     if (!interviewRecord) {
       return c.json({ error: "Interview not available." }, 404);
+    }
+
+    if (!(await recordDirectAiInterviewVisit(roundId))) {
+      return c.json({ code: "invitation_unavailable", error: "面试邀请已拒绝或已过期。" }, 403);
     }
 
     return c.json(interviewRecord, 200);

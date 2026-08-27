@@ -1,23 +1,29 @@
 import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 
-export function canStartAiInterviewRound(input: {
+export type AiInterviewAccessDecision = "allowed" | "auto_accept" | "unavailable";
+
+export function resolveAiInterviewAccess(input: {
   candidateInviteExpiresAt: Date | null;
   candidateInviteStatus: CandidateInterviewInvitationStatus;
   candidateInviteTokenHash: string | null;
   now?: Date;
   roundStatus: ScheduleEntryStatus;
-}): boolean {
+}): AiInterviewAccessDecision {
   if (!input.candidateInviteTokenHash) {
-    return true;
+    return "allowed";
   }
-  if (input.candidateInviteStatus !== "accepted") {
-    return false;
+  if (input.candidateInviteStatus === "declined" || input.candidateInviteStatus === "expired") {
+    return "unavailable";
   }
   if (input.roundStatus !== "pending") {
-    return true;
+    return "allowed";
   }
-  return Boolean(
-    input.candidateInviteExpiresAt && input.candidateInviteExpiresAt > (input.now ?? new Date()),
-  );
+  if (
+    !input.candidateInviteExpiresAt ||
+    input.candidateInviteExpiresAt <= (input.now ?? new Date())
+  ) {
+    return "unavailable";
+  }
+  return input.candidateInviteStatus === "accepted" ? "allowed" : "auto_accept";
 }
