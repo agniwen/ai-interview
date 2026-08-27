@@ -4,6 +4,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useSta
 import type { ComponentProps, ComponentType, CSSProperties, PropsWithChildren } from "react";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
+import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
@@ -71,6 +72,7 @@ export interface ResumeRecordToolDetail {
   id: string;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
+  qualitativeResumeEvaluation?: QualitativeResumeEvaluation | null;
   resumeEvaluationArtifactMode?: JobEvaluationMode | null;
   resumeReview?: ResumeReviewLoose | null;
   structuredResumeReview?: StructuredResumeReview | null;

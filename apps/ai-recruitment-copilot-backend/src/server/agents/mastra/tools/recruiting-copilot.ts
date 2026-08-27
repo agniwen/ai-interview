@@ -26,6 +26,7 @@ import { upsertConversationContextJobBinding } from "@arc/ai-recruitment-copilot
 import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { jobEvaluationModeSchema } from "@arc/db-schema/job-description-evaluation";
+import { qualitativeResumeEvaluationSchema } from "@arc/db-schema/qualitative-resume-evaluation";
 import { resumeReviewLooseSchema } from "@arc/db-schema/resume-review";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import { resumeReviewStatusSchema } from "@arc/db-schema/studio-interviews";
@@ -108,6 +109,7 @@ export const resumeRecordDetailSchema = z.object({
   jobDescriptionName: z.string().nullable(),
   notes: z.string().nullable(),
   pipelineStage: z.string(),
+  qualitativeResumeEvaluation: qualitativeResumeEvaluationSchema.nullable().optional(),
   resumeEvaluationArtifactMode: jobEvaluationModeSchema.nullable(),
   resumeProfile: z.unknown().nullable(),
   resumeReview: resumeReviewLooseSchema.nullable(),
@@ -320,6 +322,38 @@ function toStructuredResumeReview(
     recommendation: evaluation.narrative.recommendation,
     summary: evaluation.narrative.summary,
   });
+}
+
+function resolveCopilotResumeEvaluationArtifacts(input: {
+  conversationOverridesPersistedJob: boolean;
+  qualitativeResumeEvaluation: unknown;
+  resumeEvaluationArtifactMode: z.infer<typeof jobEvaluationModeSchema> | null;
+  resumeReview: z.infer<typeof resumeReviewLooseSchema> | null;
+  structuredResumeEvaluation: unknown;
+}) {
+  const effectiveResumeReview =
+    input.conversationOverridesPersistedJob ||
+    input.resumeEvaluationArtifactMode === "structured" ||
+    input.resumeEvaluationArtifactMode === "qualitative"
+      ? null
+      : input.resumeReview;
+  const storedStructuredEvaluation =
+    !input.conversationOverridesPersistedJob && input.resumeEvaluationArtifactMode === "structured"
+      ? structuredResumeEvaluationV1Schema.safeParse(input.structuredResumeEvaluation)
+      : null;
+  const storedQualitativeEvaluation =
+    !input.conversationOverridesPersistedJob && input.resumeEvaluationArtifactMode === "qualitative"
+      ? qualitativeResumeEvaluationSchema.safeParse(input.qualitativeResumeEvaluation)
+      : null;
+  return {
+    effectiveQualitativeResumeEvaluation: storedQualitativeEvaluation?.success
+      ? storedQualitativeEvaluation.data
+      : null,
+    effectiveResumeReview,
+    effectiveStructuredResumeReview: storedStructuredEvaluation?.success
+      ? toStructuredResumeReview(storedStructuredEvaluation.data)
+      : null,
+  };
 }
 
 function serializeDate(value: string | Date): string {
@@ -919,6 +953,7 @@ export async function getResumeRecordDetailForCopilot(input: {
       jobDescriptionName: jobDescription.name,
       notes: studioInterview.notes,
       pipelineStage: studioInterview.pipelineStage,
+      qualitativeResumeEvaluation: studioInterview.qualitativeResumeEvaluation,
       resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
       resumeProfile: studioInterview.resumeProfile,
       resumeReview: studioInterview.resumeReview,
@@ -962,19 +997,17 @@ export async function getResumeRecordDetailForCopilot(input: {
           const conversationOverridesPersistedJob = Boolean(
             boundJobDescriptionId && boundJobDescriptionId !== record.jobDescriptionId,
           );
-          const effectiveResumeReview =
-            conversationOverridesPersistedJob ||
-            record.resumeEvaluationArtifactMode === "structured"
-              ? null
-              : record.resumeReview;
-          const storedStructuredEvaluation =
-            !conversationOverridesPersistedJob &&
-            record.resumeEvaluationArtifactMode === "structured"
-              ? structuredResumeEvaluationV1Schema.safeParse(record.structuredResumeEvaluation)
-              : null;
-          const effectiveStructuredResumeReview = storedStructuredEvaluation?.success
-            ? toStructuredResumeReview(storedStructuredEvaluation.data)
-            : null;
+          const {
+            effectiveQualitativeResumeEvaluation,
+            effectiveResumeReview,
+            effectiveStructuredResumeReview,
+          } = resolveCopilotResumeEvaluationArtifacts({
+            conversationOverridesPersistedJob,
+            qualitativeResumeEvaluation: record.qualitativeResumeEvaluation,
+            resumeEvaluationArtifactMode: record.resumeEvaluationArtifactMode,
+            resumeReview: record.resumeReview,
+            structuredResumeEvaluation: record.structuredResumeEvaluation,
+          });
           return {
             candidateName: record.candidateName,
             citation: {
@@ -989,6 +1022,7 @@ export async function getResumeRecordDetailForCopilot(input: {
             jobDescriptionName: jobBinding.jobDescriptionName,
             notes: cleanString(record.notes),
             pipelineStage: record.pipelineStage,
+            qualitativeResumeEvaluation: effectiveQualitativeResumeEvaluation,
             resumeEvaluationArtifactMode: conversationOverridesPersistedJob
               ? null
               : record.resumeEvaluationArtifactMode,
@@ -1001,6 +1035,7 @@ export async function getResumeRecordDetailForCopilot(input: {
               ? "idle"
               : record.resumeReviewStatus,
             resumeSummary:
+              effectiveQualitativeResumeEvaluation?.conciseOverall ??
               effectiveStructuredResumeReview?.summary ??
               readResumeReviewConclusion(effectiveResumeReview) ??
               cleanString(record.notes),
@@ -1204,7 +1239,7 @@ export function createRecruitingCopilotTools({
     }),
     get_resume_record_detail: createTool({
       description:
-        "一次读取 1 到 5 人在当前 workspace 招聘台中的简历详情，以及数据库已有的旧版六维评分或新版结构化评分；多人询问必须放在同一次 requests 调用中。评价候选人时对每个 request 设置 includeResumeText=true。候选人已绑定岗位时，前端会主动展示数据库评分卡；jobDescriptionId 为 null 时先输出不写库的通用 Markdown 评价，再询问是否绑定。用户明确同意前不要调用 propose_recruiting_action，也不要把临时评价写回 resumeReview。",
+        "一次读取 1 到 5 人在当前 workspace 招聘台中的简历详情，以及数据库已有的历史六维评分或新版六维定性评价；多人询问必须放在同一次 requests 调用中。评价候选人时对每个 request 设置 includeResumeText=true。候选人已绑定岗位时，前端会主动展示数据库评价卡；jobDescriptionId 为 null 时先输出不写库的通用 Markdown 评价，再询问是否绑定。用户明确同意前不要调用 propose_recruiting_action，也不要把临时评价写回 resumeReview。",
       execute: (input: z.infer<typeof getResumeRecordDetailInputSchema>) =>
         getResumeRecordDetailForCopilot({
           ...input,

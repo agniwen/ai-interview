@@ -316,6 +316,87 @@ describe("recruiting copilot tools", () => {
     expect(result.resumeRecords[0]?.resumeReview).toBeNull();
   });
 
+  it("exposes the current qualitative evaluation", () => {
+    const qualitativeResumeEvaluation = {
+      conciseOverall: "核心技能和项目经历与岗位高度匹配，建议优先推进。",
+      detailedOverall: {
+        judgment: "候选人的前端工程能力与岗位要求高度一致。",
+        matchingEvidence: "具备 React、TypeScript 和复杂项目交付经验。",
+        risks: "管理经验仍需在面试中确认。",
+      },
+      dimensions: {
+        educationBackground: {
+          basis: "job",
+          evaluation: "教育背景满足岗位要求。",
+          level: "recommended",
+        },
+        experienceRelevance: {
+          basis: "both",
+          evaluation: "五年前端经验与岗位职责高度相关。",
+          level: "highly_recommended",
+        },
+        potential: {
+          basis: "general",
+          evaluation: "持续承担更复杂职责，成长路径清晰。",
+          level: "recommended",
+        },
+        projectMatch: {
+          basis: "job",
+          evaluation: "主导过与岗位场景相近的复杂项目。",
+          level: "highly_recommended",
+        },
+        skillMatch: {
+          basis: "job",
+          evaluation: "React 与 TypeScript 实践符合核心要求。",
+          level: "highly_recommended",
+        },
+        stability: {
+          basis: "general",
+          evaluation: "任职变化具有连贯的职责升级。",
+          level: "undecided",
+        },
+      },
+      recommendationLevel: "highly_recommended",
+      schemaVersion: 2,
+      seniorityRecommendation: null,
+      teamPositioning: null,
+    } as const;
+    const result = getResumeRecordDetailOutputSchema.parse({
+      missingIds: [],
+      resumeRecords: [
+        {
+          candidateName: "定性评价候选人",
+          citation: {
+            id: "resume-qualitative",
+            label: "定性评价候选人",
+            recordType: "resume_record",
+            secondaryLabel: "高级前端工程师",
+          },
+          id: "resume-qualitative",
+          interviewQuestions: [],
+          jobDescriptionId: "jd-frontend",
+          jobDescriptionName: "高级前端工程师",
+          notes: null,
+          pipelineStage: "screening",
+          qualitativeResumeEvaluation,
+          resumeEvaluationArtifactMode: "qualitative",
+          resumeProfile: null,
+          resumeReview: null,
+          resumeReviewError: null,
+          resumeReviewStatus: "ready",
+          resumeSummary: qualitativeResumeEvaluation.conciseOverall,
+          resumeText: null,
+          structuredResumeReview: null,
+          targetRole: "高级前端",
+        },
+      ],
+    });
+
+    expect(result.resumeRecords[0]?.qualitativeResumeEvaluation).toEqual(
+      qualitativeResumeEvaluation,
+    );
+  });
+
   it("creates confirmable recruiting action proposals with stable bind ids", () => {
     const result = createRecruitingActionProposal({
       explanation: "候选人与岗位技能匹配，可以先绑定岗位。",
@@ -371,8 +452,8 @@ describe("recruiting copilot tools", () => {
     );
     expect(tools.get_resume_record_detail.description).toContain("一次读取 1 到 5 人");
     expect(tools.get_resume_record_detail.description).toContain("用户明确同意前不要调用");
-    expect(tools.get_resume_record_detail.description).toContain("旧版六维评分或新版结构化评分");
-    expect(tools.get_resume_record_detail.description).toContain("主动展示数据库评分卡");
+    expect(tools.get_resume_record_detail.description).toContain("历史六维评分或新版六维定性评价");
+    expect(tools.get_resume_record_detail.description).toContain("主动展示数据库评价卡");
     expect(tools.get_resume_pool_detail.description).toContain("再询问是否绑定");
   });
 

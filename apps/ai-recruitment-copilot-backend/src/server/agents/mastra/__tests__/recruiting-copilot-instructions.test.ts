@@ -55,13 +55,15 @@ describe("buildRecruitingCopilotInstructions", () => {
     expect(instructions).toContain("不要给出岗位匹配分数");
   });
 
-  it("requires database-backed six-dimension scores for bound candidates", () => {
+  it("requires database-backed six-dimension evaluations for bound candidates", () => {
     const instructions = buildRecruitingCopilotInstructions();
 
-    expect(instructions).toContain("主动展示该候选人的数据库评分卡");
-    expect(instructions).toContain("数据库已有的六维评分");
+    expect(instructions).toContain("主动展示该候选人的数据库评价卡");
+    expect(instructions).toContain("新版六维定性评价");
+    expect(instructions).toContain("qualitativeResumeEvaluation");
     expect(instructions).toContain("structuredResumeReview");
-    expect(instructions).toContain("两类评分都为空");
+    expect(instructions).toContain("三类结果都为空");
+    expect(instructions).toContain("不得把四级评价转换成数字分数");
     expect(instructions).toContain("不要自行重新估分");
   });
 

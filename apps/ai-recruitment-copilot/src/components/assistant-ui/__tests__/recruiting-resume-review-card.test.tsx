@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
+import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { installNoopResizeObserver } from "@/test-utils/react-act";
 import {
@@ -56,6 +57,51 @@ const review: ResumeReviewLoose = {
   strengths: [{ evidence: "项目经历", impact: "可快速上手", point: "经验丰富" }],
   teamPositioning: { rationale: "能力匹配", suggestion: "核心开发" },
   weaknesses: [{ evidence: null, impact: "需要验证", point: "管理经验有限" }],
+};
+
+const qualitativeReview: QualitativeResumeEvaluationV2 = {
+  conciseOverall: "核心技能和项目经历与岗位高度匹配，建议优先推进。",
+  detailedOverall: {
+    judgment: "候选人的前端工程能力与岗位要求高度一致。",
+    matchingEvidence: "具备 React、TypeScript 和复杂项目交付经验。",
+    risks: "管理经验仍需在面试中确认。",
+  },
+  dimensions: {
+    educationBackground: {
+      basis: "job",
+      evaluation: "教育背景满足岗位要求。",
+      level: "recommended",
+    },
+    experienceRelevance: {
+      basis: "both",
+      evaluation: "五年前端经验与岗位职责高度相关。",
+      level: "highly_recommended",
+    },
+    potential: {
+      basis: "general",
+      evaluation: "持续承担更复杂职责，成长路径清晰。",
+      level: "recommended",
+    },
+    projectMatch: {
+      basis: "job",
+      evaluation: "主导过与岗位场景相近的复杂项目。",
+      level: "highly_recommended",
+    },
+    skillMatch: {
+      basis: "job",
+      evaluation: "React 与 TypeScript 实践符合核心要求。",
+      level: "highly_recommended",
+    },
+    stability: {
+      basis: "general",
+      evaluation: "任职变化具有连贯的职责升级。",
+      level: "undecided",
+    },
+  },
+  recommendationLevel: "highly_recommended",
+  schemaVersion: 2,
+  seniorityRecommendation: null,
+  teamPositioning: null,
 };
 
 describe("buildRecruitingResumeReviewCardModel", () => {
@@ -142,6 +188,48 @@ describe("buildRecruitingResumeReviewCardModel", () => {
     expect(container.textContent).toContain("推荐");
     expect(container.textContent).toContain("门槛通过");
     expect(container.textContent).not.toContain("尚未生成");
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("renders the current qualitative six-dimension evaluation", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <RecruitingCopilotContext.Provider value={contextValue}>
+          <RecruitingResumeReviewCard
+            record={{
+              candidateName: "定性评价候选人",
+              citation: {
+                id: "resume-qualitative",
+                label: "定性评价候选人",
+                recordType: "resume_record",
+                secondaryLabel: "高级前端工程师",
+              },
+              id: "resume-qualitative",
+              jobDescriptionId: "jd-frontend",
+              jobDescriptionName: "高级前端工程师",
+              qualitativeResumeEvaluation: qualitativeReview,
+              resumeEvaluationArtifactMode: "qualitative",
+              resumeReview: null,
+              structuredResumeReview: null,
+            }}
+          />
+        </RecruitingCopilotContext.Provider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("非常推荐");
+    expect(container.textContent).toContain("核心技能和项目经历与岗位高度匹配");
+    expect(container.textContent).toContain("技能匹配");
+    expect(container.textContent).toContain("待定");
+    expect(container.textContent).not.toContain("暂无维度评分");
+    expect(container.querySelector('[aria-label="简历六维定性评价雷达图"]')).not.toBeNull();
 
     act(() => root.unmount());
     container.remove();

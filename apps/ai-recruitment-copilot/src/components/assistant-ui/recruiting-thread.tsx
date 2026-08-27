@@ -618,7 +618,7 @@ export function RecruitingThread({
               </div>
             </SkeletonReveal>
           </ThreadPrimitive.Viewport>
-          <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
+          <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
             <div className="mx-auto w-full max-w-(--thread-max-width)">
               <Composer autoFocus={!historyLoading} />
               <p className="mt-2 text-center text-muted-foreground text-xs">
