@@ -35,7 +35,7 @@ export function fetchResumePoolItems(
     uploaderIds?: string;
   } = {},
 ): Promise<PaginatedResumePoolResult> {
-  return rpcFetch<PaginatedResumePoolResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"].$get({
       param: { slug },
       query: {
@@ -50,7 +50,7 @@ export function fetchResumePoolItems(
 }
 
 export function fetchResumePoolUploaders(slug: string): Promise<ResumePoolUploaderOption[]> {
-  return rpcFetch<{ records: ResumePoolUploaderOption[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"].uploaders.$get({ param: { slug } }),
     "加载上传人列表失败",
   ).then((result) => result.records);
@@ -67,7 +67,7 @@ export function createResumePoolItem(
 }
 
 export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoolDetail | null> {
-  return rpcFetch<ResumePoolDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].$get({
       param: { id, slug },
     }),
@@ -86,7 +86,7 @@ export function fetchResumePoolItemReview(
   slug: string,
   id: string,
 ): Promise<ResumePoolDetail | null> {
-  return rpcFetch<ResumePoolDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].review.$get({
       param: { id, slug },
     }),
@@ -100,7 +100,7 @@ export function bindResumePoolItem(
   id: string,
   jobDescriptionId: string,
 ): Promise<ResumePoolDetail> {
-  return rpcFetch<ResumePoolDetail>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].bind.$post({
       json: { jobDescriptionId },
       param: { id, slug },
@@ -112,7 +112,7 @@ export function bindResumePoolItem(
 export async function fetchPublishedResumePoolJobDescriptions(
   slug: string,
 ): Promise<JobDescriptionListRecord[]> {
-  const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+  const payload = await rpcFetch(
     rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({ param: { slug } }),
     "加载在招岗位列表失败",
   );
@@ -123,7 +123,7 @@ export function fetchResumePoolJobMatch(
   slug: string,
   id: string,
 ): Promise<ResumePoolJobMatchResult | null> {
-  return rpcFetch<ResumePoolJobMatchResult | null>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"]["job-match"].$get({
       param: { id, slug },
     }),
@@ -136,7 +136,7 @@ export function fetchResumePoolJobRecommendations(
   id: string,
   topN: number,
 ): Promise<JobDescriptionRecommendationResult> {
-  return rpcFetch<JobDescriptionRecommendationResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
       json: { topN },
       param: { id, slug },
@@ -149,7 +149,7 @@ export function fetchResumePoolDuplicateMatches(
   slug: string,
   id: string,
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"]["duplicate-matches"].$get({
       param: { id, slug },
     }),
@@ -158,7 +158,7 @@ export function fetchResumePoolDuplicateMatches(
 }
 
 export function publishResumePoolItem(slug: string, id: string): Promise<ResumePoolListRecord> {
-  return rpcFetch<ResumePoolListRecord>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].publish.$post({
       param: { id, slug },
     }),
@@ -167,7 +167,7 @@ export function publishResumePoolItem(slug: string, id: string): Promise<ResumeP
 }
 
 export function retryResumePoolItemParse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch<{ status: "queued" }>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"]["retry-parse"].$post({
       param: { id, slug },
     }),
@@ -180,7 +180,7 @@ export function importResumePoolItem(
   id: string,
   input: ResumePoolImportInput,
 ): Promise<ResumePoolImportResult> {
-  return rpcFetch<ResumePoolImportResult>(
+  return rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].import.$post({
       json: input,
       param: { id, slug },
@@ -190,7 +190,7 @@ export function importResumePoolItem(
 }
 
 export async function deleteResumePoolItem(slug: string, id: string): Promise<void> {
-  await rpcFetch<{ success: boolean }>(
+  await rpcFetch(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].$delete({
       param: { id, slug },
     }),

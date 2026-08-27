@@ -45,14 +45,28 @@ describe("candidate Recruiting Context meetings", () => {
 
   it("returns only Meeting Sessions visible to the candidate viewer", async () => {
     mocks.loadResumeDetail.mockResolvedValue({ id: "candidate-79" });
-    mocks.listSavedMeetings.mockResolvedValue([{ id: "meeting-79" }]);
+    mocks.listSavedMeetings.mockResolvedValue([
+      {
+        accessRole: "viewer",
+        creator: { id: "user-79", image: null, name: "测试用户" },
+        durationMs: 60_000,
+        id: "meeting-79",
+        processingState: "ready",
+        recordingAvailable: true,
+        savedAt: "2026-08-27T00:00:00.000Z",
+        title: "候选人会议",
+        workspaceCustodied: true,
+      },
+    ]);
 
     const response = await makeClient().resumes[":id"].meetings.$get({
       param: { id: "candidate-79" },
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ records: [{ id: "meeting-79" }] });
+    await expect(response.json()).resolves.toEqual({
+      records: [expect.objectContaining({ id: "meeting-79", title: "候选人会议" })],
+    });
     expect(mocks.listSavedMeetings).toHaveBeenCalledWith({
       memberRole: "member",
       organizationId: "org-79",

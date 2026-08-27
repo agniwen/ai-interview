@@ -6,6 +6,7 @@ import {
   resumeEvaluationVersion,
 } from "@arc/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { ResumeEvaluationHistoryResponse } from "@arc/shared/studio-resumes";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
@@ -80,25 +81,23 @@ export const resumeEvaluationHistoryRouter = factory
         .orderBy(desc(resumeEvaluationFailure.createdAt)),
     ]);
     let markedCurrent = false;
-    return c.json(
-      {
-        failures: failureRows.map((row) => ({
+    const response: ResumeEvaluationHistoryResponse = {
+      failures: failureRows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      records: rows.map((row) => {
+        const isCurrent =
+          !markedCurrent &&
+          row.contractVersion.startsWith("qualitative-v") &&
+          row.jobDescriptionVersionId === current.qualitativeJobDescriptionVersionId;
+        markedCurrent ||= isCurrent;
+        return {
           ...row,
           createdAt: row.createdAt.toISOString(),
-        })),
-        records: rows.map((row) => {
-          const isCurrent =
-            !markedCurrent &&
-            row.contractVersion.startsWith("qualitative-v") &&
-            row.jobDescriptionVersionId === current.qualitativeJobDescriptionVersionId;
-          markedCurrent ||= isCurrent;
-          return {
-            ...row,
-            createdAt: row.createdAt.toISOString(),
-            isCurrent,
-          };
-        }),
-      },
-      200,
-    );
+          isCurrent,
+        };
+      }),
+    };
+    return c.json(response, 200);
   });

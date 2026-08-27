@@ -85,13 +85,6 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-interface WorkspaceMember {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-}
-
 // AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
 // AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
 function isAiStageLocked(row: StudioInterviewRoundListRecord): boolean {
@@ -136,7 +129,7 @@ export function InterviewManagementPage() {
         if (params.filters.creatorIds) {
           query.creatorIds = params.filters.creatorIds;
         }
-        return rpcFetch<PaginatedStudioInterviewRoundsResult>(
+        return rpcFetch(
           rpc.api.w[":slug"].studio.interviews.$get({ param: { slug }, query }),
           "加载面试列表失败",
         );
@@ -158,7 +151,7 @@ export function InterviewManagementPage() {
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
-      rpcFetch<{ records: WorkspaceMember[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),

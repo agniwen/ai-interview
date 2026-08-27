@@ -306,7 +306,7 @@ export function JobDescriptionTalentRecommendationsDialog({
       if (!jobDescription) {
         return EMPTY_RESULT;
       }
-      return await rpcFetch<JobDescriptionTalentRecommendationResult>(
+      return await rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"][":id"].recommendations.$post({
           json: {
             excludeAlreadyLinked: true,

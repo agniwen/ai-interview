@@ -136,7 +136,7 @@ export interface MailIngestLogDependencies {
 
 const defaultMailIngestLogDependencies: MailIngestLogDependencies = {
   fetchMessages: ({ accountId, query, slug }) =>
-    rpcFetch<{ records: MailMessageRecord[]; total: number }>(
+    rpcFetch(
       rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
         param: { id: accountId, slug },
         query,

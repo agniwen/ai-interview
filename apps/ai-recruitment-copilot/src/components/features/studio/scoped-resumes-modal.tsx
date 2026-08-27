@@ -68,7 +68,7 @@ export function ScopedResumesModal({
       if (!jobDescription) {
         return EMPTY_RESULT;
       }
-      return await rpcFetch<PaginatedResumeLibraryResult>(
+      return await rpcFetch(
         rpc.api.w[":slug"].studio.resumes.$get({
           param: { slug },
           query: {

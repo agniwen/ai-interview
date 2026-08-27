@@ -444,7 +444,7 @@ export async function queryInterviewConversationReports(
 export async function queryInterviewConversationReportsByRound(
   scheduleEntryId: string,
   options: QueryInterviewConversationReportsOptions = {},
-) {
+): Promise<StudioInterviewConversationReport[]> {
   const conversations = await db
     .select(reportConversationColumns)
     .from(interviewConversation)
@@ -492,7 +492,7 @@ export async function queryInterviewConversationReportByRound(
   scheduleEntryId: string,
   conversationId: string,
   options: QueryInterviewConversationReportsOptions = {},
-) {
+): Promise<StudioInterviewConversationReport | null> {
   const [conversation] = await db
     .select(reportConversationColumns)
     .from(interviewConversation)

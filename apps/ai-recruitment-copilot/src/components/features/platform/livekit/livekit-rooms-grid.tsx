@@ -34,13 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { DetailFields, JsonBlock } from "./detail-fields";
-import type { LiveKitParticipantRecord, LiveKitRoomRecord, PaginatedResult } from "./types";
-
-interface RoomDetailResult {
-  metadata: string;
-  participants: LiveKitParticipantRecord[];
-  room: LiveKitRoomRecord;
-}
+import type { LiveKitParticipantRecord, LiveKitRoomRecord } from "./types";
 
 interface LiveKitRoomsQuery {
   page: string;
@@ -116,7 +110,7 @@ function RoomDetailDrawer({
   const query = useQuery({
     enabled: open && roomName !== null,
     queryFn: () =>
-      rpcFetch<RoomDetailResult>(
+      rpcFetch(
         rpc.api.platform.livekit.rooms[":roomName"].$get({
           param: { roomName: roomName ?? "" },
         }),
@@ -198,10 +192,7 @@ export function LiveKitRoomsGrid() {
       if (params.search) {
         query.search = params.search;
       }
-      return rpcFetch<PaginatedResult<LiveKitRoomRecord>>(
-        rpc.api.platform.livekit.rooms.$get({ query }),
-        "加载 LiveKit 房间失败",
-      );
+      return rpcFetch(rpc.api.platform.livekit.rooms.$get({ query }), "加载 LiveKit 房间失败");
     },
     [],
   );

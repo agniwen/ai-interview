@@ -267,7 +267,9 @@ describe("resumeLibraryRouter behavior", () => {
         insert: () => ({
           values: (values: ResumeRouteMutation) => {
             mocks.insertedValues.push(values);
-            return Promise.resolve();
+            return Object.assign(Promise.resolve(), {
+              onConflictDoNothing: () => Promise.resolve(),
+            });
           },
         }),
         update: () => ({

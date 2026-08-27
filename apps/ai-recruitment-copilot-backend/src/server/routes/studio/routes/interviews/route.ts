@@ -346,6 +346,9 @@ export const studioInterviewsRouter = factory
     invalidateStudioInterviewCaches(activeOrg.id);
     safeUpdateTag(cacheTags.interviewConversations);
     const detail = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
+    if (!detail) {
+      return c.json({ error: "重置后的面试轮次读取失败。" }, 500);
+    }
     return c.json(detail, 200);
   })
   .post(

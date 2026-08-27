@@ -275,11 +275,11 @@ export function createAgentRouter(dependencies: AgentRouterDependencies) {
             conversationId: body.data.conversationId,
             interviewRecordId: body.data.interviewRecordId,
           });
-          return c.json({ retried: 1, scoped: true });
+          return c.json({ retried: 1, scoped: true }, 200);
         }
 
         const result = await dependencies.retryFailedInterviewSummaryNotifications();
-        return c.json(result);
+        return c.json(result, 200);
       })
   );
 }

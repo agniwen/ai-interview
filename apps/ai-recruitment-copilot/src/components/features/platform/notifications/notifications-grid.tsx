@@ -128,12 +128,6 @@ interface FeishuPreviewBlock {
   todo?: FeishuTextContent;
 }
 
-interface FeishuNotificationPreview {
-  block: FeishuPreviewBlock;
-  prompt: string;
-  title: string;
-}
-
 const DEFAULT_FILTERS: NotificationFilters = {
   providerId: "all",
   status: "all",
@@ -240,7 +234,7 @@ function FeishuNotificationPreviewDialog({
 }) {
   const previewMutation = useMutation({
     mutationFn: (notificationId: string) =>
-      rpcFetch<FeishuNotificationPreview>(
+      rpcFetch(
         rpc.api.platform.notifications[":id"]["debug-preview"].$post({
           param: { id: notificationId },
         }),
@@ -326,7 +320,7 @@ export function NotificationsGrid() {
     if (params.search) {
       query.search = params.search;
     }
-    return rpcFetch<NotificationsResult>(
+    return rpcFetch(
       rpc.api.platform.notifications.$get({
         query,
       }),
@@ -337,7 +331,7 @@ export function NotificationsGrid() {
   const resendMutation = useMutation({
     mutationFn: async (record: PlatformNotificationRecord) => {
       setResendingId(record.id);
-      await rpcFetch<{ notificationId: string; sentAt: string }>(
+      await rpcFetch(
         rpc.api.platform.notifications[":id"].resend.$post({
           param: { id: record.id },
         }),

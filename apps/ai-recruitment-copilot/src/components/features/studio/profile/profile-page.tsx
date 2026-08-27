@@ -123,7 +123,7 @@ function ActivitySection() {
   const slug = useWorkspaceSlug();
   const activityQuery = useQuery({
     queryFn: () =>
-      rpcFetch<{ dailyAdded: { count: number; day: string }[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["my-activity"].$get({ param: { slug } }),
         "加载个人活动失败",
       ),

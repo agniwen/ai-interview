@@ -24,6 +24,7 @@ node_modules/
 # production
 /build
 apps/ai-recruitment-copilot-worker/dist/
+apps/ai-recruitment-copilot-backend/dist/
 
 # misc
 .DS_Store

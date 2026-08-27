@@ -248,7 +248,7 @@ function PlatformMailIngestAccountDialog({
         if (password) {
           update.password = password;
         }
-        await rpcFetch<MailIngestAccountRecord>(
+        await rpcFetch(
           rpc.api.platform["mail-ingest-accounts"][":id"].$patch({
             json: update,
             param: { id: row.account.id },
@@ -261,7 +261,7 @@ function PlatformMailIngestAccountDialog({
       if (!password) {
         throw new Error("创建配置时必须填写客户端密码");
       }
-      await rpcFetch<MailIngestAccountRecord>(
+      await rpcFetch(
         rpc.api.platform["mail-ingest-accounts"].$post({
           json: {
             ...payload,
@@ -490,7 +490,7 @@ export function PlatformMailIngestAccountsGrid() {
       query.sortOrder = params.sortOrder;
     }
 
-    return rpcFetch<PlatformMailIngestAccountsResult>(
+    return rpcFetch(
       rpc.api.platform["mail-ingest-accounts"].$get({
         query,
       }),

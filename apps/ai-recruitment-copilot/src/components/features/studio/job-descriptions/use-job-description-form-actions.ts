@@ -53,14 +53,14 @@ export function useJobDescriptionFormActions({
       onError: (error) => toast.error(error.message),
       operation: async () => {
         const saved = currentRecord
-          ? await rpcFetch<JobDescriptionRecord>(
+          ? await rpcFetch(
               rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
                 json: body,
                 param: { id: currentRecord.id, slug },
               }),
               "更新失败",
             )
-          : await rpcFetch<JobDescriptionRecord>(
+          : await rpcFetch(
               rpc.api.w[":slug"].studio["job-descriptions"].$post({
                 json: body,
                 param: { slug },
@@ -79,7 +79,7 @@ export function useJobDescriptionFormActions({
       cleanup: () => setIsGeneratingCode(false),
       onError: (error) => toast.error(error.message),
       operation: async () => {
-        const payload = await rpcFetch<{ code: string }>(
+        const payload = await rpcFetch(
           rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post({
             param: { slug },
           }),
@@ -101,11 +101,7 @@ export function useJobDescriptionFormActions({
       cleanup: () => setIsGeneratingJobDescription(false),
       onError: (error) => toast.error(error.message),
       operation: async () => {
-        const payload = await rpcFetch<{
-          jobDescription: string;
-          suggestedName: string;
-          supplementedItems?: JobDescriptionSupplementedItem[];
-        }>(
+        const payload = await rpcFetch(
           rpc.api.w[":slug"].studio["job-descriptions"]["ai-generate"].$post({
             json: {
               departmentName:

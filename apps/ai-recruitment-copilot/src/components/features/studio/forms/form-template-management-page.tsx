@@ -101,7 +101,7 @@ export function CandidateFormTemplateManagementPage({
         if (params.filters.archivedFilter !== "active") {
           query.archived = params.filters.archivedFilter;
         }
-        return rpcFetch<PaginatedCandidateFormTemplateResult>(
+        return rpcFetch(
           rpc.api.w[":slug"].studio.forms.$get({
             param: { slug },
             query,
@@ -114,7 +114,7 @@ export function CandidateFormTemplateManagementPage({
 
   const loadTemplateDetailById = useCallback(
     async (id: string): Promise<CandidateFormTemplateRecord | null> =>
-      await rpcFetch<CandidateFormTemplateRecord>(
+      await rpcFetch(
         rpc.api.w[":slug"].studio.forms[":id"].$get({ param: { id, slug } }),
         "加载模版失败",
         { allow404: true },
@@ -209,7 +209,7 @@ export function CandidateFormTemplateManagementPage({
     }
     const toastId = toast.loading("正在刷新未填写候选人表单题…");
     try {
-      const body = await rpcFetch<{ refreshedCount: number; scannedCount: number }>(
+      const body = await rpcFetch(
         rpc.api.w[":slug"].studio.forms[":id"]["refresh-eligible-candidates"].$post({
           param: { id: record.id, slug },
         }),

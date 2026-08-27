@@ -73,10 +73,7 @@ export function OrganizationsGrid() {
         if (params.search) {
           query.search = params.search;
         }
-        return rpcFetch<OrganizationsResult>(
-          rpc.api.platform.organizations.$get({ query }),
-          "加载工作区列表失败",
-        );
+        return rpcFetch(rpc.api.platform.organizations.$get({ query }), "加载工作区列表失败");
       },
     [],
   );

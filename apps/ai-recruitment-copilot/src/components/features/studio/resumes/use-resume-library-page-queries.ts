@@ -36,7 +36,6 @@ import type {
   FetchParams,
   ResumeLibraryGridState,
   SearchParamsRecord,
-  WorkspaceMember,
 } from "./resume-library-page-model";
 
 const recruitingJobDescriptionsPayloadSchema = z.object({
@@ -110,7 +109,7 @@ export function useResumeLibraryPageQueries({
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
-      rpcFetch<{ records: WorkspaceMember[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),

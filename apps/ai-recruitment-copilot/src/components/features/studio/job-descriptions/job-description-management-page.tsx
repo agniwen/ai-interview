@@ -111,7 +111,7 @@ export function JobDescriptionManagementPage({
       if (params.filters.interviewerId) {
         query.interviewerId = params.filters.interviewerId;
       }
-      return rpcFetch<PaginatedJobDescriptionResult>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"].$get({
           param: { slug },
           query,

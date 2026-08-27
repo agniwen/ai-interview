@@ -58,13 +58,6 @@ interface InviteLinkDto {
   joinedCount: number;
 }
 
-interface LinkMemberDto {
-  userId: string;
-  name: string;
-  email: string;
-  joinedAt: string;
-}
-
 const QUERY_KEY = (slug: string) => ["invite-links", slug] as const;
 
 function getDefaultInviteLinkRole(assignableRoles: readonly string[]): string {
@@ -150,7 +143,7 @@ function InviteLinkRoleDialog({
 function LinkMembers({ id, slug }: { id: string; slug: string }) {
   const { data, isPending } = useQuery({
     queryFn: () =>
-      rpcFetch<{ members: LinkMemberDto[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].members.$get({
           param: { id, slug },
         }),
@@ -289,7 +282,7 @@ export function InviteLinksDialog({
   const { data: linksData, isPending } = useQuery({
     enabled: open,
     queryFn: () =>
-      rpcFetch<{ links: InviteLinkDto[] }>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"].$get({ param: { slug } }),
         "加载邀请链接失败",
       ),
@@ -298,7 +291,7 @@ export function InviteLinksDialog({
 
   const createMutation = useMutation({
     mutationFn: (initialRole: string) =>
-      rpcFetch<InviteLinkDto>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
           json: { initialRole },
           param: { slug },
@@ -321,7 +314,7 @@ export function InviteLinksDialog({
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ id, initialRole }: { id: string; initialRole: string }) =>
-      rpcFetch<InviteLinkDto>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].$patch({
           json: { initialRole },
           param: { id, slug },
@@ -338,7 +331,7 @@ export function InviteLinksDialog({
 
   const disableMutation = useMutation({
     mutationFn: (id: string) =>
-      rpcFetch<InviteLinkDto>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].disable.$patch({
           param: { id, slug },
         }),
@@ -353,7 +346,7 @@ export function InviteLinksDialog({
 
   const enableMutation = useMutation({
     mutationFn: (id: string) =>
-      rpcFetch<InviteLinkDto>(
+      rpcFetch(
         rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].enable.$patch({
           param: { id, slug },
         }),

@@ -273,6 +273,9 @@ export const resumeUploadBatchesRouter = factory
       return c.json({ error: "无法取消。" }, 400);
     }
     const detail = await loadBatchDetail(c.req.param("id"), activeOrg.id, user.id);
+    if (!detail) {
+      return c.json({ error: "取消后的批次读取失败。" }, 500);
+    }
     await removeCancelledQueueJobsBestEffort(detail);
     return c.json(detail, 200);
   })

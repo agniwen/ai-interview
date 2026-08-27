@@ -148,7 +148,7 @@ export function JobDescriptionHoverCard(props: {
       {...props}
       dependencies={{
         fetchDetail: (workspaceSlug, id) =>
-          rpcFetch<JobDescriptionRecord>(
+          rpcFetch(
             rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
               param: { id, slug: workspaceSlug },
             }),

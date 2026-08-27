@@ -114,6 +114,72 @@ describe("uploadsRouter cache policy", () => {
     await expect(res.json()).resolves.toEqual({ hit: false });
   });
 
+  it("does not reuse an incomplete ready cache entry", async () => {
+    delete process.env.RESUME_PARSE_DISABLE_CACHE;
+    process.env.RESUME_PARSE_PROVIDER = "ocr-llm";
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      parsedPageCount: null,
+      parsedStatus: "ready",
+      parsedText: "cached text",
+      parsedTextSource: "qwen-ocr",
+      storageKey: "dev/chat-attachments/cached.jpeg",
+    });
+
+    const res = await makeApp().request("/uploads/preflight", {
+      body: JSON.stringify({
+        filename: "resume.jpeg",
+        hash: HASH,
+        mediaType: "image/jpeg",
+        size: 1024,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ hit: false });
+    expect(mocks.createAttachment).not.toHaveBeenCalled();
+  });
+
+  it("returns a complete parsed payload for a reusable cache entry", async () => {
+    delete process.env.RESUME_PARSE_DISABLE_CACHE;
+    process.env.RESUME_PARSE_PROVIDER = "ocr-llm";
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      parsedAt: new Date("2026-08-18T00:00:00.000Z"),
+      parsedError: null,
+      parsedPageCount: 2,
+      parsedStatus: "ready",
+      parsedStructured: null,
+      parsedText: "cached text",
+      parsedTextSource: "qwen-ocr",
+      storageKey: "dev/chat-attachments/cached.jpeg",
+    });
+
+    const res = await makeApp().request("/uploads/preflight", {
+      body: JSON.stringify({
+        filename: "resume.jpeg",
+        hash: HASH,
+        mediaType: "image/jpeg",
+        size: 1024,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      hit: true,
+      parseStatus: "ready",
+      parsed: {
+        pageCount: 2,
+        structured: null,
+        text: "cached text",
+        textSource: "qwen-ocr",
+      },
+    });
+    expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
+  });
+
   it("cache disabled: upload parses fresh instead of copying a cached attachment row", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "true";
     mocks.findAttachmentByContentHash.mockResolvedValue({

@@ -7,7 +7,7 @@ import { listSavedMeetings } from "@arc/ai-recruitment-copilot-backend/server/ro
 import { loadResumeDetail } from "../../dao/resumes";
 
 export interface RecruitingRecordMeetingsDependencies {
-  listSavedMeetings: (input: Parameters<typeof listSavedMeetings>[0]) => Promise<{ id: string }[]>;
+  listSavedMeetings: typeof listSavedMeetings;
   loadResumeDetail: (
     ...input: Parameters<typeof loadResumeDetail>
   ) => Promise<{ id: string } | null>;

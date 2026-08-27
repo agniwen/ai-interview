@@ -116,7 +116,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
         if (!template) {
           return Promise.resolve({ submissions: [], total: 0 });
         }
-        return rpcFetch<SubmissionsPage>(
+        return rpcFetch(
           rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
             param: { id: template.id, slug },
             query: { limit: String(PAGE_SIZE), offset: String(pageParam ?? 0) },

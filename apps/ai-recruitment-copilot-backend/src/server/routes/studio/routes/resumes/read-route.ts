@@ -336,6 +336,9 @@ export const resumeLibraryReadRouter = factory
 
     invalidateStudioInterviewCaches(activeOrg.id);
     const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+    if (!detail) {
+      return c.json({ error: "重新评估后的候选人记录读取失败。" }, 500);
+    }
     // 202: accepted for async generation (queued/processing); detail includes current status.
     return c.json(detail, 202);
   })
@@ -475,6 +478,9 @@ export const resumeLibraryReadRouter = factory
       }
       invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+      if (!detail) {
+        return c.json({ error: "评估后的候选人记录读取失败。" }, 500);
+      }
       return c.json(detail, 200);
     },
   )
@@ -578,6 +584,9 @@ export const resumeLibraryReadRouter = factory
         organization.id,
         visibilityScope,
       );
+      if (!detail) {
+        return c.json({ error: "创建后的面试轮次读取失败。" }, 500);
+      }
       return c.json(detail, 201);
     },
   )

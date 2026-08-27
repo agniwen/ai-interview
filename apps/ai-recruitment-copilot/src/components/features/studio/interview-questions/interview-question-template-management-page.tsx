@@ -99,7 +99,7 @@ export function InterviewQuestionTemplateManagementPage({
       if (params.filters.archivedFilter !== "active") {
         query.archived = params.filters.archivedFilter;
       }
-      return rpcFetch<PaginatedInterviewQuestionTemplateResult>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["interview-questions"].$get({
           param: { slug },
           query,
@@ -112,7 +112,7 @@ export function InterviewQuestionTemplateManagementPage({
 
   const loadTemplateDetailById = useCallback(
     async (id: string): Promise<InterviewQuestionTemplateRecord | null> =>
-      await rpcFetch<InterviewQuestionTemplateRecord>(
+      await rpcFetch(
         rpc.api.w[":slug"].studio["interview-questions"][":id"].$get({
           param: { id, slug },
         }),
@@ -216,7 +216,7 @@ export function InterviewQuestionTemplateManagementPage({
     }
     const toastId = toast.loading("正在刷新未面试候选人沟通题…");
     try {
-      const body = await rpcFetch<{ refreshedCount: number; scannedCount: number }>(
+      const body = await rpcFetch(
         rpc.api.w[":slug"].studio["interview-questions"][":id"][
           "refresh-eligible-candidates"
         ].$post({ param: { id: record.id, slug } }),

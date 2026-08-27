@@ -95,7 +95,7 @@ export function ScopedJobDescriptionsModal({
       // Both scopes hit the same JD list RPC; differ only by which filter key.
       const scopedQuery =
         scope.type === "interviewer" ? { interviewerId: scope.id } : { departmentId: scope.id };
-      return rpcFetch<PaginatedJobDescriptionResult>(
+      return rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"].$get({
           param: { slug },
           query: {

@@ -409,7 +409,7 @@ export function filterPoolRecords(
 export function useJobDescriptions(slug: string) {
   return useQuery({
     queryFn: async () => {
-      const payload = await rpcFetch<{ records: JobDescriptionListRecord[] }>(
+      const payload = await rpcFetch(
         rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
           param: { slug },
         }),
