@@ -7,7 +7,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Dispatch } from "react";
 import { toast } from "sonner";
-import { reassessStudioResume } from "@/lib/client/api";
+import { reassessStudioResume, updateStudioResumeInterviewQuestions } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import type {
   StudioPersonDetailAccessMode,
@@ -26,6 +26,7 @@ import type { DetailPanelUiAction } from "./studio-person-detail-sections";
 export interface UseStudioPersonDetailMutationsParams {
   accessMode: StudioPersonDetailAccessMode;
   canUseManagementActions: boolean;
+  canUpdateResumeLibrary: boolean;
   dispatchUi: Dispatch<DetailPanelUiAction>;
   effectiveRecordId: string | null;
   effectiveRoundId: string | null;
@@ -44,6 +45,7 @@ export interface UseStudioPersonDetailMutationsParams {
 export function useStudioPersonDetailMutations({
   accessMode,
   canUseManagementActions,
+  canUpdateResumeLibrary,
   dispatchUi,
   effectiveRecordId,
   effectiveRoundId,
@@ -59,6 +61,29 @@ export function useStudioPersonDetailMutations({
   updatingRoundId,
 }: UseStudioPersonDetailMutationsParams) {
   const [isReassessingResume, setIsReassessingResume] = useState(false);
+
+  async function handleUpdateInterviewQuestions(
+    interviewQuestions: InterviewQuestion[],
+  ): Promise<boolean> {
+    if (!(effectiveRecordId && canUpdateResumeLibrary)) {
+      return false;
+    }
+    try {
+      await updateStudioResumeInterviewQuestions(slug, effectiveRecordId, interviewQuestions);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug] }),
+      ]);
+      toast.success("推荐问题已保存");
+      onUpdated?.();
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "保存推荐问题失败");
+      return false;
+    }
+  }
 
   async function handleReassessResume() {
     if (!(slug && effectiveRecordId) || !canUseManagementActions || isResumeAssessmentInProgress) {
@@ -178,6 +203,7 @@ export function useStudioPersonDetailMutations({
     handleReassessResume,
     handleResetRound,
     handleToggleAllowTextInput,
+    handleUpdateInterviewQuestions,
     isReassessingResume,
   };
 }

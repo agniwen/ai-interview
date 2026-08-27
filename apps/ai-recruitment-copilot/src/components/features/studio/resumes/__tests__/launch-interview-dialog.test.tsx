@@ -69,6 +69,7 @@ describe("LaunchInterviewDialog stored questions", () => {
     ).toEqual([
       {
         difficulty: "medium",
+        dimension: "business",
         evaluationFocus: "系统设计",
         followUpDirections: "继续追问取舍",
         order: 1,

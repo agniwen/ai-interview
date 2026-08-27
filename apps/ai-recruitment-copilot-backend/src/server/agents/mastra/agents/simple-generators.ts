@@ -105,8 +105,8 @@ export const jobEvaluationBlueprintAgent = new Agent({
 
 export const interviewQuestionAgent = new Agent({
   id: "interview-question-agent",
-  instructions: "你是技术面试出题助手，负责根据岗位、简历和 HR 指令生成结构化面试题。",
-  maxRetries: 1,
+  instructions: "你是通用岗位面试出题助手，负责根据岗位、简历和 HR 指令生成结构化面试题。",
+  maxRetries: 0,
   model: withThinkingDisabled(mastraModels.structuredModel),
   name: "InterviewQuestionAgent",
 });

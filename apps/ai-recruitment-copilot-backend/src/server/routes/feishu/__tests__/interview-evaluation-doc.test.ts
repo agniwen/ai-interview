@@ -134,7 +134,7 @@ describe("buildInterviewEvaluationDocument", () => {
     ]);
   });
 
-  it("keeps the last easy question, the last two medium questions, and every hard question", () => {
+  it("keeps every valid question in configured order", () => {
     const questions = [
       interviewQuestion("easy", 1, "简单题一"),
       interviewQuestion("medium", 3, "中等题一"),
@@ -160,12 +160,14 @@ describe("buildInterviewEvaluationDocument", () => {
       .filter((text) => /^\d+\. .*题[一二三]$/.test(text ?? ""));
 
     expect(displayedQuestions).toEqual([
-      "1. 简单题二",
-      "2. 中等题二",
-      "3. 中等题三",
-      "4. 困难题一",
-      "5. 困难题二",
-      "6. 困难题三",
+      "1. 简单题一",
+      "2. 简单题二",
+      "3. 中等题一",
+      "4. 中等题二",
+      "5. 中等题三",
+      "6. 困难题一",
+      "7. 困难题二",
+      "8. 困难题三",
     ]);
   });
 

@@ -8,7 +8,7 @@
  * convention as studio-interviews.
  */
 
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import type {
@@ -430,6 +430,20 @@ export function reassessStudioResume(slug: string, id: string): Promise<ResumeLi
       param: { id, slug },
     }),
     "重新评价失败",
+  );
+}
+
+export function updateStudioResumeInterviewQuestions(
+  slug: string,
+  id: string,
+  interviewQuestions: InterviewQuestion[],
+): Promise<{ interviewQuestions: InterviewQuestion[] }> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.resumes[":id"]["interview-questions"].$patch({
+      json: { interviewQuestions },
+      param: { id, slug },
+    }),
+    "保存推荐问题失败",
   );
 }
 

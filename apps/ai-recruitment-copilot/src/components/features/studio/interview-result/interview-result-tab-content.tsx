@@ -107,7 +107,13 @@ export function InterviewResultTabContent({
               <InterviewResultOverviewSkeleton />
             ) : (
               <InterviewResultFrame
+                canEditQuestions={
+                  model.mode === "resume" &&
+                  Boolean(model.canUpdateResumeLibrary) &&
+                  !model.isPublic
+                }
                 evaluationSummary={evaluationSummary}
+                onSaveQuestions={model.handleUpdateInterviewQuestions}
                 record={record}
                 report={report}
               />

@@ -30,6 +30,11 @@ const reviewInputSchema = z.object({
   resumeProfile: resumeProfileSchema,
 });
 
+const questionInputSchema = z.object({
+  jobDescriptionId: z.string().trim().optional().nullable(),
+  resumeProfile: resumeProfileSchema,
+});
+
 async function loadJobDescriptionText(organizationId: string, jobDescriptionId?: string | null) {
   if (!jobDescriptionId) {
     return null;
@@ -134,15 +139,20 @@ export const interviewAnalysisRouter = factory
   )
   .post(
     "/generate-questions",
-    zValidator(
-      "json",
-      z.object({ resumeProfile: resumeProfileSchema }),
-      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
-    ),
-    (c) =>
-      new Response(streamGenerateInterviewQuestions(c.req.valid("json").resumeProfile), {
+    zValidator("json", questionInputSchema, jsonValidatorError("缺少候选人信息 (resumeProfile)。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ error: "Workspace context is required" }, 403);
+      }
+      const { jobDescriptionId, resumeProfile } = c.req.valid("json");
+      const job = jobDescriptionId
+        ? await loadRecruitingJobDescriptionById(activeOrg.id, jobDescriptionId)
+        : null;
+      return new Response(streamGenerateInterviewQuestions(resumeProfile, undefined, { job }), {
         headers: streamHeaders,
-      }),
+      });
+    },
   )
   .post(
     "/generate-review",

@@ -1,3 +1,4 @@
+import { interviewQuestionDimensionSchema } from "./interview/types";
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
@@ -606,6 +607,7 @@ export const studioInterviewUpdateSchema = studioInterviewFormSchema;
 
 export const studioInterviewQuestionClientSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]),
+  dimension: interviewQuestionDimensionSchema.optional(),
   evaluationFocus: z.string().trim().max(500, "考核点不能超过 500 字").nullable().optional(),
   followUpDirections: z.string().trim().max(1000, "追问方向不能超过 1000 字").nullable().optional(),
   order: z.number().int().min(1),

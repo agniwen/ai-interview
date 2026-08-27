@@ -214,6 +214,7 @@ describe("AI 面试详情 tabs", () => {
     expect(resultFrameSource).toContain("record.interviewQuestions");
     expect(resultFrameSource).toContain("查看推荐问题");
     expect(resultFrameSource).toContain("<RecommendedQuestionsDialog");
+    expect(resultFrameSource).toContain("canEdit={canEditQuestions}");
     expect(resultFrameSource).toContain("sm:grid-cols-2");
     expect(resultFrameSource).toContain("hasRecommendedQuestions");
     expect(resultFrameSource).toContain("showCopyInterviewLink");

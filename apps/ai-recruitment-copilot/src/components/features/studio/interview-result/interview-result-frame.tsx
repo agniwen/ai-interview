@@ -25,7 +25,17 @@ import { RecommendedQuestionsDialog } from "./recommended-questions-dialog";
 
 type InterviewResultRecord = NonNullable<StudioPersonDetailViewModel["record"]>;
 
-function InterviewResultActionRow({ record }: { record: InterviewResultRecord }) {
+function InterviewResultActionRow({
+  canEditQuestions,
+  onSaveQuestions,
+  record,
+}: {
+  canEditQuestions: boolean;
+  onSaveQuestions: (
+    questions: NonNullable<InterviewResultRecord["interviewQuestions"]>,
+  ) => boolean | Promise<boolean>;
+  record: InterviewResultRecord;
+}) {
   const [recommendedQuestionsOpen, setRecommendedQuestionsOpen] = useState(false);
   const recommendedQuestions = record.interviewQuestions ?? [];
   const hasRecommendedQuestions = recommendedQuestions.length > 0;
@@ -95,7 +105,9 @@ function InterviewResultActionRow({ record }: { record: InterviewResultRecord })
       ) : null}
       {hasRecommendedQuestions ? (
         <RecommendedQuestionsDialog
+          canEdit={canEditQuestions}
           onOpenChange={setRecommendedQuestionsOpen}
+          onSave={onSaveQuestions}
           open={recommendedQuestionsOpen}
           questions={recommendedQuestions}
         />
@@ -105,11 +117,17 @@ function InterviewResultActionRow({ record }: { record: InterviewResultRecord })
 }
 
 export function InterviewResultFrame({
+  canEditQuestions,
   evaluationSummary,
+  onSaveQuestions,
   record,
   report,
 }: {
+  canEditQuestions: boolean;
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
+  onSaveQuestions: (
+    questions: NonNullable<InterviewResultRecord["interviewQuestions"]>,
+  ) => boolean | Promise<boolean>;
   record: InterviewResultRecord;
   report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
@@ -173,7 +191,11 @@ export function InterviewResultFrame({
             <CandidateInterviewFeedbackContent feedback={record.roundCandidateFeedback} />
           </div>
         ) : null}
-        <InterviewResultActionRow record={record} />
+        <InterviewResultActionRow
+          canEditQuestions={canEditQuestions}
+          onSaveQuestions={onSaveQuestions}
+          record={record}
+        />
       </FramePanel>
     </Frame>
   );

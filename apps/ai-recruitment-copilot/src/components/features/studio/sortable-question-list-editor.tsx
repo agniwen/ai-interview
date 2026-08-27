@@ -6,6 +6,7 @@ import { FieldError } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -19,6 +20,11 @@ import {
   interviewQuestionTemplateDifficultySchema,
 } from "@arc/db-schema/interview-question-templates";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+import {
+  INTERVIEW_QUESTION_DIMENSION_OPTIONS,
+  interviewQuestionDimensionSchema,
+} from "@arc/db-schema/interview/types";
+import type { InterviewQuestionDimension } from "@arc/db-schema/interview/types";
 import { DIFFICULTY_PILL_CLASS } from "@arc/shared/interview-question-difficulty";
 import { cn } from "@arc/shared/utils";
 import { z } from "zod";
@@ -32,6 +38,7 @@ const DIFFICULTY_PILL = {
 
 interface SortableQuestionListItem {
   difficulty: InterviewQuestionTemplateDifficulty;
+  dimension?: InterviewQuestionDimension;
   evaluationFocus: string | null;
   followUpDirections: string | null;
   content?: string;
@@ -43,6 +50,7 @@ interface SortableQuestionListItem {
 
 const sortableQuestionListItemStateSchema = z.object({
   difficulty: interviewQuestionTemplateDifficultySchema.optional(),
+  dimension: interviewQuestionDimensionSchema.optional(),
 });
 
 interface SortableQuestionListEditorProps {
@@ -56,6 +64,8 @@ interface SortableQuestionListEditorProps {
   arrayFieldName: string;
   /** Sub-field name on each item that stores the question text. */
   contentFieldName: string;
+  /** Optional sub-field that enables the candidate-question dimension selector. */
+  dimensionFieldName?: string;
   /** Stable token that changes whenever the parent resets the form so the
    * sortable id list regenerates. Pass `record?.id ?? "new"` or similar. */
   resetKey: string;
@@ -87,6 +97,7 @@ function QuestionListBody({
   form,
   arrayFieldName,
   contentFieldName,
+  dimensionFieldName,
   resetKey,
   createItem,
   contentMaxLength,
@@ -174,7 +185,50 @@ function QuestionListBody({
                     <span className="font-medium font-mono text-[11px] text-muted-foreground/80 tabular-nums">
                       {String(index + 1).padStart(2, "0")}
                     </span>
-                    <div className="ml-auto flex items-center gap-0.5">
+                    <div className="ml-auto flex items-center gap-1">
+                      {dimensionFieldName ? (
+                        <form.Field name={`${arrayFieldName}[${index}].${dimensionFieldName}`}>
+                          {/* oxlint-disable-next-line no-explicit-any */}
+                          {(subField: any) => {
+                            const parsedDimension = interviewQuestionDimensionSchema.safeParse(
+                              subField.state.value,
+                            );
+                            const value = parsedDimension.success
+                              ? parsedDimension.data
+                              : "business";
+                            return (
+                              <Select
+                                disabled={disabled}
+                                onValueChange={(next) => {
+                                  const nextDimension =
+                                    interviewQuestionDimensionSchema.safeParse(next);
+                                  if (nextDimension.success) {
+                                    subField.handleChange(nextDimension.data);
+                                  }
+                                }}
+                                value={value}
+                              >
+                                <SelectTrigger
+                                  aria-label={`第 ${index + 1} 题维度`}
+                                  className="h-7 rounded-md px-2.5 text-xs data-[size=sm]:h-7"
+                                  size="sm"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    {INTERVIEW_QUESTION_DIMENSION_OPTIONS.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                            );
+                          }}
+                        </form.Field>
+                      ) : null}
                       <form.Field name={`${arrayFieldName}[${index}].difficulty`}>
                         {/* oxlint-disable-next-line no-explicit-any */}
                         {(subField: any) => {
@@ -196,17 +250,20 @@ function QuestionListBody({
                               value={value}
                             >
                               <SelectTrigger
+                                aria-label={`第 ${index + 1} 题难度`}
                                 className={`h-7 rounded-md border-0 px-2.5 text-xs data-[size=sm]:h-7 ${DIFFICULTY_PILL[value]}`}
                                 size="sm"
                               >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {INTERVIEW_QUESTION_DIFFICULTY_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
+                                <SelectGroup>
+                                  {INTERVIEW_QUESTION_DIFFICULTY_OPTIONS.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
                               </SelectContent>
                             </Select>
                           );

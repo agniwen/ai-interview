@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { generateInterviewQuestionsForProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import { studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, studioInterview } from "@arc/db-schema/schema";
 import {
   enqueueResumeReviewGenerationJobs,
   isResumeReviewGenerationQueueConfigured,
@@ -39,9 +39,18 @@ export async function generateCandidateInterviewQuestions(
   const [record] = await db
     .select({
       interviewQuestions: studioInterview.interviewQuestions,
+      jobName: jobDescription.name,
+      jobPrompt: jobDescription.prompt,
       resumeProfile: studioInterview.resumeProfile,
     })
     .from(studioInterview)
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, input.organizationId),
+      ),
+    )
     .where(
       and(
         eq(studioInterview.id, input.resumeRecordId),
@@ -58,6 +67,13 @@ export async function generateCandidateInterviewQuestions(
 
   const interviewQuestions = await dependencies.generateInterviewQuestionsForProfile(
     record.resumeProfile,
+    undefined,
+    {
+      job:
+        record.jobName && record.jobPrompt
+          ? { name: record.jobName, prompt: record.jobPrompt }
+          : null,
+    },
   );
   const updated = await db
     .update(studioInterview)

@@ -240,14 +240,9 @@ function buildResumeEvaluationBlocks(
 function buildRecommendedQuestionBlocks(
   questions: InterviewEvaluationDocumentInput["recommendedQuestions"],
 ): FeishuDocumentBlock[] {
-  const validQuestions = (questions ?? [])
+  const orderedQuestions = (questions ?? [])
     .filter((question) => question.question.trim())
     .toSorted((left, right) => left.order - right.order);
-  const orderedQuestions = [
-    ...validQuestions.filter((question) => question.difficulty === "easy").slice(-1),
-    ...validQuestions.filter((question) => question.difficulty === "medium").slice(-2),
-    ...validQuestions.filter((question) => question.difficulty === "hard"),
-  ];
   if (orderedQuestions.length === 0) {
     return [];
   }

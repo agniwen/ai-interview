@@ -69,6 +69,7 @@ import {
   forceResumeReparse as defaultForceResumeReparse,
   retryFailedResumeParse as defaultRetryFailedResumeParse,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
+import { interviewQuestionsRouter as defaultInterviewQuestionsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/interview-questions/route";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -144,6 +145,7 @@ const defaultResumeLibraryRouterDependencies = {
   findSemanticResumeDuplicates: defaultFindSemanticResumeDuplicates,
   forceResumeReparse: defaultForceResumeReparse,
   generateResumeScreeningBestEffort: defaultGenerateResumeScreeningBestEffort,
+  interviewQuestionsRouter: defaultInterviewQuestionsRouter,
   invalidateStudioInterviewCaches: defaultInvalidateStudioInterviewCaches,
   loadRecruitingJobDescriptionById: defaultLoadRecruitingJobDescriptionById,
   loadResumeDetail: defaultLoadResumeDetail,
@@ -185,6 +187,7 @@ export function createResumeLibraryRouter(
     forceResumeReparse,
     generateResumeScreeningBestEffort,
     invalidateStudioInterviewCaches,
+    interviewQuestionsRouter,
     loadRecruitingJobDescriptionById,
     loadResumeDetail,
     normalizeResumeFile,
@@ -250,6 +253,7 @@ export function createResumeLibraryRouter(
       .route("/:id/evaluation-history", defaultResumeEvaluationHistoryRouter)
       .route("/:id/meetings", recruitingRecordMeetingsRouter)
       .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
+      .route("/", interviewQuestionsRouter)
       .post(
         "/:id/retry-parse",
         requirePermission("resumeLibrary", "update"),

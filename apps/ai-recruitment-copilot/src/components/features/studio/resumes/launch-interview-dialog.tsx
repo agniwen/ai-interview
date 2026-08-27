@@ -53,6 +53,7 @@ import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { AiInterviewLinkValidity } from "@arc/shared/interview/ai-interview-invitation";
 import { ResumeOverviewPanel } from "./resume-overview-panel";
+import { normalizeCandidateInterviewQuestions } from "../candidate-interview-questions";
 
 interface LaunchFormValues {
   interviewQuestions: InterviewQuestion[];
@@ -103,21 +104,11 @@ export function getStructuredLaunchConfirmation(detail: ResumeLibraryDetail | nu
 // We use a stripped useForm rather than useInterviewForm because the latter
 // runs studioInterviewClientFormSchema which would silently fail on the
 // candidate / JD / schedule fields this dialog doesn't expose.
-function normalizeInterviewQuestions(values: InterviewQuestion[]): InterviewQuestion[] {
-  return values.map((question, index) => ({
-    ...question,
-    evaluationFocus: question.evaluationFocus?.trim() || null,
-    followUpDirections: question.followUpDirections?.trim() || null,
-    order: index + 1,
-    question: question.question.trim(),
-  }));
-}
-
 export function getStoredInterviewQuestions(
   detail: ResumeLibraryDetail | null,
 ): InterviewQuestion[] | null {
   const questions = detail?.interviewQuestions ?? [];
-  return questions.length > 0 ? normalizeInterviewQuestions(questions) : null;
+  return questions.length > 0 ? normalizeCandidateInterviewQuestions(questions) : null;
 }
 
 interface HumanInterviewQuestionDialogProps {
@@ -138,6 +129,7 @@ interface HumanInterviewQuestionDialogProps {
 async function streamGenerateQuestions(
   slug: string,
   resumeProfile: ResumeProfile,
+  jobDescriptionId: string | null,
   signal: AbortSignal,
 ): Promise<InterviewQuestion[] | null> {
   // 用 hc 客户端调流式接口：URL 常量化 + body 类型推断走 zValidator schema；
@@ -145,7 +137,7 @@ async function streamGenerateQuestions(
   // Streaming via hc: URL + body types come from the zValidator schema. Consume
   // the stream manually because rpcFetch would parse the whole body.
   const response = await rpc.api.w[":slug"].interview["generate-questions"].$post(
-    { json: { resumeProfile }, param: { slug } },
+    { json: { jobDescriptionId, resumeProfile }, param: { slug } },
     { init: { signal } },
   );
   if (!response.ok) {
@@ -220,7 +212,7 @@ export function HumanInterviewQuestionDialog({
           toast.error(error instanceof Error ? error.message : "准备真人面试失败"),
         operation: async () => {
           const confirmed = await onConfirmed(
-            normalizeInterviewQuestions(value.interviewQuestions),
+            normalizeCandidateInterviewQuestions(value.interviewQuestions),
           );
           if (confirmed) {
             onOpenChange(false);
@@ -280,7 +272,12 @@ export function HumanInterviewQuestionDialog({
         }
 
         setIsGenerating(true);
-        const questions = await streamGenerateQuestions(slug, profile, abortController.signal);
+        const questions = await streamGenerateQuestions(
+          slug,
+          profile,
+          detail?.jobDescriptionId ?? null,
+          abortController.signal,
+        );
         if (cancelled || abortController.signal.aborted) {
           return;
         }
@@ -409,12 +406,14 @@ export function HumanInterviewQuestionDialog({
                 contentPlaceholder="输入面试题目"
                 createItem={(sortIndex) => ({
                   difficulty: "easy",
+                  dimension: "business",
                   evaluationFocus: "",
                   followUpDirections: "",
                   order: sortIndex + 1,
                   question: "",
                 })}
                 disabled={isBusy}
+                dimensionFieldName="dimension"
                 emptyDescription={
                   env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
                     ? "简历解析完成后会自动填入，也可以手动添加。"
