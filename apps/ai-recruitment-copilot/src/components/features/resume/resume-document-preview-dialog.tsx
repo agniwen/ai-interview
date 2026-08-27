@@ -33,6 +33,8 @@ export interface ResumeDocumentPreviewDialogProps {
   kind: ResumeDocumentPreviewKind;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete?: (open: boolean) => void;
+  onReady?: () => void;
   url: string;
   filename?: string;
 }
@@ -77,6 +79,14 @@ function getDefaultPreviewTitle(kind: ResumeDocumentPreviewKind) {
     return "图片简历预览";
   }
   return "简历预览";
+}
+
+function PreviewDialogReady({ onReady, url }: { onReady?: () => void; url: string }) {
+  useEffect(() => {
+    onReady?.();
+  }, [onReady, url]);
+
+  return null;
 }
 
 function ResumePreviewHeaderActions({
@@ -204,6 +214,8 @@ export function ResumeDocumentPreviewDialog({
   kind,
   open,
   onOpenChange,
+  onOpenChangeComplete,
+  onReady,
   url,
   filename,
 }: ResumeDocumentPreviewDialogProps & { dependencies?: ResumeDocumentPreviewDialogDependencies }) {
@@ -220,6 +232,8 @@ export function ResumeDocumentPreviewDialog({
           downloadUrl={resolvedDownloadUrl}
           filename={filename}
           onOpenChange={onOpenChange}
+          onOpenChangeComplete={onOpenChangeComplete}
+          onReady={onReady}
           open={open}
           url={url}
         />
@@ -236,6 +250,7 @@ export function ResumeDocumentPreviewDialog({
         headerClassName="px-5 py-3"
         headerLayout="row"
         onOpenChange={onOpenChange}
+        onOpenChangeComplete={onOpenChangeComplete}
         open={open}
         showCloseButton={false}
         size="full"
@@ -248,6 +263,7 @@ export function ResumeDocumentPreviewDialog({
           />
         }
       >
+        <PreviewDialogReady onReady={onReady} url={url} />
         <ImageResumePreviewContent filename={filename} url={url} />
       </Modal>
     );
@@ -261,6 +277,7 @@ export function ResumeDocumentPreviewDialog({
       headerClassName="px-5 py-3"
       headerLayout="row"
       onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
       open={open}
       showCloseButton={false}
       size="full"
@@ -273,25 +290,28 @@ export function ResumeDocumentPreviewDialog({
         />
       }
     >
-      {kind === "docx"
-        ? dependencies.renderDocxPreview({
-            className: "h-full",
-            fileName: filename,
-            isDark,
-            onIsDarkChange: setIsDark,
-            showDownload: false,
-            showUpload: false,
-            src: url,
-          })
-        : dependencies.renderXlsxPreview({
-            className: "h-full",
-            fileName: filename,
-            isDark,
-            onIsDarkChange: setIsDark,
-            showDownload: false,
-            showUpload: false,
-            src: url,
-          })}
+      <PreviewDialogReady onReady={onReady} url={url} />
+      <Suspense fallback={null}>
+        {kind === "docx"
+          ? dependencies.renderDocxPreview({
+              className: "h-full",
+              fileName: filename,
+              isDark,
+              onIsDarkChange: setIsDark,
+              showDownload: false,
+              showUpload: false,
+              src: url,
+            })
+          : dependencies.renderXlsxPreview({
+              className: "h-full",
+              fileName: filename,
+              isDark,
+              onIsDarkChange: setIsDark,
+              showDownload: false,
+              showUpload: false,
+              src: url,
+            })}
+      </Suspense>
     </Modal>
   );
 }

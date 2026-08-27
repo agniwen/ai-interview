@@ -1,7 +1,7 @@
 "use client";
 
 import { IconDownload, IconX } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { PDFViewer } from "@/components/ui/pdf-viewer";
@@ -9,6 +9,8 @@ import { PDFViewer } from "@/components/ui/pdf-viewer";
 export interface PdfPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete?: (open: boolean) => void;
+  onReady?: () => void;
   url: string;
   filename?: string;
   downloadFileName?: string;
@@ -18,6 +20,8 @@ export interface PdfPreviewDialogProps {
 export function PdfPreviewDialog({
   open,
   onOpenChange,
+  onOpenChangeComplete,
+  onReady,
   url,
   filename,
   downloadFileName,
@@ -38,6 +42,10 @@ export function PdfPreviewDialog({
   const pageCountLabel = numPages ? `第 ${activePage} / ${numPages} 页` : "加载中…";
   const resolvedDownloadFileName = downloadFileName ?? filename ?? "resume.pdf";
 
+  useEffect(() => {
+    onReady?.();
+  }, [onReady, url]);
+
   return (
     <Modal
       bodyClassName="min-h-0 overflow-hidden bg-muted/30 p-0"
@@ -46,6 +54,7 @@ export function PdfPreviewDialog({
       headerClassName="px-5 py-3"
       headerLayout="row"
       onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
       open={open}
       showCloseButton={false}
       size="full"
