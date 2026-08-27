@@ -129,9 +129,9 @@ const DIFFICULTY_LABEL = {
 function LoadingBlock() {
   return (
     <div className="flex flex-col gap-3 p-4" aria-label="加载中">
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-24 w-full" variant="subtle" />
+      <Skeleton className="h-16 w-full" variant="subtle" />
+      <Skeleton className="h-16 w-full" variant="subtle" />
     </div>
   );
 }
