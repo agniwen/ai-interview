@@ -1,0 +1,3 @@
+# Use interviewer invite links for candidate-materials access
+
+Human-interview interviewer invite links are bearer credentials for both low-friction meeting entry and read-only access to candidate materials for that meeting; sign-in and workspace-session identity do not add or remove this access. The link still resolves a specific host, interviewer, or observer identity for audit attribution, limits every query to candidates attached to the resolved meeting, expires with the meeting's material-access window, and is never accepted from a candidate-side invite. This deliberately accepts the forwarding risk of a bearer link so invited interviewers can use the complete meeting experience without an account session.

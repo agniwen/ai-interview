@@ -33,3 +33,4 @@ export * from "./endpoints/resume";
 export * from "./endpoints/studio-resumes";
 export * from "./endpoints/resume-pool";
 export * from "./endpoints/referrals";
+export * from "./endpoints/human-interview-candidate-materials";

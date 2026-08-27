@@ -569,6 +569,10 @@ _Avoid_: Calendar event, timeslot
 A live interview session involving a human interviewer and a candidate.
 _Avoid_: AI interview, manual round
 
+**Interviewer Candidate Materials**:
+A read-only, meeting-scoped view of every candidate attached to one human interview meeting, available through a valid interviewer invite link for hosts, interviewers, and observers without requiring sign-in. It may include candidate details, resume content, AI evaluation, AI-interview information, and recommended questions, but never includes candidates outside that meeting or appears in the candidate-side meeting experience.
+_Avoid_: Workspace-wide candidate access, candidate-facing dossier, interviewer assignment scope, signed-in member access
+
 **Interview Report**:
 The versioned, reviewable evaluation output for one AI interview round, combining evidence from the candidate's resume, submitted forms, and that round's interview. A candidate may have multiple interview reports.
 _Avoid_: Candidate-level aggregate report, summary, feedback note

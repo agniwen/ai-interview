@@ -612,13 +612,6 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       eq(studioHumanInterviewMeetingRound.roundId, studioHumanInterviewRound.id),
     )
     .innerJoin(studioInterview, eq(studioHumanInterviewRound.interviewRecordId, studioInterview.id))
-    .innerJoin(
-      studioHumanInterviewRoundInterviewer,
-      and(
-        eq(studioHumanInterviewRoundInterviewer.roundId, studioHumanInterviewMeetingRound.roundId),
-        eq(studioHumanInterviewRoundInterviewer.userId, row.userId),
-      ),
-    )
     .where(eq(studioHumanInterviewMeetingRound.meetingId, row.meetingId))
     .orderBy(asc(studioHumanInterviewRound.sortOrder))
     .limit(1);

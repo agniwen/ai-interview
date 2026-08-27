@@ -60,6 +60,7 @@ import {
   respondHumanInterviewCandidateInvitation,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-candidate-response";
 import { aiInterviewInvitationsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/public/routes/ai-interview-invitations/route";
+import { humanInterviewCandidateMaterialsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/public/routes/human-interview-candidate-materials/route";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   cancelBatch,
@@ -101,6 +102,7 @@ export function createPublicRouter(overrides: Partial<PublicRouterDependencies> 
   const dependencies: PublicRouterDependencies = { ...defaultDependencies, ...overrides };
   return factory
     .createApp()
+    .route("/human-interview-candidate-materials", humanInterviewCandidateMaterialsRouter)
     .get("/referrals/:token", async (c) => {
       const link = await dependencies.resolveReferralLink(c.req.param("token"));
       if (!link) {

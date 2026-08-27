@@ -2,36 +2,17 @@
 
 import {
   IconCheck,
-  IconDeviceDesktopUp,
+  IconFileDescription,
   IconLoader2,
   IconLogin,
-  IconMicrophone,
-  IconMicrophoneOff,
-  IconPhoneOff,
-  IconPlayerStop,
-  IconUsers,
   IconVideo,
-  IconVideoOff,
   IconX,
 } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
-import {
-  DisconnectButton,
-  LiveKitRoom,
-  ParticipantTile,
-  RoomAudioRenderer,
-  TrackLoop,
-  TrackToggle,
-  useRoomContext,
-  useTrackRefContext,
-  useParticipants,
-  useTracks,
-} from "@livekit/components-react";
-import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from "@livekit/components-react";
 
 import { ConnectionState, RoomEvent, Track } from "livekit-client";
-import type { MouseEvent } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -41,19 +22,11 @@ import type {
   PublicHumanInterviewMeetingPreview,
 } from "@arc/shared/studio-pipeline-stages";
 import { cn } from "@arc/shared/utils";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MicrophoneDeviceMenu, VoiceEffectMenu } from "./human-meeting-audio-controls";
+import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
+import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
+import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
+import type { InterviewerCandidateMaterialsState } from "./interviewer-candidate-materials";
 
 type HumanMeetingRoomProps =
   | {
@@ -79,16 +52,6 @@ const humanInterviewMeetingTokenSchema = z.object({
   roomName: z.string(),
   serverUrl: z.string(),
 });
-
-const participantMetadataSchema = z.object({
-  participant_role: z.string().optional(),
-  participant_type: z.string().optional(),
-});
-
-interface ParticipantBadge {
-  label: string;
-  tone: "candidate" | "interviewer";
-}
 
 async function fetchMeetingToken(path: string): Promise<HumanInterviewMeetingTokenResponse> {
   const response = await fetch(path, { method: "POST" });
@@ -228,43 +191,14 @@ function getStartBlockMessage(
   return `面试时间为 ${formatDateTime(scheduledAt)}，可提前 5 分钟进入，当前暂不能进入会议。`;
 }
 
-function parseParticipantMetadata(
-  metadata: string | undefined,
-): z.infer<typeof participantMetadataSchema> {
-  if (!metadata) {
-    return {};
+function getJoinButtonText(startBlockMessage: string | null, isJoining: boolean) {
+  if (startBlockMessage) {
+    return "未到入会时间";
   }
-  try {
-    const parsed = participantMetadataSchema.safeParse(JSON.parse(metadata));
-    return parsed.success ? parsed.data : {};
-  } catch {
-    return {};
+  if (isJoining) {
+    return "连接中…";
   }
-}
-
-function getParticipantBadge(trackRef: TrackReferenceOrPlaceholder): ParticipantBadge {
-  const metadata = parseParticipantMetadata(trackRef.participant.metadata);
-  const { identity, name: participantName } = trackRef.participant;
-  let role = metadata.participant_role;
-  if (metadata.participant_type === "candidate" || identity.startsWith("candidate_")) {
-    role = "candidate";
-  }
-
-  let roleLabel = "面试官";
-  if (role === "candidate") {
-    roleLabel = "候选人";
-  } else if (role === "host") {
-    roleLabel = "主持人";
-  } else if (role === "observer") {
-    roleLabel = "旁听";
-  }
-  const name = participantName || identity;
-  const sourceSuffix = trackRef.source === Track.Source.ScreenShare ? " · 屏幕共享" : "";
-
-  return {
-    label: `${roleLabel} · ${name}${sourceSuffix}`,
-    tone: role === "candidate" ? "candidate" : "interviewer",
-  };
+  return "进入会议";
 }
 
 async function loadMeetingToken(
@@ -294,15 +228,6 @@ async function finishInterviewerMeeting(inviteToken: string): Promise<{ error: s
     return {
       error: error instanceof Error ? error.message : "结束会议失败",
     };
-  }
-}
-
-async function runEndMeeting(onEndMeeting: () => Promise<void> | void): Promise<boolean> {
-  try {
-    await onEndMeeting();
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -365,6 +290,13 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     props.mode === "candidate" ? props.preview.candidateInviteStatus : "accepted",
   );
   const [candidateResponsePending, setCandidateResponsePending] = useState(false);
+  const [viewMode, setViewMode] = useState<HumanMeetingViewMode>("meeting");
+  const [candidateMaterialsState, setCandidateMaterialsState] =
+    useState<InterviewerCandidateMaterialsState>({
+      candidateId: null,
+      centerTab: "detail",
+      leftTab: "ai",
+    });
   const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
     props.preview.scheduledAt,
@@ -399,6 +331,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     dispatch({ type: "joinStarted" });
     const result = await loadMeetingToken(props);
     if (result.token) {
+      setViewMode("meeting");
       dispatch({ token: result.token, type: "joinSucceeded" });
       return;
     }
@@ -483,13 +416,40 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   }
 
   if (!token) {
-    const entryMessage = startBlockMessage ?? joinError;
-    let joinButtonText = "进入会议";
-    if (startBlockMessage) {
-      joinButtonText = "未到入会时间";
-    } else if (isJoining) {
-      joinButtonText = "连接中…";
+    if (props.mode === "interviewer" && viewMode === "materials") {
+      return (
+        <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
+          <header className="flex shrink-0 items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
+            <div>
+              <h1 className="font-medium text-white text-xl tracking-normal">
+                {getRoomTitle(props)}
+              </h1>
+              <p className="text-white/60 text-xs">面试准备 · 候选人资料</p>
+            </div>
+          </header>
+          <div className="min-h-0 flex-1">
+            <InterviewerCandidateMaterials
+              active
+              inviteToken={props.inviteToken}
+              onStateChange={setCandidateMaterialsState}
+              state={candidateMaterialsState}
+            />
+          </div>
+          <footer className="flex shrink-0 items-center justify-center border-white/10 border-t px-4 py-3">
+            <button
+              className={humanMeetingControlButtonClass}
+              onClick={() => setViewMode("meeting")}
+              type="button"
+            >
+              <IconVideo className="size-4" />
+              返回入会页
+            </button>
+          </footer>
+        </main>
+      );
     }
+    const entryMessage = startBlockMessage ?? joinError;
+    const joinButtonText = getJoinButtonText(startBlockMessage, isJoining);
 
     return (
       <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
@@ -511,19 +471,27 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
               {entryMessage}
             </p>
           ) : null}
-          <Button
-            className="min-w-36"
-            disabled={isJoining || Boolean(startBlockMessage)}
-            onClick={joinMeeting}
-            size="lg"
-          >
-            {isJoining ? (
-              <IconLoader2 className="size-4 animate-spin" />
-            ) : (
-              <IconLogin className="size-4" />
-            )}
-            {joinButtonText}
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button
+              className="min-w-36"
+              disabled={isJoining || Boolean(startBlockMessage)}
+              onClick={joinMeeting}
+              size="lg"
+            >
+              {isJoining ? (
+                <IconLoader2 className="size-4 animate-spin" />
+              ) : (
+                <IconLogin className="size-4" />
+              )}
+              {joinButtonText}
+            </Button>
+            {props.mode === "interviewer" ? (
+              <Button onClick={() => setViewMode("materials")} size="lg" variant="outline">
+                <IconFileDescription className="size-4" />
+                候选人资料
+              </Button>
+            ) : null}
+          </div>
         </section>
       </main>
     );
@@ -550,8 +518,13 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
         canEndMeeting={props.mode === "interviewer"}
         isEnding={isEnding}
         onEndMeeting={endMeeting}
+        inviteToken={props.mode === "interviewer" ? props.inviteToken : null}
+        candidateMaterialsState={candidateMaterialsState}
+        onCandidateMaterialsStateChange={setCandidateMaterialsState}
+        onViewModeChange={setViewMode}
         participantName={token.participantName}
         title={getRoomTitle(props)}
+        viewMode={props.mode === "interviewer" ? viewMode : "meeting"}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>
@@ -600,182 +573,3 @@ function DefaultMicrophoneStarter({ enabled }: { enabled: boolean }) {
 
   return null;
 }
-
-function HumanMeetingStage({
-  canPublish,
-  canUseVoiceEffects,
-  canEndMeeting,
-  isEnding,
-  onEndMeeting,
-  participantName,
-  title,
-}: {
-  canPublish: boolean;
-  canUseVoiceEffects: boolean;
-  canEndMeeting: boolean;
-  isEnding: boolean;
-  onEndMeeting: () => Promise<void> | void;
-  participantName: string;
-  title: string;
-}) {
-  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
-  const participants = useParticipants();
-  const tracks = useTracks(
-    [
-      { source: Track.Source.ScreenShare, withPlaceholder: false },
-      { source: Track.Source.Camera, withPlaceholder: true },
-    ],
-    { onlySubscribed: false },
-  );
-
-  async function handleEndConfirm(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    const ended = await runEndMeeting(onEndMeeting);
-    if (ended) {
-      setEndConfirmOpen(false);
-    }
-  }
-
-  return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
-        <div>
-          <h1 className="font-medium text-xl text-white tracking-normal">{title}</h1>
-          <p className="text-white/60 text-xs">{participantName}</p>
-        </div>
-        <Badge variant="inverse">
-          <IconUsers data-icon="inline-start" />
-          {participants.length}
-        </Badge>
-      </header>
-
-      <div
-        className={cn(
-          "grid min-h-0 flex-1 gap-3 p-3",
-          "auto-rows-fr overflow-hidden",
-          tracks.length <= 1 && "grid-cols-1",
-          tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
-          tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
-        )}
-      >
-        <TrackLoop tracks={tracks}>
-          <HumanParticipantTile />
-        </TrackLoop>
-      </div>
-
-      <footer className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-white/10 border-t px-4 py-3">
-        {canPublish ? (
-          <>
-            <TrackToggle
-              className={mediaToggleButtonClass}
-              showIcon={false}
-              source={Track.Source.Microphone}
-            >
-              <IconMicrophone className="toggle-on size-4" />
-              <IconMicrophoneOff className="toggle-off size-4" />
-              <span className="toggle-on">麦克风</span>
-              <span className="toggle-off">已静音</span>
-            </TrackToggle>
-            <MicrophoneDeviceMenu />
-            {canUseVoiceEffects ? <VoiceEffectMenu /> : null}
-            <TrackToggle
-              className={mediaToggleButtonClass}
-              showIcon={false}
-              source={Track.Source.Camera}
-            >
-              <IconVideo className="toggle-on size-4" />
-              <IconVideoOff className="toggle-off size-4" />
-              <span className="toggle-on">摄像头</span>
-              <span className="toggle-off">摄像头已关</span>
-            </TrackToggle>
-            <TrackToggle
-              className={controlButtonClass}
-              showIcon={false}
-              source={Track.Source.ScreenShare}
-            >
-              <IconDeviceDesktopUp className="size-4" />
-              共享屏幕
-            </TrackToggle>
-          </>
-        ) : null}
-        {canEndMeeting ? (
-          <button
-            className={endButtonClass}
-            disabled={isEnding}
-            onClick={() => setEndConfirmOpen(true)}
-            type="button"
-          >
-            {isEnding ? (
-              <IconLoader2 className="size-4 animate-spin" />
-            ) : (
-              <IconPlayerStop className="size-4" />
-            )}
-            {isEnding ? "结束中…" : "结束会议"}
-          </button>
-        ) : null}
-        <DisconnectButton className={leaveButtonClass}>
-          <IconPhoneOff className="size-4" />
-          离开
-        </DisconnectButton>
-      </footer>
-      <AlertDialog onOpenChange={setEndConfirmOpen} open={endConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>结束这场会议？</AlertDialogTitle>
-            <AlertDialogDescription>
-              结束后会关闭当前视频房间，所有已加入的人都会离开，后续也不能继续进入该会议。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isEnding}>取消</AlertDialogCancel>
-            <AlertDialogAction disabled={isEnding} onClick={handleEndConfirm} variant="destructive">
-              {isEnding ? <IconLoader2 className="size-4 animate-spin" /> : null}
-              确认结束
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-function HumanParticipantTile() {
-  const trackRef = useTrackRefContext();
-  const badge = getParticipantBadge(trackRef);
-
-  return (
-    <div className="relative h-full min-h-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
-      <ParticipantTile
-        className={cn(
-          "relative h-full min-h-0 w-full overflow-hidden bg-zinc-900",
-          "[&_.lk-focus-toggle-button]:hidden",
-          "[&_.lk-participant-metadata]:absolute [&_.lk-participant-metadata]:right-3 [&_.lk-participant-metadata]:bottom-3 [&_.lk-participant-metadata]:left-3",
-          "[&_.lk-participant-metadata]:flex [&_.lk-participant-metadata]:items-center [&_.lk-participant-metadata]:justify-between",
-          "[&_.lk-participant-metadata-item]:rounded-md [&_.lk-participant-metadata-item]:bg-black/55 [&_.lk-participant-metadata-item]:px-2 [&_.lk-participant-metadata-item]:py-1",
-          "[&_.lk-participant-placeholder]:absolute [&_.lk-participant-placeholder]:inset-0 [&_.lk-participant-placeholder]:grid [&_.lk-participant-placeholder]:place-items-center [&_.lk-participant-placeholder]:bg-zinc-900",
-          "[&_.lk-participant-placeholder_svg]:size-16 [&_.lk-participant-placeholder_svg]:text-white/25",
-          "[&_video]:relative [&_video]:z-10 [&_video]:h-full [&_video]:w-full [&_video]:object-cover",
-        )}
-        trackRef={trackRef}
-      />
-      <Badge
-        className="pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate shadow-sm backdrop-blur"
-        title={badge.label}
-        variant={badge.tone === "candidate" ? "info" : "inverse"}
-      >
-        {badge.label}
-      </Badge>
-    </div>
-  );
-}
-
-const controlButtonClass =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15";
-
-const mediaToggleButtonClass = `${controlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
-
-const leaveButtonClass =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-red-400/40 bg-red-500 px-3 text-sm text-white transition hover:bg-red-500/90";
-
-const endButtonClass =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-amber-300/40 bg-amber-500 px-3 text-sm text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60";
