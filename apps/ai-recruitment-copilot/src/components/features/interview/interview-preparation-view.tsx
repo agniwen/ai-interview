@@ -121,7 +121,7 @@ export function InterviewPreparationView({
                 <MarkdownView
                   className="text-foreground/70 text-sm [&_li]:leading-7 [&_p]:leading-7"
                   content={
-                    interviewView.jobDescriptionDescription?.trim() ||
+                    interviewView.jobDescriptionPrompt?.trim() ||
                     "暂未提供岗位介绍。如需进一步了解，您可以联系招聘负责人。"
                   }
                 />

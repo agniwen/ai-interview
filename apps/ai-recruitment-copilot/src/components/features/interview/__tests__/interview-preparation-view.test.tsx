@@ -22,9 +22,9 @@ const interviewView = {
   currentRoundTime: null,
   id: "interview-id",
   interviewQuestions: [],
-  jobDescriptionDescription: "负责内容策略与团队协作。",
+  jobDescriptionDescription: "旧岗位简介不应展示。",
   jobDescriptionName: "内容运营经理",
-  jobDescriptionPrompt: null,
+  jobDescriptionPrompt: "**负责内容策略**\n\n- 推动跨团队协作",
   resumeProfile: null,
   targetRole: "内容运营经理",
 } satisfies CandidateInterviewView;
@@ -40,7 +40,11 @@ describe("InterviewPreparationView", () => {
     expect(markup).toContain('data-layout="stacked-context"');
     expect(markup.indexOf("关于公司")).toBeLessThan(markup.indexOf("关于岗位"));
     expect(markup).toContain("内容运营经理");
+    expect(markup).toContain("typeset typeset-compact");
+    expect(markup).toContain("<strong>负责内容策略</strong>");
+    expect(markup).toContain("推动跨团队协作");
     expect(markup).toContain("继续填写信息");
+    expect(markup).not.toContain("旧岗位简介不应展示");
     expect(markup).not.toContain("AI 对您的初步了解");
     expect(markup).not.toContain("旧的候选人初步了解不应展示");
   });
