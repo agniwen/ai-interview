@@ -22,9 +22,11 @@ function interviewQuestion(
   difficulty: InterviewQuestion["difficulty"],
   order: number,
   question: string,
+  dimension: InterviewQuestion["dimension"] = "business",
 ): InterviewQuestion {
   return {
     difficulty,
+    dimension,
     evaluationFocus: `${question}考核点`,
     followUpDirections: `${question}追问方向`,
     order,
@@ -121,13 +123,13 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(document.blocks.at(recommendedBlockIndex)?.children?.map(blockText)).toEqual([
       "推荐面试题",
       "1. 请介绍你在最近项目中的角色。",
-      "考核点",
+      "考核点(业务水平维度)",
       "确认候选人在项目中的实际职责。",
       "追问方向",
       "追问关键交付物以及与其他成员的分工。",
       "",
       "2. 请介绍你主导过的高并发系统设计。",
-      "考核点",
+      "考核点(业务水平维度)",
       "验证候选人的系统设计能力和技术取舍。",
       "追问方向",
       "继续追问容量估算、故障降级和替代方案。",
@@ -171,6 +173,37 @@ describe("buildInterviewEvaluationDocument", () => {
     ]);
   });
 
+  it("shows each question dimension after the evaluation focus label", () => {
+    const questions = [
+      interviewQuestion("medium", 1, "业务题", "business"),
+      interviewQuestion("medium", 2, "AI题", "ai_application"),
+      interviewQuestion("medium", 3, "项目题", "project_management"),
+      interviewQuestion("medium", 4, "软实力题", "soft_skills"),
+      interviewQuestion("medium", 5, "团队题", "team_management"),
+    ];
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      recommendedQuestions: questions,
+      resumeUrl: "https://example.com/resume",
+    });
+
+    const recommendedBlock = document.blocks.find((block) =>
+      block.children?.some((child) => blockText(child) === "推荐面试题"),
+    );
+    const evaluationFocusLabels = (recommendedBlock?.children ?? [])
+      .map(blockText)
+      .filter((text) => text?.startsWith("考核点("));
+
+    expect(evaluationFocusLabels).toEqual([
+      "考核点(业务水平维度)",
+      "考核点(AI应用维度)",
+      "考核点(项目管理维度)",
+      "考核点(软实力维度)",
+      "考核点(团队管理维度)",
+    ]);
+  });
+
   it("keeps manually edited questions when optional guidance is blank", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",
@@ -194,7 +227,7 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(recommendedBlock?.children?.map(blockText)).toEqual([
       "推荐面试题",
       "1. 请介绍一次关键技术决策。",
-      "考核点",
+      "考核点(业务水平维度)",
       "未提供",
       "追问方向",
       "未提供",

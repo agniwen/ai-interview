@@ -4,6 +4,7 @@ import type {
   QualitativeResumeEvaluation,
   ResumeEvaluationContractMode,
 } from "@arc/db-schema/qualitative-resume-evaluation";
+import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { JsonObject } from "@arc/db-schema/json";
 import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
@@ -251,7 +252,10 @@ function buildRecommendedQuestionBlocks(
       textBlock("推荐面试题", true),
       ...orderedQuestions.flatMap((question, index) => [
         textBlock(`${index + 1}. ${question.question.trim()}`, true),
-        textBlock("考核点", true),
+        textBlock(
+          `考核点(${INTERVIEW_QUESTION_DIMENSION_LABEL[question.dimension ?? "business"]}维度)`,
+          true,
+        ),
         textBlock(stringValue(question.evaluationFocus ?? undefined, "未提供")),
         textBlock("追问方向", true),
         textBlock(stringValue(question.followUpDirections ?? undefined, "未提供")),
