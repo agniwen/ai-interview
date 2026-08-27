@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  IconAlertTriangle,
-  IconFileDescription,
-  IconId,
-  IconNotebook,
-  IconRobot,
-  IconUser,
-} from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileDescription, IconId } from "@tabler/icons-react";
 import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
 import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
@@ -555,17 +548,17 @@ export function InterviewerCandidateMaterials({
           }}
           value={state.leftTab}
         >
-          <TabsList className="w-full shrink-0 rounded-none border-b bg-transparent p-2">
-            <TabsTrigger className="flex-1" value="ai">
-              <IconRobot />
+          <TabsList
+            aria-label="候选人评价资料"
+            className="m-2 grid h-auto w-auto shrink-0 grid-cols-3 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
+          >
+            <TabsTrigger className="h-10! w-full px-3" value="ai">
               AI 评价
             </TabsTrigger>
-            <TabsTrigger className="flex-1" value="hr">
-              <IconUser />
+            <TabsTrigger className="h-10! w-full px-3" value="hr">
               HR 初面
             </TabsTrigger>
-            <TabsTrigger className="flex-1" value="questions">
-              <IconNotebook />
+            <TabsTrigger className="h-10! w-full px-3" value="questions">
               面试题
             </TabsTrigger>
           </TabsList>
@@ -595,13 +588,14 @@ export function InterviewerCandidateMaterials({
           }}
           value={state.centerTab}
         >
-          <TabsList className="w-full shrink-0 rounded-none border-b bg-transparent p-2">
-            <TabsTrigger className="flex-1" value="detail">
-              <IconId />
+          <TabsList
+            aria-label="候选人简历资料"
+            className="m-2 grid h-auto w-auto shrink-0 grid-cols-2 items-stretch gap-1 data-[orientation=horizontal]:h-auto"
+          >
+            <TabsTrigger className="h-10! w-full px-3" value="detail">
               详情
             </TabsTrigger>
-            <TabsTrigger className="flex-1" value="resume">
-              <IconFileDescription />
+            <TabsTrigger className="h-10! w-full px-3" value="resume">
               简历
             </TabsTrigger>
           </TabsList>
