@@ -179,6 +179,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
   month: "2-digit",
+  timeZone: "Asia/Shanghai",
   year: "numeric",
 });
 

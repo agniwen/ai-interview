@@ -155,6 +155,8 @@ export function ContributionCalendar({
   emptyMessage?: string;
   unitLabel?: string;
 }) {
+  "use no memo";
+
   const cells = useMemo(() => buildCalendarDays(dailyAdded), [dailyAdded]);
   const inRangeCells = useMemo(() => cells.filter((row) => row.inRange), [cells]);
   const total = useMemo(
@@ -172,7 +174,6 @@ export function ContributionCalendar({
   const didScrollToEndRef = useRef(false);
   const calendarScrollEvents = useMemo<EventListeners>(
     () =>
-      // oxlint-disable-next-line react/refs -- The ref is read by a post-render callback or transition calculation.
       withHorizontalWheelScroll({
         initialized: (instance) => {
           didScrollToEndRef.current = false;

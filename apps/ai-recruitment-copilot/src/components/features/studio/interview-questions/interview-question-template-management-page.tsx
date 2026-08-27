@@ -65,6 +65,8 @@ export function InterviewQuestionTemplateManagementPage({
 }: {
   jobDescriptions: JobDescriptionListRecord[];
 }) {
+  "use no memo";
+
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const canCreateQuestionTemplate = useHasPermission("questionTemplate", "create");

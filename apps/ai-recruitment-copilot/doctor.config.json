@@ -28,12 +28,21 @@
       {
         "files": [
           "src/components/data-grid/data-grid.tsx",
-          "src/components/features/studio/resumes/resume-library-page-list.tsx"
+          "src/components/features/studio/resume-pool/resume-pool-list.tsx",
+          "src/components/features/studio/resumes/resume-library-page-list.tsx",
+          "src/components/features/studio/upload-task-inbox.tsx"
         ],
         "rules": ["react-hooks-js/incompatible-library"]
       },
       {
-        "files": ["src/components/layout/app-sidebar/workspace-sidebar-slots.tsx"],
+        "files": [
+          "src/components/features/motion/animated-height.tsx",
+          "src/components/features/studio/charts/contribution-calendar.tsx",
+          "src/components/features/studio/forms/form-template-management-page.tsx",
+          "src/components/features/studio/interview-questions/interview-question-template-management-page.tsx",
+          "src/components/layout/app-sidebar/workspace-sidebar-slots.tsx",
+          "src/components/reui/cascader/cascader.tsx"
+        ],
         "rules": ["react-hooks-js/refs"]
       },
       {
@@ -84,7 +93,6 @@
           "src/components/features/home/feature-blocks.tsx",
           "src/components/features/interview/interview-room.tsx",
           "src/components/features/platform/users/users-grid.tsx",
-          "src/components/features/studio/job-descriptions/job-description-screening-fields.tsx",
           "src/components/features/studio/members/members-page.tsx",
           "src/components/features/studio/members/workspace-permissions-section.tsx",
           "src/components/features/studio/resume-pool/resume-pool-page.tsx",
@@ -103,11 +111,17 @@
       },
       {
         "files": [
+          "src/components/features/interview/ai-interview-invitation-page.tsx",
           "src/components/features/studio/human-interview-stage-rounds.tsx",
           "src/components/features/studio/offer-stage-cards.tsx",
+          "src/components/features/studio/resume-pool/resume-pool-page.tsx",
           "src/routes/referrals.$token.tsx"
         ],
         "rules": ["react-doctor/query-mutation-missing-invalidation"]
+      },
+      {
+        "files": ["src/components/data-grid/parts/debounced-search-input.tsx"],
+        "rules": ["react-doctor/no-derived-useState"]
       },
       {
         "files": [

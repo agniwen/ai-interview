@@ -30,7 +30,6 @@ import {
   updateHumanInterviewMeeting,
 } from "@/lib/client/api";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +68,6 @@ export interface RoundCardDependencies {
   patchHumanInterviewRound: typeof patchHumanInterviewRound;
   renderDateTimePicker: (props: RoundDateTimePickerProps) => ReactNode;
   updateHumanInterviewMeeting: typeof updateHumanInterviewMeeting;
-  useWorkspaceSlug: () => string;
 }
 
 const defaultRoundCardDependencies: RoundCardDependencies = {
@@ -89,7 +87,6 @@ const defaultRoundCardDependencies: RoundCardDependencies = {
     />
   ),
   updateHumanInterviewMeeting,
-  useWorkspaceSlug,
 };
 
 async function copyMeetingLink(url: string, label: string) {
@@ -117,6 +114,7 @@ export function RoundCard({
   onOpenLinks,
   onRescheduled,
   roundNumber,
+  slug,
   dependencies = defaultRoundCardDependencies,
 }: {
   round: HumanInterviewRoundRecord;
@@ -132,10 +130,10 @@ export function RoundCard({
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
   onRescheduled: () => void;
   roundNumber: number;
+  slug: string;
   dependencies?: RoundCardDependencies;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
-  const slug = dependencies.useWorkspaceSlug();
   const canWrite = disabled !== true;
   const canCreateMeeting =
     canCreate &&
@@ -165,6 +163,7 @@ export function RoundCard({
                 meeting={meeting}
                 onRescheduled={onRescheduled}
                 round={round}
+                slug={slug}
               />
               <span className="inline-flex items-center gap-1">
                 {humanInterviewFormatMeta[round.format].label}
@@ -271,6 +270,7 @@ function RoundScheduledAtControl({
   canUpdate,
   disabled,
   onRescheduled,
+  slug,
   dependencies,
 }: {
   round: HumanInterviewRoundRecord;
@@ -279,8 +279,8 @@ function RoundScheduledAtControl({
   disabled?: boolean;
   dependencies: RoundCardDependencies;
   onRescheduled: () => void;
+  slug: string;
 }) {
-  const slug = dependencies.useWorkspaceSlug();
   const [editing, setEditing] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(() =>
     toDateTimeLocalInputValue(round.scheduledAt),

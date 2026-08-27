@@ -137,6 +137,8 @@ export function ResumePoolListContent({
   slug: string;
   sortBy: string | undefined;
 }) {
+  "use no memo";
+
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const cardHeight = useResumePoolCardHeight();
   const virtualRows = useMemo(() => buildResumePoolVirtualRows(records, sortBy), [records, sortBy]);

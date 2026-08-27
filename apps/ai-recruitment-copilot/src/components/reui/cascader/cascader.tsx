@@ -702,6 +702,8 @@ function Cascader<T>({
   inline,
   children,
 }: CascaderProps<T>) {
+  "use no memo";
+
   const baseIndex = React.useMemo(
     () => buildCascaderIndex(items, getParent),
     // `getParent` is stable by design: an inline accessor must not rebuild a

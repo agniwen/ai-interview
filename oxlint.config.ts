@@ -24,7 +24,10 @@ export default defineConfig({
     // Upstream/shared shadcn-style UI — keep parity with web exclusions.
     "apps/ai-recruitment-copilot-desktop/src/renderer/src/components/ui/**",
   ],
-  jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
+  jsPlugins: [
+    { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
+    { name: "react-doctor", specifier: "oxlint-plugin-react-doctor" },
+  ],
   overrides: [
     {
       files: ["packages/db-schema/src/schema.ts"],
@@ -96,5 +99,7 @@ export default defineConfig({
         skipComments: false,
       },
     ],
+    "react-doctor/no-derived-state": "warn",
+    "react-doctor/no-fetch-in-effect": "warn",
   },
 });

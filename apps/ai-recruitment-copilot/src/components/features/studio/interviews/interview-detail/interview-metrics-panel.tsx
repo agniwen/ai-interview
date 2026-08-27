@@ -15,79 +15,77 @@ import { z } from "zod";
  */
 const optionalNumber = z.number().finite().optional();
 
-const metricsCollectionSchema = z
-  .object({
-    session: z
-      .object({
-        eou: z
-          .object({
-            count: optionalNumber,
-            end_of_utterance_delay_sum: optionalNumber,
-            on_user_turn_completed_delay_sum: optionalNumber,
-            transcription_delay_sum: optionalNumber,
-          })
-          .optional(),
-        interruption: z
-          .object({
-            latest_detection_delay: optionalNumber,
-            num_backchannels: optionalNumber,
-            num_interruptions: optionalNumber,
-            num_requests: optionalNumber,
-          })
-          .optional(),
-        llm: z
-          .object({
-            request_count: optionalNumber,
-            total_completion_tokens: optionalNumber,
-            total_duration: optionalNumber,
-            total_prompt_tokens: optionalNumber,
-            total_tokens: optionalNumber,
-            ttft_count: optionalNumber,
-            ttft_sum: optionalNumber,
-          })
-          .optional(),
-        stt: z
-          .object({
-            request_count: optionalNumber,
-            total_audio_duration: optionalNumber,
-            total_duration: optionalNumber,
-          })
-          .optional(),
-        tts: z
-          .object({
-            request_count: optionalNumber,
-            total_audio_duration: optionalNumber,
-            total_characters: optionalNumber,
-            total_duration: optionalNumber,
-            ttfb_count: optionalNumber,
-            ttfb_sum: optionalNumber,
-          })
-          .optional(),
-        vad: z
-          .object({
-            total_inference_count: optionalNumber,
-            total_inference_duration: optionalNumber,
-          })
-          .optional(),
-      })
-      .optional(),
-    turns: z
-      .record(
-        z.string(),
-        z.object({
-          eou_delay: optionalNumber,
-          llm_duration: optionalNumber,
-          llm_total_tokens: optionalNumber,
-          llm_ttft: optionalNumber,
-          transcription_delay: optionalNumber,
-          tts_characters: optionalNumber,
-          tts_duration: optionalNumber,
-          tts_ttfb: optionalNumber,
-        }),
-      )
-      .optional(),
-  })
-  .strip();
+const metricsCollectionSchema = z.object({
+  session: z
+    .object({
+      eou: z
+        .object({
+          count: optionalNumber,
+          end_of_utterance_delay_sum: optionalNumber,
+          on_user_turn_completed_delay_sum: optionalNumber,
+          transcription_delay_sum: optionalNumber,
+        })
+        .optional(),
+      interruption: z
+        .object({
+          latest_detection_delay: optionalNumber,
+          num_backchannels: optionalNumber,
+          num_interruptions: optionalNumber,
+          num_requests: optionalNumber,
+        })
+        .optional(),
+      llm: z
+        .object({
+          request_count: optionalNumber,
+          total_completion_tokens: optionalNumber,
+          total_duration: optionalNumber,
+          total_prompt_tokens: optionalNumber,
+          total_tokens: optionalNumber,
+          ttft_count: optionalNumber,
+          ttft_sum: optionalNumber,
+        })
+        .optional(),
+      stt: z
+        .object({
+          request_count: optionalNumber,
+          total_audio_duration: optionalNumber,
+          total_duration: optionalNumber,
+        })
+        .optional(),
+      tts: z
+        .object({
+          request_count: optionalNumber,
+          total_audio_duration: optionalNumber,
+          total_characters: optionalNumber,
+          total_duration: optionalNumber,
+          ttfb_count: optionalNumber,
+          ttfb_sum: optionalNumber,
+        })
+        .optional(),
+      vad: z
+        .object({
+          total_inference_count: optionalNumber,
+          total_inference_duration: optionalNumber,
+        })
+        .optional(),
+    })
+    .optional(),
+  turns: z
+    .record(
+      z.string(),
+      z.object({
+        eou_delay: optionalNumber,
+        llm_duration: optionalNumber,
+        llm_total_tokens: optionalNumber,
+        llm_ttft: optionalNumber,
+        transcription_delay: optionalNumber,
+        tts_characters: optionalNumber,
+        tts_duration: optionalNumber,
+        tts_ttfb: optionalNumber,
+      }),
+    )
+    .optional(),
+});
 
 type MetricsCollection = z.infer<typeof metricsCollectionSchema>;
 

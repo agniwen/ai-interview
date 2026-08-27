@@ -121,6 +121,8 @@ function UploadTaskRow({
 }
 
 export function UploadTaskInbox() {
+  "use no memo";
+
   const slug = useWorkspaceSlug();
   const canReadUploadTasks = useHasPermission("resumeUploadBatch", "read");
   const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");

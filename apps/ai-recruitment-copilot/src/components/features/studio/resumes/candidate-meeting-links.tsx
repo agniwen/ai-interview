@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import { fetchStudioResumeMeetings } from "@/lib/client/api";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 
 function formatDuration(durationMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
@@ -29,7 +30,7 @@ export function CandidateMeetingLinksView({ meetings }: { meetings: MeetingLibra
               <div className="min-w-0">
                 <p className="truncate font-medium text-sm">{meeting.title}</p>
                 <p className="text-muted-foreground text-xs">
-                  {meeting.creator.name} · {new Date(meeting.savedAt).toLocaleString("zh-CN")}
+                  {meeting.creator.name} · <LocalDateTimeText value={meeting.savedAt} />
                 </p>
               </div>
               <span className="shrink-0 text-muted-foreground text-xs tabular-nums">

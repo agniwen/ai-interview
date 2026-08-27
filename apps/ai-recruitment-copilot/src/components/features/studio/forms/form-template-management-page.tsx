@@ -66,6 +66,8 @@ export function CandidateFormTemplateManagementPage({
 }: {
   jobDescriptions: JobDescriptionListRecord[];
 }) {
+  "use no memo";
+
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const canCreateCandidateForm = useHasPermission("candidateForm", "create");

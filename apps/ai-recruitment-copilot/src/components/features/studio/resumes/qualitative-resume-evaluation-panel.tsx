@@ -15,6 +15,7 @@ import type {
 import { cn } from "@arc/shared/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { RestrictedMarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
@@ -353,7 +354,7 @@ function EvaluationHistoryItem({ item }: { item: ResumeEvaluationHistoryRecord }
                 : `JD v${item.jobDescriptionVersion}`}
             </span>
             <span className="text-muted-foreground">
-              {new Date(item.createdAt).toLocaleString("zh-CN")}
+              <LocalDateTimeText value={item.createdAt} />
             </span>
           </div>
           <span className="text-muted-foreground">展开完整结果</span>
@@ -378,7 +379,7 @@ function EvaluationFailureItem({ item }: { item: ResumeEvaluationFailureRecord }
                 : `JD v${item.jobDescriptionVersion}`}
             </span>
             <span className="text-muted-foreground">
-              {new Date(item.createdAt).toLocaleString("zh-CN")}
+              <LocalDateTimeText value={item.createdAt} />
             </span>
           </div>
           <span className="text-muted-foreground">展开失败原因</span>

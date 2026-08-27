@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/interview-notifications";
 import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { Button } from "@/components/ui/button";
 import { ApiError, rpcFetch } from "@/lib/client/api";
 import { publicRpc } from "@/lib/client/rpc";
@@ -36,16 +37,6 @@ function invitationResponseError(error: Error): InvitationResponseError {
   };
 }
 
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "可按邀请链接进入面试";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 function responseStatusMessage(status: CandidateInterviewInvitationStatus): string {
   if (status === "declined") {
     return "你已拒绝本次面试，如需变更请联系 HR。";
@@ -64,7 +55,9 @@ export function AiInterviewInvitationPage({
   preview: PublicAiInterviewInvitationPreview;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<CandidateInterviewInvitationStatus>(preview.status);
+  const [respondedStatus, setRespondedStatus] = useState<CandidateInterviewInvitationStatus | null>(
+    null,
+  );
   const [responseError, setResponseError] = useState<InvitationResponseError | null>(null);
   const responseMutation = useMutation({
     mutationFn: (action: "accept" | "decline") =>
@@ -83,12 +76,13 @@ export function AiInterviewInvitationPage({
     onMutate: () => setResponseError(null),
     onSuccess: (result) => {
       setResponseError(null);
-      setStatus(result.status);
+      setRespondedStatus(result.status);
       if (result.status === "accepted") {
         void router.navigate({ href: result.interviewUrl });
       }
     },
   });
+  const status = respondedStatus ?? preview.status;
   const canRespond = status === "pending" || status === "sent";
 
   return (
@@ -101,7 +95,13 @@ export function AiInterviewInvitationPage({
       </p>
       <div className="mt-8 flex items-center gap-3 border-border border-y py-5">
         <IconCalendarEvent className="size-5 text-muted-foreground" />
-        <span className="font-medium">{formatTime(preview.scheduledAt)}</span>
+        <span className="font-medium">
+          <LocalDateTimeText
+            fallback="可按邀请链接进入面试"
+            format="long-zh"
+            value={preview.scheduledAt}
+          />
+        </span>
       </div>
       {responseError ? (
         <div

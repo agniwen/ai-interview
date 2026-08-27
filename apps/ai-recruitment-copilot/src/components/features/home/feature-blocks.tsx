@@ -140,12 +140,12 @@ function CandidateAgentChat() {
   return (
     <div className="flex w-full max-w-[31rem] flex-col gap-2.5">
       <div className="flex flex-col gap-2" data-slot="interview-messages">
-        {copy.agentMessages.map((message, index) => (
+        {copy.agentMessages.map((message) => (
           <Message
             className="gap-0"
             data-message-role={message.role}
             from={message.role}
-            key={`${message.role}-${index}`}
+            key={`${message.role}-${message.content}`}
           >
             <MessageContent
               className={cn(

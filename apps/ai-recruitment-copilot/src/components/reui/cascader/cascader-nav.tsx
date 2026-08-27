@@ -157,7 +157,13 @@ function CascaderBreadcrumb({
       className,
     ),
     children: segments.map((segment, i) => (
-      <React.Fragment key={segment.type === "node" ? segment.node.value : `gap-${i}`}>
+      <React.Fragment
+        key={
+          segment.type === "node"
+            ? segment.node.value
+            : `gap-${segment.hidden.map((node) => node.value).join(":")}`
+        }
+      >
         {i > 0 ? <PathChevron /> : null}
         {segment.type === "ellipsis" ? (
           <span
@@ -530,7 +536,13 @@ function CascaderValue({
           </span>
         ) : null}
         {segments.map((segment, i) => (
-          <React.Fragment key={segment.type === "node" ? segment.node.value : `gap-${i}`}>
+          <React.Fragment
+            key={
+              segment.type === "node"
+                ? segment.node.value
+                : `gap-${segment.hidden.map((node) => node.value).join(":")}`
+            }
+          >
             {i > 0 ? (separator ?? <PathChevron />) : null}
             {segment.type === "ellipsis" ? (
               <span

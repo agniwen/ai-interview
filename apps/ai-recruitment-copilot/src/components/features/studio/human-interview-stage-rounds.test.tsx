@@ -41,7 +41,6 @@ const dependencies: RoundCardDependencies = {
     />
   ),
   updateHumanInterviewMeeting: updateMeetingMock,
-  useWorkspaceSlug: () => "test-workspace",
 };
 
 const round: HumanInterviewRoundRecord = {
@@ -153,6 +152,7 @@ describe("RoundCard rescheduling", () => {
             onRescheduled={onRescheduled}
             round={round}
             roundNumber={2}
+            slug="test-workspace"
           />
         </QueryClientProvider>,
       );
@@ -229,6 +229,7 @@ describe("RoundCard rescheduling", () => {
             onRescheduled={onRescheduled}
             round={round}
             roundNumber={2}
+            slug="test-workspace"
           />
         </QueryClientProvider>,
       );
@@ -307,6 +308,7 @@ describe("RoundCard interviewer arrangement", () => {
             onRescheduled={vi.fn()}
             round={statusRound}
             roundNumber={2}
+            slug="test-workspace"
           />
         </QueryClientProvider>,
       );
@@ -344,6 +346,7 @@ describe("RoundCard interviewer arrangement", () => {
             onRescheduled={vi.fn()}
             round={round}
             roundNumber={2}
+            slug="test-workspace"
           />
         </QueryClientProvider>,
       );

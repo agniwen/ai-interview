@@ -9,7 +9,7 @@ import {
   RouterProvider,
   useRouterState,
 } from "@tanstack/react-router";
-import { act } from "react";
+import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -31,8 +31,10 @@ let currentSearch: SearchParamsRecord;
 function Harness() {
   const search = useRouterState({ select: (state) => state.location.search });
   const grid = useResumeLibrarySearchState({ onRefresh: vi.fn(), search, slug: "default" });
-  currentGrid = grid;
-  currentSearch = search;
+  useEffect(() => {
+    currentGrid = grid;
+    currentSearch = search;
+  }, [grid, search]);
   return (
     <ResumeLibraryPageShell
       grid={grid}

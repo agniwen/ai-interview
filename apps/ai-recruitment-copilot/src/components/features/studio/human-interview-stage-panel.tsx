@@ -234,6 +234,7 @@ export function HumanInterviewStagePanel({
               onRescheduled={invalidateRescheduledMeeting}
               round={round}
               roundNumber={businessRoundNumbers.get(round.id) ?? 2}
+              slug={slug}
             />
           );
         })}

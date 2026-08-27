@@ -21,12 +21,12 @@ function HomeRoute() {
 }
 
 export const Route = createFileRoute("/")({
+  validateSearch: homeSearchSchema,
   head: () => ({
     meta: [
       { title: formatDocumentTitle(m.home_document_title()) },
       { content: m.home_document_description(), name: "description" },
     ],
   }),
-  validateSearch: homeSearchSchema,
   component: HomeRoute,
 });

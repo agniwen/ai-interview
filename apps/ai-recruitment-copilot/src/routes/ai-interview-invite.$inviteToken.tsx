@@ -62,6 +62,6 @@ function AiInterviewInviteRoute() {
 
 export const Route = createFileRoute("/ai-interview-invite/$inviteToken")({
   component: AiInterviewInviteRoute,
-  head: () => ({ meta: [{ title: formatDocumentTitle("AI 面试邀请") }] }),
   loader: ({ params }) => loadAiInterviewInvitation({ data: { inviteToken: params.inviteToken } }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("AI 面试邀请") }] }),
 });

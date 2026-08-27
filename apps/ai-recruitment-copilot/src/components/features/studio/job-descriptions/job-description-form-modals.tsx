@@ -82,10 +82,10 @@ export function JobDescriptionAiSupplementModal({
     >
       {pending?.supplementedItems.length ? (
         <ul className="space-y-2">
-          {pending.supplementedItems.map((item, index) => (
+          {pending.supplementedItems.map((item) => (
             <li
               className="rounded-md border bg-muted/30 px-3 py-2"
-              key={`${item.section}-${index}`}
+              key={`${item.section}-${item.detail}`}
             >
               <span className="font-medium">{SUPPLEMENTED_SECTION_LABELS[item.section]}</span>
               <span className="text-muted-foreground">：{item.detail}</span>

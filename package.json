@@ -32,6 +32,7 @@
     "test": "TZ=UTC turbo run test",
     "test:verbose": "TZ=UTC VITEST_VERBOSE=1 turbo run test",
     "check": "ultracite check",
+    "doctor:react": "bun run --filter @arc/ai-recruitment-copilot doctor",
     "fix": "ultracite fix",
     "hooks": "lefthook install",
     "backfill:interview-snapshots": "bun run --filter @arc/ai-recruitment-copilot-backend backfill:interview-snapshots",
@@ -48,6 +49,8 @@
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.79.0",
+    "oxlint-plugin-react-doctor": "0.9.12",
+    "react-doctor": "0.9.12",
     "turbo": "^2.10.11",
     "typescript": "catalog:",
     "ultracite": "7.6.0"
