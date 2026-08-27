@@ -570,7 +570,7 @@ export function InterviewerCandidateMaterials({
         </span>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] lg:overflow-hidden min-[1440px]:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)_18rem]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] lg:overflow-hidden">
         <Tabs
           className="min-h-[32rem] min-w-0 gap-0 overflow-hidden rounded-lg border bg-card lg:min-h-0"
           onValueChange={(leftTab) => {
@@ -638,11 +638,6 @@ export function InterviewerCandidateMaterials({
             <ResumePreview inviteToken={inviteToken} query={overviewQuery} />
           </TabsContent>
         </Tabs>
-
-        <aside
-          aria-label="预留扩展区域"
-          className="hidden min-h-0 rounded-lg border bg-card min-[1440px]:block"
-        />
       </div>
     </div>
   );
