@@ -11,6 +11,7 @@ import { StructuredResumeEvaluationPanel } from "@/components/features/studio/re
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchStudioResume } from "@/lib/client/studio-resumes";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
@@ -71,6 +72,44 @@ function DetailHeaderText({ detail }: { detail: ResumeLibraryDetail }) {
   );
 }
 
+function resumeHistoricalResult({
+  detail,
+  onUpdated,
+  slug,
+}: {
+  detail: ResumeLibraryDetail | null | undefined;
+  onUpdated: () => void;
+  slug: string | undefined;
+}): ReactNode {
+  if (detail?.resumeEvaluationArtifactMode === "structured") {
+    return (
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-sm">历史结构化评分</p>
+        <StructuredResumeEvaluationPanel
+          canEdit={false}
+          detail={detail}
+          onUpdated={onUpdated}
+          slug={slug}
+        />
+      </div>
+    );
+  }
+
+  if (detail?.resumeEvaluationArtifactMode === "legacy" && detail.resumeReview) {
+    return (
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-sm">历史评分</p>
+        <ResumeReviewStructuredView
+          review={detail.resumeReview}
+          screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={detail} />}
+        />
+      </div>
+    );
+  }
+
+  return undefined;
+}
+
 export function ResumeDetailPage({ recordId }: { recordId: string }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const { openMeetingRecording } = useMeetingRecordingActions();
@@ -98,11 +137,9 @@ export function ResumeDetailPage({ recordId }: { recordId: string }) {
     staleTime: 30_000,
   });
 
-  if (workspaceQuery.isPending || (Boolean(slug) && detailQuery.isPending)) {
-    return <ResumeDetailSkeleton />;
-  }
+  const isInitialLoading = workspaceQuery.isPending || Boolean(slug && detailQuery.isPending);
 
-  if (workspaceQuery.error || !slug) {
+  if (!isInitialLoading && (workspaceQuery.error || !slug)) {
     return (
       <div className="px-6 py-16 text-center">
         <p className="font-medium text-sm">无法加载工作区</p>
@@ -115,7 +152,7 @@ export function ResumeDetailPage({ recordId }: { recordId: string }) {
     );
   }
 
-  if (detailQuery.error) {
+  if (!isInitialLoading && detailQuery.error) {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
         <p className="text-muted-foreground text-sm">
@@ -135,7 +172,7 @@ export function ResumeDetailPage({ recordId }: { recordId: string }) {
   }
 
   const detail = detailQuery.data;
-  if (!detail) {
+  if (!(isInitialLoading || detail)) {
     return (
       <div className="px-6 py-16 text-center">
         <p className="font-medium text-sm">未找到招聘记录</p>
@@ -144,101 +181,86 @@ export function ResumeDetailPage({ recordId }: { recordId: string }) {
     );
   }
 
-  let historicalResult: ReactNode;
-  if (detail.resumeEvaluationArtifactMode === "structured") {
-    historicalResult = (
-      <div className="space-y-3">
-        <p className="text-muted-foreground text-sm">历史结构化评分</p>
-        <StructuredResumeEvaluationPanel
-          canEdit={false}
-          detail={detail}
-          onUpdated={() => {
-            void detailQuery.refetch();
-          }}
-          slug={slug}
-        />
-      </div>
-    );
-  } else if (detail.resumeEvaluationArtifactMode === "legacy" && detail.resumeReview) {
-    historicalResult = (
-      <div className="space-y-3">
-        <p className="text-muted-foreground text-sm">历史评分</p>
-        <ResumeReviewStructuredView
-          review={detail.resumeReview}
-          screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={detail} />}
-        />
-      </div>
-    );
-  }
+  const historicalResult = resumeHistoricalResult({
+    detail,
+    onUpdated: () => {
+      void detailQuery.refetch();
+    },
+    slug: slug ?? undefined,
+  });
 
   return (
-    <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 py-4 sm:px-6">
-      <Tabs
-        onValueChange={(value) => {
-          if (value === "overview" || value === "ai-analysis") {
-            setActiveTab(value);
-          }
-        }}
-        value={activeTab}
-      >
-        <div className="flex min-w-0 flex-col gap-5">
-          <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <DetailHeaderText detail={detail} />
+    <SkeletonReveal loading={isInitialLoading} skeleton={<ResumeDetailSkeleton />}>
+      {detail && slug ? (
+        <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5 px-4 py-4 sm:px-6">
+          <Tabs
+            onValueChange={(value) => {
+              if (value === "overview" || value === "ai-analysis") {
+                setActiveTab(value);
+              }
+            }}
+            value={activeTab}
+          >
+            <div className="flex min-w-0 flex-col gap-5">
+              <header className="flex min-w-0 flex-col gap-2 border-border/70 border-b pb-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <DetailHeaderText detail={detail} />
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <TabsList className="mt-0 w-full sm:w-auto">
+                    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+                      概览
+                    </TabsTrigger>
+                    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+                      AI评价
+                    </TabsTrigger>
+                  </TabsList>
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <Button
+                      className="w-full sm:w-auto"
+                      onClick={() =>
+                        openMeetingRecording({ resumeRecord: detail, resumeRecordId: detail.id })
+                      }
+                      size="sm"
+                      type="button"
+                    >
+                      <Icon className="size-4" icon="ph:record" />
+                      创建录制
+                    </Button>
+                  </div>
+                </div>
+              </header>
+
+              {/* No activity timeline rail — overview content only (matches web without aside). */}
+              <div className="flex min-w-0 flex-col gap-8">
+                <TabsContent value="overview">
+                  <div className="space-y-8">
+                    <ResumeOverviewPanel
+                      canEdit={false}
+                      detail={detail}
+                      onViewAiScore={() => setActiveTab("ai-analysis")}
+                      slug={slug}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="ai-analysis">
+                  <div className="space-y-6">
+                    <QualitativeResumeEvaluationPanel
+                      detail={detail}
+                      slug={slug}
+                      historicalResult={historicalResult}
+                    />
+                  </div>
+                </TabsContent>
               </div>
             </div>
-
-            <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <TabsList className="mt-0 w-full sm:w-auto">
-                <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
-                  概览
-                </TabsTrigger>
-                <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-                  AI评价
-                </TabsTrigger>
-              </TabsList>
-              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <Button
-                  className="w-full sm:w-auto"
-                  onClick={() =>
-                    openMeetingRecording({ resumeRecord: detail, resumeRecordId: detail.id })
-                  }
-                  size="sm"
-                  type="button"
-                >
-                  <Icon className="size-4" icon="ph:record" />
-                  创建录制
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          {/* No activity timeline rail — overview content only (matches web without aside). */}
-          <div className="flex min-w-0 flex-col gap-8">
-            <TabsContent value="overview">
-              <div className="space-y-8">
-                <ResumeOverviewPanel
-                  canEdit={false}
-                  detail={detail}
-                  onViewAiScore={() => setActiveTab("ai-analysis")}
-                  slug={slug}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="ai-analysis">
-              <div className="space-y-6">
-                <QualitativeResumeEvaluationPanel
-                  detail={detail}
-                  slug={slug}
-                  historicalResult={historicalResult}
-                />
-              </div>
-            </TabsContent>
-          </div>
-        </div>
-      </Tabs>
-    </main>
+          </Tabs>
+        </main>
+      ) : null}
+    </SkeletonReveal>
   );
 }

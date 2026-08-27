@@ -1,6 +1,5 @@
 import { useSearch } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceMemberRole } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -68,7 +67,6 @@ export function ResumeLibraryPage() {
     forceReparseMutation,
     grid,
     invalidateAll,
-    isInitialPageLoading,
     jobDescriptions,
     loadedResumeRecords,
     loadedResumeRowsById,
@@ -141,10 +139,6 @@ export function ResumeLibraryPage() {
       }),
     [skillSuggestions, jobDescriptions, workspaceMembers],
   );
-
-  if (isInitialPageLoading) {
-    return <RecruitingPageSkeleton />;
-  }
 
   const selectedCount = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]).length;
 

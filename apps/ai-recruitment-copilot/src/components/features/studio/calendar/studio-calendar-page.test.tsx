@@ -141,6 +141,7 @@ describe("StudioCalendarPage", () => {
       await vi.waitFor(() => {
         expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
       });
+      await vi.advanceTimersByTimeAsync(400);
     });
     expect(host.textContent).toContain("张三 · AI 初面");
     expect(host.textContent).toContain("李四 · 技术复面");

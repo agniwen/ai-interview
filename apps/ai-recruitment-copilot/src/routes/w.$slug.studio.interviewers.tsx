@@ -32,6 +32,6 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
   },
   head: () => ({ meta: [{ title: formatDocumentTitle("AI面试官管理") }] }),
   component: StudioInterviewersRoute,
-  pendingComponent: () => <StudioTablePageSkeleton label="AI面试官管理" />,
+  pendingComponent: () => <StudioTablePageSkeleton columnCount={6} label="AI面试官管理" />,
   shouldReload: false,
 });

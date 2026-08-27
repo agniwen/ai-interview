@@ -12,8 +12,8 @@ import {
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { QualitativeResumeEvaluationPanel } from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { CandidateMeetingLinks } from "@/components/features/studio/resumes/candidate-meeting-links";
-import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { TabsContent } from "@/components/ui/tabs";
 import { cn } from "@arc/shared/utils";
 
@@ -89,167 +89,160 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
       {isResumeAssessmentInProgress || isReassessingResume ? "评价中" : "重新评价"}
     </Button>
   ) : null;
-  const body = isLoading ? (
-    <DetailBodySkeleton mode={mode} />
-  ) : // oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence.
-  record ? (
+  const body = record ? (
     <div className={bodyLayoutClassName}>
-      <div className={detailScrollClassName} ref={tabContentRootRef}>
-        <AnimatedHeight clip={!showTimelineRail}>
-          <TabsContent value="overview">
-            <div className="space-y-8">
-              {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
+      <div className={cn("relative", detailScrollClassName)} ref={tabContentRootRef}>
+        <TabsContent motion="page" value="overview">
+          <div className="space-y-8">
+            {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
               弹窗的概览 tab 同一布局，后续要扩字段也只改一处。
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
-              {mode === "resume" && resumeRecord ? (
-                <>
-                  <ResumeOverviewPanel
-                    canEdit={Boolean(model.canUpdateResumeLibrary)}
-                    detail={resumeRecord}
-                    onUpdated={model.onResumeIdentityUpdated}
-                    onViewAiScore={() => setActiveTab("ai-analysis")}
-                    slug={model.slug}
-                  />
-                  {showRecruitingMeetings ? (
-                    <CandidateMeetingLinks candidateId={resumeRecord.id} slug={model.slug} />
-                  ) : null}
-                </>
+            {mode === "resume" && resumeRecord ? (
+              <>
+                <ResumeOverviewPanel
+                  canEdit={Boolean(model.canUpdateResumeLibrary)}
+                  detail={resumeRecord}
+                  onUpdated={model.onResumeIdentityUpdated}
+                  onViewAiScore={() => setActiveTab("ai-analysis")}
+                  slug={model.slug}
+                />
+                {showRecruitingMeetings ? (
+                  <CandidateMeetingLinks candidateId={resumeRecord.id} slug={model.slug} />
+                ) : null}
+              </>
+            ) : (
+              <InterviewResultTabContent
+                evaluationSummary={selectedResultEvaluationSummary}
+                formItems={selectedResultFormItems}
+                interviewItems={selectedResultInterviewItems}
+                isFormSubmissionsLoading={isFormSubmissionsLoading}
+                isReportsLoading={isReportsLoading}
+                model={model}
+                record={record}
+                report={selectedResultReport}
+              />
+            )}
+          </div>
+        </TabsContent>
+        {mode === "resume" ? (
+          <TabsContent motion="page" value="ai-analysis">
+            <div className="space-y-6">
+              {resumeRecord &&
+              (!resumeRecord.jobDescriptionId ||
+                resumeRecord.resumeEvaluationArtifactMode === "qualitative" ||
+                !resumeRecord.resumeEvaluationArtifactMode) ? (
+                <QualitativeResumeEvaluationPanel
+                  detail={resumeRecord}
+                  slug={model.slug}
+                  summaryAction={resumeReassessAction ?? undefined}
+                />
+              ) : resumeRecord?.resumeEvaluationArtifactMode === "structured" ? (
+                <StructuredResumeEvaluationPanel
+                  canEdit={Boolean(model.canUpdateResumeLibrary)}
+                  detail={resumeRecord}
+                  onUpdated={model.onResumeIdentityUpdated}
+                  slug={model.slug}
+                  summaryAction={resumeReassessAction ?? undefined}
+                />
               ) : (
+                <>
+                  {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
+                  (resumeRecord.resumeReviewStatus === "queued" ||
+                    resumeRecord.resumeReviewStatus === "processing") ? (
+                    <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
+                      正在使用新版重新评价，当前展示老版本结果。
+                    </p>
+                  ) : null}
+                  {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
+                  resumeRecord.resumeReviewStatus === "failed" ? (
+                    <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                      {resumeRecord.resumeReviewError || "新版评价失败"}，当前展示老版本结果。
+                    </p>
+                  ) : null}
+                  <ResumeReviewStructuredView
+                    review={resumeRecord?.resumeReview}
+                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
+                    summaryAction={resumeReassessAction ?? undefined}
+                  />
+                </>
+              )}
+            </div>
+          </TabsContent>
+        ) : null}
+        {mode === "interview" ? (
+          <TabsContent motion="page" value="experience">
+            <ResumeProfileView profile={record.resumeProfile ?? null} />
+          </TabsContent>
+        ) : null}
+        {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
+          <TabsContent motion="page" value="rounds">
+            <section>
+              {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
+              {isResumeInterviewResultLoading ? (
+                <DetailBodySkeleton mode="interview" />
+              ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
+              candidateRounds.length === 0 ? (
+                <p className="text-muted-foreground text-sm leading-normal">
+                  该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
+                </p>
+              ) : resumeInterviewResultRecord ? (
                 <InterviewResultTabContent
                   evaluationSummary={selectedResultEvaluationSummary}
                   formItems={selectedResultFormItems}
                   interviewItems={selectedResultInterviewItems}
-                  isFormSubmissionsLoading={isFormSubmissionsLoading}
-                  isReportsLoading={isReportsLoading}
+                  isFormSubmissionsLoading={false}
+                  isReportsLoading={false}
                   model={model}
-                  record={record}
+                  record={resumeInterviewResultRecord}
                   report={selectedResultReport}
                 />
+              ) : (
+                <p className="text-muted-foreground text-sm leading-normal">
+                  未找到该 AI 面试的详情数据。
+                </p>
               )}
-            </div>
+            </section>
           </TabsContent>
-          {mode === "resume" ? (
-            <TabsContent value="ai-analysis">
-              <div className="space-y-6">
-                {resumeRecord &&
-                (!resumeRecord.jobDescriptionId ||
-                  resumeRecord.resumeEvaluationArtifactMode === "qualitative" ||
-                  !resumeRecord.resumeEvaluationArtifactMode) ? (
-                  <QualitativeResumeEvaluationPanel
-                    detail={resumeRecord}
-                    slug={model.slug}
-                    summaryAction={resumeReassessAction ?? undefined}
-                  />
-                ) : resumeRecord?.resumeEvaluationArtifactMode === "structured" ? (
-                  <StructuredResumeEvaluationPanel
-                    canEdit={Boolean(model.canUpdateResumeLibrary)}
-                    detail={resumeRecord}
-                    onUpdated={model.onResumeIdentityUpdated}
-                    slug={model.slug}
-                    summaryAction={resumeReassessAction ?? undefined}
-                  />
-                ) : (
-                  <>
-                    {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
-                    (resumeRecord.resumeReviewStatus === "queued" ||
-                      resumeRecord.resumeReviewStatus === "processing") ? (
-                      <p className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-300">
-                        正在使用新版重新评价，当前展示老版本结果。
-                      </p>
-                    ) : null}
-                    {resumeRecord?.resumeEvaluationAttemptMode === "qualitative" &&
-                    resumeRecord.resumeReviewStatus === "failed" ? (
-                      <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-                        {resumeRecord.resumeReviewError || "新版评价失败"}，当前展示老版本结果。
-                      </p>
-                    ) : null}
-                    <ResumeReviewStructuredView
-                      review={resumeRecord?.resumeReview}
-                      screeningResultSlot={
-                        <ResumeScreeningResultPanel resumeRecord={resumeRecord} />
-                      }
-                      summaryAction={resumeReassessAction ?? undefined}
-                    />
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          ) : null}
-          {mode === "interview" ? (
-            <TabsContent value="experience">
-              <ResumeProfileView profile={record.resumeProfile ?? null} />
-            </TabsContent>
-          ) : null}
-          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
-            <TabsContent value="rounds">
-              <section>
-                {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
-                {isResumeInterviewResultLoading ? (
-                  <DetailBodySkeleton mode="interview" />
-                ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
-                candidateRounds.length === 0 ? (
-                  <p className="text-muted-foreground text-sm leading-normal">
-                    该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
-                  </p>
-                ) : resumeInterviewResultRecord ? (
-                  <InterviewResultTabContent
-                    evaluationSummary={selectedResultEvaluationSummary}
-                    formItems={selectedResultFormItems}
-                    interviewItems={selectedResultInterviewItems}
-                    isFormSubmissionsLoading={false}
-                    isReportsLoading={false}
-                    model={model}
-                    record={resumeInterviewResultRecord}
-                    report={selectedResultReport}
-                  />
-                ) : (
-                  <p className="text-muted-foreground text-sm leading-normal">
-                    未找到该 AI 面试的详情数据。
-                  </p>
-                )}
-              </section>
-            </TabsContent>
-          ) : null}
-          {mode === "resume" &&
-          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
-            <TabsContent value="human-interview">
-              <HumanInterviewStagePanel
-                canCreate={canCreateHumanInterview}
-                canDelete={canDeleteHumanInterview}
-                canUpdate={canUpdateHumanInterview}
-                candidateId={record.id}
-                candidateName={record.candidateName}
-                disabled={record.pipelineStage === "closed"}
-              />
-            </TabsContent>
-          ) : null}
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
-            <TabsContent value="offer">
-              <OfferStagePanel
-                canCreate={canCreateOffer}
-                canDelete={canDeleteOffer}
-                canUpdate={canUpdateOffer}
-                candidateEmail={record.candidateEmail}
-                candidateId={record.id}
-                candidateName={record.candidateName}
-                disabled={record.pipelineStage === "closed"}
-                onRequestCloseAsHired={() =>
-                  onRequestClose?.({
-                    candidateName: record.candidateName,
-                    id: record.id,
-                    initialOutcome: "hired",
-                  })
-                }
-              />
-            </TabsContent>
-          ) : null}
-          {showAgentInstructions ? (
-            <TabsContent value="instructions">
-              <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
-            </TabsContent>
-          ) : null}
-        </AnimatedHeight>
+        ) : null}
+        {mode === "resume" &&
+        shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
+          <TabsContent motion="page" value="human-interview">
+            <HumanInterviewStagePanel
+              canCreate={canCreateHumanInterview}
+              canDelete={canDeleteHumanInterview}
+              canUpdate={canUpdateHumanInterview}
+              candidateId={record.id}
+              candidateName={record.candidateName}
+              disabled={record.pipelineStage === "closed"}
+            />
+          </TabsContent>
+        ) : null}
+        {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
+          <TabsContent motion="page" value="offer">
+            <OfferStagePanel
+              canCreate={canCreateOffer}
+              canDelete={canDeleteOffer}
+              canUpdate={canUpdateOffer}
+              candidateEmail={record.candidateEmail}
+              candidateId={record.id}
+              candidateName={record.candidateName}
+              disabled={record.pipelineStage === "closed"}
+              onRequestCloseAsHired={() =>
+                onRequestClose?.({
+                  candidateName: record.candidateName,
+                  id: record.id,
+                  initialOutcome: "hired",
+                })
+              }
+            />
+          </TabsContent>
+        ) : null}
+        {showAgentInstructions ? (
+          <TabsContent motion="page" value="instructions">
+            <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
+          </TabsContent>
+        ) : null}
       </div>
       {showTimelineRail ? (
         <aside
@@ -277,5 +270,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     </div>
   );
 
-  return body;
+  return (
+    <SkeletonReveal
+      className="min-h-[240px] min-w-0"
+      contentClassName="min-h-0 min-w-0"
+      loading={isLoading}
+      skeleton={<DetailBodySkeleton mode={mode} />}
+    >
+      {body}
+    </SkeletonReveal>
+  );
 }

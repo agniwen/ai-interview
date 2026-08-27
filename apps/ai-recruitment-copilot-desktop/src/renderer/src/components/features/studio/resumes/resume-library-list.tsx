@@ -1,7 +1,6 @@
 import { useResumeLibraryLoadMore } from "./use-resume-library-load-more";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
-  StudioDateGroupHeaderSkeleton,
   StudioStickyDateGroupHeader,
   buildStudioDateGroupedVirtualRows,
   buildStudioStickyDateHeaderPositions,
@@ -13,10 +12,11 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { DESKTOP_SCROLL_TO_TOP_EVENT } from "@/components/features/studio/desktop-scroll-to-top-button";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { useResumeLibraryCardHeight } from "./card-height";
 import { ResumeLibraryCard } from "./resume-library-card";
+import { ResumeLibraryListSkeleton } from "./resume-library-list-skeleton";
 import {
   findDesktopMainScrollElement,
   DESKTOP_MAIN_SCROLL_RESTORATION_ID,
@@ -144,22 +144,17 @@ export function ResumeLibraryList({
 
   let listContent: ReactNode;
 
-  if (error && records.length === 0) {
+  const isColdLoading = isInitialLoading && records.length === 0;
+
+  if (isColdLoading) {
+    listContent = null;
+  } else if (error && records.length === 0) {
     listContent = (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-border px-6 py-12 text-center">
         <p className="text-sm text-muted-foreground">{errorMessage(error)}</p>
         <Button onClick={onRetry} type="button" variant="outline">
           重试
         </Button>
-      </div>
-    );
-  } else if (isInitialLoading) {
-    listContent = (
-      <div className="grid gap-3">
-        <StudioDateGroupHeaderSkeleton />
-        {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton className="h-44 rounded-xl" key={index} />
-        ))}
       </div>
     );
   } else if (records.length === 0) {
@@ -239,7 +234,13 @@ export function ResumeLibraryList({
   return (
     // Include the sentinel: anchoring to it would chase each appended page indefinitely.
     <div className="flex flex-col gap-4 [overflow-anchor:none]" ref={listRootRef}>
-      {listContent}
+      <SkeletonReveal
+        contentClassName="min-w-0"
+        loading={isColdLoading}
+        skeleton={<ResumeLibraryListSkeleton cardHeight={cardHeight} />}
+      >
+        {listContent}
+      </SkeletonReveal>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function Personas() {
       <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
         {personas.map(({ Icon, description, role, title }, index) => (
           <FadeContent delay={0.1 * index} key={role}>
-            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-7 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[translate,box-shadow,background-color] duration-[240ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] hover:-translate-y-px hover:ring-foreground/[0.08] hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] motion-reduce:translate-y-0 motion-reduce:transition-none sm:p-8">
+            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-7 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-[translate,box-shadow,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] hover:-translate-y-px hover:ring-foreground/[0.08] hover:bg-background/70 hover:shadow-[0_12px_32px_-24px_rgba(0,0,0,0.24)] motion-reduce:translate-y-0 motion-reduce:transition-none sm:p-8">
               <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
               <p className="mt-6 font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">
                 {role}

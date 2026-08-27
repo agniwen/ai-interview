@@ -35,6 +35,7 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { Button } from "@/components/ui/button";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
@@ -578,19 +579,19 @@ export function RecruitingToolRenderers() {
 }
 
 export function RecruitingThread({
+  historyLoading,
   historyLoadingFallback,
   isRunning,
 }: {
-  historyLoadingFallback?: ReactNode;
+  historyLoading: boolean;
+  historyLoadingFallback: ReactNode;
   isRunning: boolean;
 }) {
-  const isHistoryLoading = historyLoadingFallback !== undefined;
-
   return (
     <ThreadPrimitive.Root
-      aria-busy={isHistoryLoading || undefined}
+      aria-busy={historyLoading || undefined}
       className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      inert={isHistoryLoading || undefined}
+      inert={historyLoading || undefined}
       style={activeThreadStyle}
     >
       <div className="relative flex min-h-0 flex-1">
@@ -601,7 +602,12 @@ export function RecruitingThread({
             scrollToBottomOnRunStart
             turnAnchor="top"
           >
-            {historyLoadingFallback ?? (
+            <SkeletonReveal
+              className="min-h-full"
+              contentClassName="min-h-full"
+              loading={historyLoading}
+              skeleton={historyLoadingFallback}
+            >
               <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
                 <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
                 {isRunning ? (
@@ -610,11 +616,11 @@ export function RecruitingThread({
                   </div>
                 ) : null}
               </div>
-            )}
+            </SkeletonReveal>
           </ThreadPrimitive.Viewport>
           <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
             <div className="mx-auto w-full max-w-(--thread-max-width)">
-              <Composer autoFocus={!isHistoryLoading} />
+              <Composer autoFocus={!historyLoading} />
               <p className="mt-2 text-center text-muted-foreground text-xs">
                 {recruitingComposerDisclaimer}
               </p>

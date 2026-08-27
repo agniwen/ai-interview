@@ -92,6 +92,43 @@
 
 :root {
   --radius: 0.875rem;
+  /* transitions.dev motion scale. Match tokens by interaction intent, not
+     by the nearest numeric value. Shared renderer primitives consume these. */
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
+  --ease-linear: linear;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ease-bounce-strong: cubic-bezier(0.34, 3.85, 0.64, 1);
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+  --distance-large: 30px;
+  --scale-large: 0.96;
+  --scale-medium: 0.97;
+  --scale-small: 0.98;
+  --scale-tiny: 0.99;
+  --blur-small: 2px;
+  --blur-medium: 3px;
+  --blur-large: 8px;
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: var(--duration-slow);
+  --reveal-blur: var(--blur-small);
+  --reveal-ease: var(--ease-in-out);
+  --toggle-duration: var(--duration-medium);
+  --toggle-overshoot: 1px;
+  --toggle-track-duration: 0ms;
+  --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
   --background: oklch(1 0 0);
   /* Main content and header share the sidebar's primary text color. */
   --foreground: var(--sidebar-foreground);
@@ -307,6 +344,247 @@
   .dark *::-webkit-scrollbar-thumb:hover {
     background: color-mix(in oklch, var(--muted-foreground) 58%, transparent);
     background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Base UI keeps popup nodes mounted through their exit transition and
+     exposes starting/ending attributes. The separate close clock makes
+     dismissal quieter and faster than invitation. */
+  .t-dropdown {
+    scale: 1;
+    opacity: 1;
+    transform-origin: var(--transform-origin);
+    transition-property: scale, opacity;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-smooth-out);
+    will-change: scale, opacity;
+  }
+
+  .t-dropdown[data-starting-style] {
+    scale: var(--scale-medium);
+    opacity: 0;
+  }
+
+  .t-dropdown[data-ending-style] {
+    scale: var(--scale-tiny);
+    opacity: 0;
+    transition-duration: var(--duration-quick);
+  }
+
+  .t-modal-overlay {
+    opacity: 1;
+    transition: opacity var(--duration-fast) var(--ease-smooth-out);
+    will-change: opacity;
+  }
+
+  .t-modal-overlay[data-starting-style],
+  .t-modal-overlay[data-ending-style] {
+    opacity: 0;
+  }
+
+  .t-modal-overlay[data-ending-style] {
+    transition-duration: var(--duration-quick);
+  }
+
+  .t-modal {
+    scale: 1;
+    opacity: 1;
+    transform-origin: center;
+    transition-property: scale, opacity;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-smooth-out);
+    will-change: scale, opacity;
+  }
+
+  .t-modal[data-starting-style],
+  .t-modal[data-ending-style] {
+    scale: var(--scale-large);
+    opacity: 0;
+  }
+
+  .t-modal[data-ending-style] {
+    transition-duration: var(--duration-quick);
+  }
+
+  .t-tooltip {
+    scale: 1;
+    opacity: 1;
+    transform-origin: var(--transform-origin);
+    transition-property: scale, opacity;
+    transition-duration: var(--duration-quick);
+    transition-timing-function: var(--ease-out);
+    will-change: scale, opacity;
+  }
+
+  .t-tooltip[data-starting-style],
+  .t-tooltip[data-ending-style] {
+    scale: var(--scale-small);
+    opacity: 0;
+  }
+
+  .t-tooltip[data-ending-style] {
+    transition-duration: 50ms;
+  }
+
+  .t-dropdown[data-instant],
+  .t-modal-overlay[data-instant],
+  .t-modal[data-instant],
+  .t-tooltip[data-instant] {
+    transition: none;
+  }
+
+  .t-skel {
+    position: relative;
+  }
+
+  .t-skel-skeleton,
+  .t-skel-content {
+    position: absolute;
+    inset: 0;
+  }
+
+  .t-skel.t-skel-flow {
+    display: grid;
+  }
+
+  .t-skel.t-skel-flow > .t-skel-skeleton,
+  .t-skel.t-skel-flow > .t-skel-content {
+    position: relative;
+    inset: auto;
+    grid-area: 1 / 1;
+  }
+
+  .t-skel-skeleton {
+    z-index: 1;
+    opacity: 1;
+    filter: blur(0);
+    transition:
+      opacity var(--reveal-dur) var(--reveal-ease),
+      filter var(--reveal-dur) var(--reveal-ease);
+  }
+
+  .t-skel-content {
+    z-index: 2;
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+    transition:
+      opacity var(--reveal-dur) var(--reveal-ease),
+      filter var(--reveal-dur) var(--reveal-ease);
+  }
+
+  .t-skel.is-revealed .t-skel-skeleton {
+    pointer-events: none;
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+
+  .t-skel.is-revealed .t-skel-content {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  .t-skel.is-resetting .t-skel-skeleton,
+  .t-skel.is-resetting .t-skel-content {
+    transition: none !important;
+  }
+
+  /* Existing Skeleton bars pulse forever by default. Inside a reveal, the
+     layer owns one coordinated pulse instead. */
+  .t-skel-skeleton [data-slot="skeleton"] {
+    animation: none;
+  }
+
+  .t-skel-skeleton.is-pulsing > * {
+    animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+  }
+
+  @keyframes t-skel-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: var(--pulse-min);
+    }
+  }
+
+  @keyframes arc-toggle-on {
+    0% {
+      translate: 0 0;
+    }
+    55% {
+      translate: calc(var(--toggle-travel) + var(--toggle-overshoot)) 0;
+    }
+    80%,
+    100% {
+      translate: var(--toggle-travel) 0;
+    }
+  }
+
+  @keyframes arc-toggle-off {
+    0% {
+      translate: var(--toggle-travel) 0;
+    }
+    55% {
+      translate: calc(0px - var(--toggle-overshoot)) 0;
+    }
+    80%,
+    100% {
+      translate: 0 0;
+    }
+  }
+
+  .t-toggle {
+    transition: background-color var(--toggle-track-duration) var(--toggle-ease);
+  }
+
+  .t-toggle-thumb {
+    --toggle-travel: calc(100% - 2px);
+    translate: 0 0;
+    will-change: translate;
+  }
+
+  .t-toggle[data-checked] .t-toggle-thumb {
+    translate: var(--toggle-travel) 0;
+  }
+
+  .t-toggle[data-motion-ready][data-checked] .t-toggle-thumb {
+    animation: arc-toggle-on var(--toggle-duration) var(--toggle-ease) both;
+  }
+
+  .t-toggle[data-motion-ready][data-unchecked] .t-toggle-thumb {
+    animation: arc-toggle-off var(--toggle-duration) var(--toggle-ease) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-dropdown,
+  .t-modal-overlay,
+  .t-modal,
+  .t-tooltip {
+    transition: none !important;
+  }
+
+  .t-toggle-thumb {
+    animation: none !important;
+  }
+
+  .t-skel-skeleton,
+  .t-skel-content {
+    transition: none !important;
+  }
+
+  .t-skel-skeleton.is-pulsing > * {
+    animation: none !important;
+  }
+
+  /* Status remains visible, but decorative looping motion stops at the OS
+     accessibility boundary even when a feature forgot a local utility. */
+  .animate-spin,
+  .animate-ping,
+  .animate-pulse {
+    animation: none !important;
   }
 }
 

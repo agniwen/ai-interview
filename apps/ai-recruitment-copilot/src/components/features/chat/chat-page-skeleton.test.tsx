@@ -49,9 +49,12 @@ describe("ChatPageSkeleton", () => {
     expect(agentSession).not.toContain("pendingComponent:");
     expect(studioLayout).not.toContain("RecruitingPageSkeleton");
     expect(studioLayout).not.toContain("pendingComponent:");
-    expect(chatWorkspace).toContain("isHistoryReady ? undefined : <ChatMessageSkeletonContent />");
+    expect(chatWorkspace).toContain("historyLoading={!isHistoryReady}");
+    expect(chatWorkspace).toContain("historyLoadingFallback={<ChatMessageSkeletonContent />}");
     expect(chatWorkspace).not.toContain("<ChatMessageListSkeleton />");
     expect(chatWorkspace).not.toContain("加载中...");
-    expect(recruitingThread).toContain("<Composer autoFocus={!isHistoryLoading} />");
+    expect(recruitingThread).toContain("<SkeletonReveal");
+    expect(recruitingThread).toContain("<ThreadPrimitive.Messages>");
+    expect(recruitingThread).toContain("<Composer autoFocus={!historyLoading} />");
   });
 });

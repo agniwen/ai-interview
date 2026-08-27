@@ -4,9 +4,10 @@ import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { Component } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { cn } from "@arc/shared/utils";
 import { ResumeLibraryCharts } from "./resume-library-charts";
+import { ResumeLibraryMetricsSkeleton } from "./resume-library-metrics-skeleton";
 
 type MetricsRetry = () => Promise<void>;
 
@@ -81,34 +82,30 @@ export function ResumeLibraryMetricsSection({
     return <MetricsLoadError onRetry={onRetry} />;
   }
 
-  if (!metrics) {
-    return (
-      <output aria-label="招聘指标加载中" className="block">
-        <Skeleton className="h-48 w-full" />
-      </output>
-    );
-  }
-
   return (
     <MetricsErrorBoundary onReset={onRetry}>
-      <div
-        aria-busy={isSwitching || undefined}
-        className={cn(
-          "transition-opacity duration-200",
-          isSwitching && "pointer-events-none opacity-50",
-        )}
-      >
-        {renderCharts ? (
-          <MetricsChartRenderer metrics={metrics} renderCharts={renderCharts} />
-        ) : (
-          <ResumeLibraryCharts
-            chartKey={chartKey}
-            isRefreshing={isRefreshing}
-            metrics={metrics}
-            onRefresh={onRefresh}
-          />
-        )}
-      </div>
+      <SkeletonReveal loading={!metrics} skeleton={<ResumeLibraryMetricsSkeleton />}>
+        {metrics ? (
+          <div
+            aria-busy={isSwitching || undefined}
+            className={cn(
+              "transition-opacity duration-200",
+              isSwitching && "pointer-events-none opacity-50",
+            )}
+          >
+            {renderCharts ? (
+              <MetricsChartRenderer metrics={metrics} renderCharts={renderCharts} />
+            ) : (
+              <ResumeLibraryCharts
+                chartKey={chartKey}
+                isRefreshing={isRefreshing}
+                metrics={metrics}
+                onRefresh={onRefresh}
+              />
+            )}
+          </div>
+        ) : null}
+      </SkeletonReveal>
     </MetricsErrorBoundary>
   );
 }

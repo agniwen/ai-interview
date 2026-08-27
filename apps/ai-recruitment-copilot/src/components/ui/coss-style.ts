@@ -21,18 +21,39 @@ const cossPopupSurfaceClass =
   "relative rounded-md border border-border bg-popover bg-clip-padding text-popover-foreground outline-none " +
   cossWhisperShadowClass;
 
+/**
+ * One transitions.dev menu-dropdown recipe for every Base UI surface anchored
+ * to a trigger. Base UI owns the lifecycle; these states mirror the recipe's
+ * 250ms open, 150ms close, 0.97/0.99 scales and origin-aware transform.
+ */
+const cossAnchoredPopupMotionClass =
+  "origin-(--transform-origin) transition-[scale,opacity] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-instant:transition-none data-starting-style:scale-(--scale-medium) data-starting-style:opacity-0 data-ending-style:scale-(--scale-tiny) data-ending-style:opacity-0 data-ending-style:duration-[var(--duration-quick)] motion-reduce:transition-none";
+
 const cossModalSurfaceClass =
   "relative border border-border bg-background bg-clip-padding " + cossWhisperShadowClass;
+
+const cossModalOverlayMotionClass =
+  "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-instant:transition-none data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[var(--duration-quick)] motion-reduce:transition-none";
+
+const cossModalMotionClass =
+  "transition-[scale,opacity] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] data-instant:transition-none data-starting-style:scale-(--scale-large) data-starting-style:opacity-0 data-ending-style:scale-(--scale-large) data-ending-style:opacity-0 data-ending-style:duration-[var(--duration-quick)] motion-reduce:transition-none";
+
+const cossTooltipMotionClass =
+  "origin-(--transform-origin) transition-[scale,opacity] duration-[var(--duration-quick)] ease-[var(--ease-out)] data-instant:transition-none data-starting-style:scale-(--scale-small) data-starting-style:opacity-0 data-ending-style:scale-(--scale-small) data-ending-style:opacity-0 data-ending-style:duration-[50ms] motion-reduce:transition-none";
 
 const cossMenuItemClass =
   "relative flex cursor-default items-center gap-2 rounded-sm text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground";
 
 export {
+  cossAnchoredPopupMotionClass,
   cossControlOverlayClass,
   cossFieldSurfaceClass,
   cossMenuItemClass,
+  cossModalMotionClass,
+  cossModalOverlayMotionClass,
   cossModalSurfaceClass,
   cossPopupSurfaceClass,
+  cossTooltipMotionClass,
   cossTriggerSurfaceClass,
   cossWhisperShadowClass,
 };

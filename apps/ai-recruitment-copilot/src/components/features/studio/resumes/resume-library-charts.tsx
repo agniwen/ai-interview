@@ -13,7 +13,7 @@ import { Chart, ChartContainer, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { defineDonutChart } from "@/lib/client/charts/donut";
 import { toBeijingDayKey } from "@arc/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
@@ -404,6 +404,51 @@ function isRankingPeriod(value: string): value is RankingPeriod {
   return RANKING_PERIODS.some((period) => period.value === value);
 }
 
+function UploaderRankingPanel({
+  period,
+  ranking,
+}: {
+  period: RankingPeriod;
+  ranking: ReturnType<typeof buildUploaderRanking>;
+}) {
+  const maximum = ranking.rows[0]?.count ?? 1;
+
+  return ranking.rows.length > 0 ? (
+    <ol className="flex flex-col gap-2.5" data-period={period}>
+      {ranking.rows.map((row, index) => (
+        <li
+          className="grid grid-cols-[1rem_1.5rem_minmax(0,1fr)_3.25rem] items-center gap-2"
+          key={row.userId}
+        >
+          <span className="text-center font-mono text-muted-foreground text-xs tabular-nums">
+            {index + 1}
+          </span>
+          <Avatar label={row.userName} seed={row.userId} size="sm">
+            {row.userImage ? <AvatarImage alt={row.userName} src={row.userImage} /> : null}
+            <AvatarFallback>{row.userName.slice(0, 1)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <div className="truncate font-medium text-xs">{row.userName}</div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full min-w-1.5 rounded-full bg-primary"
+                style={{ width: `${(row.count / maximum) * 100}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-right font-mono font-semibold text-xs tabular-nums">
+            {row.count} 份
+          </span>
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <div data-period={period}>
+      <EmptyHint message="这个时间范围内还没有新的候选人入库" />
+    </div>
+  );
+}
+
 function UploaderRankingCard({
   dailyAdded,
   isRefreshing,
@@ -414,9 +459,16 @@ function UploaderRankingCard({
   onRefresh?: () => Promise<void>;
 }) {
   const [period, setPeriod] = useState<RankingPeriod>("month");
-  const ranking = useMemo(() => buildUploaderRanking(dailyAdded, period), [dailyAdded, period]);
-  const [leader] = ranking.rows;
-  const maximum = leader?.count ?? 1;
+  const rankings = useMemo(
+    () => ({
+      month: buildUploaderRanking(dailyAdded, "month"),
+      today: buildUploaderRanking(dailyAdded, "today"),
+      week: buildUploaderRanking(dailyAdded, "week"),
+      yesterday: buildUploaderRanking(dailyAdded, "yesterday"),
+    }),
+    [dailyAdded],
+  );
+  const ranking = rankings[period];
 
   return (
     <ChartCardShell
@@ -427,26 +479,23 @@ function UploaderRankingCard({
       ]}
       title="入库排行榜"
     >
-      <div className="flex flex-col gap-3">
+      <Tabs
+        className="gap-3"
+        onValueChange={(value) => isRankingPeriod(value) && setPeriod(value)}
+        value={period}
+      >
         <div className="flex items-center justify-between gap-3">
-          <ToggleGroup
-            aria-label="排行榜统计周期"
-            onValueChange={(value) => {
-              const [nextPeriod] = value;
-              if (nextPeriod && isRankingPeriod(nextPeriod)) {
-                setPeriod(nextPeriod);
-              }
-            }}
-            size="sm"
-            value={[period]}
-            variant="outline"
-          >
+          <TabsList aria-label="排行榜统计周期" className="h-7">
             {RANKING_PERIODS.map((item) => (
-              <ToggleGroupItem className="h-7 px-2.5 text-xs" key={item.value} value={item.value}>
+              <TabsTrigger
+                className="h-6 px-2.5 text-xs sm:h-6"
+                key={item.value}
+                value={item.value}
+              >
                 {item.label}
-              </ToggleGroupItem>
+              </TabsTrigger>
             ))}
-          </ToggleGroup>
+          </TabsList>
           {onRefresh ? (
             <Button
               disabled={isRefreshing}
@@ -463,39 +512,14 @@ function UploaderRankingCard({
             </Button>
           ) : null}
         </div>
-        {ranking.rows.length > 0 ? (
-          <ol className="flex flex-col gap-2.5" data-period={period}>
-            {ranking.rows.map((row, index) => (
-              <li
-                className="grid grid-cols-[1rem_1.5rem_minmax(0,1fr)_3.25rem] items-center gap-2"
-                key={row.userId}
-              >
-                <span className="text-center font-mono text-muted-foreground text-xs tabular-nums">
-                  {index + 1}
-                </span>
-                <Avatar label={row.userName} seed={row.userId} size="sm">
-                  {row.userImage ? <AvatarImage alt={row.userName} src={row.userImage} /> : null}
-                  <AvatarFallback>{row.userName.slice(0, 1)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-xs">{row.userName}</div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full min-w-1.5 rounded-full bg-primary"
-                      style={{ width: `${(row.count / maximum) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                <span className="text-right font-mono font-semibold text-xs tabular-nums">
-                  {row.count} 份
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <EmptyHint message="这个时间范围内还没有新的候选人入库" />
-        )}
-      </div>
+        <div className="relative">
+          {RANKING_PERIODS.map((item) => (
+            <TabsContent key={item.value} motion="page" value={item.value}>
+              <UploaderRankingPanel period={item.value} ranking={rankings[item.value]} />
+            </TabsContent>
+          ))}
+        </div>
+      </Tabs>
     </ChartCardShell>
   );
 }

@@ -221,12 +221,9 @@ export interface CascaderActionProps extends Omit<React.ComponentProps<"button">
   onSelect?: () => void;
 }
 
-/**
- * The cascader popup's panel per style, spelled with `style-<name>:` variants
- * rather than ReUI theme CSS so an installed footer needs only Tailwind.
- */
+/** The cascader popup's panel style plus the renderer's shared popup motion. */
 const FLYOUT_SURFACE_CLASS =
-  "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 max-h-72 overflow-hidden ring-1 duration-100 ring-foreground/10 shadow-md rounded-lg";
+  "t-dropdown bg-popover text-popover-foreground max-h-72 overflow-hidden ring-1 ring-foreground/10 shadow-md rounded-lg";
 
 /**
  * One footer command, shaped like a row and deliberately NOT one. A real

@@ -2,6 +2,7 @@
 
 import { PreviewCard as HoverCardPrimitive } from "@base-ui/react/preview-card";
 
+import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function HoverCard({ ...props }: HoverCardPrimitive.Root.Props) {
@@ -33,7 +34,8 @@ function HoverCardContent({
         <HoverCardPrimitive.Popup
           data-slot="hover-card-content"
           className={cn(
-            "bg-background text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-64 origin-(--transform-origin) rounded-md border p-4 shadow-sm outline-hidden",
+            cossAnchoredPopupMotionClass,
+            "z-50 w-64 rounded-md border bg-background p-4 text-popover-foreground shadow-sm outline-hidden",
             className,
           )}
           {...props}

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { filterMeetingRecords } from "./meeting-library-filters";
 import { MeetingLibraryView } from "./meeting-library-view";
@@ -193,9 +194,8 @@ export function MeetingLibraryPage() {
     normalizedSearchText.length >= 2 ? normalizedSearchText : "",
   );
   const isSearching = normalizedSearchText.length >= 2;
-  if (workspaceQuery.isPending || (workspace && meetingsQuery.isPending)) {
-    return <LoadingLibrary />;
-  }
+  const isInitialLoading =
+    workspaceQuery.isPending || Boolean(workspace && meetingsQuery.isPending);
   const error = visibleLibraryError({
     isSearching,
     meetingsError: meetingsQuery.error,
@@ -203,7 +203,7 @@ export function MeetingLibraryPage() {
     showTrash,
     workspaceError: workspaceQuery.error,
   });
-  if (error) {
+  if (!isInitialLoading && error) {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
         <p className="text-muted-foreground text-sm">{error.message}</p>
@@ -227,50 +227,54 @@ export function MeetingLibraryPage() {
       </div>
     );
   }
-  if (!workspace) {
+  if (!(isInitialLoading || workspace)) {
     return <p className="px-6 py-16 text-center text-muted-foreground text-sm">未加入工作区</p>;
   }
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <Tabs
-        className="gap-4"
-        onValueChange={(value) => {
-          if (value === "archive" || value === "records") {
-            setLibraryTab(value);
-          }
-        }}
-        value={libraryTab}
-      >
-        <TabsList>
-          <TabsTrigger value="records">录制记录</TabsTrigger>
-          <TabsTrigger value="archive">归档记录</TabsTrigger>
-        </TabsList>
-        <TabsContent className="flex flex-col gap-4" value="records">
-          <p className="text-muted-foreground text-sm">浏览和播放你保存的录制</p>
-          <ActiveMeetingLibrary
-            dateFilter={dateFilter}
-            isSearching={isSearching}
-            meetings={meetingsQuery.data}
-            onDateFilterChange={setDateFilter}
-            onResetFilters={() => {
-              setSearchText("");
-              setDebouncedSearchText("");
-              setStatusFilter("all");
-              setDateFilter("");
+    <SkeletonReveal loading={isInitialLoading} skeleton={<LoadingLibrary />}>
+      {workspace ? (
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
+          <Tabs
+            className="gap-4"
+            onValueChange={(value) => {
+              if (value === "archive" || value === "records") {
+                setLibraryTab(value);
+              }
             }}
-            onSearchChange={setSearchText}
-            onStatusFilterChange={setStatusFilter}
-            searchPending={searchQuery.isPending}
-            searchResults={searchQuery.data}
-            searchText={searchText}
-            statusFilter={statusFilter}
-          />
-        </TabsContent>
-        <TabsContent className="flex flex-col gap-4" value="archive">
-          <p className="text-muted-foreground text-sm">归档录制保留七天，截止前可恢复</p>
-          <MeetingTrashView slug={workspace.slug} />
-        </TabsContent>
-      </Tabs>
-    </div>
+            value={libraryTab}
+          >
+            <TabsList>
+              <TabsTrigger value="records">录制记录</TabsTrigger>
+              <TabsTrigger value="archive">归档记录</TabsTrigger>
+            </TabsList>
+            <TabsContent className="flex flex-col gap-4" value="records">
+              <p className="text-muted-foreground text-sm">浏览和播放你保存的录制</p>
+              <ActiveMeetingLibrary
+                dateFilter={dateFilter}
+                isSearching={isSearching}
+                meetings={meetingsQuery.data}
+                onDateFilterChange={setDateFilter}
+                onResetFilters={() => {
+                  setSearchText("");
+                  setDebouncedSearchText("");
+                  setStatusFilter("all");
+                  setDateFilter("");
+                }}
+                onSearchChange={setSearchText}
+                onStatusFilterChange={setStatusFilter}
+                searchPending={searchQuery.isPending}
+                searchResults={searchQuery.data}
+                searchText={searchText}
+                statusFilter={statusFilter}
+              />
+            </TabsContent>
+            <TabsContent className="flex flex-col gap-4" value="archive">
+              <p className="text-muted-foreground text-sm">归档录制保留七天，截止前可恢复</p>
+              <MeetingTrashView slug={workspace.slug} />
+            </TabsContent>
+          </Tabs>
+        </div>
+      ) : null}
+    </SkeletonReveal>
   );
 }

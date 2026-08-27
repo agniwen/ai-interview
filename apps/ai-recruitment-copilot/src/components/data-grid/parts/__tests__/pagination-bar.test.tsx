@@ -1,8 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { PaginationBar } from "../pagination-bar";
+import { PaginationBar, PaginationBarSkeleton } from "../pagination-bar";
 
 describe("PaginationBar", () => {
+  it("matches the responsive summary, page-size, and navigation geometry while loading", () => {
+    const html = renderToStaticMarkup(<PaginationBarSkeleton />);
+
+    expect(html).toContain('data-slot="pagination-bar-skeleton"');
+    expect(html).toContain("flex flex-col items-stretch justify-between gap-3 px-2");
+    expect(html).toContain("w-full flex-col gap-3 sm:w-auto sm:flex-row");
+    expect(html).toContain("h-8 w-[5.5rem]");
+    expect(html).toContain("h-9 w-9 sm:w-20");
+    expect(html.match(/class="[^"]*size-9[^"]*"/g)).toHaveLength(7);
+  });
+
   it("renders previous, numbered, ellipsis, and next controls responsively", () => {
     const html = renderToStaticMarkup(
       <PaginationBar
@@ -17,6 +28,7 @@ describe("PaginationBar", () => {
     );
 
     expect(html).toContain("sm:flex-row");
+    expect(html).toContain('data-slot="pagination-bar"');
     expect(html).toContain("w-full flex-col");
     expect(html).toContain('data-slot="pagination"');
     expect(html).toContain('data-slot="pagination-content"');

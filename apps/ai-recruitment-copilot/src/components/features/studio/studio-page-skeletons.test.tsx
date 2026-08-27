@@ -37,10 +37,15 @@ describe("Studio page skeletons", () => {
     const resumePool = renderToStaticMarkup(<ResumePoolPageSkeleton />);
     const dashboard = renderToStaticMarkup(<DashboardPageSkeleton />);
     const profile = renderToStaticMarkup(<ProfilePageSkeleton />);
+    const jobDescriptions = renderToStaticMarkup(<JobDescriptionsPageSkeleton />);
     const permissions = renderToStaticMarkup(<PermissionsPageSkeleton />);
 
     expect(recruiting).toContain("lg:grid-cols-3");
-    expect(recruiting).toContain("h-44 w-full");
+    expect(recruiting.match(/data-slot="metrics-card-skeleton"/g)).toHaveLength(3);
+    expect(recruiting.match(/data-slot="metrics-card-body-skeleton"/g)).toHaveLength(3);
+    expect(recruiting).toContain('data-slot="resume-library-card-skeleton"');
+    expect(recruiting).toContain("h-[395px] pb-3 sm:h-[314px]");
+    expect(recruiting).toContain("xl:h-[219px] 2xl:h-[217px]");
     expect(recruiting).not.toContain("h-12 w-full sm:w-32");
     expect(recruiting).not.toContain("h-9 w-full rounded-lg sm:w-60");
     expect(recruiting.indexOf('data-slot="filter-control-skeleton"')).toBeLessThan(
@@ -51,10 +56,25 @@ describe("Studio page skeletons", () => {
     );
     expect(recruiting).toContain('data-slot="date-group-header-skeleton"');
     expect(resumePool).toContain('data-slot="date-group-header-skeleton"');
-    expect(resumePool).toContain("h-[218px]");
+    expect(resumePool).toContain('data-slot="resume-pool-card-skeleton"');
+    expect(resumePool).toContain('data-slot="resume-pool-card-skeleton-avatar"');
+    expect(resumePool).toContain("h-[356px]");
+    expect(resumePool).toContain("2xl:h-[218px]");
     expect(dashboard).toContain("grid-cols-2 gap-4 xl:grid-cols-4");
     expect(dashboard).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
+    expect(dashboard.match(/data-slot="dashboard-panel-skeleton"/g)).toHaveLength(6);
+    expect(dashboard).toContain("h-72 w-full");
+    const tablePage = renderToStaticMarkup(<StudioTablePageSkeleton />);
+    expect(tablePage).toContain('data-slot="pagination-bar-skeleton"');
+    expect(tablePage).toContain('data-slot="data-grid-content-skeleton"');
+    expect(tablePage).toContain('data-slot="data-grid-skeleton"');
+    expect(tablePage.match(/data-slot="table-row"/g)).toHaveLength(11);
+    expect(tablePage).not.toContain('data-slot="table-skeleton"');
     expect(profile).toContain("max-w-2xl");
+    expect(profile).toContain('data-slot="profile-activity-skeleton"');
+    expect(profile.match(/data-slot="profile-settings-group-skeleton"/g)).toHaveLength(3);
+    expect(jobDescriptions.match(/data-slot="job-description-chart-skeleton"/g)).toHaveLength(3);
+    expect(jobDescriptions).toContain('data-slot="data-grid-content-skeleton"');
     expect(permissions).toContain("min-w-[72rem]");
   });
 });

@@ -15,6 +15,8 @@ import { AiInterviewEventHoverCard } from "./ai-interview-event-hover-card";
 
 const fetchPreviewMock = vi.hoisted(() => vi.fn());
 const originalTimeZone = process.env.TZ;
+const getRevealState = () =>
+  document.body.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state;
 
 const event: StudioAiCalendarEvent = {
   candidates: [
@@ -79,7 +81,8 @@ afterEach(() => {
 
 describe("AiInterviewEventHoverCard", () => {
   it("requests and renders the lightweight preview only after the card opens", async () => {
-    fetchPreviewMock.mockResolvedValue(preview);
+    const previewResult = Promise.withResolvers<StudioAiCalendarEventPreview>();
+    fetchPreviewMock.mockReturnValue(previewResult.promise);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -107,6 +110,14 @@ describe("AiInterviewEventHoverCard", () => {
       await vi.waitFor(() => expect(fetchPreviewMock).toHaveBeenCalled());
     });
 
+    expect(getRevealState()).toBe("loading");
+    expect(document.body.querySelector('[aria-label="正在加载 AI 面试详情"]')).not.toBeNull();
+
+    await act(async () => {
+      previewResult.resolve(preview);
+      await previewResult.promise;
+    });
+
     await vi.waitFor(() => {
       expect(fetchPreviewMock).toHaveBeenCalledWith("demo", "round-1", "conversation-1");
       expect(document.body.textContent).toContain("前端工程师");
@@ -115,6 +126,7 @@ describe("AiInterviewEventHoverCard", () => {
       expect(document.body.textContent).toContain("AI 面试记录 · 技术初筛");
       expect(document.body.textContent).toContain("报告状态已生成");
       expect(document.body.textContent).toContain("候选人熟悉 React 和 TypeScript。");
+      expect(getRevealState()).toBe("revealed");
     });
 
     act(() => root.unmount());

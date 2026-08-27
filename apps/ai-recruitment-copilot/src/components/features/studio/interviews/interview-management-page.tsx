@@ -499,6 +499,7 @@ export function InterviewManagementPage() {
   // Summary stat cards: sourced from round-level aggregated counts.
   const stats = (
     <StudioSummaryCards
+      loading={summaryQuery.isPending && !summaryQuery.data}
       items={[
         {
           description: "该组织下所有面试轮次总数",

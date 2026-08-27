@@ -67,6 +67,28 @@ export function createResumePoolFilters(): ResumePoolFilters {
   };
 }
 
+export function resolveLoadedResumePoolRecords<T>({
+  accumulated,
+  currentData,
+  isBusy,
+  page,
+  signature,
+}: {
+  accumulated: { records: T[]; signature: string };
+  currentData: T[];
+  isBusy: boolean;
+  page: number;
+  signature: string;
+}) {
+  if (accumulated.signature === signature) {
+    return accumulated.records;
+  }
+  if (!isBusy && page === 1) {
+    return currentData;
+  }
+  return [];
+}
+
 export function buildResumePoolUploaderFilterOptions(uploaders: ResumePoolUploaderOption[]) {
   const options = uploaders.map((uploader) => ({
     avatarUrl: uploader.image,

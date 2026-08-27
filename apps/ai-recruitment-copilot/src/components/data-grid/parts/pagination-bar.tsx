@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Pagination,
   PaginationContent,
@@ -29,6 +30,8 @@ export interface PaginationBarProps {
 
 type VisiblePage = number | "ellipsis-start" | "ellipsis-end";
 
+const PAGINATION_SKELETON_PAGES = 7;
+
 function getVisiblePages(page: number, totalPages: number): VisiblePage[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -53,6 +56,33 @@ function getVisiblePages(page: number, totalPages: number): VisiblePage[] {
   return [1, "ellipsis-start", page - 1, page, page + 1, "ellipsis-end", totalPages];
 }
 
+export function PaginationBarSkeleton() {
+  return (
+    <output
+      aria-label="正在加载分页信息"
+      className="flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4"
+      data-slot="pagination-bar-skeleton"
+    >
+      <Skeleton className="h-5 w-56 max-w-full self-center sm:self-auto" />
+      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-7" />
+          <Skeleton className="h-8 w-[5.5rem]" />
+        </div>
+        <div className="flex w-full justify-center sm:w-auto">
+          <div className="flex flex-row items-center gap-1">
+            <Skeleton className="h-9 w-9 sm:w-20" />
+            {Array.from({ length: PAGINATION_SKELETON_PAGES }, (_, index) => (
+              <Skeleton className="size-9" key={index} />
+            ))}
+            <Skeleton className="h-9 w-9 sm:w-20" />
+          </div>
+        </div>
+      </div>
+    </output>
+  );
+}
+
 export function PaginationBar(props: PaginationBarProps) {
   const {
     loading,
@@ -74,7 +104,10 @@ export function PaginationBar(props: PaginationBarProps) {
   const visiblePages = getVisiblePages(page, totalPages);
 
   return (
-    <div className="flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4">
+    <div
+      className="flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4"
+      data-slot="pagination-bar"
+    >
       <p className="text-center text-muted-foreground text-sm tabular-nums sm:text-left">
         显示第 {startRow}–{endRow} 条，共 {total} 条记录
       </p>

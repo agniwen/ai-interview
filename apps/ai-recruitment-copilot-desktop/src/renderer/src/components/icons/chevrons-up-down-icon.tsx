@@ -1,73 +1,30 @@
 "use client";
 
-import { m, useAnimation } from "motion/react";
-import { forwardRef, useImperativeHandle } from "react";
+export type ChevronsUpDownIconProps = React.ComponentProps<"svg">;
 
-export interface ChevronsUpDownIconHandle {
-  startAnimation: () => void;
-  stopAnimation: () => void;
+const pathClassName =
+  "origin-center [transform-box:fill-box] transition-transform duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] in-data-[panel-open]:-scale-y-100 motion-reduce:transition-none";
+
+function ChevronsUpDownIcon({ className, ...props }: ChevronsUpDownIconProps) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path className={pathClassName} d="M7 15L12 20L17 15" />
+      <path className={pathClassName} d="M7 9L12 4L17 9" />
+    </svg>
+  );
 }
-
-export interface ChevronsUpDownIconProps extends React.ComponentProps<"svg"> {
-  duration?: number;
-}
-
-const ChevronsUpDownIcon = forwardRef<ChevronsUpDownIconHandle, ChevronsUpDownIconProps>(
-  ({ duration = 0.3, ...props }, ref) => {
-    const controls = useAnimation();
-
-    useImperativeHandle(ref, () => ({
-      startAnimation: () => controls.start("animate"),
-      stopAnimation: () => controls.start("normal"),
-    }));
-
-    return (
-      <svg
-        aria-hidden
-        fill="none"
-        height="24"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-        width="24"
-        xmlns="http://www.w3.org/2000/svg"
-        {...props}
-      >
-        <m.path
-          animate={controls}
-          d="M7 15L12 20L17 15"
-          initial="normal"
-          transition={{ duration }}
-          variants={{
-            animate: {
-              d: "M7 20L12 15L17 20",
-            },
-            normal: {
-              d: "M7 15L12 20L17 15",
-            },
-          }}
-        />
-        <m.path
-          animate={controls}
-          d="M7 9L12 4L17 9"
-          initial="normal"
-          transition={{ duration }}
-          variants={{
-            animate: {
-              d: "M7 4L12 9L17 4",
-            },
-            normal: {
-              d: "M7 9L12 4L17 9",
-            },
-          }}
-        />
-      </svg>
-    );
-  },
-);
-
-ChevronsUpDownIcon.displayName = "ChevronsUpDownIcon";
 
 export { ChevronsUpDownIcon };

@@ -245,14 +245,11 @@ export function useResumeLibraryPageQueries({
     queryKey: ["studio-resumes", slug, duplicateMatchRecord?.id, "duplicate-matches"],
   });
 
-  const isInitialPageLoading = resumeLibraryListQuery.isPending && metricsQuery.isPending;
-
   return {
     duplicateMatchesQuery,
     forceReparseMutation,
     grid,
     invalidateAll,
-    isInitialPageLoading,
     jobDescriptions,
     loadedResumeRecords,
     loadedResumeRowsById,

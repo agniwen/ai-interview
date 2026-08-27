@@ -10,6 +10,10 @@ import { PermissionGate } from "@/components/features/permission/permission-gate
 import { ContributionCalendar } from "@/components/features/studio/charts/contribution-calendar";
 import { MailIngestAccountCard } from "@/components/features/studio/profile/mail-ingest-account-card";
 import {
+  ActivitySectionSkeleton,
+  ProfilePageContentSkeleton,
+} from "@/components/features/studio/profile/profile-page-skeleton";
+import {
   SettingsGroup,
   SettingsRow,
   SettingsSection,
@@ -23,7 +27,7 @@ import type { WorkspaceRole } from "@/components/features/studio/members/role-di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { formatDateOnly } from "@arc/shared/utils/time";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
@@ -154,9 +158,7 @@ function ActivitySection() {
     </div>
   );
 
-  if (activityQuery.isPending) {
-    body = <Skeleton className="h-28 w-full rounded-lg" />;
-  } else if (activityQuery.isError) {
+  if (activityQuery.isError) {
     body = (
       <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
         {activityQuery.error instanceof Error ? activityQuery.error.message : "加载个人活动失败"}
@@ -164,7 +166,14 @@ function ActivitySection() {
     );
   }
 
-  return body;
+  return (
+    <SkeletonReveal
+      loading={activityQuery.isPending && !activityQuery.data}
+      skeleton={<ActivitySectionSkeleton />}
+    >
+      {body}
+    </SkeletonReveal>
+  );
 }
 
 function OrganizationSection({
@@ -351,63 +360,65 @@ export function ProfilePage() {
   const nameSaveLabel = saveStatusLabel(saveStatus);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
-      <PageHeader title="个人中心" />
+    <SkeletonReveal loading={isPending} skeleton={<ProfilePageContentSkeleton />}>
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+        <PageHeader title="个人中心" />
 
-      <ProfileHero
-        email={user?.email}
-        image={user?.image}
-        name={heroName}
-        tenantName={tenantName}
-      />
+        <ProfileHero
+          email={user?.email}
+          image={user?.image}
+          name={heroName}
+          tenantName={tenantName}
+        />
 
-      <ActivitySection />
+        <ActivitySection />
 
-      <SettingsSection title="账号资料">
-        <SettingsGroup>
-          <SettingsRow
-            description="显示在成员列表、邀请记录和个人菜单中。"
-            htmlFor="profile-name"
-            label="显示名称"
-          >
-            <div className="flex flex-col gap-1">
-              <Input
-                id="profile-name"
-                autoComplete="name"
-                disabled={isPending || saveStatus === "saving"}
-                maxLength={PROFILE_NAME_MAX_LENGTH}
-                onBlur={handleSaveNow}
-                onChange={(event) => handleNameChange(event.target.value)}
-                placeholder="请输入姓名"
-                value={name}
-              />
-              {nameSaveLabel ? (
-                <p
-                  className={cn(
-                    "text-[11px]",
-                    saveStatus === "error" ? "text-destructive" : "text-muted-foreground",
-                  )}
-                >
-                  {nameSaveLabel}
-                </p>
-              ) : null}
-            </div>
-          </SettingsRow>
-          <SettingsRow label="登录邮箱">
-            <Input disabled readOnly value={user?.email ?? ""} />
-          </SettingsRow>
-        </SettingsGroup>
-      </SettingsSection>
+        <SettingsSection title="账号资料">
+          <SettingsGroup>
+            <SettingsRow
+              description="显示在成员列表、邀请记录和个人菜单中。"
+              htmlFor="profile-name"
+              label="显示名称"
+            >
+              <div className="flex flex-col gap-1">
+                <Input
+                  id="profile-name"
+                  autoComplete="name"
+                  disabled={isPending || saveStatus === "saving"}
+                  maxLength={PROFILE_NAME_MAX_LENGTH}
+                  onBlur={handleSaveNow}
+                  onChange={(event) => handleNameChange(event.target.value)}
+                  placeholder="请输入姓名"
+                  value={name}
+                />
+                {nameSaveLabel ? (
+                  <p
+                    className={cn(
+                      "text-[11px]",
+                      saveStatus === "error" ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {nameSaveLabel}
+                  </p>
+                ) : null}
+              </div>
+            </SettingsRow>
+            <SettingsRow label="登录邮箱">
+              <Input disabled readOnly value={user?.email ?? ""} />
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
 
-      <OrganizationSection
-        currentRole={workspaceMemberRole}
-        currentSlug={currentSlug}
-        organizations={organizations}
-      />
+        <OrganizationSection
+          currentRole={workspaceMemberRole}
+          currentSlug={currentSlug}
+          organizations={organizations}
+        />
 
-      <PermissionGate resource="resumeEmailIngest" action="read">
-        <MailIngestAccountCard />
-      </PermissionGate>
-    </div>
+        <PermissionGate resource="resumeEmailIngest" action="read">
+          <MailIngestAccountCard />
+        </PermissionGate>
+      </div>
+    </SkeletonReveal>
   );
 }

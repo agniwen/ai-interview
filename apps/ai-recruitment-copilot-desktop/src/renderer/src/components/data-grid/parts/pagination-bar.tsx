@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@arc/shared/utils";
 
 export interface PaginationBarProps {
@@ -29,6 +30,11 @@ export interface PaginationBarProps {
 }
 
 type VisiblePage = number | "ellipsis-end" | "ellipsis-start";
+
+const paginationBarClassName =
+  "flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4";
+const paginationBarControlsClassName =
+  "flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4";
 
 function getVisiblePages(page: number, totalPages: number): VisiblePage[] {
   if (totalPages <= 7) {
@@ -51,6 +57,27 @@ function getVisiblePages(page: number, totalPages: number): VisiblePage[] {
   return [1, "ellipsis-start", page - 1, page, page + 1, "ellipsis-end", totalPages];
 }
 
+export function PaginationBarSkeleton() {
+  return (
+    <div aria-hidden className={paginationBarClassName} data-slot="pagination-bar-skeleton">
+      <Skeleton className="h-5 w-56 max-w-full" />
+      <div className={paginationBarControlsClassName}>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-8" />
+          <Skeleton className="h-8 w-[5.5rem]" />
+        </div>
+        <div className="flex w-full items-center justify-center gap-1 sm:w-auto sm:justify-start">
+          <Skeleton className="size-9 sm:w-[4.75rem]" />
+          <Skeleton className="size-9" />
+          <Skeleton className="size-9" />
+          <Skeleton className="size-9" />
+          <Skeleton className="size-9 sm:w-[4.75rem]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PaginationBar({
   loading,
   onPageChange,
@@ -70,11 +97,11 @@ export function PaginationBar({
   const visiblePages = getVisiblePages(page, totalPages);
 
   return (
-    <div className="flex flex-col items-stretch justify-between gap-3 px-2 sm:flex-row sm:items-center sm:gap-4">
+    <div className={paginationBarClassName} data-slot="pagination-bar">
       <p className="text-center text-muted-foreground text-sm tabular-nums sm:text-left">
         显示第 {startRow}–{endRow} 条，共 {total} 条记录
       </p>
-      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+      <div className={paginationBarControlsClassName}>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">每页</span>
           <Select

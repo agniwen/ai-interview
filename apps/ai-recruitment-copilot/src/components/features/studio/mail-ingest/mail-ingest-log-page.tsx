@@ -311,7 +311,7 @@ export function MailIngestLogPage() {
 
   const account = accountQuery.data;
   if (accountQuery.isLoading) {
-    return <StudioTablePageSkeleton filterCount={4} label="入库记录" />;
+    return <StudioTablePageSkeleton columnCount={6} filterCount={4} label="入库记录" />;
   }
 
   return (

@@ -416,7 +416,7 @@ export function ProcessTabs() {
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        "font-mono text-[10px] transition-colors",
+                        "font-mono text-[10px] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
                         isActive ? "text-primary" : "text-foreground/35",
                       )}
                     >
@@ -424,7 +424,7 @@ export function ProcessTabs() {
                     </span>
                     <span
                       className={cn(
-                        "font-medium text-sm transition-colors",
+                        "font-medium text-sm transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
                         isActive ? "text-foreground" : "text-foreground/50",
                       )}
                     >
@@ -433,7 +433,7 @@ export function ProcessTabs() {
                   </div>
                   <div
                     className={cn(
-                      "grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 lg:mt-2 lg:grid-rows-[1fr] lg:opacity-100",
+                      "grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none lg:mt-2 lg:grid-rows-[1fr] lg:opacity-100",
                       isActive
                         ? "mt-3 grid-rows-[1fr] opacity-100"
                         : "mt-0 grid-rows-[0fr] opacity-0",
@@ -442,7 +442,7 @@ export function ProcessTabs() {
                     <div className="min-h-0">
                       <h3
                         className={cn(
-                          "text-balance font-medium text-xl tracking-tight transition-opacity sm:text-2xl",
+                          "text-balance font-medium text-xl tracking-tight transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none sm:text-2xl",
                           !isActive && "lg:opacity-45",
                         )}
                       >
@@ -450,7 +450,7 @@ export function ProcessTabs() {
                       </h3>
                       <p
                         className={cn(
-                          "mt-2 max-w-md text-sm text-foreground/60 leading-relaxed transition-opacity dark:text-white/68 lg:text-[13px] lg:leading-5",
+                          "mt-2 max-w-md text-sm text-foreground/60 leading-relaxed transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none dark:text-white/68 lg:text-[13px] lg:leading-5",
                           !isActive && "lg:opacity-45",
                         )}
                       >
@@ -507,15 +507,17 @@ export function ProcessTabs() {
                   exit={
                     prefersReducedMotion
                       ? { opacity: 0 }
-                      : { filter: "blur(5px)", opacity: 0, y: -10 }
+                      : { filter: "blur(3px)", opacity: 0, y: -8 }
                   }
                   initial={
                     prefersReducedMotion
                       ? { opacity: 0 }
-                      : { filter: "blur(5px)", opacity: 0, y: 12 }
+                      : { filter: "blur(3px)", opacity: 0, y: 8 }
                   }
                   key={activeStep.value}
-                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                  transition={
+                    reducedMotion ? { duration: 0 } : { duration: 0.25, ease: [0.22, 1, 0.36, 1] }
+                  }
                 >
                   {activeStep.demo}
                 </m.div>

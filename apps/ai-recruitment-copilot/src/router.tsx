@@ -2,6 +2,7 @@ import { createRouteMask, createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { NotFoundPage } from "@/components/layout/not-found-view";
 import { RoutePendingView } from "@/components/layout/route-pending-view";
+import { getStudioCandidateDetailScrollToTopElement } from "@/components/features/studio/studio-scroll-restoration";
 import { getQueryClient } from "@/lib/client/query-client";
 import { routeTree } from "./routeTree.gen";
 
@@ -22,16 +23,6 @@ const resumePoolOverlayMask = createRouteMask({
   to: "/w/$slug/studio/resume-pool/$recordId",
   unmaskOnReload: true,
 });
-
-const STUDIO_CANDIDATE_DETAIL_PATH = /^\/w\/[^/]+\/studio\/(?:resumes|resume-pool)\/[^/]+\/?$/;
-
-function getRecruiterResumeDetailScrollToTopElement() {
-  const currentLocation = globalThis.location;
-  if (!currentLocation || !STUDIO_CANDIDATE_DETAIL_PATH.test(currentLocation.pathname)) {
-    return;
-  }
-  return document.querySelector('[data-scroll-restoration-id="studio-main-scroll"]');
-}
 
 function DefaultNotFoundComponent() {
   return <NotFoundPage />;
@@ -54,7 +45,7 @@ export function getRouter() {
     routeMasks: [recruiterResumeOverlayMask, resumePoolOverlayMask],
     routeTree,
     scrollRestoration: true,
-    scrollToTopSelectors: [getRecruiterResumeDetailScrollToTopElement],
+    scrollToTopSelectors: [getStudioCandidateDetailScrollToTopElement],
   });
 
   setupRouterSsrQueryIntegration({ queryClient, router });

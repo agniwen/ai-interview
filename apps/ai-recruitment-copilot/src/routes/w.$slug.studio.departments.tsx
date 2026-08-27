@@ -10,6 +10,6 @@ export const Route = createFileRoute("/w/$slug/studio/departments")({
     meta: [{ title: formatDocumentTitle("部门管理") }],
   }),
   component: DepartmentManagementPage,
-  pendingComponent: () => <StudioTablePageSkeleton label="部门管理" />,
+  pendingComponent: () => <StudioTablePageSkeleton columnCount={6} label="部门管理" />,
   shouldReload: false,
 });

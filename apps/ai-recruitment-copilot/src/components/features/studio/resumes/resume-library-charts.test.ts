@@ -1,7 +1,17 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildPipelineRow, buildUploaderRanking } from "./resume-library-charts";
 
+const chartsSource = readFileSync(new URL("resume-library-charts.tsx", import.meta.url), "utf-8");
+
 describe("resume library chart models", () => {
+  it("uses the shared page-side-by-side motion for every ranking period", () => {
+    expect(chartsSource).not.toContain("ToggleGroup");
+    expect(chartsSource.match(/<TabsContent[^>]*motion="page"/g)).toHaveLength(1);
+    expect(chartsSource).toContain("RANKING_PERIODS.map");
+    expect(chartsSource).toContain("period={item.value}");
+  });
+
   it("builds the single stacked pipeline bar from current-stage counts", () => {
     const pipeline = buildPipelineRow([
       { count: 1444, outcome: "in_pipeline", stage: "screening" },

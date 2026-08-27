@@ -18,6 +18,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { fetchStudioResumeReview } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 
@@ -58,26 +59,31 @@ function getAiScorePreview(detail: ResumeLibraryDetail): AiScorePreview | null {
 
 function AiScorePreviewSkeleton() {
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden" data-slot="ai-score-preview-skeleton">
-      <div className="flex min-w-0 flex-col gap-1 p-3">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-20" />
-      </div>
-      <Separator />
-      <div className="grid min-w-0 gap-4 p-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-center">
-        <Skeleton className="size-40 justify-self-center rounded-full" />
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-8 w-20" />
-          <Skeleton className="h-4 w-4/5" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
+    <div
+      className="max-h-[calc(100vh-2rem)] overflow-hidden sm:max-h-[34rem]"
+      data-slot="ai-score-preview-skeleton"
+    >
+      <div className="flex min-w-0 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-col gap-1 p-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-20" />
         </div>
-      </div>
-      <Separator />
-      <div className="flex flex-col gap-3 p-3">
-        {Array.from({ length: 6 }, (_, index) => (
-          <Skeleton className="h-16 w-full" key={index} />
-        ))}
+        <Separator />
+        <div className="grid min-w-0 gap-4 p-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-center">
+          <Skeleton className="size-48 justify-self-center rounded-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+        <Separator />
+        <div className="flex flex-col gap-3 p-3">
+          {Array.from({ length: 6 }, (_, index) => (
+            <Skeleton className="h-16 w-full" key={index} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -211,14 +217,17 @@ export function ResumeAiScoreHoverCardView({
         onPointerDown={(event) => event.stopPropagation()}
         sideOffset={8}
       >
-        {detailQuery.isPending ? <AiScorePreviewSkeleton /> : null}
+        {detailQuery.isPending || preview ? (
+          <SkeletonReveal loading={detailQuery.isPending} skeleton={<AiScorePreviewSkeleton />}>
+            {preview ? <AiScorePreviewContent preview={preview} renderRadar={renderRadar} /> : null}
+          </SkeletonReveal>
+        ) : null}
         {detailQuery.isError || detailQuery.data === null ? (
           <p className="p-4 text-destructive text-sm">AI评分详情加载失败，请稍后重试。</p>
         ) : null}
         {detailQuery.data && !preview ? (
           <p className="p-4 text-muted-foreground text-sm">暂无 AI评分详情。</p>
         ) : null}
-        {preview ? <AiScorePreviewContent preview={preview} renderRadar={renderRadar} /> : null}
       </HoverCardContent>
     </HoverCard>
   );

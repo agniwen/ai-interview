@@ -31,7 +31,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
       className={cn(
         // Above DesktopChromeBar (z-[200]) so history / settings / sidebar toggle
         // stay under the scrim. Popovers inside the dialog use a higher layer.
-        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-[300] bg-background/80 backdrop-blur-xs duration-200",
+        "t-modal-overlay fixed inset-0 z-[300] bg-background/80 backdrop-blur-xs",
         className,
       )}
       {...props}
@@ -60,7 +60,7 @@ function DialogContent({
         tabIndex={-1}
         className={cn(
           cossModalSurfaceClass,
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-[50%] left-[50%] z-[300] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",
+          "t-modal fixed top-[50%] left-[50%] z-[300] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 outline-none sm:max-w-lg",
           className,
         )}
         {...props}

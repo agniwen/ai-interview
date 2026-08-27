@@ -162,7 +162,7 @@ export function CenterCarousel({
           <button
             aria-label={m.home_carousel_jump_to({ index: i + 1, label: item.label })}
             className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
+              "h-1.5 rounded-full transition-[width,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
               i === selectedIndex ? "w-6 bg-foreground/70" : "w-1.5 bg-foreground/20",
             )}
             key={item.key}

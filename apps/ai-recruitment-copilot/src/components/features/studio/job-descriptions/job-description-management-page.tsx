@@ -14,12 +14,13 @@ import type {
 } from "@arc/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
+import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   actionsColumn,
   customColumn,
@@ -45,6 +46,7 @@ import { JobDescriptionFormDialog } from "@/components/features/studio/job-descr
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { useHasPermission } from "@/hooks/use-has-permission";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -68,6 +70,7 @@ export function JobDescriptionManagementPage({
   metrics: JobDescriptionMetrics;
 }) {
   const slug = useWorkspaceSlug();
+  const hydrated = useHydrated();
   const router = useRouter();
   const queryClient = useQueryClient();
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
@@ -396,9 +399,11 @@ export function JobDescriptionManagementPage({
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader title="岗位设置" />
 
-        <ClientOnly fallback={<Skeleton className="h-80 w-full" />}>
-          <JobDescriptionCharts metrics={metrics} />
-        </ClientOnly>
+        <SkeletonReveal loading={!hydrated} skeleton={<JobDescriptionChartsSkeleton />}>
+          <ClientOnly fallback={null}>
+            <JobDescriptionCharts metrics={metrics} />
+          </ClientOnly>
+        </SkeletonReveal>
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}

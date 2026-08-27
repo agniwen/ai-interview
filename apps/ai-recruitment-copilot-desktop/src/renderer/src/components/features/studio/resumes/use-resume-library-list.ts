@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
 import type { PaginatedResumeLibraryResult } from "@arc/shared/studio-resumes";
@@ -82,6 +82,7 @@ export function useResumeLibraryList() {
         ? { knownTotal: allPages[0]?.total, page: lastPage.page + 1 }
         : undefined,
     initialPageParam: initialResumeLibraryPage,
+    placeholderData: keepPreviousData,
     queryFn: ({ pageParam }) => {
       const bounds = dateRangeFilterBounds(filters.createdAtRange);
       return fetchStudioResumes(requireWorkspaceSlug(slug), {

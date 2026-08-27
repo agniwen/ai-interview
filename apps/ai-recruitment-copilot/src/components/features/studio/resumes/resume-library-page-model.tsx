@@ -22,6 +22,12 @@ import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
+import {
+  getResumeLibraryCardHeight,
+  RESUME_LIBRARY_SERVER_CARD_HEIGHT,
+} from "./resume-library-card-layout";
+
+export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
 
 export const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -65,34 +71,6 @@ function isResumeLibraryFilterKey(key: string): key is keyof ResumeFilters & str
   return resumeLibraryFilterKeySet.has(key);
 }
 export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
-const RESUME_LIBRARY_CARD_HEIGHTS = {
-  base: 395,
-  lg: 297,
-  md: 334,
-  sm: 314,
-  xl: 219,
-  xxl: 217,
-} as const;
-
-export function getResumeLibraryCardHeight(viewportWidth: number) {
-  if (viewportWidth >= 1536) {
-    return RESUME_LIBRARY_CARD_HEIGHTS.xxl;
-  }
-  if (viewportWidth >= 1280) {
-    return RESUME_LIBRARY_CARD_HEIGHTS.xl;
-  }
-  if (viewportWidth >= 1024) {
-    return RESUME_LIBRARY_CARD_HEIGHTS.lg;
-  }
-  if (viewportWidth >= 768) {
-    return RESUME_LIBRARY_CARD_HEIGHTS.md;
-  }
-  if (viewportWidth >= 640) {
-    return RESUME_LIBRARY_CARD_HEIGHTS.sm;
-  }
-  return RESUME_LIBRARY_CARD_HEIGHTS.base;
-}
-
 const RESUME_LIBRARY_CARD_MEDIA_QUERIES = [640, 768, 1024, 1280, 1536].map(
   (width) => `(min-width: ${width}px)`,
 );
@@ -110,7 +88,7 @@ const subscribeToViewportWidth = (onStoreChange: () => void) => {
 };
 
 const getViewportCardHeight = () => getResumeLibraryCardHeight(window.innerWidth);
-const getServerCardHeight = () => RESUME_LIBRARY_CARD_HEIGHTS.lg;
+const getServerCardHeight = () => RESUME_LIBRARY_SERVER_CARD_HEIGHT;
 
 export function useResumeLibraryCardHeight() {
   return useSyncExternalStore(subscribeToViewportWidth, getViewportCardHeight, getServerCardHeight);

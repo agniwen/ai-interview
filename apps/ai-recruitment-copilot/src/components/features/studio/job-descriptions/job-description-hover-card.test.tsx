@@ -12,6 +12,8 @@ import { JobDescriptionHoverCardView } from "./job-description-hover-card";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fetchDetailMock = vi.fn();
+const getRevealState = () =>
+  document.body.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state;
 
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 const record = {
@@ -31,7 +33,8 @@ afterEach(() => {
 
 describe("JobDescriptionHoverCard", () => {
   it("loads job details only after the preview opens", async () => {
-    fetchDetailMock.mockResolvedValue(record);
+    const detail = Promise.withResolvers<JobDescriptionRecord>();
+    fetchDetailMock.mockReturnValue(detail.promise);
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -62,6 +65,18 @@ describe("JobDescriptionHoverCard", () => {
 
     await vi.waitFor(() => {
       expect(fetchDetailMock).toHaveBeenCalledTimes(1);
+    });
+    expect(getRevealState()).toBe("loading");
+    expect(
+      document.body.querySelector('[data-slot="job-description-preview-skeleton"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      detail.resolve(record);
+      await detail.promise;
+    });
+
+    await vi.waitFor(() => {
       expect(document.body.textContent).toContain("岗位 JD");
       expect(document.body.textContent).not.toContain("负责产品前端研发");
       expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(
@@ -74,6 +89,7 @@ describe("JobDescriptionHoverCard", () => {
         expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");
       }
       expect(document.body.querySelector("strong")?.textContent).toBe("React");
+      expect(getRevealState()).toBe("revealed");
     });
 
     act(() => root.unmount());

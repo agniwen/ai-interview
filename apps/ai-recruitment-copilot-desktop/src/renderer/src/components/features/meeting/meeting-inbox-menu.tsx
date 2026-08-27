@@ -37,7 +37,7 @@ const noDragStyle: ElectronNoDragStyle = {
 
 /** Hover reveal: fade + slide in from the right. */
 const ACTION_REVEAL_CLASS =
-  "pointer-events-none invisible absolute inset-y-0 right-0 z-10 flex items-center gap-1 bg-linear-to-l from-popover from-70% to-transparent pr-1 pl-6 opacity-0 translate-x-1.5 transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:pointer-events-auto group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100";
+  "pointer-events-none invisible absolute inset-y-0 right-0 z-10 flex items-center gap-1 bg-linear-to-l from-popover from-70% to-transparent pr-1 pl-6 opacity-0 translate-x-1.5 transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:translate-x-0 motion-reduce:transition-none group-hover:pointer-events-auto group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100";
 
 const ACTION_BTN_CLASS = "min-w-12 px-2 shadow-none";
 

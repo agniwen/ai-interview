@@ -13,6 +13,8 @@ import type { ResumeAiScoreDependencies } from "../resume-ai-score-hover-card";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fetchStudioResumeReviewMock = vi.fn<ResumeAiScoreDependencies["fetchReview"]>();
+const getRevealState = () =>
+  document.body.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]')?.dataset.state;
 
 function createLegacyDetail(): ResumeLibraryDetail {
   // SAFETY: This test constructs the value with the asserted contract before this boundary.
@@ -112,7 +114,8 @@ function renderHoverCard() {
 
 describe("ResumeAiScoreHoverCard", () => {
   it("loads and displays the six-dimension review only after opening", async () => {
-    fetchStudioResumeReviewMock.mockResolvedValue(createLegacyDetail());
+    const detail = Promise.withResolvers<ResumeLibraryDetail>();
+    fetchStudioResumeReviewMock.mockReturnValue(detail.promise);
     const { host, root } = renderHoverCard();
 
     expect(fetchStudioResumeReviewMock).not.toHaveBeenCalled();
@@ -128,6 +131,16 @@ describe("ResumeAiScoreHoverCard", () => {
 
     await vi.waitFor(() => {
       expect(fetchStudioResumeReviewMock).toHaveBeenCalledWith("demo", "resume-1");
+    });
+    expect(getRevealState()).toBe("loading");
+    expect(document.body.querySelector('[data-slot="ai-score-preview-skeleton"]')).not.toBeNull();
+
+    await act(async () => {
+      detail.resolve(createLegacyDetail());
+      await detail.promise;
+    });
+
+    await vi.waitFor(() => {
       expect(document.body.textContent).toContain("张三");
       expect(document.body.textContent).toContain("AI评分详情");
       expect(document.body.textContent).toContain("候选人与岗位高度匹配");
@@ -153,6 +166,7 @@ describe("ResumeAiScoreHoverCard", () => {
       expect(contentShell?.querySelector('[data-slot="ai-score-header"]')?.classList).toContain(
         "p-3",
       );
+      expect(getRevealState()).toBe("revealed");
     });
 
     act(() => root.unmount());

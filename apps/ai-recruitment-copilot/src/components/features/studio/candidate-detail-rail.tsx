@@ -64,29 +64,31 @@ export function CandidateDetailRail({
           活动记录
         </TabsTrigger>
       </TabsList>
-      <TabsContent value="career-summary">
-        <ScrollArea className="max-h-[70vh]" scrollFade>
-          <div className="pr-2">
-            <CandidateCareerSummary
-              onWorkExperienceSelect={onWorkExperienceSelect}
-              profile={profile}
-            />
-          </div>
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value="activity">
-        <ScrollArea className="max-h-[70vh]" scrollFade>
-          <div className="pr-2">
-            <CandidateTimeline
-              data={timeline}
-              density="rail"
-              isLoading={isTimelineLoading}
-              scrollMode="page"
-              showHeading={false}
-            />
-          </div>
-        </ScrollArea>
-      </TabsContent>
+      <div className="relative">
+        <TabsContent motion="page" value="career-summary">
+          <ScrollArea className="max-h-[70vh]" scrollFade>
+            <div className="pr-2">
+              <CandidateCareerSummary
+                onWorkExperienceSelect={onWorkExperienceSelect}
+                profile={profile}
+              />
+            </div>
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent motion="page" value="activity">
+          <ScrollArea className="max-h-[70vh]" scrollFade>
+            <div className="pr-2">
+              <CandidateTimeline
+                data={timeline}
+                density="rail"
+                isLoading={isTimelineLoading}
+                scrollMode="page"
+                showHeading={false}
+              />
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </div>
     </Tabs>
   );
 }

@@ -32,6 +32,7 @@ export {
 } from "./query-contract";
 export {
   DataGrid,
+  DataGridContentSkeleton,
   type BulkActionContext,
   type DataGridColumnDef,
   type DataGridProps,

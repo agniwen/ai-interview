@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 import { DetailBodySkeleton, DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import { StudioDateGroupHeaderSkeleton } from "./studio-date-group-virtual-list";
+import { ResumeLibraryCardSkeleton } from "./resumes/resume-library-card-skeleton";
+import { ResumeLibraryMetricsSkeleton } from "./resumes/resume-library-metrics-skeleton";
+import { StudioSummaryCardsSkeleton } from "./studio-summary-cards";
+import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description-charts-skeleton";
+import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
+import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
+import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
+import { DataGridContentSkeleton } from "@/components/data-grid";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PageShell({ children, label }: { children: ReactNode; label: string }) {
@@ -78,85 +86,12 @@ function ToolbarSkeleton({
   );
 }
 
-function TableSkeleton({ rows = 6 }: { rows?: number }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/70">
-      <div className="min-w-[48rem]">
-        <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_5rem] gap-4 border-b bg-muted/30 px-4 py-3">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton className="h-3 w-4/5" key={index} />
-          ))}
-        </div>
-        {Array.from({ length: rows }).map((_, rowIndex) => (
-          <div
-            className="grid grid-cols-[1.4fr_1fr_1fr_1fr_5rem] gap-4 border-b border-border/60 px-4 py-4 last:border-b-0"
-            key={rowIndex}
-          >
-            <Skeleton className="h-4 w-4/5" />
-            <Skeleton className="h-4 w-3/5" />
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SummarySkeleton({ count = 3 }: { count?: number }) {
-  return (
-    <div
-      className={
-        count === 4 ? "grid grid-cols-2 gap-4 xl:grid-cols-4" : "grid gap-4 lg:grid-cols-3"
-      }
-    >
-      {Array.from({ length: count }).map((_, index) => (
-        <div className="space-y-3 rounded-xl border border-border/70 p-4" key={index}>
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-8 w-20" />
-          <Skeleton className="h-3 w-32" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChartGridSkeleton() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div className="overflow-hidden rounded-xl border border-border/70" key={index}>
-          <div className="grid border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
-            <div className="space-y-2 p-4 sm:p-5">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-36 max-w-full" />
-            </div>
-            {Array.from({ length: 2 }).map((__, metricIndex) => (
-              <div
-                className="space-y-2 border-t px-4 py-3 sm:border-t-0 sm:border-l"
-                key={metricIndex}
-              >
-                <Skeleton className="h-3 w-14" />
-                <Skeleton className="h-7 w-16" />
-              </div>
-            ))}
-          </div>
-          <div className="p-4">
-            <Skeleton className="h-36 w-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function RecruitingListSkeleton() {
   return (
-    <div className="grid gap-3">
+    <div className="grid">
       <StudioDateGroupHeaderSkeleton />
       {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton className="h-44 w-full rounded-xl" key={index} />
+        <ResumeLibraryCardSkeleton key={index} />
       ))}
     </div>
   );
@@ -164,10 +99,10 @@ function RecruitingListSkeleton() {
 
 function ResumePoolCardsSkeleton() {
   return (
-    <div className="grid gap-3">
+    <div className="grid">
       <StudioDateGroupHeaderSkeleton />
       {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton className="h-[218px] rounded-xl max-lg:h-[246px] max-md:h-[286px]" key={index} />
+        <ResumePoolCardSkeleton key={index} />
       ))}
     </div>
   );
@@ -177,7 +112,7 @@ export function RecruitingPageSkeleton() {
   return (
     <PageShell label="招聘台">
       <HeaderSkeleton />
-      <ChartGridSkeleton />
+      <ResumeLibraryMetricsSkeleton />
       <TabsSkeleton count={6} />
       <ToolbarSkeleton filterCount={4} />
       <RecruitingListSkeleton />
@@ -197,10 +132,12 @@ export function ResumePoolPageSkeleton() {
 }
 
 export function StudioTablePageSkeleton({
+  columnCount = 5,
   filterCount = 2,
   label = "数据列表",
   summary = false,
 }: {
+  columnCount?: number;
   filterCount?: number;
   label?: string;
   summary?: boolean;
@@ -208,9 +145,11 @@ export function StudioTablePageSkeleton({
   return (
     <PageShell label={label}>
       <HeaderSkeleton />
-      {summary ? <SummarySkeleton count={4} /> : null}
-      <ToolbarSkeleton filterCount={filterCount} />
-      <TableSkeleton />
+      <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
+        {summary ? <StudioSummaryCardsSkeleton /> : null}
+        <ToolbarSkeleton filterCount={filterCount} />
+        <DataGridContentSkeleton columnCount={columnCount} />
+      </div>
     </PageShell>
   );
 }
@@ -219,9 +158,11 @@ export function JobDescriptionsPageSkeleton() {
   return (
     <PageShell label="岗位设置">
       <HeaderSkeleton />
-      <ChartGridSkeleton />
-      <ToolbarSkeleton filterCount={3} />
-      <TableSkeleton />
+      <JobDescriptionChartsSkeleton />
+      <div className="flex flex-col gap-4" data-slot="data-grid-shell-skeleton">
+        <ToolbarSkeleton filterCount={3} />
+        <DataGridContentSkeleton columnCount={9} />
+      </div>
     </PageShell>
   );
 }
@@ -230,12 +171,8 @@ export function DashboardPageSkeleton() {
   return (
     <PageShell label="数据看板">
       <HeaderSkeleton />
-      <SummarySkeleton count={4} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <Skeleton className="h-80 w-full" />
-        <Skeleton className="h-80 w-full" />
-      </div>
-      <Skeleton className="h-80 w-full" />
+      <StudioSummaryCardsSkeleton />
+      <DashboardPanelsSkeleton />
     </PageShell>
   );
 }
@@ -243,28 +180,7 @@ export function DashboardPageSkeleton() {
 export function ProfilePageSkeleton() {
   return (
     <PageShell label="个人中心">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
-        <HeaderSkeleton />
-        <div className="flex flex-col items-center gap-3 py-2">
-          <Skeleton className="size-20 rounded-full" />
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-        <div className="space-y-2.5">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-24 w-full rounded-lg" />
-        </div>
-        <Skeleton className="h-px w-full" />
-        <div className="space-y-2.5">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-28 w-full rounded-lg" />
-        </div>
-        <Skeleton className="h-px w-full" />
-        <div className="space-y-2.5">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-20 w-full rounded-lg" />
-        </div>
-      </div>
+      <ProfilePageContentSkeleton />
     </PageShell>
   );
 }
@@ -275,7 +191,7 @@ export function MembersPageSkeleton() {
       <HeaderSkeleton />
       <TabsSkeleton count={2} />
       <ToolbarSkeleton filterCount={2} />
-      <TableSkeleton rows={4} />
+      <DataGridContentSkeleton columnCount={5} rowCount={4} />
     </PageShell>
   );
 }

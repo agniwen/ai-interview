@@ -34,6 +34,8 @@ export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
   },
   head: () => ({ meta: [{ title: formatDocumentTitle("沟通题") }] }),
   component: StudioInterviewQuestionsRoute,
-  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="沟通题" />,
+  pendingComponent: () => (
+    <StudioTablePageSkeleton columnCount={8} filterCount={3} label="沟通题" />
+  ),
   shouldReload: false,
 });

@@ -30,6 +30,8 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
   },
   head: () => ({ meta: [{ title: formatDocumentTitle("表单题") }] }),
   component: StudioFormsRoute,
-  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="表单题" />,
+  pendingComponent: () => (
+    <StudioTablePageSkeleton columnCount={8} filterCount={3} label="表单题" />
+  ),
   shouldReload: false,
 });
