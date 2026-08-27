@@ -26,7 +26,8 @@ export function useFilterSelection(scope: string, available: string[]) {
   const hydrated = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
   const parsed = selectionSchema.safeParse(selections);
   const stored = hydrated && parsed.success ? (parsed.data[scope] ?? []) : [];
-  const selected = [...new Set(stored.filter((key) => available.includes(key)))];
+  const availableKeys = new Set(available);
+  const selected = [...new Set(stored.filter((key) => availableKeys.has(key)))];
   return [
     selected,
     (keys: string[]) =>

@@ -59,8 +59,9 @@ function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProvi
   }
   const commonProviderIds = new Set(firstMember.feishuProviderIds);
   for (const member of remainingMembers) {
+    const memberProviderIds = new Set(member.feishuProviderIds);
     for (const providerId of commonProviderIds) {
-      if (!member.feishuProviderIds.includes(providerId)) {
+      if (!memberProviderIds.has(providerId)) {
         commonProviderIds.delete(providerId);
       }
     }
@@ -202,13 +203,14 @@ export function ScheduleRoundDialogView({
   }
 
   const memberRecords = members?.records ?? [];
-  const selectedMembers = memberRecords.filter((member) => interviewerIds.includes(member.id));
+  const interviewerIdSet = new Set(interviewerIds);
+  const selectedMembers = memberRecords.filter((member) => interviewerIdSet.has(member.id));
   const commonProviderIds = getCommonFeishuProviderIds(selectedMembers);
   const memberOptions = memberRecords.map((member) => ({
     avatarUrl: member.image,
     disabled:
       members?.feishuHumanInterviewEnabled === true &&
-      !interviewerIds.includes(member.id) &&
+      !interviewerIdSet.has(member.id) &&
       commonProviderIds !== null &&
       !member.feishuProviderIds.some((providerId) => commonProviderIds.has(providerId)),
     label: member.name,

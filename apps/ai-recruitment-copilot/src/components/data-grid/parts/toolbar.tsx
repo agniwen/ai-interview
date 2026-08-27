@@ -93,20 +93,26 @@ export function Toolbar({
   const canClear = expanded.length ? activeFields.length > 0 : canResetFilters;
   function clearFilterValues() {
     if (advanced) {
-      setSelected(
-        conditions
-          .filter((filter) => selected.includes(filter.key) || activeFields.includes(filter))
-          .map((filter) => filter.key),
-      );
+      const selectedKeys = new Set(selected);
+      const activeFilters = new Set(activeFields);
+      const retainedKeys: string[] = [];
+      for (const filter of conditions) {
+        if (selectedKeys.has(filter.key) || activeFilters.has(filter)) {
+          retainedKeys.push(filter.key);
+        }
+      }
+      setSelected(retainedKeys);
     }
-    const clearedValues = Object.fromEntries(
-      (filters ?? [])
-        .filter((filter) => !isFixedFilter(filter))
-        .map((filter) => [
+    const clearedEntries: [string, string][] = [];
+    for (const filter of filters ?? []) {
+      if (!isFixedFilter(filter)) {
+        clearedEntries.push([
           filter.key,
           filter.type === "text-filters" ? "" : (filter.unfilteredValue ?? ""),
-        ]),
-    );
+        ]);
+      }
+    }
+    const clearedValues = Object.fromEntries(clearedEntries);
     onResetFilters?.(clearedValues);
   }
   function onFilterChange(key: string, value: string) {

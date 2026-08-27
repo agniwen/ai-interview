@@ -84,6 +84,19 @@ describe("toolbar filter query contract", () => {
     ).toEqual({ jobs: "" });
   });
 
+  it("uses the first config when duplicate keys are provided", () => {
+    const duplicateConfigs: ToolbarConditionConfig[] = [
+      { key: "status", options: [], type: "select", unfilteredValue: "all" },
+      { key: "status", options: [], type: "multi-select" },
+    ];
+
+    expect(
+      toolbarFilterChanges(query(rule("status", "is", "active")), duplicateConfigs, {
+        status: "all",
+      }),
+    ).toEqual({ status: "active" });
+  });
+
   it("refuses OR, nested groups, negation, unknown fields and duplicate conditions", () => {
     const invalid: FilterQuery<ToolbarFilterValue>[] = [
       { ...query(), combinator: "or" },

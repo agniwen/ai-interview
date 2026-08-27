@@ -11,10 +11,11 @@ export function buildToolbarFilterQuery(
   selected: string[] = [],
 ): FilterQuery<ToolbarFilterValue> {
   const rules: FilterRule<ToolbarFilterValue>[] = [];
+  const selectedKeys = new Set(selected);
   for (const config of configs) {
     const value = values[config.key] ?? "";
     const active = Boolean(value) && value !== config.unfilteredValue;
-    if (!active && !selected.includes(config.key)) {
+    if (!active && !selectedKeys.has(config.key)) {
       continue;
     }
     const activeValue = config.type === "multi-select" ? parseCsvParam(value) : value;
@@ -39,6 +40,16 @@ function serializeRuleValue(
   return Array.isArray(value) ? null : value;
 }
 
+function indexFirstConfigByKey(configs: ToolbarConditionConfig[]) {
+  const configsByKey = new Map<string, ToolbarConditionConfig>();
+  for (const config of configs) {
+    if (!configsByKey.has(config.key)) {
+      configsByKey.set(config.key, config);
+    }
+  }
+  return configsByKey;
+}
+
 /** Only the operators the resource already supports can cross the UI boundary. */
 export function toolbarFilterChanges(
   query: FilterQuery<ToolbarFilterValue>,
@@ -48,13 +59,14 @@ export function toolbarFilterChanges(
   if (query.combinator !== "and") {
     return null;
   }
+  const configsByKey = indexFirstConfigByKey(configs);
   const values = new Map<string, string>();
   for (const rule of query.rules) {
     if (rule.type !== "rule" || rule.negated || rule.path.length !== 1) {
       return null;
     }
     const [key] = rule.path;
-    const config = configs.find((item) => item.key === key);
+    const config = configsByKey.get(key);
     if (
       !config ||
       values.has(key) ||
