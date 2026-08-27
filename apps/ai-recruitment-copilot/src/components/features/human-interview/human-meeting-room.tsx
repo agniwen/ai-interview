@@ -373,7 +373,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   if (props.mode === "candidate" && candidateInviteStatus !== "accepted") {
     const canRespond = candidateInviteStatus === "pending" || candidateInviteStatus === "sent";
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center px-6 py-16">
+      <main className="dark mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center bg-background px-6 py-16 text-foreground">
         <p className="mb-3 text-muted-foreground text-sm">{props.preview.roundLabel}</p>
         <h1 className="text-2xl font-semibold">{props.preview.title}</h1>
         <p className="mt-2 text-muted-foreground">
@@ -418,7 +418,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   if (!token) {
     if (props.mode === "interviewer" && viewMode === "materials") {
       return (
-        <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
+        <main className="dark flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
           <header className="flex shrink-0 items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
             <div>
               <h1 className="font-medium text-white text-xl tracking-normal">
@@ -452,7 +452,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     const joinButtonText = getJoinButtonText(startBlockMessage, isJoining);
 
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
+      <main className="dark flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground">
         <section className="w-full max-w-lg space-y-6 text-center">
           <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-muted/60 bg-muted/30">
             <IconVideo className="size-6 text-foreground" />
@@ -500,7 +500,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
   return (
     <LiveKitRoom
       audio={false}
-      className="h-dvh overflow-hidden bg-zinc-950 text-white"
+      className="dark h-dvh overflow-hidden bg-zinc-950 text-white"
       connect
       onDisconnected={() => dispatch({ type: "disconnected" })}
       onError={(e) => {

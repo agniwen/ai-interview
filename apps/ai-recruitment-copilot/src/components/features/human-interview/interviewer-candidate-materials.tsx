@@ -512,7 +512,7 @@ export function InterviewerCandidateMaterials({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+    <div className="dark flex h-full min-h-0 flex-col bg-background text-foreground">
       <div className="flex shrink-0 items-center gap-3 border-b px-3 py-2.5">
         <span className="shrink-0 text-muted-foreground text-xs">当前候选人</span>
         <Select

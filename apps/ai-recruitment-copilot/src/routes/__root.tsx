@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import "overlayscrollbars/overlayscrollbars.css";
 import "../styles/globals.css";
@@ -19,6 +20,7 @@ import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
 import { env } from "@/env/client";
 import { ROOT_DOCUMENT_TITLE, documentTitleMeta } from "@/lib/start/document-title";
+import { resolveForcedPageTheme } from "@/lib/client/fixed-page-theme";
 import { getLocale, getTextDirection } from "@/paraglide/runtime";
 
 const ROOT_DESCRIPTION =
@@ -46,6 +48,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function RootComponent() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const forcedTheme = resolveForcedPageTheme(pathname);
   const {
     options: {
       context: { queryClient },
@@ -61,6 +65,7 @@ function RootComponent() {
             defaultTheme="system"
             disableTransitionOnChange
             enableSystem
+            forcedTheme={forcedTheme}
           >
             <QueryProvider queryClient={queryClient}>
               <TooltipProvider>
