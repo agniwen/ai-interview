@@ -8,7 +8,10 @@ import { runInterviewReportWorkflow } from "@arc/ai-recruitment-copilot-backend/
 import { formatCandidateFormSubmissions } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 import type { InterviewEvaluationQuestion } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
-import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import {
+  isInterviewQuestionSetComplete,
+  parseInterviewDataCollectionResults,
+} from "@arc/shared/interview/question-outcomes";
 import { enqueueAiReportReadyEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import {
   isInterviewNotificationFlowEnabled,
@@ -124,6 +127,8 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     const evidence = await createInterviewEvidenceSnapshot({ conversationId, interviewRecordId });
     const questions = buildEvaluationQuestionsFromContext(evidence.payload.context);
     const dataCollectionResults = parseInterviewDataCollectionResults(rawDataCollectionResults);
+    const shouldAutomaticallyGenerateEvaluationDocument =
+      isInterviewQuestionSetComplete(dataCollectionResults);
 
     const report = await runInterviewReportWorkflow({
       candidateFormResponses: formatCandidateFormSubmissions(evidence.payload.formSubmissions),
@@ -165,7 +170,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
         })
         .where(eq(interviewConversation.conversationId, conversationId));
 
-      if (isInterviewNotificationFlowEnabled()) {
+      if (shouldAutomaticallyGenerateEvaluationDocument && isInterviewNotificationFlowEnabled()) {
         await enqueueAiReportReadyEvent(tx, { conversationId, interviewRecordId });
       }
     });
@@ -173,7 +178,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     safeUpdateTag(cacheTags.interviewConversations);
     safeUpdateTag(cacheTags.interviewConversationsByRecord(interviewRecordId));
 
-    if (!isInterviewNotificationWorkerEnabled()) {
+    if (shouldAutomaticallyGenerateEvaluationDocument && !isInterviewNotificationWorkerEnabled()) {
       void notifyInterviewSummaryReady({
         conversationId,
         interviewRecordId,

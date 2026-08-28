@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasExistingInterviewAnswers,
+  isInterviewQuestionSetComplete,
   mergeInterviewQuestionOutcome,
   parseInterviewDataCollectionResults,
 } from "@arc/shared/interview/question-outcomes";
@@ -55,5 +57,48 @@ describe("interview question outcomes", () => {
     expect(
       mergeInterviewQuestionOutcome({ questions: [OUTCOME], schemaVersion: 2 }, revised),
     ).toEqual({ questions: [revised], schemaVersion: 2 });
+  });
+
+  it("treats answered, insufficient, and skipped questions as a completed question set", () => {
+    expect(
+      isInterviewQuestionSetComplete({
+        questions: [
+          OUTCOME,
+          {
+            ...OUTCOME,
+            answerSummary: "回答信息不足",
+            questionId: "question-2",
+            status: "insufficient",
+          },
+          { ...OUTCOME, answerSummary: null, questionId: "question-3", status: "skipped" },
+        ],
+        schemaVersion: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps interrupted or unasked question sets out of automatic generation", () => {
+    const partial = {
+      questions: [
+        OUTCOME,
+        {
+          ...OUTCOME,
+          answerSummary: null,
+          questionId: "question-2",
+          reason: "candidate_ended_round" as const,
+          status: "unasked" as const,
+        },
+      ],
+      schemaVersion: 2 as const,
+    };
+
+    expect(isInterviewQuestionSetComplete(partial)).toBe(false);
+    expect(hasExistingInterviewAnswers(partial)).toBe(true);
+    expect(
+      hasExistingInterviewAnswers({
+        questions: [partial.questions[1]],
+        schemaVersion: 2,
+      }),
+    ).toBe(false);
   });
 });

@@ -236,11 +236,32 @@ describe("queryPaginatedInterviewRounds", () => {
     await db.insert(interviewConversation).values({
       conversationId,
       createdAt: NOW,
+      dataCollectionResults: {
+        questions: [
+          {
+            answerSummary: "回答完整",
+            difficulty: "medium",
+            endedAtSecs: 30,
+            evaluationFocus: null,
+            followUpCount: 0,
+            followUpDirections: null,
+            question: "请介绍项目经历。",
+            questionId: "q1",
+            reason: null,
+            revision: 1,
+            startedAtSecs: 10,
+            status: "answered",
+          },
+        ],
+        schemaVersion: 2,
+      },
+      endedAt: NOW,
       interviewRecordId: "cand-a",
       lastSyncedAt: NOW,
       organizationId: ORG,
       scheduleEntryId: "rnd-a1",
       status: "completed",
+      summaryStatus: "ready",
       updatedAt: NOW,
     });
     await db
@@ -266,12 +287,73 @@ describe("queryPaginatedInterviewRounds", () => {
       const withDocument = result.records.find((record) => record.id === "rnd-a1");
       const withoutDocument = result.records.find((record) => record.id === "rnd-a2");
       expect(withDocument?.feishuDocumentUrl).toBe("https://example.feishu.cn/docx/round-a1");
+      expect(withDocument?.feishuEvaluationDocumentStatus).toBe("generated");
       expect(withoutDocument?.feishuDocumentUrl).toBeNull();
     } finally {
       await db
         .update(studioInterviewSchedule)
         .set({ conversationId: null })
         .where(eq(studioInterviewSchedule.id, "rnd-a1"));
+      await db
+        .delete(interviewConversation)
+        .where(eq(interviewConversation.conversationId, conversationId));
+    }
+  });
+
+  it("offers manual generation from the latest ended partial interview", async () => {
+    const conversationId = "conv_rounds_dao_partial_evaluation";
+    await db.insert(interviewConversation).values({
+      conversationId,
+      createdAt: new Date("2026-05-13T13:00:00.000Z"),
+      dataCollectionResults: {
+        questions: [
+          {
+            answerSummary: "候选人介绍了最近一次项目交付",
+            difficulty: "medium",
+            endedAtSecs: 30,
+            evaluationFocus: null,
+            followUpCount: 0,
+            followUpDirections: null,
+            question: "请介绍项目经历。",
+            questionId: "q1",
+            reason: null,
+            revision: 1,
+            startedAtSecs: 10,
+            status: "answered",
+          },
+          {
+            answerSummary: null,
+            difficulty: "medium",
+            endedAtSecs: 31,
+            evaluationFocus: null,
+            followUpCount: 0,
+            followUpDirections: null,
+            question: "请介绍一次困难问题的处理过程。",
+            questionId: "q2",
+            reason: "candidate_ended_round",
+            revision: 1,
+            startedAtSecs: 31,
+            status: "unasked",
+          },
+        ],
+        schemaVersion: 2,
+      },
+      endedAt: new Date("2026-05-13T14:00:00.000Z"),
+      interviewRecordId: "cand-b",
+      lastSyncedAt: NOW,
+      organizationId: ORG,
+      scheduleEntryId: "rnd-b1",
+      status: "completed",
+      summaryStatus: "ready",
+      updatedAt: NOW,
+    });
+
+    try {
+      const result = await queryPaginatedInterviewRounds(ORG);
+      const row = result.records.find((record) => record.id === "rnd-b1");
+      expect(row?.feishuDocumentUrl).toBeNull();
+      expect(row?.feishuEvaluationDocumentStatus).toBe("partial_answers_available");
+    } finally {
       await db
         .delete(interviewConversation)
         .where(eq(interviewConversation.conversationId, conversationId));

@@ -12,6 +12,11 @@ import type {
 } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 
+export type FeishuEvaluationDocumentStatus =
+  | "generated"
+  | "partial_answers_available"
+  | "unavailable";
+
 /** 列表行（精简投影）/ List row (light projection). */
 export interface StudioInterviewRoundListRecord {
   /** schedule 行 id（同时是 list 的稳定 rowKey）。 */
@@ -37,6 +42,7 @@ export interface StudioInterviewRoundListRecord {
   candidateInviteExpiresAt: string | null;
   hasReport: boolean;
   feishuDocumentUrl: string | null;
+  feishuEvaluationDocumentStatus: FeishuEvaluationDocumentStatus;
   /** 完整面试链接相对路径 / Relative interview link path. */
   interviewLink: string;
   createdBy: string | null;

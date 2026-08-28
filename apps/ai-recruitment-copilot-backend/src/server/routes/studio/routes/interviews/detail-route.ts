@@ -32,6 +32,13 @@ import {
   loadInterviewRoundDetail,
   resolveCandidateIdForRound,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { loadLatestEndedInterviewConversationForRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/evaluation-documents";
+import { loadLatestFeishuDocumentUrls } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/feishu-document-urls";
+import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
+import {
+  hasExistingInterviewAnswers,
+  isInterviewQuestionSetComplete,
+} from "@arc/shared/interview/question-outcomes";
 import { recordingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/recordings/route";
 import { reportsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/reports/route";
 import { loadRecordById } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
@@ -115,6 +122,62 @@ export const studioInterviewDetailRouter = factory
       return c.json(meeting, 200);
     },
   )
+  .post("/:id/evaluation-document", requirePermission("interview", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const roundId = c.req.param("id");
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const round = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
+    if (!round) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    // Always resolve the latest ended attempt on the server. The list row can
+    // become stale while a candidate reconnects or restarts the same round.
+    const conversation = await loadLatestEndedInterviewConversationForRound(roundId, activeOrg.id);
+    if (!conversation?.interviewRecordId) {
+      return c.json({ error: "本轮面试还没有可用于生成评价表的已结束记录。" }, 409);
+    }
+    if (conversation.summaryStatus !== "ready") {
+      return c.json({ error: "最新一轮面试报告尚未生成完成，请稍后再试。" }, 409);
+    }
+    if (
+      !isInterviewQuestionSetComplete(conversation.dataCollectionResults) &&
+      !hasExistingInterviewAnswers(conversation.dataCollectionResults)
+    ) {
+      return c.json({ error: "最新一轮面试没有可用于生成评价表的候选人回答。" }, 409);
+    }
+
+    await notifyInterviewSummaryReady({
+      allowIncomplete: true,
+      conversationId: conversation.conversationId,
+      interviewRecordId: conversation.interviewRecordId,
+    });
+    const documentUrls = await loadLatestFeishuDocumentUrls({
+      ids: [conversation.conversationId],
+      key: "conversationId",
+      organizationId: activeOrg.id,
+    });
+    const feishuDocumentUrl = documentUrls.get(conversation.conversationId) ?? null;
+    if (!feishuDocumentUrl) {
+      return c.json({ error: "评价表生成失败。请确认面试创建人已绑定飞书账号后重试。" }, 422);
+    }
+
+    invalidateStudioInterviewCaches(activeOrg.id);
+    return c.json(
+      {
+        conversationId: conversation.conversationId,
+        feishuDocumentUrl,
+      },
+      200,
+    );
+  })
   .get("/:id", requirePermission("interview", "read"), async (c) => {
     // `:id` 现为 roundId；返回 StudioInterviewRoundDetail（round + 候选人快照）。
     // `:id` is now roundId; returns StudioInterviewRoundDetail (round + candidate snapshot).

@@ -67,6 +67,42 @@ export function parseInterviewDataCollectionResults<const T>(
   return parsed.success ? parsed.data : null;
 }
 
+const COMPLETED_QUESTION_OUTCOME_STATUSES = new Set<InterviewQuestionOutcome["status"]>([
+  "answered",
+  "insufficient",
+  "skipped",
+]);
+
+/**
+ * A question set is complete once every recorded question reached a terminal
+ * outcome. Interrupted and unasked questions mean the interview ended before
+ * the configured question flow was finished.
+ */
+export function isInterviewQuestionSetComplete(
+  value: InterviewDataCollectionResults | null | unknown,
+): boolean {
+  const results = parseInterviewDataCollectionResults(value);
+  return Boolean(
+    results &&
+    results.questions.length > 0 &&
+    results.questions.every((question) => COMPLETED_QUESTION_OUTCOME_STATUSES.has(question.status)),
+  );
+}
+
+/** Whether the partial interview contains at least one usable candidate answer. */
+export function hasExistingInterviewAnswers(
+  value: InterviewDataCollectionResults | null | unknown,
+): boolean {
+  const results = parseInterviewDataCollectionResults(value);
+  return Boolean(
+    results?.questions.some(
+      (question) =>
+        (question.status === "answered" || question.status === "insufficient") &&
+        Boolean(question.answerSummary?.trim()),
+    ),
+  );
+}
+
 export function mergeInterviewQuestionOutcome(
   current: InterviewDataCollectionResults,
   incoming: InterviewQuestionOutcome,

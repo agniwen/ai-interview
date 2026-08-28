@@ -26,12 +26,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-notification-format";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
+import { isInterviewQuestionSetComplete } from "@arc/shared/interview/question-outcomes";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;
 const GOOGLE_PROVIDER_ID = "google";
 
 interface SummaryReadyNotificationOptions {
+  allowIncomplete?: boolean;
   conversationId: string;
   interviewRecordId: string;
 }
@@ -59,15 +61,15 @@ interface NotificationTarget {
   interviewRecordId: string;
 }
 
-const evaluationSummarySchema = z.object({
+export const evaluationSummarySchema = z.object({
   overallAssessment: z.string().optional(),
-  overallScore: z.number().optional(),
+  overallScore: z.number().nullable().optional(),
   questions: z
     .array(
       z.object({
         maxScore: z.number(),
         question: z.string(),
-        score: z.number(),
+        score: z.number().nullable(),
       }),
     )
     .optional(),
@@ -103,12 +105,20 @@ function truncateForCard(value: string, maxLength: number): string {
   return `${trimmed.slice(0, maxLength - 1)}…`;
 }
 
-function extractQuestionScores(evaluation: EvaluationSummary): InterviewSummaryQuestionScore[] {
-  const rows = (evaluation.questions ?? []).map((item) => ({
-    maxScore: item.maxScore,
-    question: truncateForCard(item.question, 28),
-    score: item.score,
-  }));
+export function extractQuestionScores(
+  evaluation: EvaluationSummary,
+): InterviewSummaryQuestionScore[] {
+  const rows = (evaluation.questions ?? []).flatMap((item) =>
+    item.score === null
+      ? []
+      : [
+          {
+            maxScore: item.maxScore,
+            question: truncateForCard(item.question, 28),
+            score: item.score,
+          },
+        ],
+  );
 
   return rows.toSorted((a, b) => a.score / a.maxScore - b.score / b.maxScore).slice(0, 4);
 }
@@ -126,7 +136,7 @@ interface NotificationCardInput {
 
 function buildSummaryPayload(input: NotificationCardInput) {
   const overallScore =
-    input.evaluation.overallScore === undefined
+    input.evaluation.overallScore === undefined || input.evaluation.overallScore === null
       ? "暂无评分"
       : `${input.evaluation.overallScore}/100`;
   const recommendation = input.evaluation.recommendation ?? "暂无建议";
@@ -159,6 +169,7 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
     .select({
       candidateName: studioInterview.candidateName,
       createdBy: studioInterview.createdBy,
+      dataCollectionResults: interviewConversation.dataCollectionResults,
       endedAt: interviewConversation.endedAt,
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
       interviewQuestions: studioInterview.interviewQuestions,
@@ -576,6 +587,9 @@ export async function notifyInterviewSummaryReady(
 ): Promise<void> {
   const context = await loadNotificationContext(options);
   if (!context || context.summaryStatus !== "ready" || !context.createdBy) {
+    return;
+  }
+  if (!(options.allowIncomplete || isInterviewQuestionSetComplete(context.dataCollectionResults))) {
     return;
   }
 

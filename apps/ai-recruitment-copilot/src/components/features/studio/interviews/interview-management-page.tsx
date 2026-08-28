@@ -1,6 +1,6 @@
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconRobot, IconTrash } from "@tabler/icons-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
@@ -71,6 +71,7 @@ import { JobDescriptionViewDialog } from "@/components/features/studio/interview
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
+import { CandidateEvaluationDocumentCell } from "@/components/features/studio/interviews/candidate-evaluation-document-cell";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -256,6 +257,24 @@ export function InterviewManagementPage() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
   }
 
+  const generateEvaluationDocument = useMutation({
+    mutationFn: (roundId: string) =>
+      rpcFetch(
+        rpc.api.w[":slug"].studio.interviews[":id"]["evaluation-document"].$post({
+          param: { id: roundId, slug },
+        }),
+        "生成候选人评价表失败",
+      ),
+    mutationKey: ["studio-interviews", slug, "generate-evaluation-document"],
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "生成候选人评价表失败");
+    },
+    onSuccess: () => {
+      toast.success("候选人评价表已生成");
+      invalidateAll();
+    },
+  });
+
   // 列定义：以 round 为主键，候选人信息作为快照列展示。
   // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
@@ -383,20 +402,16 @@ export function InterviewManagementPage() {
         title: "报告",
       }),
       customColumn<StudioInterviewRoundListRecord>({
-        cell: (r) =>
-          r.feishuDocumentUrl ? (
-            <a
-              className="text-primary underline underline-offset-4 hover:text-primary/80"
-              href={r.feishuDocumentUrl}
-              onClick={(event) => event.stopPropagation()}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              查看评价表
-            </a>
-          ) : (
-            <span className="text-muted-foreground">未生成</span>
-          ),
+        cell: (r) => (
+          <CandidateEvaluationDocumentCell
+            canGenerate={canUpdateInterview}
+            generating={
+              generateEvaluationDocument.isPending && generateEvaluationDocument.variables === r.id
+            }
+            onGenerate={(roundId) => generateEvaluationDocument.mutate(roundId)}
+            row={r}
+          />
+        ),
         key: "feishuDocumentUrl",
         title: "候选人评价表",
       }),
@@ -450,7 +465,7 @@ export function InterviewManagementPage() {
         ],
       }),
     ],
-    [canDeleteInterview, canReadJobDescriptions, canUpdateInterview],
+    [canDeleteInterview, canReadJobDescriptions, canUpdateInterview, generateEvaluationDocument],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。

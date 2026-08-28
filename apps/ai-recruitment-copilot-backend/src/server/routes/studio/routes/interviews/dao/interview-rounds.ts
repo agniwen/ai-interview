@@ -39,7 +39,7 @@ import type {
   StudioInterviewRoundListRecord,
 } from "@arc/shared/studio-interview-rounds";
 import { loadStudioCandidate } from "./studio-interviews";
-import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
+import { loadRoundFeishuEvaluationDocuments } from "./evaluation-documents";
 
 const SORT_COLUMNS = ["scheduledAt", "createdAt", "candidateName", "roundLabel"] as const;
 
@@ -190,26 +190,13 @@ async function loadRoundDerivedFields(
   return result;
 }
 
-async function loadRoundListDerivedFields(
-  rows: { conversationId: string | null; id: string }[],
-  organizationId: string,
-) {
-  const [byRoundId, documentUrlsByConversationId] = await Promise.all([
-    loadRoundDerivedFields(rows.map((row) => row.id)),
-    loadLatestFeishuDocumentUrls({
-      ids: rows.flatMap((row) => (row.conversationId ? [row.conversationId] : [])),
-      key: "conversationId",
-      organizationId,
-    }),
+async function loadRoundListDerivedFields(rows: { id: string }[], organizationId: string) {
+  const roundIds = rows.map((row) => row.id);
+  const [byRoundId, evaluationDocumentsByRoundId] = await Promise.all([
+    loadRoundDerivedFields(roundIds),
+    loadRoundFeishuEvaluationDocuments(roundIds, organizationId),
   ]);
-  return { byRoundId, documentUrlsByConversationId };
-}
-
-function resolveRoundFeishuDocumentUrl(
-  conversationId: string | null,
-  documentUrlsByConversationId: Map<string, string>,
-) {
-  return conversationId ? (documentUrlsByConversationId.get(conversationId) ?? null) : null;
+  return { byRoundId, evaluationDocumentsByRoundId };
 }
 
 export async function queryPaginatedInterviewRounds(
@@ -306,7 +293,7 @@ export async function queryPaginatedInterviewRounds(
     countQuery,
   ]);
 
-  const { byRoundId: roundDerived, documentUrlsByConversationId } =
+  const { byRoundId: roundDerived, evaluationDocumentsByRoundId } =
     await loadRoundListDerivedFields(rows, organizationId);
   const total = totalRow?.count ?? 0;
   const records: StudioInterviewRoundListRecord[] = rows.map((row) => ({
@@ -322,10 +309,9 @@ export async function queryPaginatedInterviewRounds(
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
-    feishuDocumentUrl: resolveRoundFeishuDocumentUrl(
-      row.conversationId,
-      documentUrlsByConversationId,
-    ),
+    feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
+    feishuEvaluationDocumentStatus:
+      evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
     hasReport: roundDerived.get(row.id)?.hasReport ?? false,
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
@@ -436,7 +422,7 @@ export async function listInterviewRoundsForCandidate(
     )
     .orderBy(asc(studioInterviewSchedule.sortOrder));
 
-  const { byRoundId: roundDerived, documentUrlsByConversationId } =
+  const { byRoundId: roundDerived, evaluationDocumentsByRoundId } =
     await loadRoundListDerivedFields(rows, organizationId);
   return rows.map((row) => ({
     allowTextInput: row.allowTextInput,
@@ -451,10 +437,9 @@ export async function listInterviewRoundsForCandidate(
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
-    feishuDocumentUrl: resolveRoundFeishuDocumentUrl(
-      row.conversationId,
-      documentUrlsByConversationId,
-    ),
+    feishuDocumentUrl: evaluationDocumentsByRoundId.get(row.id)?.url ?? null,
+    feishuEvaluationDocumentStatus:
+      evaluationDocumentsByRoundId.get(row.id)?.status ?? "unavailable",
     hasReport: roundDerived.get(row.id)?.hasReport ?? false,
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
