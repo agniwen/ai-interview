@@ -117,6 +117,7 @@ describe("one-to-three-block audio correction", () => {
     expect(onEvent).toHaveBeenCalledWith({
       batchId: batch.batchId,
       blocks: corrected,
+      combinedTranscript: "完整合并音频识别",
       model: `${LIVE_CORRECTION_MODEL}+${LIVE_CORRECTION_LLM}`,
       status: "completed",
       type: "meeting.transcription.correction-batch",

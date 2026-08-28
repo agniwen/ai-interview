@@ -659,7 +659,21 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
         captureId,
         onCorrection: (event) => {
           if (runtime.generation === generation && runtime.sectionId === sectionId) {
-            publish({ turns: correctionBatches.apply(snapshot.turns, event) });
+            const turns = correctionBatches.apply(snapshot.turns, event);
+            if (event.status === "completed") {
+              const appliedBlocks = event.blocks.map((block) => ({
+                id: block.id,
+                text: turns.find((turn) => turn.id === block.id)?.text ?? null,
+              }));
+              console.info("[meeting-capture-renderer] Live transcript correction completed", {
+                appliedBlocks,
+                batchId: event.batchId,
+                combinedAsrTranscript: event.combinedTranscript,
+                llmBlocks: event.blocks,
+                model: event.model,
+              });
+            }
+            publish({ turns });
             notifyCorrectionIdle();
           }
         },

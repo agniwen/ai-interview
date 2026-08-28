@@ -232,6 +232,7 @@ export function createLiveTranscriptCorrection(input: { fetch?: typeof globalThi
       request.onEvent({
         batchId: request.batch.batchId,
         blocks: result.blocks,
+        combinedTranscript,
         model: `${LIVE_CORRECTION_MODEL}+${LIVE_CORRECTION_LLM}`,
         status: "completed",
         type: "meeting.transcription.correction-batch",
