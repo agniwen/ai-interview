@@ -309,7 +309,10 @@ export function MeetingCaptureComposer({
     <MeetingComposerFrame>
       <div className="grid min-w-0 gap-1">
         <MeetingComposerRow>
-          <div className="flex h-8 shrink-0 items-center gap-1.5">
+          <div
+            className="flex h-8 shrink-0 items-center gap-1.5 pl-2"
+            data-slot="meeting-recording-status"
+          >
             <span className="relative size-2 shrink-0" aria-hidden>
               {paused ? null : (
                 <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
@@ -381,7 +384,10 @@ export function MeetingInterruptedComposer({
   return (
     <MeetingComposerFrame>
       <MeetingComposerRow>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div
+          className="flex min-w-0 flex-1 items-center gap-2 pl-2"
+          data-slot="meeting-interrupted-status"
+        >
           <Icon className="size-4 shrink-0 text-amber-500" icon="ph:warning-circle-fill" />
           <span className="truncate text-muted-foreground text-xs">录制暂停</span>
         </div>
