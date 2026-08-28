@@ -40,6 +40,8 @@ interface DashScopeStreamingParameters extends JsonObject {
   format: string;
   heartbeat: boolean;
   language_hints?: string[];
+  max_sentence_silence: number;
+  multi_threshold_mode_enabled: boolean;
   sample_rate: number;
   semantic_punctuation_enabled: boolean;
   speech_noise_threshold?: number;
@@ -258,8 +260,10 @@ export function connectDashScopeRealtimeWs(
       const parameters: DashScopeStreamingParameters = {
         format: "pcm",
         heartbeat: true,
+        max_sentence_silence: 800,
+        multi_threshold_mode_enabled: true,
         sample_rate: 16_000,
-        semantic_punctuation_enabled: true,
+        semantic_punctuation_enabled: false,
       };
       if (dependencies.speechNoiseThreshold !== undefined) {
         parameters.speech_noise_threshold = dependencies.speechNoiseThreshold;

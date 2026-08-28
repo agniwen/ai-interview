@@ -213,14 +213,15 @@ describe("connectDashScopeRealtimeWs", () => {
           format: "pcm",
           heartbeat: true,
           language_hints: ["zh"],
+          max_sentence_silence: 800,
+          multi_threshold_mode_enabled: true,
           sample_rate: 16_000,
-          semantic_punctuation_enabled: true,
+          semantic_punctuation_enabled: false,
           speech_noise_threshold: 0.1,
           vocabulary: { React: 4, TanStack: 4, 张三: 4 },
         },
       },
     });
-    expect(run.payload.parameters).not.toHaveProperty("max_sentence_silence");
     const emit = (event: string, payload = {}) =>
       instance.onmessage?.(
         JSON.stringify({ header: { event, task_id: run.header.task_id }, payload }),
