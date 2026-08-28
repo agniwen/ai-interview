@@ -29,7 +29,10 @@ import {
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse as defaultCreatePptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
-import { enqueueResumeReviewGenerationForRecordBestEffort as defaultEnqueueResumeReviewGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import {
+  enqueueResumePoolReviewGenerationBestEffort as defaultEnqueueResumePoolReviewGenerationBestEffort,
+  enqueueResumeReviewGenerationForRecordBestEffort as defaultEnqueueResumeReviewGenerationForRecordBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/candidate-question-generation";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
@@ -68,6 +71,7 @@ export interface ResumePoolRouterDependencies {
   db: typeof defaultDb;
   deleteOwnPoolItem: typeof defaultDeleteOwnPoolItem;
   enqueueCandidateQuestionGenerationForRecordBestEffort: typeof defaultEnqueueCandidateQuestionGenerationForRecordBestEffort;
+  enqueueResumePoolReviewGenerationBestEffort: typeof defaultEnqueueResumePoolReviewGenerationBestEffort;
   enqueueResumeReviewGenerationForRecordBestEffort: typeof defaultEnqueueResumeReviewGenerationForRecordBestEffort;
   findSemanticResumeDuplicates: typeof defaultFindSemanticResumeDuplicates;
   getObjectBytes: typeof defaultGetObjectBytes;
@@ -141,6 +145,7 @@ const defaultResumePoolRouterDependencies: ResumePoolRouterDependencies = {
   deleteOwnPoolItem: defaultDeleteOwnPoolItem,
   enqueueCandidateQuestionGenerationForRecordBestEffort:
     defaultEnqueueCandidateQuestionGenerationForRecordBestEffort,
+  enqueueResumePoolReviewGenerationBestEffort: defaultEnqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort:
     defaultEnqueueResumeReviewGenerationForRecordBestEffort,
   findSemanticResumeDuplicates: defaultFindSemanticResumeDuplicates,
@@ -178,6 +183,7 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
     db,
     deleteOwnPoolItem,
     enqueueCandidateQuestionGenerationForRecordBestEffort,
+    enqueueResumePoolReviewGenerationBestEffort,
     enqueueResumeReviewGenerationForRecordBestEffort,
     findSemanticResumeDuplicates,
     getObjectBytes,
@@ -742,6 +748,13 @@ export function createResumePoolRouter(overrides: Partial<ResumePoolRouterDepend
           });
           if (!bound) {
             return c.json({ error: "记录不存在。" }, 404);
+          }
+          if (item.resumeParseStatus === "ready" && item.resumeProfile) {
+            await enqueueResumePoolReviewGenerationBestEffort({
+              jobDescriptionId,
+              organizationId: activeOrg.id,
+              poolItemId: item.id,
+            });
           }
           const updated = await loadResumePoolItem({
             organizationId: activeOrg.id,

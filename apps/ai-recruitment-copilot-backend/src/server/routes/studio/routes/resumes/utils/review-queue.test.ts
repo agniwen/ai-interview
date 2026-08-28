@@ -59,6 +59,32 @@ const PROFILE = {
   workYears: null,
 };
 
+const dimension = {
+  basis: "job" as const,
+  evaluation: "候选人事实与岗位要求一致。",
+  level: "recommended" as const,
+};
+const qualitativeEvaluation = {
+  conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
+  detailedOverall: {
+    judgment: "整体匹配。",
+    matchingEvidence: "有相关项目经验。",
+    risks: "需确认项目规模。",
+  },
+  dimensions: {
+    educationBackground: dimension,
+    experienceRelevance: dimension,
+    potential: dimension,
+    projectMatch: dimension,
+    skillMatch: dimension,
+    stability: dimension,
+  },
+  recommendationLevel: "recommended" as const,
+  schemaVersion: 2 as const,
+  seniorityRecommendation: null,
+  teamPositioning: null,
+};
+
 function setContext(mode: "legacy" | "qualitative" | "structured") {
   mocks.claimJob = { evaluationMode: mode, id: "jd-1", lifecycleStatus: "published" };
   const record: ResumeEvaluationRecord = {
@@ -163,6 +189,28 @@ describe("scheduleResumeEvaluationForRecord", () => {
       status: "already_current",
     });
     expect(mocks.updates).toHaveLength(0);
+    expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
+  });
+
+  it("does not enqueue a second evaluation after a same-job pool result is imported", async () => {
+    const { context } = mocks;
+    if (!context) {
+      throw new Error("Test context was not initialized.");
+    }
+    mocks.context = {
+      ...context,
+      record: {
+        ...context.record,
+        qualitativeResumeEvaluation: qualitativeEvaluation,
+        resumeEvaluationArtifactMode: "qualitative",
+        resumeEvaluationAttemptMode: "qualitative",
+      },
+    };
+
+    await expect(scheduleResumeEvaluationForRecord(INPUT, dependencies)).resolves.toEqual({
+      status: "already_current",
+    });
+    expect(mocks.persistQueuedRun).not.toHaveBeenCalled();
     expect(mocks.enqueueReviewJobs).not.toHaveBeenCalled();
   });
 

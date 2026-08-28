@@ -10,6 +10,7 @@ import type {
   ResumeScreeningStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+import type { ReusableResumePoolEvaluation } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/evaluation-reuse";
 import { syncResumeSkills } from "../dao/skills";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -22,6 +23,7 @@ export interface CreateResumeRecordFromStorageInput {
   hrResumeAssessment?: string | null;
   interviewQuestions?: InterviewQuestion[];
   jobDescriptionId: string | null;
+  qualitativeEvaluation?: ReusableResumePoolEvaluation | null;
   notes: string | null;
   organizationId: string;
   pipelineStage?: PipelineStage;
@@ -71,6 +73,12 @@ export async function createResumeRecordFromStorage(
   const recordId = crypto.randomUUID();
   const candidateEmail = input.candidateEmail?.trim() || input.resumeProfile?.email || null;
   const candidatePhone = input.candidatePhone?.trim() || input.resumeProfile?.phone || null;
+  let evaluationArtifactMode: "legacy" | "qualitative" | null = null;
+  if (input.qualitativeEvaluation) {
+    evaluationArtifactMode = "qualitative";
+  } else if (input.resumeReview) {
+    evaluationArtifactMode = "legacy";
+  }
   // oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
   const write = async (executor: Tx) => {
     await executor.insert(studioInterview).values({
@@ -88,9 +96,14 @@ export async function createResumeRecordFromStorage(
       notes: input.notes,
       organizationId: input.organizationId,
       pipelineStage: input.pipelineStage ?? "screening",
+      qualitativeJobDescriptionVersionId:
+        input.qualitativeEvaluation?.jobDescriptionVersionId ?? null,
+      qualitativeRecommendationLevel:
+        input.qualitativeEvaluation?.evaluation.recommendationLevel ?? null,
+      qualitativeResumeEvaluation: input.qualitativeEvaluation?.evaluation ?? null,
       resumeContentHash: input.contentHash,
-      resumeEvaluationArtifactMode: input.resumeReview ? "legacy" : null,
-      resumeEvaluationAttemptMode: input.resumeReview ? "legacy" : null,
+      resumeEvaluationArtifactMode: evaluationArtifactMode,
+      resumeEvaluationAttemptMode: evaluationArtifactMode,
       resumeFileName: input.resumeFileName,
       resumeParseError: null,
       resumeParseStatus:
@@ -100,9 +113,13 @@ export async function createResumeRecordFromStorage(
       resumeProfile: input.resumeProfile,
       resumeReview: input.resumeReview ?? null,
       resumeReviewError: input.resumeReviewError ?? null,
-      resumeReviewGeneratedAt: input.resumeReview ? now : null,
+      resumeReviewGeneratedAt:
+        input.qualitativeEvaluation?.generatedAt ?? (input.resumeReview ? now : null),
       resumeReviewQueuedAt: input.resumeReviewStatus === "queued" ? now : null,
-      resumeReviewStatus: input.resumeReview ? "ready" : (input.resumeReviewStatus ?? "idle"),
+      resumeReviewStatus:
+        input.qualitativeEvaluation || input.resumeReview
+          ? "ready"
+          : (input.resumeReviewStatus ?? "idle"),
       resumeScreeningError: input.resumeScreeningError ?? null,
       resumeScreeningEvaluatedAt: input.resumeScreeningResult ? now : null,
       resumeScreeningResult: input.resumeScreeningResult ?? null,

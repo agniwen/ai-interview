@@ -2366,6 +2366,7 @@ export type ResumePoolEventType =
 
 export const resumePoolItem = pgTable(
   "resume_pool_item",
+  // oxlint-disable-next-line sort-keys -- columns stay grouped by the resume-pool domain lifecycle.
   {
     candidateEmail: text("candidate_email"),
     candidateName: text("candidate_name").notNull(),
@@ -2376,6 +2377,17 @@ export const resumePoolItem = pgTable(
     jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
+    qualitativeJobDescriptionVersionId: text("qualitative_job_description_version_id").references(
+      () => jobDescriptionVersion.id,
+      { onDelete: "set null" },
+    ),
+    qualitativeRecommendationLevel: text(
+      "qualitative_recommendation_level",
+    ).$type<QualitativeRecommendationLevel>(),
+    qualitativeResumeEvaluation: jsonb(
+      "qualitative_resume_evaluation",
+    ).$type<QualitativeResumeEvaluation | null>(),
+    qualitativeResumeSummary: text("qualitative_resume_summary"),
     notes: text("notes"),
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
@@ -2383,6 +2395,11 @@ export const resumePoolItem = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationContractVersion: text("resume_evaluation_contract_version"),
+    resumeEvaluationGeneratedAt: timestamp("resume_evaluation_generated_at", {
+      withTimezone: true,
+    }),
+    resumeEvaluationInputHash: text("resume_evaluation_input_hash"),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
     resumeParseStatus: text("resume_parse_status")
@@ -2430,6 +2447,32 @@ export const resumePoolItem = pgTable(
     ),
     index("resume_pool_item_resume_content_hash_idx").on(table.resumeContentHash),
     index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
+    index("resume_pool_item_qualitative_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.qualitativeRecommendationLevel,
+      table.resumeEvaluationGeneratedAt,
+    ),
+    check(
+      "resume_pool_item_qualitative_evaluation_complete_check",
+      sql`(
+        ${table.qualitativeResumeEvaluation} IS NULL
+        AND ${table.qualitativeRecommendationLevel} IS NULL
+        AND ${table.qualitativeResumeSummary} IS NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NULL
+        AND ${table.resumeEvaluationContractVersion} IS NULL
+        AND ${table.resumeEvaluationGeneratedAt} IS NULL
+        AND ${table.resumeEvaluationInputHash} IS NULL
+      ) OR (
+        ${table.qualitativeResumeEvaluation} IS NOT NULL
+        AND ${table.qualitativeRecommendationLevel} IN ('not_recommended', 'undecided', 'recommended', 'highly_recommended')
+        AND ${table.qualitativeResumeSummary} IS NOT NULL
+        AND ${table.qualitativeJobDescriptionVersionId} IS NOT NULL
+        AND ${table.resumeEvaluationContractVersion} = 'qualitative-v2'
+        AND ${table.resumeEvaluationGeneratedAt} IS NOT NULL
+        AND ${table.resumeEvaluationInputHash} IS NOT NULL
+      )`,
+    ),
     check(
       "resume_pool_item_source_channel_check",
       sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral')`,

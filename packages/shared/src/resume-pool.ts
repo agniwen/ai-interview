@@ -10,6 +10,10 @@ import type {
   ResumeJobMatchSelectionMethod,
 } from "@arc/db-schema/schema";
 import type { ResumeLibraryProfileSnapshot } from "./studio-resumes";
+import type {
+  QualitativeRecommendationLevel,
+  QualitativeResumeEvaluation,
+} from "@arc/db-schema/qualitative-resume-evaluation";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
 export const resumePoolStatusSchema = z.enum(["active", "archived"]);
@@ -91,12 +95,16 @@ export interface ResumePoolListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   notes: string | null;
+  qualitativeRecommendationLevel: QualitativeRecommendationLevel | null;
+  qualitativeResumeSummary: string | null;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
   jobBindingMode: ResumePoolJobBindingMode | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
   resumeContentHash: string | null;
+  resumeEvaluationContractVersion: string | null;
+  resumeEvaluationGeneratedAt: string | null;
   resumeParseStatus: ResumeParseStatus;
   resumeParseRetryable: boolean;
   resumeParseError: string | null;
@@ -115,6 +123,7 @@ export interface ResumePoolListRecord {
 }
 
 export interface ResumePoolDetail extends ResumePoolListRecord {
+  qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   resumeProfile: ResumeProfile | null;
 }
 

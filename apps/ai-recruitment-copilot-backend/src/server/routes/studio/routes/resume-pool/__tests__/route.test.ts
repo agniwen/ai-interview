@@ -83,6 +83,7 @@ const resumeProfile: ResumeProfile = {
 };
 
 function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
+  // oxlint-disable-next-line sort-keys -- fixture fields follow the DTO's product-facing groups.
   return {
     candidateEmail: null,
     candidateName: "候选人",
@@ -100,6 +101,8 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
     masteredSkills: [],
     notes: null,
     organizationId: ORGANIZATION_ID,
+    qualitativeRecommendationLevel: null,
+    qualitativeResumeSummary: null,
     profileHighlights: {
       educationItems: [],
       educationLines: [],
@@ -113,6 +116,8 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
     publishedAt: null,
     publishedBy: null,
     resumeContentHash: null,
+    resumeEvaluationContractVersion: null,
+    resumeEvaluationGeneratedAt: null,
     resumeFileName: null,
     resumeParseError: null,
     resumeParseRetryable: false,
@@ -143,6 +148,7 @@ function makePoolItem(overrides: Partial<ResumePoolDetail>): ResumePoolDetail {
     uploaderOrganizationName: null,
     workYears: null,
     ...overrides,
+    qualitativeResumeEvaluation: overrides.qualitativeResumeEvaluation ?? null,
   };
 }
 

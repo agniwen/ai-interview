@@ -24,6 +24,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 import {
   ResumePoolDetailSummaryPanel,
+  ResumePoolQualitativeEvaluationPanel,
   ResumePoolRecommendationsDialog,
   ResumePoolStructuredInfoPanel,
   canManageResumePoolJobBinding,
@@ -281,6 +282,7 @@ export function ResumePoolDetailPage({
             resumeProfile={detail.resumeProfile}
             slug={slug}
           />
+          <ResumePoolQualitativeEvaluationPanel detail={detail} />
           <section className="border-border/60 border-t pt-7">
             <ResumePoolStructuredInfoPanel
               detail={detail}

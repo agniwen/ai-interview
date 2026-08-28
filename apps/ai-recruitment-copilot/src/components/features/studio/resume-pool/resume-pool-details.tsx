@@ -14,6 +14,10 @@ import type { ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import {
+  QualitativeEvaluationDetails,
+  QualitativeRecommendationIndicator,
+} from "@/components/features/studio/resumes/qualitative-resume-evaluation-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -117,11 +121,19 @@ export function ResumePoolDetailSummaryPanel({
   const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
   const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
   const note = detail.notes?.trim();
+  const qualitativeSummary = detail.qualitativeResumeSummary?.trim();
   let summaryContent: ReactNode = (
     <p className="mt-2 text-muted-foreground text-sm leading-6">暂无简历评价。</p>
   );
   if (isError) {
     summaryContent = <p className="mt-2 text-destructive text-sm">完整简历详情加载失败。</p>;
+  } else if (detail.qualitativeRecommendationLevel && qualitativeSummary) {
+    summaryContent = (
+      <div className="mt-2 flex flex-col gap-2">
+        <QualitativeRecommendationIndicator level={detail.qualitativeRecommendationLevel} />
+        <p className="text-muted-foreground text-sm leading-6">{qualitativeSummary}</p>
+      </div>
+    );
   } else if (note) {
     summaryContent = <MarkdownView className="mt-2 text-muted-foreground" content={note} />;
   }
@@ -250,6 +262,17 @@ export function ResumePoolDetailSummaryPanel({
           ) : null}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+export function ResumePoolQualitativeEvaluationPanel({ detail }: { detail: ResumePoolDetail }) {
+  if (!detail.qualitativeResumeEvaluation) {
+    return null;
+  }
+  return (
+    <section className="border-border/60 border-t pt-7" data-resume-pool-qualitative-evaluation>
+      <QualitativeEvaluationDetails evaluation={detail.qualitativeResumeEvaluation} />
     </section>
   );
 }
@@ -424,6 +447,9 @@ export function ResumePoolDetailDialog({
               resumeProfile={resumeProfile}
               slug={slug}
             />
+            {detailQuery.data ? (
+              <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
+            ) : null}
             <ResumePoolStructuredInfoPanel
               detail={detail}
               isLoading={detailQuery.isLoading}

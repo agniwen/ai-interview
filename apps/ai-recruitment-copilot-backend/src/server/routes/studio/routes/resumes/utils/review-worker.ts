@@ -1,3 +1,4 @@
+/* oxlint-disable import/consistent-type-specifier-style -- value and type imports share review-lifecycle to avoid duplicate module imports. */
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -24,14 +25,15 @@ import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import {
-  generateLegacyResumeReviewBestEffort,
-  generateResumeAssessment,
-} from "./review-generation";
+import { generateResumeAssessment } from "./review-generation";
 import { generateCandidateInterviewQuestions } from "./candidate-question-generation";
-import { runResumeAssessmentLifecycle } from "./review-lifecycle";
-import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
+import {
+  runResumeAssessmentLifecycle,
+  type GeneratedResumeAssessment,
+  type ResumeAssessmentLifecycleDeps,
+} from "./review-lifecycle";
 import { buildPreQualitativeEvaluationArchive } from "./resume-evaluation-history";
+import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
 
 function recordWhere(input: { organizationId: string; resumeRecordId: string }) {
   return and(
@@ -481,12 +483,49 @@ async function resolveRecordJobDescriptionId(
   return current?.jobDescriptionId ?? null;
 }
 
+export interface ResumePoolAssessmentGenerationDependencies {
+  generateAssessment: typeof generateResumeAssessment;
+}
+
+const defaultResumePoolAssessmentGenerationDependencies: ResumePoolAssessmentGenerationDependencies =
+  {
+    generateAssessment: generateResumeAssessment,
+  };
+
+export async function generateResumePoolAssessment(
+  input: {
+    evaluationAsOf: string;
+    jobDescriptionId: string;
+    jobDescriptionVersionId: string;
+    organizationId: string;
+    resumeContentHash: string | null;
+    resumeInputHash: string;
+    resumeProfile: NonNullable<typeof resumePoolItem.$inferSelect.resumeProfile>;
+    resumeText: string | null;
+    runId: string;
+  },
+  dependencies: ResumePoolAssessmentGenerationDependencies = defaultResumePoolAssessmentGenerationDependencies,
+): Promise<GeneratedResumeAssessment | null> {
+  try {
+    return await dependencies.generateAssessment(input);
+  } catch (error) {
+    console.error("[resume-pool-review-worker] resume review generation failed:", error);
+    return null;
+  }
+}
+
+// oxlint-disable-next-line complexity -- matching, stale-work guards, and conditional generation form one job boundary.
 async function processResumePoolReviewGenerationJob(
   input: Extract<ResumeReviewGenerationJobData, { source: "resume_pool_upload" }>,
 ): Promise<void> {
   const [record] = await db
     .select({
       jobDescriptionId: resumePoolItem.jobDescriptionId,
+      qualitativeJobDescriptionVersionId: resumePoolItem.qualitativeJobDescriptionVersionId,
+      qualitativeResumeEvaluation: resumePoolItem.qualitativeResumeEvaluation,
+      resumeContentHash: resumePoolItem.resumeContentHash,
+      resumeEvaluationContractVersion: resumePoolItem.resumeEvaluationContractVersion,
+      resumeEvaluationInputHash: resumePoolItem.resumeEvaluationInputHash,
       resumeFileName: resumePoolItem.resumeFileName,
       resumeParseStatus: resumePoolItem.resumeParseStatus,
       resumeProfile: resumePoolItem.resumeProfile,
@@ -541,22 +580,60 @@ async function processResumePoolReviewGenerationJob(
     return;
   }
   const job = await loadRecruitingJobDescriptionById(input.organizationId, jobDescriptionId);
-  if (!job || job.evaluationMode === "structured") {
+  if (!job) {
     return;
   }
-  const generated = await generateLegacyResumeReviewBestEffort({
-    jobDescriptionId,
-    logPrefix: "[resume-pool-review-worker]",
-    organizationId: input.organizationId,
+  const snapshot = await db.transaction((tx) =>
+    ensureCurrentJobDescriptionVersion(tx, {
+      jobDescriptionId,
+      organizationId: input.organizationId,
+    }),
+  );
+  if (!snapshot) {
+    return;
+  }
+  const resumeInputHash = computeResumeEvaluationInputHash({
+    resumeContentHash: record.resumeContentHash,
     resumeProfile: record.resumeProfile,
     resumeText: record.resumeText,
   });
-  if (!generated) {
+  if (
+    record.resumeEvaluationContractVersion === QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION &&
+    record.qualitativeJobDescriptionVersionId === snapshot.id &&
+    record.resumeEvaluationInputHash === resumeInputHash &&
+    qualitativeResumeEvaluationV2Schema.safeParse(record.qualitativeResumeEvaluation).success
+  ) {
+    return;
+  }
+  const runId = crypto.randomUUID();
+  const generatedAt = new Date();
+  const generated = await generateResumePoolAssessment({
+    evaluationAsOf: generatedAt.toISOString().slice(0, 10),
+    jobDescriptionId,
+    jobDescriptionVersionId: snapshot.id,
+    organizationId: input.organizationId,
+    resumeContentHash: record.resumeContentHash,
+    resumeInputHash,
+    resumeProfile: record.resumeProfile,
+    resumeText: record.resumeText,
+    runId,
+  });
+  if (!generated || generated.mode !== "qualitative") {
     throw new Error("AI 分析生成失败。");
   }
+  const evaluation = qualitativeResumeEvaluationV2Schema.parse(generated.evaluation);
   await db
     .update(resumePoolItem)
-    .set({ notes: generated.review, updatedAt: new Date() })
+    .set({
+      qualitativeJobDescriptionVersionId: generated.jobDescriptionVersionId,
+      qualitativeRecommendationLevel: evaluation.recommendationLevel,
+      qualitativeResumeEvaluation: evaluation,
+      qualitativeResumeSummary: evaluation.conciseOverall,
+      resumeEvaluationContractVersion: QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
+      resumeEvaluationGeneratedAt: generatedAt,
+      resumeEvaluationInputHash: resumeInputHash,
+      updatedAt: generatedAt,
+    })
     .where(
       and(
         eq(resumePoolItem.id, input.poolItemId),

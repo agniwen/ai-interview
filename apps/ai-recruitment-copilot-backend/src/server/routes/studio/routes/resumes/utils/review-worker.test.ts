@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { processResumeReviewGenerationJob } from "./review-worker";
-import type { ResumeReviewWorkerDependencies } from "./review-worker";
+import { generateResumePoolAssessment, processResumeReviewGenerationJob } from "./review-worker";
+import type {
+  ResumePoolAssessmentGenerationDependencies,
+  ResumeReviewWorkerDependencies,
+} from "./review-worker";
 
 const JOB = {
   jobDescriptionId: "jd-1",
@@ -139,6 +142,42 @@ describe("processResumeReviewGenerationJob", () => {
     expect(mocks.runAssessmentLifecycle).toHaveBeenCalledWith(
       expect.objectContaining({ expectedJobDescriptionId: "jd-auto" }),
       expect.any(Object),
+    );
+  });
+});
+
+describe("generateResumePoolAssessment", () => {
+  it("uses the qualitative contract for a job-bound resume-pool item", async () => {
+    const generateAssessment =
+      vi.fn<ResumePoolAssessmentGenerationDependencies["generateAssessment"]>();
+    // SAFETY: This stub only verifies contract routing; the production path parses the full
+    // qualitative payload before persistence.
+    generateAssessment.mockResolvedValue({
+      evaluation: { schemaVersion: 2 } as never,
+      jobDescriptionVersionId: "jd-version-1",
+      mode: "qualitative",
+    });
+
+    // SAFETY: The generation stub does not inspect the profile body in this routing test.
+    const resumeProfile = { name: "候选人" } as never;
+    const assessment = await generateResumePoolAssessment(
+      {
+        evaluationAsOf: "2026-08-28",
+        jobDescriptionId: "jd-1",
+        jobDescriptionVersionId: "jd-version-1",
+        organizationId: "org-1",
+        resumeContentHash: "resume-hash",
+        resumeInputHash: "input-hash",
+        resumeProfile,
+        resumeText: "候选人简历",
+        runId: "run-1",
+      },
+      { generateAssessment },
+    );
+
+    expect(assessment?.mode).toBe("qualitative");
+    expect(generateAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ jobDescriptionVersionId: "jd-version-1" }),
     );
   });
 });

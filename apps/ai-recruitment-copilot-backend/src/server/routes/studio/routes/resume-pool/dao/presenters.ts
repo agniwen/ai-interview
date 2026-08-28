@@ -15,6 +15,7 @@ import type {
 } from "@arc/shared/resume-pool";
 
 type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
+type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation">;
 interface PoolImportRow {
   creatorImage: string | null;
   creatorName: string | null;
@@ -140,7 +141,7 @@ export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
 }
 
 export function toResumePoolListRecord(
-  row: PoolRow,
+  row: PoolListRow,
   importRows: PoolImportRow[] = [],
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
@@ -175,7 +176,11 @@ export function toResumePoolListRecord(
     profileHighlights: buildProfileHighlights(row.resumeProfile),
     publishedAt: serializeDate(row.publishedAt),
     publishedBy: row.publishedBy,
+    qualitativeRecommendationLevel: row.qualitativeRecommendationLevel,
+    qualitativeResumeSummary: row.qualitativeResumeSummary,
     resumeContentHash: row.resumeContentHash,
+    resumeEvaluationContractVersion: row.resumeEvaluationContractVersion,
+    resumeEvaluationGeneratedAt: serializeDate(row.resumeEvaluationGeneratedAt),
     resumeFileName: row.resumeFileName,
     resumeParseError: row.resumeParseError,
     resumeParseRetryable,
@@ -221,6 +226,7 @@ export function toResumePoolDetail(
       resumeParseRetryable,
       jobBindingMode,
     ),
+    qualitativeResumeEvaluation: row.qualitativeResumeEvaluation,
     resumeProfile: row.resumeProfile,
   };
 }

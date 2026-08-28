@@ -25,6 +25,7 @@ import {
   member,
   organization,
   resumePoolEvent,
+  resumeEvaluationVersion,
   resumePoolImport,
   resumePoolItem,
   resumeJobMatchCandidate,
@@ -35,7 +36,7 @@ import {
 } from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import type { JsonObject } from "@arc/db-schema/json";
+import type { JsonObject, JsonValue } from "@arc/db-schema/json";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type {
@@ -69,11 +70,17 @@ import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
 import { admitResumePoolItem } from "./utils/admission";
+import { selectReusableResumePoolEvaluation } from "./utils/evaluation-reuse";
 
 export { buildMasteredSkills, buildProfileHighlights } from "./dao/presenters";
 
 type PoolRow = Omit<typeof resumePoolItem.$inferSelect, "searchText" | "searchCjkBigrams">;
-const POOL_LIST_COLUMNS = omit(getColumns(resumePoolItem), ["searchText", "searchCjkBigrams"]);
+type PoolListRow = Omit<PoolRow, "qualitativeResumeEvaluation">;
+const POOL_LIST_COLUMNS = omit(getColumns(resumePoolItem), [
+  "qualitativeResumeEvaluation",
+  "searchText",
+  "searchCjkBigrams",
+]);
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface CreateResumePoolItemInput {
@@ -368,6 +375,13 @@ export async function markResumePoolItemParsed(
         candidatePhone: input.resumeProfile?.phone ?? row.candidatePhone,
         jobDescriptionId: input.jobDescriptionId ?? row.jobDescriptionId,
         notes: input.notes ?? row.notes,
+        qualitativeJobDescriptionVersionId: null,
+        qualitativeRecommendationLevel: null,
+        qualitativeResumeEvaluation: null,
+        qualitativeResumeSummary: null,
+        resumeEvaluationContractVersion: null,
+        resumeEvaluationGeneratedAt: null,
+        resumeEvaluationInputHash: null,
         resumeParseError: null,
         resumeParseStatus,
         resumeParsedAt: resumeParseStatus === "ready" ? now : null,
@@ -638,7 +652,7 @@ async function loadSourceChannels(
 
 async function loadPoolDuplicateMatches(input: {
   organizationId: string;
-  rows: PoolRow[];
+  rows: PoolListRow[];
 }): Promise<Map<string, ResumeDuplicateMatchSummary>> {
   const sourceIds = input.rows
     .filter((row) => row.organizationId === input.organizationId)
@@ -942,6 +956,10 @@ export async function importPoolItemToResumeLibrary(
         }
 
         const importedAt = new Date();
+        const reusableEvaluation = selectReusableResumePoolEvaluation(
+          source,
+          admission.jobDescriptionId,
+        );
         resumeRecordId = await createResumeRecordFromStorage(
           {
             candidateEmail: source.candidateEmail,
@@ -952,6 +970,7 @@ export async function importPoolItemToResumeLibrary(
             notes: source.notes,
             organizationId: admission.organizationId,
             pipelineStage,
+            qualitativeEvaluation: reusableEvaluation,
             resumeFileName: source.resumeFileName,
             resumeParseStatus: "processing",
             resumeProfile: source.resumeProfile,
@@ -968,6 +987,22 @@ export async function importPoolItemToResumeLibrary(
           },
           tx,
         );
+        if (reusableEvaluation) {
+          // SAFETY: selectReusableResumePoolEvaluation parsed this value through the strict
+          // qualitative-v2 schema, whose output is JSON-compatible.
+          await tx.insert(resumeEvaluationVersion).values({
+            artifact: reusableEvaluation.evaluation as JsonValue,
+            contractVersion: reusableEvaluation.contractVersion,
+            createdAt: reusableEvaluation.generatedAt,
+            id: crypto.randomUUID(),
+            jobDescriptionVersionId: reusableEvaluation.jobDescriptionVersionId,
+            numericScore: null,
+            organizationId: admission.organizationId,
+            recommendationLevel: reusableEvaluation.evaluation.recommendationLevel,
+            resumeRecordId,
+            runId: `pool:${source.id}:${reusableEvaluation.jobDescriptionVersionId}`,
+          });
+        }
         await tx.insert(resumePoolImport).values({
           id: crypto.randomUUID(),
           importedAt,
@@ -1177,7 +1212,17 @@ export async function bindResumePoolItemJobDescription(
       : [];
     await tx
       .update(resumePoolItem)
-      .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+      .set({
+        jobDescriptionId: input.jobDescriptionId,
+        qualitativeJobDescriptionVersionId: null,
+        qualitativeRecommendationLevel: null,
+        qualitativeResumeEvaluation: null,
+        qualitativeResumeSummary: null,
+        resumeEvaluationContractVersion: null,
+        resumeEvaluationGeneratedAt: null,
+        resumeEvaluationInputHash: null,
+        updatedAt: new Date(),
+      })
       .where(eq(resumePoolItem.id, input.poolItemId));
     await writeResumePoolEvent(tx, {
       actorId: input.actorId,

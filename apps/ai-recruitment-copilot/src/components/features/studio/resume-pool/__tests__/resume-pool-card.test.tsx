@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResumePoolCard, getResumePoolCardHeight } from "../resume-pool-card";
 import {
   ResumePoolDetailSummaryPanel,
+  ResumePoolQualitativeEvaluationPanel,
   canManageResumePoolJobBinding,
 } from "../resume-pool-details";
 import {
@@ -66,7 +67,11 @@ const record = {
   },
   publishedAt: null,
   publishedBy: null,
+  qualitativeRecommendationLevel: null,
+  qualitativeResumeSummary: null,
   resumeContentHash: null,
+  resumeEvaluationContractVersion: null,
+  resumeEvaluationGeneratedAt: null,
   resumeFileName: "测试候选人.pdf",
   resumeParseError: null,
   resumeParseRetryable: false,
@@ -108,6 +113,32 @@ const record = {
   uploaderOrganizationName: null,
   workYears: 5,
 } satisfies ResumePoolListRecord;
+
+const qualitativeDimension = {
+  basis: "job" as const,
+  evaluation: "候选人事实与岗位要求一致。",
+  level: "recommended" as const,
+};
+const qualitativeEvaluation = {
+  conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
+  detailedOverall: {
+    judgment: "整体匹配。",
+    matchingEvidence: "有相关项目经验。",
+    risks: "需确认项目规模。",
+  },
+  dimensions: {
+    educationBackground: qualitativeDimension,
+    experienceRelevance: qualitativeDimension,
+    potential: qualitativeDimension,
+    projectMatch: qualitativeDimension,
+    skillMatch: qualitativeDimension,
+    stability: qualitativeDimension,
+  },
+  recommendationLevel: "recommended" as const,
+  schemaVersion: 2 as const,
+  seniorityRecommendation: null,
+  teamPositioning: null,
+};
 
 const defaultRetryProps = {
   canRetryParse: false,
@@ -631,6 +662,41 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("typeset typeset-compact");
     expect(html).toContain("<strong>候选人结论</strong>");
     expect(html).toContain("<li>核心能力匹配岗位</li>");
+  });
+
+  it("prefers the qualitative recommendation and renders all six dimensions", () => {
+    const summary = renderToStaticMarkup(
+      <ResumePoolDetailSummaryPanel
+        detail={{
+          ...record,
+          jobDescriptionId: null,
+          jobDescriptionName: null,
+          notes: "旧六维数字评分",
+          qualitativeRecommendationLevel: "recommended",
+          qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
+        }}
+        isError={false}
+        isLoading={false}
+        resumeProfile={null}
+        slug="default"
+      />,
+    );
+    const details = renderToStaticMarkup(
+      <ResumePoolQualitativeEvaluationPanel
+        detail={{
+          ...record,
+          qualitativeRecommendationLevel: "recommended",
+          qualitativeResumeEvaluation: qualitativeEvaluation,
+          qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
+          resumeProfile: null,
+        }}
+      />,
+    );
+
+    expect(summary).toContain('data-qualitative-recommendation="recommended"');
+    expect(summary).toContain(qualitativeEvaluation.conciseOverall);
+    expect(summary).not.toContain("旧六维数字评分");
+    expect(details.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
   });
 
   it("denies job recommendation actions without permission", () => {

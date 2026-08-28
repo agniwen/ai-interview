@@ -1,11 +1,6 @@
-import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
+import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import {
-  jobDescription,
-  jobDescriptionVersion,
-  resumeEvaluationFailure,
-  studioInterview,
-} from "@arc/db-schema/schema";
+import { resumeEvaluationFailure, studioInterview } from "@arc/db-schema/schema";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
   qualitativeResumeEvaluationSchema,
@@ -22,6 +17,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
 
 type PersistedResumeRecordReviewJobData = Extract<
   ResumeReviewGenerationJobData,
@@ -211,62 +207,10 @@ async function loadSchedulingContextWithDb(
 
 function persistQueuedRunWithDb(input: PersistQueuedRunInput) {
   return db.transaction(async (tx) => {
-    const [currentJob] = await tx
-      .select({
-        lifecycleStatus: jobDescription.lifecycleStatus,
-        name: jobDescription.name,
-        prompt: jobDescription.prompt,
-      })
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, input.expectedJobDescriptionId),
-          eq(jobDescription.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1)
-      .for("update");
-    if (!currentJob || currentJob.lifecycleStatus !== "published") {
-      return false;
-    }
-
-    let [snapshot] = await tx
-      .select({
-        id: jobDescriptionVersion.id,
-        jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
-        prompt: jobDescriptionVersion.prompt,
-        version: jobDescriptionVersion.version,
-      })
-      .from(jobDescriptionVersion)
-      .where(eq(jobDescriptionVersion.jobDescriptionId, input.expectedJobDescriptionId))
-      .orderBy(desc(jobDescriptionVersion.version))
-      .limit(1);
-    if (
-      !snapshot ||
-      snapshot.prompt !== currentJob.prompt ||
-      snapshot.jobDescriptionName !== currentJob.name
-    ) {
-      const nextVersion = (snapshot?.version ?? 0) + 1;
-      const [created] = await tx
-        .insert(jobDescriptionVersion)
-        .values({
-          createdAt: new Date(),
-          createdBy: null,
-          id: crypto.randomUUID(),
-          jobDescriptionId: input.expectedJobDescriptionId,
-          jobDescriptionName: currentJob.name,
-          organizationId: input.organizationId,
-          prompt: currentJob.prompt,
-          version: nextVersion,
-        })
-        .returning({
-          id: jobDescriptionVersion.id,
-          jobDescriptionName: jobDescriptionVersion.jobDescriptionName,
-          prompt: jobDescriptionVersion.prompt,
-          version: jobDescriptionVersion.version,
-        });
-      snapshot = created;
-    }
+    const snapshot = await ensureCurrentJobDescriptionVersion(tx, {
+      jobDescriptionId: input.expectedJobDescriptionId,
+      organizationId: input.organizationId,
+    });
     if (!snapshot) {
       return false;
     }

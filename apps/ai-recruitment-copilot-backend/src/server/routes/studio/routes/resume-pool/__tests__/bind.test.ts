@@ -10,8 +10,10 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   department,
   jobDescription,
+  jobDescriptionVersion,
   member,
   organization,
+  resumeEvaluationVersion,
   resumePoolEvent,
   resumePoolItem,
   resumeJobMatchCandidate,
@@ -42,6 +44,8 @@ const mocks = {
   cloneSemanticIndex: vi.fn<ImportPoolItemDependencies["cloneSemanticIndex"]>(),
   enqueueCandidateQuestionGeneration:
     vi.fn<ResumePoolRouterDependencies["enqueueCandidateQuestionGenerationForRecordBestEffort"]>(),
+  enqueueResumePoolReviewGeneration:
+    vi.fn<ResumePoolRouterDependencies["enqueueResumePoolReviewGenerationBestEffort"]>(),
   enqueueResumeReviewGeneration:
     vi.fn<ResumePoolRouterDependencies["enqueueResumeReviewGenerationForRecordBestEffort"]>(),
   findDuplicateMatches: vi.fn<ImportPoolItemDependencies["findDuplicateMatches"]>(),
@@ -73,6 +77,32 @@ const PROFILE: ResumeProfile = {
   workYears: 3,
 };
 
+const qualitativeDimension = {
+  basis: "job" as const,
+  evaluation: "候选人事实与岗位要求一致。",
+  level: "recommended" as const,
+};
+const qualitativeEvaluation = {
+  conciseOverall: "候选人的核心经验与岗位要求匹配，建议进入下一轮。",
+  detailedOverall: {
+    judgment: "整体匹配。",
+    matchingEvidence: "有相关项目经验。",
+    risks: "需确认项目规模。",
+  },
+  dimensions: {
+    educationBackground: qualitativeDimension,
+    experienceRelevance: qualitativeDimension,
+    potential: qualitativeDimension,
+    projectMatch: qualitativeDimension,
+    skillMatch: qualitativeDimension,
+    stability: qualitativeDimension,
+  },
+  recommendationLevel: "recommended" as const,
+  schemaVersion: 2 as const,
+  seniorityRecommendation: null,
+  teamPositioning: null,
+};
+
 function makeApp() {
   return factory
     .createApp()
@@ -90,6 +120,7 @@ function makeApp() {
       createResumePoolRouter({
         enqueueCandidateQuestionGenerationForRecordBestEffort:
           mocks.enqueueCandidateQuestionGeneration,
+        enqueueResumePoolReviewGenerationBestEffort: mocks.enqueueResumePoolReviewGeneration,
         enqueueResumeReviewGenerationForRecordBestEffort: mocks.enqueueResumeReviewGeneration,
         importPoolItemToResumeLibrary: (input) =>
           importPoolItemToResumeLibrary(input, {
@@ -344,6 +375,7 @@ afterAll(cleanup);
 describe("POST /:id/bind", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.enqueueResumePoolReviewGeneration.mockResolvedValue(true);
   });
 
   it("returns 400 when the job description does not exist", async () => {
@@ -404,6 +436,11 @@ describe("POST /:id/bind", () => {
 
     const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
     expect(row?.jobDescriptionId).toBe(JD_A);
+    expect(mocks.enqueueResumePoolReviewGeneration).toHaveBeenCalledWith({
+      jobDescriptionId: JD_A,
+      organizationId: ORG_A,
+      poolItemId,
+    });
   });
 
   it("returns 404 when the pool item does not exist", async () => {
@@ -751,6 +788,78 @@ describe("POST /:id/import job association", () => {
         source: "resume_pool_import",
       }),
     );
+  });
+
+  it("copies a same-job qualitative evaluation into the recruiting record history", async () => {
+    const poolItemId = await seedPoolItem({
+      contentHash: "hash-import-reuse-qualitative",
+      jobDescriptionId: JD_A,
+    });
+    const jobDescriptionVersionId = `pool-import-version-${crypto.randomUUID()}`;
+    const generatedAt = new Date("2026-08-28T02:00:00.000Z");
+    await db.insert(jobDescriptionVersion).values({
+      createdAt: generatedAt,
+      createdBy: USER_A,
+      id: jobDescriptionVersionId,
+      jobDescriptionId: JD_A,
+      jobDescriptionName: "前端工程师",
+      organizationId: ORG_A,
+      prompt: "负责前端开发。",
+      version: 1,
+    });
+    await db
+      .update(resumePoolItem)
+      .set({
+        qualitativeJobDescriptionVersionId: jobDescriptionVersionId,
+        qualitativeRecommendationLevel: "recommended",
+        qualitativeResumeEvaluation: qualitativeEvaluation,
+        qualitativeResumeSummary: qualitativeEvaluation.conciseOverall,
+        resumeEvaluationContractVersion: "qualitative-v2",
+        resumeEvaluationGeneratedAt: generatedAt,
+        resumeEvaluationInputHash: "pool-input-hash",
+      })
+      .where(eq(resumePoolItem.id, poolItemId));
+
+    const result = await importPoolItemToResumeLibrary(
+      {
+        dedupPolicy: "force",
+        importedBy: USER_A,
+        jobDescriptionId: JD_A,
+        organizationId: ORG_A,
+        poolItemId,
+      },
+      {
+        cloneSemanticIndex: mocks.cloneSemanticIndex,
+        findDuplicateMatches: mocks.findDuplicateMatches,
+      },
+    );
+    if (result.status !== "imported") {
+      throw new Error("Expected the pool item to be imported.");
+    }
+    const [record] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, result.resumeRecordId));
+    const history = await db
+      .select()
+      .from(resumeEvaluationVersion)
+      .where(eq(resumeEvaluationVersion.resumeRecordId, result.resumeRecordId));
+
+    expect(record).toMatchObject({
+      qualitativeJobDescriptionVersionId: jobDescriptionVersionId,
+      qualitativeRecommendationLevel: "recommended",
+      qualitativeResumeEvaluation: qualitativeEvaluation,
+      resumeEvaluationArtifactMode: "qualitative",
+      resumeReviewStatus: "ready",
+    });
+    expect(history).toEqual([
+      expect.objectContaining({
+        contractVersion: "qualitative-v2",
+        jobDescriptionVersionId,
+        numericScore: null,
+        recommendationLevel: "recommended",
+      }),
+    ]);
   });
 
   it("creates the first AI interview round when importing directly into AI interview", async () => {
