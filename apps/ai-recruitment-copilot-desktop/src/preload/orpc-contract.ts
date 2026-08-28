@@ -14,6 +14,7 @@ export const themeModeSchema = z.enum(["light", "dark", "system"]);
 export const desktopSettingsSchema = z.object({
   notifyOnFinish: z.boolean(),
   theme: themeModeSchema,
+  transparentBackground: z.boolean(),
 });
 
 export const orpcContract = oc.router({

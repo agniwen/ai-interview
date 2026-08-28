@@ -15,9 +15,28 @@ export type DesktopSettings = Awaited<ReturnType<typeof orpc.settings.get>>;
 export type ThemeMode = DesktopSettings["theme"];
 export type SettingsPatch = Parameters<typeof orpc.settings.set>[0];
 
+const TRANSPARENT_BACKGROUND_STORAGE_KEY = "transparent-background";
+
+function readCachedTransparentBackground(): boolean {
+  try {
+    return window.localStorage.getItem(TRANSPARENT_BACKGROUND_STORAGE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function cacheTransparentBackground(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(TRANSPARENT_BACKGROUND_STORAGE_KEY, String(enabled));
+  } catch {
+    // settings.json remains the source of truth when localStorage is unavailable.
+  }
+}
+
 const FALLBACK: DesktopSettings = {
   notifyOnFinish: false,
   theme: "system",
+  transparentBackground: readCachedTransparentBackground(),
 };
 
 let cache: DesktopSettings = { ...FALLBACK };
@@ -49,6 +68,7 @@ export function useSettings(): DesktopSettings {
 export async function hydrateSettings(): Promise<void> {
   try {
     cache = await orpc.settings.get();
+    cacheTransparentBackground(cache.transparentBackground);
     emit();
   } catch {
     // Keep the fallback; the settings page still works, just with defaults.
@@ -61,6 +81,9 @@ export async function hydrateSettings(): Promise<void> {
  */
 export async function updateSettings(patch: SettingsPatch): Promise<void> {
   cache = { ...cache, ...patch };
+  if (patch.transparentBackground !== undefined) {
+    cacheTransparentBackground(patch.transparentBackground);
+  }
   emit();
   try {
     cache = await orpc.settings.set(patch);

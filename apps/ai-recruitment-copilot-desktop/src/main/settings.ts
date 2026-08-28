@@ -7,6 +7,7 @@ import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
 const DEFAULTS: DesktopSettings = {
   notifyOnFinish: false,
   theme: "system",
+  transparentBackground: true,
 };
 
 function settingsPath(): string {
@@ -29,6 +30,14 @@ interface SettingsStartupDependencies {
   readSettings: () => DesktopSettings;
 }
 
+export function resolveDesktopSettings(settings: Partial<DesktopSettings>): DesktopSettings {
+  return {
+    notifyOnFinish: settings.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
+    theme: settings.theme ?? DEFAULTS.theme,
+    transparentBackground: settings.transparentBackground ?? DEFAULTS.transparentBackground,
+  };
+}
+
 export function readSettings(): DesktopSettings {
   try {
     const raw = readFileSync(settingsPath(), "utf-8");
@@ -36,10 +45,7 @@ export function readSettings(): DesktopSettings {
     if (!parsed.success) {
       return { ...DEFAULTS };
     }
-    return {
-      notifyOnFinish: parsed.data.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
-      theme: parsed.data.theme ?? DEFAULTS.theme,
-    };
+    return resolveDesktopSettings(parsed.data);
   } catch {
     return { ...DEFAULTS };
   }

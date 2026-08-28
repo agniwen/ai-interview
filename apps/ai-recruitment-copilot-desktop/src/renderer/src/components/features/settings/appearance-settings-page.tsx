@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SettingsGroup, SettingsRow } from "@/components/settings/settings-ui";
+import { Switch } from "@/components/ui/switch";
+import { updateSettings, useSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
 import { themeModeSchema } from "../../../../../preload/orpc-contract";
 
@@ -60,6 +62,8 @@ function ThemeSelect(): React.JSX.Element {
 }
 
 export function AppearanceSettingsPage(): React.JSX.Element {
+  const settings = useSettings();
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6 pb-16">
       <div className="space-y-0.5">
@@ -74,6 +78,21 @@ export function AppearanceSettingsPage(): React.JSX.Element {
           label="主题"
         >
           <ThemeSelect />
+        </SettingsRow>
+        <SettingsRow
+          description="关闭后使用固定不透明背景，不再显示高斯模糊效果。"
+          htmlFor="transparent-background"
+          label="透明背景"
+        >
+          <div className="flex justify-end">
+            <Switch
+              checked={settings.transparentBackground}
+              id="transparent-background"
+              onCheckedChange={(checked) => {
+                void updateSettings({ transparentBackground: checked });
+              }}
+            />
+          </div>
         </SettingsRow>
       </SettingsGroup>
     </div>

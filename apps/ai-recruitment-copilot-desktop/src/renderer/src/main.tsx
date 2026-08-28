@@ -5,11 +5,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { Provider as JotaiProvider } from "jotai";
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { themeModeSchema } from "../../preload/orpc-contract";
 import { getQueryClient } from "@/lib/query-client";
-import { hydrateSettings } from "@/lib/settings";
+import { getSettings, hydrateSettings, useSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
 import { createDesktopRouter } from "@/router";
 import { AppErrorBoundary } from "@/components/layout/app-error-boundary";
@@ -49,6 +49,15 @@ function bootstrapTheme(): void {
   html.classList.toggle("dark", resolved === "dark");
   // Used by CSS to fall back to solid sidebar on Linux (no OS acrylic).
   html.classList.add(`platform-${window.api.window.platform}`);
+  html.dataset.transparentBackground = String(getSettings().transparentBackground);
+}
+
+function WindowBackgroundSync(): null {
+  const { transparentBackground } = useSettings();
+  useEffect(() => {
+    document.documentElement.dataset.transparentBackground = String(transparentBackground);
+  }, [transparentBackground]);
+  return null;
 }
 
 bootstrapTheme();
@@ -77,6 +86,7 @@ createRoot(rootElement).render(
     >
       <AppErrorBoundary>
         <ThemeSync />
+        <WindowBackgroundSync />
         <MotionConfig reducedMotion="user">
           <LazyMotion features={domAnimation} strict>
             <JotaiProvider store={meetingRecordingStore}>

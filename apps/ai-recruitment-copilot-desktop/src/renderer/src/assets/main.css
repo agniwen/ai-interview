@@ -681,6 +681,17 @@ html.platform-linux [data-slot="sidebar"][data-variant="glass"] {
   background-color: var(--sidebar);
 }
 
+html[data-transparent-background="false"],
+html[data-transparent-background="false"] body,
+html[data-transparent-background="false"] #root {
+  background-color: var(--background);
+}
+
+html[data-transparent-background="false"] [data-slot="sidebar"][data-variant="glass"] {
+  background-color: var(--sidebar);
+  backdrop-filter: none;
+}
+
 /*
  * Debug aid: temporarily force a vivid transparent wash so you can tell
  * “vibrancy working” vs “still covered by opaque layer”. Leave off in prod.
