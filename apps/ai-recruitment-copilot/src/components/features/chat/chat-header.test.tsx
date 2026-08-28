@@ -37,4 +37,18 @@ describe("chat header title", () => {
     expect(chatWorkspace).toContain("getVisibleConversationTitle(conversation)");
     expect(chatWorkspace).toContain("title: normalizedTitle");
   });
+
+  it("lets the shared header gradient cover scrolling chat content like Studio", () => {
+    const chatHeader = readSource("chat-header.tsx");
+    const chatWorkspace = readSource("chat-workspace.tsx");
+    const chatSkeleton = readSource("chat-page-skeleton.tsx");
+    const recruitingThread = readSource("../../assistant-ui/recruiting-thread.tsx");
+
+    expect(chatHeader).toContain('className="absolute top-0 left-0"');
+    expect(recruitingThread).toContain(
+      "aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth",
+    );
+    expect(chatWorkspace).toContain('showConversationThread ? undefined : "pt-(--header-height)"');
+    expect(chatSkeleton).toContain("pt-(--header-height)");
+  });
 });

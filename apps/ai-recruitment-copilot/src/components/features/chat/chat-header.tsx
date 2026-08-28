@@ -84,6 +84,7 @@ export function ChatHeader() {
   return (
     <SidebarInsetHeader
       actions={<WorkspaceSwitcher />}
+      className="absolute top-0 left-0"
       breadcrumb={
         <Breadcrumb>
           <BreadcrumbList className="min-w-0 flex-nowrap">

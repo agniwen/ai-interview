@@ -6,7 +6,7 @@ export function ChatPageSkeleton() {
     <output
       aria-busy="true"
       aria-label="招聘对话加载中"
-      className="flex min-h-0 flex-1 flex-col bg-background text-foreground"
+      className="flex min-h-0 flex-1 flex-col bg-background pt-(--header-height) text-foreground"
       style={emptyThreadStyle}
     >
       <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">

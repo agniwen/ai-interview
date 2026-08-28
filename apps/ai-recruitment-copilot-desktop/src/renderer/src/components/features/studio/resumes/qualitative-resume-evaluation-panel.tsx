@@ -211,7 +211,6 @@ export function QualitativeEvaluationDetails({
       <Frame>
         <FrameHeader className="justify-between gap-3">
           <FrameTitle>六维评价</FrameTitle>
-          <span className="text-muted-foreground text-xs">不推荐 · 待定 · 推荐 · 非常推荐</span>
         </FrameHeader>
         <div className="grid gap-1 lg:grid-cols-2">
           <FramePanel

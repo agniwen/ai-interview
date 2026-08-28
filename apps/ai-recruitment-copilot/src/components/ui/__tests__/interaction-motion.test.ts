@@ -24,4 +24,16 @@ describe("shared interaction motion", () => {
       expect(source).toContain("motion-reduce:transition-none");
     }
   });
+
+  it("transitions collapsible height symmetrically when opening and closing", () => {
+    const collapsible = readComponent("collapsible");
+
+    expect(collapsible).toContain("h-(--collapsible-panel-height)");
+    expect(collapsible).toContain("transition-[height]");
+    expect(collapsible).toContain("data-starting-style:h-0");
+    expect(collapsible).toContain("data-ending-style:h-0");
+    expect(collapsible).toContain("motion-reduce:transition-none");
+    expect(collapsible).not.toContain("animate-collapsible-down");
+    expect(collapsible).not.toContain("animate-collapsible-up");
+  });
 });

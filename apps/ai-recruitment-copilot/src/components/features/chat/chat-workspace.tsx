@@ -22,6 +22,7 @@ import {
 import { authClient } from "@/lib/client/auth-client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { cn } from "@arc/shared/utils";
 import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
 import { ChatMessageSkeletonContent, ChatPageSkeleton } from "./chat-page-skeleton";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
@@ -343,7 +344,12 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   );
 
   return (
-    <div className="relative flex h-full w-full flex-col">
+    <div
+      className={cn(
+        "relative flex h-full w-full flex-col",
+        showConversationThread ? undefined : "pt-(--header-height)",
+      )}
+    >
       <AssistantRuntimeProvider runtime={runtime}>
         <RecruitingCopilotContextProvider conversationId={activeConversationId}>
           <RecruitingToolRenderers />

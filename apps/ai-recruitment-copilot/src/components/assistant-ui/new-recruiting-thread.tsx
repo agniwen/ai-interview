@@ -11,16 +11,18 @@ import {
   composerSendButtonClass,
   recruitingComposerPlaceholder,
 } from "./recruiting-composer-style";
+import { focusComposerInputFromShellClick } from "./recruiting-composer-focus";
 import { RecruitingComposerDirectiveChip } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { emptyThreadStyle } from "./recruiting-thread-layout";
+import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shell-layout";
 
 const newComposerInputClassName = cn(
   // Keep empty-state height close to the old textarea (min-h-9 + shell py-2).
   // Avoid stacking min-height on both the Lexical wrapper and contenteditable.
-  "aui-composer-input relative max-h-36 min-w-0 flex-1 bg-transparent px-2 text-base text-foreground",
-  "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-2 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-  "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
+  "aui-composer-input relative -me-3 max-h-36 min-w-0 flex-1 bg-transparent text-base text-foreground",
+  "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-1.5 [&_.aui-lexical-input]:ps-1 [&_.aui-lexical-input]:pe-14 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
+  "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:start-1 [&_.aui-lexical-placeholder]:end-14 [&_.aui-lexical-placeholder]:top-1.5 [&_.aui-lexical-placeholder]:text-muted-foreground",
 );
 
 function NewThreadEnterSubmitPlugin({
@@ -89,6 +91,7 @@ function NewRecruitingComposerShell({
   const text = useComposer((composer) => composer.text);
   const canSubmit = text.trim().length > 0 && !disabled;
   const submittingRef = useRef(false);
+  const composerShellRef = useRecruitingComposerShellLayout();
 
   const handleSubmit = () => {
     if (submittingRef.current || disabled) {
@@ -111,9 +114,10 @@ function NewRecruitingComposerShell({
   return (
     <div
       className={cn(
-        "aui-composer-shell flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors focus-within:border-foreground/20",
+        "aui-composer-shell relative flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-md transition-shadow focus-within:shadow-xl data-[multiline]:pb-13 data-[multiline]:[&_.aui-lexical-input]:pe-1",
         disabled && "pointer-events-none opacity-60",
       )}
+      ref={composerShellRef}
     >
       <LexicalComposerInput
         aria-label="招聘问题输入"
@@ -126,7 +130,7 @@ function NewRecruitingComposerShell({
       <NewThreadEnterSubmitPlugin disabled={!canSubmit} onSubmit={handleSubmit} />
       <Button
         aria-label="发送"
-        className={cn(composerSendButtonClass, "shrink-0")}
+        className={cn(composerSendButtonClass, "absolute right-3 bottom-2 z-1 shrink-0")}
         disabled={!canSubmit}
         onClick={handleSubmit}
         size="icon"
@@ -149,7 +153,10 @@ function NewRecruitingComposer({
   "use no memo";
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
-      <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+      <ComposerPrimitive.Root
+        className="aui-composer-root relative flex w-full flex-col"
+        onClick={focusComposerInputFromShellClick}
+      >
         <NewRecruitingComposerShell disabled={disabled} onSubmit={onSubmit} />
         <RecruitingPersonMentionPopover />
       </ComposerPrimitive.Root>

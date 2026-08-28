@@ -179,6 +179,11 @@
   --reveal-dur: var(--duration-slow);
   --reveal-blur: var(--blur-small);
   --reveal-ease: var(--ease-in-out);
+  --panel-open-dur: var(--duration-slow);
+  --panel-close-dur: var(--duration-medium);
+  --panel-translate-y: 100px;
+  --panel-blur: var(--blur-small);
+  --panel-ease: var(--ease-smooth-out);
   --toggle-duration: var(--duration-medium);
   --toggle-overshoot: 1px;
   --toggle-track-duration: 0ms;
@@ -420,6 +425,36 @@
     background: oklch(0.45 0 0 / 65%);
     background-clip: content-box;
   }
+
+  .aui-composer-input {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 18%, transparent) transparent;
+  }
+
+  .aui-composer-input::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .aui-composer-input::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .aui-composer-input::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--muted-foreground) 18%, transparent);
+    background-clip: content-box;
+  }
+
+  .aui-composer-input::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 32%, transparent);
+    background-clip: content-box;
+  }
+
+  .aui-composer-input::-webkit-scrollbar-thumb:active {
+    background: color-mix(in oklab, var(--muted-foreground) 48%, transparent);
+    background-clip: content-box;
+  }
 }
 
 /* Apple §12 — saturate(180%) on all translucent surfaces.
@@ -557,6 +592,35 @@
 
   .t-toggle-thumb {
     animation: none !important;
+  }
+}
+
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease),
+    filter var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity var(--panel-open-dur) var(--panel-ease),
+    filter var(--panel-open-dur) var(--panel-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-panel-slide {
+    transition: none !important;
   }
 }
 

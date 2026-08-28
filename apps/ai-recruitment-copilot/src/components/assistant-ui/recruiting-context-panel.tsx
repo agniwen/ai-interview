@@ -133,7 +133,7 @@ export function RecruitingContextPanel() {
   return (
     <>
       {desktopOpen ? (
-        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur lg:flex">
+        <aside className="absolute top-[calc(var(--header-height)+1rem)] right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur lg:flex">
           <div className="flex h-full min-h-0 flex-1 flex-col">
             <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
               <h2 className="font-medium text-sm">上下文</h2>
@@ -156,7 +156,7 @@ export function RecruitingContextPanel() {
       ) : (
         <Button
           aria-label="展开上下文"
-          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:inline-flex"
+          className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:inline-flex"
           onClick={() => setDesktopOpen(true)}
           size="sm"
           type="button"
@@ -167,7 +167,7 @@ export function RecruitingContextPanel() {
         </Button>
       )}
       <Button
-        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:hidden"
+        className="absolute top-[calc(var(--header-height)+1rem)] right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:hidden"
         onClick={() => setMobileOpen(true)}
         size="sm"
         type="button"
@@ -175,26 +175,34 @@ export function RecruitingContextPanel() {
       >
         上下文
       </Button>
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden">
-          <div className="absolute inset-x-3 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border bg-background p-3 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium text-sm">上下文</h2>
-              <Button
-                aria-label="关闭上下文"
-                className="size-8"
-                onClick={() => setMobileOpen(false)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <IconX className="size-4" />
-              </Button>
-            </div>
-            <ContextPanelContent />
+      <div
+        aria-hidden={!mobileOpen}
+        className="absolute inset-0 z-40 bg-background/80 opacity-100 backdrop-blur-sm transition-opacity duration-[var(--duration-slow)] ease-[var(--ease-smooth-out)] data-[open=false]:pointer-events-none data-[open=false]:opacity-0 data-[open=false]:duration-[var(--duration-medium)] motion-reduce:transition-none lg:hidden"
+        data-open={mobileOpen}
+        data-slot="recruiting-context-mobile-overlay"
+        inert={!mobileOpen}
+      >
+        <div
+          className="t-panel-slide absolute inset-x-3 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border bg-background p-3 shadow-lg"
+          data-open={mobileOpen}
+          data-slot="recruiting-context-mobile-panel"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-medium text-sm">上下文</h2>
+            <Button
+              aria-label="关闭上下文"
+              className="size-8"
+              onClick={() => setMobileOpen(false)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <IconX className="size-4" />
+            </Button>
           </div>
+          <ContextPanelContent />
         </div>
-      ) : null}
+      </div>
     </>
   );
 }

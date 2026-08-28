@@ -46,6 +46,7 @@ import {
   recruitingComposerDisclaimer,
   recruitingComposerPlaceholder,
 } from "./recruiting-composer-style";
+import { focusComposerInputFromShellClick } from "./recruiting-composer-focus";
 import {
   RecruitingComposerDirectiveChip,
   RecruitingDirectiveText,
@@ -54,6 +55,7 @@ import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
 import { RecruitingResumeReviewCard } from "./recruiting-resume-review-card";
 import { shouldPresentResumeReviewCard } from "./recruiting-tool-presentation";
+import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shell-layout";
 import type {
   CandidateSummaryCard,
   CopilotCitation,
@@ -154,7 +156,8 @@ function AssistantActionBar() {
 function UserActionBar() {
   return (
     <ActionBarPrimitive.Root
-      className="aui-user-action-bar flex min-h-8 items-center justify-end gap-0"
+      autohide="always"
+      className="aui-user-action-bar flex items-center justify-end gap-0"
       hideWhenRunning
     >
       <ActionBarPrimitive.Copy asChild>
@@ -225,13 +228,15 @@ function AssistantMessage() {
 function UserMessage() {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150"
+      className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150 [&[data-aui-top-anchor-user]]:translate-y-[calc(var(--header-height)*2)] [&[data-aui-top-anchor-user]]:mb-[calc(var(--header-height)*2)]"
       data-role="user"
     >
       <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-border bg-muted/55 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-muted/35">
         <MessagePrimitive.Parts components={{ Text: RecruitingDirectiveText }} />
       </div>
-      <UserActionBar />
+      <div className="flex min-h-8 items-center justify-end">
+        <UserActionBar />
+      </div>
       <BranchPicker className="-me-1 justify-end" />
     </MessagePrimitive.Root>
   );
@@ -261,9 +266,9 @@ function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) 
       aria-label="招聘问题输入"
       autoFocus={autoFocus}
       className={cn(
-        "aui-composer-input relative max-h-32 min-h-10 w-full bg-transparent px-2 py-2 text-base text-foreground",
-        "[&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-        "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
+        "aui-composer-input relative -me-3 max-h-36 min-w-0 flex-1 bg-transparent text-base text-foreground",
+        "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-1.5 [&_.aui-lexical-input]:ps-1 [&_.aui-lexical-input]:pe-14 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
+        "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:start-1 [&_.aui-lexical-placeholder]:end-14 [&_.aui-lexical-placeholder]:top-1.5 [&_.aui-lexical-placeholder]:text-muted-foreground",
       )}
       directiveChip={RecruitingComposerDirectiveChip}
       placeholder={recruitingComposerPlaceholder}
@@ -274,13 +279,20 @@ function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) 
 
 function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
   "use no memo";
+  const composerShellRef = useRecruitingComposerShellLayout();
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
       <div className="relative flex w-full flex-col">
-        <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-          <div className="aui-composer-shell relative flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors focus-within:border-foreground/20">
+        <ComposerPrimitive.Root
+          className="aui-composer-root relative flex w-full flex-col"
+          onClick={focusComposerInputFromShellClick}
+        >
+          <div
+            className="aui-composer-shell relative flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-md transition-shadow focus-within:shadow-xl data-[multiline]:pb-13 data-[multiline]:[&_.aui-lexical-input]:pe-1"
+            ref={composerShellRef}
+          >
             <RecruitingComposerInput autoFocus={autoFocus} />
-            <div className="aui-composer-action-wrapper flex items-center justify-end gap-1">
+            <div className="aui-composer-action-wrapper absolute right-3 bottom-2 z-1 flex shrink-0 items-center justify-end gap-1">
               <AuiIf condition={(state) => !state.thread.isRunning}>
                 <ComposerPrimitive.Send asChild>
                   <Button
@@ -598,7 +610,7 @@ export function RecruitingThread({
         <div className="relative flex min-w-0 flex-1 flex-col">
           <ThreadPrimitive.Viewport
             autoScroll
-            className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-smooth"
+            className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-(--header-height) scroll-smooth"
             scrollToBottomOnRunStart
             turnAnchor="top"
           >
@@ -619,24 +631,24 @@ export function RecruitingThread({
             </SkeletonReveal>
           </ThreadPrimitive.Viewport>
           <div className="aui-thread-footer sticky bottom-0 z-30 bg-background px-4 pb-3">
-            <div className="mx-auto w-full max-w-(--thread-max-width)">
+            <div className="relative mx-auto w-full max-w-(--thread-max-width)">
+              <ThreadPrimitive.ScrollToBottom asChild>
+                <Button
+                  aria-label="回到底部"
+                  className="aui-thread-scroll-to-bottom absolute -top-10 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <IconArrowDown className="size-4" />
+                </Button>
+              </ThreadPrimitive.ScrollToBottom>
               <Composer autoFocus={!historyLoading} />
               <p className="mt-2 text-center text-muted-foreground text-xs">
                 {recruitingComposerDisclaimer}
               </p>
             </div>
           </div>
-          <ThreadPrimitive.ScrollToBottom asChild>
-            <Button
-              aria-label="回到底部"
-              className="aui-thread-scroll-to-bottom absolute bottom-40 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
-              size="icon"
-              type="button"
-              variant="outline"
-            >
-              <IconArrowDown className="size-4" />
-            </Button>
-          </ThreadPrimitive.ScrollToBottom>
         </div>
         <RecruitingContextPanel />
       </div>

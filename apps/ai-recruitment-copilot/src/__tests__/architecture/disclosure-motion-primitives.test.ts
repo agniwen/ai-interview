@@ -22,14 +22,13 @@ describe("web disclosure motion primitives", () => {
   it("animates collapsible height with the Base UI measurement", () => {
     const collapsible = readSource("components/ui/collapsible.tsx");
 
-    expect(collapsible).toContain(
-      "[--radix-collapsible-content-height:var(--collapsible-panel-height)]",
-    );
+    expect(collapsible).toContain("h-(--collapsible-panel-height)");
+    expect(collapsible).toContain("transition-[height]");
     expect(collapsible).toContain("duration-[var(--duration-fast)]");
     expect(collapsible).toContain("ease-[var(--ease-smooth-out)]");
-    expect(collapsible).toContain("data-starting-style:animate-collapsible-down");
-    expect(collapsible).toContain("data-ending-style:animate-collapsible-up");
-    expect(collapsible).toContain("motion-reduce:animate-none");
+    expect(collapsible).toContain("data-starting-style:h-0");
+    expect(collapsible).toContain("data-ending-style:h-0");
+    expect(collapsible).toContain("motion-reduce:transition-none");
   });
 
   it("flips static chevron paths from the trigger state without Motion path morphing", () => {
