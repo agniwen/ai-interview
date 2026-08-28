@@ -152,7 +152,9 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("cursor-text");
     expect(html).toContain("hover:bg-foreground/4");
     expect(html).toContain("rounded-sm");
-    expect(html).toContain("p-1");
+    expect(html).toContain("px-px");
+    expect(html).toContain("py-1");
+    expect(html).not.toMatch(/(?:^|\s)p-1(?:\s|$)/);
     expect(html).not.toContain("gap-3");
   });
 

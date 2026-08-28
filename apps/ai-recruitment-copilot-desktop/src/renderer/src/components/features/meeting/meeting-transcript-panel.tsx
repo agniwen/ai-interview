@@ -512,7 +512,7 @@ export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscrip
     <div className="grid select-text" aria-live="polite">
       {turns.map((turn) => (
         <article
-          className="grid cursor-text gap-1 rounded-sm p-1 hover:bg-foreground/4"
+          className="grid cursor-text gap-1 rounded-sm px-px py-1 hover:bg-foreground/4"
           key={turn.id}
         >
           {turn.speakerKey ? (

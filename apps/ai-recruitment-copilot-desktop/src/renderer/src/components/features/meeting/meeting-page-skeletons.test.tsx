@@ -21,6 +21,8 @@ describe("meeting page skeletons", () => {
     expect(html).toContain("absolute top-4 right-4");
     expect(html).toContain("max-w-3xl");
     expect(html).toContain("pr-12");
+    expect(html).toContain("px-px");
+    expect(html).toContain("py-1");
     expect(html).toContain('aria-label="正在加载录制会话"');
   });
 

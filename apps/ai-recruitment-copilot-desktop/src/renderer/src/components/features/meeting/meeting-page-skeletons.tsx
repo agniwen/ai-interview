@@ -15,7 +15,7 @@ import {
 
 function TranscriptTurnSkeleton({ wide = true }: { wide?: boolean }) {
   return (
-    <article className="grid gap-1 rounded-sm p-1">
+    <article className="grid gap-1 rounded-sm px-px py-1">
       <Skeleton className="h-3 w-14" />
       <Skeleton className={`h-4 ${wide ? "w-full" : "w-4/5"}`} />
       <Skeleton className="h-4 w-2/3" />

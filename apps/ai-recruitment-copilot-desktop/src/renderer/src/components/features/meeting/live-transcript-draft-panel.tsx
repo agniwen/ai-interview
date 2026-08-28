@@ -66,35 +66,33 @@ function TranscriptTurn({
   return (
     <p
       className={cn(
-        "cursor-text! relative isolate flex items-start gap-2 py-1 text-sm leading-relaxed hover:bg-foreground/4",
+        "cursor-text! relative isolate flex items-start gap-2 px-px py-1 text-sm leading-relaxed hover:bg-foreground/4",
         !turn.final && "text-muted-foreground italic",
       )}
       ref={blockRef}
     >
-      <span className="flex h-lh w-4 shrink-0 select-none items-center justify-center">
-        {turn.correcting ? (
-          <output
-            aria-label="AI 正在校正"
-            className="flex motion-safe:animate-pulse"
-            title="AI 正在校正"
-          >
-            <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
-              <defs>
-                <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#00b8ff" />
-                  <stop offset="45%" stopColor="#8955ff" />
-                  <stop offset="75%" stopColor="#ef62c9" />
-                  <stop offset="100%" stopColor="#ffb55e" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M10 2 12.7 9.3 20 12 12.7 14.7 10 22 7.3 14.7 0 12 7.3 9.3ZM20 1 21.1 3.9 24 5 21.1 6.1 20 9 18.9 6.1 16 5 18.9 3.9Z"
-                fill={`url(#${gradientId})`}
-              />
-            </svg>
-          </output>
-        ) : null}
-      </span>
+      {turn.correcting ? (
+        <output
+          aria-label="AI 正在校正"
+          className="flex h-lh w-4 shrink-0 select-none items-center justify-center motion-safe:animate-pulse"
+          title="AI 正在校正"
+        >
+          <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
+            <defs>
+              <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#00b8ff" />
+                <stop offset="45%" stopColor="#8955ff" />
+                <stop offset="75%" stopColor="#ef62c9" />
+                <stop offset="100%" stopColor="#ffb55e" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M10 2 12.7 9.3 20 12 12.7 14.7 10 22 7.3 14.7 0 12 7.3 9.3ZM20 1 21.1 3.9 24 5 21.1 6.1 20 9 18.9 6.1 16 5 18.9 3.9Z"
+              fill={`url(#${gradientId})`}
+            />
+          </svg>
+        </output>
+      ) : null}
       <span className="min-w-0 flex-1">{turn.text}</span>
     </p>
   );

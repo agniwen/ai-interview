@@ -185,6 +185,9 @@ describe("LiveTranscriptDraftPanel", () => {
       expect(html).not.toContain(">live<");
       expect(html).toContain("cursor-text");
       expect(html).toContain("hover:bg-foreground/4");
+      expect(html).toContain("px-px");
+      expect(html).toContain("py-1");
+      expect(html.match(/w-4 shrink-0 select-none/g)).toHaveLength(1);
       expect(html).not.toContain("max-w-5xl");
     },
   );
