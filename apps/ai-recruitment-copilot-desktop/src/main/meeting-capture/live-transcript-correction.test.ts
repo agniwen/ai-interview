@@ -89,8 +89,16 @@ describe("one-to-three-block audio correction", () => {
     );
     expect(wav.readUInt32LE(24)).toBe(16_000);
     expect(wav.subarray(44)).toEqual(Buffer.concat([...clips, lookaheadClip]));
+    const asrContext = body.input.messages
+      .slice(0, -1)
+      .flatMap((message: { content: { text?: string }[] }) =>
+        message.content.flatMap((content) => (content.text ? [content.text] : [])),
+      );
+    expect(asrContext).toEqual(["前文"]);
     const llmBody = JSON.parse(String(fetch.mock.calls[1][1]?.body));
     expect(llmBody.model).toBe(LIVE_CORRECTION_LLM);
+    expect(llmBody.messages[0].content).toContain("独立重听");
+    expect(llmBody.messages[0].content).toContain("不能默认保留实时原文");
     expect(llmBody.messages[0].content).toContain("重新分配相邻且相同音轨 block 的句首或句尾文本");
     expect(llmBody.messages[0].content).toContain("校正结果就是最终采用文本");
     const prompt = JSON.parse(llmBody.messages[1].content);
