@@ -238,8 +238,8 @@ describe("rankJobDescriptionsForResume", () => {
     await rankJobDescriptionsForResume(RESUME_PROFILE, sameNameJobs, {}, { generateRanking });
 
     const prompt = generateRanking.mock.calls[0]?.[0]?.prompt;
-    expect(prompt).toContain("岗位要求: 核心要求：商业化平台经验");
-    expect(prompt).toContain("岗位要求: 核心要求：数据仓库和实时计算经验");
+    expect(prompt).toContain("岗位 JD: 核心要求：商业化平台经验");
+    expect(prompt).toContain("岗位 JD: 核心要求：数据仓库和实时计算经验");
     expect(prompt).toContain("[内容已截断]");
     expect(prompt).not.toContain("不应进入模型的尾部标记");
     expect(prompt).not.toContain("描述尾部不应进入模型");

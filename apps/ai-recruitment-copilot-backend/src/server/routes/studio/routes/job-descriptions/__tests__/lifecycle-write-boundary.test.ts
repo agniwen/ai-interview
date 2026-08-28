@@ -2,26 +2,34 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("job description lifecycle write boundary", () => {
-  it("routes legacy evaluation changes through the upgrade workflow", async () => {
+  it("saves new jobs directly as published qualitative jobs with an immutable snapshot", async () => {
     const source = await readFile(new URL("../route.ts", import.meta.url), "utf-8");
-
-    expect(source).toContain("JOB_LEGACY_REQUIRES_UPGRADE");
-    expect(source).toContain('existing.evaluationMode === "legacy"');
-    expect(source).toContain("publishedJobOperationalUpdateSchema.safeParse(rawInput)");
-  });
-
-  it("guards the draft update with the lifecycle captured before validation", async () => {
-    const source = await readFile(new URL("../route.ts", import.meta.url), "utf-8");
-    const updateBlock = source.slice(
-      source.indexOf("const updatedCurrentLifecycle"),
-      source.indexOf("} catch (updateError)"),
+    const createBlock = source.slice(
+      source.indexOf('.post(\n      "/",'),
+      source.indexOf('.post(\n      "/:id/evaluation-blueprint-preview"'),
     );
 
-    expect(updateBlock).toContain("eq(jobDescription.evaluationMode, existing.evaluationMode)");
-    expect(updateBlock).toContain("eq(jobDescription.lifecycleStatus, existing.lifecycleStatus)");
-    expect(updateBlock).toContain("if (updated.length === 0)");
-    expect(updateBlock.indexOf("if (updated.length === 0)")).toBeLessThan(
-      updateBlock.indexOf("delete(jobDescriptionInterviewer)"),
+    expect(createBlock).toContain('zValidator("json", jobDescriptionSaveSchema');
+    expect(createBlock).toContain('evaluationMode: "qualitative"');
+    expect(createBlock).toContain('lifecycleStatus: "published"');
+    expect(createBlock).toContain("await tx.insert(jobDescriptionVersion).values");
+    expect(createBlock).toContain("version: 1");
+  });
+
+  it("serializes saves and appends a new immutable JD snapshot", async () => {
+    const source = await readFile(new URL("../route.ts", import.meta.url), "utf-8");
+    const updateBlock = source.slice(
+      source.indexOf('.patch(\n      "/:id",'),
+      source.indexOf('.delete("/:id"'),
+    );
+
+    expect(updateBlock).toContain('.for("update")');
+    expect(updateBlock).toContain('evaluationMode: "qualitative"');
+    expect(updateBlock).toContain('lifecycleStatus: "published"');
+    expect(updateBlock).toContain("await tx.insert(jobDescriptionVersion).values");
+    expect(updateBlock).toContain("version: (latest?.version ?? 0) + 1");
+    expect(updateBlock.indexOf('.for("update")')).toBeLessThan(
+      updateBlock.indexOf("update(jobDescription)"),
     );
   });
 

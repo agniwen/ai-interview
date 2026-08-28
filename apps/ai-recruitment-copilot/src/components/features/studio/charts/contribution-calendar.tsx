@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type { EventListeners } from "overlayscrollbars";
 import { cell, defineChart } from "@tanstack/charts";
 import { scaleBand, scaleOrdinal } from "d3-scale";
@@ -136,6 +136,36 @@ function scrollViewportToEnd(viewport: HTMLElement) {
   viewport.scrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
 }
 
+function createCalendarScrollEvents(): EventListeners {
+  let didScrollToEnd = false;
+  return withHorizontalWheelScroll({
+    initialized: (instance) => {
+      didScrollToEnd = false;
+      const { viewport } = instance.elements();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (viewport.scrollWidth <= viewport.clientWidth) {
+            return;
+          }
+          scrollViewportToEnd(viewport);
+          didScrollToEnd = true;
+        });
+      });
+    },
+    updated: (instance) => {
+      if (didScrollToEnd) {
+        return;
+      }
+      const { viewport } = instance.elements();
+      if (viewport.scrollWidth <= viewport.clientWidth) {
+        return;
+      }
+      scrollViewportToEnd(viewport);
+      didScrollToEnd = true;
+    },
+  });
+}
+
 function formatTooltip(row: CalendarTooltipDatum, unitLabel: string): string {
   if (!row.inRange) {
     return `${row.day}\n不在统计范围内`;
@@ -171,37 +201,7 @@ export function ContributionCalendar({
   const monthTicks = useMemo(() => monthLabelTicks(cells), [cells]);
   const chartWidth = CHART_MARGIN.left + weekDomain.length * CELL_PITCH + CHART_MARGIN.right;
   const chartHeight = CHART_MARGIN.top + 7 * CELL_PITCH + CHART_MARGIN.bottom;
-  const didScrollToEndRef = useRef(false);
-  const calendarScrollEvents = useMemo<EventListeners>(
-    () =>
-      withHorizontalWheelScroll({
-        initialized: (instance) => {
-          didScrollToEndRef.current = false;
-          const { viewport } = instance.elements();
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (viewport.scrollWidth <= viewport.clientWidth) {
-                return;
-              }
-              scrollViewportToEnd(viewport);
-              didScrollToEndRef.current = true;
-            });
-          });
-        },
-        updated: (instance) => {
-          if (didScrollToEndRef.current) {
-            return;
-          }
-          const { viewport } = instance.elements();
-          if (viewport.scrollWidth <= viewport.clientWidth) {
-            return;
-          }
-          scrollViewportToEnd(viewport);
-          didScrollToEndRef.current = true;
-        },
-      }),
-    [],
-  );
+  const calendarScrollEvents = useMemo(() => createCalendarScrollEvents(), []);
 
   const definition = useMemo(() => {
     if (!hasData || cells.length === 0) {

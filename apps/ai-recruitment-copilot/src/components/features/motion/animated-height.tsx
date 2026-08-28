@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
-import type { CSSProperties, ReactNode, RefObject } from "react";
+import type { ComponentType, CSSProperties, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
@@ -20,7 +20,7 @@ interface AnimatedHeightProps {
   disabled?: boolean;
   /** 自定义 className（一般不需要传）。 */
   className?: string;
-  renderContainer?: (props: AnimatedHeightRenderProps) => ReactNode;
+  renderContainer?: ComponentType<AnimatedHeightRenderProps>;
 }
 
 export interface AnimatedHeightRenderProps {
@@ -95,18 +95,20 @@ export function AnimatedHeight({
     containerRef.current?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
   };
   if (renderContainer) {
-    return renderContainer({
-      children: (
+    const RenderContainer = renderContainer;
+    return (
+      <RenderContainer
+        className={cn("-m-1 p-1", className)}
+        height={height}
+        innerRef={containerRef}
+        onAnimationComplete={animationComplete}
+        style={animationStyle}
+      >
         <div ref={innerRef} style={{ display: "flow-root" }}>
           {children}
         </div>
-      ),
-      className: cn("-m-1 p-1", className),
-      height,
-      innerRef: containerRef,
-      onAnimationComplete: animationComplete,
-      style: animationStyle,
-    });
+      </RenderContainer>
+    );
   }
 
   return (

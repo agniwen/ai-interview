@@ -1,6 +1,7 @@
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resendInterviewSummaryNotification } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import {
@@ -83,8 +84,15 @@ export function createPlatformNotificationsRouter(
         if (error instanceof NotificationDocumentAccessError) {
           return c.json({ code: error.code, error: error.message }, error.status);
         }
-        const message = error instanceof Error ? error.message : "更新飞书文档结构失败";
-        return c.json({ error: message }, 500);
+        return c.json(
+          createInternalErrorResponse({
+            context: { notificationId: c.req.param("id") },
+            error,
+            operation: "platform-notification-document-structure-update",
+            publicMessage: "更新飞书文档结构失败",
+          }),
+          500,
+        );
       }
     })
     .post("/:id/debug-preview", async (c) => {

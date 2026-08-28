@@ -1,9 +1,5 @@
 import { globalConfigSchema } from "@arc/shared/global-config";
-import {
-  createDefaultJobDescriptionStructuredConfig,
-  createDefaultResumeScreeningPolicy,
-  jobDescriptionFormSchema,
-} from "@arc/shared/job-descriptions";
+import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
 import { describe, expect, it } from "vitest";
 import {
   buildJobDescriptionCodeCandidates,
@@ -80,12 +76,9 @@ describe("job description code helpers", () => {
       allowCrossDepartmentInterviewers: false,
       code: " aur00az ",
       departmentId: "department-1",
-      description: "",
       interviewerIds: ["interviewer-1"],
       name: "前端工程师",
       prompt: "考察前端能力",
-      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-      structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     });
 
     expect(parsed.code).toBe("AUR00AZ");
@@ -96,12 +89,9 @@ describe("job description code helpers", () => {
       allowCrossDepartmentInterviewers: false,
       code: " hrd00az ",
       departmentId: "department-1",
-      description: "",
       interviewerIds: ["interviewer-1"],
       name: "前端工程师",
       prompt: "考察前端能力",
-      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-      structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     });
 
     expect(parsed.code).toBe("HRD00AZ");
@@ -113,12 +103,9 @@ describe("job description code helpers", () => {
         allowCrossDepartmentInterviewers: false,
         code: "AUR-26062215347",
         departmentId: "department-1",
-        description: "",
         interviewerIds: ["interviewer-1"],
         name: "前端工程师",
         prompt: "考察前端能力",
-        resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-        structuredConfig: createDefaultJobDescriptionStructuredConfig(),
       }),
     ).toThrow();
   });
@@ -129,12 +116,9 @@ describe("job description code helpers", () => {
         allowCrossDepartmentInterviewers: false,
         code: "AUR26062215347",
         departmentId: "department-1",
-        description: "",
         interviewerIds: ["interviewer-1"],
         name: "前端工程师",
         prompt: "考察前端能力",
-        resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-        structuredConfig: createDefaultJobDescriptionStructuredConfig(),
       }),
     ).toThrow();
   });

@@ -115,7 +115,7 @@ describe("platform notifications routes", () => {
     );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({ error: "Feishu unavailable" });
+    await expect(response.json()).resolves.toEqual({ error: "更新飞书文档结构失败" });
   });
 
   it("returns 500 when AI preview generation fails unexpectedly", async () => {
