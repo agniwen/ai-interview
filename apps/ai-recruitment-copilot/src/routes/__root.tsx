@@ -100,7 +100,20 @@ export const Route = createRootRouteWithContext<{
   component: RootComponent,
   head: ({ matches }) => ({
     links: [
-      { href: "/favicon.ico", rel: "icon" },
+      {
+        href: "/favicon-light.ico?v=3",
+        id: "favicon-light",
+        media: "(prefers-color-scheme: light)",
+        rel: "icon",
+        type: "image/x-icon",
+      },
+      {
+        href: "/favicon-dark.ico?v=3",
+        id: "favicon-dark",
+        media: "(prefers-color-scheme: dark)",
+        rel: "icon",
+        type: "image/x-icon",
+      },
       {
         crossOrigin: "anonymous",
         href: "https://cdn.jsdelivr.net",

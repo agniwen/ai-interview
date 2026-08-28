@@ -49,7 +49,7 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
 
   electronApp.setAppUserModelId("com.arc.ai-recruitment-copilot-desktop");
-  if (process.platform === "darwin") {
+  if (process.platform === "darwin" && !app.isPackaged) {
     app.dock?.setIcon(macIcon);
   }
 

@@ -18,7 +18,7 @@ extraResources:
       - "**/migration.sql"
 win:
   executableName: arc-desktop
-  icon: icon.ico
+  icon: icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
