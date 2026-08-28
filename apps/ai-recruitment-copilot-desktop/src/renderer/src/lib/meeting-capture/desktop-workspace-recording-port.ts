@@ -2,6 +2,8 @@
 import type { WorkspaceRecordingPort } from "../../../../preload/meeting-capture";
 import type { MeetingCaptureApi } from "../../../../preload/meeting-capture-api";
 import type {
+  CreateMultipartSavedMeetingInput,
+  CreateSmallSavedMeetingInput,
   MultipartSavedMeetingResponse,
   SmallSavedMeetingResponse,
 } from "@arc/shared/meeting-recording";
@@ -19,6 +21,30 @@ const permanentPurgeConflictSchema = z.object({ code: z.literal("meeting-purged"
 
 function isPermanentPurgeConflict(error: ApiError): boolean {
   return permanentPurgeConflictSchema.safeParse(error.payload).success;
+}
+
+function serializeWorkspaceSaveDescriptor(
+  descriptor: CreateMultipartSavedMeetingInput | CreateSmallSavedMeetingInput,
+): string {
+  const draft = descriptor.liveTranscriptDraft;
+  if (!draft) {
+    return JSON.stringify(descriptor);
+  }
+  return JSON.stringify({
+    ...descriptor,
+    liveTranscriptDraft: {
+      ...draft,
+      turns: draft.turns.map((turn) => ({
+        correctionModel: turn.correctionModel,
+        final: turn.final,
+        id: turn.id,
+        originalText: turn.originalText,
+        sectionId: turn.sectionId,
+        text: turn.text,
+        track: turn.track,
+      })),
+    },
+  });
 }
 
 /**
@@ -103,7 +129,7 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
           `${meetingsUrl}/multipart`,
           "创建可恢复会议保存任务失败",
           {
-            body: JSON.stringify(multipartDescriptor),
+            body: serializeWorkspaceSaveDescriptor(multipartDescriptor),
             headers: { "Content-Type": "application/json" },
             method: "POST",
           },
@@ -113,7 +139,7 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
           meetingsUrl,
           "创建会议保存任务失败",
           {
-            body: JSON.stringify(descriptor),
+            body: serializeWorkspaceSaveDescriptor(descriptor),
             headers: { "Content-Type": "application/json" },
             method: "POST",
           },

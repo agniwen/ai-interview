@@ -119,4 +119,74 @@ describe("DesktopWorkspaceRecordingPort", () => {
     ).rejects.toThrow("本地恢复副本也已删除");
     expect(discard).toHaveBeenCalledWith("capture-84");
   });
+
+  it("omits local word timing metadata from the workspace save request", async () => {
+    const meetingCapture = {
+      describeMultipartWorkspaceSave: vi.fn(),
+      describeWorkspaceSave: vi.fn().mockResolvedValue({
+        assets: [],
+        id: "capture-86",
+        liveTranscriptDraft: {
+          capturedAt: "2026-08-28T03:00:00.000Z",
+          droppedAudioMs: 0,
+          droppedPcmFrames: 0,
+          error: null,
+          sections: [
+            {
+              id: "section-1",
+              sequence: 0,
+              startedAt: "2026-08-28T02:59:58.000Z",
+              track: "microphone",
+            },
+          ],
+          turns: [
+            {
+              correctionModel: "qwen-plus",
+              endMs: 920,
+              final: true,
+              id: "turn-1",
+              originalText: "我们开始把。",
+              sectionId: "section-1",
+              startMs: 170,
+              text: "我们开始吧。",
+              track: "microphone",
+              words: [
+                {
+                  endMs: 295,
+                  punctuation: "",
+                  startMs: 170,
+                  text: "我们",
+                },
+              ],
+            },
+          ],
+        },
+        manifestSha256: "a".repeat(64),
+      }),
+      discard: vi.fn(),
+      uploadMultipart: vi.fn(),
+      uploadSmall: vi.fn(),
+    } satisfies DesktopWorkspaceRecordingPortDependencies["meetingCapture"];
+    apiJsonMock.mockResolvedValue({
+      recoveryCopyDeleteAfter: "2026-08-29T03:00:00.000Z",
+      state: "workspace-verified",
+    });
+
+    await new DesktopWorkspaceRecordingPort(createDependencies(meetingCapture)).persist({
+      captureId: "capture-86",
+      manifestSha256: "a".repeat(64),
+      report: vi.fn(),
+    });
+
+    const body = JSON.parse(String(apiJsonMock.mock.calls[0]?.[2]?.body));
+    expect(body.liveTranscriptDraft.turns[0]).toEqual({
+      correctionModel: "qwen-plus",
+      final: true,
+      id: "turn-1",
+      originalText: "我们开始把。",
+      sectionId: "section-1",
+      text: "我们开始吧。",
+      track: "microphone",
+    });
+  });
 });
