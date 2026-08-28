@@ -212,6 +212,44 @@ describe("Qwen ASR Meeting transcription provider", () => {
     expect(JSON.stringify(submitBody)).not.toContain("diarization");
   });
 
+  it("enables supported speaker diarization only for the remote system track on Qwen Audio 3", async () => {
+    const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
+      if (String(url).includes("/services/audio/asr/transcription")) {
+        return Promise.resolve(
+          jsonResponse({ output: { task_id: "task-audio-3", task_status: "PENDING" } }),
+        );
+      }
+      if (String(url).includes("/api/v1/tasks/")) {
+        return Promise.resolve(
+          jsonResponse({
+            output: {
+              result: {
+                transcription_url:
+                  "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+              },
+              task_status: "SUCCEEDED",
+            },
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(transcriptionResult()));
+    });
+
+    await createProvider({
+      fetch: submit,
+      model: "qwen-audio-3.0-asr-flash-filetrans",
+      track: "system",
+    });
+
+    const [submitCall] = submit.mock.calls;
+    const submitBody = JSON.parse(String(submitCall?.[1]?.body));
+    expect(submitBody.parameters).toMatchObject({
+      channel_id: [0],
+      diarization_enabled: true,
+      enable_itn: true,
+    });
+  });
+
   it("surfaces provider quota exhaustion", async () => {
     const fetch = vi.fn(() => Promise.resolve(jsonResponse({}, 429)));
     await expect(createProvider({ fetch })).rejects.toBeInstanceOf(MeetingProviderQuotaError);

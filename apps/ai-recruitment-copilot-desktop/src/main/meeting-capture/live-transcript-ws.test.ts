@@ -169,19 +169,25 @@ describe("connectDashScopeRealtimeWs", () => {
       },
     });
     expect(connection.takeCorrectionAudio?.("0", "实时")).toBeNull();
-    connection.sendCorrectionContext?.(["校正后的术语"]);
-    expect(JSON.parse(String(instance.sent.at(-1)))).toMatchObject({
-      header: { action: "continue-task" },
-      payload: { input: { context: [{ content: [{ text: "校正后的术语" }] }] } },
-    });
+    connection.sendCorrectionContext?.([{ key: "item:0", text: "校正后的术语" }]);
+    const updatedContext = JSON.parse(String(instance.sent.at(-1)));
+    expect(updatedContext.header).toMatchObject({ action: "continue-task" });
+    expect(
+      updatedContext.payload.input.context.map(
+        (message: { content: { text: string }[] }) => message.content[0]?.text,
+      ),
+    ).toEqual(["校正后的术语"]);
     connection.close();
   });
 
   it("starts the new task protocol before sending binary PCM and normalizes timed sentences", () => {
     const { connection, dependencies, instance } = createConnection({
       baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+      context: ["候选人张三，应聘前端工程师，重点讨论 React 和 TanStack。"],
       language: "zh",
       model: "qwen-audio-3.0-asr-flash-streaming",
+      speechNoiseThreshold: 0.1,
+      vocabulary: { React: 4, TanStack: 4, 张三: 4 },
     });
     instance.onopen?.();
     const run = JSON.parse(String(instance.sent[0]));
@@ -189,10 +195,32 @@ describe("connectDashScopeRealtimeWs", () => {
     expect(run).toMatchObject({
       header: { action: "run-task", streaming: "duplex" },
       payload: {
+        input: {
+          context: [
+            {
+              content: [
+                {
+                  text: "候选人张三，应聘前端工程师，重点讨论 React 和 TanStack。",
+                  type: "input_text",
+                },
+              ],
+              role: "user",
+            },
+          ],
+        },
         model: "qwen-audio-3.0-asr-flash-streaming",
-        parameters: { format: "pcm", heartbeat: true, language_hints: ["zh"], sample_rate: 16_000 },
+        parameters: {
+          format: "pcm",
+          heartbeat: true,
+          language_hints: ["zh"],
+          sample_rate: 16_000,
+          semantic_punctuation_enabled: true,
+          speech_noise_threshold: 0.1,
+          vocabulary: { React: 4, TanStack: 4, 张三: 4 },
+        },
       },
     });
+    expect(run.payload.parameters).not.toHaveProperty("max_sentence_silence");
     const emit = (event: string, payload = {}) =>
       instance.onmessage?.(
         JSON.stringify({ header: { event, task_id: run.header.task_id }, payload }),
@@ -223,6 +251,10 @@ describe("connectDashScopeRealtimeWs", () => {
           sentence_end: true,
           sentence_id: 1,
           text: "你好。",
+          words: [
+            { begin_time: 0, end_time: 4, punctuation: "", text: "你" },
+            { begin_time: 4, end_time: 10, punctuation: "。", text: "好" },
+          ],
         },
       },
     });
@@ -232,9 +264,15 @@ describe("connectDashScopeRealtimeWs", () => {
       type: "conversation.item.input_audio_transcription.text",
     });
     expect(dependencies.onEvent).toHaveBeenCalledWith({
+      end_ms: 10,
       item_id: "1",
+      start_ms: 0,
       transcript: "你好。",
       type: "conversation.item.input_audio_transcription.completed",
+      words: [
+        { end_ms: 4, punctuation: "", start_ms: 0, text: "你" },
+        { end_ms: 10, punctuation: "。", start_ms: 4, text: "好" },
+      ],
     });
     emit("task-failed");
     expect(dependencies.onClose).toHaveBeenCalledWith("provider-error:task-failed");

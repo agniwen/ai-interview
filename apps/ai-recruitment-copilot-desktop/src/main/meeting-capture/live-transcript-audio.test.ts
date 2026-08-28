@@ -9,6 +9,10 @@ describe("correction audio ring", () => {
     expect(audio.take("1", "原文")).toBeNull();
     audio.complete({ endMs: 1500, itemId: "1", startMs: 500, text: "原文" });
     expect(audio.take("1", "旧文")).toBeNull();
+    expect(audio.peek("1", "原文")).toEqual(
+      Buffer.concat([Buffer.alloc(16_000, 1), Buffer.alloc(16_000, 2)]),
+    );
+    expect(audio.peekRecent(500)).toEqual(Buffer.alloc(16_000, 2));
     expect(audio.take("1", "原文")).toEqual(
       Buffer.concat([Buffer.alloc(16_000, 1), Buffer.alloc(16_000, 2)]),
     );

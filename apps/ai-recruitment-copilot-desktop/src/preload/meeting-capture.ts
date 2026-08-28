@@ -1,5 +1,8 @@
 // oxlint-disable max-lines, promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type {
+  MeetingLiveTranscriptDraft,
+  MeetingLiveTranscriptHints,
+} from "@arc/shared/meeting-transcription";
 import type { LocalMeetingSession } from "./local-meeting-session";
 
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
@@ -124,12 +127,17 @@ export interface CaptureSink {
 
 export interface PreparedCapture {
   dispose: () => Promise<void>;
+  flushLiveTranscriptDraft?: () => Promise<void>;
   getLiveTranscriptDraft?: () => MeetingLiveTranscriptDraft | null;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   start: (
     sink: CaptureSink,
-    input: { captureId: string; initialLiveTranscriptDraft?: MeetingLiveTranscriptDraft | null },
+    input: {
+      captureId: string;
+      initialLiveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
+      liveTranscriptHints?: MeetingLiveTranscriptHints;
+    },
   ) => Promise<void>;
   stop: () => Promise<void>;
   trackContentTypes: Record<CaptureTrack, string>;
@@ -182,6 +190,7 @@ export interface MeetingRecordingStore {
 }
 
 export interface StartMeetingCaptureInput {
+  liveTranscriptHints?: MeetingLiveTranscriptHints;
   recruitingRecordId?: string | null;
 }
 
@@ -685,7 +694,7 @@ export function createMeetingCapture({
         videoTracksPersisted: 0,
       };
       patch({ active });
-      await acquired.start(sink, { captureId });
+      await acquired.start(sink, { captureId, liveTranscriptHints: input.liveTranscriptHints });
       patch({ phase: "active" });
       console.info("[meeting-capture-renderer] recording active", {
         captureId,
@@ -931,6 +940,7 @@ export function createMeetingCapture({
     savePromise = (async () => {
       try {
         const saveStartedAt = Date.now();
+        await capture.flushLiveTranscriptDraft?.();
         const liveTranscriptDraft =
           input.liveTranscriptDraft === undefined
             ? (capture.getLiveTranscriptDraft?.() ?? null)

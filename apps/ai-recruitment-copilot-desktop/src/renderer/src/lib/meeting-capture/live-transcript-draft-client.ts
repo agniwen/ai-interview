@@ -26,7 +26,15 @@ export const meetingLiveTranscriptDraft = createLiveTranscriptDraft({
     if (!workspace) {
       throw new Error("当前没有可用 Workspace");
     }
-    return createMeetingLiveTranscriptAuthorization(workspace.slug, input);
+    const authorization = await createMeetingLiveTranscriptAuthorization(workspace.slug, {
+      captureId: input.captureId,
+      track: input.track,
+    });
+    return {
+      ...authorization,
+      context: input.hints?.context,
+      vocabulary: input.hints?.vocabulary,
+    };
   },
   connect: connectQwenRealtimeTranscription,
   createPcmTap: createBrowserPcmSidecar,

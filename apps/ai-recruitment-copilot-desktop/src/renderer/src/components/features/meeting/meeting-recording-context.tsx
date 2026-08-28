@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { meetingCapture } from "@/lib/meeting-capture";
-import { meetingLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft-client";
+import { createMeetingLiveTranscriptHints } from "@/lib/meeting-capture/meeting-live-transcript-hints";
 import { createDurableLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft";
 import { desktopMeetingKeys, requestRecordingTitle } from "@/lib/client/meetings";
 import { resolveActiveWorkspace } from "@/lib/client/workspace";
@@ -47,7 +47,10 @@ interface MeetingRecordingContextValue {
   requestDiscard: (captureId?: string, includeSaved?: boolean) => void;
   resumeRecording: () => Promise<void>;
   saveRecording: (captureId?: string) => Promise<void>;
-  startRecording: (recruitingRecordId: string | null) => Promise<{ captureId: string }>;
+  startRecording: (input: {
+    recruitingRecord: ResumeLibraryListRecord | null;
+    recruitingRecordId: string | null;
+  }) => Promise<{ captureId: string }>;
 }
 
 const MeetingRecordingContext = createContext<MeetingRecordingContextValue | null>(null);
@@ -281,11 +284,22 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     [navigate, setPreselectedResumeRecord],
   );
 
-  const startRecording = useCallback(async (recruitingRecordId: string | null) => {
-    const result = await meetingCapture.start({ recruitingRecordId });
-    toast.success("录制已开始，断网不会中断本地录音");
-    return result;
-  }, []);
+  const startRecording = useCallback(
+    async (input: {
+      recruitingRecord: ResumeLibraryListRecord | null;
+      recruitingRecordId: string | null;
+    }) => {
+      const result = await meetingCapture.start({
+        liveTranscriptHints: input.recruitingRecord
+          ? createMeetingLiveTranscriptHints(input.recruitingRecord)
+          : undefined,
+        recruitingRecordId: input.recruitingRecordId,
+      });
+      toast.success("录制已开始，断网不会中断本地录音");
+      return result;
+    },
+    [],
+  );
 
   const continueInterruptedRecording = useCallback(async (captureId: string) => {
     try {
@@ -298,11 +312,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
-      const durableDraft = createDurableLiveTranscriptDraft(
-        meetingLiveTranscriptDraft.getSnapshot(),
-        captureId,
-      );
-      await meetingCapture.save({ captureId, liveTranscriptDraft: durableDraft });
+      await meetingCapture.save({ captureId });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存本地录音失败");

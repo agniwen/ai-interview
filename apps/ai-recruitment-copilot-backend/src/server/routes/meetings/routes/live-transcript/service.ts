@@ -37,6 +37,14 @@ const defaultDependencies: WorkspaceMeetingLiveTranscriptAuthorizationDependenci
   resolveQwenBaseUrl: resolveMeetingTranscriptionQwenBaseUrl,
 };
 
+function optionalSpeechNoiseThreshold(raw: string | undefined): number | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= -1 && value <= 1 ? value : undefined;
+}
+
 function issueLiveTranscriptLeaseAuthorization(
   input: {
     captureId: string;
@@ -87,6 +95,9 @@ export function createWorkspaceMeetingLiveTranscriptAuthorization(
         {
           captureId: input.captureId,
           language: process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_LANGUAGE?.trim() || undefined,
+          speechNoiseThreshold: optionalSpeechNoiseThreshold(
+            process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD,
+          ),
           track: input.track,
         },
         {

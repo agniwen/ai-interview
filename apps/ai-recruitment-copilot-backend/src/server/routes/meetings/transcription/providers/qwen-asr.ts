@@ -89,6 +89,12 @@ const transcriptionResultSchema = z
 const DEFAULT_POLL_INTERVAL_MS = 5000;
 const DEFAULT_POLL_TIMEOUT_MS = 1_500_000;
 
+interface QwenAsrTaskParameters {
+  channel_id: number[];
+  diarization_enabled?: boolean;
+  enable_itn: boolean;
+}
+
 interface QwenAsrMeetingTranscriptionDependencies {
   apiKey: string;
   baseUrl?: string;
@@ -150,14 +156,21 @@ export function createQwenAsrMeetingTranscriptionProvider(
     chunk: FinalTranscriptionAudioChunk;
     signal: AbortSignal;
   }): Promise<string> {
+    const parameters: QwenAsrTaskParameters = {
+      channel_id: [0],
+      enable_itn: true,
+    };
+    if (
+      dependencies.model.startsWith("qwen-audio-3.0-asr-flash-filetrans") &&
+      input.chunk.track === "system"
+    ) {
+      parameters.diarization_enabled = true;
+    }
     const response = await fetch(`${origin}/api/v1/services/audio/asr/transcription`, {
       body: JSON.stringify({
         input: { file_url: input.audioUrl },
         model: dependencies.model,
-        parameters: {
-          channel_id: [0],
-          enable_itn: true,
-        },
+        parameters,
       }),
       headers: authHeaders(),
       method: "POST",

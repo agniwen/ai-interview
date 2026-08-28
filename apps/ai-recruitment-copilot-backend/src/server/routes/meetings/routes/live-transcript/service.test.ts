@@ -29,6 +29,7 @@ describe("createWorkspaceMeetingLiveTranscriptAuthorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.ALIBABA_API_KEY = "sk-test";
+    delete process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD;
     mocks.claimLease.mockResolvedValue("created");
     mocks.createQwenAuthorization.mockResolvedValue({
       baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
@@ -70,6 +71,24 @@ describe("createWorkspaceMeetingLiveTranscriptAuthorization", () => {
 
     expect(authorization).toBe("unavailable");
     expect(mocks.createQwenAuthorization).not.toHaveBeenCalled();
+  });
+
+  it("passes a validated optional speech/noise threshold into the short-lived authorization", async () => {
+    process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD = "0.1";
+
+    await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput, dependencies);
+
+    expect(mocks.createQwenAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({ speechNoiseThreshold: 0.1 }),
+      expect.anything(),
+    );
+
+    process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD = "9";
+    await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput, dependencies);
+    expect(mocks.createQwenAuthorization).toHaveBeenLastCalledWith(
+      expect.objectContaining({ speechNoiseThreshold: undefined }),
+      expect.anything(),
+    );
   });
 
   it("releases the track lease when the provider mint fails", async () => {

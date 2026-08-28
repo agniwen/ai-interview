@@ -161,6 +161,27 @@ describe("Meeting transcription contracts", () => {
     };
 
     expect(meetingLiveTranscriptDraftSchema.safeParse(draft).success).toBe(true);
+    const timedDraft = meetingLiveTranscriptDraftSchema.parse({
+      ...draft,
+      turns: [
+        {
+          ...draft.turns[0],
+          endMs: 920,
+          startMs: 170,
+          words: [
+            { endMs: 295, punctuation: "，", startMs: 170, text: "好" },
+            { endMs: 920, punctuation: "", startMs: 711, text: "了" },
+          ],
+        },
+      ],
+    });
+    expect(timedDraft.turns[0]).toMatchObject({ endMs: 920, startMs: 170 });
+    expect(timedDraft.turns[0]?.words?.[0]).toEqual({
+      endMs: 295,
+      punctuation: "，",
+      startMs: 170,
+      text: "好",
+    });
     expect(
       meetingLiveTranscriptDraftSchema.safeParse({
         ...draft,

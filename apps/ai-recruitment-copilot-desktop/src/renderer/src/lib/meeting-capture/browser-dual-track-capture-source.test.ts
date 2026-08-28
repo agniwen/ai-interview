@@ -4,6 +4,8 @@ import { BrowserDualTrackCaptureSource } from "./browser-dual-track-capture-sour
 
 interface FakeMediaTrack {
   addEventListener: (type: string, listener: () => void) => void;
+  applyConstraints?: (constraints: MediaTrackConstraints) => Promise<void>;
+  clone?: () => FakeMediaTrack;
   stop: () => void;
 }
 
@@ -144,6 +146,9 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
       stop: vi.fn(),
     });
     const microphoneTrack = createAudioTrack();
+    const processedMicrophoneTrack = createAudioTrack();
+    processedMicrophoneTrack.applyConstraints = vi.fn(() => Promise.resolve());
+    microphoneTrack.clone = () => processedMicrophoneTrack;
     const systemTrack = createAudioTrack();
     stubMediaDevices({
       display: Promise.resolve({
@@ -180,6 +185,7 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     );
     vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(15_000);
     const sidecar = {
+      flushCorrections: vi.fn(() => Promise.resolve()),
       pause: vi.fn(),
       resume: vi.fn(),
       start: vi.fn().mockRejectedValue(new Error("provider disconnected")),
@@ -207,6 +213,7 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
 
     await prepared.pause();
     expect(recorders.map((recorder) => recorder.state)).toEqual(["paused", "paused"]);
+    expect(sidecar.flushCorrections).toHaveBeenCalledOnce();
     expect(sidecar.pause).toHaveBeenCalledOnce();
 
     await prepared.resume();
@@ -214,6 +221,16 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     expect(sidecar.resume).toHaveBeenCalledOnce();
 
     expect(failure).not.toHaveBeenCalled();
+    expect(processedMicrophoneTrack.applyConstraints).toHaveBeenCalledWith({
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: true,
+    });
+    expect(sidecar.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tracks: { microphone: processedMicrophoneTrack, system: systemTrack },
+      }),
+    );
     expect(sidecar.start).toHaveBeenCalledOnce();
   });
 });

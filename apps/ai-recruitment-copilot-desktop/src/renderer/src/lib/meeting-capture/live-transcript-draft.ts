@@ -1,9 +1,11 @@
-// oxlint-disable promise/prefer-await-to-callbacks -- Reconnect scheduling is callback-based by design.
+// oxlint-disable max-lines, promise/avoid-new, promise/prefer-await-to-callbacks -- This cohesive state machine exceeds the generic line limit; provider completion and reconnect scheduling are callback-based by design.
 import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
 import type {
   MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
+  MeetingLiveTranscriptHints,
   MeetingLiveTranscriptTrack,
+  MeetingLiveTranscriptWord,
 } from "@arc/shared/meeting-transcription";
 import {
   appendLiveTranscriptTurn,
@@ -51,8 +53,10 @@ export interface LiveTranscriptConnection {
 
 export interface LiveTranscriptEvent {
   correctionModel?: string;
+  endMs?: number;
   itemId: string;
   originalText?: string;
+  startMs?: number;
   text: string;
   type:
     | "completed"
@@ -61,6 +65,7 @@ export interface LiveTranscriptEvent {
     | "correction-finished"
     | "delta"
     | "snapshot";
+  words?: MeetingLiveTranscriptWord[];
 }
 
 export interface LiveTranscriptPcmTap {
@@ -71,6 +76,7 @@ interface LiveTranscriptDraftDependencies {
   authorizationFailureReason?: (error: Error) => "authorization" | "capacity";
   authorize: (input: {
     captureId: string;
+    hints?: MeetingLiveTranscriptHints;
     track: MeetingLiveTranscriptTrack;
   }) => Promise<MeetingLiveTranscriptAuthorization>;
   connect: (input: {
@@ -93,11 +99,13 @@ interface LiveTranscriptDraftDependencies {
   maxQueuedPcmBytesPerTrack?: number;
   maxReconnectAttempts?: number;
   maxReconnectDelayMs?: number;
+  correctionLookaheadMs?: number;
   random?: () => number;
   release?: (captureId: string) => Promise<void>;
   reconnectDelayMs?: number;
   scheduleReconnect?: (callback: () => void, delayMs: number) => () => void;
   scheduleLeaseHeartbeat?: (callback: () => void, delayMs: number) => () => void;
+  scheduleCorrectionLookahead?: (callback: () => void, delayMs: number) => () => void;
   shouldReconnect?: (error: Error) => boolean;
 }
 
@@ -125,6 +133,8 @@ const DEFAULT_MAX_DRAFT_TURNS = 500;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
+const DEFAULT_CORRECTION_LOOKAHEAD_MS = 1200;
+const DEFAULT_CORRECTION_FLUSH_TIMEOUT_MS = 5000;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
 const PCM_SAMPLE_RATE = 24_000;
@@ -259,9 +269,22 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   let snapshot = initialSnapshot();
   let sectionSequence = 0;
   let cancelLeaseHeartbeat: (() => void) | null = null;
+  let cancelCorrectionLookahead: (() => void) | null = null;
   let leaseHeartbeatFailures = 0;
+  let liveTranscriptHints: MeetingLiveTranscriptHints | undefined;
   let releasedLeaseCaptureId: string | null = null;
   let paused = false;
+  const correctionIdleWaiters = new Set<() => void>();
+
+  const notifyCorrectionIdle = (): void => {
+    if (!correctionBatches.isIdle()) {
+      return;
+    }
+    for (const resolve of correctionIdleWaiters) {
+      resolve();
+    }
+    correctionIdleWaiters.clear();
+  };
 
   const closeConnection = (runtime: TrackRuntime): void => {
     runtime.connection?.close();
@@ -276,6 +299,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
             : turn,
         ),
     };
+    notifyCorrectionIdle();
   };
 
   const releaseLeaseBestEffort = async (captureId: string): Promise<void> => {
@@ -356,11 +380,65 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     runtime.status = runtime.queue.audioMs >= BUFFERING_NOTICE_MS ? "buffering" : "live";
   };
 
+  function requestCorrections(force = false): void {
+    correctionBatches.request(
+      snapshot.turns,
+      runtimes,
+      (ids, correcting) => {
+        publish({
+          turns: snapshot.turns.map((turn) =>
+            ids.includes(turn.id) ? { ...turn, correcting } : turn,
+          ),
+        });
+      },
+      { force },
+    );
+  }
+
+  const scheduleTrailingCorrections = () => {
+    cancelCorrectionLookahead?.();
+    const schedule =
+      dependencies.scheduleCorrectionLookahead ??
+      ((callback: () => void, delayMs: number) => {
+        const timer = setTimeout(callback, delayMs);
+        return () => clearTimeout(timer);
+      });
+    cancelCorrectionLookahead = schedule(() => {
+      cancelCorrectionLookahead = null;
+      requestCorrections(true);
+    }, dependencies.correctionLookaheadMs ?? DEFAULT_CORRECTION_LOOKAHEAD_MS);
+  };
+
+  const flushCorrections = async (): Promise<void> => {
+    cancelCorrectionLookahead?.();
+    cancelCorrectionLookahead = null;
+    requestCorrections(true);
+    if (correctionBatches.isIdle()) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        correctionIdleWaiters.delete(finish);
+        resolve();
+      };
+      setTimeout(finish, DEFAULT_CORRECTION_FLUSH_TIMEOUT_MS);
+      correctionIdleWaiters.add(finish);
+    });
+  };
+
   const stop = (): void => {
     const releasedCaptureId = snapshot.captureId;
     cancelLeaseHeartbeat?.();
     cancelLeaseHeartbeat = null;
+    cancelCorrectionLookahead?.();
+    cancelCorrectionLookahead = null;
     leaseHeartbeatFailures = 0;
+    liveTranscriptHints = undefined;
     paused = false;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
@@ -378,6 +456,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     }
     sectionSequence = 0;
     correctionBatches.clear();
+    notifyCorrectionIdle();
     snapshot = initialSnapshot();
     publish();
     if (releasedCaptureId) {
@@ -466,15 +545,6 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     }, delayMs);
   }
 
-  const requestCorrections = () =>
-    correctionBatches.request(snapshot.turns, runtimes, (ids, correcting) => {
-      publish({
-        turns: snapshot.turns.map((turn) =>
-          ids.includes(turn.id) ? { ...turn, correcting } : turn,
-        ),
-      });
-    });
-
   const appendTranscript = (
     track: MeetingLiveTranscriptTrack,
     sectionId: string,
@@ -487,6 +557,9 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     const maxTurns = dependencies.maxDraftTurns ?? DEFAULT_MAX_DRAFT_TURNS;
     publish({ turns: turns.slice(-maxTurns) });
     if (event.type === "completed") {
+      requestCorrections();
+      scheduleTrailingCorrections();
+    } else if (event.type === "snapshot" || event.type === "delta") {
       requestCorrections();
     }
   };
@@ -567,7 +640,11 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     };
 
     try {
-      const authorization = await dependencies.authorize({ captureId, track });
+      const authorization = await dependencies.authorize({
+        captureId,
+        hints: liveTranscriptHints,
+        track,
+      });
       if (runtime.generation !== generation || snapshot.captureId !== captureId) {
         if (snapshot.captureId !== captureId) {
           void releaseLeaseBestEffort(captureId);
@@ -582,6 +659,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
         onCorrection: (event) => {
           if (runtime.generation === generation && runtime.sectionId === sectionId) {
             publish({ turns: correctionBatches.apply(snapshot.turns, event) });
+            notifyCorrectionIdle();
           }
         },
         onDisconnect: (reason) => interrupt(reason),
@@ -656,11 +734,14 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   const start = async (input: {
     captureId: string;
     initialDraft?: MeetingLiveTranscriptDraft | null;
+    liveTranscriptHints?: MeetingLiveTranscriptHints;
     tracks: Record<MeetingLiveTranscriptTrack, MediaStreamTrack>;
   }): Promise<void> => {
     stop();
     paused = false;
     releasedLeaseCaptureId = null;
+    const { liveTranscriptHints: hints } = input;
+    liveTranscriptHints = hints;
     const initial = initialSnapshot();
     const seededSections = input.initialDraft?.sections ?? [];
     snapshot = {
@@ -718,6 +799,8 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     paused = true;
     cancelLeaseHeartbeat?.();
     cancelLeaseHeartbeat = null;
+    cancelCorrectionLookahead?.();
+    cancelCorrectionLookahead = null;
     leaseHeartbeatFailures = 0;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
@@ -782,6 +865,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   };
 
   return {
+    flushCorrections,
     getSnapshot: () => snapshot,
     observe: (listener: (next: LiveTranscriptDraftSnapshot) => void) => {
       listeners.add(listener);

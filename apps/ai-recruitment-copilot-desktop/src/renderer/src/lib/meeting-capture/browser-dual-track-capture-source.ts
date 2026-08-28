@@ -1,6 +1,9 @@
 // oxlint-disable class-methods-use-this, promise/avoid-new, promise/prefer-await-to-callbacks, promise/prefer-await-to-then -- MediaRecorder and MediaStreamTrack are event APIs; their stop/fragment events are explicitly bridged to promises and an ordered write chain.
 import { CAPTURE_FRAGMENT_DURATION_MS } from "../../../../preload/meeting-capture";
-import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+import type {
+  MeetingLiveTranscriptDraft,
+  MeetingLiveTranscriptHints,
+} from "@arc/shared/meeting-transcription";
 import type {
   CaptureSink,
   CaptureTrack,
@@ -53,10 +56,12 @@ interface RecorderState {
 }
 
 export interface MeetingLiveTranscriptSidecar {
+  flushCorrections?: () => Promise<void>;
   getSnapshot?: () => LiveTranscriptDraftSnapshot;
   start: (input: {
     captureId: string;
     initialDraft?: MeetingLiveTranscriptDraft | null;
+    liveTranscriptHints?: MeetingLiveTranscriptHints;
     tracks: Record<CaptureTrack, MediaStreamTrack>;
   }) => Promise<void>;
   pause?: () => void;
@@ -123,6 +128,23 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         throw new Error("系统音频没有返回可录制音轨，请检查屏幕与系统音频权限和输出路由");
       }
 
+      let transcriptMicrophoneTrack = microphoneTrack;
+      let processedTrack: MediaStreamTrack | null = null;
+      if (this.liveTranscriptSidecar) {
+        try {
+          processedTrack = microphoneTrack.clone();
+          await processedTrack.applyConstraints({
+            autoGainControl: true,
+            echoCancellation: true,
+            noiseSuppression: true,
+          });
+          transcriptMicrophoneTrack = processedTrack;
+        } catch {
+          processedTrack?.stop();
+          // Live ASR processing is best effort. The authoritative raw recording must still start.
+        }
+      }
+
       const mimeType = chooseMimeType();
       const recorders: RecorderState[] = [];
       const monitors: (() => Promise<void>)[] = [];
@@ -161,22 +183,27 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         if (displayStream) {
           stopStream(displayStream);
         }
+        if (transcriptMicrophoneTrack !== microphoneTrack) {
+          transcriptMicrophoneTrack.stop();
+        }
       };
 
       return {
         dispose,
+        flushLiveTranscriptDraft: () =>
+          this.liveTranscriptSidecar?.flushCorrections?.() ?? Promise.resolve(),
         getLiveTranscriptDraft: () => {
           const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
           return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
         },
-        pause: () => {
+        pause: async () => {
           for (const { recorder } of recorders) {
             if (recorder.state === "recording") {
               recorder.pause();
             }
           }
+          await this.liveTranscriptSidecar?.flushCorrections?.();
           this.liveTranscriptSidecar?.pause?.();
-          return Promise.resolve();
         },
         resume: async () => {
           for (const { recorder } of recorders) {
@@ -191,6 +218,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           input: {
             captureId: string;
             initialLiveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
+            liveTranscriptHints?: MeetingLiveTranscriptHints;
           },
         ) => {
           const startedAt = performance.now();
@@ -312,7 +340,8 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
             ?.start({
               captureId: input.captureId,
               initialDraft: input.initialLiveTranscriptDraft,
-              tracks: { microphone: microphoneTrack, system: systemTrack },
+              liveTranscriptHints: input.liveTranscriptHints,
+              tracks: { microphone: transcriptMicrophoneTrack, system: systemTrack },
             })
             .catch(() => {
               // Live Transcript Draft is explicitly non-authoritative and must not fail recording.
@@ -327,6 +356,9 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
             if (recorder.state !== "inactive") {
               recorder.stop();
             }
+          }
+          if (transcriptMicrophoneTrack !== microphoneTrack) {
+            transcriptMicrophoneTrack.stop();
           }
           await Promise.all(stopped);
           await Promise.all(recorders.map(({ writeChain }) => writeChain));

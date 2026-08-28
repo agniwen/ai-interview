@@ -13,6 +13,30 @@ export function createLiveTranscriptAudio() {
   let totalBytes = 0;
   let closed = false;
   const completed = new Map<string, CorrectionSentence>();
+  const readBytes = (start: number, end: number): Buffer | null => {
+    if (start < Math.max(0, totalBytes - BUFFER_BYTES) || end > totalBytes || end <= start) {
+      return null;
+    }
+    const size = end - start;
+    const offset = start % BUFFER_BYTES;
+    const first = Math.min(size, BUFFER_BYTES - offset);
+    return Buffer.concat([
+      buffer.subarray(offset, offset + first),
+      buffer.subarray(0, size - first),
+    ]);
+  };
+  const read = (itemId: string, originalText: string, consume: boolean): Buffer | null => {
+    const sentence = completed.get(itemId);
+    if (closed || !sentence || sentence.text !== originalText) {
+      return null;
+    }
+    if (consume) {
+      completed.delete(itemId);
+    }
+    const start = Math.round((sentence.startMs * SAMPLE_RATE) / 1000) * 2;
+    const end = Math.round((sentence.endMs * SAMPLE_RATE) / 1000) * 2;
+    return readBytes(start, end);
+  };
   return {
     appendPcm: (bytes: Uint8Array) => {
       if (closed) {
@@ -47,24 +71,15 @@ export function createLiveTranscriptAudio() {
         }
       }
     },
-    take: (itemId: string, originalText: string): Buffer | null => {
-      const sentence = completed.get(itemId);
-      if (closed || !sentence || sentence.text !== originalText) {
+    peek: (itemId: string, originalText: string): Buffer | null =>
+      read(itemId, originalText, false),
+    peekRecent: (durationMs: number): Buffer | null => {
+      if (closed || !Number.isFinite(durationMs) || durationMs <= 0 || totalBytes <= 0) {
         return null;
       }
-      completed.delete(itemId);
-      const start = Math.round((sentence.startMs * SAMPLE_RATE) / 1000) * 2;
-      const end = Math.round((sentence.endMs * SAMPLE_RATE) / 1000) * 2;
-      if (start < Math.max(0, totalBytes - BUFFER_BYTES) || end > totalBytes || end <= start) {
-        return null;
-      }
-      const size = end - start;
-      const offset = start % BUFFER_BYTES;
-      const first = Math.min(size, BUFFER_BYTES - offset);
-      return Buffer.concat([
-        buffer.subarray(offset, offset + first),
-        buffer.subarray(0, size - first),
-      ]);
+      const size = Math.min(totalBytes, BUFFER_BYTES, Math.round(durationMs * 32));
+      return readBytes(totalBytes - size, totalBytes);
     },
+    take: (itemId: string, originalText: string): Buffer | null => read(itemId, originalText, true),
   };
 }

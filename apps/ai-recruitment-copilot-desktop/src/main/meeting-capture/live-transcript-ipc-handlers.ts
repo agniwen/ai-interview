@@ -2,6 +2,10 @@
 import type { JsonValue } from "@arc/db-schema/json";
 import { z } from "zod";
 import { liveCorrectionBatchSchema } from "@arc/shared/meeting-live-correction";
+import {
+  meetingLiveTranscriptContextSchema,
+  meetingLiveTranscriptVocabularySchema,
+} from "@arc/shared/meeting-transcription";
 import { createLiveTranscriptCorrectionSession } from "./live-transcript-correction-session";
 import type {
   DashScopeRealtimeWsConnection,
@@ -33,6 +37,7 @@ const liveTranscriptAuthorizationSchema = z.object({
   baseUrl: z.custom<string>(isWssAliyunUrl),
   captureId: z.string().min(1).max(256),
   clientSecret: z.string().min(1).max(TOKEN_MAX_LENGTH),
+  context: meetingLiveTranscriptContextSchema.optional(),
   expiresAt: z
     .string()
     .max(EXPIRES_AT_MAX_LENGTH)
@@ -41,7 +46,9 @@ const liveTranscriptAuthorizationSchema = z.object({
   model: z.string().max(128).regex(MODEL_PATTERN),
   provider: z.literal("qwen"),
   sectionId: z.string().min(1).max(512),
+  speechNoiseThreshold: z.number().min(-1).max(1).optional(),
   track: z.enum(["microphone", "system"]),
+  vocabulary: meetingLiveTranscriptVocabularySchema.optional(),
 });
 
 function isUint8Array(value: unknown): value is Uint8Array {
@@ -109,8 +116,18 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
       port.close();
       return;
     }
-    const { baseUrl, captureId, sectionId, clientSecret, language, model, track } =
-      parsedAuthorization.data;
+    const {
+      baseUrl,
+      captureId,
+      sectionId,
+      clientSecret,
+      context,
+      language,
+      model,
+      speechNoiseThreshold,
+      track,
+      vocabulary,
+    } = parsedAuthorization.data;
     let connection: DashScopeRealtimeWsConnection | null = null;
     let portClosed = false;
     const session =
@@ -141,6 +158,7 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
     };
     connection = dependencies.connect({
       baseUrl,
+      context,
       language,
       model,
       onClose: (reason) => {
@@ -181,7 +199,9 @@ export function registerLiveTranscriptIpcHandlers<Event extends LiveTranscriptIp
         }
         deliver({ event: providerEvent, type: "event" });
       },
+      speechNoiseThreshold,
       token: clientSecret,
+      vocabulary,
     });
     session.add({
       baseUrl,

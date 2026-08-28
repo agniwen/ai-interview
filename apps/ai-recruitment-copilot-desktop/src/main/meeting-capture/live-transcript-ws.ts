@@ -1,6 +1,6 @@
 // oxlint-disable promise/avoid-new -- Node ws exposes readiness only through event callbacks.
 import { randomUUID } from "node:crypto";
-import type { JsonValue } from "@arc/db-schema/json";
+import type { JsonObject, JsonValue } from "@arc/db-schema/json";
 import { WebSocket } from "ws";
 import { z } from "zod";
 import { transcriptContext } from "./live-transcript-correction";
@@ -14,21 +14,40 @@ const GRACEFUL_FINISH_TIMEOUT_MS = 1500;
 
 export interface DashScopeRealtimeWsConnection {
   close: () => void;
+  peekCorrectionAudio?: (itemId: string, originalText: string) => Buffer | null;
+  peekRecentCorrectionAudio?: (durationMs: number) => Buffer | null;
   takeCorrectionAudio?: (itemId: string, originalText: string) => Buffer | null;
-  sendCorrectionContext?: (texts: string[]) => void;
+  sendCorrectionContext?: (updates: { key: string; text: string | null }[]) => void;
   /** Returns false above the WebSocket high-water mark so the renderer's draft queue owns backpressure. */
   sendPcm: (bytes: Uint8Array) => boolean;
 }
 
 export interface DashScopeRealtimeWsDependencies {
   baseUrl: string;
+  context?: string[];
   language?: string;
   model: string;
   onClose?: (reason: string) => void;
   onDrain?: () => void;
   onEvent?: (event: JsonValue) => void;
+  speechNoiseThreshold?: number;
   token: string;
+  vocabulary?: Record<string, number>;
   webSocket?: RealtimeWebSocketConstructor;
+}
+
+interface DashScopeStreamingParameters extends JsonObject {
+  format: string;
+  heartbeat: boolean;
+  language_hints?: string[];
+  sample_rate: number;
+  semantic_punctuation_enabled: boolean;
+  speech_noise_threshold?: number;
+  vocabulary?: Record<string, number>;
+}
+
+interface DashScopeStreamingTaskInput extends JsonObject {
+  context?: ReturnType<typeof transcriptContext>;
 }
 
 interface RealtimeWebSocket {
@@ -77,6 +96,17 @@ const streamingEventSchema = z.object({
               sentence_end: z.boolean().optional(),
               sentence_id: z.number().int().nonnegative(),
               text: z.string().max(10_000),
+              words: z
+                .array(
+                  z.object({
+                    begin_time: z.number().int().nonnegative(),
+                    end_time: z.number().int().nonnegative(),
+                    punctuation: z.string().max(16).optional(),
+                    text: z.string().min(1).max(256),
+                  }),
+                )
+                .max(2000)
+                .optional(),
             })
             .optional(),
         })
@@ -116,6 +146,8 @@ export function connectDashScopeRealtimeWs(
   let sendCallbackErrorCount = 0;
   let drainTimer: ReturnType<typeof setInterval> | null = null;
   let finishTimer: ReturnType<typeof setTimeout> | undefined;
+  const stableContext = dependencies.context?.filter((text) => text.trim()).slice(0, 1) ?? [];
+  let recentContext: { key: string; text: string }[] = [];
   const correction = streaming ? createLiveTranscriptAudio() : null;
 
   const notifyClose = (reason: string) => {
@@ -161,6 +193,30 @@ export function connectDashScopeRealtimeWs(
     return sendText(JSON.stringify(payload));
   }
 
+  const sendStreamingContext = (updates: { key: string; text: string | null }[]) => {
+    if (closed || !taskStarted) {
+      return;
+    }
+    for (const update of updates) {
+      recentContext = recentContext.filter((entry) => entry.key !== update.key);
+      if (update.text?.trim()) {
+        recentContext.push({ key: update.key, text: update.text });
+      }
+    }
+    recentContext = recentContext.slice(-4);
+    sendJson({
+      header: { action: "continue-task", streaming: "duplex", task_id: taskId },
+      payload: {
+        input: {
+          context: transcriptContext([
+            ...stableContext,
+            ...recentContext.map((entry) => entry.text),
+          ]),
+        },
+      },
+    });
+  };
+
   const scheduleDrainPoll = () => {
     if (closed || !backpressured || drainTimer) {
       return;
@@ -199,22 +255,33 @@ export function connectDashScopeRealtimeWs(
       url: socket.url,
     });
     if (streaming) {
-      const parameters = {
+      const parameters: DashScopeStreamingParameters = {
         format: "pcm",
         heartbeat: true,
-        max_sentence_silence: 800,
         sample_rate: 16_000,
+        semantic_punctuation_enabled: true,
       };
+      if (dependencies.speechNoiseThreshold !== undefined) {
+        parameters.speech_noise_threshold = dependencies.speechNoiseThreshold;
+      }
+      if (dependencies.vocabulary && Object.keys(dependencies.vocabulary).length > 0) {
+        parameters.vocabulary = dependencies.vocabulary;
+      }
+      if (dependencies.language) {
+        parameters.language_hints = [dependencies.language];
+      }
+      const taskInput: DashScopeStreamingTaskInput = {};
+      if (dependencies.context?.length) {
+        taskInput.context = transcriptContext(dependencies.context);
+      }
       if (
         !sendJson({
           header: { action: "run-task", streaming: "duplex", task_id: taskId },
           payload: {
             function: "recognition",
-            input: {},
+            input: taskInput,
             model: dependencies.model,
-            parameters: dependencies.language
-              ? { ...parameters, language_hints: [dependencies.language] }
-              : parameters,
+            parameters,
             task: "asr",
             task_group: "audio",
           },
@@ -239,6 +306,7 @@ export function connectDashScopeRealtimeWs(
     sendJson({ event_id: randomUUID(), session, type: "session.update" });
   });
 
+  // oxlint-disable-next-line complexity -- DashScope exposes one tagged event stream; keeping dispatch in one guarded function makes terminal handling explicit.
   const handleStreamingEvent = (event: JsonValue) => {
     const parsed = streamingEventSchema.safeParse(event);
     if (!parsed.success || parsed.data.header.task_id !== taskId) {
@@ -270,9 +338,17 @@ export function connectDashScopeRealtimeWs(
       dependencies.onEvent?.(
         sentence.sentence_end
           ? {
+              end_ms: sentence.end_time,
               item_id: itemId,
+              start_ms: sentence.begin_time,
               transcript: sentence.text,
               type: "conversation.item.input_audio_transcription.completed",
+              words: (sentence.words ?? []).map((word) => ({
+                end_ms: word.end_time,
+                punctuation: word.punctuation ?? "",
+                start_ms: word.begin_time,
+                text: word.text,
+              })),
             }
           : {
               item_id: itemId,
@@ -280,6 +356,9 @@ export function connectDashScopeRealtimeWs(
               type: "conversation.item.input_audio_transcription.text",
             },
       );
+      if (sentence.sentence_end) {
+        sendStreamingContext([{ key: `item:${itemId}`, text: sentence.text }]);
+      }
     }
   };
 
@@ -339,16 +418,9 @@ export function connectDashScopeRealtimeWs(
       }
       notifyClose("closed-by-client");
     },
-    sendCorrectionContext: streaming
-      ? (texts) => {
-          if (!closed && taskStarted) {
-            sendJson({
-              header: { action: "continue-task", streaming: "duplex", task_id: taskId },
-              payload: { input: { context: transcriptContext(texts) } },
-            });
-          }
-        }
-      : undefined,
+    peekCorrectionAudio: streaming ? correction?.peek : undefined,
+    peekRecentCorrectionAudio: streaming ? correction?.peekRecent : undefined,
+    sendCorrectionContext: streaming ? (texts) => sendStreamingContext(texts) : undefined,
     sendPcm: (bytes) => {
       if (closed || !taskStarted || socket.readyState !== WebSocketImpl.OPEN) {
         return false;

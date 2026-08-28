@@ -40,6 +40,16 @@ export function createLiveTranscriptCorrectionSession(fetch?: typeof globalThis.
           ? (peer.connection.takeCorrectionAudio?.(block.itemId, block.originalText) ?? null)
           : null;
       });
+      const lookaheadPeer = batch.lookahead ? peers.get(batch.lookahead.sectionId) : undefined;
+      const lookaheadClip =
+        batch.lookahead && lookaheadPeer?.track === batch.lookahead.track
+          ? (lookaheadPeer.connection.peekCorrectionAudio?.(
+              batch.lookahead.itemId,
+              batch.lookahead.originalText,
+            ) ??
+            lookaheadPeer.connection.peekRecentCorrectionAudio?.(1500) ??
+            null)
+          : null;
       worker.correct({
         baseUrl: `https://${new URL(owner.baseUrl).host}`,
         batch,
@@ -63,9 +73,14 @@ export function createLiveTranscriptCorrectionSession(fetch?: typeof globalThis.
           };
         },
         language: owner.language,
+        lookaheadClip,
         onEvent: (event) => {
           if (event.status === "completed") {
             for (const block of event.blocks) {
+              if (block.text === null) {
+                history = history.filter((turn) => turn.id !== block.id);
+                continue;
+              }
               const found = history.find((turn) => turn.id === block.id);
               if (found) {
                 found.text = block.text.slice(0, 2000);
@@ -73,7 +88,24 @@ export function createLiveTranscriptCorrectionSession(fetch?: typeof globalThis.
               }
             }
             for (const peer of peers.values()) {
-              peer.connection.sendCorrectionContext?.(event.blocks.map((block) => block.text));
+              const updates = event.blocks.flatMap((block) => {
+                const source = batch.blocks.find((candidate) => candidate.id === block.id);
+                if (!source) {
+                  return [];
+                }
+                return [
+                  {
+                    key:
+                      source.sectionId === peer.sectionId
+                        ? `item:${source.itemId}`
+                        : `peer:${source.id}`,
+                    text: block.text,
+                  },
+                ];
+              });
+              if (updates.length) {
+                peer.connection.sendCorrectionContext?.(updates);
+              }
             }
           }
           owner.onCorrection(event);

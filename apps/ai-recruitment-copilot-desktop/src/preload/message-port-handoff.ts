@@ -1,4 +1,8 @@
-import { meetingLiveTranscriptTrackSchema } from "@arc/shared/meeting-transcription";
+import {
+  meetingLiveTranscriptContextSchema,
+  meetingLiveTranscriptTrackSchema,
+  meetingLiveTranscriptVocabularySchema,
+} from "@arc/shared/meeting-transcription";
 import type { LiveTranscriptPortAuthorization } from "@arc/shared/meeting-live-correction";
 import { z } from "zod";
 
@@ -9,12 +13,15 @@ const liveTranscriptClientMessageSchema = z
         baseUrl: z.string(),
         captureId: z.string().min(1).max(256),
         clientSecret: z.string(),
+        context: meetingLiveTranscriptContextSchema.optional(),
         expiresAt: z.string(),
         language: z.string().optional(),
         model: z.string(),
         provider: z.literal("qwen"),
         sectionId: z.string().min(1).max(512),
+        speechNoiseThreshold: z.number().min(-1).max(1).optional(),
         track: meetingLiveTranscriptTrackSchema,
+        vocabulary: meetingLiveTranscriptVocabularySchema.optional(),
       })
       .strict(),
     type: z.literal("start-meeting-live-transcript-client"),

@@ -31,7 +31,7 @@ export function createLiveTranscriptCorrectionBatches() {
       // Validate the whole batch before replacing any block. Late/manual/trimmed edits win.
       const canApply =
         event.status === "completed" &&
-        event.blocks.length === 3 &&
+        event.blocks.length === batch.blocks.length &&
         batch.blocks.every((block, index) => {
           const current = turns.find((turn) => turn.id === block.id);
           return (
@@ -44,17 +44,23 @@ export function createLiveTranscriptCorrectionBatches() {
       if (!canApply || event.status !== "completed") {
         return clearFlags(turns, ids);
       }
-      return turns.map((turn) => {
+      return turns.flatMap((turn) => {
         const corrected = event.blocks.find((block) => block.id === turn.id);
-        return corrected
-          ? {
-              ...turn,
-              correcting: false,
-              correctionModel: event.model,
-              originalText: turn.text,
-              text: corrected.text,
-            }
-          : turn;
+        if (!corrected) {
+          return [turn];
+        }
+        if (corrected.text === null) {
+          return [];
+        }
+        return [
+          {
+            ...turn,
+            correcting: false,
+            correctionModel: event.model,
+            originalText: turn.text,
+            text: corrected.text,
+          },
+        ];
       });
     },
     cancelSection: (turns: LiveTranscriptDraftTurn[], sectionId: string | null) => {
@@ -73,6 +79,7 @@ export function createLiveTranscriptCorrectionBatches() {
       requested.clear();
       pending.clear();
     },
+    isIdle: () => pending.size === 0,
     request: (
       turns: LiveTranscriptDraftTurn[],
       targets: Record<
@@ -80,6 +87,7 @@ export function createLiveTranscriptCorrectionBatches() {
         { connection: LiveTranscriptConnection | null; sectionId: string | null }
       >,
       onPending: (ids: string[], correcting: boolean) => void,
+      options: { force?: boolean } = {},
     ) => {
       const retainedIds = new Set(turns.map((turn) => turn.id));
       for (const id of requested) {
@@ -98,10 +106,24 @@ export function createLiveTranscriptCorrectionBatches() {
           target.connection?.correct
         );
       });
-      while (eligible.length >= 3) {
-        const selected = eligible.splice(0, 3);
+      while (eligible.length > 0) {
+        const selectedCount = Math.min(3, eligible.length);
+        if (!options.force && selectedCount < 3) {
+          break;
+        }
+        const selected = eligible.slice(0, selectedCount);
         const first = turns.indexOf(selected[0]);
-        const last = turns.indexOf(selected[2]);
+        const lastSelected = selected.at(-1);
+        if (!lastSelected) {
+          break;
+        }
+        const last = turns.indexOf(lastSelected);
+        const rightLookahead = turns.slice(last + 1).find((turn) => turn.text.trim().length > 0);
+        const hasRightLookahead = Boolean(rightLookahead);
+        if (!options.force && !hasRightLookahead) {
+          break;
+        }
+        eligible.splice(0, selectedCount);
         const batch: LiveCorrectionBatch = {
           batchId: crypto.randomUUID(),
           blocks: selected.map((turn) => ({
@@ -118,6 +140,15 @@ export function createLiveTranscriptCorrectionBatches() {
               .map((turn) => turn.text.slice(0, 2000)),
           },
         };
+        if (rightLookahead) {
+          batch.lookahead = {
+            id: rightLookahead.id,
+            itemId: rightLookahead.id.slice(rightLookahead.sectionId.length + 1),
+            originalText: rightLookahead.text,
+            sectionId: rightLookahead.sectionId,
+            track: rightLookahead.track,
+          };
+        }
         const ids = selected.map((turn) => turn.id);
         for (const id of ids) {
           requested.add(id);
@@ -199,19 +230,29 @@ export function appendLiveTranscriptTurn(
     }
     turns[index] = corrected;
   } else if (index === -1) {
-    turns.push({
+    const turn: LiveTranscriptDraftTurn = {
       final: event.type === "completed",
       id,
       sectionId,
       text: event.text.slice(0, MAX_DRAFT_TURN_CHARS),
       track,
-    });
+    };
+    if (event.endMs !== undefined) {
+      turn.endMs = event.endMs;
+    }
+    if (event.startMs !== undefined) {
+      turn.startMs = event.startMs;
+    }
+    if (event.words) {
+      turn.words = event.words;
+    }
+    turns.push(turn);
   } else {
     const current = turns[index];
     if (!current || current.correctionModel) {
       return null;
     }
-    turns[index] = {
+    const updated: LiveTranscriptDraftTurn = {
       ...current,
       final: event.type === "completed",
       text: (event.type === "delta" ? `${current.text}${event.text}` : event.text).slice(
@@ -219,6 +260,16 @@ export function appendLiveTranscriptTurn(
         MAX_DRAFT_TURN_CHARS,
       ),
     };
+    if (event.endMs !== undefined) {
+      updated.endMs = event.endMs;
+    }
+    if (event.startMs !== undefined) {
+      updated.startMs = event.startMs;
+    }
+    if (event.words) {
+      updated.words = event.words;
+    }
+    turns[index] = updated;
   }
   return turns;
 }

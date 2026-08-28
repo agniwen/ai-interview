@@ -235,9 +235,15 @@ describe("connectQwenRealtimeTranscription", () => {
     serverPort?.postMessage(
       {
         event: {
+          end_ms: 920,
           item_id: "item-2",
+          start_ms: 170,
           transcript: "今天天气怎么样",
           type: "conversation.item.input_audio_transcription.completed",
+          words: [
+            { end_ms: 503, punctuation: "", start_ms: 170, text: "今天" },
+            { end_ms: 920, punctuation: "？", start_ms: 503, text: "天气怎么样" },
+          ],
         },
         type: "event",
       },
@@ -247,7 +253,17 @@ describe("connectQwenRealtimeTranscription", () => {
     expect(transcripts).toEqual([
       { itemId: "item-1", text: "Thank", type: "snapshot" },
       { itemId: "item-1", text: "Thank you", type: "snapshot" },
-      { itemId: "item-2", text: "今天天气怎么样", type: "completed" },
+      {
+        endMs: 920,
+        itemId: "item-2",
+        startMs: 170,
+        text: "今天天气怎么样",
+        type: "completed",
+        words: [
+          { endMs: 503, punctuation: "", startMs: 170, text: "今天" },
+          { endMs: 920, punctuation: "？", startMs: 503, text: "天气怎么样" },
+        ],
+      },
     ]);
     connection.close();
   });

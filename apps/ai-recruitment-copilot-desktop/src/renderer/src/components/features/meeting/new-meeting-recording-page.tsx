@@ -297,7 +297,10 @@ export function NewMeetingRecordingPage({
     setStarting(true);
     setStartError(null);
     try {
-      const { captureId } = await startRecording(linkRecruiting ? selectedId : null);
+      const { captureId } = await startRecording({
+        recruitingRecord: linkRecruiting ? selectedRecord : null,
+        recruitingRecordId: linkRecruiting ? selectedId : null,
+      });
       await navigate({
         params: { meetingId: captureId },
         replace: true,

@@ -21,6 +21,7 @@ const tempTokenSchema = z
 interface QwenRealtimeAuthorizationInput {
   captureId: string;
   language?: string;
+  speechNoiseThreshold?: number;
   track: MeetingLiveTranscriptTrack;
 }
 
@@ -80,7 +81,7 @@ export async function createQwenRealtimeTranscriptionAuthorization(
   } catch {
     throw new Error("DashScope live transcription base URL is not a valid URL");
   }
-  return {
+  const authorization: MeetingLiveTranscriptAuthorization = {
     baseUrl: `wss://${hostname}/api-ws/v1/${dependencies.model.startsWith("qwen-audio-3.0-asr-flash-streaming") ? "inference" : "realtime"}`,
     clientSecret: parsed.token,
     expiresAt: new Date(parsed.expires_at * 1000).toISOString(),
@@ -89,4 +90,8 @@ export async function createQwenRealtimeTranscriptionAuthorization(
     provider: "qwen",
     track: input.track,
   };
+  if (input.speechNoiseThreshold !== undefined) {
+    authorization.speechNoiseThreshold = input.speechNoiseThreshold;
+  }
+  return authorization;
 }

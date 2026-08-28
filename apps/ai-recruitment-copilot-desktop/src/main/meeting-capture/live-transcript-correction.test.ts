@@ -20,7 +20,7 @@ const batch: LiveCorrectionBatch = {
 };
 const corrected = batch.blocks.map((block, i) => ({ id: block.id, text: `校正${i}` }));
 const asr = () => Response.json({ output: { text: "完整合并音频识别" } });
-const llm = (blocks = corrected) =>
+const llm = (blocks: { id: string; text: null | string }[] = corrected) =>
   Response.json({
     choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ blocks }) } }],
   });
@@ -44,10 +44,41 @@ function setup(
   return { fetch, onEvent, request, sidecar };
 }
 afterEach(() => vi.useRealTimers());
-describe("three-block audio correction", () => {
+describe("one-to-three-block audio correction", () => {
+  it("flushes a single trailing block through the same conservative correction path", async () => {
+    const trailingBatch = { ...batch, blocks: batch.blocks.slice(0, 1) };
+    const trailingResult = corrected.slice(0, 1);
+    const { sidecar, onEvent, request } = setup(
+      vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValueOnce(asr())
+        .mockResolvedValueOnce(llm(trailingResult)),
+    );
+
+    sidecar.correct({ ...request, batch: trailingBatch, clips: clips.slice(0, 1) });
+
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledOnce());
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ blocks: trailingResult, status: "completed" }),
+    );
+    sidecar.close();
+  });
+
   it("concatenates three cross-track clips into ONE ASR request then ONE contextual LLM request", async () => {
+    const lookahead = {
+      id: "section:3",
+      itemId: "3",
+      originalText: "右侧后半句",
+      sectionId: "section",
+      track: "microphone" as const,
+    };
+    const lookaheadClip = Buffer.alloc(16_000, 4);
     const { sidecar, fetch, onEvent, request } = setup();
-    sidecar.correct(request);
+    sidecar.correct({
+      ...request,
+      batch: { ...request.batch, lookahead },
+      lookaheadClip,
+    });
     await vi.waitFor(() => expect(onEvent).toHaveBeenCalledOnce());
     expect(fetch).toHaveBeenCalledTimes(2);
     const body = JSON.parse(String(fetch.mock.calls[0][1]?.body));
@@ -57,13 +88,18 @@ describe("three-block audio correction", () => {
       "base64",
     );
     expect(wav.readUInt32LE(24)).toBe(16_000);
-    expect(wav.subarray(44)).toEqual(Buffer.concat(clips));
+    expect(wav.subarray(44)).toEqual(Buffer.concat([...clips, lookaheadClip]));
     const llmBody = JSON.parse(String(fetch.mock.calls[1][1]?.body));
     expect(llmBody.model).toBe(LIVE_CORRECTION_LLM);
     const prompt = JSON.parse(llmBody.messages[1].content);
     expect(prompt).toMatchObject({
       combinedTranscript: "完整合并音频识别",
       context: request.getContext(),
+      lookaheadAudio: {
+        endMs: 3500,
+        startMs: 3000,
+        text: "右侧后半句",
+      },
     });
     expect(prompt.blocks.map((block: { id: string }) => block.id)).toEqual(
       batch.blocks.map((block) => block.id),
@@ -108,6 +144,37 @@ describe("three-block audio correction", () => {
     sidecar.correct({ ...request, clips: [clips[0], null, clips[2]] });
     expect(fetch).not.toHaveBeenCalled();
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" }));
+    sidecar.close();
+  });
+  it("deletes only a short spurious block while preserving meaningful or long utterances", async () => {
+    const noiseBatch: LiveCorrectionBatch = {
+      ...batch,
+      blocks: batch.blocks.map((block, index) => ({
+        ...block,
+        originalText: ["字", "对", "这是一个还没有说完的完整表达"][index] ?? block.originalText,
+      })),
+    };
+    const proposed = noiseBatch.blocks.map((block) => ({ id: block.id, text: null }));
+    const { sidecar, onEvent, request } = setup(
+      vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValueOnce(
+          Response.json({ output: { text: "对，这是一个还没有说完的完整表达" } }),
+        )
+        .mockResolvedValueOnce(llm(proposed)),
+    );
+    sidecar.correct({ ...request, batch: noiseBatch });
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledOnce());
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blocks: [
+          { id: noiseBatch.blocks[0].id, text: null },
+          { id: noiseBatch.blocks[1].id, text: "对" },
+          { id: noiseBatch.blocks[2].id, text: "这是一个还没有说完的完整表达" },
+        ],
+        status: "completed",
+      }),
+    );
     sidecar.close();
   });
   it("aborts either stage and clears pending status without delivering late text", async () => {

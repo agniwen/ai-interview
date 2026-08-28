@@ -126,8 +126,10 @@ describe("registerLiveTranscriptIpcHandlers", () => {
 
   it("combines both ports into one correction request and returns all three blocks together", async () => {
     const take = vi.fn(() => Buffer.alloc(32_000));
+    const peek = vi.fn(() => Buffer.alloc(32_000));
     connectDashScopeRealtimeWsMock.mockImplementation(() => ({
       close: vi.fn(),
+      peekCorrectionAudio: peek,
       sendPcm: () => true,
       takeCorrectionAudio: take,
     }));
@@ -146,6 +148,13 @@ describe("registerLiveTranscriptIpcHandlers", () => {
       batchId: "00000000-0000-4000-8000-000000000001",
       blocks,
       context: { after: [], before: [] },
+      lookahead: {
+        id: "capture:system:0:3",
+        itemId: "3",
+        originalText: "右侧后半句",
+        sectionId: "capture:system:0",
+        track: "system" as const,
+      },
     };
     const result = blocks.map((block) => ({ id: block.id, text: "校正" }));
     const fetch = vi
@@ -178,8 +187,9 @@ describe("registerLiveTranscriptIpcHandlers", () => {
     for (const block of blocks) {
       observe(block);
     }
+    observe(batch.lookahead);
     mic.emit("message", {
-      data: { batch: { ...batch, blocks: blocks.slice(0, 2) }, type: "correct" },
+      data: { batch: { ...batch, blocks: [] }, type: "correct" },
     });
     expect(take).not.toHaveBeenCalled();
     mic.emit("message", { data: { batch, type: "correct" } });
@@ -195,6 +205,7 @@ describe("registerLiveTranscriptIpcHandlers", () => {
       ["1", "实时1"],
       ["2", "实时2"],
     ]);
+    expect(peek).toHaveBeenCalledWith("3", "右侧后半句");
     // A repeated provider final must not downgrade previously corrected context.
     observe(blocks[0]);
     const nextBlocks = blocks.map((block) => ({
@@ -231,7 +242,7 @@ describe("registerLiveTranscriptIpcHandlers", () => {
     const [[, nextOptions]] = fetch.mock.calls.slice(3);
     expect(
       JSON.parse(JSON.parse(String(nextOptions?.body)).messages[1].content).context.before,
-    ).toEqual(["校正", "校正", "校正"]);
+    ).toEqual(["校正", "校正", "校正", "右侧后半句"]);
     mic.emit("close");
     mic.emit("message", { data: { batch, type: "correct" } });
     expect(fetch).toHaveBeenCalledTimes(4);

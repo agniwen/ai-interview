@@ -11,14 +11,27 @@ const MAX_INFLIGHT_BYTES = 64 * 1024;
 const CONNECTION_TIMEOUT_MS = 10_000;
 
 const dashScopeServerEventSchema = z.object({
+  end_ms: z.number().int().nonnegative().optional(),
   item_id: z.string().optional(),
   model: z.string().optional(),
   original_text: z.string().optional(),
+  start_ms: z.number().int().nonnegative().optional(),
   stash: z.string().optional(),
   status: z.string().optional(),
   text: z.string().optional(),
   transcript: z.string().optional(),
   type: z.string().optional(),
+  words: z
+    .array(
+      z.object({
+        end_ms: z.number().int().nonnegative(),
+        punctuation: z.string().max(16),
+        start_ms: z.number().int().nonnegative(),
+        text: z.string().min(1).max(256),
+      }),
+    )
+    .max(2000)
+    .optional(),
 });
 type DashScopeServerEvent = z.infer<typeof dashScopeServerEventSchema>;
 const portMessageSchema = z.object({
@@ -47,6 +60,32 @@ function resamplePcm16(input: Int16Array, fromRate: number, toRate: number): Int
     output[index] = Math.round(left + (right - left) * fraction);
   }
   return output;
+}
+
+function completedTranscriptEvent(event: DashScopeServerEvent): LiveTranscriptEvent | null {
+  if (!(event.item_id && event.transcript)) {
+    return null;
+  }
+  const transcript: LiveTranscriptEvent = {
+    itemId: event.item_id,
+    text: event.transcript,
+    type: "completed",
+  };
+  if (event.end_ms !== undefined) {
+    transcript.endMs = event.end_ms;
+  }
+  if (event.start_ms !== undefined) {
+    transcript.startMs = event.start_ms;
+  }
+  if (event.words) {
+    transcript.words = event.words.map((word) => ({
+      endMs: word.end_ms,
+      punctuation: word.punctuation,
+      startMs: word.start_ms,
+      text: word.text,
+    }));
+  }
+  return transcript;
 }
 
 function handleDashScopeEvent(
@@ -91,8 +130,9 @@ function handleDashScopeEvent(
     return;
   }
   if (event.type === "conversation.item.input_audio_transcription.completed") {
-    if (event.item_id && event.transcript) {
-      input.onTranscript({ itemId: event.item_id, text: event.transcript, type: "completed" });
+    const transcript = completedTranscriptEvent(event);
+    if (transcript) {
+      input.onTranscript(transcript);
     }
     return;
   }

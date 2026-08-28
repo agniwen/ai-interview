@@ -20,16 +20,22 @@ export const liveCorrectionBatchSchema = z.object({
   batchId: z.string().uuid(),
   blocks: z
     .array(blockSchema)
-    .length(3)
-    .refine((blocks) => new Set(blocks.map((block) => block.id)).size === 3),
+    .min(1)
+    .max(3)
+    .refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length),
   context: z.object({ after: contextSchema, before: contextSchema }),
+  lookahead: blockSchema.optional(),
 });
 export const liveCorrectionResultSchema = z.object({
   blocks: z
     .array(
-      z.object({ id: z.string().min(1).max(1024), text: z.string().trim().min(1).max(10_000) }),
+      z.object({
+        id: z.string().min(1).max(1024),
+        text: z.string().trim().min(1).max(10_000).nullable(),
+      }),
     )
-    .length(3),
+    .min(1)
+    .max(3),
 });
 export const liveCorrectionEventSchema = z.discriminatedUnion("status", [
   z.object({

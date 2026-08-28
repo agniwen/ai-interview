@@ -1,5 +1,5 @@
 import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
-// oxlint-disable promise/avoid-new, promise/prefer-await-to-callbacks -- Deferred provider callbacks are the behavior under test.
+// oxlint-disable max-lines, promise/avoid-new, promise/prefer-await-to-callbacks, unicorn/consistent-function-scoping -- This state-machine suite intentionally stays together; deferred provider callbacks and local deterministic schedulers are the behavior under test.
 import { describe, expect, it, vi } from "vitest";
 import {
   createLiveTranscriptDraft,
@@ -15,10 +15,11 @@ import type {
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
-  it("starts three stars immediately, sends one cross-track batch, atomically applies and cancels on pause", async () => {
+  it("waits for lookahead before sending a cross-track batch, atomically applies and cancels on pause", async () => {
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();
     const results = new Map<string, (event: LiveCorrectionEvent) => void>();
     const correct = vi.fn<(batch: LiveCorrectionBatch) => boolean>().mockReturnValue(true);
+    let flushTrailingCorrections = () => {};
     const draft = createLiveTranscriptDraft({
       authorize: ({ track }) =>
         Promise.resolve({
@@ -34,6 +35,14 @@ describe("Live Transcript Draft", () => {
         return Promise.resolve({ close: vi.fn(), correct, sendPcm: () => true });
       },
       createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+      scheduleCorrectionLookahead: (callback) => {
+        flushTrailingCorrections = callback;
+        return () => {
+          if (flushTrailingCorrections === callback) {
+            flushTrailingCorrections = () => {};
+          }
+        };
+      },
     });
     // SAFETY: This test never accesses media track properties.
     await draft.start({
@@ -48,6 +57,8 @@ describe("Live Transcript Draft", () => {
     mic?.({ itemId: "2", text: "第三块", type: "snapshot" });
     expect(correct).not.toHaveBeenCalled();
     mic?.({ itemId: "2", text: "第三块", type: "completed" });
+    expect(correct).not.toHaveBeenCalled();
+    const flushPromise = draft.flushCorrections();
     expect(correct).toHaveBeenCalledOnce();
     expect(draft.getSnapshot().turns.map((turn) => turn.correcting)).toEqual([true, true, true]);
     const [[first]] = correct.mock.calls;
@@ -68,6 +79,7 @@ describe("Live Transcript Draft", () => {
       status: "completed",
       type: "meeting.transcription.correction-batch",
     });
+    await flushPromise;
     expect(snapshots.at(-1)).toEqual(["校正0", "校正1", "校正2"]);
     expect(snapshots).toHaveLength(2);
     expect(
@@ -80,6 +92,7 @@ describe("Live Transcript Draft", () => {
     for (const i of [3, 4, 5]) {
       mic?.({ itemId: String(i), text: `原文${i}`, type: "completed" });
     }
+    flushTrailingCorrections();
     expect(correct).toHaveBeenCalledTimes(2);
     draft.pause();
     expect(draft.getSnapshot().turns.some((turn) => turn.correcting)).toBe(false);
@@ -97,6 +110,7 @@ describe("Live Transcript Draft", () => {
     emit("system", { itemId: "1", text: "恢复二", type: "completed" });
     expect(correct).toHaveBeenCalledTimes(2);
     emit("microphone", { itemId: "2", text: "恢复三", type: "completed" });
+    flushTrailingCorrections();
     expect(correct).toHaveBeenCalledTimes(3);
     const [[third]] = correct.mock.calls.slice(2);
     results.get("microphone")?.({
@@ -108,6 +122,7 @@ describe("Live Transcript Draft", () => {
     for (const i of [3, 4, 5]) {
       emit("microphone", { itemId: String(i), text: `新版${i}`, type: "completed" });
     }
+    flushTrailingCorrections();
     const [[fourth]] = correct.mock.calls.slice(3);
     emit("microphone", { itemId: "3", text: "用户新版本", type: "completed" });
     results.get("microphone")?.({
@@ -272,6 +287,7 @@ describe("Live Transcript Draft", () => {
   it("pauses provider resources while retaining turns, then opens new sections on resume", async () => {
     const connections: LiveTranscriptConnection[] = [];
     const taps: LiveTranscriptPcmTap[] = [];
+    let flushTrailingCorrections = () => {};
     const release = vi.fn(() => Promise.resolve());
     const draft = createLiveTranscriptDraft({
       authorize: ({ track }) =>
@@ -305,6 +321,14 @@ describe("Live Transcript Draft", () => {
         return Promise.resolve(tap);
       },
       release,
+      scheduleCorrectionLookahead: (callback) => {
+        flushTrailingCorrections = callback;
+        return () => {
+          if (flushTrailingCorrections === callback) {
+            flushTrailingCorrections = () => {};
+          }
+        };
+      },
     });
 
     await draft.start({
@@ -315,6 +339,7 @@ describe("Live Transcript Draft", () => {
     const turnsBeforePause = draft
       .getSnapshot()
       .turns.map((turn) => ({ ...turn, correcting: false }));
+    flushTrailingCorrections();
     expect(connections[0].correct).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         blocks: expect.arrayContaining([expect.objectContaining({ itemId: "item-system" })]),
@@ -337,6 +362,7 @@ describe("Live Transcript Draft", () => {
     expect(connections).toHaveLength(4);
     expect(taps).toHaveLength(4);
     expect(draft.getSnapshot().sections).toHaveLength(4);
+    flushTrailingCorrections();
     expect(connections[2].correct).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         blocks: expect.arrayContaining([expect.objectContaining({ itemId: "item-system" })]),
