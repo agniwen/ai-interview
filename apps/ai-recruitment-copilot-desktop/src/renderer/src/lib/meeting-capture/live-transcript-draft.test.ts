@@ -1,6 +1,6 @@
 import type { LiveCorrectionBatch, LiveCorrectionEvent } from "@arc/shared/meeting-live-correction";
 // oxlint-disable max-lines, promise/avoid-new, promise/prefer-await-to-callbacks, unicorn/consistent-function-scoping -- This state-machine suite intentionally stays together; deferred provider callbacks and local deterministic schedulers are the behavior under test.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createLiveTranscriptDraft,
   createDurableLiveTranscriptDraft,
@@ -13,8 +13,6 @@ import type {
 } from "./live-transcript-draft";
 
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
-
-afterEach(() => vi.restoreAllMocks());
 
 describe("Live Transcript Draft", () => {
   it("waits for transcript-wide idle before forcing a trailing block", async () => {
@@ -68,7 +66,6 @@ describe("Live Transcript Draft", () => {
   });
 
   it("waits for lookahead before sending a cross-track batch, atomically applies and cancels on pause", async () => {
-    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();
     const results = new Map<string, (event: LiveCorrectionEvent) => void>();
     const correct = vi.fn<(batch: LiveCorrectionBatch) => boolean>().mockReturnValue(true);
@@ -125,11 +122,9 @@ describe("Live Transcript Draft", () => {
     );
     const snapshots: string[][] = [];
     draft.observe((snapshot) => snapshots.push(snapshot.turns.map((turn) => turn.text)));
-    const llmBlocks = first.blocks.map((block, index) => ({ id: block.id, text: `校正${index}` }));
     results.get("microphone")?.({
       batchId: first.batchId,
-      blocks: llmBlocks,
-      combinedTranscript: "完整合并音频识别",
+      blocks: first.blocks.map((block, index) => ({ id: block.id, text: `校正${index}` })),
       model: "asr+llm",
       status: "completed",
       type: "meeting.transcription.correction-batch",
@@ -137,16 +132,6 @@ describe("Live Transcript Draft", () => {
     await flushPromise;
     expect(snapshots.at(-1)).toEqual(["校正0", "校正1", "校正2"]);
     expect(snapshots).toHaveLength(2);
-    expect(consoleInfo).toHaveBeenCalledWith(
-      "[meeting-capture-renderer] Live transcript correction completed",
-      {
-        appliedBlocks: llmBlocks,
-        batchId: first.batchId,
-        combinedAsrTranscript: "完整合并音频识别",
-        llmBlocks,
-        model: "asr+llm",
-      },
-    );
     expect(
       draft
         .getSnapshot()
@@ -165,7 +150,6 @@ describe("Live Transcript Draft", () => {
     results.get("microphone")?.({
       batchId: second.batchId,
       blocks: second.blocks.map((block) => ({ id: block.id, text: "迟到" })),
-      combinedTranscript: "迟到的合并识别",
       model: "asr+llm",
       status: "completed",
       type: "meeting.transcription.correction-batch",
@@ -194,7 +178,6 @@ describe("Live Transcript Draft", () => {
     results.get("microphone")?.({
       batchId: fourth.batchId,
       blocks: fourth.blocks.map((block) => ({ id: block.id, text: "不应回填" })),
-      combinedTranscript: "不应回填的合并识别",
       model: "asr+llm",
       status: "completed",
       type: "meeting.transcription.correction-batch",

@@ -115,7 +115,6 @@ describe("connectQwenRealtimeTranscription", () => {
     const event = {
       batchId: BATCH.batchId,
       blocks: BATCH.blocks.map((block) => ({ id: block.id, text: "校正" })),
-      combinedTranscript: "完整合并音频识别",
       model: "model",
       status: "completed",
       type: "meeting.transcription.correction-batch",

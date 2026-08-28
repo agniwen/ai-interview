@@ -86,7 +86,6 @@ describe("live transcript correction batches", () => {
         { id: "section:1", text: "对" },
         { id: "section:2", text: "继续介绍项目" },
       ],
-      combinedTranscript: "合并识别",
       model: "asr+llm",
       status: "completed",
       type: "meeting.transcription.correction-batch",

@@ -46,7 +46,6 @@ export const liveCorrectionEventSchema = z.discriminatedUnion("status", [
   z.object({
     batchId: z.string().uuid(),
     blocks: liveCorrectionResultSchema.shape.blocks,
-    combinedTranscript: z.string().trim().min(1).max(30_000),
     model: z.string().min(1).max(128),
     status: z.literal("completed"),
     type: z.literal("meeting.transcription.correction-batch"),
