@@ -61,10 +61,13 @@ describe("TanStack Start architecture invariants", () => {
     expect(rootRoute).toMatch(/<body\s+data-overlayscrollbars-initialize/u);
   });
 
-  it("keeps Vite envPrefix for legacy NEXT_PUBLIC_* client vars", () => {
+  it("keeps Vite envPrefix for legacy public vars and Sentry public identifiers", () => {
     const viteConfig = readSource("vite.config.ts");
 
-    expect(viteConfig).toContain('envPrefix: ["NEXT_PUBLIC_"]');
+    expect(viteConfig).toContain(
+      'envPrefix: ["NEXT_PUBLIC_", "SENTRY_DSN", "SENTRY_RELEASE", "SENTRY_WEB_DSN"]',
+    );
+    expect(viteConfig).not.toContain('envPrefix: ["SENTRY_"]');
   });
 
   it("ignores test folders and files under the routes directory", () => {

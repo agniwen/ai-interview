@@ -12,6 +12,7 @@ import { ConversationTranscript } from "../interviews/interview-detail/conversat
 import { HighlightedText } from "../interviews/interview-detail/keyword-highlight/highlighted-text";
 import { KeywordHighlightLegend } from "../interviews/interview-detail/keyword-highlight/legend";
 import { DetailRow } from "../interviews/interview-detail/detail-row";
+import { formatInterviewEndReason } from "../interviews/interview-detail/helpers";
 import {
   EvaluationResults,
   evaluationPayloadSchema,
@@ -79,6 +80,9 @@ export function InterviewReportDetails({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
         <div className="space-y-4">
           <InterviewReportDetailSection surface={surface} title="最终总结">
+            <div className="mb-4 border-border/50 border-b pb-4">
+              <DetailRow label="结束原因" value={formatInterviewEndReason(report.metadata)} />
+            </div>
             <div className="text-muted-foreground text-sm leading-6">
               <HighlightedText text={report.transcriptSummary ?? "暂无总结。"} />
             </div>

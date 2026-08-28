@@ -72,6 +72,7 @@
     "@qdrant/js-client-rest": "^1.18.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
+    "@sentry/hono": "10.71.0",
     "ai": "catalog:",
     "better-auth": "^1.6.10",
     "chat": "catalog:",

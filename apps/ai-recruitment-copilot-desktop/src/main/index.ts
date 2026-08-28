@@ -1,3 +1,5 @@
+import { captureDesktopMainException } from "./sentry";
+
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
@@ -23,12 +25,14 @@ import { createMainWindow, getMainWindowWebContents } from "./window";
 // Global safety net: any uncaught main-process error logs a stack so a dead
 // renderer-facing port never masquerades as a silent fragment-write timeout.
 process.on("uncaughtException", (error) => {
+  captureDesktopMainException(error, "desktop.uncaught-exception");
   console.error("[main] uncaughtException", {
     errorMessage: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
   });
 });
 process.on("unhandledRejection", (reason) => {
+  captureDesktopMainException(reason, "desktop.unhandled-rejection");
   console.error("[main] unhandledRejection", {
     errorMessage: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,

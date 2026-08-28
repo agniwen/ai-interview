@@ -48,6 +48,7 @@
     "@ncdai/react-wheel-picker": "^1.2.3",
     "@outpacelabs/avatars": "^0.4.1",
     "@radix-ui/react-visually-hidden": "^1.2.4",
+    "@sentry/tanstackstart-react": "10.71.0",
     "@shadcn/react": "^0.1.0",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",

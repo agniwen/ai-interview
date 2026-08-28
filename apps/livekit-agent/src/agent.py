@@ -71,11 +71,13 @@ from recording import (
     stop_recording,
 )
 from report import send_question_checkpoint, send_report
+from sentry_setup import initialize_sentry
 from transcript_replay import replay_turns_to
 
 logger = logging.getLogger("agent")
 
 load_dotenv()
+initialize_sentry()
 
 AGENT_NAME = resolve_agent_name()
 _SELF_HOSTED = resolve_self_hosted()

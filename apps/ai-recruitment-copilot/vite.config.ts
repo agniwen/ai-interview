@@ -20,7 +20,9 @@ export default defineConfig({
   define: {
     __ARC_BUILD_TIME__: JSON.stringify(buildTime),
   },
-  envPrefix: ["NEXT_PUBLIC_"],
+  // Sentry DSNs are public ingestion identifiers. Keep the allowlist exact so
+  // an upload auth token can never be bundled into browser code.
+  envPrefix: ["NEXT_PUBLIC_", "SENTRY_DSN", "SENTRY_RELEASE", "SENTRY_WEB_DSN"],
   optimizeDeps: {
     include: [
       "@assistant-ui/react",

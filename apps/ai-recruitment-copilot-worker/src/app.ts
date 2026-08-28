@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
+import { HTTPException } from "hono/http-exception";
 import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
@@ -10,6 +11,7 @@ import { getMeetingPlaybackQueueStats } from "@arc/meeting-processing-queue/meet
 import { getMeetingTranscriptionQueueStats } from "@arc/meeting-processing-queue/meeting-transcription";
 import { getResumeParseReadinessIssue } from "./parse-config";
 import { getInterviewNotificationSchedulerSnapshot } from "./interview-notifications/scheduler";
+import { captureWorkerException } from "./sentry";
 
 export interface WorkerAppDependencies {
   getInterviewNotificationSchedulerSnapshot: typeof getInterviewNotificationSchedulerSnapshot;
@@ -132,6 +134,14 @@ export function createWorkerApp(dependencies: WorkerAppDependencies = defaultDep
   );
 
   app.notFound((c) => c.json({ error: "Not Found" }, 404));
+  // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Hono registers its error boundary through this callback API.
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+      return error.getResponse();
+    }
+    captureWorkerException(error, "worker.unhandled-request");
+    return c.json({ error: "Internal Server Error" }, 500);
+  });
 
   return app;
 }

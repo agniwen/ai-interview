@@ -257,6 +257,8 @@ describe("AI 面试详情 tabs", () => {
 
   it("uses frames for the latest report summary, metrics, and transcript", () => {
     expect(reportDetailsSource).toContain('title="最终总结"');
+    expect(reportDetailsSource).toContain('label="结束原因"');
+    expect(reportDetailsSource).toContain("formatInterviewEndReason(report.metadata)");
     expect(reportDetailsSource).toContain('title="评估指标"');
     expect(reportDetailsSource).toContain('title="对话记录"');
     expect(reportDetailsSource).toContain('surface === "card"');

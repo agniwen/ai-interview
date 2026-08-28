@@ -6,6 +6,40 @@
  * Extracted into their own file so the main component can focus on UI / interaction.
  */
 
+import type { JsonObject } from "@arc/db-schema/json";
+import { readInterviewEndReason } from "@arc/shared/interview/end-reason";
+
+export function formatInterviewEndReason(metadata: JsonObject): string {
+  switch (readInterviewEndReason(metadata)) {
+    case "candidate_clicked_end": {
+      return "候选人点击结束";
+    }
+    case "candidate_ended_round": {
+      return "候选人要求结束";
+    }
+    case "task_completed": {
+      return "系统自然结束";
+    }
+    case "time_limit": {
+      return "达到时间上限";
+    }
+    case "reconnect_grace_expired":
+    case "participant_disconnected": {
+      return "连接中断结束";
+    }
+    case "system_shutdown":
+    case "error": {
+      return "系统错误结束";
+    }
+    case null: {
+      return "未记录";
+    }
+    default: {
+      return "其他原因";
+    }
+  }
+}
+
 /**
  * 把面试报告状态枚举翻译为中文标签。
  * Translate a report status enum value to a Chinese label.

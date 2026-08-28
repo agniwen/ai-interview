@@ -561,6 +561,10 @@ _Avoid_: Answer evidence, question score, generated assessment
 The technical completion state of an AI interview call. `success` means the round reached a normal wrap-up, including a time-driven wrap-up; `partial` means a candidate-ended round or exhausted reconnect grace preserved usable partial results; `failed` means an agent, infrastructure, or system-shutdown failure prevented normal completion. It does not replace per-question outcomes.
 _Avoid_: Interview score, hiring recommendation, question outcome
 
+**Interview End Reason**:
+The recorded cause that ended one AI interview call: an explicit candidate interface action, a candidate request during the conversation, expected workflow completion, a time limit, exhausted reconnect grace, or a system failure. It is a business-level terminal fact and remains distinct from Call Completion Status and the transport-level close reason.
+_Avoid_: Call Completion Status, question outcome, raw connection close reason
+
 **Schedule Entry**:
 The round-level scheduling and status record for an AI interview.
 _Avoid_: Calendar event, timeslot

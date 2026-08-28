@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import type { JsonObject } from "@arc/db-schema/json";
 import {
   interviewAuditLog,
   interviewConversation,
@@ -18,6 +19,7 @@ import { runSummaryJob } from "@arc/ai-recruitment-copilot-backend/server/routes
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
 import { enqueueAiInterviewCompletedEvent } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { mergeInterviewEndReasonMetadata } from "@arc/shared/interview/end-reason";
 import {
   mergeInterviewQuestionOutcome,
   parseInterviewDataCollectionResults,
@@ -130,12 +132,13 @@ interface UpsertOptions {
   data: ReportPayload;
   isNewTranscript: boolean;
   keyInformationColumnsAvailable: boolean;
+  metadata: JsonObject;
   now: Date;
   organizationId: string;
 }
 
 async function upsertLegacyInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
-  const { data, isNewTranscript, now, organizationId } = options;
+  const { data, isNewTranscript, metadata, now, organizationId } = options;
   await tx.execute(sql`
       insert into "interview_conversation" (
         "agent_id", "conversation_id", "interview_record_id", "mode",
@@ -149,7 +152,7 @@ async function upsertLegacyInterviewConversation(tx: Tx, options: UpsertOptions)
     callSuccessful: data.callSuccessful ?? null,
     endedAt: data.endedAt ? new Date(data.endedAt) : null,
     lastSyncedAt: now,
-    metadata: data.metadata ?? {},
+    metadata,
     metrics: data.metrics ?? {},
     startedAt: data.startedAt ? new Date(data.startedAt) : null,
     status: data.status,
@@ -186,7 +189,7 @@ async function upsertLegacyInterviewConversation(tx: Tx, options: UpsertOptions)
 }
 
 async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOptions): Promise<void> {
-  const { data, isNewTranscript, now, organizationId } = options;
+  const { data, isNewTranscript, metadata, now, organizationId } = options;
   const summaryResetFields = isNewTranscript
     ? {
         evaluationCriteriaResults: {},
@@ -227,7 +230,7 @@ async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOption
       endedAt: data.endedAt ? new Date(data.endedAt) : null,
       interviewRecordId: data.interviewRecordId,
       lastSyncedAt: now,
-      metadata: data.metadata ?? {},
+      metadata,
       metrics: data.metrics ?? {},
       mode: "voice",
       organizationId,
@@ -244,7 +247,7 @@ async function upsertMigratedInterviewConversation(tx: Tx, options: UpsertOption
         callSuccessful: data.callSuccessful ?? null,
         endedAt: data.endedAt ? new Date(data.endedAt) : null,
         lastSyncedAt: now,
-        metadata: data.metadata ?? {},
+        metadata,
         metrics: data.metrics ?? {},
         startedAt: data.startedAt ? new Date(data.startedAt) : null,
         status: data.status,
@@ -275,7 +278,14 @@ async function persistReport(options: {
 }): Promise<void> {
   const { data, now, organizationId } = options;
   await db.transaction(async (tx) => {
-    await upsertInterviewConversation(tx, options);
+    const [existingConversation] = await tx
+      .select({ metadata: interviewConversation.metadata })
+      .from(interviewConversation)
+      .where(eq(interviewConversation.conversationId, data.conversationId))
+      .for("update")
+      .limit(1);
+    const metadata = mergeInterviewEndReasonMetadata(existingConversation?.metadata, data.metadata);
+    await upsertInterviewConversation(tx, { ...options, metadata });
     await tx
       .delete(interviewConversationTurn)
       .where(eq(interviewConversationTurn.conversationId, data.conversationId));

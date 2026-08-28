@@ -1,6 +1,7 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
+import { captureBackendException } from "@arc/ai-recruitment-copilot-backend/lib/server/sentry";
 
 interface InternalErrorResponseOptions {
   context?: object;
@@ -20,6 +21,7 @@ export function createInternalErrorResponse({
   publicMessage,
 }: InternalErrorResponseOptions): InternalErrorResponse {
   console.error(`[${operation}] failed`, { ...context, error });
+  captureBackendException(error, operation, context);
   return { error: publicMessage };
 }
 
@@ -34,6 +36,7 @@ export const handleServerError: ErrorHandler<Env> = (err, c) => {
   if (err instanceof HTTPException) {
     return err.getResponse();
   }
+  captureBackendException(err, "backend.unhandled-request");
   console.error(err);
   return c.json({ error: "Internal Server Error" }, 500);
 };

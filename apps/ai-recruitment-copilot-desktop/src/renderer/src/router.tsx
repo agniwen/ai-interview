@@ -10,6 +10,7 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { z } from "zod";
 import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-recording-context";
 import { AppearanceSettingsPage } from "@/components/features/settings/appearance-settings-page";
@@ -20,6 +21,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { hardReloadToHome } from "@/lib/client/hard-reload-home";
 import { authClient } from "@/lib/auth-client";
 import { getQueryClient } from "@/lib/query-client";
+import { captureDesktopRendererException } from "@/lib/sentry";
 import { AuthCallbackPage } from "@/routes/auth-callback-page";
 import { HomePage } from "@/routes/home-page";
 import { LoginPage } from "@/routes/login-page";
@@ -66,6 +68,9 @@ async function redirectIfAuthenticated() {
 }
 
 function RouterErrorFallback({ error }: { error: unknown }) {
+  useEffect(() => {
+    captureDesktopRendererException(error, "desktop.router-boundary");
+  }, [error]);
   return <AppErrorFallback error={error} onReload={hardReloadToHome} />;
 }
 

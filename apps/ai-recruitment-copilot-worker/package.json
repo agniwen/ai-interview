@@ -18,6 +18,7 @@
   "dependencies": {
     "@arc/shared": "workspace:*",
     "@hono/node-server": "^1.19.14",
+    "@sentry/hono": "10.71.0",
     "dotenv": "^17.4.2",
     "hono": "^4.12.18",
     "imapflow": "^1.4.1",

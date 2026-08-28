@@ -1,4 +1,8 @@
+import "./instrument.server";
+
+import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
 import startHandler, { createServerEntry } from "@tanstack/react-start/server-entry";
+import type { ServerEntry } from "@tanstack/react-start/server-entry";
 import { applyServerEnv } from "./env/server";
 import { paraglideMiddleware } from "./paraglide/server";
 
@@ -167,4 +171,16 @@ const defaultDependencies: ServerEntryDependencies = {
     options === undefined ? startHandler.fetch(request) : startHandler.fetch(request, options),
 };
 
-export default createServerEntry(createServerEntryHandler(defaultDependencies));
+const defaultHandler = createServerEntryHandler(defaultDependencies);
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Sentry's ServerEntry contract intentionally exposes adapter options as opaque unknown.
+function forwardSentryFetch(request: Request, options?: unknown) {
+  // SAFETY: Sentry forwards TanStack's original opaque server-entry options unchanged.
+  return defaultHandler.fetch(request, options as StartHandlerOptions | undefined);
+}
+
+const sentryHandler: ServerEntry = wrapFetchWithSentry({
+  fetch: forwardSentryFetch,
+});
+
+export default createServerEntry(sentryHandler);

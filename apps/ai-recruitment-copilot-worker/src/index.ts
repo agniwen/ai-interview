@@ -53,8 +53,15 @@ import { getResumeParseConfigSummary } from "./parse-config";
 import { startMailIngestScheduler } from "./mail-ingest/scheduler";
 import type { MailIngestScheduler } from "./mail-ingest/scheduler";
 import { startInterviewNotificationScheduler } from "./interview-notifications/scheduler";
+import {
+  captureWorkerException,
+  flushWorkerSentry,
+  initializeWorkerSentry,
+  reportQueueFailure,
+} from "./sentry";
 
 loadWorkerEnv();
+initializeWorkerSentry();
 
 function isResumeSemanticIndexEnabled(): boolean {
   const value = process.env.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase();
@@ -138,6 +145,7 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
     try {
       await requestAutomaticMeetingIntelligence(meeting);
     } catch (error) {
+      captureWorkerException(error, "worker.meeting-intelligence.recover-missing");
       console.error("[meeting-intelligence-worker] failed to recover missing meeting", {
         errorName: error instanceof Error ? error.name : "UnknownError",
         meetingId: meeting.meetingId,
@@ -182,6 +190,7 @@ async function reconcileMeetingIntelligenceJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingIntelligenceJobs();
   } catch (error) {
+    captureWorkerException(error, "worker.meeting-intelligence.reconcile");
     console.error("[meeting-intelligence-worker] periodic recovery failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
@@ -198,6 +207,7 @@ async function reconcileMeetingAnswerJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingAnswerJobs();
   } catch (error) {
+    captureWorkerException(error, "worker.meeting-answer.reconcile");
     console.error("[meeting-answer-worker] periodic recovery failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
@@ -214,6 +224,7 @@ async function reconcileMeetingPlaybackJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingPlaybackJobs();
   } catch (error) {
+    captureWorkerException(error, "worker.meeting-playback.reconcile");
     console.error("[meeting-playback-worker] periodic recovery failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
@@ -230,6 +241,7 @@ async function reconcileMeetingPurgeJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingPurgeJobs();
   } catch (error) {
+    captureWorkerException(error, "worker.meeting-purge.reconcile");
     console.error("[meeting-purge-worker] periodic recovery failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
@@ -246,6 +258,7 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingTranscriptionJobs();
   } catch (error) {
+    captureWorkerException(error, "worker.meeting-transcription.reconcile");
     console.error("[meeting-transcription-worker] periodic recovery failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
@@ -263,12 +276,15 @@ async function main() {
     hostname,
     port,
   });
-  server.on("error", (error: NodeJS.ErrnoException) => {
+  // oxlint-disable-next-line promise/no-promise-in-callback, promise/prefer-await-to-callbacks -- Node exposes server failures through EventEmitter; flush before exiting.
+  server.on("error", async (error: NodeJS.ErrnoException) => {
+    captureWorkerException(error, "worker.http-server");
     if (error.code === "EADDRINUSE") {
       console.error(`[worker] ${hostname}:${port} is already in use.`);
     } else {
       console.error("[worker] server error", { errorName: error.name });
     }
+    await flushWorkerSentry();
     process.exit(1);
   });
   const closeServer = promisify(server.close.bind(server));
@@ -320,6 +336,7 @@ async function main() {
         ]);
       await runMeetingAnswerProcessing(payload, context, defaultMeetingAnswerDependencies);
     });
+    meetingAnswerWorker.on("failed", reportQueueFailure("meeting-answer"));
     await reconcileMeetingAnswerJobs();
     meetingAnswerRecoveryTimer = setInterval(() => {
       void reconcileMeetingAnswerJobs();
@@ -333,6 +350,7 @@ async function main() {
       const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
       await runMeetingPlaybackProcessing(payload, defaultMeetingPlaybackDependencies);
     });
+    meetingPlaybackWorker.on("failed", reportQueueFailure("meeting-playback"));
     await reconcileMeetingPlaybackJobs();
     meetingPlaybackRecoveryTimer = setInterval(() => {
       void reconcileMeetingPlaybackJobs();
@@ -346,6 +364,7 @@ async function main() {
       const { runMeetingPurgeProcessing } = await import("./meeting-purge/processor");
       await runMeetingPurgeProcessing(payload, defaultMeetingPurgeDependencies);
     });
+    meetingPurgeWorker.on("failed", reportQueueFailure("meeting-purge"));
     await reconcileMeetingPurgeJobs();
     meetingPurgeRecoveryTimer = setInterval(() => {
       void reconcileMeetingPurgeJobs();
@@ -363,6 +382,7 @@ async function main() {
         defaultMeetingIntelligenceDependencies,
       );
     });
+    meetingIntelligenceWorker.on("failed", reportQueueFailure("meeting-intelligence"));
     await reconcileMeetingIntelligenceJobs();
     meetingIntelligenceRecoveryTimer = setInterval(() => {
       void reconcileMeetingIntelligenceJobs();
@@ -389,6 +409,7 @@ async function main() {
         defaultMeetingTranscriptionDependencies,
       );
     });
+    meetingTranscriptionWorker.on("failed", reportQueueFailure("meeting-transcription"));
     await reconcileMeetingTranscriptionJobs();
     meetingTranscriptionRecoveryTimer = setInterval(() => {
       void reconcileMeetingTranscriptionJobs();
@@ -406,6 +427,7 @@ async function main() {
         retryParseFailure: context.hasAttemptsRemaining,
       });
     });
+    worker.on("failed", reportQueueFailure("resume-parse"));
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
@@ -423,12 +445,14 @@ async function main() {
           await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enrichment");
         await runResumeSemanticEnrichmentJob(payload);
       });
+      semanticIndexWorker.on("failed", reportQueueFailure("resume-semantic-index"));
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {
       const { processResumeReviewGenerationJob } =
         await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker");
       await processResumeReviewGenerationJob(payload);
     });
+    reviewGenerationWorker.on("failed", reportQueueFailure("resume-review-generation"));
     mailIngestScheduler = startMailIngestScheduler();
   }
   if (backgroundProcessingEnabled && !worker) {
@@ -439,6 +463,7 @@ async function main() {
     mailIngestTriggerWorker = createMailIngestTriggerWorker(async ({ organizationId }) => {
       await mailIngestScheduler?.runNow({ organizationId });
     });
+    mailIngestTriggerWorker.on("failed", reportQueueFailure("mail-ingest-trigger"));
   }
   if (!backgroundProcessingEnabled) {
     console.info("[worker] general background processing disabled");
@@ -494,9 +519,11 @@ async function main() {
         }
         process.exit(0);
       } catch (error) {
+        captureWorkerException(error, "worker.shutdown", { signal });
         console.error(`[worker] failed to shut down after ${signal}`, {
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
+        await flushWorkerSentry();
         process.exit(1);
       }
     })();
@@ -509,8 +536,10 @@ async function main() {
 try {
   await main();
 } catch (error) {
+  captureWorkerException(error, "worker.startup");
   console.error("[worker] fatal startup failure", {
     errorName: error instanceof Error ? error.name : "UnknownError",
   });
+  await flushWorkerSentry();
   process.exit(1);
 }

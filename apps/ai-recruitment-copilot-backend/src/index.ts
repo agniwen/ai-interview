@@ -1,5 +1,10 @@
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
+import {
+  captureBackendException,
+  flushBackendSentry,
+  initializeBackendSentry,
+} from "./lib/server/sentry";
 import { resolveStandaloneServerConfig } from "./standalone/config";
 import { loadStandaloneEnv } from "./standalone/env";
 import { RuntimeCloseStack } from "./standalone/runtime-lifecycle";
@@ -21,6 +26,7 @@ async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null>
 
 async function main() {
   loadStandaloneEnv();
+  initializeBackendSentry();
 
   const runtime = new RuntimeCloseStack();
   try {
@@ -53,6 +59,8 @@ async function main() {
           process.exit(0);
         } catch (error) {
           console.error(`[backend] failed to shut down after ${signal}:`, error);
+          captureBackendException(error, "backend.shutdown", { signal });
+          await flushBackendSentry();
           process.exit(1);
         }
       })();
@@ -76,5 +84,7 @@ try {
   await main();
 } catch (error) {
   console.error(error);
+  captureBackendException(error, "backend.startup");
+  await flushBackendSentry();
   process.exit(1);
 }

@@ -1,3 +1,4 @@
+import "@/lib/sentry";
 import "overlayscrollbars/overlayscrollbars.css";
 import "./assets/main.css";
 

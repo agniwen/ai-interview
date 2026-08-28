@@ -1,12 +1,16 @@
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   buildRecordingFileKey,
   isRecordingStorageConfigured,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { candidateFormSubmission, studioInterviewSchedule } from "@arc/db-schema/schema";
+import {
+  candidateFormSubmission,
+  interviewConversation,
+  studioInterviewSchedule,
+} from "@arc/db-schema/schema";
 import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
@@ -21,6 +25,7 @@ import {
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
+import { INTERVIEW_END_REASON } from "@arc/shared/interview/end-reason";
 import {
   buildInterviewDispatchMetadata,
   selectInterviewDispatchInterviewer,
@@ -39,6 +44,44 @@ import {
 import { isInterviewNotificationFlowEnabled } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-notifications/utils/feature-flags";
 
 type InterviewTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+const CANDIDATE_CLICKED_END_METADATA = JSON.stringify({
+  closeReason: INTERVIEW_END_REASON.CANDIDATE_CLICKED_END,
+});
+
+async function recordCandidateClickedEnd(
+  tx: InterviewTransaction,
+  input: {
+    conversationId: string;
+    interviewRecordId: string;
+    now: Date;
+    organizationId: string;
+    roundId: string;
+  },
+): Promise<void> {
+  await tx
+    .insert(interviewConversation)
+    .values({
+      conversationId: input.conversationId,
+      endedAt: input.now,
+      interviewRecordId: input.interviewRecordId,
+      lastSyncedAt: input.now,
+      metadata: { closeReason: INTERVIEW_END_REASON.CANDIDATE_CLICKED_END },
+      mode: "voice",
+      organizationId: input.organizationId,
+      scheduleEntryId: input.roundId,
+      status: "completed",
+    })
+    .onConflictDoUpdate({
+      set: {
+        endedAt: input.now,
+        lastSyncedAt: input.now,
+        metadata: sql`${interviewConversation.metadata} || ${CANDIDATE_CLICKED_END_METADATA}::jsonb`,
+        status: "completed",
+      },
+      target: interviewConversation.conversationId,
+    });
+}
 
 async function recordDirectAiInterviewAcceptance(
   tx: InterviewTransaction,
@@ -508,25 +551,29 @@ export const interviewRouter = factory
       // 浏览器侧发出的「会话状态变更」信号，按 mode 区分：
       //   mode=interrupt（默认）：候选人断连。把状态置为 interrupted 并写入
       //     首次断开时间，开启 3 分钟热重连窗口；不级联面试整体状态。
-      //   mode=final：候选人主动结束（保留接口未来扩展）。立刻置 completed
-      //     并级联面试整体状态，与 /api/agent/report 的写入路径保持兼容。
+      //   mode=final：候选人点击结束。立刻记录 candidate_clicked_end、置
+      //     completed 并级联面试整体状态；Agent 后续报告只能补充技术原因，
+      //     不能覆盖这个显式用户行为。
       // Agent grace 超时后由 shutdown 回调走 /api/agent/report 把轮次最终
       // 落到 completed，因此 interrupt 不需要做任何兜底「结束」工作。
       //
       // Browser-side session-state signal. mode=interrupt (default) marks the
       // round "interrupted" with disconnectedAt to open the 3-minute rejoin
-      // window; mode=final retains the original cascade-to-completed semantics
-      // for any future "leave interview" button. Final completion is normally
-      // driven by /api/agent/report after the agent's grace timer fires.
+      // window; mode=final records the candidate's explicit end-button action
+      // and cascades to completed. A later Agent report can enrich the metadata
+      // but must preserve that higher-confidence business reason.
       const roundId = c.req.param("roundId");
       const mode = c.req.valid("query").mode === "final" ? "final" : "interrupt";
       const now = new Date();
 
       const [entry] = await db
         .select({
+          conversationId: studioInterviewSchedule.conversationId,
           disconnectedAt: studioInterviewSchedule.disconnectedAt,
           id: studioInterviewSchedule.id,
           interviewRecordId: studioInterviewSchedule.interviewRecordId,
+          liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
+          organizationId: studioInterviewSchedule.organizationId,
           status: studioInterviewSchedule.status,
         })
         .from(studioInterviewSchedule)
@@ -573,11 +620,25 @@ export const interviewRouter = factory
         return c.json({ success: true }, 200);
       }
 
+      const conversationId = entry.conversationId ?? entry.liveKitRoomName;
       await db.transaction(async (tx) => {
         await tx
           .update(studioInterviewSchedule)
-          .set({ status: "completed" as const, updatedAt: now })
+          .set({
+            conversationId: conversationId ?? entry.conversationId,
+            status: "completed" as const,
+            updatedAt: now,
+          })
           .where(eq(studioInterviewSchedule.id, roundId));
+        if (conversationId) {
+          await recordCandidateClickedEnd(tx, {
+            conversationId,
+            interviewRecordId: entry.interviewRecordId,
+            now,
+            organizationId: entry.organizationId,
+            roundId,
+          });
+        }
         if (isInterviewNotificationFlowEnabled()) {
           await enqueueAiInterviewCompletedEvent(tx, { scheduleEntryId: roundId });
         }
