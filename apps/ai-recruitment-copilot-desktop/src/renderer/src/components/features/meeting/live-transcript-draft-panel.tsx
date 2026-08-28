@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Icon } from "@/components/ui/icon";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
@@ -48,7 +50,7 @@ function TranscriptTurn({
   turn: LiveTranscriptDraftTurn;
   playCorrectionSweep: typeof playTranscriptCorrectionSweep;
 }) {
-  const blockRef = useRef<HTMLParagraphElement>(null);
+  const blockRef = useRef<HTMLButtonElement>(null);
   const gradientId = useId();
   // Already-corrected history must not replay when the panel mounts again.
   const correctionSeen = useRef(Boolean(turn.correctionModel));
@@ -63,38 +65,80 @@ function TranscriptTurn({
     return playCorrectionSweep(blockRef.current);
   }, [playCorrectionSweep, turn.correctionModel, turn.originalText, turn.text]);
 
+  const corrected = Boolean(turn.correctionModel && turn.originalText);
+  const realtimeText = turn.originalText ?? turn.text;
+  let correctionText = "尚未返回";
+  let correctionStatus = "实时草稿";
+  if (corrected) {
+    correctionText = turn.text;
+    correctionStatus = "已采用校正结果";
+  } else if (turn.correcting) {
+    correctionText = "校正中…";
+    correctionStatus = "校正中";
+  }
+
   return (
-    <p
-      className={cn(
-        "cursor-text! relative isolate flex items-start gap-2 px-px py-1 text-sm leading-relaxed hover:bg-foreground/4",
-        !turn.final && "text-muted-foreground italic",
-      )}
-      ref={blockRef}
-    >
-      {turn.correcting ? (
-        <output
-          aria-label="AI 正在校正"
-          className="flex h-lh w-4 shrink-0 select-none items-center justify-center motion-safe:animate-pulse"
-          title="AI 正在校正"
+    <HoverCard closeDelay={100} openDelay={180}>
+      <HoverCardTrigger asChild>
+        <button
+          aria-label="查看此字幕 block 的校正详情"
+          className={cn(
+            "cursor-text! relative isolate flex w-full items-start gap-2 px-px py-1 text-left text-sm leading-relaxed outline-none select-text hover:bg-foreground/4 focus-visible:bg-foreground/4",
+            !turn.final && "text-muted-foreground italic",
+          )}
+          ref={blockRef}
+          type="button"
         >
-          <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
-            <defs>
-              <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0%" stopColor="#00b8ff" />
-                <stop offset="45%" stopColor="#8955ff" />
-                <stop offset="75%" stopColor="#ef62c9" />
-                <stop offset="100%" stopColor="#ffb55e" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M10 2 12.7 9.3 20 12 12.7 14.7 10 22 7.3 14.7 0 12 7.3 9.3ZM20 1 21.1 3.9 24 5 21.1 6.1 20 9 18.9 6.1 16 5 18.9 3.9Z"
-              fill={`url(#${gradientId})`}
-            />
-          </svg>
-        </output>
-      ) : null}
-      <span className="min-w-0 flex-1">{turn.text}</span>
-    </p>
+          {turn.correcting ? (
+            <output
+              aria-label="AI 正在校正"
+              className="flex h-lh w-4 shrink-0 select-none items-center justify-center motion-safe:animate-pulse"
+              title="AI 正在校正"
+            >
+              <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
+                <defs>
+                  <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#00b8ff" />
+                    <stop offset="45%" stopColor="#8955ff" />
+                    <stop offset="75%" stopColor="#ef62c9" />
+                    <stop offset="100%" stopColor="#ffb55e" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M10 2 12.7 9.3 20 12 12.7 14.7 10 22 7.3 14.7 0 12 7.3 9.3ZM20 1 21.1 3.9 24 5 21.1 6.1 20 9 18.9 6.1 16 5 18.9 3.9Z"
+                  fill={`url(#${gradientId})`}
+                />
+              </svg>
+            </output>
+          ) : null}
+          <span className="min-w-0 flex-1">{turn.text}</span>
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent
+        align="start"
+        className="grid w-96 max-w-[calc(100vw-2rem)] gap-3 p-3"
+        side="top"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-medium text-sm">Block 校正详情</p>
+          <Badge variant={corrected ? "secondary" : "outline"}>{correctionStatus}</Badge>
+        </div>
+        <dl className="grid gap-2.5 text-xs">
+          <div className="grid gap-1">
+            <dt className="font-medium text-muted-foreground">实时字幕</dt>
+            <dd className="whitespace-pre-wrap break-words">{realtimeText}</dd>
+          </div>
+          <div className="grid gap-1">
+            <dt className="font-medium text-muted-foreground">模型校正</dt>
+            <dd className="whitespace-pre-wrap break-words">{correctionText}</dd>
+          </div>
+          <div className="grid gap-1">
+            <dt className="font-medium text-muted-foreground">最终采用</dt>
+            <dd className="whitespace-pre-wrap break-words">{turn.text}</dd>
+          </div>
+        </dl>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

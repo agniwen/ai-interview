@@ -15,6 +15,56 @@ import type {
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
+  it("waits for transcript-wide idle before forcing a trailing block", async () => {
+    vi.useFakeTimers();
+    const events = new Map<string, (event: LiveTranscriptEvent) => void>();
+    const correct = vi.fn<(batch: LiveCorrectionBatch) => boolean>().mockReturnValue(true);
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: "temp",
+          expiresAt: "2099-01-01T00:00:00Z",
+          model: "qwen-audio-3.0-asr-flash-streaming",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ authorization, onTranscript }) => {
+        events.set(authorization.track, onTranscript);
+        return Promise.resolve({ close: vi.fn(), correct, sendPcm: () => true });
+      },
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+
+    try {
+      // SAFETY: This test never accesses media track properties.
+      await draft.start({
+        captureId: CAPTURE_ID,
+        tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+      });
+      const mic = events.get("microphone");
+      mic?.({ itemId: "1", text: "第一句还需要后文", type: "completed" });
+
+      await vi.advanceTimersByTimeAsync(3999);
+      expect(correct).not.toHaveBeenCalled();
+
+      mic?.({ itemId: "2", text: "下一句正在说", type: "snapshot" });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(correct).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(3999);
+      expect(correct).toHaveBeenCalledOnce();
+      expect(correct).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blocks: [expect.objectContaining({ originalText: "第一句还需要后文" })],
+          lookahead: expect.objectContaining({ originalText: "下一句正在说" }),
+        }),
+      );
+    } finally {
+      draft.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it("waits for lookahead before sending a cross-track batch, atomically applies and cancels on pause", async () => {
     const events = new Map<string, (event: LiveTranscriptEvent) => void>();
     const results = new Map<string, (event: LiveCorrectionEvent) => void>();

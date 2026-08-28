@@ -133,7 +133,7 @@ const DEFAULT_MAX_DRAFT_TURNS = 500;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
-const DEFAULT_CORRECTION_LOOKAHEAD_MS = 1200;
+const DEFAULT_CORRECTION_LOOKAHEAD_MS = 4000;
 const DEFAULT_CORRECTION_FLUSH_TIMEOUT_MS = 5000;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
@@ -561,6 +561,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       scheduleTrailingCorrections();
     } else if (event.type === "snapshot" || event.type === "delta") {
       requestCorrections();
+      scheduleTrailingCorrections();
     }
   };
 

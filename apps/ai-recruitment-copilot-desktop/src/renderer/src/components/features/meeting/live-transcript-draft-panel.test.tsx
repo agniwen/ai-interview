@@ -185,6 +185,7 @@ describe("LiveTranscriptDraftPanel", () => {
       expect(html).not.toContain(">live<");
       expect(html).toContain("cursor-text");
       expect(html).toContain("hover:bg-foreground/4");
+      expect(html.match(/data-slot="hover-card-trigger"/g)).toHaveLength(2);
       expect(html).toContain("px-px");
       expect(html).toContain("py-1");
       expect(html.match(/w-4 shrink-0 select-none/g)).toHaveLength(1);
@@ -323,7 +324,9 @@ describe("live correction block sweep", () => {
     // The star must already be gone, and the replacement text committed, when the sweep starts.
     glimm.createShader.mockImplementationOnce(() => {
       expect(container.querySelector('output[aria-label="AI 正在校正"]')).toBeNull();
-      expect(container.querySelector("p")?.textContent).toBe("Kubernetes");
+      expect(container.querySelector('[data-slot="hover-card-trigger"]')?.textContent).toBe(
+        "Kubernetes",
+      );
       return { destroy: glimm.destroy };
     });
     renderTurn(corrected);
@@ -361,6 +364,28 @@ describe("live correction block sweep", () => {
     expect(glimm.playSweep).toHaveBeenCalledOnce();
     renderTurn({ ...corrected, text: realtime.text });
     expect(glimm.playSweep).toHaveBeenCalledOnce();
+  });
+
+  it("shows realtime, correction, and adopted text from the block hover trigger", async () => {
+    vi.useFakeTimers();
+    try {
+      renderTurn(corrected);
+      const trigger = container.querySelector<HTMLElement>('[data-slot="hover-card-trigger"]');
+      expect(trigger).not.toBeNull();
+
+      act(() => trigger?.focus());
+      await act(() => vi.advanceTimersByTimeAsync(250));
+
+      const card = document.body.querySelector('[data-slot="hover-card-content"]');
+      expect(card?.textContent).toContain("实时字幕");
+      expect(card?.textContent).toContain("库伯内提斯");
+      expect(card?.textContent).toContain("模型校正");
+      expect(card?.textContent).toContain("Kubernetes");
+      expect(card?.textContent).toContain("最终采用");
+      expect(card?.textContent).toContain("已采用校正结果");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("respects reduced motion without delaying corrected text", () => {

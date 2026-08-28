@@ -7,37 +7,6 @@ export const LIVE_CORRECTION_MODEL = "qwen-audio-3.0-asr-flash";
 export const LIVE_CORRECTION_LLM = "deepseek-v4-flash-0731";
 const SAMPLE_RATE = 16_000;
 const MAX_PENDING_BATCHES = 4;
-const MAX_DELETABLE_NOISE_CHARS = 1;
-const PROTECTED_SHORT_UTTERANCES = new Set([
-  "不",
-  "不是",
-  "不行",
-  "为什么",
-  "什么",
-  "你好",
-  "再见",
-  "可以",
-  "呃",
-  "啊",
-  "嗯",
-  "哦",
-  "喂",
-  "好",
-  "好的",
-  "对",
-  "对的",
-  "怎么",
-  "拜拜",
-  "收到",
-  "是",
-  "是的",
-  "明白",
-  "有",
-  "没有",
-  "行",
-  "谢谢",
-  "谢谢大家",
-]);
 
 const sentenceOutputSchema = z.object({ text: z.string().optional() });
 const responseSchema = z.object({
@@ -100,27 +69,11 @@ const CORRECTION_PROMPT = `你是保守的会议转写校正器。用户消息�
 音频按 blocks 数组顺序拼接后整体重新识别一次；combinedTranscript 是这份完整音频的识别结果。
 如果存在 lookaheadAudio，它是拼在目标音频末尾、仅用于理解未完句后半段的右侧证据，绝不能把它回填到目标 blocks。
 blocks 中的 text 是待校正的实时原文。综合每个 block 的实时原文、整体识别和前后文，选取最符合音频证据与上下文的文本，修正同音字、断句和明确的术语错误。
+实时 ASR 的 block 边界不是句子边界。音频证据明确时，可以重新分配相邻且相同音轨 block 的句首或句尾文本，使完整内容落到正确的 block；不同音轨之间绝不能移动文本。
 不能总结、扩写、编造人名数字事实，不能因为语句不流畅而改写内容；证据不充分时保留实时原文。
 仅当某个 block 是很短的孤立噪声误识别、在音频和上下文中都没有对应语义时，才把该 block 的 text 返回 null 以删除它。真实说出的简短回应、语气词、口头停顿和未说完的句子都必须保留；不能为了让文字更流畅而删除。
-context 仅作参考，不要把前后文复制进结果。除上述明确的短噪声删除外，按原 block 边界回填，不合并、拆分或丢失任何 block，跨音轨内容不能互换。
+context 仅作参考，不要把前后文复制进结果。必须保留全部 ID 和原顺序；除明确的短噪声可返回 null 外，每个 ID 都要返回校正后的文本。校正结果就是最终采用文本，实时字幕只作为音频复听之外的参考。
 只返回 JSON 对象 {"blocks":[{"id":"原始ID","text":"校正文本或null"}]}，恰好包含输入的全部 ID，数量与顺序不变，不要 Markdown 或其他说明。`;
-
-function compactSpeechText(text: string): string {
-  return text
-    .normalize("NFKC")
-    .toLocaleLowerCase("zh-CN")
-    .replaceAll(/[\p{P}\p{S}\s]/gu, "");
-}
-
-function canDeleteSpuriousBlock(originalText: string, combinedTranscript: string): boolean {
-  const compact = compactSpeechText(originalText);
-  return (
-    compact.length > 0 &&
-    [...compact].length <= MAX_DELETABLE_NOISE_CHARS &&
-    !PROTECTED_SHORT_UTTERANCES.has(compact) &&
-    !compactSpeechText(combinedTranscript).includes(compact)
-  );
-}
 
 interface CorrectionRequest {
   baseUrl: string;
@@ -278,19 +231,9 @@ export function createLiveTranscriptCorrection(input: { fetch?: typeof globalThi
       ) {
         throw new Error("Mismatched block IDs");
       }
-      const safeBlocks = result.blocks.map((block, index) => {
-        const source = request.batch.blocks[index];
-        if (!source) {
-          throw new Error("Missing source block");
-        }
-        return block.text === null &&
-          !canDeleteSpuriousBlock(source.originalText, combinedTranscript)
-          ? { ...block, text: source.originalText }
-          : block;
-      });
       request.onEvent({
         batchId: request.batch.batchId,
-        blocks: safeBlocks,
+        blocks: result.blocks,
         model: `${LIVE_CORRECTION_MODEL}+${LIVE_CORRECTION_LLM}`,
         status: "completed",
         type: "meeting.transcription.correction-batch",

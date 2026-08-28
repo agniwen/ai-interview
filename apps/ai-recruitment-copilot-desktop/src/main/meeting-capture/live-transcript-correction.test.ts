@@ -91,6 +91,8 @@ describe("one-to-three-block audio correction", () => {
     expect(wav.subarray(44)).toEqual(Buffer.concat([...clips, lookaheadClip]));
     const llmBody = JSON.parse(String(fetch.mock.calls[1][1]?.body));
     expect(llmBody.model).toBe(LIVE_CORRECTION_LLM);
+    expect(llmBody.messages[0].content).toContain("重新分配相邻且相同音轨 block 的句首或句尾文本");
+    expect(llmBody.messages[0].content).toContain("校正结果就是最终采用文本");
     const prompt = JSON.parse(llmBody.messages[1].content);
     expect(prompt).toMatchObject({
       combinedTranscript: "完整合并音频识别",
@@ -146,32 +148,32 @@ describe("one-to-three-block audio correction", () => {
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ status: "finished" }));
     sidecar.close();
   });
-  it("deletes only a short spurious block while preserving meaningful or long utterances", async () => {
-    const noiseBatch: LiveCorrectionBatch = {
+  it("treats the model result as authoritative across adjacent block boundaries", async () => {
+    const boundaryBatch: LiveCorrectionBatch = {
       ...batch,
       blocks: batch.blocks.map((block, index) => ({
         ...block,
-        originalText: ["字", "对", "这是一个还没有说完的完整表达"][index] ?? block.originalText,
+        originalText: ["这句话说到这里其实", "还没有结束", "错误噪音"][index] ?? block.originalText,
       })),
     };
-    const proposed = noiseBatch.blocks.map((block) => ({ id: block.id, text: null }));
+    const proposed = [
+      { id: boundaryBatch.blocks[0].id, text: "这句话说到这里" },
+      { id: boundaryBatch.blocks[1].id, text: "其实还没有结束" },
+      { id: boundaryBatch.blocks[2].id, text: null },
+    ];
     const { sidecar, onEvent, request } = setup(
       vi
         .fn<typeof globalThis.fetch>()
         .mockResolvedValueOnce(
-          Response.json({ output: { text: "对，这是一个还没有说完的完整表达" } }),
+          Response.json({ output: { text: "这句话说到这里，其实还没有结束。" } }),
         )
         .mockResolvedValueOnce(llm(proposed)),
     );
-    sidecar.correct({ ...request, batch: noiseBatch });
+    sidecar.correct({ ...request, batch: boundaryBatch });
     await vi.waitFor(() => expect(onEvent).toHaveBeenCalledOnce());
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        blocks: [
-          { id: noiseBatch.blocks[0].id, text: null },
-          { id: noiseBatch.blocks[1].id, text: "对" },
-          { id: noiseBatch.blocks[2].id, text: "这是一个还没有说完的完整表达" },
-        ],
+        blocks: proposed,
         status: "completed",
       }),
     );
