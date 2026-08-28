@@ -23,7 +23,13 @@ import type {
 } from "@arc/db-schema/interview-notifications";
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
 import { buildInterviewNotificationDedupeKey } from "@arc/shared/interview-notifications";
-import { and, asc, eq, inArray, lt, lte } from "drizzle-orm";
+import {
+  hasExistingInterviewAnswers,
+  isInterviewQuestionSetComplete,
+  parseInterviewDataCollectionResults,
+} from "@arc/shared/interview/question-outcomes";
+import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import { and, asc, desc, eq, inArray, lt, lte } from "drizzle-orm";
 import {
   buildCandidateInviteToken,
   hashInviteToken,
@@ -34,6 +40,26 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 
 const REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
+
+export const AI_INTERVIEW_COMPLETION_NOTICES = {
+  complete: (candidateName: string) => `${candidateName} 已完成 AI 面试，报告生成后将另行通知。`,
+  partial:
+    "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。",
+  unavailable:
+    "候选人已结束 AI 面试，但未产生有效回答，无法生成候选人评价表。可前往 AI 面试列表查看面试记录。",
+} as const;
+
+export function resolveAiInterviewCompletionNotice(
+  dataCollectionResults: InterviewDataCollectionResults | null,
+  candidateName = "候选人",
+): string {
+  if (isInterviewQuestionSetComplete(dataCollectionResults)) {
+    return AI_INTERVIEW_COMPLETION_NOTICES.complete(candidateName);
+  }
+  return hasExistingInterviewAnswers(dataCollectionResults)
+    ? AI_INTERVIEW_COMPLETION_NOTICES.partial
+    : AI_INTERVIEW_COMPLETION_NOTICES.unavailable;
+}
 
 export function resolveInterviewNotificationCompanyName(
   configuredCompanyName: string | null | undefined,
@@ -413,10 +439,12 @@ export async function enqueueAiInterviewCompletedEvent(
     .select({
       candidateName: studioInterview.candidateName,
       configuredCompanyName: globalConfig.companyName,
+      conversationId: studioInterviewSchedule.conversationId,
       createdBy: studioInterviewSchedule.createdBy,
       interviewRecordId: studioInterview.id,
       jobName: studioInterview.targetRole,
       organizationId: studioInterview.organizationId,
+      organizationSlug: organization.slug,
       roundLabel: studioInterviewSchedule.roundLabel,
       workspaceName: organization.name,
     })
@@ -429,6 +457,24 @@ export async function enqueueAiInterviewCompletedEvent(
   if (!context) {
     throw new Error("AI 面试完成通知缺少轮次上下文。");
   }
+  const [conversation] = await tx
+    .select({ dataCollectionResults: interviewConversation.dataCollectionResults })
+    .from(interviewConversation)
+    .where(
+      context.conversationId
+        ? eq(interviewConversation.conversationId, context.conversationId)
+        : eq(interviewConversation.scheduleEntryId, input.scheduleEntryId),
+    )
+    .orderBy(desc(interviewConversation.updatedAt))
+    .limit(1);
+  const dataCollectionResults = parseInterviewDataCollectionResults(
+    conversation?.dataCollectionResults,
+  );
+  const completionNotice = resolveAiInterviewCompletionNotice(
+    dataCollectionResults,
+    context.candidateName,
+  );
+  const isIncomplete = !isInterviewQuestionSetComplete(dataCollectionResults);
   await enqueuePreparedInterviewNotificationEvent(tx, {
     actorUserId: context.createdBy,
     dedupeKey: buildInterviewNotificationDedupeKey({
@@ -444,9 +490,10 @@ export async function enqueueAiInterviewCompletedEvent(
         context.configuredCompanyName,
         context.workspaceName,
       ),
-      interviewLink: absoluteAppUrl(
-        buildInterviewLink(context.interviewRecordId, input.scheduleEntryId),
-      ),
+      completionNotice,
+      interviewLink: isIncomplete
+        ? reportUrl(input.scheduleEntryId, context.organizationSlug)
+        : undefined,
       interviewType: "ai",
       jobName: context.jobName ?? undefined,
       roundName: context.roundLabel,

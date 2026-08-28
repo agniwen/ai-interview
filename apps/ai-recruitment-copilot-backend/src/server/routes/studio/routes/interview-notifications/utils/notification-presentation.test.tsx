@@ -95,6 +95,47 @@ describe("interview notification presentation", () => {
     expect(cardText).toContain("未收集到");
   });
 
+  it("explains partial AI completion and links HR to manual generation", () => {
+    const completionNotice =
+      "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。";
+    const interviewLink = "http://localhost:3000/w/default/studio/interviews?roundId=round-1";
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "selected_hr_user",
+        payload: { ...input.payload, completionNotice, interviewLink },
+        renderedContent: `${completionNotice}\n${interviewLink}`,
+        type: "ai_interview_completed",
+      }),
+    );
+
+    expect(card?.title).toBe("AI 面试已结束");
+    expect(JSON.stringify(card)).toContain(completionNotice);
+    expect(card?.children.find((child) => child.type === "actions")?.children).toContainEqual(
+      expect.objectContaining({
+        label: "前往 AI 面试列表",
+        type: "link-button",
+        url: interviewLink,
+      }),
+    );
+  });
+
+  it("explains when an AI evaluation cannot be generated", () => {
+    const completionNotice =
+      "候选人已结束 AI 面试，但未产生有效回答，无法生成候选人评价表。可前往 AI 面试列表查看面试记录。";
+    const card = toCardElement(
+      InterviewNotificationCard({
+        ...input,
+        audienceType: "selected_hr_user",
+        payload: { ...input.payload, completionNotice },
+        renderedContent: completionNotice,
+        type: "ai_interview_completed",
+      }),
+    );
+
+    expect(JSON.stringify(card)).toContain(completionNotice);
+  });
+
   it("renders the first AI HR invitation email with the approved candidate copy", () => {
     const html = renderInterviewNotificationEmailHtml({
       ...input,

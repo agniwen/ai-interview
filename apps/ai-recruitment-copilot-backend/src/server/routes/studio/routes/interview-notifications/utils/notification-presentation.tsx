@@ -57,6 +57,9 @@ function actionLabel(input: NotificationPresentationInput): string {
   if (input.type === "ai_report_ready") {
     return "查看面试报告";
   }
+  if (input.type === "ai_interview_completed") {
+    return "前往 AI 面试列表";
+  }
   return "查看面试安排";
 }
 
@@ -77,6 +80,7 @@ function resolveNotificationAction(
 
 function notificationTitle(input: NotificationPresentationInput): string {
   const titles = {
+    ai_interview_completed: "AI 面试已结束",
     ai_interview_invited: "在线面试邀请",
     ai_invitation_accepted: "候选人面试反馈通知",
     ai_invitation_declined: "候选人面试反馈通知",
@@ -100,6 +104,7 @@ function notificationTitle(input: NotificationPresentationInput): string {
 
 function notificationStatus(type: InterviewNotificationEventType): string | null {
   const statuses = {
+    ai_interview_completed: "已结束",
     ai_invitation_accepted: "接受 第一轮 HR 面试",
     ai_invitation_declined: "拒绝 第一轮 HR 面试",
     human_candidate_invitation_requested: "待候选人确认",
@@ -119,6 +124,9 @@ function notificationStatus(type: InterviewNotificationEventType): string | null
 }
 
 function notificationSummary(input: NotificationPresentationInput): string {
+  if (input.type === "ai_interview_completed" && input.payload.completionNotice) {
+    return input.payload.completionNotice;
+  }
   if (input.type === "human_interview_completed" && input.payload.evaluationSummary) {
     return input.payload.evaluationSummary;
   }

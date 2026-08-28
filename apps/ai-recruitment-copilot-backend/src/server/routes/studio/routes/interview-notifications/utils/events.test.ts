@@ -1,11 +1,79 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_INTERVIEW_COMPLETION_NOTICES,
   buildHumanInterviewEvaluationSummary,
   buildHumanInterviewRoundProgression,
   buildInterviewReminderSchedule,
+  resolveAiInterviewCompletionNotice,
   resolveHumanMeetingEventInterviewLink,
   resolveInterviewNotificationCompanyName,
 } from "./events";
+
+const ANSWERED_OUTCOME = {
+  answerSummary: "候选人说明了告警、根因和预防措施",
+  difficulty: "medium" as const,
+  endedAtSecs: 48,
+  evaluationFocus: "确认候选人能够定位并复盘线上故障",
+  followUpCount: 1,
+  followUpDirections: "追问定位信号、根因和预防措施",
+  question: "请介绍一次线上故障排查经历。",
+  questionId: "question-1",
+  reason: null,
+  revision: 1,
+  startedAtSecs: 12,
+  status: "answered" as const,
+};
+
+describe("AI interview completion notice", () => {
+  it("keeps the report-pending notice for a complete question set", () => {
+    expect(
+      resolveAiInterviewCompletionNotice(
+        {
+          questions: [ANSWERED_OUTCOME],
+          schemaVersion: 2,
+        },
+        "张三",
+      ),
+    ).toBe(AI_INTERVIEW_COMPLETION_NOTICES.complete("张三"));
+  });
+
+  it("offers manual generation when an incomplete interview has an effective answer", () => {
+    expect(
+      resolveAiInterviewCompletionNotice({
+        questions: [
+          ANSWERED_OUTCOME,
+          {
+            ...ANSWERED_OUTCOME,
+            answerSummary: null,
+            questionId: "question-2",
+            reason: "candidate_ended_round",
+            status: "unasked",
+          },
+        ],
+        schemaVersion: 2,
+      }),
+    ).toBe(AI_INTERVIEW_COMPLETION_NOTICES.partial);
+  });
+
+  it("explains that generation is unavailable without an effective answer", () => {
+    expect(
+      resolveAiInterviewCompletionNotice({
+        questions: [
+          {
+            ...ANSWERED_OUTCOME,
+            answerSummary: null,
+            reason: "system_shutdown",
+            status: "unasked",
+          },
+        ],
+        schemaVersion: 2,
+      }),
+    ).toBe(AI_INTERVIEW_COMPLETION_NOTICES.unavailable);
+    expect(resolveAiInterviewCompletionNotice(null)).toBe(
+      AI_INTERVIEW_COMPLETION_NOTICES.unavailable,
+    );
+  });
+});
 
 describe("human interview round progression", () => {
   it("starts after AI HR and advances from the latest passed human round", () => {

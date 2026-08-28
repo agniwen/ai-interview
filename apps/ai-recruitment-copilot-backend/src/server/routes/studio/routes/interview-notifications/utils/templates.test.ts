@@ -51,6 +51,27 @@ describe("interview notification templates", () => {
     });
   });
 
+  it("renders the AI completion notice and optional interview-list link", () => {
+    const template = CORE_INTERVIEW_NOTIFICATION_TEMPLATES.find(
+      (item) =>
+        item.eventType === "ai_interview_completed" && item.audienceType === "selected_hr_user",
+    );
+    if (!template) {
+      throw new Error("AI 面试完成通知模板不存在");
+    }
+    expect(
+      renderInterviewNotificationTemplateContent(template, {
+        completionNotice:
+          "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。",
+        interviewLink: "https://example.test/w/default/studio/interviews?roundId=round-1",
+        schemaVersion: 1,
+        timeZone: "Asia/Shanghai",
+      }).content,
+    ).toBe(
+      "候选人已结束 AI 面试，但部分问题未完成，系统未自动生成候选人评价表。可前往 AI 面试列表，根据已有回答生成。\nhttps://example.test/w/default/studio/interviews?roundId=round-1",
+    );
+  });
+
   it("keeps candidate-facing human interview copy free of interviewer and internal fields", () => {
     const candidateTemplates = CORE_INTERVIEW_NOTIFICATION_TEMPLATES.filter(
       (item) =>

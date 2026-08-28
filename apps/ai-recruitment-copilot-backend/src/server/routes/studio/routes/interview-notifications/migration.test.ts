@@ -64,6 +64,13 @@ const humanProgressionInvitationCopyMigration = readFileSync(
   ),
   "utf-8",
 );
+const aiInterviewCompletionCopyMigration = readFileSync(
+  new URL(
+    "../../../../../../../ai-recruitment-copilot/drizzle/20260829100000_ai_interview_completion_copy/migration.sql",
+    import.meta.url,
+  ),
+  "utf-8",
+);
 
 describe("interview notification foundation migration", () => {
   it("adds the outbox, template, and recipient boundaries", () => {
@@ -149,6 +156,18 @@ describe("AI invitation exception notification migration", () => {
     expect(aiInvitationExceptionCandidateEmailMigration).not.toMatch(
       /DROP (?:TABLE|COLUMN|CONSTRAINT)/,
     );
+  });
+});
+
+describe("AI interview completion notification migration", () => {
+  it("publishes completion-aware HR Feishu copy", () => {
+    expect(aiInterviewCompletionCopyMigration).toContain("{{completionNotice}}");
+    expect(aiInterviewCompletionCopyMigration).toContain("{{interviewLink}}");
+    expect(aiInterviewCompletionCopyMigration).toContain(
+      "system_ai_completed_selected_hr_feishu_v3",
+    );
+    expect(aiInterviewCompletionCopyMigration).toContain("system_ai_completed_initiator_feishu_v3");
+    expect(aiInterviewCompletionCopyMigration).not.toMatch(/DROP (?:TABLE|COLUMN|CONSTRAINT)/);
   });
 });
 

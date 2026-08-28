@@ -109,14 +109,14 @@ export const CORE_INTERVIEW_NOTIFICATION_TEMPLATES = [
   {
     audienceType: "selected_hr_user",
     channel: "feishu",
-    contentTemplate: "{{candidateName}} 已完成 AI 面试，报告生成后将另行通知。",
+    contentTemplate: "{{completionNotice}}\n{{interviewLink}}",
     eventType: "ai_interview_completed",
     subjectTemplate: null,
   },
   {
     audienceType: "initiator_fallback",
     channel: "feishu",
-    contentTemplate: "{{candidateName}} 已完成 AI 面试，报告生成后将另行通知。",
+    contentTemplate: "{{completionNotice}}\n{{interviewLink}}",
     eventType: "ai_interview_completed",
     subjectTemplate: null,
   },
