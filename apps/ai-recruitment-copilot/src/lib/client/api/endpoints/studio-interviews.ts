@@ -475,7 +475,7 @@ export function retryHumanInterviewFeishuSync(
     ].$post({
       param: { meetingId, slug },
     }),
-    "重试飞书会议同步失败",
+    "重试飞书日程同步失败",
   );
 }
 

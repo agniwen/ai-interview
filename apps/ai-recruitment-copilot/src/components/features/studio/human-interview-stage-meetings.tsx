@@ -124,7 +124,7 @@ export function MeetingLinksDialogView({
       return retryFeishuMutation(slug, meeting.id);
     },
     onError: (retryError) => {
-      toast.error(retryError instanceof Error ? retryError.message : "重试飞书同步失败");
+      toast.error(retryError instanceof Error ? retryError.message : "重试飞书日程同步失败");
     },
     onSettled: () => {
       void queryClient.invalidateQueries({
@@ -132,7 +132,7 @@ export function MeetingLinksDialogView({
       });
     },
     onSuccess: () => {
-      toast.success("飞书会议与日程已创建");
+      toast.success("飞书日程已创建");
     },
   });
   return (
@@ -198,8 +198,25 @@ function MeetingLinksContent({
       ) : null}
       {links.feishu?.status === "unknown" ? (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-amber-700 text-sm dark:text-amber-300">
-          飞书会议创建结果未知，请先在飞书中人工核查，暂时不能直接重试。
+          历史飞书同步结果未知，请先在飞书中人工核查，暂时不能直接重试。
         </p>
+      ) : null}
+
+      {links.feishu?.calendarEventUrl ? (
+        <section className="space-y-2">
+          <h4 className="flex items-center gap-2 font-medium text-sm">
+            <IconLink className="size-4" />
+            飞书日程
+          </h4>
+          <MeetingLinkRow
+            description="查看面试安排"
+            label="打开飞书日程"
+            url={links.feishu.calendarEventUrl}
+          />
+          <p className="text-muted-foreground text-xs">
+            系统内改期会同步到飞书日程；取消仍需同时在飞书中处理。
+          </p>
+        </section>
       ) : null}
 
       {links.feishu?.meetingUrl ? (
@@ -209,9 +226,6 @@ function MeetingLinksContent({
             飞书会议链接
           </h4>
           <MeetingLinkRow description="发给候选人" label="飞书会议" url={links.feishu.meetingUrl} />
-          <p className="text-muted-foreground text-xs">
-            飞书日程创建后，系统内改期或取消不会自动同步到飞书，请同时在飞书中处理。
-          </p>
         </section>
       ) : null}
 
@@ -256,14 +270,14 @@ function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) 
   if (status === "failed") {
     return {
       button: "重试飞书同步",
-      message: "飞书同步失败，现有候选人和面试官链接仍可使用。",
+      message: "飞书日程同步失败，现有候选人和面试官链接仍可使用。",
       tone: "border-destructive/30 bg-destructive/5 text-destructive",
     };
   }
   if (status === "pending") {
     return {
       button: "继续飞书同步",
-      message: "飞书同步尚未完成，可以继续创建飞书会议与日程。",
+      message: "飞书日程同步尚未完成，可以继续创建日程并邀请面试官。",
       tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
     };
   }

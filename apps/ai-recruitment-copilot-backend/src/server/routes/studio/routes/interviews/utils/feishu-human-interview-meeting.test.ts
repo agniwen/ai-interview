@@ -1,102 +1,9 @@
 /* oxlint-disable prefer-response-static-json -- explicit response bodies mirror Feishu HTTP fixtures. */
 
 import { describe, expect, it, vi } from "vitest";
-import {
-  createFeishuHumanInterviewClient,
-  FeishuReserveResultUnknownError,
-} from "./feishu-human-interview-meeting";
+import { createFeishuHumanInterviewClient } from "./feishu-human-interview-meeting";
 
 describe("Feishu human interview HTTP contract", () => {
-  it("creates a reserve owned and hosted by the selected interviewers", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          code: 0,
-          data: {
-            reserve: {
-              app_link: "https://applink.feishu.cn/client/video/123456789",
-              id: "reserve_1",
-              meeting_no: "123456789",
-              url: "https://vc.feishu.cn/j/123456789",
-            },
-          },
-          msg: "success",
-        }),
-        { headers: { "content-type": "application/json" }, status: 200 },
-      ),
-    );
-    const client = createFeishuHumanInterviewClient({
-      accessToken: "tenant-token",
-      fetch: fetchMock,
-    });
-
-    const reserve = await client.createReserve({
-      endAt: new Date("2026-08-05T10:30:00.000Z"),
-      hostOpenIds: ["ou_interviewer_1", "ou_interviewer_2"],
-      ownerOpenId: "ou_interviewer_1",
-      title: "张三 - 真人复面",
-    });
-
-    expect(reserve).toEqual({
-      appLink: "https://applink.feishu.cn/client/video/123456789",
-      meetingNo: "123456789",
-      meetingUrl: "https://vc.feishu.cn/j/123456789",
-      reserveId: "reserve_1",
-    });
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe("https://open.feishu.cn/open-apis/vc/v1/reserves/apply?user_id_type=open_id");
-    expect(init).toMatchObject({
-      headers: {
-        authorization: "Bearer tenant-token",
-        "content-type": "application/json; charset=utf-8",
-      },
-      method: "POST",
-    });
-    expect(JSON.parse(String(init?.body))).toEqual({
-      end_time: "1785925800",
-      meeting_settings: {
-        assign_host_list: [
-          { id: "ou_interviewer_1", user_type: 1 },
-          { id: "ou_interviewer_2", user_type: 1 },
-        ],
-        auto_record: false,
-        topic: "张三 - 真人复面",
-      },
-      owner_id: "ou_interviewer_1",
-    });
-  });
-
-  it("updates the existing reserve end time without creating another reserve", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-        headers: { "content-type": "application/json" },
-        status: 200,
-      }),
-    );
-    const client = createFeishuHumanInterviewClient({
-      accessToken: "tenant-token",
-      fetch: fetchMock,
-    });
-
-    await client.updateReserve({
-      endAt: new Date("2026-08-05T11:30:00.000Z"),
-      reserveId: "reserve_1",
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://open.feishu.cn/open-apis/vc/v1/reserves/reserve_1?user_id_type=open_id",
-      {
-        body: JSON.stringify({ end_time: "1785929400" }),
-        headers: {
-          authorization: "Bearer tenant-token",
-          "content-type": "application/json; charset=utf-8",
-        },
-        method: "PUT",
-      },
-    );
-  });
-
   it("loads the bot primary calendar", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -135,7 +42,7 @@ describe("Feishu human interview HTTP contract", () => {
     );
   });
 
-  it("creates a calendar event that reuses the existing Feishu meeting", async () => {
+  it("creates a calendar-only event without attaching a Feishu meeting", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -161,7 +68,6 @@ describe("Feishu human interview HTTP contract", () => {
       description: "候选人：张三",
       endAt: new Date("2026-08-05T10:30:00.000Z"),
       idempotencyKey: "human-interview-meeting-000000000001",
-      meetingUrl: "https://vc.feishu.cn/j/123456789",
       startAt: new Date("2026-08-05T09:30:00.000Z"),
       title: "张三 - 真人复面",
     });
@@ -180,12 +86,6 @@ describe("Feishu human interview HTTP contract", () => {
       free_busy_status: "busy",
       start_time: { timestamp: "1785922200", timezone: "Asia/Shanghai" },
       summary: "张三 - 真人复面",
-      vchat: {
-        description: "加入飞书会议",
-        icon_type: "vc",
-        meeting_url: "https://vc.feishu.cn/j/123456789",
-        vc_type: "third_party",
-      },
     });
   });
 
@@ -203,6 +103,7 @@ describe("Feishu human interview HTTP contract", () => {
 
     await client.updateCalendarEventTime({
       calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      description: "真人复面安排\n\n在线面试入口：https://interview.example.test/interview",
       endAt: new Date("2026-08-05T11:30:00.000Z"),
       eventId: "event_1",
       startAt: new Date("2026-08-05T10:30:00.000Z"),
@@ -212,6 +113,7 @@ describe("Feishu human interview HTTP contract", () => {
       "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1?user_id_type=open_id",
       {
         body: JSON.stringify({
+          description: "真人复面安排\n\n在线面试入口：https://interview.example.test/interview",
           end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
           need_notification: true,
           start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
@@ -309,72 +211,6 @@ describe("Feishu human interview HTTP contract", () => {
         method: "POST",
       },
     );
-  });
-
-  it("marks an interrupted reserve request as result unknown", async () => {
-    const client = createFeishuHumanInterviewClient({
-      accessToken: "tenant-token",
-      fetch: vi.fn<typeof fetch>().mockRejectedValue(new TypeError("fetch failed")),
-    });
-
-    await expect(
-      client.createReserve({
-        endAt: new Date("2026-08-05T10:30:00.000Z"),
-        hostOpenIds: ["ou_interviewer"],
-        ownerOpenId: "ou_operator",
-        title: "张三 - 真人复面",
-      }),
-    ).rejects.toBeInstanceOf(FeishuReserveResultUnknownError);
-  });
-
-  it("marks an unreadable successful reserve response as result unknown", async () => {
-    const client = createFeishuHumanInterviewClient({
-      accessToken: "tenant-token",
-      fetch: vi
-        .fn<typeof fetch>()
-        .mockResolvedValue(new Response("truncated-json", { status: 200 })),
-    });
-
-    await expect(
-      client.createReserve({
-        endAt: new Date("2026-08-05T10:30:00.000Z"),
-        hostOpenIds: ["ou_interviewer"],
-        ownerOpenId: "ou_operator",
-        title: "张三 - 真人复面",
-      }),
-    ).rejects.toBeInstanceOf(FeishuReserveResultUnknownError);
-  });
-
-  it("rejects a corrected reserve when a selected host is invalid", async () => {
-    const client = createFeishuHumanInterviewClient({
-      accessToken: "tenant-token",
-      fetch: vi.fn<typeof fetch>().mockResolvedValue(
-        Response.json({
-          code: 0,
-          data: {
-            reserve: {
-              app_link: "https://applink.feishu.cn/client/video/123456789",
-              id: "reserve_invalid_host",
-              meeting_no: "123456789",
-              url: "https://vc.feishu.cn/j/123456789",
-            },
-            reserve_correction_check_info: {
-              invalid_host_id_list: ["ou_invalid_host"],
-            },
-          },
-          msg: "success",
-        }),
-      ),
-    });
-
-    await expect(
-      client.createReserve({
-        endAt: new Date("2026-08-05T10:30:00.000Z"),
-        hostOpenIds: ["ou_invalid_host"],
-        ownerOpenId: "ou_operator",
-        title: "张三 - 真人复面",
-      }),
-    ).rejects.toThrow("以下面试官无法设置为飞书会议主持人：ou_invalid_host");
   });
 
   it("rejects a partial attendee result", async () => {

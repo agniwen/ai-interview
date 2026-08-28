@@ -42,9 +42,9 @@ const meeting: HumanInterviewMeetingRecord = {
   createdBy: "operator-1",
   endedAt: null,
   feishu: {
-    appLink: "https://applink.feishu.cn/client/video/123456789",
+    appLink: null,
     calendarEventUrl: "https://applink.feishu.cn/client/calendar/event/event-1",
-    meetingUrl: "https://vc.feishu.cn/j/123456789",
+    meetingUrl: null,
     providerId: "feishu",
     status: "ready",
   },
@@ -92,7 +92,7 @@ const links: HumanInterviewMeetingLinkBundle = {
 };
 
 describe("MeetingLinksDialog", () => {
-  it("keeps LiveKit as the current entry channel when a Feishu meeting is synchronized", async () => {
+  it("shows the synchronized Feishu calendar without presenting a Feishu meeting", async () => {
     issueLinksMock.mockResolvedValue(links);
     const container = document.createElement("div");
     document.body.append(container);
@@ -117,10 +117,12 @@ describe("MeetingLinksDialog", () => {
     });
 
     const text = document.body.textContent ?? "";
-    expect(text).toContain("飞书会议链接");
-    expect(text.indexOf("飞书会议链接")).toBeLessThan(text.indexOf("候选人确认链接"));
-    expect(document.body.innerHTML).toContain("https://vc.feishu.cn/j/123456789");
-    expect(text).not.toContain("飞书会议链接（当前使用）");
+    expect(text).toContain("飞书日程");
+    expect(text.indexOf("飞书日程")).toBeLessThan(text.indexOf("候选人确认链接"));
+    expect(document.body.innerHTML).toContain(
+      "https://applink.feishu.cn/client/calendar/event/event-1",
+    );
+    expect(text).not.toContain("飞书会议链接");
     expect(text).toContain("候选人确认链接");
     expect(text).toContain("面试官会议链接");
 
@@ -131,9 +133,9 @@ describe("MeetingLinksDialog", () => {
     issueLinksMock.mockResolvedValue({
       ...links,
       feishu: {
-        appLink: "https://applink.feishu.cn/client/video/123456789",
+        appLink: null,
         calendarEventUrl: null,
-        meetingUrl: "https://vc.feishu.cn/j/123456789",
+        meetingUrl: null,
         providerId: "feishu",
         status: "failed",
       },
@@ -153,9 +155,9 @@ describe("MeetingLinksDialog", () => {
             meeting={{
               ...meeting,
               feishu: {
-                appLink: "https://applink.feishu.cn/client/video/123456789",
+                appLink: null,
                 calendarEventUrl: null,
-                meetingUrl: "https://vc.feishu.cn/j/123456789",
+                meetingUrl: null,
                 providerId: "feishu",
                 status: "failed",
               },
@@ -170,7 +172,7 @@ describe("MeetingLinksDialog", () => {
     });
 
     const text = document.body.textContent ?? "";
-    expect(text).toContain("飞书同步失败");
+    expect(text).toContain("飞书日程同步失败");
     expect(text).toContain("重试飞书同步");
     expect(text).toContain("候选人确认链接");
     expect(text).toContain("面试官会议链接");

@@ -552,7 +552,7 @@ export function createStudioInterviewCollectionRouter(dependencies?: {
           if (meeting.feishu.status === "unknown") {
             return c.json(
               {
-                error: "飞书会议创建结果未知，请先在飞书中核查，不能直接重试。",
+                error: "历史飞书同步结果未知，请先在飞书中核查，不能直接重试。",
                 feishuStatus: "unknown" as const,
                 meetingId,
               },

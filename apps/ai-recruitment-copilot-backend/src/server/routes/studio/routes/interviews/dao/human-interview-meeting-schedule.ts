@@ -61,7 +61,7 @@ export async function updateHumanInterviewMeetingSchedule({
     }
     if (existing.feishuSyncStatus === "unknown") {
       throw new HumanInterviewMeetingError(
-        "飞书会议创建结果未知，请先在飞书中核查后再调整时间。",
+        "历史飞书同步结果未知，请先在飞书中核查后再调整时间。",
         400,
       );
     }

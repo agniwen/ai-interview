@@ -19,11 +19,6 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import {
-  FeishuReserveResultUnknownError,
-  recordFeishuHumanInterviewSyncFailure,
-} from "../utils/feishu-human-interview-meeting";
-
 import { createStudioInterviewCollectionRouter } from "../collection-route";
 
 const studioInterviewCollectionRouter = createStudioInterviewCollectionRouter({
@@ -415,7 +410,8 @@ describe("POST /human-interview-meetings", () => {
     expect((await response.json()) as { feishu: unknown }).toMatchObject({ feishu: null });
   });
 
-  it("uses the interviewers' common app and only adds interviewers to Feishu", async () => {
+  it("creates only a Feishu calendar event with each interviewer's own system link", async () => {
+    process.env.BETTER_AUTH_URL = "https://interview.example.test";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -425,23 +421,6 @@ describe("POST /human-interview-meetings", () => {
             expire: 7200,
             msg: "success",
             tenant_access_token: "secondary-tenant-token",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              reserve: {
-                app_link: "https://applink.feishu.cn/client/video/123456789",
-                id: "reserve_route_1",
-                meeting_no: "123456789",
-                url: "https://vc.feishu.cn/j/123456789",
-              },
-            },
-            msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
         ),
@@ -496,7 +475,7 @@ describe("POST /human-interview-meetings", () => {
     const response = await makeApp("feishu").request("/human-interview-meetings", {
       body: JSON.stringify({
         interviewerIds: [INTERVIEWER_ID],
-        notes: null,
+        notes: "请重点关注系统设计能力",
         roundIds: [ROUND_ID],
         scheduledAt: "2026-08-05T09:30:00.000Z",
         title: "张三 - 真人复面",
@@ -515,15 +494,27 @@ describe("POST /human-interview-meetings", () => {
       app_id: "cli_test_feishu_secondary",
       app_secret: "secondary-secret",
     });
-    const reserveRequest = fetchMock.mock.calls.find(([url]) =>
-      String(url).includes("/vc/v1/reserves/apply"),
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
+    const calendarRequest = fetchMock.mock.calls.find(
+      ([url]) =>
+        String(url).includes("/calendar/v4/calendars/") && String(url).includes("/events?"),
     );
-    expect(JSON.parse(String(reserveRequest?.[1]?.body))).toMatchObject({
-      meeting_settings: {
-        assign_host_list: [{ id: "ou_interviewer_secondary", user_type: 1 }],
-      },
-      owner_id: "ou_interviewer_secondary",
-    });
+    // SAFETY: The mocked request body is the calendar JSON payload produced by this route.
+    const calendarBody = JSON.parse(String(calendarRequest?.[1]?.body)) as {
+      description?: string;
+    };
+    expect(calendarBody.description).toContain("真人复面安排");
+    expect(calendarBody.description).toContain("候选人：张三");
+    expect(calendarBody.description).toContain("面试轮次：真人复面");
+    expect(calendarBody.description).toContain("面试官：光芒（主持人）");
+    expect(calendarBody.description).toContain("在线面试入口（请点击本人对应的链接）");
+    expect(calendarBody.description).toContain(
+      "光芒（主持人）：https://interview.example.test/human-interview/interviewer/",
+    );
+    expect(calendarBody.description).toContain("请重点关注系统设计能力");
+    expect(calendarBody.description).toContain(
+      "本日程仅用于面试安排，在线面试将在招聘系统中进行。",
+    );
     const attendeeRequest = fetchMock.mock.calls.find(([url]) =>
       String(url).includes("/attendees"),
     );
@@ -533,12 +524,20 @@ describe("POST /human-interview-meetings", () => {
     });
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const body = (await response.json()) as {
-      feishu?: { meetingUrl?: string; providerId?: string; status?: string };
+      feishu?: {
+        calendarEventUrl?: string;
+        meetingUrl?: string | null;
+        providerId?: string;
+        status?: string;
+      };
     };
     expect(body.feishu?.providerId).toBe("feishu-jiguang-hr");
     expect(body.feishu?.status).toBe("ready");
-    expect(body.feishu?.meetingUrl).toBe("https://vc.feishu.cn/j/123456789");
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(body.feishu?.calendarEventUrl).toBe(
+      "https://applink.feishu.cn/client/calendar/event/detail?key=event_1",
+    );
+    expect(body.feishu?.meetingUrl).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("keeps an existing Feishu meeting on the LiveKit-only path when the integration is disabled", async () => {
@@ -572,7 +571,8 @@ describe("POST /human-interview-meetings", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("updates the existing Feishu reserve and calendar event when the meeting time changes", async () => {
+  it("updates only the existing Feishu calendar event when the meeting time changes", async () => {
+    process.env.BETTER_AUTH_URL = "https://interview.example.test";
     const meetingId = "test_feishu_schedule_update";
     await seedReadyFeishuMeeting(meetingId);
     await db
@@ -592,12 +592,6 @@ describe("POST /human-interview-meetings", () => {
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
         ),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        }),
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
@@ -627,16 +621,15 @@ describe("POST /human-interview-meetings", () => {
       scheduledAt: "2026-08-05T10:30:00.000Z",
       validUntil: "2026-08-05T11:30:00.000Z",
     });
-    const reserveUpdate = fetchMock.mock.calls.find(([url]) =>
-      String(url).includes("/vc/v1/reserves/reserve_route_schedule_update"),
-    );
-    expect(reserveUpdate?.[1]?.method).toBe("PUT");
-    expect(JSON.parse(String(reserveUpdate?.[1]?.body))).toEqual({ end_time: "1785929400" });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
     const calendarUpdate = fetchMock.mock.calls.find(([url]) =>
       String(url).includes("/events/event_route_schedule_update"),
     );
     expect(calendarUpdate?.[1]?.method).toBe("PATCH");
     expect(JSON.parse(String(calendarUpdate?.[1]?.body))).toEqual({
+      description: expect.stringContaining(
+        "光芒（主持人）：https://interview.example.test/human-interview/interviewer/",
+      ),
       end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
       need_notification: true,
       start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
@@ -740,12 +733,6 @@ describe("POST /human-interview-meetings", () => {
         ),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        }),
-      )
-      .mockResolvedValueOnce(
         new Response(JSON.stringify({ code: 12_345, msg: "calendar update denied" }), {
           headers: { "content-type": "application/json" },
           status: 403,
@@ -793,20 +780,12 @@ describe("POST /human-interview-meetings", () => {
       },
     ]);
 
-    fetchMock
-      .mockReset()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        }),
-      );
+    fetchMock.mockReset().mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
     const retryResponse = await app.request(`/human-interview-meetings/${meetingId}/feishu-sync`, {
       method: "POST",
     });
@@ -844,7 +823,7 @@ describe("POST /human-interview-meetings", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns a retryable failed state when calendar creation fails after the reserve", async () => {
+  it("returns a retryable failed state when calendar creation fails", async () => {
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_calendar_failure";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -855,23 +834,6 @@ describe("POST /human-interview-meetings", () => {
             expire: 7200,
             msg: "success",
             tenant_access_token: "secondary-tenant-token",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              reserve: {
-                app_link: "https://applink.feishu.cn/client/video/987654321",
-                id: "reserve_route_failed_calendar",
-                meeting_no: "987654321",
-                url: "https://vc.feishu.cn/j/987654321",
-              },
-            },
-            msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
         ),
@@ -955,12 +917,6 @@ describe("POST /human-interview-meetings", () => {
     fetchMock
       .mockReset()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        }),
-      )
-      .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             code: 0,
@@ -1008,13 +964,13 @@ describe("POST /human-interview-meetings", () => {
     expect(retryResponse.status).toBe(200);
     // SAFETY: This test constructs the value with the asserted contract before this boundary.
     const retryBody = (await retryResponse.json()) as {
-      feishu?: { meetingUrl?: string; status?: string };
+      feishu?: { meetingUrl?: string | null; status?: string };
     };
     expect(retryBody.feishu).toMatchObject({
-      meetingUrl: "https://vc.feishu.cn/j/987654321",
+      meetingUrl: null,
       status: "ready",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const attendeeRequest = fetchMock.mock.calls.find(([url]) =>
       String(url).includes("/attendees"),
     );
@@ -1022,11 +978,7 @@ describe("POST /human-interview-meetings", () => {
       attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
       need_notification: true,
     });
-    expect(
-      fetchMock.mock.calls.some(
-        ([url, init]) => String(url).includes("/vc/v1/reserves/") && init?.method === "PUT",
-      ),
-    ).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
   });
 
   it("persists a retryable failed state when the tenant token request fails", async () => {
@@ -1122,7 +1074,7 @@ describe("POST /human-interview-meetings", () => {
     await setRoundInterviewers([INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID]);
     const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_partial_attendees";
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("tenant_access_token/internal")) {
         return new Response(
@@ -1131,32 +1083,6 @@ describe("POST /human-interview-meetings", () => {
             expire: 7200,
             msg: "success",
             tenant_access_token: "partial-attendee-token",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        );
-      }
-      if (url.includes("/vc/v1/reserves/apply")) {
-        expect(JSON.parse(String(init?.body))).toMatchObject({
-          meeting_settings: {
-            assign_host_list: [
-              { id: "ou_interviewer_secondary", user_type: 1 },
-              { id: "ou_secondary_interviewer", user_type: 1 },
-            ],
-          },
-          owner_id: "ou_interviewer_secondary",
-        });
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              reserve: {
-                app_link: "https://applink.feishu.cn/client/video/partial",
-                id: "reserve_partial_attendees",
-                meeting_no: "333444555",
-                url: "https://vc.feishu.cn/j/333444555",
-              },
-            },
-            msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
         );
@@ -1245,7 +1171,7 @@ describe("POST /human-interview-meetings", () => {
         { method: "POST" },
       );
       expect(retryResponse.status).toBe(200);
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(
         fetchMock.mock.calls.filter(([url]) => String(url).includes("/attendees")),
       ).toHaveLength(1);
@@ -1254,89 +1180,34 @@ describe("POST /human-interview-meetings", () => {
     }
   });
 
-  it("marks an interrupted reserve request as unknown and blocks blind retry", async () => {
+  it("keeps an interrupted calendar request safely retryable", async () => {
+    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_calendar_network_retry";
+    process.env.BETTER_AUTH_URL = "https://interview.example.test";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockRejectedValueOnce(new TypeError("connection reset"));
-
-    const response = await makeApp("feishu").request("/human-interview-meetings", {
-      body: JSON.stringify({
-        interviewerIds: [INTERVIEWER_ID],
-        notes: null,
-        roundIds: [ROUND_ID],
-        scheduledAt: "2026-08-05T09:30:00.000Z",
-        title: "张三 - 真人复面",
-        validUntil: "2026-08-06T09:30:00.000Z",
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
-
-    expect(response.status).toBe(502);
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const failureBody = (await response.json()) as {
-      feishuStatus: string;
-      meetingId: string;
-    };
-    expect(failureBody).toMatchObject({
-      feishuStatus: "unknown",
-      meetingId: expect.any(String),
-    });
-
-    fetchMock.mockReset();
-    const retryResponse = await makeApp("feishu").request(
-      `/human-interview-meetings/${failureBody.meetingId}/feishu-sync`,
-      { method: "POST" },
-    );
-
-    expect(retryResponse.status).toBe(409);
-    expect(await retryResponse.json()).toMatchObject({
-      feishuStatus: "unknown",
-      meetingId: failureBody.meetingId,
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("checkpoints a created reserve when Feishu reports an invalid host", async () => {
-    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
-    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_invalid_host";
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = String(input);
-      if (url.includes("tenant_access_token/internal")) {
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            expire: 7200,
-            msg: "success",
-            tenant_access_token: "invalid-host-token",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        );
-      }
-      return new Response(
-        JSON.stringify({
+      .mockResolvedValueOnce(
+        Response.json({
           code: 0,
-          data: {
-            reserve: {
-              app_link: "https://applink.feishu.cn/client/video/invalid-host",
-              id: "reserve_invalid_host",
-              meeting_no: "444555666",
-              url: "https://vc.feishu.cn/j/444555666",
-            },
-            reserve_correction_check_info: {
-              invalid_host_id_list: ["ou_interviewer_secondary"],
-            },
-          },
+          expire: 7200,
+          msg: "success",
+          tenant_access_token: "calendar-network-retry-token",
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          code: 0,
+          data: { calendars: [{ calendar: { calendar_id: "calendar_network_retry" } }] },
           msg: "success",
         }),
-        { headers: { "content-type": "application/json" }, status: 200 },
-      );
-    });
+      )
+      .mockRejectedValueOnce(new TypeError("connection reset"));
 
     try {
       const response = await makeApp("feishu").request("/human-interview-meetings", {
         body: JSON.stringify({
           interviewerIds: [INTERVIEWER_ID],
+          notes: null,
           roundIds: [ROUND_ID],
           scheduledAt: "2026-08-05T09:30:00.000Z",
           title: "张三 - 真人复面",
@@ -1352,81 +1223,45 @@ describe("POST /human-interview-meetings", () => {
         feishuStatus: string;
         meetingId: string;
       };
-      expect(failureBody.feishuStatus).toBe("unknown");
-      const [persisted] = await db
-        .select({
-          meetingUrl: studioHumanInterviewMeeting.feishuMeetingUrl,
-          reserveId: studioHumanInterviewMeeting.feishuReserveId,
-          status: studioHumanInterviewMeeting.feishuSyncStatus,
-        })
-        .from(studioHumanInterviewMeeting)
-        .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
-      expect(persisted).toEqual({
-        meetingUrl: "https://vc.feishu.cn/j/444555666",
-        reserveId: "reserve_invalid_host",
-        status: "unknown",
+      expect(failureBody).toMatchObject({
+        feishuStatus: "failed",
+        meetingId: expect.any(String),
       });
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      fetchMock
+        .mockReset()
+        .mockResolvedValueOnce(
+          Response.json({
+            code: 0,
+            data: {
+              event: {
+                app_link: "https://applink.feishu.cn/event/network-retry",
+                event_id: "event_network_retry",
+              },
+            },
+            msg: "success",
+          }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            code: 0,
+            data: { attendees: [{ user_id: "ou_interviewer_secondary" }] },
+            msg: "success",
+          }),
+        );
+      const retryResponse = await makeApp("feishu").request(
+        `/human-interview-meetings/${failureBody.meetingId}/feishu-sync`,
+        { method: "POST" },
+      );
+
+      expect(retryResponse.status).toBe(200);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
     } finally {
       process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
-  it("makes a recovered reserve checkpoint retryable after the fallback write succeeds", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ code: 99_991_663, msg: "temporary token failure" }), {
-        headers: { "content-type": "application/json" },
-        status: 400,
-      }),
-    );
-    const response = await makeApp("feishu").request("/human-interview-meetings", {
-      body: JSON.stringify({
-        interviewerIds: [INTERVIEWER_ID],
-        roundIds: [ROUND_ID],
-        scheduledAt: "2026-08-05T09:30:00.000Z",
-        title: "张三 - 真人复面",
-        validUntil: "2026-08-06T09:30:00.000Z",
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
-    expect(response.status).toBe(502);
-    // SAFETY: This test constructs the value with the asserted contract before this boundary.
-    const { meetingId } = (await response.json()) as { meetingId: string };
-
-    const recovered = await recordFeishuHumanInterviewSyncFailure({
-      error: new FeishuReserveResultUnknownError(
-        "飞书会议已创建，但首次检查点保存失败。",
-        {
-          appLink: "https://applink.feishu.cn/client/video/recovered",
-          meetingNo: "666777888",
-          meetingUrl: "https://vc.feishu.cn/j/666777888",
-          reserveId: "reserve_recovered_checkpoint",
-        },
-        { canResumeAfterCheckpoint: true },
-      ),
-      meetingId,
-      organizationId: ORG_ID,
-    });
-
-    expect(recovered.status).toBe("failed");
-    const [persisted] = await db
-      .select({
-        meetingUrl: studioHumanInterviewMeeting.feishuMeetingUrl,
-        reserveId: studioHumanInterviewMeeting.feishuReserveId,
-        status: studioHumanInterviewMeeting.feishuSyncStatus,
-      })
-      .from(studioHumanInterviewMeeting)
-      .where(eq(studioHumanInterviewMeeting.id, meetingId));
-    expect(persisted).toEqual({
-      meetingUrl: "https://vc.feishu.cn/j/666777888",
-      reserveId: "reserve_recovered_checkpoint",
-      status: "failed",
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("allows only one concurrent retry to create a Feishu reserve", async () => {
+  it("allows only one concurrent retry to create a Feishu calendar event", async () => {
     const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_concurrent_retry";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
@@ -1442,7 +1277,7 @@ describe("POST /human-interview-meetings", () => {
           { headers: { "content-type": "application/json" }, status: 200 },
         );
       }
-      return new Response(JSON.stringify({ code: 12_345, msg: "temporary reserve failure" }), {
+      return new Response(JSON.stringify({ code: 12_345, msg: "temporary calendar failure" }), {
         headers: { "content-type": "application/json" },
         status: 400,
       });
@@ -1465,22 +1300,20 @@ describe("POST /human-interview-meetings", () => {
       // SAFETY: This test constructs the value with the asserted contract before this boundary.
       const { meetingId } = (await createResponse.json()) as { meetingId: string };
 
-      const { promise: reserveGate, resolve: releaseReserve } = Promise.withResolvers<true>();
-      let reserveCallCount = 0;
+      const { promise: calendarGate, resolve: releaseCalendar } = Promise.withResolvers<true>();
+      let calendarCreateCallCount = 0;
       fetchMock.mockImplementation(async (input) => {
         const url = String(input);
-        if (url.includes("/vc/v1/reserves/apply")) {
-          reserveCallCount += 1;
-          await reserveGate;
+        if (url.includes("/events?")) {
+          calendarCreateCallCount += 1;
+          await calendarGate;
           return new Response(
             JSON.stringify({
               code: 0,
               data: {
-                reserve: {
-                  app_link: "https://applink.feishu.cn/client/video/concurrent",
-                  id: "reserve_concurrent_retry",
-                  meeting_no: "555666777",
-                  url: "https://vc.feishu.cn/j/555666777",
+                event: {
+                  app_link: "https://applink.feishu.cn/event/concurrent",
+                  event_id: "event_concurrent_retry",
                 },
               },
               msg: "success",
@@ -1510,38 +1343,27 @@ describe("POST /human-interview-meetings", () => {
             { headers: { "content-type": "application/json" }, status: 200 },
           );
         }
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              event: {
-                app_link: "https://applink.feishu.cn/event/concurrent",
-                event_id: "event_concurrent_retry",
-              },
-            },
-            msg: "success",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        );
+        throw new Error(`Unexpected Feishu request: ${url}`);
       });
 
       const retryPath = `/human-interview-meetings/${meetingId}/feishu-sync`;
       const firstRetry = app.request(retryPath, { method: "POST" });
       const secondRetry = app.request(retryPath, { method: "POST" });
-      await vi.waitFor(() => expect(reserveCallCount).toBeGreaterThanOrEqual(1), {
+      await vi.waitFor(() => expect(calendarCreateCallCount).toBeGreaterThanOrEqual(1), {
         timeout: 5000,
       });
-      releaseReserve(true);
+      releaseCalendar(true);
       const responses = await Promise.all([firstRetry, secondRetry]);
 
       expect(responses.map((response) => response.status).toSorted()).toEqual([200, 409]);
-      expect(reserveCallCount).toBe(1);
+      expect(calendarCreateCallCount).toBe(1);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/"))).toBe(false);
     } finally {
       process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
-  it("marks a stale creating state without a reserve checkpoint as unknown", async () => {
+  it("safely retries a stale calendar-only creating state", async () => {
     const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
     process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_stale_creation";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -1575,32 +1397,57 @@ describe("POST /human-interview-meetings", () => {
         })
         .where(eq(studioHumanInterviewMeeting.id, meetingId));
 
-      fetchMock.mockReset().mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
+      fetchMock
+        .mockReset()
+        .mockResolvedValueOnce(
+          Response.json({
             code: 0,
             expire: 7200,
             msg: "success",
             tenant_access_token: "stale-creation-token",
           }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        ),
-      );
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            code: 0,
+            data: { calendars: [{ calendar: { calendar_id: "calendar_stale_retry" } }] },
+            msg: "success",
+          }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            code: 0,
+            data: {
+              event: {
+                app_link: "https://applink.feishu.cn/event/stale-retry",
+                event_id: "event_stale_retry",
+              },
+            },
+            msg: "success",
+          }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            code: 0,
+            data: { attendees: [{ user_id: "ou_interviewer_secondary" }] },
+            msg: "success",
+          }),
+        );
       const retryResponse = await app.request(
         `/human-interview-meetings/${meetingId}/feishu-sync`,
         { method: "POST" },
       );
 
-      expect(retryResponse.status).toBe(409);
+      expect(retryResponse.status).toBe(200);
       expect(await retryResponse.json()).toMatchObject({
-        feishuStatus: "unknown",
-        meetingId,
+        feishu: { status: "ready" },
+        id: meetingId,
       });
       const [persisted] = await db
         .select({ status: studioHumanInterviewMeeting.feishuSyncStatus })
         .from(studioHumanInterviewMeeting)
         .where(eq(studioHumanInterviewMeeting.id, meetingId));
-      expect(persisted?.status).toBe("unknown");
+      expect(persisted?.status).toBe("ready");
       expect(
         fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/v1/reserves/apply")),
       ).toBe(false);
@@ -1639,23 +1486,6 @@ describe("POST /human-interview-meetings", () => {
                   user_id: "ou_interviewer_fallback",
                 },
               ],
-            },
-            msg: "success",
-          }),
-          { headers: { "content-type": "application/json" }, status: 200 },
-        );
-      }
-      if (url.includes("/vc/v1/reserves/apply")) {
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              reserve: {
-                app_link: "https://applink.feishu.cn/client/video/fallback",
-                id: "reserve_fallback",
-                meeting_no: "111222333",
-                url: "https://vc.feishu.cn/j/111222333",
-              },
             },
             msg: "success",
           }),
