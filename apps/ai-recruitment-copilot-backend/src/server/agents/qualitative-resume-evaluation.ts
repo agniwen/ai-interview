@@ -63,6 +63,7 @@ export function generateQualitativeResumeEvaluation(
     prompt: buildQualitativeResumeEvaluationPrompt(input),
     retryOnInvalid: true,
     retryOnTransient: true,
+    retryTextJsonOnInvalid: true,
     schema: qualitativeResumeEvaluationV2Schema,
     temperature: 0,
     timeoutMs: 120_000,

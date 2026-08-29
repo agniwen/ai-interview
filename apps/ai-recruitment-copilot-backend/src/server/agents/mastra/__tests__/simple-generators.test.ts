@@ -252,6 +252,31 @@ describe("simple Mastra generators", () => {
     expect(generate.mock.calls[0]?.[0]).not.toContain("原生结构化输出不可用");
   });
 
+  it("retries text-first JSON generation once after invalid model output", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ text: "这不是有效的 JSON" })
+      .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        retryTextJsonOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: true,
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0]).toContain(
+      "Failed to parse structured output from model response.",
+    );
+    expect(generate.mock.calls[1]?.[0]).toContain("重新输出完整的 JSON 对象");
+    expect(generate.mock.calls[1]?.[1]).not.toHaveProperty("structuredOutput");
+  });
+
   it("falls back to plain JSON when the provider rejects native response_format", async () => {
     const generate = vi
       .fn()

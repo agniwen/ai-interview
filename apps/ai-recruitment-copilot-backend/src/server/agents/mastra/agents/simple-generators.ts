@@ -473,6 +473,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   prompt,
   retryOnInvalid,
   retryOnTransient,
+  retryTextJsonOnInvalid,
   schema,
   temperature,
   textGenerationFirst = usesTextJsonStructuredOutput(mastraModels.structuredModel),
@@ -489,6 +490,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   prompt: string;
   retryOnInvalid?: boolean;
   retryOnTransient?: boolean;
+  retryTextJsonOnInvalid?: boolean;
   schema: TSchema;
   temperature?: number;
   textGenerationFirst?: boolean;
@@ -628,45 +630,79 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       : "原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。";
     const fallbackPrompt = `${prompt}\n\n${textJsonInstruction}`;
     const generationMode = textGenerationFirst ? "text-json" : "text-fallback";
-    const fallbackOptions: MastraGenerateOptions = {
-      modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
-    };
-    if (timeoutMs !== undefined) {
-      fallbackOptions.abortSignal = AbortSignal.timeout(timeoutMs);
+    const textMaxAttempts = retryTextJsonOnInvalid ? 2 : 1;
+    let textAttemptPrompt = fallbackPrompt;
+    for (let textAttempt = 0; textAttempt < textMaxAttempts; textAttempt += 1) {
+      const fallbackOptions: MastraGenerateOptions = {
+        modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+      };
+      if (timeoutMs !== undefined) {
+        fallbackOptions.abortSignal = AbortSignal.timeout(timeoutMs);
+      }
+      recordStructuredGenerationStart({
+        attempt: maxAttempts + textAttempt + 1,
+        label: observabilityLabel,
+        mode: generationMode,
+        prompt: textAttemptPrompt,
+      });
+      let fallbackResult: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
+      try {
+        fallbackResult = await withTimeout(
+          agent.generate(textAttemptPrompt, fallbackOptions),
+          timeoutMs,
+        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (
+          retryOnTransient &&
+          isRetryableTransientGenerationError(lastError) &&
+          textAttempt + 1 < textMaxAttempts
+        ) {
+          continue;
+        }
+        throw lastError;
+      }
+      recordStructuredGenerationMetrics({
+        attempt: maxAttempts + textAttempt + 1,
+        label: observabilityLabel,
+        mode: generationMode,
+        prompt: textAttemptPrompt,
+        result: fallbackResult,
+      });
+      if (fallbackResult.error) {
+        lastError = fallbackResult.error;
+        if (
+          retryOnTransient &&
+          isRetryableTransientGenerationError(lastError) &&
+          textAttempt + 1 < textMaxAttempts
+        ) {
+          continue;
+        }
+        throw lastError;
+      }
+      try {
+        const fallbackObject = schema.safeParse(
+          normalizeInvalid?.(fallbackResult.object) ?? fallbackResult.object,
+        );
+        if (fallbackObject.success) {
+          validate?.(fallbackObject.data);
+          return fallbackObject.data;
+        }
+        const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback", {
+          allowEmptyDefaults,
+          normalizeInvalid,
+        });
+        validate?.(fallback);
+        return fallback;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (retryTextJsonOnInvalid && textAttempt + 1 < textMaxAttempts) {
+          textAttemptPrompt = `${fallbackPrompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+          continue;
+        }
+        throw lastError;
+      }
     }
-    recordStructuredGenerationStart({
-      attempt: maxAttempts + 1,
-      label: observabilityLabel,
-      mode: generationMode,
-      prompt: fallbackPrompt,
-    });
-    const fallbackResult = await withTimeout(
-      agent.generate(fallbackPrompt, fallbackOptions),
-      timeoutMs,
-    );
-    recordStructuredGenerationMetrics({
-      attempt: maxAttempts + 1,
-      label: observabilityLabel,
-      mode: generationMode,
-      prompt: fallbackPrompt,
-      result: fallbackResult,
-    });
-    if (fallbackResult.error) {
-      throw fallbackResult.error;
-    }
-    const fallbackObject = schema.safeParse(
-      normalizeInvalid?.(fallbackResult.object) ?? fallbackResult.object,
-    );
-    if (fallbackObject.success) {
-      validate?.(fallbackObject.data);
-      return fallbackObject.data;
-    }
-    const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback", {
-      allowEmptyDefaults,
-      normalizeInvalid,
-    });
-    validate?.(fallback);
-    return fallback;
   }
   throw lastError;
 }
