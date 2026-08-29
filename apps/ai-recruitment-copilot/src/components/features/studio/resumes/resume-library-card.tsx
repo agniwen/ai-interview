@@ -546,6 +546,7 @@ function ResumeLibraryCardComponent({
                     event.stopPropagation();
                     onOpenDetail(record, lifecycleTargetTab(record));
                   }}
+                  stage={record.pipelineStage}
                   stageLabel={lifecycle.stageLabel}
                   tone={lifecycle.tone}
                 />

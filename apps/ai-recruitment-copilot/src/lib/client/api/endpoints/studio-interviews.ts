@@ -64,7 +64,11 @@ export interface DedupMatchRecord {
   skills?: string[];
   status: "active" | "archived";
   /** 招聘台记录当前招聘状态（describeResumeProgress 文案），人才库记录为 null。 */
-  pipelineStatus?: { label: string; tone: "success" | "warning" | "info" | "outline" } | null;
+  pipelineStatus?: {
+    label: string;
+    stage?: PipelineStage;
+    tone: "success" | "warning" | "info" | "outline";
+  } | null;
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

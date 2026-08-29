@@ -3,11 +3,13 @@
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import { formatDate } from "@arc/shared/utils/time";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,11 @@ interface ResumeComparisonDetail {
   id: string;
   jobDescriptionName: string | null;
   /** 招聘台记录当前招聘状态（describeResumeProgress 文案），人才库记录为 null。 */
-  pipelineStatus: { label: string; tone: "success" | "warning" | "info" | "outline" } | null;
+  pipelineStatus: {
+    label: string;
+    stage: PipelineStage;
+    tone: "success" | "warning" | "info" | "outline";
+  } | null;
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   sourceLabel: string;
@@ -158,13 +164,16 @@ async function fetchComparisonDetail(
         createdAt: detail.createdAt,
         id: detail.id,
         jobDescriptionName: detail.jobDescriptionName,
-        pipelineStatus: describeResumeProgress({
-          outcome: detail.outcome,
-          pipelineStage: detail.pipelineStage,
-          resumeParseStatus: detail.resumeParseStatus,
-          resumeReviewStatus: detail.resumeReviewStatus,
-          stageProgress: detail.stageProgress,
-        }),
+        pipelineStatus: {
+          ...describeResumeProgress({
+            outcome: detail.outcome,
+            pipelineStage: detail.pipelineStage,
+            resumeParseStatus: detail.resumeParseStatus,
+            resumeReviewStatus: detail.resumeReviewStatus,
+            stageProgress: detail.stageProgress,
+          }),
+          stage: detail.pipelineStage,
+        },
         resumeFileName: detail.resumeFileName,
         resumeProfile: detail.resumeProfile,
         sourceLabel: "招聘台",
@@ -199,7 +208,14 @@ function DetailComparisonContent({ detail }: { detail: ResumeComparisonDetail })
           label="记录状态"
           value={
             detail.pipelineStatus ? (
-              <Badge variant={detail.pipelineStatus.tone}>{detail.pipelineStatus.label}</Badge>
+              <Badge
+                variant={
+                  getCandidateStageBadgeVariant(detail.pipelineStatus.stage) ??
+                  detail.pipelineStatus.tone
+                }
+              >
+                {detail.pipelineStatus.label}
+              </Badge>
             ) : (
               detail.statusLabel
             )

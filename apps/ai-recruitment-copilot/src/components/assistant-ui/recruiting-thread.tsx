@@ -25,6 +25,7 @@ import {
 import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
@@ -443,7 +444,9 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
           <span className="pointer-events-auto">
             <CandidateResumePreviewIcon card={card} />
           </span>
-          <Badge variant="outline">{stageLabel}</Badge>
+          <Badge variant={getCandidateStageBadgeVariant(card.pipelineStage) ?? "outline"}>
+            {stageLabel}
+          </Badge>
         </div>
       </div>
       {card.resumeSummary ? (

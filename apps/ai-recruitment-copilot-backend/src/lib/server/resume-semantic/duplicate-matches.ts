@@ -11,6 +11,7 @@ import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/serve
 import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeSemanticDuplicateLevel, ResumeSemanticSourceType } from "@arc/db-schema/schema";
+import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
 import {
   jobDescription,
@@ -405,6 +406,7 @@ function profileSkills(profile: ResumeProfile | null | undefined): string[] {
 
 interface PipelineStatus {
   label: string;
+  stage: PipelineStage;
   tone: "success" | "warning" | "info" | "outline";
 }
 
@@ -628,13 +630,16 @@ export async function listDuplicateMatchesForSource(input: {
       `studio_interview:${row.id}`,
       {
         ...row,
-        pipelineStatus: describeResumeProgress({
-          outcome: row.outcome,
-          pipelineStage: row.pipelineStage,
-          resumeParseStatus: row.resumeParseStatus,
-          resumeReviewStatus: row.resumeReviewStatus,
-          stageProgress: stageProgressById.get(row.id)?.stageProgress ?? EMPTY_STAGE_PROGRESS,
-        }),
+        pipelineStatus: {
+          ...describeResumeProgress({
+            outcome: row.outcome,
+            pipelineStage: row.pipelineStage,
+            resumeParseStatus: row.resumeParseStatus,
+            resumeReviewStatus: row.resumeReviewStatus,
+            stageProgress: stageProgressById.get(row.id)?.stageProgress ?? EMPTY_STAGE_PROGRESS,
+          }),
+          stage: row.pipelineStage,
+        },
       },
     ]),
     ...poolRows.map((row): [string, Parameters<typeof toMatchRecord>[1]] => [

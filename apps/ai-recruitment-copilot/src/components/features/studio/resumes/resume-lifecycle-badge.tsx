@@ -1,8 +1,13 @@
 "use client";
 
 import { IconChevronRight } from "@tabler/icons-react";
+import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import type { ButtonHTMLAttributes } from "react";
 
+import {
+  getCandidateStageBadgeHoverRingClass,
+  getCandidateStageBadgeVariant,
+} from "@/components/features/studio/candidate-stage-badge";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 
@@ -28,6 +33,7 @@ interface ResumeLifecycleBadgeProps extends Omit<
 > {
   detailLabel?: string | null;
   fullLabel: string;
+  stage?: PipelineStage;
   stageLabel: string;
   tone: ResumeLifecycleBadgeTone;
 }
@@ -36,6 +42,7 @@ export function ResumeLifecycleBadge({
   className,
   detailLabel,
   fullLabel,
+  stage,
   stageLabel,
   title,
   tone,
@@ -44,15 +51,17 @@ export function ResumeLifecycleBadge({
 }: ResumeLifecycleBadgeProps) {
   const hasDetail = Boolean(detailLabel);
   const accessibleLabel = hasDetail ? `${stageLabel}，${detailLabel}` : stageLabel;
+  const stageVariant = getCandidateStageBadgeVariant(stage);
+  const stageHoverRingClass = getCandidateStageBadgeHoverRingClass(stage);
 
   return (
     <button
       aria-label={accessibleLabel}
       className={cn(
-        badgeVariants({ variant: lifecycleBadgeVariant[tone] }),
+        badgeVariants({ variant: stageVariant ?? lifecycleBadgeVariant[tone] }),
         "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 py-1 pr-1.5 text-left font-normal",
         "duration-200 hover:ring-2 focus-visible:outline-none",
-        lifecycleHoverRingClass[tone],
+        stageHoverRingClass ?? lifecycleHoverRingClass[tone],
         className,
       )}
       title={title ?? fullLabel}

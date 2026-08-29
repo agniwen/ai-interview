@@ -15,6 +15,7 @@ import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
 import { formatDate } from "@arc/shared/utils/time";
 import { cn } from "@arc/shared/utils";
 import { ResumeProfileSnapshotView } from "@/components/features/resume/resume-profile-snapshot";
+import { getCandidateStageBadgeVariant } from "@/components/features/studio/candidate-stage-badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
@@ -350,7 +351,14 @@ function MatchCandidateRow({
               </Badge>
             ) : null}
             {match.pipelineStatus ? (
-              <Badge variant={match.pipelineStatus.tone}>{match.pipelineStatus.label}</Badge>
+              <Badge
+                variant={
+                  getCandidateStageBadgeVariant(match.pipelineStatus.stage) ??
+                  match.pipelineStatus.tone
+                }
+              >
+                {match.pipelineStatus.label}
+              </Badge>
             ) : null}
             <span className="text-muted-foreground text-[11px]">
               {sourceTypeLabel(match)}

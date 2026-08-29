@@ -33,6 +33,7 @@ const badgeVariants = cva(
         success:
           "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
         info: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/15 dark:text-sky-300",
+        pink: "border-pink-500/30 bg-pink-500/10 text-pink-700 dark:border-pink-500/40 dark:bg-pink-500/15 dark:text-pink-300",
         warning:
           "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
         danger:
