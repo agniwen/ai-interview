@@ -30,10 +30,10 @@ export function FeishuSignInButton({
     let shouldResetSubmitting = true;
     await withCleanup(
       async () => {
-        const result = await authClient.signIn.oauth2({
+        const result = await authClient.signIn.social({
           callbackURL,
           errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
-          providerId,
+          provider: providerId,
         });
         shouldResetSubmitting = Boolean(result.error);
       },

@@ -71,7 +71,7 @@
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
     "ai": "catalog:",
-    "better-auth": "^1.6.10",
+    "better-auth": "^1.7.2",
     "blobatar": "^2.0.0",
     "border-beam": "^1.0.1",
     "class-variance-authority": "^0.7.1",

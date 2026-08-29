@@ -18,7 +18,7 @@
   "dependencies": {
     "@arc/db-schema": "workspace:*",
     "@tanstack/query-core": "^5.100.9",
-    "better-auth": "^1.6.10",
+    "better-auth": "^1.7.2",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.20",
     "lodash-es": "^4.18.1",

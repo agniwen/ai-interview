@@ -247,6 +247,7 @@ export const account = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     idToken: text("id_token"),
+    issuer: text("issuer").notNull(),
     password: text("password"),
     providerId: text("provider_id").notNull(),
     refreshToken: text("refresh_token"),
@@ -261,7 +262,7 @@ export const account = pgTable(
   },
   (table) => [
     index("account_userId_idx").on(table.userId),
-    uniqueIndex("account_provider_account_uq").on(table.providerId, table.accountId),
+    uniqueIndex("account_issuer_account_uq").on(table.issuer, table.accountId),
   ],
 );
 

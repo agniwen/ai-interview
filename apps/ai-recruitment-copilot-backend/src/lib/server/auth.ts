@@ -1,8 +1,9 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, genericOAuth } from "better-auth/plugins";
-import type { GenericOAuthConfig } from "better-auth/plugins";
+import { admin } from "better-auth/plugins/admin";
+import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -154,12 +155,22 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
   // oxlint-disable-next-line sort-keys -- OAuth config keeps related fields grouped (id/secret, token/endpoints), not alphabetical.
   return {
     providerId,
+    accountIssuer: `local:oauth:${encodeURIComponent(providerId)}`,
+    accountSubject: ({ profile }) => {
+      if (profile.id === null || profile.id === undefined || profile.id === "") {
+        throw new Error(`Feishu provider ${providerId} returned no stable account id.`);
+      }
+      return profile.id;
+    },
     clientId: appId,
     clientSecret: appSecret,
     authorizationUrl: "https://accounts.feishu.cn/open-apis/authen/v1/authorize",
     // Required by the plugin's config validation, but not actually called —
     // `getToken` below handles the JSON-only v2 token exchange.
     tokenUrl: "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+    // Preserve Feishu's existing v2 exchange contract, which has no
+    // code_verifier field.
+    pkce: false,
     scopes: ["contact:user.base:readonly", "contact:user.email:readonly"],
     async getToken({ code, redirectURI }) {
       const res = await fetch("https://open.feishu.cn/open-apis/authen/v2/oauth/token", {

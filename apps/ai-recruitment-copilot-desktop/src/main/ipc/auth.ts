@@ -48,13 +48,13 @@ function parseUrl(url: string): URL | null {
   }
 }
 
-/** Resolve sign-in endpoint from VITE_BETTER_AUTH_URL-style base. */
-function oauth2SignInUrl(authBaseURL: string): string {
+/** Resolve social sign-in endpoint from VITE_BETTER_AUTH_URL-style base. */
+function socialSignInUrl(authBaseURL: string): string {
   const base = authBaseURL.replace(/\/+$/, "");
   if (base.endsWith("/api/auth")) {
-    return `${base}/sign-in/oauth2`;
+    return `${base}/sign-in/social`;
   }
-  return `${base}/api/auth/sign-in/oauth2`;
+  return `${base}/api/auth/sign-in/social`;
 }
 
 /** Extract error code from query or hash (`#/login?error=feishu`). */
@@ -209,7 +209,7 @@ async function beginOAuthInWindow(
   authWin: BrowserWindow,
   payload: OAuthOpenPayload,
 ): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const signInUrl = oauth2SignInUrl(payload.authBaseURL);
+  const signInUrl = socialSignInUrl(payload.authBaseURL);
 
   try {
     await authWin.loadURL(payload.authApiOrigin);
@@ -231,7 +231,7 @@ async function beginOAuthInWindow(
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          providerId: ${JSON.stringify(payload.providerId)},
+          provider: ${JSON.stringify(payload.providerId)},
           callbackURL: ${JSON.stringify(payload.callbackURL)},
           errorCallbackURL: ${JSON.stringify(payload.errorCallbackURL)},
           disableRedirect: true,

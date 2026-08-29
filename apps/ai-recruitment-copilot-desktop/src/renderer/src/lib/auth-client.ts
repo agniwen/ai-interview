@@ -1,4 +1,4 @@
-import { genericOAuthClient, organizationClient } from "better-auth/client/plugins";
+import { organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { env } from "@/env";
 
@@ -16,7 +16,7 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: "include",
   },
-  plugins: [genericOAuthClient(), organizationClient()],
+  plugins: [organizationClient()],
 });
 
 /** Prefer live renderer origin so OAuth callback matches the real Electron port. */

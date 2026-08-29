@@ -56,6 +56,7 @@ beforeAll(async () => {
     accountId: "ou_ai_initial_notification_test",
     createdAt: NOW,
     id: "ai_initial_notification_test_account",
+    issuer: "local:oauth:feishu",
     providerId: "feishu",
     updatedAt: NOW,
     userId: USER_ID,
