@@ -180,4 +180,33 @@ describe("generateResumePoolAssessment", () => {
       expect.objectContaining({ jobDescriptionVersionId: "jd-version-1" }),
     );
   });
+
+  it("preserves the original generation failure for the queue error boundary", async () => {
+    const generateAssessment =
+      vi.fn<ResumePoolAssessmentGenerationDependencies["generateAssessment"]>();
+    const providerError = Object.assign(new Error("response_format is not supported"), {
+      statusCode: 400,
+    });
+    generateAssessment.mockRejectedValue(providerError);
+
+    // SAFETY: The generation stub fails before inspecting the profile body.
+    const resumeProfile = { name: "候选人" } as never;
+
+    await expect(
+      generateResumePoolAssessment(
+        {
+          evaluationAsOf: "2026-08-29",
+          jobDescriptionId: "jd-1",
+          jobDescriptionVersionId: "jd-version-1",
+          organizationId: "org-1",
+          resumeContentHash: "resume-hash",
+          resumeInputHash: "input-hash",
+          resumeProfile,
+          resumeText: "候选人简历",
+          runId: "run-1",
+        },
+        { generateAssessment },
+      ),
+    ).rejects.toBe(providerError);
+  });
 });

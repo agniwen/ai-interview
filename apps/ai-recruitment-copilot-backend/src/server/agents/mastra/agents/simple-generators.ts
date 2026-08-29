@@ -3,6 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import {
   mastraModels,
+  usesTextJsonStructuredOutput,
   withThinkingDisabled,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
 import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
@@ -44,7 +45,7 @@ export interface MastraStreamingGeneratorLike extends MastraGeneratorLike {
 function recordStructuredGenerationMetrics(input: {
   attempt: number;
   label?: string;
-  mode: "structured-output" | "text-fallback";
+  mode: "structured-output" | "text-fallback" | "text-json";
   prompt: string;
   result: MastraGenerateResult;
 }): void {
@@ -65,7 +66,7 @@ function recordStructuredGenerationMetrics(input: {
 function recordStructuredGenerationStart(input: {
   attempt: number;
   label?: string;
-  mode: "structured-output" | "text-fallback";
+  mode: "structured-output" | "text-fallback" | "text-json";
   prompt: string;
 }): void {
   if (!input.label) {
@@ -340,6 +341,23 @@ function isRetryableStructuredOutputError(error: Error): boolean {
   );
 }
 
+function isStructuredOutputCapabilityError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  const mentionsNativeFormat =
+    message.includes("response_format") ||
+    message.includes("response format") ||
+    message.includes("json_schema") ||
+    message.includes("json schema");
+  const rejectsCapability =
+    message.includes("not supported") ||
+    message.includes("does not support") ||
+    message.includes("unsupported") ||
+    message.includes("unknown parameter") ||
+    message.includes("invalid parameter") ||
+    message.includes("不支持");
+  return mentionsNativeFormat && rejectsCapability;
+}
+
 const transientGenerationErrorSchema = z
   .object({
     status: z.number().optional(),
@@ -457,6 +475,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   retryOnTransient,
   schema,
   temperature,
+  textGenerationFirst = usesTextJsonStructuredOutput(mastraModels.structuredModel),
   timeoutMs,
   validate,
 }: {
@@ -472,12 +491,16 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   retryOnTransient?: boolean;
   schema: TSchema;
   temperature?: number;
+  textGenerationFirst?: boolean;
   timeoutMs?: number;
   validate?: (value: z.infer<TSchema>) => void;
 }): Promise<z.infer<TSchema>> {
   let attemptPrompt = prompt;
   let lastError = new Error("AI 生成的结构化内容校验失败。");
-  const maxAttempts = retryOnInvalid || retryOnTransient ? 2 : 1;
+  let maxAttempts = retryOnInvalid || retryOnTransient ? 2 : 1;
+  if (textGenerationFirst) {
+    maxAttempts = 0;
+  }
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
     try {
@@ -504,6 +527,9 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       });
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      if (fallbackToTextGeneration && isStructuredOutputCapabilityError(lastError)) {
+        break;
+      }
       if (retryOnTransient && isRetryableTransientGenerationError(lastError)) {
         if (attempt + 1 < maxAttempts) {
           continue;
@@ -534,6 +560,9 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     }
     if (result.error) {
       lastError = result.error;
+      if (fallbackToTextGeneration && isStructuredOutputCapabilityError(lastError)) {
+        break;
+      }
       if (retryOnTransient && isRetryableTransientGenerationError(lastError)) {
         if (attempt + 1 < maxAttempts) {
           continue;
@@ -593,8 +622,12 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     }
     break;
   }
-  if (fallbackToTextGeneration) {
-    const fallbackPrompt = `${prompt}\n\n原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。`;
+  if (fallbackToTextGeneration || textGenerationFirst) {
+    const textJsonInstruction = textGenerationFirst
+      ? "请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。"
+      : "原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。";
+    const fallbackPrompt = `${prompt}\n\n${textJsonInstruction}`;
+    const generationMode = textGenerationFirst ? "text-json" : "text-fallback";
     const fallbackOptions: MastraGenerateOptions = {
       modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
     };
@@ -604,7 +637,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     recordStructuredGenerationStart({
       attempt: maxAttempts + 1,
       label: observabilityLabel,
-      mode: "text-fallback",
+      mode: generationMode,
       prompt: fallbackPrompt,
     });
     const fallbackResult = await withTimeout(
@@ -614,7 +647,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
     recordStructuredGenerationMetrics({
       attempt: maxAttempts + 1,
       label: observabilityLabel,
-      mode: "text-fallback",
+      mode: generationMode,
       prompt: fallbackPrompt,
       result: fallbackResult,
     });

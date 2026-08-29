@@ -8,9 +8,16 @@ import { cossAnchoredPopupMotionClass } from "@/components/ui/coss-style";
 export const PreviewCard: typeof PreviewCardPrimitive.Root = PreviewCardPrimitive.Root;
 
 export function PreviewCardTrigger({
+  className,
   ...props
 }: PreviewCardPrimitive.Trigger.Props): React.ReactElement {
-  return <PreviewCardPrimitive.Trigger data-slot="preview-card-trigger" {...props} />;
+  return (
+    <PreviewCardPrimitive.Trigger
+      className={cn("cursor-default!", className)}
+      data-slot="preview-card-trigger"
+      {...props}
+    />
+  );
 }
 
 export function PreviewCardPopup({

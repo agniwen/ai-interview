@@ -5,6 +5,7 @@ import {
   getMastraModelIdentifier,
   getMastraModelConfig,
   getMastraModelApiKey,
+  usesTextJsonStructuredOutput,
   withThinkingDisabled,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
 
@@ -118,6 +119,23 @@ describe("Mastra model configuration", () => {
         url: "https://example.com/v1",
       }),
     ).toBe("alibaba/qwen-plus");
+  });
+
+  it("uses text JSON generation for the configured DeepSeek V4 Flash snapshot", () => {
+    expect(
+      usesTextJsonStructuredOutput({
+        modelId: "deepseek-v4-flash-0731",
+        providerId: "alibaba",
+        url: "https://example.com/v1",
+      }),
+    ).toBe(true);
+    expect(
+      usesTextJsonStructuredOutput({
+        modelId: "qwen-plus",
+        providerId: "alibaba",
+        url: "https://example.com/v1",
+      }),
+    ).toBe(false);
   });
 
   it("disables reasoning for every Mastra agent model call", () => {

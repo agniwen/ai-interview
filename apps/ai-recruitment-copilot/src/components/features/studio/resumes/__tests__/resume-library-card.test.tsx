@@ -67,7 +67,7 @@ const record: ResumeLibraryListRecord = {
 
 describe("ResumeLibraryCard", () => {
   it("renders qualitative recommendations as colored text with the sparkle icon", () => {
-    const content = renderToStaticMarkup(
+    const content = renderWithQueryClient(
       <ResumeLibraryEvaluationSummary
         onOpenDetail={vi.fn()}
         record={{
@@ -82,6 +82,7 @@ describe("ResumeLibraryCard", () => {
     expect(content).toContain("待定");
     expect(content.match(/text-yellow-700/g)).toHaveLength(2);
     expect(content).not.toContain('data-slot="badge"');
+    expect(content).toContain("block w-full line-clamp-3");
   });
 
   it("shows reparse for every failed record regardless of legacy retry eligibility", () => {
@@ -241,8 +242,9 @@ describe("ResumeLibraryCard", () => {
     );
 
     expect(content).toMatch(
-      /<p class="[^"]*text-\[13px\][^"]*"[^>]*>.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/p>/,
+      /<p class="mt-3"[^>]*>.*未通过门槛 · 68 分.*AI 生成的候选人评价<\/span><\/p>/,
     );
+    expect(content).toContain("block w-full line-clamp-3 text-[13px]");
     expect(content).toContain('title="未通过门槛 · 68 分 AI 生成的候选人评价"');
     expect(content).not.toContain("</button> · AI 生成的候选人评价");
     expect(content).not.toContain('<span class="sr-only">AI评分</span>');

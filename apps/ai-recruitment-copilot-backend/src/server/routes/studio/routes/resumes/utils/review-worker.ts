@@ -492,7 +492,7 @@ const defaultResumePoolAssessmentGenerationDependencies: ResumePoolAssessmentGen
     generateAssessment: generateResumeAssessment,
   };
 
-export async function generateResumePoolAssessment(
+export function generateResumePoolAssessment(
   input: {
     evaluationAsOf: string;
     jobDescriptionId: string;
@@ -505,13 +505,8 @@ export async function generateResumePoolAssessment(
     runId: string;
   },
   dependencies: ResumePoolAssessmentGenerationDependencies = defaultResumePoolAssessmentGenerationDependencies,
-): Promise<GeneratedResumeAssessment | null> {
-  try {
-    return await dependencies.generateAssessment(input);
-  } catch (error) {
-    console.error("[resume-pool-review-worker] resume review generation failed:", error);
-    return null;
-  }
+): Promise<GeneratedResumeAssessment> {
+  return dependencies.generateAssessment(input);
 }
 
 // oxlint-disable-next-line complexity -- matching, stale-work guards, and conditional generation form one job boundary.
@@ -618,7 +613,7 @@ async function processResumePoolReviewGenerationJob(
     resumeText: record.resumeText,
     runId,
   });
-  if (!generated || generated.mode !== "qualitative") {
+  if (generated.mode !== "qualitative") {
     throw new Error("AI 分析生成失败。");
   }
   const evaluation = qualitativeResumeEvaluationV2Schema.parse(generated.evaluation);

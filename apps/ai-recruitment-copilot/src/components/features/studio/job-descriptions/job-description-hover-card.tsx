@@ -104,7 +104,7 @@ export function JobDescriptionHoverCardView({
         render={
           <button
             className={cn(
-              "cursor-pointer text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
+              "text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
               className,
             )}
             onClick={(event) => {

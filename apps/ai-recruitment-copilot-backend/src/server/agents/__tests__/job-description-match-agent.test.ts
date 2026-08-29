@@ -68,6 +68,7 @@ describe("matchJobDescriptionForResume", () => {
     });
     expect(generateMatch).toHaveBeenCalledWith(
       expect.objectContaining({
+        fallbackToTextGeneration: true,
         schema: expect.any(Object),
       }),
     );
@@ -177,6 +178,7 @@ describe("rankJobDescriptionsForResume", () => {
     expect(generateRanking.mock.calls[0]?.[0]?.prompt).toContain(
       "与 targetRoles 冲突时，优先参考 targetRoles",
     );
+    expect(generateRanking.mock.calls[0]?.[0]?.fallbackToTextGeneration).toBe(true);
     const schema = generateRanking.mock.calls[0]?.[0]?.schema;
     expect(
       schema.safeParse({

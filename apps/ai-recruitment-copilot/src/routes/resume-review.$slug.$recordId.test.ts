@@ -11,4 +11,13 @@ describe("resume review detail tabs", () => {
     expect(routeSource).toContain("shell={({ body, headerExtra, title }) =>");
     expect(routeSource).toContain("{headerExtra}");
   });
+
+  it("provides the sticky rail offset outside the workspace header shell", async () => {
+    const routeSource = await readFile(
+      new URL("resume-review.$slug.$recordId.tsx", import.meta.url),
+      "utf-8",
+    );
+
+    expect(routeSource).toContain("[--header-height:0px]");
+  });
 });

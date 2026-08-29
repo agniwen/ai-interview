@@ -9,8 +9,14 @@ function HoverCard({ ...props }: HoverCardPrimitive.Root.Props) {
   return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;
 }
 
-function HoverCardTrigger({ ...props }: HoverCardPrimitive.Trigger.Props) {
-  return <HoverCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />;
+function HoverCardTrigger({ className, ...props }: HoverCardPrimitive.Trigger.Props) {
+  return (
+    <HoverCardPrimitive.Trigger
+      className={cn("cursor-default!", className)}
+      data-slot="hover-card-trigger"
+      {...props}
+    />
+  );
 }
 
 function HoverCardContent({

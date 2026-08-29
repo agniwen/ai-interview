@@ -60,7 +60,7 @@ const LEVEL_META = {
   },
 } as const;
 
-const DIMENSION_ENTRIES = [
+export const QUALITATIVE_DIMENSION_ENTRIES = [
   ["skillMatch", "技能匹配"],
   ["experienceRelevance", "经验相关性"],
   ["projectMatch", "项目匹配"],
@@ -75,7 +75,7 @@ const DIMENSION_GROUP_DESKTOP_CORNER_CLASSES = [
   "lg:rounded-[2px] lg:rounded-br-xl",
 ] as const;
 
-const BASIS_DESCRIPTIONS = {
+export const QUALITATIVE_BASIS_DESCRIPTIONS = {
   both: "根据岗位要求和通用职业标准分析得出",
   general: "根据通用职业标准分析得出",
   job: "根据岗位要求分析得出",
@@ -132,7 +132,7 @@ export function QualitativeDimensionRadar({
       </p>
     );
   }
-  const dimensions = DIMENSION_ENTRIES.map(([key, label]) => {
+  const dimensions = QUALITATIVE_DIMENSION_ENTRIES.map(([key, label]) => {
     const dimension = evaluation.dimensions[key];
     return {
       key,
@@ -149,7 +149,7 @@ export function QualitativeDimensionRadar({
       dimensions={dimensions}
       maxScore={4}
       tooltipBody={(point) => {
-        const dimensionKey = DIMENSION_ENTRIES.find(([key]) => key === point.key)?.[0];
+        const dimensionKey = QUALITATIVE_DIMENSION_ENTRIES.find(([key]) => key === point.key)?.[0];
         if (!dimensionKey) {
           return null;
         }
@@ -170,7 +170,7 @@ export function QualitativeDimensionRadar({
   );
 }
 
-type QualitativeDimensionEntry = (typeof DIMENSION_ENTRIES)[number];
+type QualitativeDimensionEntry = (typeof QUALITATIVE_DIMENSION_ENTRIES)[number];
 
 function QualitativeDimensionGroup({
   className,
@@ -207,7 +207,7 @@ function QualitativeDimensionGroup({
               className="mt-2 text-muted-foreground text-xs leading-5"
               data-qualitative-dimension-basis={dimension.basis}
             >
-              {BASIS_DESCRIPTIONS[dimension.basis]}
+              {QUALITATIVE_BASIS_DESCRIPTIONS[dimension.basis]}
             </p>
           </div>
         );
@@ -224,9 +224,9 @@ export function QualitativeEvaluationDetails({
   summaryAction?: ReactNode;
 }) {
   const dimensionGroups = [
-    DIMENSION_ENTRIES.slice(0, 2),
-    DIMENSION_ENTRIES.slice(2, 4),
-    DIMENSION_ENTRIES.slice(4, 6),
+    QUALITATIVE_DIMENSION_ENTRIES.slice(0, 2),
+    QUALITATIVE_DIMENSION_ENTRIES.slice(2, 4),
+    QUALITATIVE_DIMENSION_ENTRIES.slice(4, 6),
   ];
 
   return (

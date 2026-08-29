@@ -159,25 +159,34 @@ export function ResumeLibraryEvaluationSummary({
     artifactMode === "qualitative" && record.qualitativeRecommendationLevel
       ? QUALITATIVE_RECOMMENDATION_TONE_CLASS[record.qualitativeRecommendationLevel]
       : REVIEW_ACTION_TONE_CLASS[reviewCard.tone];
-  let reviewLabel = <span className={cn("font-medium", reviewToneClass)}>{reviewCard.label}</span>;
-  if (artifactMode === "qualitative" && record.qualitativeRecommendationLevel) {
-    reviewLabel = (
-      <button
-        className={cn("font-medium", reviewToneClass)}
-        onClick={() => onOpenDetail(record, "ai-analysis")}
-        type="button"
-      >
-        {reviewCard.label}
-      </button>
-    );
-  } else if (hasAiScoreDetail) {
-    reviewLabel = (
-      <ResumeAiScoreHoverCard
-        className={cn("font-medium", REVIEW_ACTION_TONE_CLASS[reviewCard.tone])}
-        recordId={record.id}
-      >
-        {reviewCard.label}
-      </ResumeAiScoreHoverCard>
+  const reviewLabel = (
+    <span className={cn("font-medium", reviewToneClass)}>{reviewCard.label}</span>
+  );
+  const summaryContent = (
+    <>
+      <IconSparkles
+        aria-hidden
+        className={cn("mr-1 inline size-3.5 align-[-2px]", reviewToneClass)}
+      />
+      {reviewLabel}
+      {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}
+      {summary ? ` ${summary}` : null}
+    </>
+  );
+
+  if (hasAiScoreDetail) {
+    return (
+      <p className="mt-3" title={reviewSummaryTitle}>
+        <ResumeAiScoreHoverCard
+          className="block w-full line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
+          onClick={
+            artifactMode === "qualitative" ? () => onOpenDetail(record, "ai-analysis") : undefined
+          }
+          recordId={record.id}
+        >
+          {summaryContent}
+        </ResumeAiScoreHoverCard>
+      </p>
     );
   }
 
@@ -186,13 +195,7 @@ export function ResumeLibraryEvaluationSummary({
       className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
       title={reviewSummaryTitle}
     >
-      <IconSparkles
-        aria-hidden
-        className={cn("mr-1 inline size-3.5 align-[-2px]", reviewToneClass)}
-      />
-      {reviewLabel}
-      {replacementAttemptLabel ? ` · ${replacementAttemptLabel}` : null}
-      {summary ? ` ${summary}` : null}
+      {summaryContent}
     </p>
   );
 }

@@ -182,6 +182,7 @@ export interface JobDescriptionVectorMatchScore {
 }
 
 interface JobDescriptionMatchGenerationInput {
+  fallbackToTextGeneration: true;
   prompt: string;
   schema: ReturnType<typeof buildMatchResultSchema>;
 }
@@ -196,6 +197,7 @@ const defaultJobDescriptionMatchDependencies: JobDescriptionMatchDependencies = 
   generateMatch: (input) =>
     generateStructuredWithMastraAgent({
       agent: jobDescriptionMatchAgent,
+      fallbackToTextGeneration: input.fallbackToTextGeneration,
       prompt: input.prompt,
       retryOnInvalid: true,
       schema: input.schema,
@@ -204,6 +206,7 @@ const defaultJobDescriptionMatchDependencies: JobDescriptionMatchDependencies = 
 };
 
 interface JobDescriptionRankingGenerationInput {
+  fallbackToTextGeneration: true;
   prompt: string;
   schema: ReturnType<typeof buildRankingResultSchema>;
 }
@@ -218,6 +221,7 @@ const defaultJobDescriptionRankingDependencies: JobDescriptionRankingDependencie
   generateRanking: (input) =>
     generateStructuredWithMastraAgent({
       agent: jobDescriptionMatchAgent,
+      fallbackToTextGeneration: input.fallbackToTextGeneration,
       prompt: input.prompt,
       retryOnInvalid: true,
       schema: input.schema,
@@ -298,6 +302,7 @@ async function rankJobDescriptionBatch(
     )
     .join("\n\n");
   const output = await dependencies.generateRanking({
+    fallbackToTextGeneration: true,
     prompt: `${RANK_INSTRUCTIONS}\n\n候选人信息：\n${summarizeResumeProfile(resumeProfile, options.resumeFileName)}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请对全部候选岗位排序并按规定 JSON 结构输出。`,
     schema: buildRankingResultSchema(candidateIds),
   });
@@ -381,6 +386,7 @@ export async function matchJobDescriptionForResume(
   const candidateIds = new Set(candidates.map((candidate) => candidate.id));
 
   const output = await dependencies.generateMatch({
+    fallbackToTextGeneration: true,
     prompt: `${MATCH_INSTRUCTIONS}\n\n候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`,
     schema: buildMatchResultSchema(candidateIds),
   });

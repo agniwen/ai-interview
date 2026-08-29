@@ -34,6 +34,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         schema,
         temperature: 0.3,
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -56,6 +57,7 @@ describe("simple Mastra generators", () => {
       observabilityLabel: "structured-resume-hard-gates",
       prompt: "生成结构化对象",
       schema: z.object({ title: z.string().min(1) }),
+      textGenerationFirst: false,
     });
 
     expect(info).toHaveBeenCalledWith("[mastra-structured-generation] model call completed", {
@@ -79,6 +81,7 @@ describe("simple Mastra generators", () => {
         observabilityLabel: "structured-resume-hard-gates",
         prompt: "生成结构化对象",
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).rejects.toThrow("provider unavailable");
 
@@ -101,6 +104,7 @@ describe("simple Mastra generators", () => {
         agent: { generate },
         prompt: "生成结构化对象",
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -122,6 +126,7 @@ describe("simple Mastra generators", () => {
         },
         prompt: "生成结构化对象",
         schema: z.object({ units: z.number().int().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ units: 1 });
 
@@ -140,6 +145,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1, "标题不能为空") }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -160,6 +166,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -178,6 +185,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -196,6 +204,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -217,12 +226,79 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
     expect(generate).toHaveBeenCalledTimes(3);
     expect(generate.mock.calls[2]?.[1]).not.toHaveProperty("structuredOutput");
     expect(generate.mock.calls[2]?.[0]).toContain("只输出一个严格符合上述字段和类型的 JSON 对象");
+  });
+
+  it("uses one text JSON request when the configured model is text-first", async () => {
+    const generate = vi.fn().mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: true,
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0]?.[1]).not.toHaveProperty("structuredOutput");
+    expect(generate.mock.calls[0]?.[0]).not.toContain("原生结构化输出不可用");
+  });
+
+  it("falls back to plain JSON when the provider rejects native response_format", async () => {
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("response_format json_schema is not supported by this model"), {
+          statusCode: 400,
+        }),
+      )
+      .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        fallbackToTextGeneration: true,
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[1]).not.toHaveProperty("structuredOutput");
+  });
+
+  it("falls back when a response reports unsupported native response_format", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({
+        error: new Error("unsupported response_format json_schema"),
+        text: "",
+      })
+      .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        fallbackToTextGeneration: true,
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[1]).not.toHaveProperty("structuredOutput");
   });
 
   it("accepts the object channel from plain generation fallback", async () => {
@@ -239,6 +315,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
   });
@@ -274,6 +351,7 @@ describe("simple Mastra generators", () => {
         retryOnInvalid: true,
         retryOnTransient: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).resolves.toEqual({ title: "前端工程师" });
 
@@ -293,6 +371,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnTransient: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
       }),
     ).rejects.toBeInstanceOf(StructuredOutputValidationError);
 
@@ -307,6 +386,7 @@ describe("simple Mastra generators", () => {
         agent: { generate },
         prompt: "生成结构化对象",
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
         timeoutMs: 5,
       }),
     ).rejects.toMatchObject({ name: "TimeoutError" });
@@ -331,6 +411,7 @@ describe("simple Mastra generators", () => {
         prompt: "生成结构化对象",
         retryOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: false,
         validate,
       }),
     ).resolves.toEqual({ title: "简历逐字引文" });
@@ -348,6 +429,7 @@ describe("simple Mastra generators", () => {
         agent: { generate },
         prompt: "生成结构化对象",
         schema: z.object({ title: z.string().min(1, "标题不能为空") }),
+        textGenerationFirst: false,
       }),
     ).rejects.toThrow("标题不能为空");
     expect(generate).toHaveBeenCalledTimes(1);
