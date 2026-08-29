@@ -7,7 +7,6 @@ import {
   redirect,
   useRouterState,
 } from "@tanstack/react-router";
-import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
 import { coerceSearchParams } from "@/components/features/studio/resumes/resume-library-page-model";
@@ -45,6 +44,7 @@ function StudioResumesRoute() {
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   validateSearch: coerceSearchParams,
   loader: async ({ params }) => {
+    const { loadStudioResumesState } = await import("@/lib/start/studio/resumes.functions");
     const state = await loadStudioResumesState({
       data: { slug: params.slug },
     });

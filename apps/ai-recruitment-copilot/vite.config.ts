@@ -131,5 +131,10 @@ export default defineConfig({
   },
   ssr: {
     noExternal: ["avvvatars-react"],
+    optimizeDeps: {
+      // Flatten React Start's transitive export-star chain for the SSR module
+      // runner. The server entry is loaded dynamically for the same HMR cycle.
+      include: ["@tanstack/react-start"],
+    },
   },
 });

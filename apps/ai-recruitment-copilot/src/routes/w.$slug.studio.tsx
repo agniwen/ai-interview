@@ -11,7 +11,6 @@ import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { getFirstAllowedStudioPagePath } from "@/lib/start/auth-session";
 import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
 import { hasPermissionInStatements } from "@arc/shared/permission-statements";
 
@@ -24,6 +23,7 @@ function findStudioPageByPath(pathname: string, slug: string) {
 }
 
 async function findFirstAllowedStudioPath(slug: string) {
+  const { getFirstAllowedStudioPagePath } = await import("@/lib/start/auth-session");
   return await getFirstAllowedStudioPagePath({ data: { slug } });
 }
 

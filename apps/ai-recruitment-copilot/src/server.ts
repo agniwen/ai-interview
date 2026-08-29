@@ -1,7 +1,6 @@
 import "./instrument.server";
 
 import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
-import startHandler, { createServerEntry } from "@tanstack/react-start/server-entry";
 import type { ServerEntry } from "@tanstack/react-start/server-entry";
 import { applyServerEnv } from "./env/server";
 import { paraglideMiddleware } from "./paraglide/server";
@@ -14,7 +13,8 @@ interface HonoApp {
   fetch(request: Request): Response | Promise<Response>;
 }
 
-type StartHandlerOptions = Parameters<typeof startHandler.fetch>[1];
+type StartFetch = ServerEntry["fetch"];
+type StartHandlerOptions = Parameters<StartFetch>[1];
 
 type ResumeParseQueueStats = Record<string, number>;
 
@@ -38,6 +38,24 @@ async function createHonoApp(): Promise<HonoApp> {
 async function createOgImageResponse() {
   const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
   return createResponse();
+}
+
+let startFetchPromise: Promise<StartFetch> | undefined;
+
+async function loadStartFetch(): Promise<StartFetch> {
+  const { createStartHandler, defaultStreamHandler } = await import("@tanstack/react-start/server");
+  return createStartHandler(defaultStreamHandler);
+}
+
+function getStartFetch(): Promise<StartFetch> {
+  startFetchPromise ??= loadStartFetch();
+  return startFetchPromise;
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    startFetchPromise = undefined;
+  });
 }
 
 function isApiRequest(request: Request) {
@@ -167,8 +185,10 @@ const defaultDependencies: ServerEntryDependencies = {
     const { pingDatabase } = await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
     await pingDatabase();
   },
-  startFetch: (request, options) =>
-    options === undefined ? startHandler.fetch(request) : startHandler.fetch(request, options),
+  startFetch: async (request, options) => {
+    const startFetch = await getStartFetch();
+    return options === undefined ? startFetch(request) : startFetch(request, options);
+  },
 };
 
 const defaultHandler = createServerEntryHandler(defaultDependencies);
@@ -183,4 +203,4 @@ const sentryHandler: ServerEntry = wrapFetchWithSentry({
   fetch: forwardSentryFetch,
 });
 
-export default createServerEntry(sentryHandler);
+export default sentryHandler;

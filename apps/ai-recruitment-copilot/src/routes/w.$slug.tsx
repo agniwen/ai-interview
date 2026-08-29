@@ -4,7 +4,7 @@ import { BackgroundStreamToaster } from "@/components/features/chat/background-s
 import { AppVersionProvider } from "@/components/features/app-version/app-version-provider";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
-import { getWorkspaceAccessState } from "@/lib/start/auth-session";
+import type { getWorkspaceAccessState } from "@/lib/start/auth-session";
 
 interface WorkspaceRouteDependencies {
   getWorkspaceAccessState: (input: {
@@ -12,7 +12,12 @@ interface WorkspaceRouteDependencies {
   }) => Promise<Awaited<ReturnType<typeof getWorkspaceAccessState>>>;
 }
 
-const defaultWorkspaceRouteDependencies: WorkspaceRouteDependencies = { getWorkspaceAccessState };
+const defaultWorkspaceRouteDependencies: WorkspaceRouteDependencies = {
+  getWorkspaceAccessState: async (input) => {
+    const { getWorkspaceAccessState } = await import("@/lib/start/auth-session");
+    return getWorkspaceAccessState(input);
+  },
+};
 
 export async function loadWorkspaceRoute(
   { location, params }: { location: { href: string; pathname: string }; params: { slug: string } },
