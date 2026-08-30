@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ComponentProps, ComponentType, CSSProperties, PropsWithChildren } from "react";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import type { StructuredResumeReview } from "@arc/shared/recruiting-copilot";
@@ -8,22 +8,14 @@ import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-res
 import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 import type { RecruitingActionProposal } from "@/lib/client/api";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
+import { ResumeDocumentPreviewDialog as DefaultResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import type { ResumeDocumentPreviewDialogProps } from "@/components/features/resume/resume-document-preview-dialog";
+import { ResumePoolDetailDialog } from "@/components/features/studio/resume-pool/resume-pool-detail-dialog-shell";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-
-const DefaultResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
-
-const ResumePoolDetailDialog = lazy(async () => {
-  const mod = await import("@/components/features/studio/resume-pool/resume-pool-details");
-  return { default: mod.ResumePoolDetailDialog };
-});
 
 export interface CandidateSummaryCard {
   candidateName: string;
@@ -272,31 +264,27 @@ export function RecruitingCopilotContextProvider({
         />
       ) : null}
       {poolDetailTarget ? (
-        <Suspense fallback={null}>
-          <ResumePoolDetailDialog
-            canRecommend={canImportResumePool && canReadJobDescriptions}
-            currentUserId={session?.user.id ?? null}
-            onOpenChange={(open) => {
-              if (!open) {
-                setDetailTarget(null);
-              }
-            }}
-            record={null}
-            recordId={poolDetailTarget.itemId}
-            slug={slug}
-          />
-        </Suspense>
+        <ResumePoolDetailDialog
+          canRecommend={canImportResumePool && canReadJobDescriptions}
+          currentUserId={session?.user.id ?? null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailTarget(null);
+            }
+          }}
+          record={null}
+          recordId={poolDetailTarget.itemId}
+          slug={slug}
+        />
       ) : null}
       {previewRecord && previewKind ? (
-        <Suspense fallback={null}>
-          <PreviewDialog
-            filename={previewRecord.resumeFileName ?? undefined}
-            kind={previewKind}
-            onOpenChange={(open) => !open && setPreviewRecord(null)}
-            open={previewRecord !== null}
-            url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
-          />
-        </Suspense>
+        <PreviewDialog
+          filename={previewRecord.resumeFileName ?? undefined}
+          kind={previewKind}
+          onOpenChange={(open) => !open && setPreviewRecord(null)}
+          open={previewRecord !== null}
+          url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
+        />
       ) : null}
     </RecruitingCopilotContext.Provider>
   );

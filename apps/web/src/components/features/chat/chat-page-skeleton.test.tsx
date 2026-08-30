@@ -3,7 +3,11 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ChatMessageListSkeleton, ChatPageSkeleton } from "./chat-page-skeleton";
+import {
+  ChatConversationThreadSkeleton,
+  ChatMessageListSkeleton,
+  ChatPageSkeleton,
+} from "./chat-page-skeleton";
 
 function readSource(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf-8");
@@ -37,12 +41,23 @@ describe("ChatPageSkeleton", () => {
     expect(html).not.toContain("pb-[18vh]");
   });
 
+  it("keeps the composer footprint while the conversation bundle loads", () => {
+    const html = renderToStaticMarkup(<ChatConversationThreadSkeleton />);
+
+    expect(html).toContain('aria-label="聊天界面加载中"');
+    expect(html).toContain("pt-(--header-height)");
+    expect(html).toContain("min-h-[54px]");
+    expect(html).toContain("rounded-[28px]");
+    expect(html).toContain("max-w-(--thread-max-width)");
+  });
+
   it("covers layout transitions and chat history initialization", () => {
     const agentLayout = readSource("../../../routes/w.$slug.agent.tsx");
     const agentIndex = readSource("../../../routes/w.$slug.agent.index.tsx");
     const agentSession = readSource("../../../routes/w.$slug.agent.$sessionId.tsx");
     const studioLayout = readSource("../../../routes/w.$slug.studio.tsx");
     const chatWorkspace = readSource("chat-workspace.tsx");
+    const conversationThread = readSource("recruiting-conversation-thread.tsx");
     const recruitingThread = readSource("../../assistant-ui/recruiting-thread.tsx");
 
     expect(agentLayout).not.toContain("pendingComponent:");
@@ -55,6 +70,9 @@ describe("ChatPageSkeleton", () => {
     expect(chatWorkspace).toContain("historyLoadingFallback={<ChatMessageSkeletonContent />}");
     expect(chatWorkspace).not.toContain("<ChatMessageListSkeleton />");
     expect(chatWorkspace).not.toContain("加载中...");
+    expect(conversationThread).toContain("<RecruitingToolRenderers />");
+    expect(conversationThread).toContain("<RecruitingThread");
+    expect(conversationThread).toContain("<RecruitingCopilotContextProvider");
     expect(recruitingThread).toContain("<SkeletonReveal");
     expect(recruitingThread).toContain("<ThreadPrimitive.Messages>");
     expect(recruitingThread).toContain("<Composer autoFocus={!historyLoading} />");

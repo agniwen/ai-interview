@@ -3,6 +3,7 @@
 import { IconDownload, IconLoader2, IconPhotoOff, IconX } from "@tabler/icons-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
+import { PdfPreviewDialog } from "@/components/features/pdf/pdf-preview-dialog";
 import type { DocxViewerPreview as DocxViewerPreviewComponent } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,6 @@ import { runAsyncAction } from "@/lib/client/async-control";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
 export type ResumeDocumentPreviewKind = "pdf" | "image" | OfficeResumePreviewKind;
-
-const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
-  return { default: mod.PdfPreviewDialog };
-});
 
 const DocxViewerPreview = lazy(async () => {
   const mod = await import("@/components/ui/docx-viewer");
@@ -87,6 +83,15 @@ function PreviewDialogReady({ onReady, url }: { onReady?: () => void; url: strin
   }, [onReady, url]);
 
   return null;
+}
+
+function ResumeDocumentViewerLoading({ kind }: { kind: OfficeResumePreviewKind }) {
+  return (
+    <output className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+      <IconLoader2 className="size-5 animate-spin" />
+      <span>{kind === "docx" ? "Word" : "Excel"} 加载中…</span>
+    </output>
+  );
 }
 
 function ResumePreviewHeaderActions({
@@ -226,18 +231,16 @@ export function ResumeDocumentPreviewDialog({
 
   if (kind === "pdf") {
     return (
-      <Suspense fallback={null}>
-        <PdfPreviewDialog
-          downloadFileName={downloadFileName}
-          downloadUrl={resolvedDownloadUrl}
-          filename={filename}
-          onOpenChange={onOpenChange}
-          onOpenChangeComplete={onOpenChangeComplete}
-          onReady={onReady}
-          open={open}
-          url={url}
-        />
-      </Suspense>
+      <PdfPreviewDialog
+        downloadFileName={downloadFileName}
+        downloadUrl={resolvedDownloadUrl}
+        filename={filename}
+        onOpenChange={onOpenChange}
+        onOpenChangeComplete={onOpenChangeComplete}
+        onReady={onReady}
+        open={open}
+        url={url}
+      />
     );
   }
 
@@ -291,7 +294,7 @@ export function ResumeDocumentPreviewDialog({
       }
     >
       <PreviewDialogReady onReady={onReady} url={url} />
-      <Suspense fallback={null}>
+      <Suspense fallback={<ResumeDocumentViewerLoading kind={kind} />}>
         {kind === "docx"
           ? dependencies.renderDocxPreview({
               className: "h-full",

@@ -5,11 +5,12 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { UploadTaskInboxPage, UploadTaskInboxRecord } from "@arc/shared/upload-task-inbox";
 import { formatRelativeTime } from "@arc/shared/utils/time";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,11 +31,6 @@ import {
   resolveUploadTaskPreviewState,
 } from "./upload-task-inbox-model";
 import type { UploadTaskPreviewState } from "./upload-task-inbox-model";
-
-const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
 
 const TASK_ROW_ESTIMATE = 76;
 interface UploadTaskPageParam {
@@ -322,20 +318,18 @@ export function UploadTaskInbox() {
         </PopoverContent>
       </Popover>
       {previewRecord && previewTarget ? (
-        <Suspense fallback={null}>
-          <ResumeDocumentPreviewDialog
-            downloadUrl={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/resume`}
-            filename={previewRecord.originalFileName}
-            kind={previewTarget.kind}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen) {
-                setPreviewState({ record: null, slug });
-              }
-            }}
-            open
-            url={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/${previewTarget.path}`}
-          />
-        </Suspense>
+        <ResumeDocumentPreviewDialog
+          downloadUrl={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/resume`}
+          filename={previewRecord.originalFileName}
+          kind={previewTarget.kind}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setPreviewState({ record: null, slug });
+            }
+          }}
+          open
+          url={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/${previewTarget.path}`}
+        />
       ) : null}
     </>
   );

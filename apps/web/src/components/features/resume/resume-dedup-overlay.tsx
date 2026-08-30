@@ -10,7 +10,7 @@
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { Suspense, lazy, useState } from "react";
+import { useState } from "react";
 import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
 import { formatDate } from "@arc/shared/utils/time";
 import { cn } from "@arc/shared/utils";
@@ -22,14 +22,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
-import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog";
+import { ResumeDedupCompareDialog } from "./resume-dedup-compare-dialog-shell";
+import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog-shell";
 import { getResumeComparisonDocumentKind } from "./resume-dedup-compare-model";
 import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
-
-const ResumeDedupCompareDialog = lazy(async () => {
-  const mod = await import("./resume-dedup-compare-dialog");
-  return { default: mod.ResumeDedupCompareDialog };
-});
 
 interface ResumeDedupComparisonProps {
   match: DedupMatchRecord;
@@ -44,15 +40,13 @@ export interface ResumeDedupMatchListDependencies {
 
 const defaultResumeDedupMatchListDependencies: ResumeDedupMatchListDependencies = {
   renderComparison: ({ match, mode, onOpenChange, source }) => (
-    <Suspense fallback={null}>
-      <ResumeDedupCompareDialog
-        match={match}
-        mode={mode}
-        onOpenChange={onOpenChange}
-        open
-        source={source}
-      />
-    </Suspense>
+    <ResumeDedupCompareDialog
+      match={match}
+      mode={mode}
+      onOpenChange={onOpenChange}
+      open
+      source={source}
+    />
   ),
 };
 

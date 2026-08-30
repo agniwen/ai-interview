@@ -1,18 +1,14 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
+import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import type {
   ResumeDocumentPreviewDialogProps,
   ResumeDocumentPreviewKind,
 } from "@/components/features/resume/resume-document-preview-dialog";
-
-const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
 
 interface RetainedResumePreview {
   fileName?: string;
@@ -58,16 +54,10 @@ export function ResumeDocumentPreviewModal({
     setPreview({ fileName: fileName ?? undefined, kind, url });
   }, [fileName, kind, url]);
 
-  useEffect(
-    () => () => {
-      if (openFrameRef.current !== null) {
-        cancelAnimationFrame(openFrameRef.current);
-      }
-    },
-    [],
-  );
-
-  const handleReady = useCallback(() => {
+  useEffect(() => {
+    if (!preview) {
+      return;
+    }
     if (openFrameRef.current !== null) {
       cancelAnimationFrame(openFrameRef.current);
     }
@@ -75,28 +65,32 @@ export function ResumeDocumentPreviewModal({
       openFrameRef.current = null;
       setOpen(true);
     });
-  }, []);
+
+    return () => {
+      if (openFrameRef.current !== null) {
+        cancelAnimationFrame(openFrameRef.current);
+        openFrameRef.current = null;
+      }
+    };
+  }, [preview]);
 
   if (!preview) {
     return null;
   }
 
   return (
-    <Suspense fallback={null}>
-      <PreviewDialog
-        filename={preview.fileName}
-        kind={preview.kind}
-        onOpenChange={setOpen}
-        onOpenChangeComplete={(nextOpen) => {
-          if (!nextOpen) {
-            setPreview(null);
-            onClose();
-          }
-        }}
-        onReady={handleReady}
-        open={open}
-        url={preview.url}
-      />
-    </Suspense>
+    <PreviewDialog
+      filename={preview.fileName}
+      kind={preview.kind}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(nextOpen) => {
+        if (!nextOpen) {
+          setPreview(null);
+          onClose();
+        }
+      }}
+      open={open}
+      url={preview.url}
+    />
   );
 }

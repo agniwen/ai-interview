@@ -16,13 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Modal } from "@/components/ui/modal";
 import { PDFViewer } from "@/components/ui/pdf-viewer";
 import type { PDFViewerHandle } from "@/components/ui/pdf-viewer";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
 import { fetchResumePoolItemReview, fetchStudioResumeReview } from "@/lib/client/api";
 import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog-shell";
 import { formatResumeCandidateTitle } from "./resume-record-display-id";
 import { ImageResumePreviewContent } from "./resume-document-preview-dialog";
 import { getResumeComparisonDocument } from "./resume-dedup-compare-model";
@@ -30,8 +30,6 @@ import type { ResumeComparisonSourceType } from "./resume-dedup-compare-model";
 import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
 import { syncScrollProgress } from "./resume-dedup-scroll-model";
 export { syncScrollProgress } from "./resume-dedup-scroll-model";
-
-export type ResumeDedupCompareMode = "detail" | "resume";
 
 interface ResumeComparisonDetail {
   candidateEmail: string | null;
@@ -531,16 +529,14 @@ function ComparisonColumn({
   );
 }
 
-export function ResumeDedupCompareDialog({
+export function ResumeDedupCompareDialogContent({
   match,
   mode,
-  onOpenChange,
   open,
   source,
 }: {
   match: DedupMatchRecord;
   mode: ResumeDedupCompareMode;
-  onOpenChange: (open: boolean) => void;
   open: boolean;
   source: DedupSourceCandidate;
 }) {
@@ -570,58 +566,41 @@ export function ResumeDedupCompareDialog({
   });
   useSynchronizedScroll(currentViewport, matchViewport, isScrollSyncEnabled);
 
-  function handleOpenChange(next: boolean) {
-    if (next) {
-      setIsScrollSyncEnabled(true);
-    }
-    onOpenChange(next);
-  }
-
   return (
-    <Modal
-      bodyClassName="min-h-0 overflow-hidden p-0"
-      className="h-[92dvh]"
-      description="左侧为当前简历，右侧为疑似简历。"
-      onOpenChange={handleOpenChange}
-      open={open}
-      size="full"
-      title={mode === "detail" ? "简历详情对比" : "原始简历对比"}
-    >
-      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-        <div className="flex items-center border-border/70 border-b bg-muted/20 px-5 py-2.5">
-          <Field className="w-auto gap-2" orientation="horizontal">
-            <Checkbox
-              checked={isScrollSyncEnabled}
-              id="resume-dedup-sync-scroll"
-              onCheckedChange={setIsScrollSyncEnabled}
-            />
-            <FieldLabel htmlFor="resume-dedup-sync-scroll">同步滚动</FieldLabel>
-          </Field>
-        </div>
-        <div className="grid min-h-0 grid-cols-2 divide-x divide-border">
-          <ComparisonColumn
-            candidate={sourceRef}
-            detail={sourceQuery.data}
-            isError={sourceQuery.isError}
-            isLoading={sourceQuery.isLoading}
-            label="当前简历"
-            mode={mode}
-            onScrollViewportChange={setCurrentViewport}
-            slug={slug}
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+      <div className="flex items-center border-border/70 border-b bg-muted/20 px-5 py-2.5">
+        <Field className="w-auto gap-2" orientation="horizontal">
+          <Checkbox
+            checked={isScrollSyncEnabled}
+            id="resume-dedup-sync-scroll"
+            onCheckedChange={setIsScrollSyncEnabled}
           />
-          <ComparisonColumn
-            candidate={matchRef}
-            detail={matchQuery.data}
-            isError={matchQuery.isError}
-            isLoading={matchQuery.isLoading}
-            label="疑似简历"
-            mode={mode}
-            onScrollViewportChange={setMatchViewport}
-            referenceCreatedAt={sourceQuery.data?.createdAt}
-            slug={slug}
-          />
-        </div>
+          <FieldLabel htmlFor="resume-dedup-sync-scroll">同步滚动</FieldLabel>
+        </Field>
       </div>
-    </Modal>
+      <div className="grid min-h-0 grid-cols-2 divide-x divide-border">
+        <ComparisonColumn
+          candidate={sourceRef}
+          detail={sourceQuery.data}
+          isError={sourceQuery.isError}
+          isLoading={sourceQuery.isLoading}
+          label="当前简历"
+          mode={mode}
+          onScrollViewportChange={setCurrentViewport}
+          slug={slug}
+        />
+        <ComparisonColumn
+          candidate={matchRef}
+          detail={matchQuery.data}
+          isError={matchQuery.isError}
+          isLoading={matchQuery.isLoading}
+          label="疑似简历"
+          mode={mode}
+          onScrollViewportChange={setMatchViewport}
+          referenceCreatedAt={sourceQuery.data?.createdAt}
+          slug={slug}
+        />
+      </div>
+    </div>
   );
 }

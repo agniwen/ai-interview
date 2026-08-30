@@ -8,7 +8,6 @@ import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { pipelineStageValues } from "@arc/db-schema/studio-interviews";
 
 import {
-  lazy,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -28,11 +27,6 @@ import {
 } from "./resume-library-card-layout";
 
 export { getResumeLibraryCardHeight } from "./resume-library-card-layout";
-
-export const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
 
 export interface ResumeFilters extends Record<string, string> {
   createdAtRange: string;

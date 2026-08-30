@@ -8,7 +8,7 @@ import type {
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
 
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { getMemberInitials } from "@/components/data-grid/cells/member-cell";
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { importResumePoolItem, isApiError } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { StudioPersonDetailDialog } from "../studio-person-detail-dialog";
 
 import {
   buildJdOptions,
@@ -40,11 +41,6 @@ import {
   toResumeDedupMatches,
   useJobDescriptions,
 } from "./resume-pool-page-model";
-
-const StudioPersonDetailDialog = lazy(async () => {
-  const detailDialog = await import("@/components/features/studio/studio-person-detail-dialog");
-  return { default: detailDialog.StudioPersonDetailDialog };
-});
 
 interface StudioPersonDetailProps {
   onOpenChange: (open: boolean) => void;
@@ -69,14 +65,12 @@ const defaultImportResumePoolDialogDependencies: ImportResumePoolDialogDependenc
   notifyError: (message) => toast.error(message),
   notifySuccess: (message) => toast.success(message),
   renderStudioPersonDetail: ({ onOpenChange, recordId }) => (
-    <Suspense fallback={null}>
-      <StudioPersonDetailDialog
-        mode="resume"
-        onOpenChange={onOpenChange}
-        open={true}
-        recordId={recordId}
-      />
-    </Suspense>
+    <StudioPersonDetailDialog
+      mode="resume"
+      onOpenChange={onOpenChange}
+      open={true}
+      recordId={recordId}
+    />
   ),
   useJobDescriptionOptions: (slug) => {
     const { data } = useJobDescriptions(slug);

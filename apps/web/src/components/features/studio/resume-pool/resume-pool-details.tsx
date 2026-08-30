@@ -22,10 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { fetchResumePoolItem } from "@/lib/client/api";
+import type { ResumePoolDetailDialogContentProps } from "./resume-pool-detail-dialog-shell";
 
 import {
   duplicateMatchBadge,
-  getCandidateTitleWithId,
   resumeParseStatusBadge,
   resumeRecruitingStatusBadge,
   sourceActorLabel,
@@ -382,23 +382,14 @@ export function ResumePoolRecommendationsDialog({
   );
 }
 
-export function ResumePoolDetailDialog({
+export function ResumePoolDetailDialogContent({
   canRecommend,
   currentUserId,
   onOpenDuplicateMatches,
-  onOpenChange,
   record,
   recordId,
   slug,
-}: {
-  canRecommend: boolean;
-  currentUserId: string | null;
-  record: ResumePoolListRecord | null;
-  recordId?: string | null;
-  slug: string;
-  onOpenChange: (open: boolean) => void;
-  onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
-}) {
+}: ResumePoolDetailDialogContentProps) {
   const itemId = record?.id ?? recordId ?? "";
   const detailQuery = useQuery({
     enabled: Boolean(itemId),
@@ -425,39 +416,45 @@ export function ResumePoolDetailDialog({
   ] = useRecordOwnedOpenState(itemId);
   return (
     <>
-      <Modal
-        description={detail?.resumeFileName ?? record?.resumeFileName ?? undefined}
-        onOpenChange={onOpenChange}
-        open={Boolean(itemId)}
-        size="2xl"
-        title={detail ? getCandidateTitleWithId(detail) : "候选人详情"}
-      >
-        {detail ? (
-          <div className="space-y-8">
-            {detailQuery.data ? (
-              <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
-            ) : null}
-            <ResumePoolDetailSummaryPanel
-              detail={detail}
-              isError={detailQuery.isError}
-              isLoading={detailQuery.isLoading}
-              onOpenDuplicateMatches={
-                record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
-              }
-              onRequestRecommendations={
-                canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
-              }
-              resumeProfile={resumeProfile}
-              slug={slug}
-            />
-            <ResumePoolStructuredInfoPanel
-              detail={detail}
-              isLoading={detailQuery.isLoading}
-              resumeProfile={resumeProfile}
-            />
-          </div>
-        ) : null}
-      </Modal>
+      {detail ? (
+        <div className="space-y-8">
+          {detailQuery.data ? (
+            <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
+          ) : null}
+          <ResumePoolDetailSummaryPanel
+            detail={detail}
+            isError={detailQuery.isError}
+            isLoading={detailQuery.isLoading}
+            onOpenDuplicateMatches={
+              record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
+            }
+            onRequestRecommendations={
+              canManageJobBinding ? () => setRecommendationsOpen(true) : undefined
+            }
+            resumeProfile={resumeProfile}
+            slug={slug}
+          />
+          <ResumePoolStructuredInfoPanel
+            detail={detail}
+            isLoading={detailQuery.isLoading}
+            resumeProfile={resumeProfile}
+          />
+        </div>
+      ) : (
+        <output
+          aria-live="polite"
+          className="flex min-h-64 items-center justify-center gap-2 text-muted-foreground text-sm"
+        >
+          {detailQuery.isError ? (
+            "加载人才信息失败，请关闭后重试。"
+          ) : (
+            <>
+              <IconLoader2 aria-hidden="true" className="size-4 animate-spin" />
+              正在加载人才信息…
+            </>
+          )}
+        </output>
+      )}
       <ResumePoolRecommendationsDialog
         canRecommend={canRecommend}
         currentUserId={currentUserId}

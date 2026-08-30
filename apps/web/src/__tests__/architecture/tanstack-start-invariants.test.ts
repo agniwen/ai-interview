@@ -79,6 +79,22 @@ describe("TanStack Start architecture invariants", () => {
     expect(viteConfig).toMatch(/\\.spec\\./u);
   });
 
+  it("keeps route-critical search contracts out of heavyweight page models", () => {
+    const resumesRoute = readSource("src/routes/w.$slug.studio.resumes.tsx");
+    const resumeDetailRoute = readSource("src/routes/w.$slug.studio.resumes.$recordId.tsx");
+    const resumeOverlayRoute = readSource(
+      "src/routes/w.$slug.studio.resumes.overlay.$recordId.tsx",
+    );
+    const membersRoute = readSource("src/routes/w.$slug.studio.members.tsx");
+
+    expect(resumesRoute).toContain('from "@/lib/client/data-grid-search"');
+    expect(resumesRoute).not.toContain("resume-library-page-model");
+    expect(resumeDetailRoute).toContain("recruiter-resume-detail-search");
+    expect(resumeOverlayRoute).toContain("recruiter-resume-detail-search");
+    expect(membersRoute).toContain("workspace-management-search");
+    expect(membersRoute).not.toContain("members-page-model");
+  });
+
   it("keeps auth and API clients cookie-aware for the Hono backend", () => {
     const authClient = readSource("src/lib/client/auth-client.ts");
     const rpc = readSource("src/lib/client/rpc.ts");

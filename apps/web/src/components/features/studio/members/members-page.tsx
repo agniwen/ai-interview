@@ -60,10 +60,8 @@ import { WorkspaceSettingsDialog } from "@/components/features/studio/members/wo
 import {
   DEFAULT_PAGE_SIZE,
   buildAssignableWorkspaceRoles,
-  buildWorkspaceManagementSearch,
   canEditMemberWorkspaceRole,
   getWorkspaceRoleBadgeVariant,
-  parseWorkspaceManagementTab,
   reconcileGroupNameDraftState,
   resolveGroupNameDrafts,
   useDynamicWorkspaceRoles,
@@ -74,8 +72,12 @@ import type {
   RecruitingGroupMemberRow,
   RecruitingGroupRole,
   RecruitingGroupRow,
-  WorkspaceManagementSearch,
 } from "@/components/features/studio/members/members-page-model";
+import {
+  buildWorkspaceManagementSearch,
+  parseWorkspaceManagementTab,
+} from "@/components/features/studio/members/workspace-management-search";
+import type { WorkspaceManagementSearch } from "@/components/features/studio/members/workspace-management-search";
 import {
   DEFAULT_NEW_GROUP_MEMBER_ROLE,
   RecruitingGroupsPanel,

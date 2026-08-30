@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
-import { coerceSearchParams } from "@/components/features/studio/resumes/resume-library-page-model";
+import { coerceSearchParams } from "@/lib/client/data-grid-search";
 
 const studioResumesRouteApi = getRouteApi("/w/$slug/studio/resumes");
 

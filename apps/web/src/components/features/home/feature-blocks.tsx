@@ -5,7 +5,7 @@ import { IconBriefcase, IconSparkles } from "@tabler/icons-react";
 import { RESUME_REVIEW_DIMENSIONS } from "@arc/shared/resume-review";
 import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
-import { Message, MessageContent } from "@/components/ai-elements/message";
+import { Message, MessageContent } from "@/components/ai-elements/message-primitives";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardFooter, CardHeader, CardPanel } from "@/components/ui/card";

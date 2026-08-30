@@ -6,12 +6,7 @@ import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
 import { IconRefresh, IconX } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  NewRecruitingThread,
-  RecruitingCopilotContextProvider,
-  RecruitingThread,
-  RecruitingToolRenderers,
-} from "@/components/assistant-ui/recruiting-thread";
+import { NewRecruitingThread } from "@/components/assistant-ui/new-recruiting-thread";
 import { Button } from "@/components/ui/button";
 import {
   fetchConversation,
@@ -25,6 +20,10 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
 import { ChatMessageSkeletonContent, ChatPageSkeleton } from "./chat-page-skeleton";
+import {
+  LazyRecruitingConversationThread,
+  preloadRecruitingConversationThread,
+} from "./lazy-recruiting-conversation-thread";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
@@ -36,6 +35,14 @@ const MAX_CHAT_TITLE_LENGTH = 28;
 function getConversationTitleFromText(text: string) {
   const title = text.trim().replaceAll(/\s+/g, " ").slice(0, MAX_CHAT_TITLE_LENGTH);
   return title || NEW_CHAT_TITLE;
+}
+
+async function preloadConversationThreadSafely() {
+  try {
+    await preloadRecruitingConversationThread();
+  } catch {
+    // A preload failure must not block conversation creation or history loading.
+  }
 }
 
 function ChatErrorBar({
@@ -198,6 +205,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         submitDebounceRef.current = null;
       }, 300);
       setIsCreatingConversation(true);
+      void preloadConversationThreadSafely();
       await runAsyncAction({
         cleanup: () => setIsCreatingConversation(false),
         onError: () => setHistoryErrorMessage("聊天记录保存失败，请稍后重试。"),
@@ -290,6 +298,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         },
         operation: async () => {
           if (initialSessionId) {
+            void preloadConversationThreadSafely();
             await openConversation(initialSessionId, {
               shouldSyncUrl: false,
               signal: controller.signal,
@@ -351,21 +360,19 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       )}
     >
       <AssistantRuntimeProvider runtime={runtime}>
-        <RecruitingCopilotContextProvider conversationId={activeConversationId}>
-          <RecruitingToolRenderers />
-          {showConversationThread ? (
-            <RecruitingThread
-              historyLoading={!isHistoryReady}
-              historyLoadingFallback={<ChatMessageSkeletonContent />}
-              isRunning={isStreaming}
-            />
-          ) : (
-            <NewRecruitingThread
-              disabled={isCreatingConversation || !session}
-              onSubmit={sendFirstMessage}
-            />
-          )}
-        </RecruitingCopilotContextProvider>
+        {showConversationThread ? (
+          <LazyRecruitingConversationThread
+            conversationId={activeConversationId}
+            historyLoading={!isHistoryReady}
+            historyLoadingFallback={<ChatMessageSkeletonContent />}
+            isRunning={isStreaming}
+          />
+        ) : (
+          <NewRecruitingThread
+            disabled={isCreatingConversation || !session}
+            onSubmit={sendFirstMessage}
+          />
+        )}
         <ChatErrorBar
           error={error}
           historyErrorMessage={historyErrorMessage}

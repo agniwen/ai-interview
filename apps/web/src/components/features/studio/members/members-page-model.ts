@@ -7,51 +7,23 @@ import type { WorkspaceRole } from "@/components/features/studio/members/role-di
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 
 export const DEFAULT_PAGE_SIZE = 10;
-export const DEFAULT_TAB = "members";
-const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
-const workspaceManagementTabSchema = z.enum(WORKSPACE_MANAGEMENT_TABS);
+export { DEFAULT_WORKSPACE_MANAGEMENT_TAB as DEFAULT_TAB } from "@/components/features/studio/members/workspace-management-search";
+export {
+  buildWorkspaceManagementSearch,
+  coerceWorkspaceManagementSearch,
+  parseWorkspaceManagementTab,
+} from "@/components/features/studio/members/workspace-management-search";
+export type {
+  WorkspaceManagementSearch,
+  WorkspaceManagementTab,
+} from "@/components/features/studio/members/workspace-management-search";
+
 const dynamicWorkspaceRoleSchema = z.object({
   createdAt: z.union([z.date(), z.string()]),
   id: z.string(),
   name: z.string(),
   role: z.string(),
 });
-
-export type WorkspaceManagementTab = (typeof WORKSPACE_MANAGEMENT_TABS)[number];
-type WorkspaceManagementTabInput = string | null | undefined;
-
-export interface WorkspaceManagementSearch {
-  tab?: WorkspaceManagementTab;
-}
-
-interface WorkspaceManagementSearchInput {
-  tab?: unknown;
-}
-
-export function parseWorkspaceManagementTab(
-  value: WorkspaceManagementTabInput,
-): WorkspaceManagementTab {
-  return value === "groups" ? "groups" : DEFAULT_TAB;
-}
-
-export function coerceWorkspaceManagementSearch(
-  search: WorkspaceManagementSearchInput,
-): WorkspaceManagementSearch {
-  const result = workspaceManagementTabSchema.safeParse(search.tab);
-  const tab = result.success ? result.data : DEFAULT_TAB;
-  return tab === DEFAULT_TAB ? {} : { tab };
-}
-
-export function buildWorkspaceManagementSearch(
-  previous: WorkspaceManagementSearch,
-  tab: WorkspaceManagementTab,
-): WorkspaceManagementSearch {
-  if (tab === DEFAULT_TAB) {
-    const { tab: _tab, ...rest } = previous;
-    return rest;
-  }
-  return { ...previous, tab };
-}
 
 export interface MemberRow {
   id: string;

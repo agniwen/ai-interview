@@ -84,6 +84,10 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       tanstackStart({
         router: {
+          // TanStack Start registers its route code splitter by default. Its
+          // config intentionally excludes the standalone router plugin's
+          // `autoCodeSplitting` switch, so route UI stays split without an
+          // unsupported opt-in flag here.
           // Ignore non-route artifacts under `src/routes` so colocated tests
           // (or future helpers) never become pages. Defaults already skip names
           // prefixed with `-`; this also drops `__tests__` / `__test__` dirs and

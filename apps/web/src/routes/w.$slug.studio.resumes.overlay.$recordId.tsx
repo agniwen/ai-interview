@@ -9,9 +9,11 @@ import { useCallback } from "react";
 import {
   RecruiterResumeDetailPage,
   RecruiterResumeDetailSkeleton,
+} from "@/components/features/studio/resumes/recruiter-resume-detail-page";
+import {
   listSearchFromDetailSearch,
   resumeDetailPageSearchSchema,
-} from "@/components/features/studio/resumes/recruiter-resume-detail-page";
+} from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import { StudioContentRouteOverlay } from "@/components/features/studio/studio-content-route-overlay";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 

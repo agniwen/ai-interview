@@ -4,7 +4,6 @@ import { useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 import {
   canLaunchInterviewFromResume,
   getResumeActionLockedReason,
@@ -12,12 +11,13 @@ import {
 
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";
-import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { CandidateDetailRailSkeleton } from "@/components/features/studio/candidate-detail-rail";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
+import { resolveResumeDetailDefaultTab } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
+import type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,34 +25,11 @@ import { fetchStudioResume } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
-const RESUME_DETAIL_TABS = [
-  "overview",
-  "rounds",
-  "human-interview",
-  "offer",
-] as const satisfies readonly StudioPersonDetailTab[];
-
-const resumeDetailPageSearchValueSchema = z.union([z.boolean(), z.number(), z.string()]);
-export const resumeDetailPageSearchSchema = z.record(
-  z.string(),
-  z.union([resumeDetailPageSearchValueSchema, z.array(resumeDetailPageSearchValueSchema)]),
-);
-export type RecruiterResumeDetailSearch = z.infer<typeof resumeDetailPageSearchSchema>;
-const resumeDetailTabSchema = z.enum(RESUME_DETAIL_TABS);
-
-function firstSearchValue(value: z.infer<typeof resumeDetailPageSearchSchema>[string]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function resolveDefaultTab(search: z.infer<typeof resumeDetailPageSearchSchema>) {
-  const parsedTab = resumeDetailTabSchema.safeParse(firstSearchValue(search.tab));
-  return parsedTab.success ? parsedTab.data : "overview";
-}
-
-export function listSearchFromDetailSearch(search: RecruiterResumeDetailSearch) {
-  const { tab: _tab, ...listSearch } = search;
-  return listSearch;
-}
+export {
+  listSearchFromDetailSearch,
+  resumeDetailPageSearchSchema,
+} from "@/components/features/studio/resumes/recruiter-resume-detail-search";
+export type { RecruiterResumeDetailSearch } from "@/components/features/studio/resumes/recruiter-resume-detail-search";
 
 function getRecruiterResumeDocumentTitle(candidateName: string | null | undefined) {
   const name = candidateName?.trim();
@@ -266,7 +243,7 @@ export function RecruiterResumeDetailPage({
     staleTime: 30_000,
   });
   const detail = detailQuery.data ?? null;
-  const defaultTab = resolveDefaultTab(routeSearch);
+  const defaultTab = resolveResumeDetailDefaultTab(routeSearch);
   const documentTitle = getRecruiterResumeDocumentTitle(detail?.candidateName);
   const avatarIdentity = getRecruiterResumeAvatarIdentity({
     candidateEmail: detail?.candidateEmail,

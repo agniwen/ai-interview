@@ -16,7 +16,7 @@ import type {
 } from "@arc/shared/studio-interview-rounds";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -57,6 +57,7 @@ import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
+import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -72,11 +73,6 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 import { firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { CandidateEvaluationDocumentCell } from "@/components/features/studio/interviews/candidate-evaluation-document-cell";
-
-const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
 
 interface FetchParams {
   page: number;
@@ -725,15 +721,13 @@ export function InterviewManagementPage() {
               fileName: previewRecord.resumeFileName,
             });
             return previewKind ? (
-              <Suspense fallback={null}>
-                <ResumeDocumentPreviewDialog
-                  filename={previewRecord.resumeFileName ?? undefined}
-                  kind={previewKind}
-                  onOpenChange={(open) => !open && setPreviewRecord(null)}
-                  open={previewRecord !== null}
-                  url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
-                />
-              </Suspense>
+              <ResumeDocumentPreviewDialog
+                filename={previewRecord.resumeFileName ?? undefined}
+                kind={previewKind}
+                onOpenChange={(open) => !open && setPreviewRecord(null)}
+                open={previewRecord !== null}
+                url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
+              />
             ) : null;
           })()
         : null}

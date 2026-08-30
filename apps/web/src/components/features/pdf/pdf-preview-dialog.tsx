@@ -1,10 +1,61 @@
 "use client";
 
 import { IconDownload, IconX } from "@tabler/icons-react";
-import { useEffect, useMemo, useState } from "react";
+import { Component, Suspense, lazy, useEffect, useMemo, useState } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { PDFViewer } from "@/components/ui/pdf-viewer";
+import type { PDFViewer as PDFViewerComponent } from "@/components/ui/pdf-viewer";
+
+type PdfViewerProps = ComponentProps<typeof PDFViewerComponent>;
+
+interface PdfViewerModule {
+  PDFViewer: ComponentType<PdfViewerProps>;
+}
+
+function isDynamicImportFetchError(error: Error) {
+  return error.message.includes("Failed to fetch dynamically imported module");
+}
+
+async function loadPdfViewer(): Promise<{ default: ComponentType<PdfViewerProps> }> {
+  try {
+    const mod = await import("@/components/ui/pdf-viewer");
+    return { default: mod.PDFViewer };
+  } catch (error) {
+    if (import.meta.env.DEV && error instanceof Error && isDynamicImportFetchError(error)) {
+      const retryUrl = `/src/components/ui/pdf-viewer.tsx?retry=${Date.now()}`;
+      // eslint-disable-next-line no-inline-comments -- Vite requires this marker inside import().
+      const mod: PdfViewerModule = await import(/* @vite-ignore */ retryUrl);
+      return { default: mod.PDFViewer };
+    }
+    throw error;
+  }
+}
+
+const PDFViewer = lazy(loadPdfViewer);
+
+class PdfViewerErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+function PdfViewerLoading() {
+  return (
+    <output className="flex h-full items-center justify-center text-muted-foreground text-sm">
+      PDF 加载中…
+    </output>
+  );
+}
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -88,18 +139,32 @@ export function PdfPreviewDialog({
         </div>
       }
     >
-      <PDFViewer
-        className="h-full"
-        defaultThumbnailSidebarOpen
-        defaultZoom={1}
-        documentOptions={documentOptions}
-        downloadFileName={resolvedDownloadFileName}
-        file={url}
-        onActivePageChange={setActivePage}
-        onDocumentLoadSuccess={setNumPages}
-        showDownload={false}
-        showUpload={false}
-      />
+      <PdfViewerErrorBoundary
+        key={url}
+        fallback={
+          <iframe
+            className="h-full w-full bg-background"
+            sandbox=""
+            src={url}
+            title={filename ?? "简历预览"}
+          />
+        }
+      >
+        <Suspense fallback={<PdfViewerLoading />}>
+          <PDFViewer
+            className="h-full"
+            defaultThumbnailSidebarOpen
+            defaultZoom={1}
+            documentOptions={documentOptions}
+            downloadFileName={resolvedDownloadFileName}
+            file={url}
+            onActivePageChange={setActivePage}
+            onDocumentLoadSuccess={setNumPages}
+            showDownload={false}
+            showUpload={false}
+          />
+        </Suspense>
+      </PdfViewerErrorBoundary>
     </Modal>
   );
 }
