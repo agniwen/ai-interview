@@ -78,7 +78,7 @@ export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDep
             }}
             value="agent"
           >
-            Agent
+            智能体
           </TabsTrigger>
           <TabsTrigger
             onFocus={() => {
@@ -92,7 +92,7 @@ export function SidebarTabsView({ dependencies }: { dependencies: SidebarTabsDep
             }}
             value="studio"
           >
-            Studio
+            工作台
           </TabsTrigger>
         </TabsList>
       </Tabs>

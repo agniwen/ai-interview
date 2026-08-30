@@ -213,7 +213,7 @@ export function MeetingSidebarSlots() {
             }
             item={{
               icon: "ph:briefcase",
-              title: "AI Recruitment Copilot 招聘台",
+              title: "AI Hiring Copilot 招聘台",
               to: "/recruitment",
             }}
           />

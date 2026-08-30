@@ -353,7 +353,7 @@ export function updateStudioInterviewRound(
 }
 
 /**
- * 候选人阶段流转（结案 / 重新激活 / 推进阶段）。后端会校验 pipelineStage 与 outcome
+ * 候选人阶段流转（结束 / 重新激活 / 推进阶段）。后端会校验 pipelineStage 与 outcome
  * 的不变量，并在进入/离开 closed 时维护 closedAt + closedReason。
  *
  * Candidate stage transition (close / reactivate / advance). The server

@@ -28,7 +28,7 @@
 
 ## 3. 标签来源
 
-信号模型（`packages/db-schema/src/studio-interviews.ts`）：`pipelineStage`(screening→written_test→ai_interview→human_interview→offer→closed) + `outcome`(in_pipeline/hired/rejected/withdrawn/archived)。结案阶段记于 `closed_meta->>'previousStage'`。
+信号模型（`packages/db-schema/src/studio-interviews.ts`）：`pipelineStage`(screening→written_test→ai_interview→human_interview→offer→closed) + `outcome`(in_pipeline/hired/rejected/withdrawn/archived)。结束阶段记于 `closed_meta->>'previousStage'`。
 
 ### 3.1 方案 B（历史信号，种子）
 
@@ -212,4 +212,4 @@ recall@50_raw = 0.XX     MRR = 0.XX     (各指标均附按岗位宏平均)
 
 **修订后优先级：** ①ʹ **阈值/重标定打分**（打 below_threshold，实测新首要）→ ② 召回快赢（打 recall_capped，原①）→ ③ 重排（待 retrieved_low_rank 出现，原②）→ ④ 埋点（原③）。
 
-**includeClosed 决策（实现期发现的设计细化）：** dev 分支把 `loadRecommendationCandidates` 的过滤由 `status≠'archived'` 改为 **`pipelineStage≠'closed'`**（见 §4.5#3）。B 挖掘的正例（hired / 后期 rejected）天然是 `pipelineStage='closed'`，若评测跟随生产过滤会把它们全判成 `status_filtered`、掩盖真实检索质量。**决策：评测走 `includeClosed=true`**，让 LOO 反事实里的结案正例仍可加载打分 —— 与"绑定本 JD 豁免 `excludeLinkedExceptIds`"同理：业务展示规则（不推结案人）与检索质量测量正交。生产默认 `includeClosed=false`，行为不变。实测据此 `status_filtered=0`。实现于 `recommendationCandidateWhere` + CLI 注入，锁于 `recommendations.test.ts` 的 SQL 两分支特征化测试。
+**includeClosed 决策（实现期发现的设计细化）：** dev 分支把 `loadRecommendationCandidates` 的过滤由 `status≠'archived'` 改为 **`pipelineStage≠'closed'`**（见 §4.5#3）。B 挖掘的正例（hired / 后期 rejected）天然是 `pipelineStage='closed'`，若评测跟随生产过滤会把它们全判成 `status_filtered`、掩盖真实检索质量。**决策：评测走 `includeClosed=true`**，让 LOO 反事实里的结束正例仍可加载打分 —— 与"绑定本 JD 豁免 `excludeLinkedExceptIds`"同理：业务展示规则（不推结束人）与检索质量测量正交。生产默认 `includeClosed=false`，行为不变。实测据此 `status_filtered=0`。实现于 `recommendationCandidateWhere` + CLI 注入，锁于 `recommendations.test.ts` 的 SQL 两分支特征化测试。

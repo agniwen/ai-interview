@@ -134,9 +134,9 @@ const ACTIVITY_FORMATTERS = createActivityFormatters({
     const jobName = getMetadataValue(event, "岗位");
     return jobName ? `提交岗位「${jobName}」的候选人表单` : "提交候选人表单";
   },
-  候选人结案: (event) => {
+  候选人结束: (event) => {
     const conclusion = getMetadataValue(event, "结论");
-    return conclusion ? `标记结案，结论为 ${conclusion}` : "标记结案";
+    return conclusion ? `标记结束，结论为 ${conclusion}` : "标记结束";
   },
   候选人阶段流转: formatWithDescription("更新阶段", "更新候选人阶段"),
   关联岗位已变更: formatWithDescription("变更关联岗位", "变更关联岗位"),

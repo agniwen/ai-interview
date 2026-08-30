@@ -322,7 +322,7 @@ export const resumeLibraryReadRouter = factory
       }
       const message = error instanceof Error ? error.message : "AI 重新评估失败，请稍后重试。";
       const eligibilityError = [
-        "已结案候选人不能重新评估。",
+        "已结束候选人不能重新评估。",
         "简历解析完成后才能重新评估。",
         "请先关联在招岗位后再重新评估。",
       ].find((candidate) => candidate === message);
@@ -547,7 +547,7 @@ export const resumeLibraryReadRouter = factory
             return c.json(
               {
                 code: "AI_INTERVIEW_STAGE_CONFLICT",
-                error: "候选人已结案，请先「重新激活」后再发起 AI 面试。",
+                error: "候选人已结束，请先「重新激活」后再发起 AI 面试。",
               },
               409,
             );

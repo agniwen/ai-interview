@@ -141,8 +141,8 @@ describe("recruitment stage tabs", () => {
       "简历筛选",
       "AI 面试",
       "真人复面",
-      "Offer",
-      "已结案",
+      "Offer 协商",
+      "已结束",
     ]);
     expect(tab("真人复面")?.getAttribute("aria-selected")).toBe("true");
     expect(currentGrid.bind.canResetFilters).toBe(false);
@@ -203,7 +203,7 @@ describe("recruitment stage tabs", () => {
     expect(currentSearch.skills).toBeUndefined();
     expect(currentSearch.createdAtRange).toBeUndefined();
     expect(currentSearch.creatorIds).toBeUndefined();
-    expect(tab("Offer")?.getAttribute("aria-selected")).toBe("true");
+    expect(tab("Offer 协商")?.getAttribute("aria-selected")).toBe("true");
     expect(currentGrid.bind.canResetFilters).toBe(false);
     expect(currentGrid.rowSelection).toEqual({});
   });

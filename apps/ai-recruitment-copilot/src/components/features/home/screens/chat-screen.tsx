@@ -57,7 +57,7 @@ function Composer() {
         </span>
       </div>
       <p className="mt-2 text-center text-muted-foreground text-xs">
-        AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
+        AI Hiring Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
         人才库候选人。
       </p>
     </div>

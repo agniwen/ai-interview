@@ -87,7 +87,7 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-// AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
+// AI 阶段锁：候选人推进到真人复面/Offer/已结束后，AI 面试相关写动作禁用。
 // AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
 function isAiStageLocked(row: StudioInterviewRoundListRecord): boolean {
   return row.pipelineStage !== "screening" && row.pipelineStage !== "ai_interview";

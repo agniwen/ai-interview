@@ -13,6 +13,7 @@ import { ResumePoolCard, getResumePoolCardHeight } from "../resume-pool-card";
 import {
   ResumePoolDetailSummaryPanel,
   ResumePoolQualitativeEvaluationPanel,
+  ResumePoolStructuredInfoPanel,
   canManageResumePoolJobBinding,
 } from "../resume-pool-details";
 import {
@@ -697,6 +698,24 @@ describe("ResumePoolCard", () => {
     expect(summary).toContain(qualitativeEvaluation.conciseOverall);
     expect(summary).not.toContain("旧六维数字评分");
     expect(details.match(/data-qualitative-dimension-header/g)).toHaveLength(6);
+  });
+
+  it("keeps the evaluation unseparated and adds one separator above structured details", () => {
+    const evaluation = renderToStaticMarkup(
+      <ResumePoolQualitativeEvaluationPanel
+        detail={{
+          ...record,
+          qualitativeResumeEvaluation: qualitativeEvaluation,
+          resumeProfile: null,
+        }}
+      />,
+    );
+    const structured = renderToStaticMarkup(
+      <ResumePoolStructuredInfoPanel detail={record} isLoading={false} resumeProfile={null} />,
+    );
+
+    expect(evaluation).toMatch(/^<section data-resume-pool-qualitative-evaluation="true">/u);
+    expect(structured).toMatch(/^<section class="space-y-4 border-border\/50 border-t pt-6">/u);
   });
 
   it("denies job recommendation actions without permission", () => {

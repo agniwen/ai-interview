@@ -421,7 +421,7 @@ export async function enqueueResumeReassessmentForRecord(
     throw new ResumeReassessmentEnqueueError("简历解析完成后才能重新评估。");
   }
   if (record.pipelineStage === "closed" || record.outcome !== "in_pipeline") {
-    throw new ResumeReassessmentEnqueueError("已结案候选人不能重新评估。");
+    throw new ResumeReassessmentEnqueueError("已结束候选人不能重新评估。");
   }
   if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
     return "already_in_progress";

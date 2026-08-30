@@ -48,6 +48,7 @@ describe("resume pool detail navigation", () => {
     const html = renderToStaticMarkup(createElement(ResumePoolDetailPageSkeleton));
 
     expect(html).toContain('aria-label="正在加载人才详情"');
+    expect(html).toContain('data-resume-pool-detail-skeleton="qualitative-evaluation"');
     expect(html.match(/data-resume-pool-detail-skeleton="summary-item"/gu)).toHaveLength(8);
     expect(html.match(/data-resume-pool-detail-skeleton="structured-section"/gu)).toHaveLength(6);
   });
@@ -61,5 +62,20 @@ describe("resume pool detail navigation", () => {
     expect(detailSource).toContain("seed={candidateName}");
     expect(detailSource).toContain("text-[14px] text-muted-foreground/60");
     expect(detailSource).toContain("formatResumeRecordDisplayId(detail.id)");
+  });
+
+  it("places the qualitative evaluation before the candidate summary without a structured separator", async () => {
+    const [detailPageSource, detailsSource] = await Promise.all([
+      readFile(new URL("../resume-pool-detail-page.tsx", import.meta.url), "utf-8"),
+      readFile(new URL("../resume-pool-details.tsx", import.meta.url), "utf-8"),
+    ]);
+
+    expect(detailPageSource.indexOf("<ResumePoolQualitativeEvaluationPanel")).toBeLessThan(
+      detailPageSource.indexOf("<ResumePoolDetailSummaryPanel"),
+    );
+    expect(detailsSource.indexOf("<ResumePoolQualitativeEvaluationPanel")).toBeLessThan(
+      detailsSource.indexOf("<ResumePoolDetailSummaryPanel"),
+    );
+    expect(detailPageSource).not.toContain('<section className="border-border/60 border-t pt-7">');
   });
 });

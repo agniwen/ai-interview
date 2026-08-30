@@ -1,4 +1,4 @@
-// 候选人后期 pipeline（真人复面 / Offer / 已结案）的共享 DTO 类型。
+// 候选人后期 pipeline（真人复面 / Offer / 已结束）的共享 DTO 类型。
 // DAO 与 client API 都从这里取，避免双方各自定义产生漂移。
 // Shared DTOs for the late-pipeline stages (human interview / offer / closed).
 // Imported by both DAO and client; single source of truth.

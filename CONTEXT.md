@@ -1,6 +1,6 @@
-# AI Recruitment Copilot
+# AI Hiring Copilot
 
-AI Recruitment Copilot is a Chinese-first recruiting workspace for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
+AI Hiring Copilot is a Chinese-first recruiting workspace for resume intake, candidate review, AI voice interviews, human interviews, and recruiting collaboration. Use this glossary when naming issues, tests, refactors, and product behavior.
 
 ## Frontend Module Boundary
 
@@ -93,8 +93,8 @@ Workspace-wide interview settings such as company context, opening instructions,
 _Avoid_: System config, environment config
 
 **Workspace Recruiting Copilot**:
-A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context.
-_Avoid_: Chat page, resume upload chat, global recruiting bot
+A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context. Its primary navigation label is “智能体”.
+_Avoid_: Agent, Chat page, resume upload chat, global recruiting bot
 
 **Copilot Action Proposal**:
 A recruiter-confirmed action suggested by the workspace recruiting copilot before it changes recruiting records.
@@ -122,9 +122,17 @@ _Avoid_: Applicant when the record is already inside the workspace
 The workspace record that tracks one candidate in the context of one job and its recruiting pipeline. AI interview rounds belong to this record; each interview report and its versions belong to exactly one AI interview round rather than directly to the candidate record.
 _Avoid_: Candidate identity, resume record, interview round
 
+**Candidate Pipeline End**:
+The terminal recruiting stage after a candidate receives a final outcome. User-facing Chinese uses “结束” for the action and “已结束” for the stage.
+_Avoid_: 结案, 已结案
+
 **Resume Library**:
 The workspace roster of resume records that have been accepted into the recruiting workflow.
 _Avoid_: Candidate database, interview list
+
+**Recruiting Desk**:
+The primary workspace page for managing resume records across recruiting stages. Its user-facing Chinese name is “招聘台”.
+_Avoid_: 招聘, Resume library page
 
 **Resume Record**:
 One candidate/resume entry in the resume library.

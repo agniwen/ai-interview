@@ -39,7 +39,7 @@ export function StudioPersonDetailDialog({
    * delegates to the caller's LaunchInterviewDialog instead of routing.
    */
   onLaunchInterview?: (input: { id: string; candidateName: string | null }) => void;
-  /** 简历模式 action bar 点「标记结案」时回调。/ Action-bar 标记结案 callback. */
+  /** 简历模式 action bar 点「标记结束」时回调。/ Action-bar 标记结束 callback. */
   onRequestClose?: (input: {
     id: string;
     candidateName: string | null;

@@ -63,7 +63,7 @@ async function main() {
   const validKeys = await loadValidLabelKeys(org);
   const { invalid, valid } = validateLabels(deduped, validKeys);
 
-  // 评测走 includeClosed:true —— 结案正例(hired/后期rejected)在 LOO 反事实里仍应加载打分，
+  // 评测走 includeClosed:true —— 结束正例(hired/后期rejected)在 LOO 反事实里仍应加载打分，
   // 否则会被生产的 pipelineStage≠closed 过滤成 status_filtered，掩盖真实检索质量。
   const deps = {
     ...createDefaultRecommendationDeps(),

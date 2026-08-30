@@ -135,7 +135,7 @@ function skipReason(record: TargetRecord): string | null {
     return "岗位没有可用的已发布结构化评分蓝图";
   }
   if (record.pipelineStage === "closed" || record.outcome !== "in_pipeline") {
-    return "候选人已结案";
+    return "候选人已结束";
   }
   return null;
 }

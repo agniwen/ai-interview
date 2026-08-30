@@ -2,7 +2,12 @@
 
 import { ComposerPrimitive, INTERNAL, useComposer, useComposerRuntime } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
+import { Blobatar } from "@blobatar/react";
+import { useGaze } from "@blobatar/react/gaze";
 import { IconArrowUp } from "@tabler/icons-react";
+import "blobatar/gaze.css";
+import "blobatar/motion.css";
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { withCleanup } from "@/lib/client/async-control";
@@ -16,6 +21,57 @@ import { RecruitingComposerDirectiveChip } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { emptyThreadStyle } from "./recruiting-thread-layout";
 import { useRecruitingComposerShellLayout } from "./use-recruiting-composer-shell-layout";
+
+const WELCOME_BLOBATAR_PALETTE = {
+  eye: "#ffffff",
+  head: "#97D781",
+};
+const WELCOME_BLOBATAR_TRAITS = {
+  "body.n": 0.15,
+  "body.r": 0.92,
+  "body.ratio": 0.5,
+  "body.x": 0.5,
+  "body.y": 0.5,
+  "eye.dy": 0.5,
+  "eye.gap": 0.15,
+  "eye.lean": 0.5,
+  "eye.lean2": 0.5,
+  "eye.n": 0.75,
+  "eye.ratio": 0.55,
+  "eye.rx": 0.9,
+  "eye.scale": 0.5,
+  "eye.stretch": 0.5,
+  "gaze.x": 0.5,
+  "gaze.y": 0.25,
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Blobatar names its round-silhouette trait "shape".
+  shape: 0.11,
+};
+type WelcomeBlobatarStyle = CSSProperties & {
+  "--mo-eye": string;
+  "--mo-head": string;
+};
+const WELCOME_BLOBATAR_STYLE: WelcomeBlobatarStyle = {
+  "--mo-eye": "var(--welcome-blobatar-eye)",
+  "--mo-head": "currentColor",
+};
+
+function RecruitingWelcomeBlobatar() {
+  const { ref } = useGaze({ lookAt: "pointer", travel: 3 });
+
+  return (
+    <Blobatar
+      animate="always"
+      background={false}
+      className="text-[#97D781] [--welcome-blobatar-eye:#ffffff] dark:text-[#008FFF] dark:[--welcome-blobatar-eye:var(--background)]"
+      name="AI Hiring Copilot"
+      palette={WELCOME_BLOBATAR_PALETTE}
+      ref={ref}
+      size={120}
+      style={WELCOME_BLOBATAR_STYLE}
+      traits={WELCOME_BLOBATAR_TRAITS}
+    />
+  );
+}
 
 const newComposerInputClassName = cn(
   // Keep empty-state height close to the old textarea (min-h-9 + shell py-2).
@@ -177,14 +233,15 @@ export function NewRecruitingThread({
       style={emptyThreadStyle}
     >
       <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
-        <div className="aui-thread-welcome-root mb-6 text-center">
+        <div className="aui-thread-welcome-root mb-6 flex flex-col items-center gap-4 text-center">
+          <RecruitingWelcomeBlobatar />
           <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-normal duration-200">
             从哪里开始招聘协作？
           </h1>
         </div>
         <NewRecruitingComposer disabled={disabled} onSubmit={onSubmit} />
         <p className="mt-2 text-center text-muted-foreground text-xs">
-          AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
+          AI Hiring Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
           人才库候选人。
         </p>
       </div>

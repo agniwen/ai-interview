@@ -187,7 +187,7 @@ export function auditTitle(
   const detail = auditDetailSchema.parse(detailInput);
   if (action === "candidate_transition") {
     if (detail.toStage === "closed") {
-      return "候选人结案";
+      return "候选人结束";
     }
     if (detail.fromStage === "closed") {
       return "重新激活候选人";

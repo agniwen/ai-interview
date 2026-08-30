@@ -54,11 +54,11 @@ const dedupCheckInputSchema = z.object({
 // invariant: closed ⇔ a terminal outcome; everything else stays in_pipeline.
 const transitionInputSchema = z
   .object({
-    // 结案元数据；只在 pipelineStage='closed' 时使用，partial 写入（merge 进现有）。
+    // 结束元数据；只在 pipelineStage='closed' 时使用，partial 写入（merge 进现有）。
     // previousStage 不接受用户输入——服务端自动写当前 stage。
     closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
     // @deprecated 旧字段，HR 端逐步迁移到 closedMeta.internalNotes；保留以兼容。
-    closedReason: z.string().trim().max(500, "结案原因不能超过 500 字").optional().nullable(),
+    closedReason: z.string().trim().max(500, "结束原因不能超过 500 字").optional().nullable(),
     interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
     outcome: candidateOutcomeSchema.optional(),
     pipelineStage: pipelineStageSchema,
@@ -73,16 +73,16 @@ const transitionInputSchema = z
     },
     {
       message:
-        "结案阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结案阶段 outcome 必须为 in_pipeline。",
+        "结束阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结束阶段 outcome 必须为 in_pipeline。",
       path: ["outcome"],
     },
   )
   .refine((v) => v.pipelineStage === "closed" || !v.closedReason, {
-    message: "closedReason 仅在结案时允许。",
+    message: "closedReason 仅在结束时允许。",
     path: ["closedReason"],
   })
   .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
-    message: "closedMeta 仅在结案时允许。",
+    message: "closedMeta 仅在结束时允许。",
     path: ["closedMeta"],
   })
   .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
@@ -365,7 +365,7 @@ export const studioInterviewsRouter = factory
     requirePermission("interview", "update"),
     zValidator("json", transitionInputSchema, jsonValidatorError("阶段流转参数无效。")),
     async (c) => {
-      // 候选人阶段流转：用于「标记结案 + outcome」「重新激活」「推进到下一阶段」。
+      // 候选人阶段流转：用于「标记结束 + outcome」「重新激活」「推进到下一阶段」。
       // Candidate stage transition: covers close-with-outcome, reactivate, and stage advance.
       const { activeOrg } = c.var;
       if (!activeOrg) {

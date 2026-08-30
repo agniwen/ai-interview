@@ -184,7 +184,7 @@ export async function runResumeAssessmentLifecycle(
     return { errorMessage: error.message, status: "failed" };
   }
   if (input.force && (record.pipelineStage === "closed" || record.outcome !== "in_pipeline")) {
-    throw new Error("已结案候选人不能重新评估。");
+    throw new Error("已结束候选人不能重新评估。");
   }
   if (!record.jobDescriptionId || !record.evaluationMode) {
     throw new Error("请先关联在招岗位后再重新评估。");

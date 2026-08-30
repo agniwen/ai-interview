@@ -782,7 +782,7 @@ export async function maybeAdvanceToHumanInterview(
     return;
   }
   // 单条 UPDATE 自带 WHERE 守卫：只在可推进的阶段 + 仍 in_pipeline 时才命中。
-  // 这样 race（另一个 HR 同时把候选人结案）不会触发 CHECK 约束，而是 no-op。
+  // 这样 race（另一个 HR 同时把候选人结束）不会触发 CHECK 约束，而是 no-op。
   // Single UPDATE guarded by WHERE: only fires when the candidate is still in
   // an advanceable stage and active. A concurrent close becomes a no-op instead
   // of violating the (pipeline_stage='closed' ⇔ outcome ≠ 'in_pipeline') CHECK.

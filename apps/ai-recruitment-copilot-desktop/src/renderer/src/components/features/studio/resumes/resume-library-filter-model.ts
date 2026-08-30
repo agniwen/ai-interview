@@ -44,7 +44,7 @@ export const PIPELINE_STAGE_TABS = [
   { description: "AI 面试阶段", label: "AI 面试", value: "ai_interview" },
   { description: "等候真人复面", label: "真人复面", value: "human_interview" },
   { description: "Offer 协商中", label: "Offer", value: "offer" },
-  { description: "已结案候选人", label: "已结案", value: "closed" },
+  { description: "已结束候选人", label: "已结束", value: "closed" },
 ] as const;
 
 export type PipelineStageTabValue = (typeof PIPELINE_STAGE_TABS)[number]["value"];

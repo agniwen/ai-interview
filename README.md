@@ -1,4 +1,4 @@
-# AI Recruitment Copilot
+# AI Hiring Copilot
 
 AI-powered voice interview and resume screening platform. Chinese-first locale:
 agent instructions, system prompts, and interview flows are written in

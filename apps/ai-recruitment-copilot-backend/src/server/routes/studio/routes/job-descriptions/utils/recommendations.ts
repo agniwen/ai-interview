@@ -279,8 +279,8 @@ export function createDefaultRecommendationDeps(): RecommendationDeps {
   };
 }
 
-// 生产默认排除已结案候选(pipelineStage='closed')；评测走 includeClosed=true
-// 让 leave-one-out 反事实里的结案正例仍可加载打分(与 excludeLinkedExceptIds 豁免同理)。
+// 生产默认排除已结束候选(pipelineStage='closed')；评测走 includeClosed=true
+// 让 leave-one-out 反事实里的结束正例仍可加载打分(与 excludeLinkedExceptIds 豁免同理)。
 export function recommendationCandidateWhere(
   organizationId: string,
   ids: string[],

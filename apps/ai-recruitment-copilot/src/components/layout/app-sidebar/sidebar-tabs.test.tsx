@@ -43,7 +43,7 @@ describe("SidebarTabs", () => {
       />,
     );
     roots.push(root);
-    const studioTab = findTab("Studio");
+    const studioTab = findTab("工作台");
     const tabsList = document.querySelector('[data-slot="tabs-list"]');
     const tabs = document.querySelector('[data-slot="tabs"]');
 
@@ -82,7 +82,7 @@ describe("SidebarTabs", () => {
       />,
     );
     roots.push(root);
-    const agentTab = findTab("Agent");
+    const agentTab = findTab("智能体");
 
     act(() => agentTab?.focus());
     act(() => {
@@ -107,7 +107,7 @@ describe("SidebarTabs", () => {
       />,
     );
     roots.push(root);
-    const agentTab = findTab("Agent");
+    const agentTab = findTab("智能体");
 
     act(() => {
       agentTab?.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
@@ -130,7 +130,7 @@ describe("SidebarTabs", () => {
       />,
     );
     roots.push(root);
-    const studioTab = findTab("Studio");
+    const studioTab = findTab("工作台");
 
     await act(async () => {
       studioTab?.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));

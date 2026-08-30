@@ -145,7 +145,7 @@ function MoreMenu({
         {canClose ? (
           <DropdownMenuItem onClick={() => onTransition(record, "close")}>
             <IconCircleOff className={ACTION_ICON_CLASS} />
-            标记结案
+            标记结束
           </DropdownMenuItem>
         ) : null}
         {canReactivate ? (

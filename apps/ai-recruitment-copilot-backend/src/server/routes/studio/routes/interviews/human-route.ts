@@ -76,7 +76,7 @@ export const studioInterviewHumanRouter = factory
       }
       const recordId = c.req.param("id");
 
-      // 候选人必须存在、归属当前组织、且未结案（已结案需先重新激活）。
+      // 候选人必须存在、归属当前组织、且未结束（已结束需先重新激活）。
       // Candidate must exist, belong to active org, and not be closed.
       const [candidate] = await db
         .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
@@ -89,7 +89,7 @@ export const studioInterviewHumanRouter = factory
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
       if (candidate.pipelineStage === "closed") {
-        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+        return c.json({ error: "已结束的候选人请先重新激活。" }, 400);
       }
       if (candidate.pipelineStage === "offer") {
         return c.json({ error: "候选人已进入 Offer 阶段，不能再创建真人面试轮次。" }, 400);

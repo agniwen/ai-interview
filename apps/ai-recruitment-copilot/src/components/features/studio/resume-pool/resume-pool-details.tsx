@@ -271,7 +271,7 @@ export function ResumePoolQualitativeEvaluationPanel({ detail }: { detail: Resum
     return null;
   }
   return (
-    <section className="border-border/60 border-t pt-7" data-resume-pool-qualitative-evaluation>
+    <section data-resume-pool-qualitative-evaluation>
       <QualitativeEvaluationDetails evaluation={detail.qualitativeResumeEvaluation} />
     </section>
   );
@@ -287,7 +287,7 @@ export function ResumePoolStructuredInfoPanel({
   resumeProfile: ResumePoolProfile;
 }) {
   return (
-    <section className="space-y-4 border-t border-border/50 pt-6">
+    <section className="space-y-4 border-border/50 border-t pt-6">
       <h3 className="font-medium text-sm">结构化信息</h3>
       {detail.resumeParseStatus === "failed" && detail.resumeParseError ? (
         <p className="mt-2 text-destructive text-sm">{detail.resumeParseError}</p>
@@ -434,6 +434,9 @@ export function ResumePoolDetailDialog({
       >
         {detail ? (
           <div className="space-y-8">
+            {detailQuery.data ? (
+              <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
+            ) : null}
             <ResumePoolDetailSummaryPanel
               detail={detail}
               isError={detailQuery.isError}
@@ -447,9 +450,6 @@ export function ResumePoolDetailDialog({
               resumeProfile={resumeProfile}
               slug={slug}
             />
-            {detailQuery.data ? (
-              <ResumePoolQualitativeEvaluationPanel detail={detailQuery.data} />
-            ) : null}
             <ResumePoolStructuredInfoPanel
               detail={detail}
               isLoading={detailQuery.isLoading}

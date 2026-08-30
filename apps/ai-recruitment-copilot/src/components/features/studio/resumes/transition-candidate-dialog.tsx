@@ -1,7 +1,7 @@
 "use client";
 
 /* oxlint-disable no-use-before-define -- helper components defined below export */
-// 「标记结案」/「重新激活」二合一对话框。
+// 「标记结束」/「重新激活」二合一对话框。
 //   - mode='close'：HR 选 outcome（录用/淘汰/撤回/归档）+ 可选的录用 / 淘汰细节
 //   - mode='reactivate'：HR 填写原因并选择恢复到哪个非 closed 阶段
 // 内部 fetch 候选人详情（React Query 缓存复用 detail 面板的数据）拿到 closedMeta /
@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-// 结案可选的 4 个终态——in_pipeline 在 close 流程里不合法。
+// 结束可选的 4 个终态——in_pipeline 在 close 流程里不合法。
 // The four terminal outcomes available when closing.
 const CLOSE_OUTCOMES: Exclude<CandidateOutcome, "in_pipeline">[] = [
   "hired",
@@ -266,9 +266,9 @@ function CloseDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>标记结案：{candidateLabel}</DialogTitle>
+          <DialogTitle>标记结束：{candidateLabel}</DialogTitle>
           <DialogDescription>
-            选择候选人的最终结论。所在阶段会被同步置为「已结案」，便于人才库归类与统计。
+            选择候选人的最终结论。所在阶段会被同步置为「已结束」，便于人才库归类与统计。
           </DialogDescription>
         </DialogHeader>
 
@@ -439,7 +439,7 @@ function CloseDialog({
             取消
           </Button>
           <Button disabled={submitting || !candidate} onClick={handleConfirm}>
-            {submitting ? "处理中…" : "确认结案"}
+            {submitting ? "处理中…" : "确认结束"}
           </Button>
         </DialogFooter>
       </DialogContent>

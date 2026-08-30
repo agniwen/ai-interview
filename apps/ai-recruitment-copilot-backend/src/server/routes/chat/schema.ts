@@ -90,16 +90,16 @@ export const confirmRecruitingActionSchema = z.object({
           },
           {
             message:
-              "结案阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结案阶段 outcome 必须为 in_pipeline。",
+              "结束阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结束阶段 outcome 必须为 in_pipeline。",
             path: ["outcome"],
           },
         )
         .refine((v) => v.pipelineStage === "closed" || !v.closedReason, {
-          message: "closedReason 仅在结案时允许。",
+          message: "closedReason 仅在结束时允许。",
           path: ["closedReason"],
         })
         .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
-          message: "closedMeta 仅在结案时允许。",
+          message: "closedMeta 仅在结束时允许。",
           path: ["closedMeta"],
         })
         .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {

@@ -11,7 +11,7 @@ export function HomeFooter() {
     <footer className="mx-auto w-full max-w-360 px-5 pb-12 sm:px-8">
       <Separator className="mb-12 bg-border/60" />
       <div className="flex flex-col items-center justify-between gap-4 text-foreground/70 text-xs sm:flex-row sm:text-sm">
-        <p>© {COPYRIGHT_YEAR} AI Recruitment Copilot</p>
+        <p>© {COPYRIGHT_YEAR} AI Hiring Copilot</p>
         <nav className="flex items-center gap-5">
           <Link className="transition-colors hover:text-foreground" to="/">
             {m.home_footer_product()}

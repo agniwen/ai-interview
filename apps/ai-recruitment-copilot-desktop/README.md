@@ -1,4 +1,4 @@
-# Meeting Buddy (AI Recruitment Copilot Desktop)
+# Meeting Buddy (AI Hiring Copilot Desktop)
 
 Electron desktop app for Meeting Buddy (`@arc/ai-recruitment-copilot-desktop`) — HR–candidate conversation capture and transcription (electron-vite + React + TypeScript).
 

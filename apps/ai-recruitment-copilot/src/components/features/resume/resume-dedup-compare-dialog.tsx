@@ -178,7 +178,7 @@ async function fetchComparisonDetail(
         resumeProfile: detail.resumeProfile,
         sourceLabel: "招聘台",
         sourceType: "studio_interview",
-        statusLabel: detail.outcome === "in_pipeline" ? "流程中" : "已结案",
+        statusLabel: detail.outcome === "in_pipeline" ? "流程中" : "已结束",
         targetRole: detail.targetRole,
         uploaderImage: detail.creatorImage,
         uploaderName: detail.creatorName,

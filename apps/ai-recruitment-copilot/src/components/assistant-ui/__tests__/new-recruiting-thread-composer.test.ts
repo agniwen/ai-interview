@@ -17,6 +17,34 @@ const layoutSource = readFileSync(
 const globalStyles = readFileSync(new URL("../../../styles/globals.css", import.meta.url), "utf-8");
 
 describe("new recruiting thread composer", () => {
+  it("shows a large brand-colored blobatar above the welcome title and follows the pointer", () => {
+    expect(source).toContain('import { Blobatar } from "@blobatar/react"');
+    expect(source).toContain('import { useGaze } from "@blobatar/react/gaze"');
+    expect(source).toContain('import "blobatar/gaze.css"');
+    expect(source).toContain('import "blobatar/motion.css"');
+    expect(source).toContain('eye: "#ffffff"');
+    expect(source).toContain('head: "#97D781"');
+    expect(source).toContain('"body.ratio": 0.5');
+    expect(source).toContain('"eye.rx": 0.9');
+    expect(source).toContain('"eye.scale": 0.5');
+    expect(source).toContain("shape: 0.11");
+    expect(source).toContain('useGaze({ lookAt: "pointer", travel: 3 })');
+    expect(source).toContain('animate="always"');
+    expect(source).toContain("background={false}");
+    expect(source).toContain("text-[#97D781]");
+    expect(source).toContain("dark:text-[#008FFF]");
+    expect(source).toContain("[--welcome-blobatar-eye:#ffffff]");
+    expect(source).toContain("dark:[--welcome-blobatar-eye:var(--background)]");
+    expect(source).toContain("size={120}");
+    expect(source).toContain('"--mo-eye": "var(--welcome-blobatar-eye)"');
+    expect(source).toContain('"--mo-head": "currentColor"');
+    expect(source).toContain("style={WELCOME_BLOBATAR_STYLE}");
+    expect(source).toContain("traits={WELCOME_BLOBATAR_TRAITS}");
+    expect(source.indexOf("<RecruitingWelcomeBlobatar />")).toBeLessThan(
+      source.indexOf("从哪里开始招聘协作？"),
+    );
+  });
+
   it("keeps a soft downward shadow and strengthens it on focus", () => {
     expect(source).toContain("shadow-md");
     expect(source).toContain("transition-shadow");

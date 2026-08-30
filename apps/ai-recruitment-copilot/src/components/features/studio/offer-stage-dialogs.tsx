@@ -6,7 +6,7 @@ import { IconArrowUpRight } from "@tabler/icons-react";
 //   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
 //   - 下方：Offer 草稿版本时间线（version desc）
 //   - 新建 Offer / 编辑 draft / 发送 / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结案 hired」流程
+//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
 //
 // Offer-stage panel: candidate expectations inline form + offer draft
 // timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
@@ -200,7 +200,7 @@ export function RespondOfferDialog({
     onSuccess: (updated) => {
       onResponded();
       if (updated.status === "accepted") {
-        // 接受 Offer：让上层弹「标记结案 + outcome=hired」二次确认。
+        // 接受 Offer：让上层弹「标记结束 + outcome=hired」二次确认。
         // Accepted: nudge caller to launch the close-as-hired flow.
         onAccepted(updated);
       } else {
@@ -216,7 +216,7 @@ export function RespondOfferDialog({
         <DialogHeader>
           <DialogTitle>记录候选人响应</DialogTitle>
           <DialogDescription>
-            候选人接受 → 建议结案为「已录用」；候选人议价 → 当前版本保持已发出，后续创建版本响应。
+            候选人接受 → 建议结束为「已录用」；候选人议价 → 当前版本保持已发出，后续创建版本响应。
           </DialogDescription>
         </DialogHeader>
 
@@ -293,7 +293,7 @@ export function AcceptedConfirmDialog({
         <DialogHeader>
           <DialogTitle>候选人已接受 Offer</DialogTitle>
           <DialogDescription>
-            是否立刻标记为「已录用」并结案？你也可以稍后在 action bar 里手动标记。
+            是否立刻标记为「已录用」并结束？你也可以稍后在 action bar 里手动标记。
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

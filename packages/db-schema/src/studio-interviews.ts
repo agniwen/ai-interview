@@ -71,7 +71,7 @@ export function buildCandidateInterviewFeedback(input: {
 // Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
 // plus a separate "what's the verdict" outcome.
 
-// 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结案。
+// 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结束。
 // closed 是终态，outcome 字段决定具体结局（hired/rejected/withdrawn/archived）。
 // Funnel order: screening → written_test → ai_interview → human_interview →
 // offer → closed (terminal; outcome describes the verdict).
@@ -89,7 +89,7 @@ export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 
 export const pipelineStageMeta = {
   ai_interview: { label: "AI 面试", tone: "warning" },
-  closed: { label: "已结案", tone: "outline" },
+  closed: { label: "已结束", tone: "outline" },
   human_interview: { label: "真人复面", tone: "warning" },
   offer: { label: "Offer", tone: "info" },
   screening: { label: "简历筛选", tone: "outline" },
@@ -401,7 +401,7 @@ export const offerResponseInputSchema = z.object({
 });
 export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
 
-// ── 候选人期望 / 结案元数据（单行 JSONB，不需要子表）──
+// ── 候选人期望 / 结束元数据（单行 JSONB，不需要子表）──
 
 // 候选人期望（在 offer 阶段录入，后续 dialog prefill 用）。
 // Candidate expectations; populated during the offer flow and used to prefill.
@@ -413,7 +413,7 @@ export const candidateExpectationsMetaSchema = z.object({
 });
 export type CandidateExpectationsMeta = z.infer<typeof candidateExpectationsMetaSchema>;
 
-// 结案大类（淘汰原因 / 撤回原因等的归一化分类）。
+// 结束大类（淘汰原因 / 撤回原因等的归一化分类）。
 // Normalized closure category for downstream stats and recall flows.
 export const closeCategoryValues = [
   "skills_mismatch",
@@ -453,7 +453,7 @@ export const closedRejectionDetailsSchema = z.object({
 });
 export type ClosedRejectionDetails = z.infer<typeof closedRejectionDetailsSchema>;
 
-// 结案元数据合并 schema：所有字段都可选，按 outcome 类型有意义不同的子树。
+// 结束元数据合并 schema：所有字段都可选，按 outcome 类型有意义不同的子树。
 // 同时记 previousStage，给 reactivate 恢复用。
 // Aggregated closed metadata; previousStage powers reactivate-restore.
 export const closedMetaSchema = z.object({

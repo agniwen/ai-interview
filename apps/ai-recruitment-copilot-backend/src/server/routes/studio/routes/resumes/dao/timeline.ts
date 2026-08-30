@@ -396,7 +396,7 @@ export async function loadCandidateTimeline(
         ),
       ]),
       occurredAt: candidate.closedAt,
-      title: "候选人结案",
+      title: "候选人结束",
       tone: candidate.outcome === "hired" ? "success" : "muted",
     });
   }

@@ -115,7 +115,7 @@ export function createOfferDraftsRouter(
           return c.json({ error: "候选人记录不存在。" }, 404);
         }
         if (candidate.pipelineStage === "closed") {
-          return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+          return c.json({ error: "已结束的候选人请先重新激活。" }, 400);
         }
         if (candidate.pipelineStage !== "human_interview" && candidate.pipelineStage !== "offer") {
           return c.json({ error: "候选人需先进入真人复面阶段，才能创建 Offer。" }, 400);

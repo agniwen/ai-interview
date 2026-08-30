@@ -88,7 +88,7 @@ function describeCompactOfferLifecycle(record: ResumeLibraryListRecord): string 
       return `${version}已发待回复`;
     }
     case "accepted": {
-      return `${version}接受待结案`;
+      return `${version}接受待结束`;
     }
     case "declined": {
       return `${version}已拒绝`;

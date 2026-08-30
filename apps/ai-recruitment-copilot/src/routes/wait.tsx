@@ -39,7 +39,7 @@ function WaitRoute() {
   return (
     <div className="min-h-dvh bg-background">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className="text-muted-foreground text-sm">AI Recruitment Copilot</span>
+        <span className="text-muted-foreground text-sm">AI Hiring Copilot</span>
         <ThemeToggle />
       </header>
       <main className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-md flex-col items-center justify-center gap-8 px-6 text-center">

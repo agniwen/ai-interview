@@ -48,7 +48,7 @@ beforeAll(async () => {
     userId: USER_ID,
   });
   await db.insert(studioInterview).values({
-    candidateName: "结案测试",
+    candidateName: "结束测试",
     createdAt: NOW,
     createdBy: USER_ID,
     id: RECORD_ID,
@@ -108,7 +108,7 @@ describe("candidate transition invariants", () => {
     );
   });
 
-  it("结案：原子写入 pipelineStage + outcome + closedAt + closedReason", async () => {
+  it("结束：原子写入 pipelineStage + outcome + closedAt + closedReason", async () => {
     const closedAt = new Date("2026-05-22T09:00:00.000Z");
     await db
       .update(studioInterview)

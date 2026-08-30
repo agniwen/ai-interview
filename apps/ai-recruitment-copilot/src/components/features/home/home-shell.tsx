@@ -33,7 +33,7 @@ function HomeBackgroundLoading({ visible }: { visible: boolean }) {
     >
       <div className="flex flex-col items-center gap-4 text-center">
         <span className="font-mono font-medium text-primary uppercase tracking-[0.22em]">
-          AI Recruitment Copilot
+          AI Hiring Copilot
         </span>
         <span className="flex items-center gap-2 text-muted-foreground text-sm">
           <Spinner />

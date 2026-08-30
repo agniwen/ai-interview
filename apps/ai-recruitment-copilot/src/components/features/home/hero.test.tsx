@@ -24,6 +24,14 @@ vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
 // SAFETY: This test constructs the value with the asserted contract before this boundary.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector<HTMLElement>(selector);
+  if (!element) {
+    throw new Error(`Expected element matching ${selector}`);
+  }
+  return element;
+}
+
 describe("Hero", () => {
   it("uses the evidence-led homepage copy and dark-mode contrast controls", () => {
     setLocale("zh-CN", { reload: false });
@@ -37,6 +45,7 @@ describe("Hero", () => {
 
     const heading = container.querySelector("h1");
     const brand = heading?.querySelector("span");
+    const brandMark = getRequiredElement(container, '[data-slot="recruitment-copilot-mark"]');
     const eyebrow = [...container.querySelectorAll("span")].find(
       (element) => element.textContent === "招聘 AI 协同工作台",
     );
@@ -46,6 +55,10 @@ describe("Hero", () => {
 
     expect(heading?.className).toContain("dark:text-white");
     expect(brand?.className).toContain("dark:text-chart-4");
+    expect(brandMark.className).toContain("/favicon-light.ico");
+    expect(brandMark.className).toContain("dark:bg-[url('/favicon-dark.ico')]");
+    expect(brandMark.className).toContain("size-7");
+    expect(brandMark.className).toContain("sm:size-8");
     expect(eyebrow?.className).toContain("dark:bg-primary/25!");
     expect(eyebrow?.className).toContain("dark:text-chart-4!");
     expect(description?.className).toContain("dark:text-white/80");

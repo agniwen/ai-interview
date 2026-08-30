@@ -12,6 +12,6 @@ describe("PlatformSidebar", () => {
 
     expect(markup).toContain('data-slot="recruitment-copilot-brand"');
     expect(markup).toContain('data-slot="recruitment-copilot-mark"');
-    expect(markup).toContain("AI Recruitment Copilot");
+    expect(markup).toContain("AI Hiring Copilot");
   });
 });

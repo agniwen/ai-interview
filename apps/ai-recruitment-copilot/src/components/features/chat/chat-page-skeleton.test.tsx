@@ -19,6 +19,8 @@ describe("ChatPageSkeleton", () => {
     expect(html).toContain("max-w-(--thread-max-width)");
     expect(html).toContain("rounded-[28px]");
     expect(html).toContain("pb-[18vh]");
+    expect(html).toContain("size-[120px] rounded-full");
+    expect(html).toContain("flex-col items-center gap-4");
   });
 
   it("matches the existing conversation composition", () => {

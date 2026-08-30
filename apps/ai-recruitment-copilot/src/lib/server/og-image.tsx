@@ -15,13 +15,13 @@ function getAppHostname() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL;
 
   if (!baseUrl) {
-    return "AI Recruitment Copilot";
+    return "AI Hiring Copilot";
   }
 
   try {
     return new URL(baseUrl).hostname;
   } catch {
-    return "AI Recruitment Copilot";
+    return "AI Hiring Copilot";
   }
 }
 

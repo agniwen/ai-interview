@@ -10,7 +10,8 @@ export function ChatPageSkeleton() {
       style={emptyThreadStyle}
     >
       <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
-        <div className="mb-6 flex justify-center">
+        <div className="mb-6 flex flex-col items-center gap-4">
+          <Skeleton className="size-[120px] rounded-full" />
           <Skeleton className="h-8 w-64 max-w-[72%]" />
         </div>
         <div className="flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2">

@@ -4,4 +4,4 @@ export const composerSendButtonClass =
 export const recruitingComposerPlaceholder = "输入招聘问题，或输入 @ 提及候选人...";
 
 export const recruitingComposerDisclaimer =
-  "AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。";
+  "AI Hiring Copilot 可能出错，请在确认动作前核对候选人和岗位信息。";

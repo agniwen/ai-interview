@@ -349,7 +349,7 @@ function describeOffer(p: OfferProgress | null): Description {
       return { label: `Offer${versionSuffix} · 已发送 · 等响应`, tone: "info" };
     }
     case "accepted": {
-      return { label: `Offer${versionSuffix} · 已接受 · 待结案`, tone: "success" };
+      return { label: `Offer${versionSuffix} · 已接受 · 待结束`, tone: "success" };
     }
     case "declined": {
       return { label: `Offer${versionSuffix} · 已拒绝`, tone: "outline" };
@@ -388,19 +388,19 @@ export function describeResumeProgress(record: ResumeProgressInput): Description
   if (pipelineStage === "closed") {
     switch (outcome) {
       case "hired": {
-        return { label: "已结案 · 已录用", tone: "success" };
+        return { label: "已结束 · 已录用", tone: "success" };
       }
       case "rejected": {
-        return { label: "已结案 · 已淘汰", tone: "outline" };
+        return { label: "已结束 · 已淘汰", tone: "outline" };
       }
       case "withdrawn": {
-        return { label: "已结案 · 已撤回", tone: "outline" };
+        return { label: "已结束 · 已撤回", tone: "outline" };
       }
       case "archived": {
         return { label: "已归档", tone: "outline" };
       }
       default: {
-        return { label: "已结案", tone: "outline" };
+        return { label: "已结束", tone: "outline" };
       }
     }
   }

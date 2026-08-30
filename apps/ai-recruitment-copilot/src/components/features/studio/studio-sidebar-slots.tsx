@@ -58,7 +58,7 @@ const navGroups: NavGroup[] = [
         icon: IconUsers,
         path: "/studio/resumes",
         resource: "page",
-        title: "招聘",
+        title: "招聘台",
       },
       {
         action: "resumePool",
@@ -89,7 +89,7 @@ const navGroups: NavGroup[] = [
         title: "数据看板",
       },
     ],
-    label: "工作台",
+    label: "数据",
   },
   {
     items: [

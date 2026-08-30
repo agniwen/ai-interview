@@ -63,8 +63,8 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     .limit(1);
 
   // 候选人侧入口的 stage 守卫：
-  // - 新模型用 `pipelineStage='closed'` 表示已结案（rejected / hired / withdrawn / archived）。
-  //   结案后不应允许候选人继续打开面试页/拿 token。
+  // - 新模型用 `pipelineStage='closed'` 表示已结束（rejected / hired / withdrawn / archived）。
+  //   结束后不应允许候选人继续打开面试页/拿 token。
   // Candidate-side stage guard:
   // - new model uses `pipelineStage='closed'` for any terminal verdict; once
   //   closed, the candidate must not be able to load the interview view.

@@ -274,7 +274,7 @@ function FunnelCard({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   <span className="font-mono font-semibold tabular-nums">{snapshot.active}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground text-sm">已结案</span>
+                  <span className="text-muted-foreground text-sm">已结束</span>
                   <span className="font-mono font-semibold tabular-nums">{snapshot.closed}</span>
                 </div>
               </div>

@@ -5,12 +5,10 @@ describe("contentHeaderTitle", () => {
   it("uses sidebar menu labels on menu routes", () => {
     expect(contentHeaderTitle({ pathname: "/meetings/new" })).toBe("创建录制");
     expect(contentHeaderTitle({ pathname: "/meetings" })).toBe("录制记录");
-    expect(contentHeaderTitle({ pathname: "/recruitment" })).toBe("AI Recruitment Copilot 招聘台");
-    expect(contentHeaderTitle({ pathname: "/resumes/rec-1" })).toBe(
-      "AI Recruitment Copilot 招聘台",
-    );
+    expect(contentHeaderTitle({ pathname: "/recruitment" })).toBe("AI Hiring Copilot 招聘台");
+    expect(contentHeaderTitle({ pathname: "/resumes/rec-1" })).toBe("AI Hiring Copilot 招聘台");
     expect(contentHeaderTitle({ pathname: "/recruitment/overlay/rec-1" })).toBe(
-      "AI Recruitment Copilot 招聘台",
+      "AI Hiring Copilot 招聘台",
     );
     expect(contentHeaderTitle({ pathname: "/settings/general" })).toBe("通用");
     expect(contentHeaderTitle({ pathname: "/settings/appearance" })).toBe("外观");

@@ -1,4 +1,4 @@
-export const APPLICATION_NAME = "AI Recruitment Copilot";
+export const APPLICATION_NAME = "AI Hiring Copilot";
 export const ROOT_DOCUMENT_TITLE = `招聘 AI 协同工作台 · ${APPLICATION_NAME}`;
 
 export function formatDocumentTitle(pageTitle: string): string {

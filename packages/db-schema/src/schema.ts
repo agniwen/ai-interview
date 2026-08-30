@@ -1288,7 +1288,7 @@ export const studioInterview = pgTable(
     candidateName: text("candidate_name").notNull(),
     candidatePhone: text("candidate_phone"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
-    // 结案元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
+    // 结束元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
     // 结构见 closedMetaSchema；reactivate 时读 previousStage 恢复阶段。
     // Closed-stage JSON metadata; previousStage drives reactivation restore.
     closedMeta: jsonb("closed_meta").$type<ClosedMeta | null>(),

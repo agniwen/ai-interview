@@ -70,7 +70,7 @@ export interface PipelineStageActionBarProps {
   // 查看当前阶段对应内容；不对应独立 tab 时由上层回到概览。
   // View content for the current stage; parent falls back to overview when no stage tab exists.
   onViewCurrentStage: () => void;
-  // 打开「标记结案」dialog。
+  // 打开「标记结束」dialog。
   // Open the close dialog.
   onRequestClose: () => void;
   // 打开「重新激活」dialog（仅 pipelineStage='closed' 时使用）。
@@ -178,7 +178,7 @@ export function PipelineStageActionBar({
             variant="outline"
           >
             <IconCircleOff className="size-4" />
-            标记结案
+            标记结束
           </Button>
         ) : null}
       </fieldset>
@@ -476,7 +476,7 @@ function getStageActions(props: {
     }
 
     case "ai_interview": {
-      // AI 面试阶段只能进入真人复面或结案，不能直接进入 Offer。
+      // AI 面试阶段只能进入真人复面或结束，不能直接进入 Offer。
       // AI interview can only advance to human interview or close, never directly to offer.
       const canAdvanceToHumanInterview = hasEvent({ type: "ADVANCE_TO_HUMAN_INTERVIEW" });
       if (canAdvanceToHumanInterview && canCreateHumanInterview) {
@@ -530,7 +530,7 @@ function getStageActions(props: {
     }
 
     case "offer": {
-      // Offer 阶段只等待结案。
+      // Offer 阶段只等待结束。
       // Offer stage only closes.
       break;
     }

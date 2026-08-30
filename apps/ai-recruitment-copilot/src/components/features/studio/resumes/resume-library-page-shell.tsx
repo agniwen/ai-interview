@@ -91,7 +91,7 @@ export function ResumeLibraryPageShell({
           </TabsTrigger>
           {VISIBLE_PIPELINE_STAGES.map((stage) => (
             <TabsTrigger className="h-10! w-full px-3 sm:w-auto sm:px-8" key={stage} value={stage}>
-              {pipelineStageMeta[stage].label}
+              {stage === "offer" ? "Offer 协商" : pipelineStageMeta[stage].label}
             </TabsTrigger>
           ))}
         </TabsList>

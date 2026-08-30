@@ -4,6 +4,16 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("studio-sidebar-slots.tsx", import.meta.url), "utf-8");
 
 describe("Studio sidebar menu items", () => {
+  it("uses the recruiting desk page title for its menu item", () => {
+    expect(source).toContain('title: "招聘台"');
+    expect(source).not.toContain('title: "招聘"');
+  });
+
+  it("labels the primary group as data", () => {
+    expect(source).toContain('label: "数据"');
+    expect(source).not.toContain('label: "工作台"');
+  });
+
   it("provides subtle press feedback and de-emphasizes inactive items", () => {
     expect(source).toContain("active:scale-[0.98]");
     expect(source).toContain("data-[active=false]:opacity-90");

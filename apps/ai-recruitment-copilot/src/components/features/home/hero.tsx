@@ -4,6 +4,7 @@ import { IconArrowRight, IconSparkles } from "@tabler/icons-react";
 // 用途：首页 Hero 区，保留原有视觉与 CTA
 // Purpose: Hero section preserving original visuals + CTAs.
 import { m, useReducedMotion } from "motion/react";
+import { RecruitmentCopilotMark } from "@/components/layout/app-sidebar/recruitment-copilot-brand";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { SplitText } from "@/components/react-bits/split-text";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,16 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-chart-4 sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 flex items-center justify-center gap-2 font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-chart-4 sm:mb-4 sm:gap-2.5 sm:text-base lg:text-lg";
+
+function HeroBrand() {
+  return (
+    <>
+      <RecruitmentCopilotMark className="size-7 sm:size-8" />
+      <span>AI Hiring Copilot</span>
+    </>
+  );
+}
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
@@ -46,7 +56,9 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             invalid inside <h1>. Delay 0.15s slots between the eyebrow's lift-off and the
             SplitText character stagger (which starts at 0.1s). */}
         {reducedMotion ? (
-          <span className={BRAND_MARK_CLASS}>AI Recruitment Copilot</span>
+          <span className={BRAND_MARK_CLASS}>
+            <HeroBrand />
+          </span>
         ) : (
           <m.span
             animate={{ opacity: 1, transform: "translateY(0px)" }}
@@ -54,7 +66,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             initial={{ opacity: 0, transform: "translateY(12px)" }}
             transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
           >
-            AI Recruitment Copilot
+            <HeroBrand />
           </m.span>
         )}
         <SplitText text={messages.home_hero_tagline()} />

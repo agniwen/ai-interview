@@ -6,7 +6,7 @@ import { IconHeartHandshake, IconPlus } from "@tabler/icons-react";
 //   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
 //   - 下方：Offer 草稿版本时间线（version desc）
 //   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
-//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结案 hired」流程
+//   - 候选人接受 Offer 时弹二次确认，请上层走「标记结束 hired」流程
 //
 // Offer-stage panel: candidate expectations inline form + offer draft
 // timeline. Draft → sent → respond / cancel flows; on "accepted" we prompt
@@ -41,7 +41,7 @@ interface PanelProps {
   canDelete?: boolean;
   canUpdate?: boolean;
   disabled?: boolean;
-  // 父级在「候选人接受 Offer」二次确认后，开「标记结案 + outcome=hired」dialog。
+  // 父级在「候选人接受 Offer」二次确认后，开「标记结束 + outcome=hired」dialog。
   // Parent opens the close dialog with outcome=hired after this fires.
   onRequestCloseAsHired?: () => void;
 }
@@ -86,7 +86,7 @@ export function OfferStagePanel({
     if (drafts.length === 0) {
       let emptyDescription = "你可以查看 Offer 记录，但不能创建 Offer。";
       if (disabled) {
-        emptyDescription = "已结案候选人不可创建 Offer。";
+        emptyDescription = "已结束候选人不可创建 Offer。";
       } else if (canCreate) {
         emptyDescription = "点「创建 Offer」起草第一版。";
       }

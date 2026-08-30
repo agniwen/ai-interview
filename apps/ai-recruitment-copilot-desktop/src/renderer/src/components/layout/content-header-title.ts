@@ -32,7 +32,7 @@ export function contentHeaderTitle(input: {
     pathname.startsWith("/recruitment/overlay/") ||
     pathname.startsWith("/resumes/")
   ) {
-    return "AI Recruitment Copilot 招聘台";
+    return "AI Hiring Copilot 招聘台";
   }
   if (pathname === "/settings/general") {
     return "通用";
