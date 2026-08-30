@@ -136,42 +136,44 @@ function StatusCard() {
       ]}
       title={m.home_frame_pipeline_title()}
     >
-      <div className="flex flex-col gap-3">
-        <div className="flex h-16 items-center">
-          <div className="flex h-4 w-full overflow-hidden rounded-sm bg-muted/40">
-            {PIPELINE_ORDER.map((s, i) => {
-              let rad = "";
-              if (i === 0) {
-                rad = "rounded-l";
-              } else if (i === PIPELINE_ORDER.length - 1) {
-                rad = "rounded-r";
-              }
-              return (
-                <span
-                  className={rad}
-                  key={s}
-                  style={{
-                    backgroundColor: PIPELINE_COLOR[s],
-                    width: `${(PIPELINE_COUNT[s] / total) * 100}%`,
-                  }}
-                />
-              );
-            })}
+      <div className="flex items-center">
+        <div className="flex w-full flex-col justify-center gap-3">
+          <div className="flex h-[86px] items-center">
+            <div className="flex h-[52px] w-full overflow-hidden rounded bg-muted/40">
+              {PIPELINE_ORDER.map((s, i) => {
+                let rad = "";
+                if (i === 0) {
+                  rad = "rounded-l";
+                } else if (i === PIPELINE_ORDER.length - 1) {
+                  rad = "rounded-r";
+                }
+                return (
+                  <span
+                    className={rad}
+                    key={s}
+                    style={{
+                      backgroundColor: PIPELINE_COLOR[s],
+                      width: `${(PIPELINE_COUNT[s] / total) * 100}%`,
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
+            {PIPELINE_ORDER.map((s) => (
+              <li className="flex items-center gap-2" key={s}>
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-sm"
+                  style={{ backgroundColor: PIPELINE_COLOR[s] }}
+                />
+                <span className="flex-1 truncate">{pipelineLabel[s]}</span>
+                <span className="tabular-nums">{PIPELINE_COUNT[s]}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
-          {PIPELINE_ORDER.map((s) => (
-            <li className="flex items-center gap-2" key={s}>
-              <span
-                aria-hidden="true"
-                className="size-2.5 rounded-sm"
-                style={{ backgroundColor: PIPELINE_COLOR[s] }}
-              />
-              <span className="flex-1 truncate">{pipelineLabel[s]}</span>
-              <span className="tabular-nums">{PIPELINE_COUNT[s]}</span>
-            </li>
-          ))}
-        </ul>
       </div>
     </ChartCardShell>
   );
@@ -261,8 +263,8 @@ function DailyAddedCard() {
 }
 
 // ─────────────────── AI 面试转化 (donut) ───────────────────
-const CONVERSION_PURPLE = "oklch(0.68 0.09 295)";
-const CONVERSION_PURPLE_LIGHT = "oklch(0.9 0.035 295)";
+const CONVERSION_ACCENT = "var(--chart-conversion)";
+const CONVERSION_ACCENT_MUTED = "var(--chart-conversion-muted)";
 
 function ConversionCard() {
   const withCount = 38;
@@ -287,7 +289,7 @@ function ConversionCard() {
             <span
               aria-hidden="true"
               className="size-2.5 rounded-sm"
-              style={{ backgroundColor: CONVERSION_PURPLE }}
+              style={{ backgroundColor: CONVERSION_ACCENT }}
             />
             <span className="flex-1 truncate">{m.home_frame_launched_interview()}</span>
             <span className="tabular-nums">{withCount}</span>
@@ -296,7 +298,7 @@ function ConversionCard() {
             <span
               aria-hidden="true"
               className="size-2.5 rounded-sm"
-              style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
+              style={{ backgroundColor: CONVERSION_ACCENT_MUTED }}
             />
             <span className="flex-1 truncate">{m.home_frame_stored_only()}</span>
             <span className="tabular-nums">{totalCount - withCount}</span>
@@ -309,7 +311,7 @@ function ConversionCard() {
               cy="48"
               fill="none"
               r={r}
-              stroke={CONVERSION_PURPLE_LIGHT}
+              stroke={CONVERSION_ACCENT_MUTED}
               strokeWidth="14"
             />
             <circle
@@ -317,7 +319,7 @@ function ConversionCard() {
               cy="48"
               fill="none"
               r={r}
-              stroke={CONVERSION_PURPLE}
+              stroke={CONVERSION_ACCENT}
               strokeDasharray={`${dash} ${c - dash}`}
               strokeDashoffset={c / 4}
               strokeWidth="14"
@@ -493,15 +495,15 @@ const RESUMES: ResumeCardData[] = [
   {
     canLaunchInterview: false,
     createdAt: "2025-05-12 14:32",
-    creator: "张三",
+    creator: "葛城美里",
     education: [{ period: "2013–2017", primary: "浙江大学", secondary: "计算机科学" }],
-    email: "li.ming@example.com",
+    email: "shinji@example.com",
     id: "01842",
     isScreening: false,
     job: "技术部 / 资深前端工程师",
     lifecycleDetail: "1/2 待下轮",
     lifecycleStage: "AI 面试",
-    name: "李铭",
+    name: "真嗣",
     score: "推荐 · 86 分",
     scoreTone: "success",
     skills: ["React", "TypeScript", "微前端", "性能优化"],
@@ -514,15 +516,15 @@ const RESUMES: ResumeCardData[] = [
   {
     canLaunchInterview: false,
     createdAt: "2025-05-11 09:18",
-    creator: "李四",
+    creator: "赤木律子",
     education: [{ period: "2012–2016", primary: "武汉大学", secondary: "工商管理" }],
-    email: "wang.xin@example.com",
+    email: "asuka@example.com",
     id: "01831",
     isScreening: false,
     job: "产品部 / 增长产品经理",
     lifecycleDetail: "1/2 已安排",
     lifecycleStage: "真人复面",
-    name: "王欣",
+    name: "明日香",
     score: "推荐 · 81 分",
     scoreTone: "success",
     skills: ["增长实验", "商业化", "数据分析"],
@@ -535,15 +537,15 @@ const RESUMES: ResumeCardData[] = [
   {
     canLaunchInterview: true,
     createdAt: "2025-05-10 16:05",
-    creator: "王五",
+    creator: "碇源堂",
     education: [{ period: "2009–2013", primary: "华中科技大学", secondary: "软件工程" }],
-    email: "zhao.an@example.com",
+    email: "rei.ayanami@example.com",
     id: "01819",
     isScreening: true,
     job: "技术部 / 后端架构师",
     lifecycleDetail: "待处理",
     lifecycleStage: "简历筛选",
-    name: "赵安",
+    name: "绫波丽",
     score: "匹配 · 72 分",
     scoreTone: "warning",
     skills: ["Java", "分布式系统", "PostgreSQL"],
@@ -572,14 +574,14 @@ type LocalizedResumeFields = Pick<
 const RESUME_TRANSLATIONS = {
   en: [
     {
-      creator: "Zhang San",
+      creator: "Misato Katsuragi",
       education: [
         { period: "2013–2017", primary: "Zhejiang University", secondary: "Computer Science" },
       ],
       job: "Engineering / Senior Frontend Engineer",
       lifecycleDetail: "1/2 Next round pending",
       lifecycleStage: "AI Interview",
-      name: "Li Ming",
+      name: "Shinji",
       score: "Recommended · 86",
       skills: ["React", "TypeScript", "Micro-frontends", "Performance"],
       summary:
@@ -590,14 +592,14 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "Li Si",
+      creator: "Ritsuko Akagi",
       education: [
         { period: "2012–2016", primary: "Wuhan University", secondary: "Business Administration" },
       ],
       job: "Product / Growth Product Manager",
       lifecycleDetail: "1/2 Scheduled",
       lifecycleStage: "Human Interview",
-      name: "Wang Xin",
+      name: "Asuka",
       score: "Recommended · 81",
       skills: ["Growth Experiments", "Monetization", "Data Analysis"],
       summary:
@@ -608,12 +610,12 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "Wang Wu",
+      creator: "Gendo Ikari",
       education: [{ period: "2009–2013", primary: "HUST", secondary: "Software Engineering" }],
       job: "Engineering / Backend Architect",
       lifecycleDetail: "Pending",
       lifecycleStage: "Resume Screening",
-      name: "Zhao An",
+      name: "Rei Ayanami",
       score: "Match · 72",
       skills: ["Java", "Distributed Systems", "PostgreSQL"],
       summary:
@@ -626,14 +628,14 @@ const RESUME_TRANSLATIONS = {
   ],
   ja: [
     {
-      creator: "張 三",
+      creator: "葛城 ミサト",
       education: [
         { period: "2013–2017", primary: "浙江大学", secondary: "コンピューターサイエンス" },
       ],
       job: "技術部 / シニアフロントエンドエンジニア",
       lifecycleDetail: "1/2 次回待ち",
       lifecycleStage: "AI 面接",
-      name: "李 銘",
+      name: "シンジ",
       score: "推奨 · 86 点",
       skills: ["React", "TypeScript", "マイクロフロントエンド", "性能改善"],
       summary:
@@ -644,12 +646,12 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "李 四",
+      creator: "赤木 リツコ",
       education: [{ period: "2012–2016", primary: "武漢大学", secondary: "経営管理" }],
       job: "プロダクト部 / グロースプロダクトマネージャー",
       lifecycleDetail: "1/2 日程確定",
       lifecycleStage: "対人面接",
-      name: "王 欣",
+      name: "アスカ",
       score: "推奨 · 81 点",
       skills: ["グロース実験", "収益化", "データ分析"],
       summary:
@@ -660,12 +662,12 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "王 五",
+      creator: "碇 ゲンドウ",
       education: [{ period: "2009–2013", primary: "華中科技大学", secondary: "ソフトウェア工学" }],
       job: "技術部 / バックエンドアーキテクト",
       lifecycleDetail: "未処理",
       lifecycleStage: "書類選考",
-      name: "趙 安",
+      name: "綾波 レイ",
       score: "適合 · 72 点",
       skills: ["Java", "分散システム", "PostgreSQL"],
       summary:
@@ -678,12 +680,12 @@ const RESUME_TRANSLATIONS = {
   ],
   ko: [
     {
-      creator: "장산",
+      creator: "카츠라기 미사토",
       education: [{ period: "2013–2017", primary: "저장대학교", secondary: "컴퓨터과학" }],
       job: "기술 부문 / 시니어 프런트엔드 엔지니어",
       lifecycleDetail: "1/2 다음 면접 대기",
       lifecycleStage: "AI 면접",
-      name: "리밍",
+      name: "신지",
       score: "추천 · 86점",
       skills: ["React", "TypeScript", "마이크로 프런트엔드", "성능 최적화"],
       summary:
@@ -694,12 +696,12 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "리쓰",
+      creator: "아카기 리츠코",
       education: [{ period: "2012–2016", primary: "우한대학교", secondary: "경영학" }],
       job: "제품 부문 / 그로스 프로덕트 매니저",
       lifecycleDetail: "1/2 일정 확정",
       lifecycleStage: "대면 면접",
-      name: "왕신",
+      name: "아스카",
       score: "추천 · 81점",
       skills: ["그로스 실험", "수익화", "데이터 분석"],
       summary:
@@ -710,14 +712,14 @@ const RESUME_TRANSLATIONS = {
       ],
     },
     {
-      creator: "왕우",
+      creator: "이카리 겐도",
       education: [
         { period: "2009–2013", primary: "화중과학기술대학교", secondary: "소프트웨어공학" },
       ],
       job: "기술 부문 / 백엔드 아키텍트",
       lifecycleDetail: "처리 대기",
       lifecycleStage: "이력서 심사",
-      name: "자오안",
+      name: "아야나미 레이",
       score: "적합 · 72점",
       skills: ["Java", "분산 시스템", "PostgreSQL"],
       summary:

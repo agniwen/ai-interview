@@ -121,7 +121,7 @@ function EvidenceScreeningBlock() {
               className="size-7"
               generatedSize={28}
               label={copy.avatarLabel}
-              seed="candidate:李晗"
+              seed="candidate:明日香"
               size="sm"
             >
               <AvatarFallback>李</AvatarFallback>

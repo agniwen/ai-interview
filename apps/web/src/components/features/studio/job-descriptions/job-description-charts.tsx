@@ -24,9 +24,9 @@ import type { JobDescriptionMetrics } from "@arc/shared/job-descriptions";
 
 const NAME_MAX = 10;
 const CANDIDATE_BLUE = "var(--chart-1)";
-const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
+const COMPLETION_CYAN = "var(--chart-3)";
 const COMPLETION_TRACK = "color-mix(in oklab, var(--muted-foreground) 16%, transparent)";
-const LOAD_ORANGE = "oklch(0.72 0.16 55)";
+const LOAD_AMBER = "var(--chart-4)";
 const STEM_MUTED = "color-mix(in oklab, var(--muted-foreground) 45%, transparent)";
 
 const candidateTooltipDatumSchema = z.object({
@@ -205,7 +205,7 @@ function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"
 }
 
 const completionConfig: ChartConfig = {
-  percent: { color: COMPLETION_GREEN, label: "完成率" },
+  percent: { color: COMPLETION_CYAN, label: "完成率" },
 };
 
 /** Horizontal progress bars: completion share per job (0–100%). */
@@ -248,7 +248,7 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
           y: "shortName",
         }),
         barX(data, {
-          fill: COMPLETION_GREEN,
+          fill: COMPLETION_CYAN,
           fillOpacity: 0.92,
           key: "id",
           radius: 5,
@@ -317,7 +317,7 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
 }
 
 const loadConfig: ChartConfig = {
-  activeCandidates: { color: LOAD_ORANGE, label: "进行中候选人" },
+  activeCandidates: { color: LOAD_AMBER, label: "进行中候选人" },
 };
 
 /** Horizontal lollipops: interviewer load endpoints with light visual weight. */
@@ -357,7 +357,7 @@ function LoadCard({ rows }: { rows: JobDescriptionMetrics["loadByInterviewer"] }
           y2: "shortName",
         }),
         dot(data, {
-          fill: LOAD_ORANGE,
+          fill: LOAD_AMBER,
           key: "id",
           r: 5,
           x: "activeCandidates",

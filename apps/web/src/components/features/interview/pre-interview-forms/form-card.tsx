@@ -41,7 +41,11 @@ export function FormCard({
             <p className="mt-1 text-muted-foreground text-sm">{template.snapshot.description}</p>
           ) : null}
         </div>
-        {submitted ? <Badge className="shrink-0">已提交</Badge> : null}
+        {submitted ? (
+          <Badge className="shrink-0" variant="success">
+            已提交
+          </Badge>
+        ) : null}
       </header>
       <div className="space-y-5">
         {template.snapshot.questions.map((question, index) => {

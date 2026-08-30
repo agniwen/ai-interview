@@ -13,4 +13,21 @@ describe("badge focus styles", () => {
       expect(className).not.toContain("focus:ring");
     },
   );
+
+  it("keeps colored variants independent from the product primary palette", () => {
+    const variants = [
+      "default",
+      "destructive",
+      "success",
+      "info",
+      "pink",
+      "warning",
+      "danger",
+      "link",
+    ] as const;
+
+    for (const variant of variants) {
+      expect(badgeVariants({ variant })).not.toContain("primary");
+    }
+  });
 });

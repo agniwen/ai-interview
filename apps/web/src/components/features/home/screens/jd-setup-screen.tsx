@@ -45,7 +45,7 @@ function Select({ placeholder, value }: { placeholder?: string; value?: string }
 }
 
 function MultiSelectInterviewers() {
-  const picked = ["郭靖", "李四"];
+  const picked = ["葛城美里", "赤木律子"];
   return (
     <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-[12px]">
       {picked.map((p) => (
@@ -231,7 +231,7 @@ function DimmedJobsBackground() {
           >
             <span className="font-medium">{name}</span>
             <span className="text-muted-foreground">研发部</span>
-            <span className="text-muted-foreground">李四 / 王五</span>
+            <span className="text-muted-foreground">赤木律子 / 碇源堂</span>
             <span className="text-muted-foreground tabular-nums">2025-05-08</span>
           </div>
         ))}

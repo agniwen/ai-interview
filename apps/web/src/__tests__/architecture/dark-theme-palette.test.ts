@@ -33,17 +33,23 @@ function compositeHex(foreground: string, background: string, alpha: number) {
 }
 
 describe("theme palette", () => {
-  it("uses forest green only for light-mode brand tokens", () => {
+  it("keeps light-mode analytics independent from the brand green", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/web/src/styles/globals.css"),
       "utf-8",
     );
     const lightTheme = globalStyles.match(/:root \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
 
-    expect(lightTheme).toContain("--primary: #2d6a4f");
-    expect(lightTheme).toContain("--primary-foreground: #ffffff");
-    expect(lightTheme).toContain("--ring: #2d7a59");
-    expect(lightTheme).toContain("--chart-1: #2d6a4f");
+    expect(lightTheme).toContain("--primary: #a3d387");
+    expect(lightTheme).toContain("--primary-foreground: #203526");
+    expect(lightTheme).toContain("--primary-border: #a7d08b");
+    expect(lightTheme).toContain("--primary-link: #567f40");
+    expect(lightTheme).toContain("--ring: #8fbd74");
+    expect(lightTheme).toContain("--chart-1: #38bdf8");
+    expect(lightTheme).toContain("--chart-2: #c084fc");
+    expect(lightTheme).toContain("--chart-3: #2dd4bf");
+    expect(lightTheme).toContain("--chart-4: #fbbf24");
+    expect(lightTheme).toContain("--chart-5: #f472b6");
     expect(lightTheme).toContain("--secondary: #f5f5f5");
     expect(lightTheme).toContain("--muted: #f5f5f5");
     expect(lightTheme).toContain("--accent: #f5f5f5");
@@ -53,7 +59,7 @@ describe("theme palette", () => {
     expect(lightTheme).toContain("--sidebar-ring: oklch(0.55 0 0)");
   });
 
-  it("keeps the original Klein-blue dark theme", () => {
+  it("keeps Klein-blue actions while separating the dark analytics palette", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/web/src/styles/globals.css"),
       "utf-8",
@@ -63,16 +69,18 @@ describe("theme palette", () => {
     expect(darkTheme).toContain("--background: oklch(0.215 0.018 254)");
     expect(darkTheme).toContain("--primary: #1d4ed8");
     expect(darkTheme).toContain("--primary-foreground: #ffffff");
+    expect(darkTheme).toContain("--primary-border: var(--ring)");
+    expect(darkTheme).toContain("--primary-link: var(--primary)");
     expect(darkTheme).toContain("--ring: #4f70d2");
     expect(darkTheme).toContain("--sidebar: #0e151e");
     expect(darkTheme).toContain("--sidebar-primary: #1d4ed8");
     expect(darkTheme).toContain("--sidebar-primary-foreground: #ffffff");
     expect(darkTheme).toContain("--sidebar-ring: #4f70d2");
-    expect(darkTheme).toContain("--chart-1: #7699ef");
-    expect(darkTheme).toContain("--chart-2: #86a9f4");
-    expect(darkTheme).toContain("--chart-3: #9ebaf6");
-    expect(darkTheme).toContain("--chart-4: #c7d8fa");
-    expect(darkTheme).toContain("--chart-5: #7da1f3");
+    expect(darkTheme).toContain("--chart-1: #38bdf8");
+    expect(darkTheme).toContain("--chart-2: #c084fc");
+    expect(darkTheme).toContain("--chart-3: #2dd4bf");
+    expect(darkTheme).toContain("--chart-4: #fbbf24");
+    expect(darkTheme).toContain("--chart-5: #f472b6");
   });
 
   it("keeps the shared radar green in light mode and blue in dark mode", () => {
@@ -82,10 +90,41 @@ describe("theme palette", () => {
     );
 
     expect(radarSource).toContain('dark: "#7699ef"');
-    expect(radarSource).toContain('light: "#2d6a4f"');
+    expect(radarSource).toContain('light: "#a3d387"');
   });
 
-  it("uses progressively darker theme colors for active pipeline stages", () => {
+  it("uses the accessible brand shade for link buttons", () => {
+    const globalStyles = readFileSync(
+      path.join(repoRoot, "apps/web/src/styles/globals.css"),
+      "utf-8",
+    );
+    const buttonSource = readFileSync(
+      path.join(repoRoot, "apps/web/src/components/ui/button.tsx"),
+      "utf-8",
+    );
+    const evaluationDocumentSource = readFileSync(
+      path.join(
+        repoRoot,
+        "apps/web/src/components/features/studio/interviews/candidate-evaluation-document-cell.tsx",
+      ),
+      "utf-8",
+    );
+    const typesetStyles = readFileSync(
+      path.join(repoRoot, "apps/web/src/styles/typeset.css"),
+      "utf-8",
+    );
+
+    expect(globalStyles).toContain("--color-primary-link: var(--primary-link)");
+    expect(globalStyles).toContain("--color-primary-border: var(--primary-border)");
+    expect(buttonSource).toContain("border border-primary-border bg-primary");
+    expect(buttonSource).toContain('link: "text-primary-link underline-offset-4 hover:underline"');
+    expect(evaluationDocumentSource).toContain(
+      'className="text-primary-link underline underline-offset-4 hover:text-primary-link/80"',
+    );
+    expect(typesetStyles).toContain("color: var(--color-primary-link, currentColor)");
+  });
+
+  it("uses the shared progressive colors for active pipeline stages", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/web/src/styles/globals.css"),
       "utf-8",
@@ -104,10 +143,10 @@ describe("theme palette", () => {
     const lightTheme = globalStyles.match(/:root \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
     const darkTheme = globalStyles.match(/\.dark \{(?<tokens>[\s\S]*?)\n\}/)?.groups?.tokens;
     const activePipelineColors = [
-      ["screening", "var(--chart-4)"],
-      ["ai-interview", "var(--chart-3)"],
-      ["human-interview", "var(--chart-2)"],
-      ["offer", "var(--chart-1)"],
+      ["screening", "color-mix(in oklab, var(--primary) 28%, var(--muted))"],
+      ["ai-interview", "color-mix(in oklab, var(--primary) 52%, var(--muted))"],
+      ["human-interview", "color-mix(in oklab, var(--primary) 76%, var(--muted))"],
+      ["offer", "var(--primary)"],
     ] as const;
 
     for (const [token, themeColor] of activePipelineColors) {
@@ -117,23 +156,26 @@ describe("theme palette", () => {
       expect(homepageMock).toContain(`var(--pipeline-${token})`);
     }
 
-    const semanticPipelineColors = [
-      ["closed-hired", "#8dc096"],
-      ["closed-rejected", "#dc8ebb"],
-    ] as const;
-
-    for (const [token, lightColor] of semanticPipelineColors) {
-      expect(lightTheme).toContain(`--pipeline-${token}: ${lightColor}`);
-      expect(darkTheme).toContain(`--pipeline-${token}: color-mix(in oklch, ${lightColor}`);
-      expect(homepageMock).toContain(`var(--pipeline-${token})`);
-    }
+    expect(lightTheme).toContain("--pipeline-closed-hired: var(--chart-3)");
+    expect(darkTheme).toContain("--pipeline-closed-hired: var(--chart-3)");
+    expect(lightTheme).toContain("--pipeline-closed-rejected: var(--chart-5)");
+    expect(darkTheme).toContain("--pipeline-closed-rejected: var(--chart-5)");
+    expect(homepageMock).toContain("var(--pipeline-closed-hired)");
+    expect(homepageMock).toContain("var(--pipeline-closed-rejected)");
+    expect(lightTheme).toContain("--chart-conversion: #7c3aed");
+    expect(lightTheme).toContain("--chart-conversion-muted: #c4b5fd");
+    expect(darkTheme).toContain("--chart-conversion: #7c3aed");
+    expect(darkTheme).toContain("--chart-conversion-muted: #c4b5fd");
+    expect(realChart).toContain('const CONVERSION_ACCENT = "var(--chart-conversion)"');
+    expect(homepageMock).toContain('const CONVERSION_ACCENT = "var(--chart-conversion)"');
   });
 
   it("keeps branded controls and chart labels legible", () => {
-    const charts = ["#7699ef", "#86a9f4", "#9ebaf6", "#c7d8fa", "#7da1f3"];
+    const charts = ["#38bdf8", "#c084fc", "#2dd4bf", "#fbbf24", "#f472b6"];
     const chartForeground = "#07173e";
 
-    expect(contrastRatio("#2d6a4f", "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#a3d387", "#203526")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#567f40", "#ffffff")).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio("#1d4ed8", "#ffffff")).toBeGreaterThanOrEqual(4.5);
     for (const chart of charts) {
       expect(contrastRatio(chart, chartForeground)).toBeGreaterThanOrEqual(4.5);

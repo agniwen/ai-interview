@@ -43,7 +43,7 @@ const editorContentClassName = cn(
   "[&_.ProseMirror_hr]:my-5 [&_.ProseMirror_hr]:border-border",
   "[&_.ProseMirror_pre]:my-3 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-md [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-3 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm",
   "[&_.ProseMirror_pre_code]:bg-transparent [&_.ProseMirror_pre_code]:p-0 [&_.ProseMirror_pre_code]:text-[inherit]",
-  "[&_.ProseMirror_a]:text-primary [&_.ProseMirror_a]:underline [&_.ProseMirror_a]:underline-offset-4",
+  "[&_.ProseMirror_a]:text-primary-link [&_.ProseMirror_a]:underline [&_.ProseMirror_a]:underline-offset-4",
   "[&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none",
   "[&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left",
   "[&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0",

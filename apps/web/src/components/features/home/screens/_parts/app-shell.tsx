@@ -219,10 +219,12 @@ function SidebarUserSection() {
   return (
     <div className="border-border border-t px-2 py-2">
       <div className="flex h-9 w-full items-center gap-2 rounded-lg px-2">
-        <Avatar generatedSize={32} label="郭靖的头像" seed="recruiter:郭靖">
-          <AvatarFallback>郭</AvatarFallback>
+        <Avatar generatedSize={32} label="葛城美里的头像" seed="recruiter:葛城美里">
+          <AvatarFallback>葛</AvatarFallback>
         </Avatar>
-        <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">郭靖</p>
+        <p className="min-w-0 flex-1 truncate text-left font-medium text-sm leading-none">
+          葛城美里
+        </p>
       </div>
     </div>
   );

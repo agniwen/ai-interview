@@ -18,7 +18,7 @@ export function CandidateEvaluationDocumentCell({
   if (row.feishuDocumentUrl) {
     return (
       <a
-        className="text-primary underline underline-offset-4 hover:text-primary/80"
+        className="text-primary-link underline underline-offset-4 hover:text-primary-link/80"
         href={row.feishuDocumentUrl}
         onClick={(event) => event.stopPropagation()}
         rel="noopener noreferrer"

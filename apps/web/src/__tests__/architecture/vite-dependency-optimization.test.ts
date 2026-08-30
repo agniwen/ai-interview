@@ -5,6 +5,19 @@ import { describe, expect, it } from "vitest";
 const appRoot = path.resolve(import.meta.dirname, "../../..");
 
 describe("Vite dependency optimization", () => {
+  it("pre-bundles every Assistant UI entry used by the lazy Agent route", () => {
+    const viteConfig = readFileSync(path.join(appRoot, "vite.config.ts"), "utf-8");
+
+    expect(viteConfig).toContain('"@ai-sdk/react"');
+    expect(viteConfig).toContain('"@assistant-ui/react"');
+    expect(viteConfig).toContain('"@assistant-ui/react-ai-sdk"');
+    expect(viteConfig).toContain('"@assistant-ui/react-lexical"');
+    expect(viteConfig).toContain('"@blobatar/react"');
+    expect(viteConfig).toContain('"@blobatar/react/gaze"');
+    expect(viteConfig).toContain('"ai"');
+    expect(viteConfig).toContain('"lru-cache"');
+  });
+
   it("pre-bundles the Base UI package and all deep entry points", () => {
     const viteConfig = readFileSync(path.join(appRoot, "vite.config.ts"), "utf-8");
 

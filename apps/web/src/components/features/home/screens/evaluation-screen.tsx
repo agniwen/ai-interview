@@ -48,10 +48,10 @@ interface InterviewRow {
 
 const INTERVIEWS: InterviewRow[] = [
   {
-    candidate: "李铭",
+    candidate: "真嗣",
     createdAt: "2025-05-12 14:32",
-    creator: "郭靖",
-    email: "li.ming@example.com",
+    creator: "葛城美里",
+    email: "shinji@example.com",
     hasPdf: true,
     jobDepartment: "研发部",
     jobName: "资深前端工程师",
@@ -62,10 +62,10 @@ const INTERVIEWS: InterviewRow[] = [
     status: { label: "已完成", tone: "success" },
   },
   {
-    candidate: "王欣",
+    candidate: "明日香",
     createdAt: "2025-05-12 09:18",
-    creator: "李四",
-    email: "wang.xin@example.com",
+    creator: "赤木律子",
+    email: "asuka@example.com",
     hasPdf: true,
     jobDepartment: "产品部",
     jobName: "增长产品经理",
@@ -76,10 +76,10 @@ const INTERVIEWS: InterviewRow[] = [
     status: { label: "进行中", tone: "warning" },
   },
   {
-    candidate: "赵安",
+    candidate: "绫波丽",
     createdAt: "2025-05-11 16:05",
-    creator: "王五",
-    email: "zhao.an@example.com",
+    creator: "碇源堂",
+    email: "rei.ayanami@example.com",
     hasPdf: false,
     jobDepartment: "研发部",
     jobName: "后端架构师",
@@ -90,10 +90,10 @@ const INTERVIEWS: InterviewRow[] = [
     status: { label: "待开始", tone: "info" },
   },
   {
-    candidate: "陈佳",
+    candidate: "渚薰",
     createdAt: "2025-05-10 11:24",
-    creator: "郭靖",
-    email: "chen.jia@example.com",
+    creator: "葛城美里",
+    email: "kaworu@example.com",
     hasPdf: true,
     jobDepartment: "数据部",
     jobName: "数据分析师",
@@ -104,10 +104,10 @@ const INTERVIEWS: InterviewRow[] = [
     status: { label: "已完成", tone: "success" },
   },
   {
-    candidate: "周斌",
+    candidate: "真希波",
     createdAt: "2025-05-09 09:18",
-    creator: "李四",
-    email: "zhou.bin@example.com",
+    creator: "赤木律子",
+    email: "mari@example.com",
     hasPdf: true,
     jobDepartment: "运营部",
     jobName: "社群运营专员",
@@ -344,7 +344,7 @@ function EvaluationContent() {
             <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
               <div>
                 <p className="text-muted-foreground text-xs">姓名</p>
-                <p className="mt-1">李铭</p>
+                <p className="mt-1">真嗣</p>
               </div>
               <div>
                 <p className="text-muted-foreground text-xs">目标岗位</p>
@@ -352,11 +352,11 @@ function EvaluationContent() {
               </div>
               <div>
                 <p className="text-muted-foreground text-xs">邮箱</p>
-                <p className="mt-1">li.ming@example.com</p>
+                <p className="mt-1">shinji@example.com</p>
               </div>
               <div>
                 <p className="text-muted-foreground text-xs">简历</p>
-                <p className="mt-1">简历_李铭.pdf</p>
+                <p className="mt-1">简历_真嗣.pdf</p>
               </div>
             </div>
           </div>
@@ -401,11 +401,11 @@ function DetailDialog() {
         {/* Header (stack layout) */}
         <div className="flex shrink-0 flex-col gap-1.5 border-b px-5 pt-4 pb-3 text-left">
           <div className="flex flex-wrap items-center gap-3 font-semibold text-foreground text-lg leading-none">
-            <span>李铭</span>
+            <span>真嗣</span>
             {/* Completed evaluation badge */}
             <Badge variant="success">已结束</Badge>
           </div>
-          <p className="text-muted-foreground text-sm">资深前端工程师 · 简历_李铭.pdf</p>
+          <p className="text-muted-foreground text-sm">资深前端工程师 · 简历_真嗣.pdf</p>
           <ModalTabs />
         </div>
 

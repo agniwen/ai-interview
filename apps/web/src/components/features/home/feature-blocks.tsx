@@ -64,7 +64,7 @@ function CandidateScoreCard() {
     >
       <CardHeader className="grid grid-rows-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar generatedSize={36} label={copy.avatarLabel} seed="candidate:李晗">
+          <Avatar generatedSize={36} label={copy.avatarLabel} seed="candidate:明日香">
             <AvatarFallback>{copy.candidateName.slice(0, 1)}</AvatarFallback>
           </Avatar>
           <div className="flex min-w-0 flex-col gap-1">

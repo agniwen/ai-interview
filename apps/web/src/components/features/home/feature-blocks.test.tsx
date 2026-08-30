@@ -53,10 +53,10 @@ describe("FeatureBlocks", () => {
     expect(markup.match(/data-message-role=/g)).toHaveLength(4);
     expect(markup.match(/data-message-role="user"/g)).toHaveLength(2);
     expect(markup.match(/data-message-role="assistant"/g)).toHaveLength(2);
-    expect(markup).toContain("李晗在复杂前端项目里，具体负责过什么？");
+    expect(markup).toContain("明日香在复杂前端项目里，具体负责过什么？");
     expect(markup).toContain("她本人承担了哪些关键决策？");
     expect(markup).toContain("证据来自简历第 2 页和面试回答 12:36");
-    expect(markup).toContain("继续询问李晗的项目经历、能力证据或风险…");
+    expect(markup).toContain("继续询问明日香的项目经历、能力证据或风险…");
     expect(markup).toContain('data-slot="team-calibration-card"');
     expect(markup).toContain('data-slot="team-calibration-metrics"');
     expect(markup).toContain('data-layout="horizontal"');

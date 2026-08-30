@@ -52,12 +52,12 @@ const BUCKET_LABEL = {
 } satisfies Record<PipelineBucket, string>;
 
 const BUCKET_COLORS = {
-  ai_interview: "var(--chart-2)",
-  closed_hired: "var(--chart-5)",
-  closed_rejected: "var(--destructive)",
-  human_interview: "var(--chart-3)",
-  offer: "var(--chart-4)",
-  screening: "var(--chart-1)",
+  ai_interview: "var(--pipeline-ai-interview)",
+  closed_hired: "var(--pipeline-closed-hired)",
+  closed_rejected: "var(--pipeline-closed-rejected)",
+  human_interview: "var(--pipeline-human-interview)",
+  offer: "var(--pipeline-offer)",
+  screening: "var(--pipeline-screening)",
 } satisfies Record<PipelineBucket, string>;
 
 const activityDatumSchema = z.object({
@@ -448,7 +448,7 @@ function JobPipelineCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
                   </div>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className="h-full rounded-full bg-chart-1"
                       style={{ width: `${share}%` }}
                     />
                   </div>

@@ -356,7 +356,7 @@ export function CandidateFormTemplateManagementPage({
         cell: (r) =>
           r.submissionCount > 0 ? (
             <button
-              className="text-primary text-sm underline-offset-4 hover:underline tabular-nums"
+              className="text-primary-link text-sm underline-offset-4 hover:underline tabular-nums"
               onClick={() => setSubmissionsRecord(r)}
               type="button"
             >

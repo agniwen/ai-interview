@@ -127,7 +127,7 @@ export function ScopedInterviewersModal({
           }
           return (
             <Button
-              className="h-auto p-0 font-medium text-primary"
+              className="h-auto p-0 font-medium"
               onClick={() => setNestedInterviewer(r)}
               type="button"
               variant="link"

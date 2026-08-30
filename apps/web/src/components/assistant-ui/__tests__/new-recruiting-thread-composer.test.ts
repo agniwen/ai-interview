@@ -62,10 +62,11 @@ describe("new recruiting thread composer", () => {
     expect(source).not.toContain("bg-transparent px-2 text-base");
   });
 
-  it("uses the black color variable in light mode and preserves the dark palette", () => {
-    expect(styleSource).toContain("bg-[var(--color-black)]");
-    expect(styleSource).toContain("border-[var(--color-black)]");
-    expect(styleSource).toContain("text-[var(--color-white)]");
+  it("uses the light theme color and preserves the dark palette", () => {
+    expect(styleSource).toContain("border-primary-border");
+    expect(styleSource).toContain("bg-primary");
+    expect(styleSource).toContain("text-primary-foreground");
+    expect(styleSource).toContain("hover:bg-primary/90");
     expect(styleSource).toContain("dark:border-ring");
     expect(styleSource).toContain("dark:bg-primary");
     expect(styleSource).toContain("dark:text-primary-foreground");

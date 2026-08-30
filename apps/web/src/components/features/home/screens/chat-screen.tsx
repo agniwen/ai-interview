@@ -9,19 +9,19 @@ const BREADCRUMB: BreadcrumbCrumb[] = [{ current: true, label: "招聘协作" }]
 const CANDIDATES = [
   {
     fit: "高匹配",
-    name: "李铭",
+    name: "真嗣",
     note: "React 架构和性能治理经验最完整，建议优先进入 AI 面试。",
     score: "86",
   },
   {
     fit: "较匹配",
-    name: "周远",
+    name: "明日香",
     note: "工程能力扎实，但大型团队协作范围需要进一步确认。",
     score: "79",
   },
   {
     fit: "待确认",
-    name: "陈一凡",
+    name: "绫波丽",
     note: "业务经历贴近岗位，核心技术深度在简历中证据不足。",
     score: "72",
   },
@@ -80,7 +80,7 @@ function Conversation() {
             招聘协作
           </div>
           <p>
-            我按岗位要求、项目证据和当前招聘进度做了对比。李铭的核心能力覆盖最完整，可以优先推进；另外两位分别需要补充团队规模和技术深度证据。
+            我按岗位要求、项目证据和当前招聘进度做了对比。真嗣的核心能力覆盖最完整，可以优先推进；另外两位分别需要补充团队规模和技术深度证据。
           </p>
           <CandidateComparison />
           <div className="mt-3 flex items-center gap-2 text-muted-foreground text-xs">

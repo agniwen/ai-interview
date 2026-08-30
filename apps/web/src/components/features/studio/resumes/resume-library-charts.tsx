@@ -60,8 +60,8 @@ const pipelineTooltipDatumSchema = z.object({
   label: z.string(),
   value: z.number(),
 });
-const CONVERSION_PURPLE = "oklch(0.55 0.18 295)";
-const CONVERSION_PURPLE_LIGHT = "oklch(0.82 0.07 295)";
+const CONVERSION_ACCENT = "var(--chart-conversion)";
+const CONVERSION_ACCENT_MUTED = "var(--chart-conversion-muted)";
 
 const RANKING_PERIODS = [
   { label: "今日", value: "today" },
@@ -319,8 +319,8 @@ for (const bucket of BUCKET_ORDER) {
 }
 
 const conversionChartConfig: ChartConfig = {
-  withInterview: { color: CONVERSION_PURPLE, label: "已发起 AI 面试" },
-  withoutInterview: { color: CONVERSION_PURPLE_LIGHT, label: "仅入库" },
+  withInterview: { color: CONVERSION_ACCENT, label: "已发起 AI 面试" },
+  withoutInterview: { color: CONVERSION_ACCENT_MUTED, label: "仅入库" },
 };
 
 function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeline"] }) {
@@ -431,7 +431,7 @@ function UploaderRankingPanel({
             <div className="truncate font-medium text-xs">{row.userName}</div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full min-w-1.5 rounded-full bg-primary"
+                className="h-full min-w-1.5 rounded-full bg-chart-1"
                 style={{ width: `${(row.count / maximum) * 100}%` }}
               />
             </div>
@@ -532,13 +532,13 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
   const slices = useMemo(
     () => [
       {
-        fill: CONVERSION_PURPLE,
+        fill: CONVERSION_ACCENT,
         key: "withInterview",
         label: "已发起 AI 面试",
         value: conversion.withInterview,
       },
       {
-        fill: CONVERSION_PURPLE_LIGHT,
+        fill: CONVERSION_ACCENT_MUTED,
         key: "withoutInterview",
         label: "仅入库",
         value: conversion.withoutInterview,
@@ -569,7 +569,7 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
                 <span
                   aria-hidden
                   className="size-2.5 shrink-0 rounded-sm"
-                  style={{ backgroundColor: CONVERSION_PURPLE }}
+                  style={{ backgroundColor: CONVERSION_ACCENT }}
                 />
                 <span className="flex-1 truncate">已发起 AI 面试</span>
                 <span className="tabular-nums">{conversion.withInterview}</span>
@@ -578,7 +578,7 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
                 <span
                   aria-hidden
                   className="size-2.5 shrink-0 rounded-sm"
-                  style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
+                  style={{ backgroundColor: CONVERSION_ACCENT_MUTED }}
                 />
                 <span className="flex-1 truncate">仅入库</span>
                 <span className="tabular-nums">{conversion.withoutInterview}</span>

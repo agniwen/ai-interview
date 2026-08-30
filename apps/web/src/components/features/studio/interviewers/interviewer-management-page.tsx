@@ -158,7 +158,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
           }
           return (
             <Button
-              className="h-auto p-0 font-medium text-primary"
+              className="h-auto p-0 font-medium"
               onClick={() => setReferencedInterviewer(r)}
               type="button"
               variant="link"

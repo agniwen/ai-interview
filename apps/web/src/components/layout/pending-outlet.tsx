@@ -14,7 +14,7 @@ export function PendingOutlet({
       const isPathTransition = state.resolvedLocation
         ? state.location.pathname !== state.resolvedLocation.pathname
         : state.isLoading;
-      return (state.isLoading || state.isTransitioning) && isPathTransition;
+      return state.isLoading && isPathTransition;
     },
   });
 

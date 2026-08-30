@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: ChartConfig = {
     label: "评分",
     theme: {
       dark: "#7699ef",
-      light: "#2d6a4f",
+      light: "#a3d387",
     },
   },
 };

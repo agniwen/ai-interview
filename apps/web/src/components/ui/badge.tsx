@@ -19,15 +19,15 @@ const badgeVariants = cva(
         // matching border + saturated text. Chrome variants stay neutral; semantic
         // variants carry meaning. Both groups now look consistent with status badges.
         default:
-          "border-primary/25 bg-primary/10 text-primary dark:border-primary/35 dark:bg-primary/15 [a&]:hover:bg-primary/15",
+          "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300 [a&]:hover:bg-indigo-500/15",
         secondary:
           "border-foreground/15 bg-foreground/[0.06] text-foreground dark:border-foreground/20 dark:bg-foreground/10 [a&]:hover:bg-foreground/10",
         outline:
           "border-border bg-muted/40 text-foreground dark:bg-muted/30 [a&]:hover:bg-muted/60",
         destructive:
-          "border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/40 dark:bg-destructive/15 [a&]:hover:bg-destructive/15",
+          "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300 [a&]:hover:bg-rose-500/15",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
+        link: "text-indigo-700 underline-offset-4 dark:text-indigo-300 [a&]:hover:underline",
 
         // 状态语义色。Tone helpers consumed by status meta dictionaries.
         success:

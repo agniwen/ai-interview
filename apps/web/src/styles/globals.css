@@ -183,6 +183,8 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-border: var(--primary-border);
+  --color-primary-link: var(--primary-link);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -261,10 +263,12 @@
   --card-foreground: oklch(0.28 0.04 254);
   --popover: #fafafa;
   --popover-foreground: oklch(0.28 0.04 254);
-  /* The forest green is taken from the illustration palette and Laper's
-     mid-green range. White text keeps a 6.39:1 contrast ratio on it. */
-  --primary: #2d6a4f;
-  --primary-foreground: #ffffff;
+  /* Light mode follows the product mark's soft green. Its paired deep green
+     foreground keeps primary controls legible without tinting neutral tokens. */
+  --primary: #a3d387;
+  --primary-foreground: #203526;
+  --primary-border: #a7d08b;
+  --primary-link: #567f40;
   --secondary: #f5f5f5;
   --secondary-foreground: oklch(0.36 0.05 254);
   --muted: #f5f5f5;
@@ -274,18 +278,21 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: #eeeeed;
   --input: #eeeeed;
-  --ring: #2d7a59;
-  --chart-1: #2d6a4f;
-  --chart-2: #478565;
-  --chart-3: #6ba185;
-  --chart-4: #94bba5;
-  --chart-5: #c1d5c8;
-  --pipeline-screening: var(--chart-4);
-  --pipeline-ai-interview: var(--chart-3);
-  --pipeline-human-interview: var(--chart-2);
-  --pipeline-offer: var(--chart-1);
-  --pipeline-closed-hired: #8dc096;
-  --pipeline-closed-rejected: #dc8ebb;
+  --ring: #8fbd74;
+  /* Analytics use a vivid categorical palette independent from the brand green. */
+  --chart-1: #38bdf8;
+  --chart-2: #c084fc;
+  --chart-3: #2dd4bf;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --pipeline-screening: color-mix(in oklab, var(--primary) 28%, var(--muted));
+  --pipeline-ai-interview: color-mix(in oklab, var(--primary) 52%, var(--muted));
+  --pipeline-human-interview: color-mix(in oklab, var(--primary) 76%, var(--muted));
+  --pipeline-offer: var(--primary);
+  --pipeline-closed-hired: var(--chart-3);
+  --pipeline-closed-rejected: var(--chart-5);
+  --chart-conversion: #7c3aed;
+  --chart-conversion-muted: #c4b5fd;
   --job-weight-skill: oklch(0.68 0.16 254);
   --job-weight-experience: oklch(0.68 0.13 200);
   --job-weight-project: oklch(0.74 0.13 78);
@@ -319,6 +326,8 @@
   /* Dark mode keeps Klein blue as the action color; paired blue tints stay legible on dark surfaces. */
   --primary: #1d4ed8;
   --primary-foreground: #ffffff;
+  --primary-border: var(--ring);
+  --primary-link: var(--primary);
   --secondary: oklch(0.255 0.02 254);
   --secondary-foreground: oklch(0.97 0.006 254);
   --muted: oklch(0.255 0.02 254);
@@ -329,17 +338,19 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: #4f70d2;
-  --chart-1: #7699ef;
-  --chart-2: #86a9f4;
-  --chart-3: #9ebaf6;
-  --chart-4: #c7d8fa;
-  --chart-5: #7da1f3;
-  --pipeline-screening: var(--chart-4);
-  --pipeline-ai-interview: var(--chart-3);
-  --pipeline-human-interview: var(--chart-2);
-  --pipeline-offer: var(--chart-1);
-  --pipeline-closed-hired: color-mix(in oklch, #8dc096 78%, var(--background));
-  --pipeline-closed-rejected: color-mix(in oklch, #dc8ebb 80%, var(--background));
+  --chart-1: #38bdf8;
+  --chart-2: #c084fc;
+  --chart-3: #2dd4bf;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --pipeline-screening: color-mix(in oklab, var(--primary) 28%, var(--muted));
+  --pipeline-ai-interview: color-mix(in oklab, var(--primary) 52%, var(--muted));
+  --pipeline-human-interview: color-mix(in oklab, var(--primary) 76%, var(--muted));
+  --pipeline-offer: var(--primary);
+  --pipeline-closed-hired: var(--chart-3);
+  --pipeline-closed-rejected: var(--chart-5);
+  --chart-conversion: #7c3aed;
+  --chart-conversion-muted: #c4b5fd;
   --job-weight-skill: oklch(0.52 0.08 254);
   --job-weight-experience: oklch(0.52 0.06 200);
   --job-weight-project: oklch(0.54 0.06 78);
@@ -374,6 +385,8 @@
   --popover-foreground: var(--color-white);
   --primary: var(--color-sky-500);
   --primary-foreground: var(--color-white);
+  --primary-border: var(--ring);
+  --primary-link: var(--primary);
   --secondary: oklch(1 0 0 / 10%);
   --secondary-foreground: var(--color-white);
   --muted: oklch(1 0 0 / 10%);

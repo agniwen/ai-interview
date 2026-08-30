@@ -30,10 +30,14 @@ export default defineConfig(({ mode }) => {
     envPrefix: ["NEXT_PUBLIC_", "SENTRY_DSN", "SENTRY_RELEASE", "SENTRY_WEB_DSN"],
     optimizeDeps: {
       include: [
+        "@ai-sdk/react",
         "@assistant-ui/react",
+        "@assistant-ui/react-ai-sdk",
         "@assistant-ui/react-lexical",
         "@base-ui/react",
         "@base-ui/react/**",
+        "@blobatar/react",
+        "@blobatar/react/gaze",
         "@date-fns/tz",
         // No package-root export; prebundle the deep paths assistant-ui uses.
         "@lexical/react/LexicalComposer",
@@ -53,7 +57,9 @@ export default defineConfig(({ mode }) => {
         "clsx",
         "cmdk",
         "dayjs",
+        "ai",
         "lexical",
+        "lru-cache",
         "react",
         "react/compiler-runtime",
         "react/jsx-runtime",

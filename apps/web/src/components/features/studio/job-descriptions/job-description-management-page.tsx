@@ -244,7 +244,7 @@ export function JobDescriptionManagementPage({
           record.lifecycleStatus === "draft" ? (
             <Badge variant="secondary">迁移待处理</Badge>
           ) : (
-            <Badge>已保存</Badge>
+            <Badge variant="success">已保存</Badge>
           ),
         key: "lifecycleStatus",
         title: "状态",
@@ -297,7 +297,7 @@ export function JobDescriptionManagementPage({
           }
           return (
             <Button
-              className="h-auto p-0 font-medium text-primary"
+              className="h-auto p-0 font-medium"
               onClick={() => setResumesScope({ id: r.id, name: r.name })}
               type="button"
               variant="link"

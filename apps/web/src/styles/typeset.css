@@ -99,7 +99,7 @@
 
     /* Links. */
     &:where(a) {
-      color: inherit;
+      color: var(--color-primary-link, currentColor);
       font-weight: 500;
       text-decoration-line: underline;
       text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);

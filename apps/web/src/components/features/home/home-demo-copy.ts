@@ -4,7 +4,7 @@ const HOME_DEMO_COPY = {
   en: {
     feature: {
       agentMessages: [
-        { content: "What did Li Han own in complex frontend projects?", role: "user" },
+        { content: "What did Asuka own in complex frontend projects?", role: "user" },
         {
           content:
             "She led a design-system migration across four product lines and cut average delivery time by 30%. Evidence: resume page 2 and interview answer at 12:36.",
@@ -17,12 +17,12 @@ const HOME_DEMO_COPY = {
           role: "assistant",
         },
       ],
-      avatarLabel: "Avatar for Li Han",
+      avatarLabel: "Avatar for Asuka",
       calibrationComment:
         "The risk was clarified in follow-ups. Validate team leadership scope in the next round.",
       calibrationComplete: "3 interviewers calibrated",
-      calibrationTitle: "Li Han · Overall evaluation",
-      candidateName: "Li Han",
+      calibrationTitle: "Asuka · Overall evaluation",
+      candidateName: "Asuka",
       candidateRole: "Senior Frontend Engineer · 8 years",
       dimensionLabels: {
         educationBackground: "Education",
@@ -32,14 +32,14 @@ const HOME_DEMO_COPY = {
         skillMatch: "Skill fit",
         stability: "Stability",
       },
-      interviewerAvatar: "Interviewer Guo's avatar",
+      interviewerAvatar: "Interviewer Misato's avatar",
       low: "Low",
       matchBody: "Core skills and project complexity are backed by direct experience.",
       matchLead: "Strong overall fit.",
       metrics: { evidence: "Evidence coverage", fit: "Capability fit", risk: "Risk" },
       overallScore: "Overall score",
-      placeholder: "Ask more about Li Han's projects, evidence, or risks…",
-      radarAria: "Li Han's six-dimension resume score",
+      placeholder: "Ask more about Asuka's projects, evidence, or risks…",
+      radarAria: "Asuka's six-dimension resume score",
       radarLabels: {
         educationBackground: "Education",
         experienceRelevance: "Experience",
@@ -140,15 +140,15 @@ const HOME_DEMO_COPY = {
         subtitle: "3 interviewers · One evidence base",
         summary:
           "Core capability has direct project evidence, and team scope was confirmed in the human interview.",
-        title: "Li Han · Team review",
+        title: "Asuka · Team review",
         verdicts: [
-          ["Guo", "Advance", "Core capability is clear"],
-          ["Lin", "Advance", "Risk confirmed"],
-          ["Zhou", "Proceed", "Evidence is comprehensive"],
+          ["Misato", "Advance", "Core capability is clear"],
+          ["Ritsuko", "Advance", "Risk confirmed"],
+          ["Gendo", "Proceed", "Evidence is comprehensive"],
         ],
       },
       evidence: {
-        avatarLabel: "Avatar for Li Han",
+        avatarLabel: "Avatar for Asuka",
         items: [
           [
             "Complex delivery",
@@ -158,7 +158,7 @@ const HOME_DEMO_COPY = {
           ["Outcome", "Reduced average delivery time by 30%", "Project experience"],
           ["Risk to confirm", "Team size and direct reports not specified", "Follow-up needed"],
         ],
-        name: "Li Han · Resume screening",
+        name: "Asuka · Resume screening",
         originalLines: [
           "Led a design-system migration across four product lines and owned the release strategy.",
           "Reduced average delivery time by 30%.",
@@ -190,7 +190,7 @@ const HOME_DEMO_COPY = {
           ],
         ],
         subtitle: "Prepared from unresolved resume items",
-        title: "Li Han · Human interview questions",
+        title: "Asuka · Human interview questions",
       },
       role: {
         criteria: [
@@ -212,7 +212,7 @@ const HOME_DEMO_COPY = {
   ja: {
     feature: {
       agentMessages: [
-        { content: "李 晗は複雑なフロントエンド案件で何を担当しましたか？", role: "user" },
+        { content: "アスカは複雑なフロントエンド案件で何を担当しましたか？", role: "user" },
         {
           content:
             "4 製品ラインのデザインシステム移行を主導し、平均リードタイムを 30% 短縮しました。根拠は履歴書 2 ページ目と面接回答 12:36 です。",
@@ -225,12 +225,12 @@ const HOME_DEMO_COPY = {
           role: "assistant",
         },
       ],
-      avatarLabel: "李 晗のアバター",
+      avatarLabel: "アスカのアバター",
       calibrationComment:
         "リスク項目は追加質問で確認済みです。次回はチームマネジメント規模を重点的に検証します。",
       calibrationComplete: "面接官 3 名が調整済み",
-      calibrationTitle: "李 晗 · 総合評価",
-      candidateName: "李 晗",
+      calibrationTitle: "アスカ · 総合評価",
+      candidateName: "アスカ",
       candidateRole: "シニアフロントエンドエンジニア · 経験 8 年",
       dimensionLabels: {
         educationBackground: "学歴・背景",
@@ -240,14 +240,14 @@ const HOME_DEMO_COPY = {
         skillMatch: "スキル適合",
         stability: "安定性",
       },
-      interviewerAvatar: "郭面接官のアバター",
+      interviewerAvatar: "ミサト面接官のアバター",
       low: "低",
       matchBody: "中核スキルとプロジェクトの複雑さには直接的な経験の裏付けがあります。",
       matchLead: "総合的に適合。",
       metrics: { evidence: "根拠の充実度", fit: "能力適合", risk: "リスク" },
       overallScore: "総合スコア",
-      placeholder: "李 晗のプロジェクト、能力の根拠、リスクをさらに質問…",
-      radarAria: "李 晗の履歴書 6 軸評価",
+      placeholder: "アスカのプロジェクト、能力の根拠、リスクをさらに質問…",
+      radarAria: "アスカの履歴書 6 軸評価",
       radarLabels: {
         educationBackground: "学歴",
         experienceRelevance: "経験",
@@ -337,21 +337,21 @@ const HOME_DEMO_COPY = {
         headers: ["面接官", "判断", "根拠"],
         subtitle: "面接官 3 名 · 同じ根拠",
         summary: "中核能力には直接的な案件根拠があり、チーム規模も対人面接で確認済みです。",
-        title: "李 晗 · チームレビュー",
+        title: "アスカ · チームレビュー",
         verdicts: [
-          ["郭", "次へ", "中核能力が明確"],
-          ["林", "次へ", "リスク確認済み"],
-          ["周", "進行", "根拠が十分"],
+          ["ミサト", "次へ", "中核能力が明確"],
+          ["リツコ", "次へ", "リスク確認済み"],
+          ["ゲンドウ", "進行", "根拠が十分"],
         ],
       },
       evidence: {
-        avatarLabel: "李 晗のアバター",
+        avatarLabel: "アスカのアバター",
         items: [
           ["複雑な案件遂行", "4 製品ラインのデザインシステム移行を主導", "履歴書 · 2 ページ"],
           ["成果", "平均リードタイムを 30% 短縮", "プロジェクト経験"],
           ["未確認リスク", "チーム規模と直属部下の範囲が未記載", "追加質問が必要"],
         ],
-        name: "李 晗 · 書類選考",
+        name: "アスカ · 書類選考",
         originalLines: [
           "4 製品ラインのデザインシステム移行を主導し、リリース戦略を担当。",
           "平均リードタイムを 30% 短縮。",
@@ -379,7 +379,7 @@ const HOME_DEMO_COPY = {
           ],
         ],
         subtitle: "履歴書の未確認項目から作成",
-        title: "李 晗 · 対人面接の質問",
+        title: "アスカ · 対人面接の質問",
       },
       role: {
         criteria: [
@@ -401,7 +401,7 @@ const HOME_DEMO_COPY = {
   ko: {
     feature: {
       agentMessages: [
-        { content: "이한은 복잡한 프런트엔드 프로젝트에서 무엇을 담당했나요?", role: "user" },
+        { content: "아스카는 복잡한 프런트엔드 프로젝트에서 무엇을 담당했나요?", role: "user" },
         {
           content:
             "4개 제품 라인의 디자인 시스템 마이그레이션을 주도해 평균 리드 타임을 30% 단축했습니다. 근거는 이력서 2페이지와 12:36의 면접 답변입니다.",
@@ -414,12 +414,12 @@ const HOME_DEMO_COPY = {
           role: "assistant",
         },
       ],
-      avatarLabel: "이한의 프로필 이미지",
+      avatarLabel: "아스카의 프로필 이미지",
       calibrationComment:
         "추가 질문으로 위험 요소를 확인했습니다. 다음 면접에서는 팀 리더십 범위를 중점적으로 검증하세요.",
       calibrationComplete: "면접관 3명 조율 완료",
-      calibrationTitle: "이한 · 종합 평가",
-      candidateName: "이한",
+      calibrationTitle: "아스카 · 종합 평가",
+      candidateName: "아스카",
       candidateRole: "시니어 프런트엔드 엔지니어 · 경력 8년",
       dimensionLabels: {
         educationBackground: "학력/배경",
@@ -429,14 +429,14 @@ const HOME_DEMO_COPY = {
         skillMatch: "기술 적합도",
         stability: "안정성",
       },
-      interviewerAvatar: "곽 면접관의 프로필 이미지",
+      interviewerAvatar: "미사토 면접관의 프로필 이미지",
       low: "낮음",
       matchBody: "핵심 기술과 프로젝트 복잡성 모두 직접 경험으로 뒷받침됩니다.",
       matchLead: "전반적으로 적합합니다.",
       metrics: { evidence: "근거 충실도", fit: "역량 적합도", risk: "위험" },
       overallScore: "종합 점수",
-      placeholder: "이한의 프로젝트, 역량 근거 또는 위험 요소를 더 질문하세요…",
-      radarAria: "이한의 6개 항목 이력서 점수",
+      placeholder: "아스카의 프로젝트, 역량 근거 또는 위험 요소를 더 질문하세요…",
+      radarAria: "아스카의 6개 항목 이력서 점수",
       radarLabels: {
         educationBackground: "학력",
         experienceRelevance: "경험",
@@ -534,15 +534,15 @@ const HOME_DEMO_COPY = {
         subtitle: "면접관 3명 · 하나의 근거",
         summary:
           "핵심 역량에는 직접적인 프로젝트 근거가 있고 팀 규모도 대면 면접에서 확인했습니다.",
-        title: "이한 · 팀 검토",
+        title: "아스카 · 팀 검토",
         verdicts: [
-          ["곽", "진행", "핵심 역량이 분명함"],
-          ["임", "진행", "위험 요소 확인 완료"],
-          ["주", "계속", "근거가 충분함"],
+          ["미사토", "진행", "핵심 역량이 분명함"],
+          ["리츠코", "진행", "위험 요소 확인 완료"],
+          ["겐도", "계속", "근거가 충분함"],
         ],
       },
       evidence: {
-        avatarLabel: "이한의 프로필 이미지",
+        avatarLabel: "아스카의 프로필 이미지",
         items: [
           [
             "복잡한 프로젝트 수행",
@@ -552,7 +552,7 @@ const HOME_DEMO_COPY = {
           ["성과", "평균 리드 타임 30% 단축", "프로젝트 경험"],
           ["확인할 위험", "팀 규모와 직속 부하 범위가 기재되지 않음", "추가 질문 필요"],
         ],
-        name: "이한 · 이력서 심사",
+        name: "아스카 · 이력서 심사",
         originalLines: [
           "4개 제품 라인의 디자인 시스템 마이그레이션을 주도하고 출시 전략을 담당했습니다.",
           "평균 리드 타임을 30% 단축했습니다.",
@@ -580,7 +580,7 @@ const HOME_DEMO_COPY = {
           ],
         ],
         subtitle: "이력서의 미확인 항목에서 생성",
-        title: "이한 · 대면 면접 질문",
+        title: "아스카 · 대면 면접 질문",
       },
       role: {
         criteria: [
@@ -602,7 +602,7 @@ const HOME_DEMO_COPY = {
   "zh-CN": {
     feature: {
       agentMessages: [
-        { content: "李晗在复杂前端项目里，具体负责过什么？", role: "user" },
+        { content: "明日香在复杂前端项目里，具体负责过什么？", role: "user" },
         {
           content:
             "她主导了设计系统迁移，覆盖 4 条产品线，并将平均交付周期缩短 30%。证据来自简历第 2 页和面试回答 12:36。",
@@ -614,11 +614,11 @@ const HOME_DEMO_COPY = {
           role: "assistant",
         },
       ],
-      avatarLabel: "李晗的头像",
+      avatarLabel: "明日香的头像",
       calibrationComment: "风险项已经在追问中确认，建议下一轮重点验证带队规模。",
       calibrationComplete: "3 位面试官已完成校准",
-      calibrationTitle: "李晗 · 综合评估",
-      candidateName: "李晗",
+      calibrationTitle: "明日香 · 综合评估",
+      candidateName: "明日香",
       candidateRole: "高级前端工程师 · 8 年经验",
       dimensionLabels: {
         educationBackground: "学历/背景",
@@ -628,14 +628,14 @@ const HOME_DEMO_COPY = {
         skillMatch: "技能匹配度",
         stability: "稳定性评估",
       },
-      interviewerAvatar: "郭老师的头像",
+      interviewerAvatar: "葛城美里的头像",
       low: "低",
       matchBody: "核心技能与项目复杂度均有直接经历支撑。",
       matchLead: "整体匹配。",
       metrics: { evidence: "证据完整", fit: "能力匹配", risk: "风险" },
       overallScore: "综合评分",
-      placeholder: "继续询问李晗的项目经历、能力证据或风险…",
-      radarAria: "李晗的六维简历评分",
+      placeholder: "继续询问明日香的项目经历、能力证据或风险…",
+      radarAria: "明日香的六维简历评分",
       radarLabels: {
         educationBackground: "学历",
         experienceRelevance: "经验",
@@ -662,21 +662,21 @@ const HOME_DEMO_COPY = {
         headers: ["面试官", "判断", "依据"],
         subtitle: "3 位面试官 · 同一份证据",
         summary: "核心能力有直接项目证据，带队规模已在复面中确认。",
-        title: "李晗 · 团队评审记录",
+        title: "明日香 · 团队评审记录",
         verdicts: [
-          ["郭", "建议复试", "核心能力明确"],
-          ["林", "建议复试", "风险已确认"],
-          ["周", "建议推进", "证据较完整"],
+          ["葛城美里", "建议复试", "核心能力明确"],
+          ["赤木律子", "建议复试", "风险已确认"],
+          ["碇源堂", "建议推进", "证据较完整"],
         ],
       },
       evidence: {
-        avatarLabel: "李晗的头像",
+        avatarLabel: "明日香的头像",
         items: [
           ["复杂项目交付", "主导 4 条产品线的设计系统迁移", "简历 · 第 2 页"],
           ["结果影响", "将平均交付周期缩短 30%", "项目经历"],
           ["待确认风险", "带队规模与直接管理范围未说明", "需要追问"],
         ],
-        name: "李晗 · 简历筛选",
+        name: "明日香 · 简历筛选",
         originalLines: [
           "主导 4 条产品线的设计系统迁移，并负责发布策略。",
           "将平均交付周期缩短 30%。",
@@ -696,7 +696,7 @@ const HOME_DEMO_COPY = {
           ["风险确认", "请说明直接管理人数，以及跨团队协作边界。", "来自待确认项"],
         ],
         subtitle: "根据简历中的待确认项整理",
-        title: "李晗 · 真人复面问题",
+        title: "明日香 · 真人复面问题",
       },
       role: {
         criteria: [

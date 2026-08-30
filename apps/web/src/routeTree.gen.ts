@@ -9,104 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WaitRouteImport } from './routes/wait'
-import { Route as StudioRouteImport } from './routes/studio'
-import { Route as SelectWorkspaceRouteImport } from './routes/select-workspace'
-import { Route as PlatformRouteImport } from './routes/platform'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as InterviewRouteImport } from './routes/interview'
-import { Route as ChatRouteImport } from './routes/chat'
-import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WSlugRouteImport } from './routes/w.$slug'
-import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
-import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-pool'
-import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
-import { Route as StudioCalendarRouteImport } from './routes/studio.calendar'
-import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
-import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
-import { Route as PlatformUsersRouteImport } from './routes/platform.users'
-import { Route as PlatformResumeParseCacheRouteImport } from './routes/platform.resume-parse-cache'
-import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
-import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
-import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
-import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
-import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
-import { Route as JoinCodeRouteImport } from './routes/join.$code'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as InterviewIdRouteImport } from './routes/interview.$id'
-import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
-import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as AgentRouteImport } from './routes/agent'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as InterviewRouteImport } from './routes/interview'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PlatformRouteImport } from './routes/platform'
+import { Route as SelectWorkspaceRouteImport } from './routes/select-workspace'
+import { Route as StudioRouteImport } from './routes/studio'
+import { Route as WaitRouteImport } from './routes/wait'
 import { Route as AiInterviewInviteInviteTokenRouteImport } from './routes/ai-interview-invite.$inviteToken'
-import { Route as PlatformLivekitIndexRouteImport } from './routes/platform.livekit.index'
-import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
-import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
-import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
-import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-review.$slug.$recordId'
-import { Route as PlatformLivekitRoomsRouteImport } from './routes/platform.livekit.rooms'
-import { Route as PlatformLivekitOverviewRouteImport } from './routes/platform.livekit.overview'
-import { Route as PlatformLivekitMetricsRouteImport } from './routes/platform.livekit.metrics'
-import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
+import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
+import { Route as InterviewIdRouteImport } from './routes/interview.$id'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as JoinCodeRouteImport } from './routes/join.$code'
+import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
+import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
+import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
+import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
+import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
+import { Route as PlatformResumeParseCacheRouteImport } from './routes/platform.resume-parse-cache'
+import { Route as PlatformUsersRouteImport } from './routes/platform.users'
+import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
+import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
+import { Route as StudioCalendarRouteImport } from './routes/studio.calendar'
+import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
+import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-pool'
+import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
+import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './routes/human-interview.interviewer.$inviteToken'
-import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
+import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
+import { Route as PlatformLivekitIndexRouteImport } from './routes/platform.livekit.index'
+import { Route as PlatformLivekitMetricsRouteImport } from './routes/platform.livekit.metrics'
+import { Route as PlatformLivekitOverviewRouteImport } from './routes/platform.livekit.overview'
+import { Route as PlatformLivekitRoomsRouteImport } from './routes/platform.livekit.rooms'
+import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-review.$slug.$recordId'
+import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
+import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
+import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugAgentIndexRouteImport } from './routes/w.$slug.agent.index'
-import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
-import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
-import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
-import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.members'
-import { Route as WSlugStudioMeRouteImport } from './routes/w.$slug.studio.me'
-import { Route as WSlugStudioMailIngestAccountsRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts'
-import { Route as WSlugStudioJobDescriptionsRouteImport } from './routes/w.$slug.studio.job-descriptions'
-import { Route as WSlugStudioInterviewsRouteImport } from './routes/w.$slug.studio.interviews'
-import { Route as WSlugStudioInterviewersRouteImport } from './routes/w.$slug.studio.interviewers'
-import { Route as WSlugStudioInterviewQuestionsRouteImport } from './routes/w.$slug.studio.interview-questions'
-import { Route as WSlugStudioGlobalConfigRouteImport } from './routes/w.$slug.studio.global-config'
-import { Route as WSlugStudioFormsRouteImport } from './routes/w.$slug.studio.forms'
-import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.studio.departments'
-import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
-import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio.calendar'
-import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
 import { Route as WSlugAgentSessionIdRouteImport } from './routes/w.$slug.agent.$sessionId'
-import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
-import { Route as WSlugStudioResumePoolRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.$recordId'
-import { Route as WSlugStudioMailIngestAccountsIdRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts.$id'
+import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
+import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
+import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio.calendar'
+import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
+import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.studio.departments'
+import { Route as WSlugStudioFormsRouteImport } from './routes/w.$slug.studio.forms'
+import { Route as WSlugStudioGlobalConfigRouteImport } from './routes/w.$slug.studio.global-config'
+import { Route as WSlugStudioInterviewQuestionsRouteImport } from './routes/w.$slug.studio.interview-questions'
+import { Route as WSlugStudioInterviewersRouteImport } from './routes/w.$slug.studio.interviewers'
+import { Route as WSlugStudioInterviewsRouteImport } from './routes/w.$slug.studio.interviews'
+import { Route as WSlugStudioJobDescriptionsRouteImport } from './routes/w.$slug.studio.job-descriptions'
+import { Route as WSlugStudioMailIngestAccountsRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts'
+import { Route as WSlugStudioMeRouteImport } from './routes/w.$slug.studio.me'
+import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.members'
+import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
+import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
+import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
-import { Route as WSlugStudioResumesOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resumes.overlay.$recordId'
+import { Route as WSlugStudioMailIngestAccountsIdRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts.$id'
+import { Route as WSlugStudioResumePoolRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.$recordId'
+import { Route as WSlugStudioResumesRecordIdRouteImport } from './routes/w.$slug.studio.resumes.$recordId'
 import { Route as WSlugStudioResumePoolOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resume-pool.overlay.$recordId'
+import { Route as WSlugStudioResumesOverlayRecordIdRouteImport } from './routes/w.$slug.studio.resumes.overlay.$recordId'
 
-const WaitRoute = WaitRouteImport.update({
-  id: '/wait',
-  path: '/wait',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StudioRoute = StudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SelectWorkspaceRoute = SelectWorkspaceRouteImport.update({
-  id: '/select-workspace',
-  path: '/select-workspace',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlatformRoute = PlatformRouteImport.update({
-  id: '/platform',
-  path: '/platform',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InterviewRoute = InterviewRouteImport.update({
-  id: '/interview',
-  path: '/interview',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentRoute = AgentRouteImport.update({
@@ -114,107 +84,39 @@ const AgentRoute = AgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WSlugRoute = WSlugRouteImport.update({
-  id: '/w/$slug',
-  path: '/w/$slug',
+const InterviewRoute = InterviewRouteImport.update({
+  id: '/interview',
+  path: '/interview',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StudioResumesRoute = StudioResumesRouteImport.update({
-  id: '/resumes',
-  path: '/resumes',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
-  id: '/resume-pool',
-  path: '/resume-pool',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
-  id: '/interviews',
-  path: '/interviews',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioCalendarRoute = StudioCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => StudioRoute,
-} as any)
-const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
-  id: '/referrals/$token',
-  path: '/referrals/$token',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RRoundIdRoute = RRoundIdRouteImport.update({
-  id: '/r/$roundId',
-  path: '/r/$roundId',
+const PlatformRoute = PlatformRouteImport.update({
+  id: '/platform',
+  path: '/platform',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlatformUsersRoute = PlatformUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const PlatformResumeParseCacheRoute =
-  PlatformResumeParseCacheRouteImport.update({
-    id: '/resume-parse-cache',
-    path: '/resume-parse-cache',
-    getParentRoute: () => PlatformRoute,
-  } as any)
-const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
-  id: '/queues',
-  path: '/queues',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
-  id: '/organizations',
-  path: '/organizations',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const PlatformNotificationsRoute = PlatformNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const PlatformMailIngestAccountsRoute =
-  PlatformMailIngestAccountsRouteImport.update({
-    id: '/mail-ingest-accounts',
-    path: '/mail-ingest-accounts',
-    getParentRoute: () => PlatformRoute,
-  } as any)
-const PlatformLivekitRoute = PlatformLivekitRouteImport.update({
-  id: '/livekit',
-  path: '/livekit',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const JoinCodeRoute = JoinCodeRouteImport.update({
-  id: '/join/$code',
-  path: '/join/$code',
+const SelectWorkspaceRoute = SelectWorkspaceRouteImport.update({
+  id: '/select-workspace',
+  path: '/select-workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InviteTokenRoute = InviteTokenRouteImport.update({
-  id: '/invite/$token',
-  path: '/invite/$token',
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InterviewIdRoute = InterviewIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => InterviewRoute,
-} as any)
-const HumanInterviewInviteTokenRoute =
-  HumanInterviewInviteTokenRouteImport.update({
-    id: '/human-interview/$inviteToken',
-    path: '/human-interview/$inviteToken',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
-  id: '/api/app-version',
-  path: '/api/app-version',
+const WaitRoute = WaitRouteImport.update({
+  id: '/wait',
+  path: '/wait',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AiInterviewInviteInviteTokenRoute =
@@ -223,51 +125,103 @@ const AiInterviewInviteInviteTokenRoute =
     path: '/ai-interview-invite/$inviteToken',
     getParentRoute: () => rootRouteImport,
   } as any)
-const PlatformLivekitIndexRoute = PlatformLivekitIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PlatformLivekitRoute,
+const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
+  id: '/api/app-version',
+  path: '/api/app-version',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const WSlugStudioRoute = WSlugStudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => WSlugRoute,
-} as any)
-const WSlugChatRoute = WSlugChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => WSlugRoute,
-} as any)
-const WSlugAgentRoute = WSlugAgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
-  getParentRoute: () => WSlugRoute,
-} as any)
-const ResumeReviewSlugRecordIdRoute =
-  ResumeReviewSlugRecordIdRouteImport.update({
-    id: '/resume-review/$slug/$recordId',
-    path: '/resume-review/$slug/$recordId',
+const HumanInterviewInviteTokenRoute =
+  HumanInterviewInviteTokenRouteImport.update({
+    id: '/human-interview/$inviteToken',
+    path: '/human-interview/$inviteToken',
     getParentRoute: () => rootRouteImport,
   } as any)
-const PlatformLivekitRoomsRoute = PlatformLivekitRoomsRouteImport.update({
-  id: '/rooms',
-  path: '/rooms',
-  getParentRoute: () => PlatformLivekitRoute,
+const InterviewIdRoute = InterviewIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => InterviewRoute,
 } as any)
-const PlatformLivekitOverviewRoute = PlatformLivekitOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
-  getParentRoute: () => PlatformLivekitRoute,
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const PlatformLivekitMetricsRoute = PlatformLivekitMetricsRouteImport.update({
-  id: '/metrics',
-  path: '/metrics',
-  getParentRoute: () => PlatformLivekitRoute,
+const JoinCodeRoute = JoinCodeRouteImport.update({
+  id: '/join/$code',
+  path: '/join/$code',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const InterviewIdRoundIdRoute = InterviewIdRoundIdRouteImport.update({
-  id: '/$roundId',
-  path: '/$roundId',
-  getParentRoute: () => InterviewIdRoute,
+const PlatformLivekitRoute = PlatformLivekitRouteImport.update({
+  id: '/livekit',
+  path: '/livekit',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformMailIngestAccountsRoute =
+  PlatformMailIngestAccountsRouteImport.update({
+    id: '/mail-ingest-accounts',
+    path: '/mail-ingest-accounts',
+    getParentRoute: () => PlatformRoute,
+  } as any)
+const PlatformNotificationsRoute = PlatformNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
+  id: '/organizations',
+  path: '/organizations',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
+  id: '/queues',
+  path: '/queues',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformResumeParseCacheRoute =
+  PlatformResumeParseCacheRouteImport.update({
+    id: '/resume-parse-cache',
+    path: '/resume-parse-cache',
+    getParentRoute: () => PlatformRoute,
+  } as any)
+const PlatformUsersRoute = PlatformUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const RRoundIdRoute = RRoundIdRouteImport.update({
+  id: '/r/$roundId',
+  path: '/r/$roundId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
+  id: '/referrals/$token',
+  path: '/referrals/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioCalendarRoute = StudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
+  id: '/interviews',
+  path: '/interviews',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
+  id: '/resume-pool',
+  path: '/resume-pool',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioResumesRoute = StudioResumesRouteImport.update({
+  id: '/resumes',
+  path: '/resumes',
+  getParentRoute: () => StudioRoute,
+} as any)
+const WSlugRoute = WSlugRouteImport.update({
+  id: '/w/$slug',
+  path: '/w/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const HumanInterviewInterviewerInviteTokenRoute =
   HumanInterviewInterviewerInviteTokenRouteImport.update({
@@ -275,61 +229,95 @@ const HumanInterviewInterviewerInviteTokenRoute =
     path: '/human-interview/interviewer/$inviteToken',
     getParentRoute: () => rootRouteImport,
   } as any)
-const WSlugChatIndexRoute = WSlugChatIndexRouteImport.update({
+const InterviewIdRoundIdRoute = InterviewIdRoundIdRouteImport.update({
+  id: '/$roundId',
+  path: '/$roundId',
+  getParentRoute: () => InterviewIdRoute,
+} as any)
+const PlatformLivekitIndexRoute = PlatformLivekitIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => WSlugChatRoute,
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitMetricsRoute = PlatformLivekitMetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitOverviewRoute = PlatformLivekitOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitRoomsRoute = PlatformLivekitRoomsRouteImport.update({
+  id: '/rooms',
+  path: '/rooms',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const ResumeReviewSlugRecordIdRoute =
+  ResumeReviewSlugRecordIdRouteImport.update({
+    id: '/resume-review/$slug/$recordId',
+    path: '/resume-review/$slug/$recordId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const WSlugAgentRoute = WSlugAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugChatRoute = WSlugChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugStudioRoute = WSlugStudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugAgentIndexRoute = WSlugAgentIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => WSlugAgentRoute,
 } as any)
-const WSlugStudioResumesRoute = WSlugStudioResumesRouteImport.update({
-  id: '/resumes',
-  path: '/resumes',
+const WSlugAgentSessionIdRoute = WSlugAgentSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => WSlugAgentRoute,
+} as any)
+const WSlugChatIndexRoute = WSlugChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WSlugChatRoute,
+} as any)
+const WSlugChatSessionIdRoute = WSlugChatSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => WSlugChatRoute,
+} as any)
+const WSlugStudioCalendarRoute = WSlugStudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioResumePoolRoute = WSlugStudioResumePoolRouteImport.update({
-  id: '/resume-pool',
-  path: '/resume-pool',
+const WSlugStudioDashboardRoute = WSlugStudioDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioPermissionsRoute = WSlugStudioPermissionsRouteImport.update({
-  id: '/permissions',
-  path: '/permissions',
+const WSlugStudioDepartmentsRoute = WSlugStudioDepartmentsRouteImport.update({
+  id: '/departments',
+  path: '/departments',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioMembersRoute = WSlugStudioMembersRouteImport.update({
-  id: '/members',
-  path: '/members',
+const WSlugStudioFormsRoute = WSlugStudioFormsRouteImport.update({
+  id: '/forms',
+  path: '/forms',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioMeRoute = WSlugStudioMeRouteImport.update({
-  id: '/me',
-  path: '/me',
-  getParentRoute: () => WSlugStudioRoute,
-} as any)
-const WSlugStudioMailIngestAccountsRoute =
-  WSlugStudioMailIngestAccountsRouteImport.update({
-    id: '/mail-ingest-accounts',
-    path: '/mail-ingest-accounts',
-    getParentRoute: () => WSlugStudioRoute,
-  } as any)
-const WSlugStudioJobDescriptionsRoute =
-  WSlugStudioJobDescriptionsRouteImport.update({
-    id: '/job-descriptions',
-    path: '/job-descriptions',
-    getParentRoute: () => WSlugStudioRoute,
-  } as any)
-const WSlugStudioInterviewsRoute = WSlugStudioInterviewsRouteImport.update({
-  id: '/interviews',
-  path: '/interviews',
-  getParentRoute: () => WSlugStudioRoute,
-} as any)
-const WSlugStudioInterviewersRoute = WSlugStudioInterviewersRouteImport.update({
-  id: '/interviewers',
-  path: '/interviewers',
+const WSlugStudioGlobalConfigRoute = WSlugStudioGlobalConfigRouteImport.update({
+  id: '/global-config',
+  path: '/global-config',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
 const WSlugStudioInterviewQuestionsRoute =
@@ -338,52 +326,58 @@ const WSlugStudioInterviewQuestionsRoute =
     path: '/interview-questions',
     getParentRoute: () => WSlugStudioRoute,
   } as any)
-const WSlugStudioGlobalConfigRoute = WSlugStudioGlobalConfigRouteImport.update({
-  id: '/global-config',
-  path: '/global-config',
+const WSlugStudioInterviewersRoute = WSlugStudioInterviewersRouteImport.update({
+  id: '/interviewers',
+  path: '/interviewers',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioFormsRoute = WSlugStudioFormsRouteImport.update({
-  id: '/forms',
-  path: '/forms',
+const WSlugStudioInterviewsRoute = WSlugStudioInterviewsRouteImport.update({
+  id: '/interviews',
+  path: '/interviews',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
-const WSlugStudioDepartmentsRoute = WSlugStudioDepartmentsRouteImport.update({
-  id: '/departments',
-  path: '/departments',
-  getParentRoute: () => WSlugStudioRoute,
-} as any)
-const WSlugStudioDashboardRoute = WSlugStudioDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => WSlugStudioRoute,
-} as any)
-const WSlugStudioCalendarRoute = WSlugStudioCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => WSlugStudioRoute,
-} as any)
-const WSlugChatSessionIdRoute = WSlugChatSessionIdRouteImport.update({
-  id: '/$sessionId',
-  path: '/$sessionId',
-  getParentRoute: () => WSlugChatRoute,
-} as any)
-const WSlugAgentSessionIdRoute = WSlugAgentSessionIdRouteImport.update({
-  id: '/$sessionId',
-  path: '/$sessionId',
-  getParentRoute: () => WSlugAgentRoute,
-} as any)
-const WSlugStudioResumesRecordIdRoute =
-  WSlugStudioResumesRecordIdRouteImport.update({
-    id: '/$recordId',
-    path: '/$recordId',
-    getParentRoute: () => WSlugStudioResumesRoute,
+const WSlugStudioJobDescriptionsRoute =
+  WSlugStudioJobDescriptionsRouteImport.update({
+    id: '/job-descriptions',
+    path: '/job-descriptions',
+    getParentRoute: () => WSlugStudioRoute,
   } as any)
-const WSlugStudioResumePoolRecordIdRoute =
-  WSlugStudioResumePoolRecordIdRouteImport.update({
-    id: '/$recordId',
-    path: '/$recordId',
-    getParentRoute: () => WSlugStudioResumePoolRoute,
+const WSlugStudioMailIngestAccountsRoute =
+  WSlugStudioMailIngestAccountsRouteImport.update({
+    id: '/mail-ingest-accounts',
+    path: '/mail-ingest-accounts',
+    getParentRoute: () => WSlugStudioRoute,
+  } as any)
+const WSlugStudioMeRoute = WSlugStudioMeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioMembersRoute = WSlugStudioMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioPermissionsRoute = WSlugStudioPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioResumePoolRoute = WSlugStudioResumePoolRouteImport.update({
+  id: '/resume-pool',
+  path: '/resume-pool',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioResumesRoute = WSlugStudioResumesRouteImport.update({
+  id: '/resumes',
+  path: '/resumes',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioInterviewsRoundIdRoute =
+  WSlugStudioInterviewsRoundIdRouteImport.update({
+    id: '/$roundId',
+    path: '/$roundId',
+    getParentRoute: () => WSlugStudioInterviewsRoute,
   } as any)
 const WSlugStudioMailIngestAccountsIdRoute =
   WSlugStudioMailIngestAccountsIdRouteImport.update({
@@ -391,16 +385,16 @@ const WSlugStudioMailIngestAccountsIdRoute =
     path: '/$id',
     getParentRoute: () => WSlugStudioMailIngestAccountsRoute,
   } as any)
-const WSlugStudioInterviewsRoundIdRoute =
-  WSlugStudioInterviewsRoundIdRouteImport.update({
-    id: '/$roundId',
-    path: '/$roundId',
-    getParentRoute: () => WSlugStudioInterviewsRoute,
+const WSlugStudioResumePoolRecordIdRoute =
+  WSlugStudioResumePoolRecordIdRouteImport.update({
+    id: '/$recordId',
+    path: '/$recordId',
+    getParentRoute: () => WSlugStudioResumePoolRoute,
   } as any)
-const WSlugStudioResumesOverlayRecordIdRoute =
-  WSlugStudioResumesOverlayRecordIdRouteImport.update({
-    id: '/overlay/$recordId',
-    path: '/overlay/$recordId',
+const WSlugStudioResumesRecordIdRoute =
+  WSlugStudioResumesRecordIdRouteImport.update({
+    id: '/$recordId',
+    path: '/$recordId',
     getParentRoute: () => WSlugStudioResumesRoute,
   } as any)
 const WSlugStudioResumePoolOverlayRecordIdRoute =
@@ -408,6 +402,12 @@ const WSlugStudioResumePoolOverlayRecordIdRoute =
     id: '/overlay/$recordId',
     path: '/overlay/$recordId',
     getParentRoute: () => WSlugStudioResumePoolRoute,
+  } as any)
+const WSlugStudioResumesOverlayRecordIdRoute =
+  WSlugStudioResumesOverlayRecordIdRouteImport.update({
+    id: '/overlay/$recordId',
+    path: '/overlay/$recordId',
+    getParentRoute: () => WSlugStudioResumesRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -828,53 +828,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/wait': {
-      id: '/wait'
-      path: '/wait'
-      fullPath: '/wait'
-      preLoaderRoute: typeof WaitRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/studio': {
-      id: '/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof StudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/select-workspace': {
-      id: '/select-workspace'
-      path: '/select-workspace'
-      fullPath: '/select-workspace'
-      preLoaderRoute: typeof SelectWorkspaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/platform': {
-      id: '/platform'
-      path: '/platform'
-      fullPath: '/platform'
-      preLoaderRoute: typeof PlatformRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/interview': {
-      id: '/interview'
-      path: '/interview'
-      fullPath: '/interview'
-      preLoaderRoute: typeof InterviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agent': {
@@ -884,144 +842,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/w/$slug': {
-      id: '/w/$slug'
-      path: '/w/$slug'
-      fullPath: '/w/$slug'
-      preLoaderRoute: typeof WSlugRouteImport
+    '/interview': {
+      id: '/interview'
+      path: '/interview'
+      fullPath: '/interview'
+      preLoaderRoute: typeof InterviewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/studio/resumes': {
-      id: '/studio/resumes'
-      path: '/resumes'
-      fullPath: '/studio/resumes'
-      preLoaderRoute: typeof StudioResumesRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/resume-pool': {
-      id: '/studio/resume-pool'
-      path: '/resume-pool'
-      fullPath: '/studio/resume-pool'
-      preLoaderRoute: typeof StudioResumePoolRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/interviews': {
-      id: '/studio/interviews'
-      path: '/interviews'
-      fullPath: '/studio/interviews'
-      preLoaderRoute: typeof StudioInterviewsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/calendar': {
-      id: '/studio/calendar'
-      path: '/calendar'
-      fullPath: '/studio/calendar'
-      preLoaderRoute: typeof StudioCalendarRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/referrals/$token': {
-      id: '/referrals/$token'
-      path: '/referrals/$token'
-      fullPath: '/referrals/$token'
-      preLoaderRoute: typeof ReferralsTokenRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/r/$roundId': {
-      id: '/r/$roundId'
-      path: '/r/$roundId'
-      fullPath: '/r/$roundId'
-      preLoaderRoute: typeof RRoundIdRouteImport
+    '/platform': {
+      id: '/platform'
+      path: '/platform'
+      fullPath: '/platform'
+      preLoaderRoute: typeof PlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/platform/users': {
-      id: '/platform/users'
-      path: '/users'
-      fullPath: '/platform/users'
-      preLoaderRoute: typeof PlatformUsersRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/resume-parse-cache': {
-      id: '/platform/resume-parse-cache'
-      path: '/resume-parse-cache'
-      fullPath: '/platform/resume-parse-cache'
-      preLoaderRoute: typeof PlatformResumeParseCacheRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/queues': {
-      id: '/platform/queues'
-      path: '/queues'
-      fullPath: '/platform/queues'
-      preLoaderRoute: typeof PlatformQueuesRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/organizations': {
-      id: '/platform/organizations'
-      path: '/organizations'
-      fullPath: '/platform/organizations'
-      preLoaderRoute: typeof PlatformOrganizationsRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/notifications': {
-      id: '/platform/notifications'
-      path: '/notifications'
-      fullPath: '/platform/notifications'
-      preLoaderRoute: typeof PlatformNotificationsRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/mail-ingest-accounts': {
-      id: '/platform/mail-ingest-accounts'
-      path: '/mail-ingest-accounts'
-      fullPath: '/platform/mail-ingest-accounts'
-      preLoaderRoute: typeof PlatformMailIngestAccountsRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/livekit': {
-      id: '/platform/livekit'
-      path: '/livekit'
-      fullPath: '/platform/livekit'
-      preLoaderRoute: typeof PlatformLivekitRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/join/$code': {
-      id: '/join/$code'
-      path: '/join/$code'
-      fullPath: '/join/$code'
-      preLoaderRoute: typeof JoinCodeRouteImport
+    '/select-workspace': {
+      id: '/select-workspace'
+      path: '/select-workspace'
+      fullPath: '/select-workspace'
+      preLoaderRoute: typeof SelectWorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/invite/$token': {
-      id: '/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/interview/$id': {
-      id: '/interview/$id'
-      path: '/$id'
-      fullPath: '/interview/$id'
-      preLoaderRoute: typeof InterviewIdRouteImport
-      parentRoute: typeof InterviewRoute
-    }
-    '/human-interview/$inviteToken': {
-      id: '/human-interview/$inviteToken'
-      path: '/human-interview/$inviteToken'
-      fullPath: '/human-interview/$inviteToken'
-      preLoaderRoute: typeof HumanInterviewInviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/app-version': {
-      id: '/api/app-version'
-      path: '/api/app-version'
-      fullPath: '/api/app-version'
-      preLoaderRoute: typeof ApiAppVersionRouteImport
+    '/wait': {
+      id: '/wait'
+      path: '/wait'
+      fullPath: '/wait'
+      preLoaderRoute: typeof WaitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ai-interview-invite/$inviteToken': {
@@ -1031,53 +898,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AiInterviewInviteInviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/app-version': {
+      id: '/api/app-version'
+      path: '/api/app-version'
+      fullPath: '/api/app-version'
+      preLoaderRoute: typeof ApiAppVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/human-interview/$inviteToken': {
+      id: '/human-interview/$inviteToken'
+      path: '/human-interview/$inviteToken'
+      fullPath: '/human-interview/$inviteToken'
+      preLoaderRoute: typeof HumanInterviewInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interview/$id': {
+      id: '/interview/$id'
+      path: '/$id'
+      fullPath: '/interview/$id'
+      preLoaderRoute: typeof InterviewIdRouteImport
+      parentRoute: typeof InterviewRoute
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$code': {
+      id: '/join/$code'
+      path: '/join/$code'
+      fullPath: '/join/$code'
+      preLoaderRoute: typeof JoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform/livekit': {
+      id: '/platform/livekit'
+      path: '/livekit'
+      fullPath: '/platform/livekit'
+      preLoaderRoute: typeof PlatformLivekitRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/mail-ingest-accounts': {
+      id: '/platform/mail-ingest-accounts'
+      path: '/mail-ingest-accounts'
+      fullPath: '/platform/mail-ingest-accounts'
+      preLoaderRoute: typeof PlatformMailIngestAccountsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/notifications': {
+      id: '/platform/notifications'
+      path: '/notifications'
+      fullPath: '/platform/notifications'
+      preLoaderRoute: typeof PlatformNotificationsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/organizations': {
+      id: '/platform/organizations'
+      path: '/organizations'
+      fullPath: '/platform/organizations'
+      preLoaderRoute: typeof PlatformOrganizationsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/queues': {
+      id: '/platform/queues'
+      path: '/queues'
+      fullPath: '/platform/queues'
+      preLoaderRoute: typeof PlatformQueuesRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/resume-parse-cache': {
+      id: '/platform/resume-parse-cache'
+      path: '/resume-parse-cache'
+      fullPath: '/platform/resume-parse-cache'
+      preLoaderRoute: typeof PlatformResumeParseCacheRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/users': {
+      id: '/platform/users'
+      path: '/users'
+      fullPath: '/platform/users'
+      preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/r/$roundId': {
+      id: '/r/$roundId'
+      path: '/r/$roundId'
+      fullPath: '/r/$roundId'
+      preLoaderRoute: typeof RRoundIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/referrals/$token': {
+      id: '/referrals/$token'
+      path: '/referrals/$token'
+      fullPath: '/referrals/$token'
+      preLoaderRoute: typeof ReferralsTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio/calendar': {
+      id: '/studio/calendar'
+      path: '/calendar'
+      fullPath: '/studio/calendar'
+      preLoaderRoute: typeof StudioCalendarRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/interviews': {
+      id: '/studio/interviews'
+      path: '/interviews'
+      fullPath: '/studio/interviews'
+      preLoaderRoute: typeof StudioInterviewsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/resume-pool': {
+      id: '/studio/resume-pool'
+      path: '/resume-pool'
+      fullPath: '/studio/resume-pool'
+      preLoaderRoute: typeof StudioResumePoolRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/resumes': {
+      id: '/studio/resumes'
+      path: '/resumes'
+      fullPath: '/studio/resumes'
+      preLoaderRoute: typeof StudioResumesRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/w/$slug': {
+      id: '/w/$slug'
+      path: '/w/$slug'
+      fullPath: '/w/$slug'
+      preLoaderRoute: typeof WSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/human-interview/interviewer/$inviteToken': {
+      id: '/human-interview/interviewer/$inviteToken'
+      path: '/human-interview/interviewer/$inviteToken'
+      fullPath: '/human-interview/interviewer/$inviteToken'
+      preLoaderRoute: typeof HumanInterviewInterviewerInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interview/$id/$roundId': {
+      id: '/interview/$id/$roundId'
+      path: '/$roundId'
+      fullPath: '/interview/$id/$roundId'
+      preLoaderRoute: typeof InterviewIdRoundIdRouteImport
+      parentRoute: typeof InterviewIdRoute
+    }
     '/platform/livekit/': {
       id: '/platform/livekit/'
       path: '/'
       fullPath: '/platform/livekit/'
       preLoaderRoute: typeof PlatformLivekitIndexRouteImport
-      parentRoute: typeof PlatformLivekitRoute
-    }
-    '/w/$slug/studio': {
-      id: '/w/$slug/studio'
-      path: '/studio'
-      fullPath: '/w/$slug/studio'
-      preLoaderRoute: typeof WSlugStudioRouteImport
-      parentRoute: typeof WSlugRoute
-    }
-    '/w/$slug/chat': {
-      id: '/w/$slug/chat'
-      path: '/chat'
-      fullPath: '/w/$slug/chat'
-      preLoaderRoute: typeof WSlugChatRouteImport
-      parentRoute: typeof WSlugRoute
-    }
-    '/w/$slug/agent': {
-      id: '/w/$slug/agent'
-      path: '/agent'
-      fullPath: '/w/$slug/agent'
-      preLoaderRoute: typeof WSlugAgentRouteImport
-      parentRoute: typeof WSlugRoute
-    }
-    '/resume-review/$slug/$recordId': {
-      id: '/resume-review/$slug/$recordId'
-      path: '/resume-review/$slug/$recordId'
-      fullPath: '/resume-review/$slug/$recordId'
-      preLoaderRoute: typeof ResumeReviewSlugRecordIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/platform/livekit/rooms': {
-      id: '/platform/livekit/rooms'
-      path: '/rooms'
-      fullPath: '/platform/livekit/rooms'
-      preLoaderRoute: typeof PlatformLivekitRoomsRouteImport
-      parentRoute: typeof PlatformLivekitRoute
-    }
-    '/platform/livekit/overview': {
-      id: '/platform/livekit/overview'
-      path: '/overview'
-      fullPath: '/platform/livekit/overview'
-      preLoaderRoute: typeof PlatformLivekitOverviewRouteImport
       parentRoute: typeof PlatformLivekitRoute
     }
     '/platform/livekit/metrics': {
@@ -1087,26 +1059,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformLivekitMetricsRouteImport
       parentRoute: typeof PlatformLivekitRoute
     }
-    '/interview/$id/$roundId': {
-      id: '/interview/$id/$roundId'
-      path: '/$roundId'
-      fullPath: '/interview/$id/$roundId'
-      preLoaderRoute: typeof InterviewIdRoundIdRouteImport
-      parentRoute: typeof InterviewIdRoute
+    '/platform/livekit/overview': {
+      id: '/platform/livekit/overview'
+      path: '/overview'
+      fullPath: '/platform/livekit/overview'
+      preLoaderRoute: typeof PlatformLivekitOverviewRouteImport
+      parentRoute: typeof PlatformLivekitRoute
     }
-    '/human-interview/interviewer/$inviteToken': {
-      id: '/human-interview/interviewer/$inviteToken'
-      path: '/human-interview/interviewer/$inviteToken'
-      fullPath: '/human-interview/interviewer/$inviteToken'
-      preLoaderRoute: typeof HumanInterviewInterviewerInviteTokenRouteImport
+    '/platform/livekit/rooms': {
+      id: '/platform/livekit/rooms'
+      path: '/rooms'
+      fullPath: '/platform/livekit/rooms'
+      preLoaderRoute: typeof PlatformLivekitRoomsRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
+    '/resume-review/$slug/$recordId': {
+      id: '/resume-review/$slug/$recordId'
+      path: '/resume-review/$slug/$recordId'
+      fullPath: '/resume-review/$slug/$recordId'
+      preLoaderRoute: typeof ResumeReviewSlugRecordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/w/$slug/chat/': {
-      id: '/w/$slug/chat/'
-      path: '/'
-      fullPath: '/w/$slug/chat/'
-      preLoaderRoute: typeof WSlugChatIndexRouteImport
-      parentRoute: typeof WSlugChatRoute
+    '/w/$slug/agent': {
+      id: '/w/$slug/agent'
+      path: '/agent'
+      fullPath: '/w/$slug/agent'
+      preLoaderRoute: typeof WSlugAgentRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/chat': {
+      id: '/w/$slug/chat'
+      path: '/chat'
+      fullPath: '/w/$slug/chat'
+      preLoaderRoute: typeof WSlugChatRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/studio': {
+      id: '/w/$slug/studio'
+      path: '/studio'
+      fullPath: '/w/$slug/studio'
+      preLoaderRoute: typeof WSlugStudioRouteImport
+      parentRoute: typeof WSlugRoute
     }
     '/w/$slug/agent/': {
       id: '/w/$slug/agent/'
@@ -1115,95 +1108,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugAgentIndexRouteImport
       parentRoute: typeof WSlugAgentRoute
     }
-    '/w/$slug/studio/resumes': {
-      id: '/w/$slug/studio/resumes'
-      path: '/resumes'
-      fullPath: '/w/$slug/studio/resumes'
-      preLoaderRoute: typeof WSlugStudioResumesRouteImport
-      parentRoute: typeof WSlugStudioRoute
+    '/w/$slug/agent/$sessionId': {
+      id: '/w/$slug/agent/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/w/$slug/agent/$sessionId'
+      preLoaderRoute: typeof WSlugAgentSessionIdRouteImport
+      parentRoute: typeof WSlugAgentRoute
     }
-    '/w/$slug/studio/resume-pool': {
-      id: '/w/$slug/studio/resume-pool'
-      path: '/resume-pool'
-      fullPath: '/w/$slug/studio/resume-pool'
-      preLoaderRoute: typeof WSlugStudioResumePoolRouteImport
-      parentRoute: typeof WSlugStudioRoute
+    '/w/$slug/chat/': {
+      id: '/w/$slug/chat/'
+      path: '/'
+      fullPath: '/w/$slug/chat/'
+      preLoaderRoute: typeof WSlugChatIndexRouteImport
+      parentRoute: typeof WSlugChatRoute
     }
-    '/w/$slug/studio/permissions': {
-      id: '/w/$slug/studio/permissions'
-      path: '/permissions'
-      fullPath: '/w/$slug/studio/permissions'
-      preLoaderRoute: typeof WSlugStudioPermissionsRouteImport
-      parentRoute: typeof WSlugStudioRoute
+    '/w/$slug/chat/$sessionId': {
+      id: '/w/$slug/chat/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/w/$slug/chat/$sessionId'
+      preLoaderRoute: typeof WSlugChatSessionIdRouteImport
+      parentRoute: typeof WSlugChatRoute
     }
-    '/w/$slug/studio/members': {
-      id: '/w/$slug/studio/members'
-      path: '/members'
-      fullPath: '/w/$slug/studio/members'
-      preLoaderRoute: typeof WSlugStudioMembersRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/me': {
-      id: '/w/$slug/studio/me'
-      path: '/me'
-      fullPath: '/w/$slug/studio/me'
-      preLoaderRoute: typeof WSlugStudioMeRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/mail-ingest-accounts': {
-      id: '/w/$slug/studio/mail-ingest-accounts'
-      path: '/mail-ingest-accounts'
-      fullPath: '/w/$slug/studio/mail-ingest-accounts'
-      preLoaderRoute: typeof WSlugStudioMailIngestAccountsRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/job-descriptions': {
-      id: '/w/$slug/studio/job-descriptions'
-      path: '/job-descriptions'
-      fullPath: '/w/$slug/studio/job-descriptions'
-      preLoaderRoute: typeof WSlugStudioJobDescriptionsRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/interviews': {
-      id: '/w/$slug/studio/interviews'
-      path: '/interviews'
-      fullPath: '/w/$slug/studio/interviews'
-      preLoaderRoute: typeof WSlugStudioInterviewsRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/interviewers': {
-      id: '/w/$slug/studio/interviewers'
-      path: '/interviewers'
-      fullPath: '/w/$slug/studio/interviewers'
-      preLoaderRoute: typeof WSlugStudioInterviewersRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/interview-questions': {
-      id: '/w/$slug/studio/interview-questions'
-      path: '/interview-questions'
-      fullPath: '/w/$slug/studio/interview-questions'
-      preLoaderRoute: typeof WSlugStudioInterviewQuestionsRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/global-config': {
-      id: '/w/$slug/studio/global-config'
-      path: '/global-config'
-      fullPath: '/w/$slug/studio/global-config'
-      preLoaderRoute: typeof WSlugStudioGlobalConfigRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/forms': {
-      id: '/w/$slug/studio/forms'
-      path: '/forms'
-      fullPath: '/w/$slug/studio/forms'
-      preLoaderRoute: typeof WSlugStudioFormsRouteImport
-      parentRoute: typeof WSlugStudioRoute
-    }
-    '/w/$slug/studio/departments': {
-      id: '/w/$slug/studio/departments'
-      path: '/departments'
-      fullPath: '/w/$slug/studio/departments'
-      preLoaderRoute: typeof WSlugStudioDepartmentsRouteImport
+    '/w/$slug/studio/calendar': {
+      id: '/w/$slug/studio/calendar'
+      path: '/calendar'
+      fullPath: '/w/$slug/studio/calendar'
+      preLoaderRoute: typeof WSlugStudioCalendarRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
     '/w/$slug/studio/dashboard': {
@@ -1213,47 +1143,96 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioDashboardRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/studio/calendar': {
-      id: '/w/$slug/studio/calendar'
-      path: '/calendar'
-      fullPath: '/w/$slug/studio/calendar'
-      preLoaderRoute: typeof WSlugStudioCalendarRouteImport
+    '/w/$slug/studio/departments': {
+      id: '/w/$slug/studio/departments'
+      path: '/departments'
+      fullPath: '/w/$slug/studio/departments'
+      preLoaderRoute: typeof WSlugStudioDepartmentsRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/chat/$sessionId': {
-      id: '/w/$slug/chat/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/w/$slug/chat/$sessionId'
-      preLoaderRoute: typeof WSlugChatSessionIdRouteImport
-      parentRoute: typeof WSlugChatRoute
+    '/w/$slug/studio/forms': {
+      id: '/w/$slug/studio/forms'
+      path: '/forms'
+      fullPath: '/w/$slug/studio/forms'
+      preLoaderRoute: typeof WSlugStudioFormsRouteImport
+      parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/agent/$sessionId': {
-      id: '/w/$slug/agent/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/w/$slug/agent/$sessionId'
-      preLoaderRoute: typeof WSlugAgentSessionIdRouteImport
-      parentRoute: typeof WSlugAgentRoute
+    '/w/$slug/studio/global-config': {
+      id: '/w/$slug/studio/global-config'
+      path: '/global-config'
+      fullPath: '/w/$slug/studio/global-config'
+      preLoaderRoute: typeof WSlugStudioGlobalConfigRouteImport
+      parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/studio/resumes/$recordId': {
-      id: '/w/$slug/studio/resumes/$recordId'
-      path: '/$recordId'
-      fullPath: '/w/$slug/studio/resumes/$recordId'
-      preLoaderRoute: typeof WSlugStudioResumesRecordIdRouteImport
-      parentRoute: typeof WSlugStudioResumesRoute
+    '/w/$slug/studio/interview-questions': {
+      id: '/w/$slug/studio/interview-questions'
+      path: '/interview-questions'
+      fullPath: '/w/$slug/studio/interview-questions'
+      preLoaderRoute: typeof WSlugStudioInterviewQuestionsRouteImport
+      parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/studio/resume-pool/$recordId': {
-      id: '/w/$slug/studio/resume-pool/$recordId'
-      path: '/$recordId'
-      fullPath: '/w/$slug/studio/resume-pool/$recordId'
-      preLoaderRoute: typeof WSlugStudioResumePoolRecordIdRouteImport
-      parentRoute: typeof WSlugStudioResumePoolRoute
+    '/w/$slug/studio/interviewers': {
+      id: '/w/$slug/studio/interviewers'
+      path: '/interviewers'
+      fullPath: '/w/$slug/studio/interviewers'
+      preLoaderRoute: typeof WSlugStudioInterviewersRouteImport
+      parentRoute: typeof WSlugStudioRoute
     }
-    '/w/$slug/studio/mail-ingest-accounts/$id': {
-      id: '/w/$slug/studio/mail-ingest-accounts/$id'
-      path: '/$id'
-      fullPath: '/w/$slug/studio/mail-ingest-accounts/$id'
-      preLoaderRoute: typeof WSlugStudioMailIngestAccountsIdRouteImport
-      parentRoute: typeof WSlugStudioMailIngestAccountsRoute
+    '/w/$slug/studio/interviews': {
+      id: '/w/$slug/studio/interviews'
+      path: '/interviews'
+      fullPath: '/w/$slug/studio/interviews'
+      preLoaderRoute: typeof WSlugStudioInterviewsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/job-descriptions': {
+      id: '/w/$slug/studio/job-descriptions'
+      path: '/job-descriptions'
+      fullPath: '/w/$slug/studio/job-descriptions'
+      preLoaderRoute: typeof WSlugStudioJobDescriptionsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/mail-ingest-accounts': {
+      id: '/w/$slug/studio/mail-ingest-accounts'
+      path: '/mail-ingest-accounts'
+      fullPath: '/w/$slug/studio/mail-ingest-accounts'
+      preLoaderRoute: typeof WSlugStudioMailIngestAccountsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/me': {
+      id: '/w/$slug/studio/me'
+      path: '/me'
+      fullPath: '/w/$slug/studio/me'
+      preLoaderRoute: typeof WSlugStudioMeRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/members': {
+      id: '/w/$slug/studio/members'
+      path: '/members'
+      fullPath: '/w/$slug/studio/members'
+      preLoaderRoute: typeof WSlugStudioMembersRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/permissions': {
+      id: '/w/$slug/studio/permissions'
+      path: '/permissions'
+      fullPath: '/w/$slug/studio/permissions'
+      preLoaderRoute: typeof WSlugStudioPermissionsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/resume-pool': {
+      id: '/w/$slug/studio/resume-pool'
+      path: '/resume-pool'
+      fullPath: '/w/$slug/studio/resume-pool'
+      preLoaderRoute: typeof WSlugStudioResumePoolRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/resumes': {
+      id: '/w/$slug/studio/resumes'
+      path: '/resumes'
+      fullPath: '/w/$slug/studio/resumes'
+      preLoaderRoute: typeof WSlugStudioResumesRouteImport
+      parentRoute: typeof WSlugStudioRoute
     }
     '/w/$slug/studio/interviews/$roundId': {
       id: '/w/$slug/studio/interviews/$roundId'
@@ -1262,11 +1241,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioInterviewsRoundIdRouteImport
       parentRoute: typeof WSlugStudioInterviewsRoute
     }
-    '/w/$slug/studio/resumes/overlay/$recordId': {
-      id: '/w/$slug/studio/resumes/overlay/$recordId'
-      path: '/overlay/$recordId'
-      fullPath: '/w/$slug/studio/resumes/overlay/$recordId'
-      preLoaderRoute: typeof WSlugStudioResumesOverlayRecordIdRouteImport
+    '/w/$slug/studio/mail-ingest-accounts/$id': {
+      id: '/w/$slug/studio/mail-ingest-accounts/$id'
+      path: '/$id'
+      fullPath: '/w/$slug/studio/mail-ingest-accounts/$id'
+      preLoaderRoute: typeof WSlugStudioMailIngestAccountsIdRouteImport
+      parentRoute: typeof WSlugStudioMailIngestAccountsRoute
+    }
+    '/w/$slug/studio/resume-pool/$recordId': {
+      id: '/w/$slug/studio/resume-pool/$recordId'
+      path: '/$recordId'
+      fullPath: '/w/$slug/studio/resume-pool/$recordId'
+      preLoaderRoute: typeof WSlugStudioResumePoolRecordIdRouteImport
+      parentRoute: typeof WSlugStudioResumePoolRoute
+    }
+    '/w/$slug/studio/resumes/$recordId': {
+      id: '/w/$slug/studio/resumes/$recordId'
+      path: '/$recordId'
+      fullPath: '/w/$slug/studio/resumes/$recordId'
+      preLoaderRoute: typeof WSlugStudioResumesRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumesRoute
     }
     '/w/$slug/studio/resume-pool/overlay/$recordId': {
@@ -1275,6 +1268,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/studio/resume-pool/overlay/$recordId'
       preLoaderRoute: typeof WSlugStudioResumePoolOverlayRecordIdRouteImport
       parentRoute: typeof WSlugStudioResumePoolRoute
+    }
+    '/w/$slug/studio/resumes/overlay/$recordId': {
+      id: '/w/$slug/studio/resumes/overlay/$recordId'
+      path: '/overlay/$recordId'
+      fullPath: '/w/$slug/studio/resumes/overlay/$recordId'
+      preLoaderRoute: typeof WSlugStudioResumesOverlayRecordIdRouteImport
+      parentRoute: typeof WSlugStudioResumesRoute
     }
   }
 }

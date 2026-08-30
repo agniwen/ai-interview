@@ -33,6 +33,7 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
 }
 
 describe("Hero", () => {
+  // oxlint-disable-next-line complexity -- This integration assertion intentionally verifies the complete hero DOM contract in one render.
   it("uses the evidence-led homepage copy and dark-mode contrast controls", () => {
     setLocale("zh-CN", { reload: false });
     const container = document.createElement("div");
@@ -54,13 +55,12 @@ describe("Hero", () => {
     const actions = buttons[0]?.parentElement;
 
     expect(heading?.className).toContain("dark:text-white");
-    expect(brand?.className).toContain("dark:text-chart-4");
+    expect(brand?.className).toContain("dark:text-sky-300");
     expect(brandMark.className).toContain("/favicon-light.ico");
     expect(brandMark.className).toContain("dark:bg-[url('/favicon-dark.ico')]");
     expect(brandMark.className).toContain("size-7");
     expect(brandMark.className).toContain("sm:size-8");
-    expect(eyebrow?.className).toContain("dark:bg-primary/25!");
-    expect(eyebrow?.className).toContain("dark:text-chart-4!");
+    expect(eyebrow).toBeUndefined();
     expect(description?.className).toContain("dark:text-white/80");
     expect(heading?.textContent).toContain("更快看清，谁更合适。");
     expect(description?.textContent).toContain("AI 帮你筛简历、问重点、整理证据");

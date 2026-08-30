@@ -127,7 +127,7 @@ export function DepartmentManagementPage() {
           }
           return (
             <Button
-              className="h-auto p-0 font-medium text-primary"
+              className="h-auto p-0 font-medium"
               onClick={() => setInterviewersModalDept(r)}
               type="button"
               variant="link"
@@ -149,7 +149,7 @@ export function DepartmentManagementPage() {
           }
           return (
             <Button
-              className="h-auto p-0 font-medium text-primary"
+              className="h-auto p-0 font-medium"
               onClick={() => setJobDescriptionsModalDept(r)}
               type="button"
               variant="link"

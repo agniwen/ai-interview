@@ -14,7 +14,7 @@ import { cn } from "@arc/shared/utils";
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 
 const lifecycleHoverRingClass = {
-  info: "hover:ring-primary/10 dark:text-chart-4",
+  info: "hover:ring-indigo-500/10",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
   success: "hover:ring-emerald-500/10",
   warning: "hover:ring-amber-500/10",
