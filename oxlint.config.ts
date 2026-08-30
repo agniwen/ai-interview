@@ -18,11 +18,11 @@ export default defineConfig({
     "**/src/components/react-bits/**",
     "**/src/components/reui/**",
     "**/src/components/spell-ui/**",
-    "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
-    "apps/ai-recruitment-copilot-worker/dist/**",
+    "apps/web/src/routeTree.gen.ts",
+    "apps/worker/dist/**",
     "tools/oxlint/anti-slop/**",
     // Upstream/shared shadcn-style UI — keep parity with web exclusions.
-    "apps/ai-recruitment-copilot-desktop/src/renderer/src/components/ui/**",
+    "apps/desktop/src/renderer/src/components/ui/**",
   ],
   jsPlugins: [
     { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
@@ -36,7 +36,7 @@ export default defineConfig({
       },
     },
     {
-      files: ["apps/ai-recruitment-copilot/src/routes/**/*.{ts,tsx}"],
+      files: ["apps/web/src/routes/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-head-element": "off",
         // TanStack Router's option order is part of its type-inference chain.
@@ -46,7 +46,7 @@ export default defineConfig({
       },
     },
     {
-      files: ["apps/ai-recruitment-copilot/src/app/_components/home/footer.tsx"],
+      files: ["apps/web/src/app/_components/home/footer.tsx"],
       rules: {
         "nextjs/no-html-link-for-pages": "off",
       },
@@ -54,7 +54,7 @@ export default defineConfig({
     {
       // Electron desktop does not enable React Compiler; its compiler diagnostics
       // would not describe code that actually passes through the transform.
-      files: ["apps/ai-recruitment-copilot-desktop/**/*.{ts,tsx}"],
+      files: ["apps/desktop/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-html-link-for-pages": "off",
         "nextjs/no-img-element": "off",

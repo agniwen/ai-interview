@@ -1,7 +1,7 @@
 # Qwen 实时字幕背压排查与修复方案
 
 日期：2026-08-11
-范围：`apps/ai-recruitment-copilot-desktop` 的 Renderer → `MessagePort` → Electron Main → Node `ws` → DashScope Qwen-ASR-Realtime 音频链路。
+范围：`apps/desktop` 的 Renderer → `MessagePort` → Electron Main → Node `ws` → DashScope Qwen-ASR-Realtime 音频链路。
 
 ## 结论
 

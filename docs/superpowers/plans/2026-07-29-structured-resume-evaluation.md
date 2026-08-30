@@ -233,7 +233,7 @@ git commit -m "feat(resume-evaluation): add structured evaluation contracts and 
 
 - Modify: `packages/db-schema/src/schema.ts`
 - Modify if relations expose job/candidate fields: `packages/db-schema/src/relations.ts`
-- Generate: `apps/ai-recruitment-copilot/drizzle/<generated_migration>/migration.sql`
+- Generate: `apps/web/drizzle/<generated_migration>/migration.sql`
 - Review: generated `snapshot.json`
 
 **Step 1: Add Drizzle fields and checks**
@@ -282,7 +282,7 @@ If `STRUCTURED_EVAL_MIGRATION_DATABASE_URL` is absent or does not identify a ver
 **Step 5: Commit**
 
 ```bash
-git add packages/db-schema apps/ai-recruitment-copilot/drizzle
+git add packages/db-schema apps/web/drizzle
 git commit -m "feat(db): add structured job lifecycle and resume evaluation storage"
 ```
 
@@ -292,14 +292,14 @@ git commit -m "feat(db): add structured job lifecycle and resume evaluation stor
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/lib/server/job-evaluation-hash.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/application/job-evaluation-lifecycle.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/application/__tests__/job-evaluation-lifecycle.test.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/evaluation-blueprint-compiler.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/evaluation-blueprint-compiler.test.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/agents/simple-generators.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/index.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/dao.ts`
+- Create: `apps/server/src/lib/server/job-evaluation-hash.ts`
+- Create: `apps/server/src/server/routes/studio/routes/job-descriptions/application/job-evaluation-lifecycle.ts`
+- Create: `apps/server/src/server/routes/studio/routes/job-descriptions/application/__tests__/job-evaluation-lifecycle.test.ts`
+- Create: `apps/server/src/server/routes/studio/routes/job-descriptions/utils/evaluation-blueprint-compiler.ts`
+- Create: `apps/server/src/server/routes/studio/routes/job-descriptions/utils/evaluation-blueprint-compiler.test.ts`
+- Modify: `apps/server/src/server/agents/mastra/agents/simple-generators.ts`
+- Modify: `apps/server/src/server/agents/mastra/index.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/job-descriptions/dao.ts`
 
 **Module interface:**
 
@@ -368,15 +368,15 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 **Step 4: Implement and verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test evaluation-blueprint
-pnpm --filter @arc/ai-recruitment-copilot-backend test job-evaluation-lifecycle
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @app/server test evaluation-blueprint
+pnpm --filter @app/server test job-evaluation-lifecycle
+pnpm --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend
+git add apps/server
 git commit -m "feat(jobs): compile preview and publish structured evaluation blueprints"
 ```
 
@@ -387,13 +387,13 @@ git commit -m "feat(jobs): compile preview and publish structured evaluation blu
 **Files:**
 
 - Modify: `packages/shared/src/job-descriptions.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/route.ts`
-- Add route tests under: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/__tests__/`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/job-descriptions/job-description-form-dialog.tsx`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/job-descriptions/job-description-structured-fields.tsx`
-- Create: `apps/ai-recruitment-copilot/src/components/features/studio/job-descriptions/job-evaluation-blueprint-preview.tsx`
+- Modify: `apps/server/src/server/routes/studio/routes/job-descriptions/route.ts`
+- Add route tests under: `apps/server/src/server/routes/studio/routes/job-descriptions/__tests__/`
+- Modify: `apps/web/src/components/features/studio/job-descriptions/job-description-form-dialog.tsx`
+- Modify: `apps/web/src/components/features/studio/job-descriptions/job-description-structured-fields.tsx`
+- Create: `apps/web/src/components/features/studio/job-descriptions/job-evaluation-blueprint-preview.tsx`
 - Create tests beside the feature components
-- Thin wiring only if required: `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.job-descriptions.tsx`
+- Thin wiring only if required: `apps/web/src/routes/w.$slug.studio.job-descriptions.tsx`
 
 **Step 1: Replace the shared base request schema**
 
@@ -439,16 +439,16 @@ Communication questions and candidate forms remain owned by their existing `inte
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test job-descriptions
-pnpm --filter @arc/ai-recruitment-copilot test job-description
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/server test job-descriptions
+pnpm --filter @app/web test job-description
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web typecheck
 ```
 
 **Step 5: Commit**
 
 ```bash
-git add packages/shared apps/ai-recruitment-copilot-backend apps/ai-recruitment-copilot
+git add packages/shared apps/server apps/web
 git commit -m "feat(jobs): add structured draft preview and publication flow"
 ```
 
@@ -458,8 +458,8 @@ git commit -m "feat(jobs): add structured draft preview and publication flow"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/dao.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/dao/referral-links.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/job-descriptions/dao.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/job-descriptions/dao/referral-links.ts`
 - Modify call sites found by:
 
 ```bash
@@ -476,7 +476,7 @@ rg -n "listAllJobDescriptions|loadJobDescriptionById|jobDescriptionIdsExist|fetc
   - `.../routes/interview/routes/analysis/route.ts`
   - `.../routes/chat/routes/conversations/actions.ts`
   - `.../server/agents/mastra/tools/recruiting-copilot.ts`
-  - `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts`
+  - `apps/worker/src/mail-ingest/processor.ts`
   - public referral routes and recommendation/indexing paths
 - Audit direct job-table reads that bypass the named DAO helpers:
 
@@ -526,11 +526,11 @@ Do not add an `includeDrafts` boolean to one generic loader.
 **Step 3: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test job-description
-pnpm --filter @arc/ai-recruitment-copilot-backend test referral
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-pool
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-upload-batches
-pnpm --filter @arc/ai-recruitment-copilot-worker test
+pnpm --filter @app/server test job-description
+pnpm --filter @app/server test referral
+pnpm --filter @app/server test resume-pool
+pnpm --filter @app/server test resume-upload-batches
+pnpm --filter @app/worker test
 ```
 
 **Step 4: Commit**
@@ -546,13 +546,13 @@ git commit -m "feat(jobs): exclude draft jobs from recruiting workflows"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/server/agents/structured-resume-evaluation.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/structured-resume-review-workflow.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/__tests__/structured-resume-review-workflow.test.ts`
+- Create: `apps/server/src/server/agents/structured-resume-evaluation.ts`
+- Create: `apps/server/src/server/agents/mastra/workflows/structured-resume-review-workflow.ts`
+- Create: `apps/server/src/server/agents/mastra/__tests__/structured-resume-review-workflow.test.ts`
 - Create prompt/schema tests under `src/server/agents/__tests__/`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/agents/simple-generators.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/index.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/index.ts`
+- Modify: `apps/server/src/server/agents/mastra/agents/simple-generators.ts`
+- Modify: `apps/server/src/server/agents/mastra/workflows/index.ts`
+- Modify: `apps/server/src/server/agents/mastra/index.ts`
 - Preserve and regression-test: existing `resume-review-workflow.ts`
 
 **Workflow input:**
@@ -628,15 +628,15 @@ No organization ID is needed by workflow logic, and no step may query the databa
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test structured-resume-review-workflow
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-review-workflow
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @app/server test structured-resume-review-workflow
+pnpm --filter @app/server test resume-review-workflow
+pnpm --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend
+git add apps/server
 git commit -m "feat(mastra): add structured resume evaluation workflow"
 ```
 
@@ -646,13 +646,13 @@ git commit -m "feat(mastra): add structured resume evaluation workflow"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-lifecycle.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-lifecycle.test.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-generation.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-generation.test.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-worker.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-worker.test.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/lib/server/resume-evaluation-input-hash.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-lifecycle.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-lifecycle.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-generation.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-generation.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-worker.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-worker.test.ts`
+- Create: `apps/server/src/lib/server/resume-evaluation-input-hash.ts`
 - Add tests for input hashing
 
 **Target lifecycle result:**
@@ -713,16 +713,16 @@ Within one database transaction:
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test review-lifecycle
-pnpm --filter @arc/ai-recruitment-copilot-backend test review-generation
-pnpm --filter @arc/ai-recruitment-copilot-backend test review-worker
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @app/server test review-lifecycle
+pnpm --filter @app/server test review-generation
+pnpm --filter @app/server test review-worker
+pnpm --filter @app/server typecheck
 ```
 
 **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend
+git add apps/server
 git commit -m "feat(resume-evaluation): dispatch and persist mode-specific evaluations"
 ```
 
@@ -732,11 +732,11 @@ git commit -m "feat(resume-evaluation): dispatch and persist mode-specific evalu
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/route.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/create-from-storage.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-queue.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/dao.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/admission.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/route.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/create-from-storage.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-queue.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resume-pool/dao.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resume-pool/utils/admission.ts`
 - Modify: `packages/resume-parse-queue/src/resume-review-generation.ts`
 - Modify: `packages/resume-parse-queue/src/resume-review-generation.test.ts`
 - Modify mode-aware pool handling in `review-worker.ts`
@@ -745,8 +745,8 @@ git commit -m "feat(resume-evaluation): dispatch and persist mode-specific evalu
 
 ```bash
 rg -n -U "\\.set\\(\\{[\\s\\S]{0,500}(resumeContentHash|resumeProfile|resumeText|targetRole)" \
-  apps/ai-recruitment-copilot-backend/src \
-  apps/ai-recruitment-copilot-worker/src
+  apps/server/src \
+  apps/worker/src
 ```
 
 **Step 1: Write failing boundary tests**
@@ -792,9 +792,9 @@ Create one mode-aware invalidation helper used by all candidate mutations:
 **Step 5: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test route-behavior
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-pool
-pnpm --filter @arc/ai-recruitment-copilot-backend test review-queue
+pnpm --filter @app/server test route-behavior
+pnpm --filter @app/server test resume-pool
+pnpm --filter @app/server test review-queue
 pnpm --filter @arc/resume-parse-queue test
 ```
 
@@ -812,11 +812,11 @@ git commit -m "feat(resume-evaluation): enforce structured upload and reassessme
 **Files:**
 
 - Modify: `packages/shared/src/studio-resumes.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/dao/resumes.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/read-route.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/__tests__/dao.test.ts`
-- Modify: `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/studio-resumes.ts`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/resumes/resume-library-page.tsx`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/dao/resumes.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/read-route.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/__tests__/dao.test.ts`
+- Modify: `apps/web/src/lib/client/api/endpoints/studio-resumes.ts`
+- Modify: `apps/web/src/components/features/studio/resumes/resume-library-page.tsx`
 - Modify focused list/card components and tests
 
 **Step 1: Extend list/detail DTOs**
@@ -852,8 +852,8 @@ Keep legacy `resumeReviewBaseScore`/next-step fields for legacy cards.
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test resumes/dao
-pnpm --filter @arc/ai-recruitment-copilot test resume-library
+pnpm --filter @app/server test resumes/dao
+pnpm --filter @app/web test resume-library
 pnpm --filter @arc/shared typecheck
 ```
 
@@ -870,11 +870,11 @@ git commit -m "feat(resumes): add structured score ordering and filters"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/routes/structured-evaluation/route.ts`
+- Create: `apps/server/src/server/routes/studio/routes/resumes/routes/structured-evaluation/route.ts`
 - Create route and mutation tests beside it
-- Mount from: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/route.ts`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/resumes/resume-overview-panel.tsx`
-- Create: `apps/ai-recruitment-copilot/src/components/features/studio/resumes/structured-resume-evaluation-panel.tsx`
+- Mount from: `apps/server/src/server/routes/studio/routes/resumes/route.ts`
+- Modify: `apps/web/src/components/features/studio/resumes/resume-overview-panel.tsx`
+- Create: `apps/web/src/components/features/studio/resumes/structured-resume-evaluation-panel.tsx`
 - Add focused component tests
 
 **Endpoints:**
@@ -916,9 +916,9 @@ git commit -m "feat(resumes): add structured score ordering and filters"
 **Step 3: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test structured-evaluation
-pnpm --filter @arc/ai-recruitment-copilot test structured-resume
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/server test structured-evaluation
+pnpm --filter @app/web test structured-resume
+pnpm --filter @app/web typecheck
 ```
 
 **Step 4: Commit**
@@ -934,18 +934,18 @@ git commit -m "feat(resumes): show structured evaluation and gate corrections"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/application/launch-ai-interview-round.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/application/__tests__/launch-ai-interview-round.test.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/dao/evaluation.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/application/launch-ai-interview-round.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/application/__tests__/launch-ai-interview-round.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/dao/evaluation.ts`
 - Modify/add focused tests for the tx-aware recruiter-decision/audit helper
-- Reuse without changing unless a focused test exposes a missing transaction contract: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/dao/context-snapshots.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/dao/__tests__/context-snapshots.test.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/__tests__/context-snapshot-boundary-source.test.ts`
+- Reuse without changing unless a focused test exposes a missing transaction contract: `apps/server/src/server/routes/studio/routes/interviews/dao/context-snapshots.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/interviews/dao/__tests__/context-snapshots.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/interviews/__tests__/context-snapshot-boundary-source.test.ts`
 - Add a database integration test for rollback/concurrency
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/read-route.ts`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/resumes/launch-interview-dialog.tsx`
-- Modify: `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/studio-resumes.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/read-route.ts`
+- Modify: `apps/web/src/components/features/studio/resumes/launch-interview-dialog.tsx`
+- Modify: `apps/web/src/lib/client/api/endpoints/studio-resumes.ts`
 
 **Step 1: Remove the post-commit snapshot seam**
 
@@ -985,10 +985,10 @@ Replace separate `commit` then `createSnapshot` dependencies with one persistenc
 **Step 4: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test launch-ai-interview-round
-pnpm --filter @arc/ai-recruitment-copilot-backend test context-snapshots
-pnpm --filter @arc/ai-recruitment-copilot-backend test context-snapshot-boundary-source
-pnpm --filter @arc/ai-recruitment-copilot test launch-interview
+pnpm --filter @app/server test launch-ai-interview-round
+pnpm --filter @app/server test context-snapshots
+pnpm --filter @app/server test context-snapshot-boundary-source
+pnpm --filter @app/web test launch-interview
 ```
 
 **Step 5: Commit**
@@ -1004,14 +1004,14 @@ git commit -m "fix(interviews): launch AI interview in one locked transaction"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/structured-resume-eval.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/structured-resume-eval/types.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/structured-resume-eval/dataset.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/structured-resume-eval/metrics.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/structured-resume-eval/report.ts`
+- Create: `apps/server/src/scripts/structured-resume-eval.ts`
+- Create: `apps/server/src/scripts/structured-resume-eval/types.ts`
+- Create: `apps/server/src/scripts/structured-resume-eval/dataset.ts`
+- Create: `apps/server/src/scripts/structured-resume-eval/metrics.ts`
+- Create: `apps/server/src/scripts/structured-resume-eval/report.ts`
 - Add tests for dataset, metrics, and report
 - Add sanitized/versioned corpus manifest and cases under a non-PII fixture directory
-- Modify: `apps/ai-recruitment-copilot-backend/package.json`
+- Modify: `apps/server/package.json`
 
 **Step 1: Implement dataset validation**
 
@@ -1039,7 +1039,7 @@ For the first V1 release, derive expected score/grade from human-approved gold r
 **Step 3: Add the CLI/report**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:structured-resumes -- \
+pnpm --filter @app/server eval:structured-resumes -- \
   --corpus <versioned-corpus-path> \
   --candidate <pending-engine-candidate-output-path> \
   --output <report-path>
@@ -1058,14 +1058,14 @@ AI may prepare sanitized/synthetic cases and the tooling, but must not self-appr
 **Step 5: Verify**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test structured-resume-eval
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @app/server test structured-resume-eval
+pnpm --filter @app/server typecheck
 ```
 
 **Step 6: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend
+git add apps/server
 git commit -m "feat(evals): add structured resume calibration gate"
 ```
 
@@ -1081,11 +1081,11 @@ pnpm --filter @arc/shared test
 pnpm --filter @arc/shared typecheck
 pnpm --filter @arc/resume-parse-queue test
 pnpm --filter @arc/resume-parse-queue typecheck
-pnpm --filter @arc/ai-recruitment-copilot-backend test
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot test
-pnpm --filter @arc/ai-recruitment-copilot typecheck
-pnpm --filter @arc/ai-recruitment-copilot-worker test
+pnpm --filter @app/server test
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web test
+pnpm --filter @app/web typecheck
+pnpm --filter @app/worker test
 pnpm typecheck
 pnpm check
 git diff --check

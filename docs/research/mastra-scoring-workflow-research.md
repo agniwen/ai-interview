@@ -4,7 +4,7 @@
 
 范围：Mastra 官方文档、Mastra 官方仓库，以及本仓库当前的结构化简历评分实现。重点核对 workflow step 的 input/context/事件传递、Agent/Tool 调用、workflow 与 agent loop 的边界、状态与暂停恢复、结构化输出和上下文长度控制。
 
-版本说明：本仓库当前锁定 `@mastra/core@1.50.1`（见 [backend/package.json](../../apps/ai-recruitment-copilot-backend/package.json) 和 [pnpm-lock.yaml](../../pnpm-lock.yaml)）。Mastra 官方文档是当前在线版本；涉及实现细节时，同时参考了对应的官方源码标签 [`@mastra/core@1.50.1`](https://github.com/mastra-ai/mastra/tree/%40mastra%2Fcore%401.50.1)。因此，若文档已描述更新的 API，应以本仓库锁定版本的源码和类型为准，并在升级 Mastra 时重新核对。
+版本说明：本仓库当前锁定 `@mastra/core@1.50.1`（见 [backend/package.json](../../apps/server/package.json) 和 [pnpm-lock.yaml](../../pnpm-lock.yaml)）。Mastra 官方文档是当前在线版本；涉及实现细节时，同时参考了对应的官方源码标签 [`@mastra/core@1.50.1`](https://github.com/mastra-ai/mastra/tree/%40mastra%2Fcore%401.50.1)。因此，若文档已描述更新的 API，应以本仓库锁定版本的源码和类型为准，并在升级 Mastra 时重新核对。
 
 ## 结论先行
 
@@ -82,7 +82,7 @@ Mastra 对 workflow 的定位是：任务已知、包含多个步骤、有特定
 
 ### 实际结构
 
-目标实现是 [`structured-resume-review-workflow.ts`](../../apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/structured-resume-review-workflow.ts)，其输入 schema、prompt、Agent 输出 schema、证据校验和评分计算主要在 [`structured-resume-evaluation.ts`](../../apps/ai-recruitment-copilot-backend/src/server/agents/structured-resume-evaluation.ts)。入口在 [`review-generation.ts`](../../apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-generation.ts)。当前 workflow 是：
+目标实现是 [`structured-resume-review-workflow.ts`](../../apps/server/src/server/agents/mastra/workflows/structured-resume-review-workflow.ts)，其输入 schema、prompt、Agent 输出 schema、证据校验和评分计算主要在 [`structured-resume-evaluation.ts`](../../apps/server/src/server/agents/structured-resume-evaluation.ts)。入口在 [`review-generation.ts`](../../apps/server/src/server/routes/studio/routes/resumes/utils/review-generation.ts)。当前 workflow 是：
 
 ```text
 validate-structured-input

@@ -32,7 +32,7 @@ unmaskOnReload: true;
 
 ## 本仓库现状
 
-当前 Web 端直接依赖 `@tanstack/react-router 1.170.17` 和 `@tanstack/react-start 1.168.27`，已具备 `createRouteMask`、`routeMasks`、`mask` 与 `unmaskOnReload`，无需为了本功能升级依赖。[Web package.json](../../apps/ai-recruitment-copilot/package.json)
+当前 Web 端直接依赖 `@tanstack/react-router 1.170.17` 和 `@tanstack/react-start 1.168.27`，已具备 `createRouteMask`、`routeMasks`、`mask` 与 `unmaskOnReload`，无需为了本功能升级依赖。[Web package.json](../../apps/web/package.json)
 
 当前路由关系是：
 
@@ -41,10 +41,10 @@ unmaskOnReload: true;
 └── /w/$slug/studio/resumes/$recordId
 ```
 
-- `w.$slug.studio.resumes.tsx` 已经是父路由，并负责招聘台权限 loader；没有子详情时渲染 `ResumeLibraryPage`，进入详情子路由时改为只渲染 `<Outlet />`。[当前招聘台父路由](../../apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.tsx)
-- `w.$slug.studio.resumes.$recordId.tsx` 已经实现完整候选人详情页、loading、操作弹窗和返回逻辑，因此不需要重新做一套详情 UI。[当前候选人详情路由](../../apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.$recordId.tsx)
-- 候选人卡片目前通过 `useNavigate` 进入完整详情 URL。[当前列表导航动作](../../apps/ai-recruitment-copilot/src/components/features/studio/resumes/use-resume-library-page-actions.ts)
-- 详情页已经读取 `fromRecruiterResumeList`，并在该状态存在且 history 可后退时调用 `router.history.back()`；但当前列表导航没有写入这个状态。实施时应把这条链路接完整，而不是再增加第二套返回协议。[当前候选人详情路由](../../apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.$recordId.tsx)
+- `w.$slug.studio.resumes.tsx` 已经是父路由，并负责招聘台权限 loader；没有子详情时渲染 `ResumeLibraryPage`，进入详情子路由时改为只渲染 `<Outlet />`。[当前招聘台父路由](../../apps/web/src/routes/w.$slug.studio.resumes.tsx)
+- `w.$slug.studio.resumes.$recordId.tsx` 已经实现完整候选人详情页、loading、操作弹窗和返回逻辑，因此不需要重新做一套详情 UI。[当前候选人详情路由](../../apps/web/src/routes/w.$slug.studio.resumes.$recordId.tsx)
+- 候选人卡片目前通过 `useNavigate` 进入完整详情 URL。[当前列表导航动作](../../apps/web/src/components/features/studio/resumes/use-resume-library-page-actions.ts)
+- 详情页已经读取 `fromRecruiterResumeList`，并在该状态存在且 history 可后退时调用 `router.history.back()`；但当前列表导航没有写入这个状态。实施时应把这条链路接完整，而不是再增加第二套返回协议。[当前候选人详情路由](../../apps/web/src/routes/w.$slug.studio.resumes.$recordId.tsx)
 
 TanStack Router 的 nested route 会把父、子路由同时保留在组件树中，子路由由父路由放置的 `<Outlet />` 决定渲染位置。因此 overlay 路由应继续作为 `resumes` 的子路由，让招聘台列表实例保持挂载；不应把详情做成一个脱离 Router 的本地 `open` 布尔状态。[TanStack Router：Outlets](https://tanstack.com/router/latest/docs/guide/outlets) [TanStack Start：Nested Routing](https://tanstack.com/start/latest/docs/framework/react/guide/routing#nested-routing)
 

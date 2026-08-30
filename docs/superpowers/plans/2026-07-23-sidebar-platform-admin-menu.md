@@ -14,7 +14,7 @@
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot/src/routes/studio.tsx`
+- Create: `apps/web/src/routes/studio.tsx`
 
 - [ ] **Step 1:** Add route mirroring `agent.tsx` / `studio.resumes.tsx`, destination `/w/${slug}/studio`.
 
@@ -22,7 +22,7 @@
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot/src/components/layout/sidebar-user-section.tsx`
+- Modify: `apps/web/src/components/layout/sidebar-user-section.tsx`
 
 - [ ] **Step 1:** Rename home link to「返回工作台」→ `/studio`.
 - [ ] **Step 2:** When `!showHomeLink && session.user.role === "admin"`, add「进入管理后台」→ `/platform` (both collapsed and expanded menus).

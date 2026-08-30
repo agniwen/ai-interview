@@ -46,7 +46,7 @@ AI Hiring Copilot 是一个面向招聘团队的 AI 面试与简历筛选系统�
 
 ### 招聘工作台
 
-入口主要在 `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.*.tsx`。
+入口主要在 `apps/web/src/routes/w.$slug.studio.*.tsx`。
 
 - 数据看板：展示候选人漏斗、最近活动、岗位分布、Offer 状态等招聘指标。
 - 招聘台：管理候选人资料、简历 PDF、解析结果、评价摘要、候选人时间线和当前环节。
@@ -129,9 +129,9 @@ flowchart LR
 
 主要目录：
 
-- `apps/ai-recruitment-copilot/`：浏览器 UI、TanStack Start 路由、SSR、server functions。
-- `apps/ai-recruitment-copilot-backend/`：Hono API、业务路由、数据库 DAO、外部服务调用。
-- `apps/ai-recruitment-copilot-worker/`：后台简历解析 worker。
+- `apps/web/`：浏览器 UI、TanStack Start 路由、SSR、server functions。
+- `apps/server/`：Hono API、业务路由、数据库 DAO、外部服务调用。
+- `apps/worker/`：后台简历解析 worker。
 - `apps/livekit-agent/`：Python 语音面试 agent。
 - `packages/db-schema/`：Drizzle schema、relations、数据库相邻类型。
 - `packages/shared/`：纯类型、Zod schema、同构工具。
@@ -157,7 +157,7 @@ flowchart LR
 
 ### 后端：Hono + Drizzle + PostgreSQL
 
-后端核心入口是 `apps/ai-recruitment-copilot-backend/src/server/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
+后端核心入口是 `apps/server/src/server/app.ts`。它通过 `createServerApp()` 创建 Hono app，业务路由统一挂到 `/api` 下。Web 侧的 `src/server.ts` 会把 Hono app 挂进 TanStack Start server entry；同时后端包也可以通过 `src/index.ts` 独立启动。
 
 这意味着当前架构不是「前端一个服务、后端完全另一个服务」的强拆分，也不是「所有 API 都写在前端框架里」。它是一个可嵌入、可独立启动的 Hono 后端包。
 
@@ -257,7 +257,7 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 8. Hono 后端从 Web 项目中抽成 workspace package
 
-2026-06-07 到 2026-06-08 之间有后端包抽取、DB utilities 移到 backend、resume parse 接收 raw bytes 等提交。当前后端在 `apps/ai-recruitment-copilot-backend/`，并由 Web 的 `src/server.ts` 动态挂载。
+2026-06-07 到 2026-06-08 之间有后端包抽取、DB utilities 移到 backend、resume parse 接收 raw bytes 等提交。当前后端在 `apps/server/`，并由 Web 的 `src/server.ts` 动态挂载。
 
 这次变化的重点是边界：后端业务代码不应该依赖 Web app 的 `@/` 路径、浏览器模块或 TanStack Start request primitives。这样未来才可能更平滑地独立部署。
 
@@ -269,17 +269,17 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 前端同学优先看
 
-- `apps/ai-recruitment-copilot/src/routes/`：页面和路由 loader。
-- `apps/ai-recruitment-copilot/src/components/`：业务组件、DataGrid、布局和 UI 组件。
-- `apps/ai-recruitment-copilot/src/lib/client/`：浏览器 API 客户端、Query client、上传/流式工具。
-- `apps/ai-recruitment-copilot/src/lib/start/`：TanStack Start server functions。
-- `apps/ai-recruitment-copilot/src/router.tsx`：Router 和 TanStack Query SSR 集成。
+- `apps/web/src/routes/`：页面和路由 loader。
+- `apps/web/src/components/`：业务组件、DataGrid、布局和 UI 组件。
+- `apps/web/src/lib/client/`：浏览器 API 客户端、Query client、上传/流式工具。
+- `apps/web/src/lib/start/`：TanStack Start server functions。
+- `apps/web/src/router.tsx`：Router 和 TanStack Query SSR 集成。
 
 ### 后端同学优先看
 
-- `apps/ai-recruitment-copilot-backend/src/server/app.ts`：Hono app 聚合入口。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/`：按业务路由组织的 API。
-- `apps/ai-recruitment-copilot-backend/src/lib/server/`：DB、auth、S3、邮件、简历解析等后端能力。
+- `apps/server/src/server/app.ts`：Hono app 聚合入口。
+- `apps/server/src/server/routes/`：按业务路由组织的 API。
+- `apps/server/src/lib/server/`：DB、auth、S3、邮件、简历解析等后端能力。
 - `packages/db-schema/src/schema.ts`：主数据库表。
 - `packages/db-schema/src/relations.ts`：Drizzle relations。
 
@@ -293,10 +293,10 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 
 ### 产品同学优先看
 
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.dashboard.tsx`：招聘数据看板。
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.tsx`：招聘台。
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.interviews.tsx`：AI 面试列表。
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.interviews.$roundId.tsx`：面试详情。
+- `apps/web/src/routes/w.$slug.studio.dashboard.tsx`：招聘数据看板。
+- `apps/web/src/routes/w.$slug.studio.resumes.tsx`：招聘台。
+- `apps/web/src/routes/w.$slug.studio.interviews.tsx`：AI 面试列表。
+- `apps/web/src/routes/w.$slug.studio.interviews.$roundId.tsx`：面试详情。
 - `packages/db-schema/src/schema.ts`：候选人、轮次、人工面试、Offer、表单、题库等核心业务对象。
 
 产品同学不需要逐行读代码，但可以用这些文件确认一个功能到底是“已经有完整数据模型”，还是只有前端入口。
@@ -338,10 +338,10 @@ TypeScript 部分使用 pnpm：
 ```bash
 pnpm dev
 pnpm check
-pnpm --filter @arc/ai-recruitment-copilot typecheck
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot test
-pnpm --filter @arc/ai-recruitment-copilot-backend test
+pnpm --filter @app/web typecheck
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web test
+pnpm --filter @app/server test
 ```
 
 Python agent 使用 uv：
@@ -367,14 +367,14 @@ pnpm db:studio
 
 ### 前端
 
-1. 先跑 Web：`pnpm --filter @arc/ai-recruitment-copilot dev`。
+1. 先跑 Web：`pnpm --filter @app/web dev`。
 2. 看 `src/routes/w.$slug.studio.resumes.tsx` 和 `src/routes/w.$slug.studio.interviews.tsx`，理解列表页模式。
 3. 看 `src/router.tsx` 和 `src/lib/client/`，理解 Router + Query + API 调用。
 4. 再看具体组件，不要从 UI 基础组件开始读。
 
 ### 后端
 
-1. 看 `apps/ai-recruitment-copilot-backend/src/server/app.ts`，理解 `/api` 路由聚合。
+1. 看 `apps/server/src/server/app.ts`，理解 `/api` 路由聚合。
 2. 选一个模块读通，例如 `studio/routes/resumes` 或 `studio/routes/interviews`。
 3. 对照 `packages/db-schema/src/schema.ts` 看数据结构。
 4. 再看外部集成，例如 LiveKit、Resend、Feishu、S3。

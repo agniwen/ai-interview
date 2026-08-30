@@ -9,7 +9,7 @@
 
 > 实施状态（2026-08-24）：本仓库现已完成本地可运行范围内的 Bun workspace、`bun.lock`、受信任安装脚本、既有依赖补丁、Vitest 兼容补丁、Nitro Bun preset、Bun Web/Worker Docker 镜像及 Compose 验证配置。下文保留迁移前评估过程；Nitro close hook、供应链 provenance、队列故障注入/长时间 soak 和真实第三方服务仍是生产上线门禁，不能由本次本地冒烟替代。
 
-本地实施验收已使用固定 digest 的 `oven/bun:1.4.0-debian` 构建 Web 与 Worker 镜像。最终 Compose 运行读取项目已有的 `apps/ai-recruitment-copilot/.env`，连接与本地开发相同的 PostgreSQL、Redis、AI 和对象存储配置；Web `/`、`/api/health`、`/api/ready` 与 Worker `/healthz`、`/readyz` 均返回 200，两个应用服务均为 healthy，容器内 `bun --version` 均为 `1.4.0`。该结果确认真实配置下的启动与 readiness，但没有主动提交简历解析或第三方写操作，因此不等于完整业务链路验收。
+本地实施验收已使用固定 digest 的 `oven/bun:1.4.0-debian` 构建 Web 与 Worker 镜像。最终 Compose 运行读取项目已有的 `apps/web/.env`，连接与本地开发相同的 PostgreSQL、Redis、AI 和对象存储配置；Web `/`、`/api/health`、`/api/ready` 与 Worker `/healthz`、`/readyz` 均返回 200，两个应用服务均为 healthy，容器内 `bun --version` 均为 `1.4.0`。该结果确认真实配置下的启动与 readiness，但没有主动提交简历解析或第三方写操作，因此不等于完整业务链路验收。
 
 推荐路径是：
 
@@ -51,7 +51,7 @@ Bun 1.4 增加了大量 Node 兼容测试，但官方仍未宣称 100% 兼容；
 
 这与 TanStack Start 官方的 Bun 部署方式一致：React 19+ 项目通过 Nitro `bun` preset 构建。[TanStack Start Hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting)
 
-当前 [`vite.config.ts`](../../apps/ai-recruitment-copilot/vite.config.ts) 已按评估结果指定 Bun preset：
+当前 [`vite.config.ts`](../../apps/web/vite.config.ts) 已按评估结果指定 Bun preset：
 
 ```ts
 nitro({
@@ -81,7 +81,7 @@ Vitest 已合并兼容修复 [PR #10363](https://github.com/vitest-dev/vitest/pu
 
 独立后端在 Bun 1.4.0 下成功加载并开始监听；随后 Mastra PostgreSQL 初始化因本次故意使用不可连接的测试地址而失败。这至少证明 Hono、Mastra 与主要模块的加载/启动链路不是即时阻断，但不能替代真实数据库验证。
 
-Hono 官方支持 Bun 原生 server。[Hono Bun 指南](https://hono.dev/docs/getting-started/bun) 当前 [`src/index.ts`](../../apps/ai-recruitment-copilot-backend/src/index.ts) 使用 `@hono/node-server`，建议增加很薄的 Bun adapter，同时继续复用唯一的 `createServerApp()`，不要复制路由逻辑：
+Hono 官方支持 Bun 原生 server。[Hono Bun 指南](https://hono.dev/docs/getting-started/bun) 当前 [`src/index.ts`](../../apps/server/src/index.ts) 使用 `@hono/node-server`，建议增加很薄的 Bun adapter，同时继续复用唯一的 `createServerApp()`，不要复制路由逻辑：
 
 ```ts
 const app = createServerApp();
@@ -195,7 +195,7 @@ Vercel Bun Runtime 目前为 Beta，只能配置 `bunVersion: "1.x"`，由平台
 
 - 若接受 Bun 1.x 自动升级，可继续评估 Vercel；
 - 若必须锁定 Bun 1.4.0，使用 Docker/Railway/Kubernetes 等可控运行环境；
-- 现有 [`vercel.json`](../../apps/ai-recruitment-copilot/vercel.json) 的 pnpm 安装和 Turbo 构建命令也要同步替换。
+- 现有 [`vercel.json`](../../apps/web/vercel.json) 的 pnpm 安装和 Turbo 构建命令也要同步替换。
 
 ### Electron
 

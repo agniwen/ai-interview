@@ -104,7 +104,7 @@ ADR 0016 已要求停止全局硬编码单一权重，并使用带快照的评�
 执行入口：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- \
+pnpm --filter @app/server eval:resume-reviews -- \
   --org org_default --strict
 ```
 
@@ -155,10 +155,10 @@ pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- \
 
 ```bash
 pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic -- \
+pnpm --filter @app/server eval:resume-reviews:synthetic -- \
   --execute --runs 3 --strict
-pnpm --filter @arc/ai-recruitment-copilot-backend test
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @app/server test
+pnpm --filter @app/server typecheck
 pnpm check
 ```
 
@@ -184,11 +184,11 @@ pnpm check
 ### 关键文件索引
 
 - `docs/evaluation/resume-review.md`：现有运行方式、指标和解释边界。
-- `apps/ai-recruitment-copilot-backend/src/scripts/resume-review-eval.ts`：真实历史评价评测 CLI。
-- `apps/ai-recruitment-copilot-backend/src/scripts/resume-review-eval/dataset.ts`：代理金标数据集构造和只读数据库查询。
-- `apps/ai-recruitment-copilot-backend/src/scripts/resume-review-eval/labels.ts`：招聘结果到强弱正负标签的映射。
-- `apps/ai-recruitment-copilot-backend/src/scripts/resume-review-eval/metrics.ts`：离线指标实现。
-- `apps/ai-recruitment-copilot-backend/src/server/agents/resume-analysis-review.ts`：定性 Agent、六维评分 Agent 和组装逻辑。
+- `apps/server/src/scripts/resume-review-eval.ts`：真实历史评价评测 CLI。
+- `apps/server/src/scripts/resume-review-eval/dataset.ts`：代理金标数据集构造和只读数据库查询。
+- `apps/server/src/scripts/resume-review-eval/labels.ts`：招聘结果到强弱正负标签的映射。
+- `apps/server/src/scripts/resume-review-eval/metrics.ts`：离线指标实现。
+- `apps/server/src/server/agents/resume-analysis-review.ts`：定性 Agent、六维评分 Agent 和组装逻辑。
 - `packages/db-schema/src/resume-review.ts`：六维定义、固定权重和结构化评价 schema。
 - `packages/shared/src/resume-evaluation-decision.ts`：当前 `nextStep` 安全约束。
 - `docs/adr/0016-resume-scoring-policies.md`：评分策略、快照和历史分数解释约束。

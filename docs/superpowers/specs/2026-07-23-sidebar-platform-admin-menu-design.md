@@ -25,7 +25,7 @@
 
 ## Implementation
 
-1. 新增 `apps/ai-recruitment-copilot/src/routes/studio.tsx`：作为 `/studio/*` 父路由渲染 `Outlet`；**仅当** `pathname === "/studio"` 时走 `redirectToActiveWorkspace`（避免打断现有 `/studio/resumes` 等 legacy 重定向）。
+1. 新增 `apps/web/src/routes/studio.tsx`：作为 `/studio/*` 父路由渲染 `Outlet`；**仅当** `pathname === "/studio"` 时走 `redirectToActiveWorkspace`（避免打断现有 `/studio/resumes` 等 legacy 重定向）。
 2. 修改 `sidebar-user-section.tsx`：
    - `showHomeLink`：文案「返回工作台」，链接 `/studio`。
    - `!showHomeLink && role === "admin"`：新增「进入管理后台」，链接 `/platform`。

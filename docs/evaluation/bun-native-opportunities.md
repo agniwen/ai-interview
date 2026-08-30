@@ -79,8 +79,8 @@ Bun SQL 是原生 SQL client，支持 PostgreSQL 的二进制协议、连接池�
 
 当前主 DB 边界已经较好地集中在：
 
-- `apps/ai-recruitment-copilot-backend/src/lib/server/db/index.ts`
-- `apps/ai-recruitment-copilot-worker/src/db.ts`
+- `apps/server/src/lib/server/db/index.ts`
+- `apps/worker/src/db.ts`
 
 这使 A/B adapter 成本可控。本项目只读/合成查询验证结果：
 
@@ -97,7 +97,7 @@ Bun SQL 是原生 SQL client，支持 PostgreSQL 的二进制协议、连接池�
 
 Bun 原生 S3 API 支持 Cloudflare R2、自动 multipart、大文件 streaming、presign、stat、range 和 Blob/Web Stream 风格读写。[Bun S3](https://bun.sh/docs/runtime/s3)
 
-本项目的对象存储集中在 `apps/ai-recruitment-copilot-backend/src/lib/server/s3.ts`，但实际有两类完全不同的需求：
+本项目的对象存储集中在 `apps/server/src/lib/server/s3.ts`，但实际有两类完全不同的需求：
 
 - 普通附件/简历：GET、PUT、DELETE、presigned GET；
 - 录制 R2：自定义 SHA-256/MD5 header、metadata、手工 Create/List/Complete/Abort multipart、对 `unhoistableHeaders` 的特殊要求。
@@ -116,10 +116,10 @@ Bun 原生 S3 API 支持 Cloudflare R2、自动 multipart、大文件 streaming�
 
 项目有 10 个 `node:child_process` 文件，生产热点包括 ffmpeg、LibreOffice 和 PPTX preview；主要路径包括：
 
-- `apps/ai-recruitment-copilot-worker/src/meeting-playback/processor.ts`
-- `apps/ai-recruitment-copilot-worker/src/meeting-transcription/qwen-asr-r2.ts`
-- `apps/ai-recruitment-copilot-backend/src/lib/server/office-conversion.ts`
-- `apps/ai-recruitment-copilot-backend/src/server/routes/meetings/transcription/audio-pipeline.ts`
+- `apps/worker/src/meeting-playback/processor.ts`
+- `apps/worker/src/meeting-transcription/qwen-asr-r2.ts`
+- `apps/server/src/lib/server/office-conversion.ts`
+- `apps/server/src/server/routes/meetings/transcription/audio-pipeline.ts`
 
 Bun 官方说明 `Bun.spawn` 使用 `posix_spawn`，支持 Web Streams、AbortSignal、timeout、maxBuffer 和 Linux cgroup；官方 `spawnSync` benchmark 比 Node `child_process` 快约 60%。[Bun Spawn](https://bun.sh/docs/runtime/child-process)
 

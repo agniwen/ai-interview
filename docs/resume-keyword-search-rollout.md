@@ -37,19 +37,19 @@
    `20260826120000_resume_keyword_search` 只加可空字段、生成函数和触发器，
    不回填、不在事务中创建 GIN 索引。DDL 仍需短暂锁表，应设置合理 lock_timeout。
 2. 查看待回填量（默认只读）：
-   `bun run --filter @arc/ai-recruitment-copilot-backend maintain:resume-search backfill`
+   `bun run --filter @app/server maintain:resume-search backfill`
 3. 分批回填：
-   `bun run --filter @arc/ai-recruitment-copilot-backend maintain:resume-search backfill --apply --batch-size=500`
+   `bun run --filter @app/server maintain:resume-search backfill --apply --batch-size=500`
    每批独立事务、主键游标、锁定本批记录，从当前源字段生成。
    重跑自动跳过完整记录；也可用 `--table=resume_pool_item --after-id=上一批last_id` 续跑单表。
    脚本日志只包含表名、数量和游标，不输出候选人资料或连接串。
 4. 独立创建索引：
-   `bun run --filter @arc/ai-recruitment-copilot-backend maintain:resume-search indexes --apply`
+   `bun run --filter @app/server maintain:resume-search indexes --apply`
    先检查回填完成，创建 pg_trgm 和四个 CONCURRENTLY 索引，再 ANALYZE。
    此命令不能放进事务；失败后检查无效/同名异构索引，脚本不会自动删除索引。
    索引已在 Drizzle schema 声明，但由此部署步骤建立，不要遗漏。
 5. 发布前检查：
-   `bun run --filter @arc/ai-recruitment-copilot-backend maintain:resume-search check`
+   `bun run --filter @app/server maintain:resume-search check`
    两表 pending 均为 0，四个索引名称、有效性、访问方法、字段和操作符类均正确才成功。
    抽样比对公司、学校、姓名搜索，并分别检查列表和总数 SQL 的执行计划。
 6. 发布新版应用，检查权限、总数、分页以及编辑/删除后的刷新行为。
@@ -65,7 +65,7 @@
 
 ```sh
 RESUME_SEARCH_TEST_DATABASE_URL=postgres://USER@127.0.0.1:PORT/TEST_DB \
-  bun run --filter @arc/ai-recruitment-copilot-backend test \
+  bun run --filter @app/server test \
   src/server/routes/studio/routes/resumes/dao/keyword-search.integration.test.ts
 ```
 

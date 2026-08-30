@@ -169,10 +169,10 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 ## Architecture
 
-- **Web app** (`apps/ai-recruitment-copilot/`): TanStack Start + React 19, TanStack Router, TanStack Query, Vite/Nitro, shadcn/ui + Tailwind CSS v4. It mounts the Hono backend at `/api` for integrated web runs.
-- **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by the web app at `/api` or started as a standalone Bun app.
+- **Web app** (`apps/web/`): TanStack Start + React 19, TanStack Router, TanStack Query, Vite/Nitro, shadcn/ui + Tailwind CSS v4. It mounts the Hono backend at `/api` for integrated web runs.
+- **Backend app** (`apps/server/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by the web app at `/api` or started as a standalone Bun app.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: Bun workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types). Workspace packages are scoped under `@arc/*`.
+- **Monorepo**: Bun workspace + Turborepo at the root; applications use the `@app/*` scope, while shared packages in `packages/` use `@arc/*` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types).
 
 Two separate package managers: **Bun 1.4.0** for TypeScript apps, **uv** for Python agent. Do not mix them.
 
@@ -186,22 +186,22 @@ Two separate package managers: **Bun 1.4.0** for TypeScript apps, **uv** for Pyt
 - `bun run hooks` — install lefthook git hooks (run once after clone)
 - `bun run db:generate` / `bun run db:migrate` / `bun run db:studio` — proxy to the web app's drizzle scripts
 
-### Web (`apps/ai-recruitment-copilot/`)
+### Web (`apps/web/`)
 
 Either run via turbo from the root, or directly:
 
-- `bun run --filter @arc/ai-recruitment-copilot dev` — TanStack Start dev server
-- `bun run --filter @arc/ai-recruitment-copilot build` — production build
-- `bun run --filter @arc/ai-recruitment-copilot typecheck`
-- `bun run --filter @arc/ai-recruitment-copilot test` / `test:watch` — Vitest
-- `bun run --filter @arc/ai-recruitment-copilot db:generate` / `db:migrate` / `db:studio`
+- `bun run --filter @app/web dev` — TanStack Start dev server
+- `bun run --filter @app/web build` — production build
+- `bun run --filter @app/web typecheck`
+- `bun run --filter @app/web test` / `test:watch` — Vitest
+- `bun run --filter @app/web db:generate` / `db:migrate` / `db:studio`
 
-### Backend (`apps/ai-recruitment-copilot-backend/`)
+### Backend (`apps/server/`)
 
-- `bun run --filter @arc/ai-recruitment-copilot-backend start` — start the standalone Hono Bun server; defaults to `HOST=0.0.0.0` and `PORT=8787`
-- `bun run --filter @arc/ai-recruitment-copilot-backend dev:standalone` — standalone Hono server in watch mode
-- `bun run --filter @arc/ai-recruitment-copilot-backend typecheck`
-- `bun run --filter @arc/ai-recruitment-copilot-backend test` / `test:watch` — Vitest
+- `bun run --filter @app/server start` — start the standalone Hono Bun server; defaults to `HOST=0.0.0.0` and `PORT=8787`
+- `bun run --filter @app/server dev:standalone` — standalone Hono server in watch mode
+- `bun run --filter @app/server typecheck`
+- `bun run --filter @app/server test` / `test:watch` — Vitest
 
 ### Agent (from `apps/livekit-agent/`)
 
@@ -219,13 +219,13 @@ Either run via turbo from the root, or directly:
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
 
-## Frontend Route Layout (`apps/ai-recruitment-copilot/src/routes/`)
+## Frontend Route Layout (`apps/web/src/routes/`)
 
 Keep `src/routes/` limited to TanStack Router route modules: route declarations, route-level loaders, search validation, and thin page composition. Do not place reusable components, page sections, hooks, state models, dialog groups, list renderers, or other helper modules in `src/routes/`, including files hidden from route generation with a `-` prefix. Put feature-owned UI and client state under `src/components/features/<feature>/`; put reusable client utilities under `src/lib/client/` and TanStack Start server helpers under `src/lib/start/`.
 
 Route modules should import feature components and remain the routing boundary rather than growing into page implementations or state containers.
 
-## Server Route Layout (`apps/ai-recruitment-copilot-backend/src/server/routes/`)
+## Server Route Layout (`apps/server/src/server/routes/`)
 
 Every route folder is a self-contained unit:
 
@@ -234,22 +234,22 @@ Every route folder is a self-contained unit:
 - **Nested children**: when a route needs to split into multiple sub-routers (e.g. `/studio` → `interviews`, `departments`, …), put each child under a `routes/` subfolder (`routes/studio/routes/interviews/`). The same convention applies recursively.
 - **Path-based split rule**: split by URL path depth when the child path represents a real sub-resource or sub-module. Keep collection/item CRUD such as `/interviews` and `/interviews/:id` in `interviews/route.ts`; move child resources such as `/interviews/:id/reports` or `/interviews/:id/recordings/:conversationId` to `interviews/routes/reports/route.ts` or `interviews/routes/recordings/route.ts`, then mount them from the parent with `.route("/:id/reports", reportsRouter)`. Do not create dynamic-segment folders like `routes/:id/route.ts` for Hono routes.
 
-Do **not** create top-level `apps/ai-recruitment-copilot-backend/src/server/queries/` or `apps/ai-recruitment-copilot-backend/src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
+Do **not** create top-level `apps/server/src/server/queries/` or `apps/server/src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
 
-Exceptions: `apps/ai-recruitment-copilot-backend/src/server/agents/` (shared by frontend + multiple routes) and `apps/ai-recruitment-copilot-backend/src/server/middlewares/` (shared middleware library) intentionally remain at server root.
+Exceptions: `apps/server/src/server/agents/` (shared by frontend + multiple routes) and `apps/server/src/server/middlewares/` (shared middleware library) intentionally remain at server root.
 
 ## Backend / Web Runtime Boundary
 
-The Hono backend must stay loadable outside the TanStack Start web runtime. Files under `apps/ai-recruitment-copilot-backend/src/server/` and `apps/ai-recruitment-copilot-backend/src/lib/server/` must not import web-app-local `@/` modules, browser-only modules, or TanStack Start route/server-function helpers.
+The Hono backend must stay loadable outside the TanStack Start web runtime. Files under `apps/server/src/server/` and `apps/server/src/lib/server/` must not import web-app-local `@/` modules, browser-only modules, or TanStack Start route/server-function helpers.
 
-The single backend app factory is `createServerApp()` in `apps/ai-recruitment-copilot-backend/src/server/app.ts`. The TanStack Start web app mounts that factory from `apps/ai-recruitment-copilot/src/server.ts`; the standalone Node entrypoint is `apps/ai-recruitment-copilot-backend/src/index.ts`. Do not fork route behavior between those two adapters.
+The single backend app factory is `createServerApp()` in `apps/server/src/server/app.ts`. The TanStack Start web app mounts that factory from `apps/web/src/server.ts`; the standalone Node entrypoint is `apps/server/src/index.ts`. Do not fork route behavior between those two adapters.
 
 When a backend route needs a web-runtime-only capability, introduce a small port in backend code and inject the implementation from the adapter layer. Current examples:
 
 - Better Auth request-scoped headers go through `auth-request-context`; backend route modules should not read TanStack Start request primitives directly.
-- Route/page SSR data belongs in TanStack Start route loaders or `createServerFn` handlers under `apps/ai-recruitment-copilot/src/`, not in backend DAOs.
+- Route/page SSR data belongs in TanStack Start route loaders or `createServerFn` handlers under `apps/web/src/`, not in backend DAOs.
 
-Backend runtime helpers live under `@arc/ai-recruitment-copilot-backend/lib/server/*`. TanStack Start server-function helpers live under `apps/ai-recruitment-copilot/src/lib/start/*`; they may use `@tanstack/react-start/server` request primitives and should import backend primitives from `@arc/ai-recruitment-copilot-backend/*` rather than duplicating backend logic.
+Backend runtime helpers live under `@app/server/lib/server/*`. TanStack Start server-function helpers live under `apps/web/src/lib/start/*`; they may use `@tanstack/react-start/server` request primitives and should import backend primitives from `@app/server/*` rather than duplicating backend logic.
 
 ## Frontend HTTP Calls
 
@@ -289,17 +289,17 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 
 ## Lib Layout (`src/lib/` and `packages/shared/`)
 
-`apps/ai-recruitment-copilot/src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on.
+`apps/web/src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on.
 
-- **`@arc/ai-recruitment-copilot-backend/lib/server/*`** — Backend runtime utilities. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3, PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. These files must avoid app-local `@/` and TanStack Start request primitives so the Hono app can run in a standalone Node process.
+- **`@app/server/lib/server/*`** — Backend runtime utilities. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3, PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. These files must avoid app-local `@/` and TanStack Start request primitives so the Hono app can run in a standalone Node process.
 - **`@/lib/start/*`** — TanStack Start server-function and route-loader helpers. These may use `createServerFn`, `@tanstack/react-start/server`, and backend primitives.
 - **`@/lib/server/*`** — Small web server helpers that belong to the TanStack Start app but are not shared with the standalone Hono runtime.
 - **`@/lib/client/*`** — Browser helpers. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, and the `api/` wrapper layer.
 - **`@arc/shared/*`** — Workspace package for pure types, Zod schemas, and isomorphic utilities (no web runtime, no server secrets, no Node-only APIs unless the API is also available in supported browsers/Node runtimes). Examples: `@arc/shared/interview/agent-instructions`, `@arc/shared/utils`, `@arc/shared/data-url`, `@arc/shared/file-hash`, `@arc/shared/departments`, `@arc/shared/studio-resumes`. Do not recreate `src/lib/shared/` inside the app.
 
-**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@arc/ai-recruitment-copilot-backend/lib/server/db` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`.
+**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@app/server/lib/server/db` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`.
 
-When a module _mostly_ fits `@arc/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@arc/ai-recruitment-copilot-backend/lib/server/` and keep the rest in `@arc/shared`. Don't pull `node:*`, TanStack Start request helpers, or app-local `@/` imports into `packages/shared/src`.
+When a module _mostly_ fits `@arc/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@app/server/lib/server/` and keep the rest in `@arc/shared`. Don't pull `node:*`, TanStack Start request helpers, or app-local `@/` imports into `packages/shared/src`.
 
 ## Voice Agent Development (`apps/livekit-agent/`)
 
@@ -341,7 +341,7 @@ When modifying instructions, tool descriptions, or task / workflow / handoff def
 
 ## Environment Setup
 
-Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/.env` for the TanStack Start web app, and `apps/ai-recruitment-copilot-backend/.env.example` to `apps/ai-recruitment-copilot-backend/.env` for standalone backend runs. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
+Copy `apps/web/.env.example` to `apps/web/.env` for the TanStack Start web app, and `apps/server/.env.example` to `apps/server/.env` for standalone backend runs. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
 
 - LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
@@ -350,7 +350,7 @@ Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/
 
 ### Resend (transactional email)
 
-The round-email feature (`/api/w/:slug/studio/interviews/round-emails/...`) calls Resend with `RESEND_FROM` as the sender. **Use a bare email address** (e.g. `RESEND_FROM=noreply@your-domain.com`) — the From-header display name is built dynamically at runtime as `{globalConfig.companyName} AI HR` (or `AI HR` when no company name is set), via `buildSenderFromAddress` in `@arc/ai-recruitment-copilot-backend/lib/server/resend`. Avoid the `"Name <addr>"` form in env files because the `<>` characters get interpreted as shell redirection in many deploy scripts (Jenkins, CI). **Before sending in any non-local environment**, verify your sender domain in the [Resend dashboard](https://resend.com/domains) — otherwise Resend rejects the send. Local dev can leave `RESEND_API_KEY` unset; the route returns a structured 500 + writes a `studio_round_email_log` row with `status='failed'` when the key is missing.
+The round-email feature (`/api/w/:slug/studio/interviews/round-emails/...`) calls Resend with `RESEND_FROM` as the sender. **Use a bare email address** (e.g. `RESEND_FROM=noreply@your-domain.com`) — the From-header display name is built dynamically at runtime as `{globalConfig.companyName} AI HR` (or `AI HR` when no company name is set), via `buildSenderFromAddress` in `@app/server/lib/server/resend`. Avoid the `"Name <addr>"` form in env files because the `<>` characters get interpreted as shell redirection in many deploy scripts (Jenkins, CI). **Before sending in any non-local environment**, verify your sender domain in the [Resend dashboard](https://resend.com/domains) — otherwise Resend rejects the send. Local dev can leave `RESEND_API_KEY` unset; the route returns a structured 500 + writes a `studio_round_email_log` row with `status='failed'` when the key is missing.
 
 ## Gotchas
 

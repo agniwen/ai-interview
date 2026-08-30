@@ -293,21 +293,21 @@ POST /open-apis/calendar/v4/calendars/:calendar_id/events
 
 ### Authentication
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/lib/server/auth.ts`
-- Reuse: `apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/provider.ts`
-- Reuse: `apps/ai-recruitment-copilot-backend/src/lib/server/feishu-access-token.ts`
+- Modify: `apps/server/src/lib/server/auth.ts`
+- Reuse: `apps/server/src/server/routes/feishu/utils/provider.ts`
+- Reuse: `apps/server/src/lib/server/feishu-access-token.ts`
 
 ### Human interview backend
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/collection-route.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/dao/human-interview-meetings.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/utils/feishu-human-interview-meeting.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/interviews/collection-route.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/interviews/dao/human-interview-meetings.ts`
+- Create: `apps/server/src/server/routes/studio/routes/interviews/utils/feishu-human-interview-meeting.ts`
 - Add tests beside the interviews route using the repository's existing test layout
 
 ### Frontend
 
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/human-interview-stage-dialogs.tsx`
-- Modify: `apps/ai-recruitment-copilot/src/components/features/studio/human-interview-stage-meetings.tsx`
+- Modify: `apps/web/src/components/features/studio/human-interview-stage-dialogs.tsx`
+- Modify: `apps/web/src/components/features/studio/human-interview-stage-meetings.tsx`
 - Add focused component tests beside the affected feature
 
 ## Implementation plan
@@ -537,10 +537,10 @@ POST /open-apis/calendar/v4/calendars/:calendar_id/events
 按任务逐步运行定向测试，最终执行：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot test
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/server test
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web test
+pnpm --filter @app/web typecheck
 pnpm check
 pnpm db:generate
 git diff --check

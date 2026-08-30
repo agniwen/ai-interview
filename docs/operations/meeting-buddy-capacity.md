@@ -42,7 +42,7 @@ MEETING_LOAD_WORKSPACE_SLUG=load-test \
 MEETING_LOAD_COOKIE='better-auth.session_token=REDACTED' \
 MEETING_LOAD_MICROPHONE_FILE=/absolute/path/microphone.webm \
 MEETING_LOAD_SYSTEM_FILE=/absolute/path/system.webm \
-pnpm --filter @arc/ai-recruitment-copilot-worker load:meeting-capacity
+pnpm --filter @app/worker load:meeting-capacity
 ```
 
 记录 create/PUT/complete 成功率、save-to-upload 延迟、stuck-upload 告警和 R2/数据库资源曲线。
@@ -56,7 +56,7 @@ MEETING_LOAD_MODE=final \
 MEETING_LOAD_BASE_URL=http://127.0.0.1:8788 \
 MEETING_LOAD_FINAL_JOBS_FILE=/absolute/path/final-jobs.json \
 WORKER_DIAGNOSTICS_SECRET=REDACTED \
-pnpm --filter @arc/ai-recruitment-copilot-worker load:meeting-capacity
+pnpm --filter @app/worker load:meeting-capacity
 ```
 
 脚本会拒绝重复或已有非终态 job，持续轮询这 20 个 job，只有实际观测到峰值 active=20 且全部到达 completed/failed 才成功；仅看到配置值 20 不算容量证据。同时确认 media finalization 与 Intelligence 的 active/concurrency 没有被改成 20。记录 provider quota、重试、upload-to-transcript 延迟和失败后录音仍可用的证据。
@@ -71,7 +71,7 @@ MEETING_LOAD_BASE_URL=https://test.example.com \
 MEETING_LOAD_WORKSPACE_SLUG=load-test \
 MEETING_LOAD_LIVE_COOKIES_FILE=/absolute/path/100-session-cookies.json \
 MEETING_LOAD_DURATION_SECONDS=600 \
-pnpm --filter @arc/ai-recruitment-copilot-worker load:meeting-capacity
+pnpm --filter @app/worker load:meeting-capacity
 ```
 
 JSON 文件必须恰好包含 100 个不同测试成员的完整 Cookie 字符串。单用户授权有独立的防滥用频控，不能通过提高该限制来伪造 Workspace 并发证据。

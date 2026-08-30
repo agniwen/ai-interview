@@ -460,33 +460,33 @@ Suggested implementation locations; adjust only when current code provides a mor
 - Modify: `packages/db-schema/src/relations.ts`
 - Create: `packages/db-schema/src/meeting-buddy.ts`
 - Create: `packages/shared/src/meeting-buddy.ts`
-- Create: Drizzle migration under `apps/ai-recruitment-copilot/drizzle/`
+- Create: Drizzle migration under `apps/web/drizzle/`
 - Modify: `packages/shared/src/permissions.ts`
 
 ### Desktop capture
 
-- Modify: `apps/ai-recruitment-copilot-desktop/src/main/index.ts`
-- Create: `apps/ai-recruitment-copilot-desktop/src/main/meeting-capture/`
-- Create: `apps/ai-recruitment-copilot-desktop/src/preload/meeting-capture-api.ts`
-- Modify: `apps/ai-recruitment-copilot-desktop/src/preload/index.ts`
-- Modify: `apps/ai-recruitment-copilot-desktop/src/preload/index.d.ts`
-- Extend: `apps/ai-recruitment-copilot-desktop/src/renderer/src/components/features/meeting/`
+- Modify: `apps/desktop/src/main/index.ts`
+- Create: `apps/desktop/src/main/meeting-capture/`
+- Create: `apps/desktop/src/preload/meeting-capture-api.ts`
+- Modify: `apps/desktop/src/preload/index.ts`
+- Modify: `apps/desktop/src/preload/index.d.ts`
+- Extend: `apps/desktop/src/renderer/src/components/features/meeting/`
 - Create: desktop meeting-library and meeting-detail routes under `src/renderer/src/routes/`
 
 ### Backend vertical slice
 
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/meeting-buddy/route.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/meeting-buddy/routes/sessions/`
+- Create: `apps/server/src/server/routes/meeting-buddy/route.ts`
+- Create: `apps/server/src/server/routes/meeting-buddy/routes/sessions/`
 - Co-locate schemas, DAOs, access helpers, transcription adapters and intelligence utilities inside the owning Meeting Buddy route tree.
-- Extend: `apps/ai-recruitment-copilot-backend/src/lib/server/s3.ts` with Meeting Buddy-specific direct-upload and object-key helpers.
+- Extend: `apps/server/src/lib/server/s3.ts` with Meeting Buddy-specific direct-upload and object-key helpers.
 
 Do not create a top-level backend `services/` directory and do not let the Worker import HTTP route handlers.
 
 ### Queue and Worker
 
 - Create: `packages/meeting-processing-queue/`
-- Modify: `apps/ai-recruitment-copilot-worker/src/index.ts`
-- Create: `apps/ai-recruitment-copilot-worker/src/meeting-processing/`
+- Modify: `apps/worker/src/index.ts`
+- Create: `apps/worker/src/meeting-processing/`
 
 Extract provider-neutral application functions so HTTP routes and Worker processors call the same use cases without importing each other's adapters.
 
@@ -568,7 +568,7 @@ Exit gate: unauthorized users cannot obtain metadata, transcript snippets, expor
 - DAO tests for one active capture, zero-or-one recruiting link, state compare-and-set and trash recovery.
 - Queue tests for duplicate delivery, retry after provider success/database failure, and recovery after process restart.
 - Export tests proving timestamps and speaker labels survive TXT/SRT/JSON generation.
-- `pnpm --filter @arc/ai-recruitment-copilot-desktop typecheck`
+- `pnpm --filter @app/desktop typecheck`
 - backend/worker/package focused typechecks and Vitest suites
 - root `pnpm check` with inherited failures explicitly separated from new failures
 - `git diff --check`

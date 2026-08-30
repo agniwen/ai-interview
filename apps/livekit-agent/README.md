@@ -1,7 +1,7 @@
 # Voice Interview Agent
 
 Python LiveKit agent that conducts the live interview half of **AI Recruitment
-Copilot**. The web app (`../ai-recruitment-copilot/`) handles auth, resume upload/parsing,
+Copilot**. The web app (`../web/`) handles auth, resume upload/parsing,
 screening chat, and interview scheduling; this agent joins a LiveKit room and
 runs the actual voice conversation, then reports the transcript back to web.
 
@@ -36,8 +36,8 @@ cp .env.example .env                     # then fill in values (see comments ins
 
 `.env` is loaded by `src/agent.py` via `python-dotenv` (`load_dotenv()`) — it
 lives **inside `apps/livekit-agent/`**, separate from the server environment:
-`apps/ai-recruitment-copilot/.env` for the integrated web runtime, or
-`apps/ai-recruitment-copilot-backend/.env` for the standalone backend. Shared
+`apps/web/.env` for the integrated web runtime, or
+`apps/server/.env` for the standalone backend. Shared
 values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
 `RECORDING_R2_*`) must stay in lock-step with whichever server runtime is deployed.
 
@@ -122,8 +122,8 @@ will work.
 
    `CALLBACK_BASE_URL` must point at your deployed web service (the agent
    POSTs session events back there). `AGENT_CALLBACK_SECRET`, `LIVEKIT_*`,
-   and `RECORDING_R2_*` must match `apps/ai-recruitment-copilot/.env` for the
-   integrated runtime, or `apps/ai-recruitment-copilot-backend/.env` for the
+   and `RECORDING_R2_*` must match `apps/web/.env` for the
+   integrated runtime, or `apps/server/.env` for the
    standalone backend.
 
 5. **Align the agent name with the web side.** Set `AGENT_NAME` in the worker

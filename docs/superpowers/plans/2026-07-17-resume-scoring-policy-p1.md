@@ -20,12 +20,12 @@
 
 ## Global Constraints
 
-- 后端 `apps/ai-recruitment-copilot-backend/src/server/**` 与 `lib/server/**` 不得 import web-app `@/` 或 TanStack Start 原语。
+- 后端 `apps/server/src/server/**` 与 `lib/server/**` 不得 import web-app `@/` 或 TanStack Start 原语。
 - 路由：`route.ts` 内 `.use` / 内联 `requirePermission`；`app.ts` 只 mount。
 - JSON：`c.json(data, status)` + `zValidator(..., jsonValidatorError("..."))`；日期 `.toISOString()`。
 - 前端 feature UI 放 `src/components/features/<feature>/`；`src/routes/` 只做路由薄壳。
 - 权限写：**仅 owner/admin**（新 resource + page action）；读策略配置页同写权限；简历详情上策略名/快照摘要对能看简历的人可见。
-- 命令：`pnpm --filter @arc/db-schema …` / `@arc/shared` / `@arc/ai-recruitment-copilot-backend` / `@arc/ai-recruitment-copilot`；根目录 `pnpm fix` 提交前。
+- 命令：`pnpm --filter @arc/db-schema …` / `@arc/shared` / `@app/server` / `@app/web`；根目录 `pnpm fix` 提交前。
 - Conventional commits；每个 Task 结束提交一次。
 - **P1 不做：** Workspace Deduction Rule Set、Agent 2 扣项 schema、改策略批量重算、默认改列表排序、替换向量推荐分。
 - **Mastra 边界（见下节）：** 策略 CRUD / 权重数学 / nextStep 约束 **不**做成 Agent tool 或 LLM 输出；只扩展现有 workflow 输入与 compose 步。
@@ -310,7 +310,7 @@ git commit -m "feat(db): resume scoring policy tables and review score columns"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/scoring-policies/dao.ts`（或 `dao/queries.ts` + `dao/mutations.ts` 按同目录惯例）
+- Create: `apps/server/src/server/routes/studio/routes/scoring-policies/dao.ts`（或 `dao/queries.ts` + `dao/mutations.ts` 按同目录惯例）
 - Create: `.../scoring-policies/schema.ts`（API body Zod，可 re-export db-schema）
 - Test: `.../scoring-policies/dao.test.ts`（可用现有 DAO 测模式；无 DB 则测纯校验函数 + mock）
 
@@ -343,7 +343,7 @@ git commit -m "feat(scoring-policy): dao resolve, seed, exclusive bindings"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/lib/server/auth.ts` → `afterCreateOrganization` 调用 `ensureGlobalScoringPolicy`
+- Modify: `apps/server/src/lib/server/auth.ts` → `afterCreateOrganization` 调用 `ensureGlobalScoringPolicy`
 - Create: script 或 migrate SQL / one-shot `scripts/backfill-scoring-policies.ts`（或 server 启动可选 ensure——**更推荐显式 backfill 命令**，与其它脚本一致）
 
 - [ ] **Step 1: afterCreateOrganization 种子**
@@ -351,7 +351,7 @@ git commit -m "feat(scoring-policy): dao resolve, seed, exclusive bindings"
 - [ ] **Step 2: backfill：对每个 organization 无 global 则 insert 默认**
 
 ```bash
-# 示例：pnpm --filter @arc/ai-recruitment-copilot-backend exec tsx src/.../backfill-global-scoring-policies.ts
+# 示例：pnpm --filter @app/server exec tsx src/.../backfill-global-scoring-policies.ts
 ```
 
 - [ ] **Step 3: 测 hook 或 DAO ensure 幂等（二次调用不插第二条 global）**
@@ -391,8 +391,8 @@ git commit -m "feat(permissions): owner/admin resume scoring policy access"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/scoring-policies/route.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/route.ts` mount `.route("/scoring-policies", scoringPoliciesRouter)`
+- Create: `apps/server/src/server/routes/studio/routes/scoring-policies/route.ts`
+- Modify: `apps/server/src/server/routes/studio/route.ts` mount `.route("/scoring-policies", scoringPoliciesRouter)`
 - Test: route 级测试（testClient 或现有 pattern）
 
 **Endpoints（均在 `/api/w/:slug/studio/scoring-policies`）:**
@@ -423,18 +423,18 @@ git commit -m "feat(api): studio scoring-policies CRUD"
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/resume-review-workflow.ts`
+- Modify: `apps/server/src/server/agents/mastra/workflows/resume-review-workflow.ts`
   - 扩展 `resumeReviewInputSchema`：`scoringPolicySnapshot`（用 `@arc/db-schema` / shared 的 Zod）
   - `qualitative` / `scoring` step：**透传** snapshot（spread `inputData`）
   - `compose-review`：`deps.composeReview(qual, scoring, { snapshot: inputData.scoringPolicySnapshot, screeningResult: inputData.screeningResult })`
   - 更新 `stepLabels`：`compose-review` → `按策略汇总评分`（或保留原中文并注明策略）
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/resume-analysis-review.ts`
+- Modify: `apps/server/src/server/agents/resume-analysis-review.ts`
   - `assembleResumeReview(qual, scoring, options: { snapshot; screening? })`
   - `composeResumeReviewResult` / `composeResumeReviewFromMarkdown` 签名对齐
   - `generateResumeReview` / `streamGenerateResumeReview` / markdown-first：input 增加 `scoringPolicySnapshot`
   - **可选：** `buildResumeScoringPrompt` 末尾追加 snapshot 启用维与权重说明（总分仍禁止模型输出）
   - Agent 短 instructions（`simple-generators.ts`）**可不改**；长 prompt 在 review 文件即可
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-generation.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-generation.ts`
   - 在调 `generateResumeReview` 前：`resolveScoringPolicyForJob` + `buildScoringPolicySnapshot`
   - 需要 `organizationId` + `jobDescriptionId`（从 record 取；无 JD 时仍 resolve → global）
 - Modify: hard-filter reject 路径（`resume-analysis-hard-filter.ts`）：写入 `baseScore: 0.0` + 传入的 snapshot
@@ -476,9 +476,9 @@ export function composeResumeReviewResult(
 - [ ] **Step 4: 跑测**
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-review-workflow
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-analysis-agent-review
-pnpm --filter @arc/ai-recruitment-copilot-backend test review-generation
+pnpm --filter @app/server test resume-review-workflow
+pnpm --filter @app/server test resume-analysis-agent-review
+pnpm --filter @app/server test review-generation
 ```
 
 - [ ] **Step 5: Commit**
@@ -493,7 +493,7 @@ git commit -m "feat(mastra): thread scoring policy snapshot through resume-revie
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/scorers/recruitment-scorers.ts`
+- Modify: `apps/server/src/server/agents/mastra/scorers/recruitment-scorers.ts`
 - Modify: `mastra/__tests__/recruitment-scorers.test.ts`
 - 保持注册在 `recruitmentScorers` → `mastra/index.ts`（已挂 scorers）
 
@@ -520,7 +520,7 @@ git commit -m "feat(mastra): composite score consistency scorer for resume revie
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-worker.ts` `markReady`
+- Modify: `apps/server/src/server/routes/studio/routes/resumes/utils/review-worker.ts` `markReady`
 - Test: `review-worker.test.ts`
 
 ```ts
@@ -585,7 +585,7 @@ git commit -m "feat(resumes): optional sort by resume review composite score"
 
 **Files:**
 
-- Create route: `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.scoring-policies.tsx`（薄壳）
+- Create route: `apps/web/src/routes/w.$slug.studio.scoring-policies.tsx`（薄壳）
 - Create: `src/components/features/studio/scoring-policies/*`（列表、编辑对话框：维度勾选、equal/custom 权重、岗位多选、实时均分、sum=100 校验）
 - Modify: `src/lib/start/studio-page-paths.ts` + studio sidebar / nav（与 `interview-questions` 同级；**仅**有 `page:scoringPolicies` 时显示）
 - Client: `rpc.api.w[":slug"].studio["scoring-policies"]` + `rpcFetch`
@@ -651,12 +651,12 @@ git commit -m "feat(jd): show effective resume scoring policy"
 
 ```bash
 pnpm --filter @arc/shared test
-pnpm --filter @arc/ai-recruitment-copilot-backend test
-pnpm --filter @arc/ai-recruitment-copilot-backend test resume-review-workflow
-pnpm --filter @arc/ai-recruitment-copilot-backend test recruitment-scorers
-pnpm --filter @arc/ai-recruitment-copilot test  # 若有相关
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/server test
+pnpm --filter @app/server test resume-review-workflow
+pnpm --filter @app/server test recruitment-scorers
+pnpm --filter @app/web test  # 若有相关
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web typecheck
 pnpm fix
 ```
 

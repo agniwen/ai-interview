@@ -194,17 +194,17 @@
 - `packages/db-schema/src/interview-session.ts`：当前报告 DTO 与 `Record<string, unknown>` 来源。
 - `packages/db-schema/src/schema.ts`：conversation、snapshot、notification、audit 与候选人阶段表。
 - `packages/shared/src/interview/`：新共享报告 Schema 的目标目录。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-report.ts`：当前评估 Schema 与 prompt。
-- `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/interview-report-workflow.ts`：当前报告 workflow。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/interview-summary-job.ts`：当前报告持久化和自动通知触发点。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/evidence-snapshot.ts`：三路冻结输入的现有基础。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/routes/reports/`：轮次报告 API 与新 DAO 的归属目录。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/agent/utils/feishu-interview-notifications.ts`：当前 per-conversation/per-recipient 文档所有权与通知逻辑。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/interview-evaluation-doc.ts`：飞书报告模板。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/feishu-docx.ts`：飞书文档创建、授权和移动。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/detail-route.ts` 与 `routes/studio/routes/interviews/route.ts`：轮次 PATCH、reset、单删和批删保护。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/route.ts`：候选人单删和批删保护。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/utils/candidate-stage-transition.ts`：候选人阶段规则和事务入口。
-- `apps/ai-recruitment-copilot/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`：当前宽松报告渲染。
-- `apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-controller.tsx`：当前报告选择和 unknown 类型断言。
+- `apps/server/src/server/routes/agent/utils/interview-report.ts`：当前评估 Schema 与 prompt。
+- `apps/server/src/server/agents/mastra/workflows/interview-report-workflow.ts`：当前报告 workflow。
+- `apps/server/src/server/routes/agent/utils/interview-summary-job.ts`：当前报告持久化和自动通知触发点。
+- `apps/server/src/server/routes/agent/utils/evidence-snapshot.ts`：三路冻结输入的现有基础。
+- `apps/server/src/server/routes/studio/routes/interviews/routes/reports/`：轮次报告 API 与新 DAO 的归属目录。
+- `apps/server/src/server/routes/agent/utils/feishu-interview-notifications.ts`：当前 per-conversation/per-recipient 文档所有权与通知逻辑。
+- `apps/server/src/server/routes/feishu/utils/interview-evaluation-doc.ts`：飞书报告模板。
+- `apps/server/src/server/routes/feishu/utils/feishu-docx.ts`：飞书文档创建、授权和移动。
+- `apps/server/src/server/routes/studio/routes/interviews/detail-route.ts` 与 `routes/studio/routes/interviews/route.ts`：轮次 PATCH、reset、单删和批删保护。
+- `apps/server/src/server/routes/studio/routes/resumes/route.ts`：候选人单删和批删保护。
+- `apps/server/src/server/routes/studio/routes/interviews/utils/candidate-stage-transition.ts`：候选人阶段规则和事务入口。
+- `apps/web/src/components/features/studio/interviews/interview-detail/evaluation-results.tsx`：当前宽松报告渲染。
+- `apps/web/src/components/features/studio/studio-person-detail-controller.tsx`：当前报告选择和 unknown 类型断言。
 - `CONTEXT.md`：本轮确认后的领域词汇。

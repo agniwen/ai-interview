@@ -18,7 +18,7 @@
 3. `job-description-code.test.ts`（2 项）：测试输入包含已从严格 schema 移除的旧配置字段。
 4. `resumes/__tests__/route-behavior.test.ts`：重新评估事务 mock 未实现 `onConflictDoNothing`，响应变为 500。
 
-`git diff aee04c5c -- apps/ai-recruitment-copilot-backend packages bun.lock` 为空；未扩展本轮范围修改这些失败。全量测试使用本机隔离 PostgreSQL（127.0.0.1:55439），未使用真实业务数据库执行测试写操作。
+`git diff aee04c5c -- apps/server packages bun.lock` 为空；未扩展本轮范围修改这些失败。全量测试使用本机隔离 PostgreSQL（127.0.0.1:55439），未使用真实业务数据库执行测试写操作。
 
 ## 浏览器验收
 

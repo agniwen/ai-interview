@@ -5,7 +5,7 @@
 默认命令只列出 8 个脱敏案例，不调用模型：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:jd-match:synthetic
+pnpm --filter @app/server eval:jd-match:synthetic
 ```
 
 案例覆盖：目标岗位与技能直接匹配、缺少目标岗位但技能明确、业务领域匹配、职级差异、测试开发、SRE、简历与 JD 描述提示词注入、仅有目标岗位等信息缺失场景。
@@ -13,7 +13,7 @@ pnpm --filter @arc/ai-recruitment-copilot-backend eval:jd-match:synthetic
 显式执行会产生模型调用：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-backend eval:jd-match:synthetic -- \
+pnpm --filter @app/server eval:jd-match:synthetic -- \
   --execute --runs 3 --strict
 ```
 

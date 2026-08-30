@@ -268,7 +268,7 @@ resumeEvaluationAttemptMode    legacy | structured | null
 ### Suggested layout
 
 ```text
-apps/ai-recruitment-copilot-backend/src/server/routes/
+apps/server/src/server/routes/
   .../job-descriptions/
     route.ts
     routes/
@@ -466,7 +466,7 @@ explicitConfirmation
 页面级组件和状态放在：
 
 ```text
-apps/ai-recruitment-copilot/src/components/features/<job-description-feature>/
+apps/web/src/components/features/<job-description-feature>/
 ```
 
 TanStack route 文件只保留 loader、search 校验和薄页面组合，不把升级表单或对话框放进 `src/routes/`。
@@ -586,14 +586,14 @@ TanStack route 文件只保留 loader、search 校验和薄页面组合，不把
 
 ```bash
 # 数据层和后端定向测试
-pnpm --filter @arc/ai-recruitment-copilot-backend test -- <upgrade-tests>
+pnpm --filter @app/server test -- <upgrade-tests>
 
 # Web 定向测试
-pnpm --filter @arc/ai-recruitment-copilot test -- <upgrade-ui-tests>
+pnpm --filter @app/web test -- <upgrade-ui-tests>
 
 # 类型检查
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web typecheck
 
 # 全仓验证
 pnpm typecheck

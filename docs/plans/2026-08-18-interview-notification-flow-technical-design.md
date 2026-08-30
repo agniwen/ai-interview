@@ -110,7 +110,7 @@ AI 轮次在 `studio_interview_schedule` 保存：
 事件由 owning DAO 在业务事务中创建。创建事件的公共入口位于：
 
 ```text
-apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interview-notifications/utils/events.ts
+apps/server/src/server/routes/studio/routes/interview-notifications/utils/events.ts
 ```
 
 其中 `resolveHumanMeetingEventInterviewLink()` 统一真人事件的链接策略：真人完成评价直接链接招聘系统记录页；候选人相关事件才要求有效邀请 Token。评价事件因此不依赖邀请签名密钥。
@@ -318,7 +318,7 @@ INTERVIEW_NOTIFICATION_WORKER_ENABLED
 ## 9. Backend 模块归属
 
 ```text
-apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/
+apps/server/src/server/routes/studio/routes/
   interview-notifications/
     dao.ts
     utils/
@@ -344,7 +344,7 @@ apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/
 ```
 
 ```text
-apps/ai-recruitment-copilot-worker/src/interview-notifications/
+apps/worker/src/interview-notifications/
   default-dependencies.ts
   processor.ts
   scheduler.ts

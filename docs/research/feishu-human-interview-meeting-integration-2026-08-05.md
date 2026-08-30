@@ -22,10 +22,10 @@
 
 当前代码已经具备复用同一飞书应用的技术基础：
 
-- 已配置两个飞书 OAuth provider，并有按应用获取、缓存 `tenant_access_token` 的服务。当前用户 OAuth scope 只有通讯录基础信息和邮箱权限，尚无 VC、Calendar、妙记、纪要或 `offline_access`。[源码：auth.ts](../../apps/ai-recruitment-copilot-backend/src/lib/server/auth.ts) [源码：feishu-access-token.ts](../../apps/ai-recruitment-copilot-backend/src/lib/server/feishu-access-token.ts)
-- 已有基于 `@larksuite/vercel-chat-adapter@0.1.2` 的机器人长连接，只处理 Chat SDK 所需的消息、卡片动作和 reaction 等事件。[源码：bot.ts](../../apps/ai-recruitment-copilot-backend/src/server/routes/feishu/utils/bot.ts) [依赖版本：package.json](../../apps/ai-recruitment-copilot-backend/package.json)
+- 已配置两个飞书 OAuth provider，并有按应用获取、缓存 `tenant_access_token` 的服务。当前用户 OAuth scope 只有通讯录基础信息和邮箱权限，尚无 VC、Calendar、妙记、纪要或 `offline_access`。[源码：auth.ts](../../apps/server/src/lib/server/auth.ts) [源码：feishu-access-token.ts](../../apps/server/src/lib/server/feishu-access-token.ts)
+- 已有基于 `@larksuite/vercel-chat-adapter@0.1.2` 的机器人长连接，只处理 Chat SDK 所需的消息、卡片动作和 reaction 等事件。[源码：bot.ts](../../apps/server/src/server/routes/feishu/utils/bot.ts) [依赖版本：package.json](../../apps/server/package.json)
 - **这个 adapter 不能直接承接 `vc.*` / `minutes.*` 通用事件。** 其公开能力是 Chat adapter；底层 `LarkChannel` 注册的是 `im.message.receive_v1`、卡片、reaction、bot-added 和评论事件，没有暴露通用 `EventDispatcher.register()`。VC/妙记事件需要另用官方 Node SDK 的 `EventDispatcher + WSClient`，或建设官方 Webhook 接收端；不能假设现有 `bot.onDirectMessage()` 长连接会自动收到会议事件。[官方 adapter README](https://github.com/larksuite/vercel-chat-adapter) [官方 Node SDK：事件处理](https://github.com/larksuite/node-sdk#event-processing)
-- 现有真人面试记录只保存本地 LiveKit 房间、邀请 token、录制字段和业务状态，没有飞书 `reserve_id`、`meeting_id`、`meeting_no`、Calendar `event_id`、纪要/妙记 token 或飞书同步状态。[源码：human-interview-meetings.ts](../../apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/interviews/dao/human-interview-meetings.ts)
+- 现有真人面试记录只保存本地 LiveKit 房间、邀请 token、录制字段和业务状态，没有飞书 `reserve_id`、`meeting_id`、`meeting_no`、Calendar `event_id`、纪要/妙记 token 或飞书同步状态。[源码：human-interview-meetings.ts](../../apps/server/src/server/routes/studio/routes/interviews/dao/human-interview-meetings.ts)
 - 现有本地用户 ID 不是飞书用户 ID。飞书 OAuth 返回的 `open_id` 被保存为 OAuth account 的 provider account ID；创建会议时必须取与当前飞书应用匹配的账号标识，不能把本地 UUID 直接传给飞书。
 
 此外，仓库同时存在两个飞书应用。`open_id` 是“用户在某个应用中的身份”，同一用户在两个应用下的 `open_id` 不同；必须把会议的 provider/app 固化在记录上，并使用同一应用签发的 token 和用户 ID。若改用租户内跨应用稳定的 `user_id`，还需申请字段权限 `contact:user.employee_id:readonly`。[官方：预约会议的 `user_id_type`](https://open.feishu.cn/document/server-docs/vc-v1/reserve/apply?lang=zh-CN)

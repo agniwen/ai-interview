@@ -1,0 +1,696 @@
+import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
+import { z } from "zod";
+import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
+import { zValidator } from "@hono/zod-validator";
+import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { createInternalErrorResponse } from "@app/server/server/error-handler";
+import { adminMiddleware } from "@app/server/server/middlewares/admin";
+import { db } from "@app/server/lib/server/db";
+import { organization, member, session, user } from "@arc/db-schema/schema";
+import { resumeParseStatusValues } from "@arc/db-schema/studio-interviews";
+import {
+  getResumeParseQueueOverview,
+  listResumeParseQueueJobs,
+  RESUME_PARSE_JOB_LIST_STATES,
+  RESUME_PARSE_QUEUE_NAME,
+} from "@arc/resume-parse-queue/resume-parse";
+import {
+  getResumeReviewGenerationQueueOverview,
+  listResumeReviewGenerationQueueJobs,
+  RESUME_REVIEW_GENERATION_QUEUE_NAME,
+} from "@arc/resume-parse-queue/resume-review-generation";
+import {
+  createMailIngestAccount,
+  getMailIngestAccountLoginConfig,
+  isWorkspaceMember,
+  queryPaginatedPlatformMailIngestAccounts,
+  updateWorkspaceMailIngestAccount,
+} from "@app/server/server/routes/studio/routes/mail-ingest/dao";
+import {
+  createMailIngestAccountSchema,
+  updateMailIngestAccountSchema,
+} from "@app/server/server/routes/studio/routes/mail-ingest/schema";
+import {
+  MailIngestValidationError,
+  mergeMailIngestLoginConfig,
+  validateMailIngestAccountLogin,
+} from "@app/server/server/routes/studio/routes/mail-ingest/validation";
+import {
+  enrichResumeParseQueueJobs,
+  filterEnrichedResumeParseQueueJobRecords,
+} from "./queue-details";
+import type { PlatformQueueJobsResult } from "./queue-details";
+import { createPlatformNotificationsRouter } from "./routes/notifications/route";
+import type { PlatformNotificationsRouterDependencies } from "./routes/notifications/route";
+import { platformResumeParseCacheRouter } from "./routes/resume-parse-cache/route";
+import { platformLiveKitRouter } from "./routes/livekit/route";
+
+// --- Organizations list ---
+const orgQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  sortBy: z.enum(["name", "slug", "createdAt", "memberCount"]).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  textFilters: listTextFiltersSchema("organizations"),
+});
+
+function orgOrderExpr(sortBy: string) {
+  if (sortBy === "name") {
+    return organization.name;
+  }
+  if (sortBy === "slug") {
+    return organization.slug;
+  }
+  if (sortBy === "memberCount") {
+    return sql`coalesce("mc"."cnt", 0)`;
+  }
+  return organization.createdAt;
+}
+
+const platformOrganizations = factory
+  .createApp()
+  .get(
+    "/organizations",
+    zValidator("query", orgQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
+      const offset = (page - 1) * pageSize;
+
+      const searchFilter = and(
+        buildListTextFilterWhere("organizations", textFilters, {
+          name: organization.name,
+          slug: organization.slug,
+        }),
+        search?.trim()
+          ? or(
+              ilike(organization.name, `%${search.trim()}%`),
+              ilike(organization.slug, `%${search.trim()}%`),
+            )
+          : undefined,
+      );
+
+      const memberCountSubquery = db
+        .select({ count: count(member.id).as("cnt"), organizationId: member.organizationId })
+        .from(member)
+        .groupBy(member.organizationId)
+        .as("mc");
+
+      const orderDir = sortOrder === "asc" ? asc : desc;
+
+      const [rows, [{ total }]] = await Promise.all([
+        db
+          .select({
+            createdAt: organization.createdAt,
+            id: organization.id,
+            memberCount: sql<number>`coalesce("mc"."cnt", 0)`.as("member_count"),
+            name: organization.name,
+            slug: organization.slug,
+          })
+          .from(organization)
+          .leftJoin(memberCountSubquery, eq(memberCountSubquery.organizationId, organization.id))
+          .where(searchFilter)
+          .orderBy(orderDir(orgOrderExpr(sortBy)))
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ total: count() }).from(organization).where(searchFilter),
+      ]);
+
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      return c.json(
+        {
+          page,
+          pageSize,
+          records: rows.map((r) => ({
+            ...r,
+            createdAt: r.createdAt.toISOString(),
+          })),
+          total,
+          totalPages,
+        },
+        200,
+      );
+    },
+  );
+
+// --- Organization detail (members) ---
+const orgMembersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+});
+
+const organizationDetail = factory
+  .createApp()
+  .get(
+    "/organizations/:orgId",
+    zValidator("query", orgMembersQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const orgId = c.req.param("orgId");
+      const { page, pageSize } = c.req.valid("query");
+      const offset = (page - 1) * pageSize;
+
+      const [org] = await db
+        .select({
+          createdAt: organization.createdAt,
+          id: organization.id,
+          metadata: organization.metadata,
+          name: organization.name,
+          slug: organization.slug,
+        })
+        .from(organization)
+        .where(eq(organization.id, orgId))
+        .limit(1);
+
+      if (!org) {
+        return c.json({ error: "工作区不存在" }, 404);
+      }
+
+      const [members, [{ total }]] = await Promise.all([
+        db
+          .select({
+            createdAt: member.createdAt,
+            id: member.id,
+            role: member.role,
+            userEmail: user.email,
+            userId: member.userId,
+            userImage: user.image,
+            userName: user.name,
+          })
+          .from(member)
+          .innerJoin(user, eq(member.userId, user.id))
+          .where(eq(member.organizationId, orgId))
+          .orderBy(desc(member.createdAt))
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ total: count() }).from(member).where(eq(member.organizationId, orgId)),
+      ]);
+
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      return c.json(
+        {
+          members: {
+            page,
+            pageSize,
+            records: members.map((m) => ({
+              ...m,
+              createdAt: m.createdAt.toISOString(),
+            })),
+            total,
+            totalPages,
+          },
+          organization: {
+            ...org,
+            createdAt: org.createdAt.toISOString(),
+          },
+        },
+        200,
+      );
+    },
+  );
+
+// --- Users list ---
+const userQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  sortBy: z.enum(["name", "email", "role", "createdAt", "lastActiveAt"]).default("lastActiveAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  textFilters: listTextFiltersSchema("users"),
+});
+
+const updateUserRemarkSchema = z.object({
+  remark: z.string().max(80).nullable(),
+});
+
+const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
+  MAX(${session.updatedAt}),
+  MAX(${user.lastActiveAt})
+)`;
+const LAST_ACTIVE_AT_SELECT_SQL = sql<Date | string | null>`${LAST_ACTIVE_AT_EXPR}`.as(
+  "last_active_at",
+);
+
+function userOrderBy(sortBy: string, sortOrder: "asc" | "desc") {
+  if (sortBy === "lastActiveAt") {
+    const direction = sortOrder === "asc" ? sql`asc` : sql`desc`;
+    return [sql`${LAST_ACTIVE_AT_EXPR} ${direction} nulls last`, desc(user.createdAt)];
+  }
+  const orderDir = sortOrder === "asc" ? asc : desc;
+  if (sortBy === "name") {
+    return [orderDir(user.name), desc(user.createdAt)];
+  }
+  if (sortBy === "email") {
+    return [orderDir(user.email), desc(user.createdAt)];
+  }
+  if (sortBy === "role") {
+    return [orderDir(user.role), desc(user.createdAt)];
+  }
+  return [orderDir(user.createdAt)];
+}
+
+function toIsoString(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+const platformUsers = factory
+  .createApp()
+  .get(
+    "/users",
+    zValidator("query", userQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
+      const offset = (page - 1) * pageSize;
+
+      const searchFilter = and(
+        buildListTextFilterWhere("users", textFilters, { email: user.email, name: user.name }),
+        search?.trim()
+          ? or(ilike(user.name, `%${search.trim()}%`), ilike(user.email, `%${search.trim()}%`))
+          : undefined,
+      );
+
+      const [rows, [{ total }]] = await Promise.all([
+        db
+          .select({
+            banExpires: user.banExpires,
+            banReason: user.banReason,
+            banned: user.banned,
+            createdAt: user.createdAt,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            feishuTenantName: user.feishuTenantName,
+            id: user.id,
+            image: user.image,
+            lastActiveAt: LAST_ACTIVE_AT_SELECT_SQL,
+            name: user.name,
+            remark: user.remark,
+            role: user.role,
+            updatedAt: user.updatedAt,
+          })
+          .from(user)
+          .leftJoin(session, eq(session.userId, user.id))
+          .where(searchFilter)
+          .groupBy(user.id)
+          .orderBy(...userOrderBy(sortBy, sortOrder))
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ total: count() }).from(user).where(searchFilter),
+      ]);
+
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      return c.json(
+        {
+          page,
+          pageSize,
+          records: rows.map((r) => ({
+            ...r,
+            banExpires: r.banExpires?.toISOString() ?? null,
+            createdAt: r.createdAt.toISOString(),
+            lastActiveAt: toIsoString(r.lastActiveAt),
+            updatedAt: r.updatedAt.toISOString(),
+          })),
+          total,
+          totalPages,
+        },
+        200,
+      );
+    },
+  )
+  .patch(
+    "/users/:userId/remark",
+    zValidator("json", updateUserRemarkSchema, jsonValidatorError("备注内容无效")),
+    async (c) => {
+      const userId = c.req.param("userId");
+      const input = c.req.valid("json");
+      const remark = input.remark?.trim() || null;
+
+      const [updated] = await db
+        .update(user)
+        .set({
+          remark,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId))
+        .returning({
+          id: user.id,
+          remark: user.remark,
+          updatedAt: user.updatedAt,
+        });
+
+      if (!updated) {
+        return c.json({ error: "用户不存在" }, 404);
+      }
+
+      return c.json(
+        {
+          ...updated,
+          updatedAt: updated.updatedAt.toISOString(),
+        },
+        200,
+      );
+    },
+  )
+  .get("/users/:userId/workspaces", async (c) => {
+    const userId = c.req.param("userId");
+
+    const [targetUser] = await db
+      .select({
+        email: user.email,
+        id: user.id,
+        image: user.image,
+        name: user.name,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    if (!targetUser) {
+      return c.json({ error: "用户不存在" }, 404);
+    }
+
+    const memberships = await db
+      .select({
+        createdAt: member.createdAt,
+        id: member.id,
+        organizationCreatedAt: organization.createdAt,
+        organizationId: organization.id,
+        organizationName: organization.name,
+        organizationSlug: organization.slug,
+        role: member.role,
+      })
+      .from(member)
+      .innerJoin(organization, eq(member.organizationId, organization.id))
+      .where(eq(member.userId, userId))
+      .orderBy(desc(member.createdAt));
+
+    return c.json(
+      {
+        records: memberships.map((row) => ({
+          ...row,
+          createdAt: row.createdAt.toISOString(),
+          organizationCreatedAt: row.organizationCreatedAt.toISOString(),
+        })),
+        total: memberships.length,
+        user: targetUser,
+      },
+      200,
+    );
+  });
+
+const mailIngestAccountsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  sortBy: z.enum(["userName", "userEmail", "emailAddress", "lastCheckedAt"]).default("userName"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  textFilters: listTextFiltersSchema("platformMailAccounts"),
+});
+
+const createPlatformMailIngestAccountSchema = createMailIngestAccountSchema.extend({
+  organizationId: z.string().trim().min(1),
+  userId: z.string().trim().min(1),
+});
+
+const updatePlatformMailIngestAccountSchema = updateMailIngestAccountSchema.extend({
+  organizationId: z.string().trim().min(1),
+});
+
+export interface PlatformMailIngestDependencies {
+  createMailIngestAccount: typeof createMailIngestAccount;
+  getMailIngestAccountLoginConfig: typeof getMailIngestAccountLoginConfig;
+  isWorkspaceMember: typeof isWorkspaceMember;
+  queryPaginatedPlatformMailIngestAccounts: typeof queryPaginatedPlatformMailIngestAccounts;
+  updateWorkspaceMailIngestAccount: typeof updateWorkspaceMailIngestAccount;
+  validateMailIngestAccountLogin: typeof validateMailIngestAccountLogin;
+}
+
+const defaultPlatformMailIngestDependencies: PlatformMailIngestDependencies = {
+  createMailIngestAccount,
+  getMailIngestAccountLoginConfig,
+  isWorkspaceMember,
+  queryPaginatedPlatformMailIngestAccounts,
+  updateWorkspaceMailIngestAccount,
+  validateMailIngestAccountLogin,
+};
+
+function createPlatformMailIngestAccounts(
+  dependencies: PlatformMailIngestDependencies = defaultPlatformMailIngestDependencies,
+) {
+  return factory
+    .createApp()
+    .get(
+      "/mail-ingest-accounts",
+      zValidator("query", mailIngestAccountsQuerySchema, jsonValidatorError("参数校验失败")),
+      async (c) => {
+        const { page, pageSize, search, textFilters, sortBy, sortOrder } = c.req.valid("query");
+        const result = await dependencies.queryPaginatedPlatformMailIngestAccounts(
+          { search, textFilters },
+          { page, pageSize, sortBy, sortOrder },
+        );
+        return c.json(result, 200);
+      },
+    )
+    .post(
+      "/mail-ingest-accounts",
+      zValidator(
+        "json",
+        createPlatformMailIngestAccountSchema,
+        jsonValidatorError("邮箱配置无效。"),
+      ),
+      async (c) => {
+        const { organizationId, userId, ...input } = c.req.valid("json");
+        const memberExists = await dependencies.isWorkspaceMember({ organizationId, userId });
+        if (!memberExists) {
+          return c.json({ error: "目标成员不存在。" }, 404);
+        }
+        try {
+          await dependencies.validateMailIngestAccountLogin(input);
+          const account = await dependencies.createMailIngestAccount({
+            input,
+            organizationId,
+            userId,
+          });
+          return c.json(account, 201);
+        } catch (error) {
+          if (error instanceof MailIngestValidationError) {
+            return c.json({ error: error.message }, 400);
+          }
+          return c.json(
+            createInternalErrorResponse({
+              context: { organizationId, userId },
+              error,
+              operation: "platform-mail-ingest-create",
+              publicMessage: "邮箱配置保存失败。",
+            }),
+            500,
+          );
+        }
+      },
+    )
+    .patch(
+      "/mail-ingest-accounts/:id",
+      zValidator(
+        "json",
+        updatePlatformMailIngestAccountSchema,
+        jsonValidatorError("邮箱配置无效。"),
+      ),
+      async (c) => {
+        const { organizationId, ...input } = c.req.valid("json");
+        try {
+          const accountId = c.req.param("id");
+          const existing = await dependencies.getMailIngestAccountLoginConfig({
+            id: accountId,
+            organizationId,
+          });
+          if (!existing) {
+            return c.json({ error: "邮箱配置不存在。" }, 404);
+          }
+          await dependencies.validateMailIngestAccountLogin(
+            mergeMailIngestLoginConfig(existing, input),
+          );
+          const account = await dependencies.updateWorkspaceMailIngestAccount({
+            id: accountId,
+            input,
+            organizationId,
+          });
+          if (!account) {
+            return c.json({ error: "邮箱配置不存在。" }, 404);
+          }
+          return c.json(account, 200);
+        } catch (error) {
+          if (error instanceof MailIngestValidationError) {
+            return c.json({ error: error.message }, 400);
+          }
+          return c.json(
+            createInternalErrorResponse({
+              context: { accountId: c.req.param("id"), organizationId },
+              error,
+              operation: "platform-mail-ingest-update",
+              publicMessage: "邮箱配置更新失败。",
+            }),
+            500,
+          );
+        }
+      },
+    );
+}
+
+const resumeUploadBatchItemStatusValues = [
+  "pending",
+  "processing",
+  "succeeded",
+  "failed",
+  "duplicate_skipped",
+  "cancelled",
+] as const;
+
+const queueJobsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  parseStatus: z.enum(["all", ...resumeParseStatusValues]).default("all"),
+  search: z.string().optional(),
+  state: z.enum(RESUME_PARSE_JOB_LIST_STATES).default("all"),
+  uploadStatus: z.enum(["all", ...resumeUploadBatchItemStatusValues]).default("all"),
+});
+
+type QueueJobsQuery = z.infer<typeof queueJobsQuerySchema>;
+
+const DETAIL_FILTER_SCAN_PAGE_SIZE = 100;
+
+function hasDetailStatusFilter(query: QueueJobsQuery): boolean {
+  return query.uploadStatus !== "all" || query.parseStatus !== "all";
+}
+
+async function listResumeParseQueueJobsWithDetailFilters(query: QueueJobsQuery) {
+  const queueQuery = {
+    search: query.search,
+    state: query.state,
+  };
+  if (!hasDetailStatusFilter(query)) {
+    const result = await listResumeParseQueueJobs({
+      ...queueQuery,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    return enrichResumeParseQueueJobs(result);
+  }
+
+  const firstPage = await listResumeParseQueueJobs({
+    ...queueQuery,
+    page: 1,
+    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+  });
+  const records = [...firstPage.records];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const pageResult = await listResumeParseQueueJobs({
+      ...queueQuery,
+      page,
+      pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+    });
+    records.push(...pageResult.records);
+  }
+
+  const enriched = await enrichResumeParseQueueJobs({
+    ...firstPage,
+    page: 1,
+    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+    records,
+    total: records.length,
+    totalPages: records.length > 0 ? Math.ceil(records.length / DETAIL_FILTER_SCAN_PAGE_SIZE) : 0,
+  });
+  const filteredRecords = filterEnrichedResumeParseQueueJobRecords(enriched.records, {
+    parseStatus: query.parseStatus,
+    uploadStatus: query.uploadStatus,
+  });
+  const offset = (query.page - 1) * query.pageSize;
+
+  return {
+    ...enriched,
+    page: query.page,
+    pageSize: query.pageSize,
+    records: filteredRecords.slice(offset, offset + query.pageSize),
+    total: filteredRecords.length,
+    totalPages: filteredRecords.length > 0 ? Math.ceil(filteredRecords.length / query.pageSize) : 0,
+  };
+}
+
+async function listResumeReviewGenerationQueueJobsWithDetails(
+  query: QueueJobsQuery,
+): Promise<PlatformQueueJobsResult> {
+  const result = await listResumeReviewGenerationQueueJobs({
+    page: query.page,
+    pageSize: query.pageSize,
+    search: query.search,
+    state: query.state,
+  });
+
+  return {
+    ...result,
+    records: result.records.map((record) => ({
+      ...record,
+      organization: null,
+      resumeDetail: null,
+      triggeredBy: null,
+    })),
+  };
+}
+
+const platformQueues = factory
+  .createApp()
+  .get("/queues", async (c) => {
+    const records = await Promise.all([
+      getResumeParseQueueOverview(),
+      getResumeReviewGenerationQueueOverview(),
+    ]);
+    return c.json({ records, total: records.length }, 200);
+  })
+  .get(
+    "/queues/:queueName/jobs",
+    zValidator("query", queueJobsQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const queueName = c.req.param("queueName");
+      const query = c.req.valid("query");
+      if (queueName === RESUME_REVIEW_GENERATION_QUEUE_NAME) {
+        const result = await listResumeReviewGenerationQueueJobsWithDetails(query);
+        return c.json(result, 200);
+      }
+      if (queueName !== RESUME_PARSE_QUEUE_NAME) {
+        return c.json({ error: "队列不存在" }, 404);
+      }
+      const result = await listResumeParseQueueJobsWithDetailFilters(query);
+      return c.json(result, 200);
+    },
+  );
+
+export function createPlatformRouter({
+  mailIngest = defaultPlatformMailIngestDependencies,
+  notifications,
+}: {
+  mailIngest?: PlatformMailIngestDependencies;
+  notifications?: PlatformNotificationsRouterDependencies;
+} = {}) {
+  return factory
+    .createApp()
+    .use(adminMiddleware)
+    .route("/livekit", platformLiveKitRouter)
+    .route("/", platformQueues)
+    .route("/", createPlatformMailIngestAccounts(mailIngest))
+    .route("/notifications", createPlatformNotificationsRouter(notifications))
+    .route("/resume-parse-cache", platformResumeParseCacheRouter)
+    .route("/", platformOrganizations)
+    .route("/", organizationDetail)
+    .route("/", platformUsers);
+}
+
+export const platformRouter = createPlatformRouter();

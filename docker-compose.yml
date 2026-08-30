@@ -2,7 +2,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/ai-recruitment-copilot/Dockerfile
+      dockerfile: apps/web/Dockerfile
       args:
         BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required at build time}
         NEXT_PUBLIC_AGENT_NAME: ${NEXT_PUBLIC_AGENT_NAME:-giaogiao}
@@ -30,7 +30,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/ai-recruitment-copilot-worker/Dockerfile
+      dockerfile: apps/worker/Dockerfile
     env_file:
       - path: .env
         required: false

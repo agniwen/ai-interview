@@ -63,7 +63,7 @@ export interface PositiveVerdict {
 
 **Files:**
 
-- Test: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts`（追加）
+- Test: `apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts`（追加）
 
 **Interfaces:**
 
@@ -167,13 +167,13 @@ describe("recommendCandidatesForJobDescription — 特征化(锁生产行为)", 
 
 - [ ] **Step 3: 跑测试确认全绿（锁现状）**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test recommendations`
+Run: `pnpm --filter @app/server test recommendations`
 Expected: 全绿。若某条不符现状 → 说明我对生产行为的理解有误，**先纠正测试到反映现状**（不是改生产）。
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts
+git add apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts
 git commit -m "test(recommendations): 补特征化测试锁生产行为(阈值/limit/稳定序/绑定过滤)"
 ```
 
@@ -183,7 +183,7 @@ git commit -m "test(recommendations): 补特征化测试锁生产行为(阈值/l
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts`
 - Test: 同目录 `recommendations.test.ts`
 
 **Interfaces (Produces):**
@@ -249,7 +249,7 @@ it("内核返回完整排序 + 诊断中间量(不套阈值/截断，不调 ensu
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test recommendations`
+Run: `pnpm --filter @app/server test recommendations`
 Expected: FAIL — `scoreCandidatesForJobDescription is not a function`。
 
 - [ ] **Step 3: 实现内核 + 生产函数复用它**
@@ -341,18 +341,18 @@ export async function recommendCandidatesForJobDescription(
 
 - [ ] **Step 4: 跑测试确认全绿（内核新测 + Task 1 特征化都过）**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test recommendations`
+Run: `pnpm --filter @app/server test recommendations`
 Expected: PASS（特征化仍绿 = 生产行为未变）。
 
 - [ ] **Step 5: typecheck**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
+Run: `pnpm --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts
+git add apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.test.ts
 git commit -m "refactor(recommendations): 抽打分内核(不含ensureCollection,行为不变)"
 ```
 
@@ -362,9 +362,9 @@ git commit -m "refactor(recommendations): 抽打分内核(不含ensureCollection
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/types.ts`（上文共享类型）
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/labels.ts`
-- Test: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/labels.test.ts`
+- Create: `apps/server/src/scripts/reco-eval/types.ts`（上文共享类型）
+- Create: `apps/server/src/scripts/reco-eval/labels.ts`
+- Test: `apps/server/src/scripts/reco-eval/labels.test.ts`
 
 **Interfaces (Produces):**
 
@@ -416,7 +416,7 @@ describe("labels", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/labels`
+Run: `pnpm --filter @app/server test reco-eval/labels`
 Expected: FAIL。
 
 - [ ] **Step 3: 实现**
@@ -453,13 +453,13 @@ export function validateLabels(labels: PositiveLabel[], validKeys: Set<string>) 
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/labels`
+Run: `pnpm --filter @app/server test reco-eval/labels`
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/types.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/labels.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/labels.test.ts
+git add apps/server/src/scripts/reco-eval/types.ts apps/server/src/scripts/reco-eval/labels.ts apps/server/src/scripts/reco-eval/labels.test.ts
 git commit -m "feat(reco-eval): 标签去重(manual优先)+有效性校验"
 ```
 
@@ -469,8 +469,8 @@ git commit -m "feat(reco-eval): 标签去重(manual优先)+有效性校验"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/classify.ts`
-- Test: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/classify.test.ts`
+- Create: `apps/server/src/scripts/reco-eval/classify.ts`
+- Test: `apps/server/src/scripts/reco-eval/classify.test.ts`
 
 **Interfaces (Produces):**
 
@@ -562,7 +562,7 @@ describe("classifyPositive", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/classify`
+Run: `pnpm --filter @app/server test reco-eval/classify`
 Expected: FAIL。
 
 - [ ] **Step 3: 实现**
@@ -615,13 +615,13 @@ export function classifyPositive(i: ClassifyInput): PositiveVerdict {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/classify`
+Run: `pnpm --filter @app/server test reco-eval/classify`
 Expected: PASS（7 例）。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/classify.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/classify.test.ts
+git add apps/server/src/scripts/reco-eval/classify.ts apps/server/src/scripts/reco-eval/classify.test.ts
 git commit -m "feat(reco-eval): 五类判定器(管线顺序互斥,码点破平)"
 ```
 
@@ -631,8 +631,8 @@ git commit -m "feat(reco-eval): 五类判定器(管线顺序互斥,码点破平)
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/metrics.ts`
-- Test: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/metrics.test.ts`
+- Create: `apps/server/src/scripts/reco-eval/metrics.ts`
+- Test: `apps/server/src/scripts/reco-eval/metrics.test.ts`
 
 **Interfaces (Produces):**
 
@@ -702,7 +702,7 @@ describe("computeMetrics", () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/metrics` → FAIL。
+- [ ] **Step 2: 跑测试确认失败** → Run: `pnpm --filter @app/server test reco-eval/metrics` → FAIL。
 
 - [ ] **Step 3: 实现**
 
@@ -790,7 +790,7 @@ export function computeMetrics(verdicts: PositiveVerdict[]): Metrics {
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/metrics.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/metrics.test.ts
+git add apps/server/src/scripts/reco-eval/metrics.ts apps/server/src/scripts/reco-eval/metrics.test.ts
 git commit -m "feat(reco-eval): 指标聚合(micro/macro/MRR/perJd/五类)"
 ```
 
@@ -800,9 +800,9 @@ git commit -m "feat(reco-eval): 指标聚合(micro/macro/MRR/perJd/五类)"
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/mine-labels.ts`
-- Modify: `apps/ai-recruitment-copilot-backend/src/lib/server/qdrant/resume-vector-store.ts`（加只读 `hasCollection`）
-- Test: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/mine-labels.test.ts`
+- Create: `apps/server/src/scripts/reco-eval/mine-labels.ts`
+- Modify: `apps/server/src/lib/server/qdrant/resume-vector-store.ts`（加只读 `hasCollection`）
+- Test: `apps/server/src/scripts/reco-eval/mine-labels.test.ts`
 
 **Interfaces (Produces):**
 
@@ -853,7 +853,7 @@ describe("isMinedPositive", () => {
 
 ```ts
 import { and, eq, isNotNull } from "drizzle-orm";
-import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { db } from "@app/server/lib/server/db";
 import { studioInterview } from "@arc/db-schema/schema";
 import { labelKey } from "./labels";
 import type { PositiveLabel } from "./types";
@@ -932,17 +932,17 @@ async hasCollection(): Promise<boolean> {
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过** → Run: `pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval/mine-labels` → PASS（纯判定 8 例）。
+- [ ] **Step 5: 跑测试确认通过** → Run: `pnpm --filter @app/server test reco-eval/mine-labels` → PASS（纯判定 8 例）。
 
 - [ ] **Step 6: typecheck**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
+Run: `pnpm --filter @app/server typecheck`
 Expected: 无错误。
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/mine-labels.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/mine-labels.test.ts apps/ai-recruitment-copilot-backend/src/lib/server/qdrant/resume-vector-store.ts
+git add apps/server/src/scripts/reco-eval/mine-labels.ts apps/server/src/scripts/reco-eval/mine-labels.test.ts apps/server/src/lib/server/qdrant/resume-vector-store.ts
 git commit -m "feat(reco-eval): B标签挖掘(排除null/withdrawn/archived)+有效键+只读hasCollection"
 ```
 
@@ -952,11 +952,11 @@ git commit -m "feat(reco-eval): B标签挖掘(排除null/withdrawn/archived)+有
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/run.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/report.ts`
-- Create: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval.ts`（CLI）
-- Modify: `apps/ai-recruitment-copilot-backend/package.json`；`.gitignore`（根）
-- Test: `apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/run.test.ts`、`report.test.ts`
+- Create: `apps/server/src/scripts/reco-eval/run.ts`
+- Create: `apps/server/src/scripts/reco-eval/report.ts`
+- Create: `apps/server/src/scripts/reco-eval.ts`（CLI）
+- Modify: `apps/server/package.json`；`.gitignore`（根）
+- Test: `apps/server/src/scripts/reco-eval/run.test.ts`、`report.test.ts`
 
 **Interfaces (Produces):**
 
@@ -1054,7 +1054,7 @@ describe("runEval", () => {
 import type {
   ScoreCoreInput,
   ScoreCoreResult,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
+} from "@app/server/server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { classifyPositive } from "./classify";
 import { computeMetrics } from "./metrics";
 import type { PositiveLabel, PositiveVerdict } from "./types";
@@ -1275,15 +1275,15 @@ export function formatReport(i: ReportInput): string {
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { getResumeEmbeddingConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
-import { embedResumeSemanticTexts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
-import { QdrantResumeVectorStore } from "@arc/ai-recruitment-copilot-backend/lib/server/qdrant/resume-vector-store";
-import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { getResumeEmbeddingConfig } from "@app/server/lib/server/resume-semantic/embedding";
+import { embedResumeSemanticTexts } from "@app/server/lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "@app/server/lib/server/resume-semantic/indexer";
+import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
+import { loadJobDescriptionById } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
 import {
   createDefaultRecommendationDeps,
   scoreCandidatesForJobDescription,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
+} from "@app/server/server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { dedupeLabels, validateLabels } from "./reco-eval/labels";
 import { loadValidLabelKeys, mineLabels } from "./reco-eval/mine-labels";
 import { formatReport } from "./reco-eval/report";
@@ -1383,18 +1383,18 @@ main().then(
 
 - [ ] **Step 9: package.json script + .gitignore**
 
-`apps/ai-recruitment-copilot-backend/package.json` 的 `"scripts"` 加：`"eval:recommendations": "tsx src/scripts/reco-eval.ts"`。
+`apps/server/package.json` 的 `"scripts"` 加：`"eval:recommendations": "tsx src/scripts/reco-eval.ts"`。
 仓库根 `.gitignore` 追加：`.eval/`。
 
 - [ ] **Step 10: typecheck + reco-eval 全量单测**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend typecheck && pnpm --filter @arc/ai-recruitment-copilot-backend test reco-eval`
+Run: `pnpm --filter @app/server typecheck && pnpm --filter @app/server test reco-eval`
 Expected: 无类型错误；labels/classify/metrics/mine-labels/run/report 全绿。
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/run.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/run.test.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/report.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval/report.test.ts apps/ai-recruitment-copilot-backend/src/scripts/reco-eval.ts apps/ai-recruitment-copilot-backend/package.json .gitignore
+git add apps/server/src/scripts/reco-eval/run.ts apps/server/src/scripts/reco-eval/run.test.ts apps/server/src/scripts/reco-eval/report.ts apps/server/src/scripts/reco-eval/report.test.ts apps/server/src/scripts/reco-eval.ts apps/server/package.json .gitignore
 git commit -m "feat(reco-eval): 编排(可注入/整岗原子/致命上抛)+报告(元数据+按岗)+CLI(labels.json/strict)"
 ```
 
@@ -1406,11 +1406,11 @@ git commit -m "feat(reco-eval): 编排(可注入/整岗原子/致命上抛)+报�
 
 - [ ] **Step 1: 确认 backend 能读到语义 env**
 
-standalone 脚本进程需读到 `RESUME_SEMANTIC_INDEX_ENABLED/QDRANT_URL/QDRANT_API_KEY/RESUME_EMBEDDING_*/DATABASE_URL`。**优先用现有加载机制**（如脚本已由 dotenv/backend 启动加载 `apps/ai-recruitment-copilot-backend/.env`）。若该 .env 不存在，**不复制粘贴密钥**，而是用 `env $(...)` 或 `dotenv -e ../ai-recruitment-copilot/.env` 指向现有 web .env 运行，避免密钥扩散。
+standalone 脚本进程需读到 `RESUME_SEMANTIC_INDEX_ENABLED/QDRANT_URL/QDRANT_API_KEY/RESUME_EMBEDDING_*/DATABASE_URL`。**优先用现有加载机制**（如脚本已由 dotenv/backend 启动加载 `apps/server/.env`）。若该 .env 不存在，**不复制粘贴密钥**，而是用 `env $(...)` 或 `dotenv -e ../web/.env` 指向现有 web .env 运行，避免密钥扩散。
 
 - [ ] **Step 2: 运行 B-only**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend eval:recommendations --org org_default --mode b-only`
+Run: `pnpm --filter @app/server eval:recommendations --org org_default --mode b-only`
 Expected: 控制台打印基线报告；`.eval/report-b-only-*.md`、`detail-*.jsonl`、`labels.json` 生成。
 
 - [ ] **Step 3: 判读并回填决策**

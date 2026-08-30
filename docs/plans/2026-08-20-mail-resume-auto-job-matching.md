@@ -471,37 +471,37 @@ WHERE id = ?
   - 扩展持久化候选结果 DTO，区分向量分和 AI 分。
 - `packages/shared/src/resume-pool.ts`
   - 人才库详情增加最近匹配摘要或独立读取 DTO。
-- `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts`
+- `apps/worker/src/mail-ingest/processor.ts`
   - 计算邮件有效 `jdMode`；
   - 保留主题编码精准绑定；
   - 新批次默认进入 auto。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-worker.ts`
+- `apps/server/src/server/routes/studio/routes/resumes/utils/review-worker.ts`
   - 在现有解析后异步任务中识别新邮件门禁并调用自动选岗；
   - 自动选岗完成后继续现有 optional legacy notes 行为。
-- `apps/ai-recruitment-copilot-backend/src/server/agents/job-description-match-agent.ts`
+- `apps/server/src/server/agents/job-description-match-agent.ts`
   - 增加完整候选精排输出；
   - 保留现有只取 Top1 的兼容 wrapper。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.ts`
+- `apps/server/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.ts`
   - 抽出无阈值召回内核；
   - 删除自动选岗硬门槛；
   - 保证排序稳定和发布岗位校验。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/dao.ts`
+- `apps/server/src/server/routes/studio/routes/resume-pool/dao.ts`
   - 自动绑定；
   - HR 改绑；
   - 匹配运行和候选持久化；
   - 统一事件 payload。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/route.ts`
+- `apps/server/src/server/routes/studio/routes/resume-pool/route.ts`
   - `POST /:id/bind` 支持 HR 改绑；
   - 增加最近匹配结果读取端点；
   - 保持 import 评价调度不变。
-- `apps/ai-recruitment-copilot/src/components/features/studio/resume-pool/resume-pool-recommendations-panel.tsx`
+- `apps/web/src/components/features/studio/resume-pool/resume-pool-recommendations-panel.tsx`
   - 已绑定时仍展示候选；
   - 展示当前岗位、AI Top1、分数和理由；
   - 支持改绑。
 
 ### 新增
 
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/job-match/service.ts`
+- `apps/server/src/server/routes/studio/routes/resume-pool/utils/job-match/service.ts`
   - 对外深模块接口、上下文加载、候选持久化和条件绑定。
 - `.../job-match/filename-match.ts`
   - 文件名精准匹配纯逻辑。
@@ -691,12 +691,12 @@ pnpm --filter @arc/db-schema typecheck
 
 ```bash
 pnpm --filter @arc/db-schema typecheck
-pnpm --filter @arc/ai-recruitment-copilot-worker test
-pnpm --filter @arc/ai-recruitment-copilot-worker typecheck
-pnpm --filter @arc/ai-recruitment-copilot-backend test
-pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
-pnpm --filter @arc/ai-recruitment-copilot test
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/worker test
+pnpm --filter @app/worker typecheck
+pnpm --filter @app/server test
+pnpm --filter @app/server typecheck
+pnpm --filter @app/web test
+pnpm --filter @app/web typecheck
 pnpm check
 ```
 

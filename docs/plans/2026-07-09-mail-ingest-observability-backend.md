@@ -6,7 +6,7 @@
 
 **Architecture:** 就地增强 `mail_ingest_message`（加列）+ worker 采集点改造（`processor.ts`）+ DAO 写入/查询 + 工作区/平台两个 messages 端点。前端日志 UI 是独立的后续 Plan B（消费本 API）。
 
-**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、pnpm monorepo（`@arc/db-schema`、后端 `@arc/ai-recruitment-copilot-backend`、worker `apps/ai-recruitment-copilot-worker`）。
+**Tech Stack:** TypeScript、Drizzle ORM（PostgreSQL）、Hono、Vitest、pnpm monorepo（`@arc/db-schema`、后端 `@app/server`、worker `apps/worker`）。
 
 **Spec:** `docs/adr/2026-07-09-mail-ingest-observability-design.md`
 
@@ -31,18 +31,18 @@
 
 - `packages/db-schema/src/schema.ts` — `mailIngestMessage` 加 6 列 + 新索引；`mailIngestAccount` 加 5 个计数列。
 - `packages/db-schema/src/schema.ts`（同文件顶部枚举区）— 新增 `MailIngestSkipReason`、`MailIngestJdBindStatus` 类型。
-- `apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.ts` — **新建**：纯函数 `deriveJdBindStatus`。
-- `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts` — `resolveMailJobBinding` 返回观测数据；`createBatchForMail` 无附件返回 `null` 不抛；`processMailForAccount` 写观测 + skip；per-account 计数。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/dao.ts` — 扩 `updateMailIngestMessageResult`、加 `markMailIngestMessageSkipped`、扩 `finishMailIngestAccountRun`、加 `listAccountMailMessages`。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/schema.ts` — messages 查询参数 zod。
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/route.ts` — 加 `GET /:id/messages`（工作区自助）。
-- 平台端 messages 端点：`apps/ai-recruitment-copilot/src/lib/start/platform/mail-ingest-accounts.functions.ts`（复用现有 platform server function 层）。
+- `apps/worker/src/mail-ingest/job-binding.ts` — **新建**：纯函数 `deriveJdBindStatus`。
+- `apps/worker/src/mail-ingest/processor.ts` — `resolveMailJobBinding` 返回观测数据；`createBatchForMail` 无附件返回 `null` 不抛；`processMailForAccount` 写观测 + skip；per-account 计数。
+- `apps/server/src/server/routes/studio/routes/mail-ingest/dao.ts` — 扩 `updateMailIngestMessageResult`、加 `markMailIngestMessageSkipped`、扩 `finishMailIngestAccountRun`、加 `listAccountMailMessages`。
+- `apps/server/src/server/routes/studio/routes/mail-ingest/schema.ts` — messages 查询参数 zod。
+- `apps/server/src/server/routes/studio/routes/mail-ingest/route.ts` — 加 `GET /:id/messages`（工作区自助）。
+- 平台端 messages 端点：`apps/web/src/lib/start/platform/mail-ingest-accounts.functions.ts`（复用现有 platform server function 层）。
 
 **新建测试：**
 
-- `apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.test.ts`
-- 扩 `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor-run.test.ts`（或新增用例）
-- 扩 `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+- `apps/worker/src/mail-ingest/job-binding.test.ts`
+- 扩 `apps/worker/src/mail-ingest/processor-run.test.ts`（或新增用例）
+- 扩 `apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 - 扩 `.../mail-ingest/__tests__/route.test.ts`
 
 ---
@@ -115,7 +115,7 @@ Expected: 在 drizzle 迁移目录生成一个新迁移（`ALTER TABLE ... ADD C
 - [ ] **Step 7: 提交**
 
 ```bash
-git add packages/db-schema/src/schema.ts apps/ai-recruitment-copilot/drizzle
+git add packages/db-schema/src/schema.ts apps/web/drizzle
 git commit -m "feat(db): mail_ingest 观测列（message 终态/JD绑定/附件数 + account 上轮计数）"
 ```
 
@@ -127,8 +127,8 @@ git commit -m "feat(db): mail_ingest 观测列（message 终态/JD绑定/附件�
 
 **Files:**
 
-- Create: `apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.ts`
-- Test: `apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.test.ts`
+- Create: `apps/worker/src/mail-ingest/job-binding.ts`
+- Test: `apps/worker/src/mail-ingest/job-binding.test.ts`
 
 **Interfaces:**
 
@@ -162,7 +162,7 @@ describe("deriveJdBindStatus", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-worker exec vitest run src/mail-ingest/job-binding.test.ts`
+Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
 Expected: FAIL —「Cannot find module './job-binding'」。
 
 - [ ] **Step 3: 实现**
@@ -191,13 +191,13 @@ export function deriveJdBindStatus(input: {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-worker exec vitest run src/mail-ingest/job-binding.test.ts`
+Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/job-binding.test.ts`
 Expected: PASS（4 用例）。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.ts apps/ai-recruitment-copilot-worker/src/mail-ingest/job-binding.test.ts
+git add apps/worker/src/mail-ingest/job-binding.ts apps/worker/src/mail-ingest/job-binding.test.ts
 git commit -m "feat(worker): deriveJdBindStatus 纯函数（JD 绑定观测派生）"
 ```
 
@@ -207,8 +207,8 @@ git commit -m "feat(worker): deriveJdBindStatus 纯函数（JD 绑定观测派�
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/dao.ts`（`updateMailIngestMessageResult` ~947、`finishMailIngestAccountRun` ~829）
-- Test: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/mail-ingest/dao.ts`（`updateMailIngestMessageResult` ~947、`finishMailIngestAccountRun` ~829）
+- Test: `apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 
 **Interfaces:**
 
@@ -307,7 +307,7 @@ describe("mail ingest observability writers", () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: FAIL —`markMailIngestMessageSkipped` 未导出 / `finishMailIngestAccountRun` 不接受 `counts` / 新字段未写入。
 
 - [ ] **Step 3: 改 `updateMailIngestMessageResult`**（`dao.ts:947`）
@@ -408,13 +408,13 @@ export async function finishMailIngestAccountRun(
 
 - [ ] **Step 6: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 7: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/dao.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts
+git add apps/server/src/server/routes/studio/routes/mail-ingest/dao.ts apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts
 git commit -m "feat(mail-ingest): DAO 写入观测字段/skip/账号上轮计数"
 ```
 
@@ -424,8 +424,8 @@ git commit -m "feat(mail-ingest): DAO 写入观测字段/skip/账号上轮计数
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts`（`createBatchForMail` ~90、`resolveMailJobBinding` ~129、`processMailForAccount` ~159、`processAccountGroup` ~208、`runMailIngestOnce` ~276、`finishAccounts` ~272）
-- Test: `apps/ai-recruitment-copilot-worker/src/mail-ingest/processor-run.test.ts`
+- Modify: `apps/worker/src/mail-ingest/processor.ts`（`createBatchForMail` ~90、`resolveMailJobBinding` ~129、`processMailForAccount` ~159、`processAccountGroup` ~208、`runMailIngestOnce` ~276、`finishAccounts` ~272）
+- Test: `apps/worker/src/mail-ingest/processor-run.test.ts`
 
 **Interfaces:**
 
@@ -480,7 +480,7 @@ it("finishMailIngestAccountRun receives per-account counts", async () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-worker exec vitest run src/mail-ingest/processor-run.test.ts`
+Run: `pnpm --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts`
 Expected: FAIL（`markMailIngestMessageSkipped` 未被调用；jdBindStatus 未传）。
 
 - [ ] **Step 3: `resolveMailJobBinding` 返回观测数据**
@@ -667,8 +667,8 @@ async function finishAccounts(accounts, tallies: Map<string, MailAccountTally>, 
 Run:
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot-worker exec vitest run src/mail-ingest/processor-run.test.ts
-pnpm --filter @arc/ai-recruitment-copilot-worker test
+pnpm --filter @app/worker exec vitest run src/mail-ingest/processor-run.test.ts
+pnpm --filter @app/worker test
 ```
 
 Expected: 新用例 + 存量用例全绿（注意存量用例可能断言旧 `finishMailIngestAccountRun(id, error)` 签名 —— 若失败，按新 `opts` 签名更新存量断言）。
@@ -676,7 +676,7 @@ Expected: 新用例 + 存量用例全绿（注意存量用例可能断言旧 `fi
 - [ ] **Step 9: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot-worker/src/mail-ingest/processor.ts apps/ai-recruitment-copilot-worker/src/mail-ingest/processor-run.test.ts
+git add apps/worker/src/mail-ingest/processor.ts apps/worker/src/mail-ingest/processor-run.test.ts
 git commit -m "feat(worker): 采集观测字段、无附件转 skipped、per-account 上轮计数"
 ```
 
@@ -686,8 +686,8 @@ git commit -m "feat(worker): 采集观测字段、无附件转 skipped、per-acc
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/dao.ts`
-- Test: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/mail-ingest/dao.ts`
+- Test: `apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 
 **Interfaces:**
 
@@ -726,7 +726,7 @@ it("listAccountMailMessages returns per-message rows with attachment expansion +
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts -t listAccountMailMessages`
+Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts -t listAccountMailMessages`
 Expected: FAIL —`listAccountMailMessages` 未定义。
 
 - [ ] **Step 3: 实现 `listAccountMailMessages`（两步）**
@@ -814,13 +814,13 @@ export async function listAccountMailMessages(input: {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
+Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/dao.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts
+git add apps/server/src/server/routes/studio/routes/mail-ingest/dao.ts apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/dao.test.ts
 git commit -m "feat(mail-ingest): listAccountMailMessages 两步分页 + 附件级下游 + 作用域"
 ```
 
@@ -830,10 +830,10 @@ git commit -m "feat(mail-ingest): listAccountMailMessages 两步分页 + 附件�
 
 **Files:**
 
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/schema.ts`（加查询参数 zod）
-- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/route.ts`（加 `GET /:id/messages`）
-- Modify: `apps/ai-recruitment-copilot/src/lib/start/platform/mail-ingest-accounts.functions.ts`（平台端 server function 调 `listAccountMailMessages`）
-- Test: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
+- Modify: `apps/server/src/server/routes/studio/routes/mail-ingest/schema.ts`（加查询参数 zod）
+- Modify: `apps/server/src/server/routes/studio/routes/mail-ingest/route.ts`（加 `GET /:id/messages`）
+- Modify: `apps/web/src/lib/start/platform/mail-ingest-accounts.functions.ts`（平台端 server function 调 `listAccountMailMessages`）
+- Test: `apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
 
 **Interfaces:**
 
@@ -882,15 +882,15 @@ export const listMailMessagesQuerySchema = z.object({
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
+Run: `pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts`
 Expected: PASS。
 
 - [ ] **Step 6: 类型检查 + 提交**
 
-Run: `pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
+Run: `pnpm --filter @app/server typecheck`
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/schema.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/route.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts apps/ai-recruitment-copilot/src/lib/start/platform/mail-ingest-accounts.functions.ts
+git add apps/server/src/server/routes/studio/routes/mail-ingest/schema.ts apps/server/src/server/routes/studio/routes/mail-ingest/route.ts apps/server/src/server/routes/studio/routes/mail-ingest/__tests__/route.test.ts apps/web/src/lib/start/platform/mail-ingest-accounts.functions.ts
 git commit -m "feat(mail-ingest): 信件日志查询端点（工作区自助 + 平台）"
 ```
 
@@ -912,8 +912,8 @@ Run:
 ```bash
 pnpm fix
 pnpm --filter @arc/db-schema typecheck
-pnpm --filter @arc/ai-recruitment-copilot-worker test
-pnpm --filter @arc/ai-recruitment-copilot-backend exec vitest run src/server/routes/studio/routes/mail-ingest
+pnpm --filter @app/worker test
+pnpm --filter @app/server exec vitest run src/server/routes/studio/routes/mail-ingest
 ```
 
 Expected: 全绿；`pnpm fix` 无遗留改动未提交。

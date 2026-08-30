@@ -23,8 +23,8 @@ node_modules/
 
 # production
 /build
-apps/ai-recruitment-copilot-worker/dist/
-apps/ai-recruitment-copilot-backend/dist/
+apps/worker/dist/
+apps/server/dist/
 
 # misc
 .DS_Store

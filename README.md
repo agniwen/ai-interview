@@ -6,15 +6,15 @@ Simplified Chinese.
 
 ## Architecture
 
-- **Web app** (`apps/ai-recruitment-copilot/`): TanStack Start + React 19,
+- **Web app** (`apps/web/`): TanStack Start + React 19,
   TanStack Router, TanStack Query, Better Auth client, shadcn/ui, Tailwind CSS
   v4, and Vite/Nitro output. It owns the browser UI, route loaders, server
   functions, SSR/SSG, and the mounted Hono API adapter.
-- **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime,
+- **Backend app** (`apps/server/`): Hono API runtime,
   Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
   AI utilities. It can be mounted by the web app at `/api` or started as a
   standalone Bun service.
-- **Resume worker** (`apps/ai-recruitment-copilot-worker/`): asynchronous resume
+- **Resume worker** (`apps/worker/`): asynchronous resume
   parsing worker for queued PDF/OCR processing.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
   Google, ElevenLabs, Minimax, Silero VAD, and turn detector plugins.
@@ -28,8 +28,8 @@ for the Python agent. Do not mix them.
 
 ```bash
 make install
-cp apps/ai-recruitment-copilot/.env.example apps/ai-recruitment-copilot/.env
-cp apps/ai-recruitment-copilot-backend/.env.example apps/ai-recruitment-copilot-backend/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/server/.env.example apps/server/.env
 cp apps/livekit-agent/.env.example apps/livekit-agent/.env
 bun run db:migrate
 make dev
@@ -41,7 +41,7 @@ a LiveKit room. `make help` lists every Make target.
 ## Local Docker Validation
 
 Build and start the Bun 1.4.0 web and worker images. Both services load
-`apps/ai-recruitment-copilot/.env`, matching the dependencies and credentials
+`apps/web/.env`, matching the dependencies and credentials
 used by the local web app:
 
 ```bash
@@ -66,8 +66,8 @@ BETTER_AUTH_URL=http://localhost:3000 \
 
 Each runtime owns its own `.env` file:
 
-- `apps/ai-recruitment-copilot/.env` for the TanStack Start web app.
-- `apps/ai-recruitment-copilot-backend/.env` for standalone Hono backend runs.
+- `apps/web/.env` for the TanStack Start web app.
+- `apps/server/.env` for standalone Hono backend runs.
 - `apps/livekit-agent/.env` for the Python LiveKit agent.
 
 Key requirements:
@@ -106,19 +106,19 @@ reads them from `import.meta.env.NEXT_PUBLIC_*`.
 ### Web
 
 ```bash
-bun run --filter @arc/ai-recruitment-copilot dev
-bun run --filter @arc/ai-recruitment-copilot build
-bun run --filter @arc/ai-recruitment-copilot typecheck
-bun run --filter @arc/ai-recruitment-copilot test
+bun run --filter @app/web dev
+bun run --filter @app/web build
+bun run --filter @app/web typecheck
+bun run --filter @app/web test
 ```
 
 ### Backend
 
 ```bash
-bun run --filter @arc/ai-recruitment-copilot-backend dev:standalone
-bun run --filter @arc/ai-recruitment-copilot-backend start
-bun run --filter @arc/ai-recruitment-copilot-backend typecheck
-bun run --filter @arc/ai-recruitment-copilot-backend test
+bun run --filter @app/server dev:standalone
+bun run --filter @app/server start
+bun run --filter @app/server typecheck
+bun run --filter @app/server test
 ```
 
 ### Agent
@@ -138,7 +138,7 @@ uv run ruff check
 
 ```text
 apps/
-  ai-recruitment-copilot/
+  web/
     src/routes/                 TanStack Router file routes
     src/lib/start/              server functions and Start-only helpers
     src/lib/client/             browser helpers and Hono RPC client
@@ -147,12 +147,15 @@ apps/
     src/server.ts               TanStack Start server entry
     src/client.tsx              browser entry
     vite.config.ts              TanStack Start / Vite / Nitro config
-  ai-recruitment-copilot-backend/
+  server/
     src/server/app.ts           Hono app factory
     src/server/routes/          route folders with route.ts/schema.ts/dao
     src/lib/server/             backend runtime helpers
     src/index.ts                standalone Bun entrypoint
-  ai-recruitment-copilot-worker/
+  desktop/
+    src/main/                    Electron main process
+    src/renderer/                desktop renderer
+  worker/
     src/                        async resume parsing worker
   livekit-agent/
     src/agent.py                Python LiveKit agent entrypoint
@@ -179,7 +182,7 @@ packages/
 ## Backend Route Layout
 
 Every route folder under
-`apps/ai-recruitment-copilot-backend/src/server/routes/` is self-contained:
+`apps/server/src/server/routes/` is self-contained:
 
 - `route.ts` exports a Hono router.
 - `schema.ts` contains Zod schemas when needed.

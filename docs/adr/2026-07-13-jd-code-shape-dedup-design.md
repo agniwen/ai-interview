@@ -33,12 +33,12 @@ JD「编码」（`job_description.code`）的形状 = **3 位前缀 + 4 位 base
 
 ## 现状：形状知识的四处重复
 
-| 位置                                                                     | 硬编码的形状知识                                                     |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `packages/shared/src/global-config.ts:3,15`                              | `DEFAULT_JOB_CODE_PREFIX = "AUR"`；prefix 正则 `/^[A-Z0-9]{3}$/`     |
-| `apps/…/job-descriptions/utils/job-description-code.ts:1,3,7,12`         | 本地又一份 `"AUR"`；`36 ** 4`；`padStart(4, "0")`；`/^[A-Z0-9]{3}$/` |
-| `apps/ai-recruitment-copilot-worker/src/mail-ingest/message-filter.ts:3` | 抽取正则 `[A-Za-z0-9]{7}`                                            |
-| `packages/db-schema/src/schema.ts:2130`                                  | 列默认值 `"AUR"`（存储默认，**不动**）                               |
+| 位置                                                             | 硬编码的形状知识                                                     |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `packages/shared/src/global-config.ts:3,15`                      | `DEFAULT_JOB_CODE_PREFIX = "AUR"`；prefix 正则 `/^[A-Z0-9]{3}$/`     |
+| `apps/…/job-descriptions/utils/job-description-code.ts:1,3,7,12` | 本地又一份 `"AUR"`；`36 ** 4`；`padStart(4, "0")`；`/^[A-Z0-9]{3}$/` |
+| `apps/worker/src/mail-ingest/message-filter.ts:3`                | 抽取正则 `[A-Za-z0-9]{7}`                                            |
+| `packages/db-schema/src/schema.ts:2130`                          | 列默认值 `"AUR"`（存储默认，**不动**）                               |
 
 `@arc/shared` 的 exports 为 `"./*": "./src/*.ts"` 通配 → 新增 `@arc/shared/job-code` **无需改 package.json**。worker 的 `message-filter.ts` 已 import `@arc/shared/resume-documents`，跨包引用已验证可行。
 
@@ -104,15 +104,15 @@ export function buildJobCodeSubjectPattern(): RegExp {
 
 - 新建：`packages/shared/src/job-code.ts`、`packages/shared/src/job-code.test.ts`
 - 修改：`packages/shared/src/global-config.ts`
-- 修改：`apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.ts`
-- 扩测：`apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.test.ts`
-- 修改：`apps/ai-recruitment-copilot-worker/src/mail-ingest/message-filter.ts`
+- 修改：`apps/server/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.ts`
+- 扩测：`apps/server/src/server/routes/studio/routes/job-descriptions/utils/job-description-code.test.ts`
+- 修改：`apps/worker/src/mail-ingest/message-filter.ts`
 
 ## 验证
 
 - `pnpm --filter @arc/shared test && pnpm --filter @arc/shared typecheck`
-- `pnpm --filter @arc/ai-recruitment-copilot-backend test job-description-code && pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
-- `pnpm --filter @arc/ai-recruitment-copilot-worker test message-filter && pnpm --filter @arc/ai-recruitment-copilot-worker typecheck`
+- `pnpm --filter @app/server test job-description-code && pnpm --filter @app/server typecheck`
+- `pnpm --filter @app/worker test message-filter && pnpm --filter @app/worker typecheck`
 - `pnpm fix`（oxlint/oxfmt 门）
 
 ## 风险

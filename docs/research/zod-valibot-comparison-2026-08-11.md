@@ -25,7 +25,7 @@
 - 直接使用主要分布为：backend 95 个文件、`packages/shared` 16 个、web 16 个、`packages/db-schema` 13 个、meeting queue 5 个、desktop 4 个、resume queue 3 个。
 - 至少 111 个文件使用了需要逐项核对语义的 API/模式，例如 `ZodType`/`ZodTypeAny`、`ZodIssueCode`、`ZodError`、`refine`/`superRefine`、transform/default/catch 和对象 strictness。
 - workspace catalog 已固定 `zod: ^4.4.3`。[pnpm-workspace.yaml](../../pnpm-workspace.yaml)
-- Web 的 vendored Mastra Studio 另外固定 `zod3: npm:zod@3.25.76`，并包含读取 Zod v3/v4 内部结构的 auto-form compatibility provider。[package.json](../../apps/ai-recruitment-copilot/package.json) [compat.ts](../../apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/lib/form/zod-provider/compat.ts)
+- Web 的 vendored Mastra Studio 另外固定 `zod3: npm:zod@3.25.76`，并包含读取 Zod v3/v4 内部结构的 auto-form compatibility provider。[package.json](../../apps/web/package.json) [compat.ts](../../apps/web/src/components/features/mastra-studio/upstream/lib/form/zod-provider/compat.ts)
 
 因此，“把业务 schema 换完”也不会自动让 Zod 从依赖图或浏览器产物消失。AI SDK、Mastra、现有 Hono adapter 和 vendored Studio 仍可能保留 Zod；必须以最终 chunk diff，而不是 `package.json` 是否还存在 Zod，判断收益。
 
@@ -91,7 +91,7 @@ Valibot 已覆盖常见 primitive/object/tuple/record/union/variant/intersection
 - **Vercel AI SDK**：Zod 可以直接传；Valibot 需要 `@ai-sdk/valibot` 的 `valibotSchema()` 包装成 AI SDK schema。[AI SDK schema 支持](https://ai-sdk.dev/docs/foundations/tools) [valibotSchema](https://ai-sdk.dev/docs/reference/ai-sdk-core/valibot-schema) recursive/reference 和 Provider strict JSON Schema 行为要单测。
 - **Drizzle 1 RC**：当前官方同时提供 `drizzle-orm/zod`、`drizzle-orm/valibot`、TypeBox、ArkType 和 Effect Schema integration。[Drizzle v1 validator consolidation](https://orm.drizzle.team/docs/v0-v1-changes) 因此 Drizzle 不是 blocker。
 - **Mastra / Studio**：当前 dependency graph 和 vendored UI 明显依赖 Zod schema/type/AST；即使较新的 Mastra 核心开始用 Standard Schema normalization，Studio auto-form 的 schema introspection 仍是 Zod-specific。本项目不应把它纳入第一批迁移。
-- **表单**：本项目已有一个自定义 `StandardSchemaLike` 边界，[entity-form.ts](../../apps/ai-recruitment-copilot/src/components/features/studio/entity-form.ts) 说明增量共存是可行方向；但候选表单必须先核对错误 path 和默认值语义。
+- **表单**：本项目已有一个自定义 `StandardSchemaLike` 边界，[entity-form.ts](../../apps/web/src/components/features/studio/entity-form.ts) 说明增量共存是可行方向；但候选表单必须先核对错误 path 和默认值语义。
 
 Zod 官方 ecosystem 仍明显更广，覆盖大量 form、RPC、OpenAPI、ORM、codegen 和 mocking 工具。[Zod ecosystem](https://zod.dev/ecosystem) Valibot 的官方 ecosystem 已包括 Hono、Drizzle、Better Auth、Vercel AI SDK、TanStack Form、React Hook Form 等，足以支持新项目或受控增量采用，但“有 adapter”不等于现有 Zod-specific 调用无需重写。[Valibot ecosystem](https://valibot.dev/guides/ecosystem/)
 

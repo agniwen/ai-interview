@@ -8,7 +8,7 @@
 
 ## 1. 背景与目标
 
-现有岗位人才推荐是"语义召回 + 分面加权"的 MVP（打分逻辑见 `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts`）。招聘方首要痛点是**召回**："本该被推荐的人没出现或排得很后"（症状优先级：召回 > 排序可信 > 误报）。库规模约**几千份/组织**，当前每分面召回上限仅 top 40/50，怀疑是**静默截断**导致漏人。
+现有岗位人才推荐是"语义召回 + 分面加权"的 MVP（打分逻辑见 `apps/server/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts`）。招聘方首要痛点是**召回**："本该被推荐的人没出现或排得很后"（症状优先级：召回 > 排序可信 > 误报）。库规模约**几千份/组织**，当前每分面召回上限仅 top 40/50，怀疑是**静默截断**导致漏人。
 
 优化前必须先有**尺子**：一个量化"好候选人有没有被召回"的评测器，并跑出**当前基线**。没有它，调权重/放上限都是盲调。
 
@@ -126,13 +126,13 @@ A 勾选文件 ───────┼► loadLabels()+校验 ► group by JD �
 3. **打分内核 `scoreCandidatesForJobDescription`（§7 重构）**：返回完整排序（每人 score + 三分面相似度），支持"排除绑定 J 但豁免指定正例 id"参数。
 4. **五类判定器**：查 P 的 active 向量、DB 过滤态、排序位置，归入 §4.5 五类之一或命中。
 5. **`evalRecall(labels)`**：按岗分组评分、定位、聚合 §5 指标。
-6. **`report(result)`**：输出基线报告（§8）。**标签/导出文件路径**：`apps/ai-recruitment-copilot-backend/.eval/`（gitignore）；入库版本只留无 PII 的聚合报告。
+6. **`report(result)`**：输出基线报告（§8）。**标签/导出文件路径**：`apps/server/.eval/`（gitignore）；入库版本只留无 PII 的聚合报告。
 
 **远程健壮性**：每岗 embedding + Qdrant 查询带**重试 3 次 + 指数退避**；某岗最终失败则**该岗正例整体排除出指标、单列"未评估"清单**（绝不静默改变分母）。
 
 ### 6.1 运行契约
 
-- **命令**：`tsx apps/ai-recruitment-copilot-backend/scripts/reco-eval.ts --org <id> --mode <b-only|a-plus-b> [--labels <path>] [--strict]`。
+- **命令**：`tsx apps/server/scripts/reco-eval.ts --org <id> --mode <b-only|a-plus-b> [--labels <path>] [--strict]`。
 - **输入**：`b-only` 现挖 mined 标签并写 `labels.json`；`a-plus-b` 读入已含 manual 的 `labels.json`。
 - **输出**：`.eval/report-<mode>-<runStart>.md`（聚合，可入库脱敏版）+ `.eval/detail-<mode>-<runStart>.jsonl`（逐正例结果，含 PII，本地留存审计，gitignore）。
 - **退出码**：0 成功；非 0 = collection 不存在 / embedding 维度与 collection 不符 / DB 连接失败 / 覆盖率低于 80% 且传了 `--strict`。

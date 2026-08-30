@@ -80,7 +80,7 @@ defaultPreload: "intent",
 
 来源：
 
-- `apps/ai-recruitment-copilot/src/router.tsx:18`
+- `apps/web/src/router.tsx:18`
 
 TanStack Router 官方定义的 intent preload 由 `Link` 的 hover 和 touch-start 事件触发；设置 `defaultPreload: "intent"` 会为应用中的 `Link` 默认启用这一行为。来源：
 
@@ -114,7 +114,7 @@ TanStack Router 的自动代码分割会把 route component、error component �
 
 当前应用使用 `tanstackStart()` Vite plugin：
 
-- `apps/ai-recruitment-copilot/vite.config.ts:93`
+- `apps/web/vite.config.ts:93`
 
 当前安装的 Start plugin 同时安装 client/server route code splitter：
 
@@ -143,8 +143,8 @@ React Suspense 不会自动检测 Effect 或普通事件处理器里的数据请
 
 `SidebarTabs` 当前由 URL 反推 active tab，而不是在点击时先写一份本地 active state：
 
-- `apps/ai-recruitment-copilot/src/components/layout/app-sidebar/sidebar-tabs.tsx`
-- `apps/ai-recruitment-copilot/src/components/layout/app-sidebar/sidebar-slot-transition.tsx`
+- `apps/web/src/components/layout/app-sidebar/sidebar-tabs.tsx`
+- `apps/web/src/components/layout/app-sidebar/sidebar-slot-transition.tsx`
 
 点击后，Base UI tabs 通过 `onValueChange` 导航到：
 
@@ -210,14 +210,14 @@ tab 导航。实现 preload 时必须保留这个模式，不能仅为了获得 
 
 对应文件：
 
-- `apps/ai-recruitment-copilot/src/lib/start/studio/resumes.server.ts`
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/dao/metrics.ts`
+- `apps/web/src/lib/start/studio/resumes.server.ts`
+- `apps/server/src/server/routes/studio/routes/resumes/dao/metrics.ts`
 
 在 UI 中，metrics 只服务于 `ResumeLibraryCharts`；主列表、筛选、上传和候选人操作并不
 依赖它：
 
-- `apps/ai-recruitment-copilot/src/components/features/studio/resumes/resume-library-page.tsx`
-- `apps/ai-recruitment-copilot/src/components/features/studio/resumes/resume-library-charts.tsx`
+- `apps/web/src/components/features/studio/resumes/resume-library-page.tsx`
+- `apps/web/src/components/features/studio/resumes/resume-library-charts.tsx`
 
 图表现在只有 `ClientOnly` skeleton。`ClientOnly` 解决 SSR/浏览器边界，但 metrics 已经
 在 route loader 中等待完成，所以它不是数据 Suspense，也不会缩短导航关键路径。
@@ -225,7 +225,7 @@ tab 导航。实现 preload 时必须保留这个模式，不能仅为了获得 
 还有一项确定浪费：访问 `/studio/resumes/$recordId` 时，父 resumes route 令
 `prefetchList=false`，虽然跳过了列表，却仍加载 metrics；随后父组件直接渲染 `<Outlet />`
 而完全不使用 metrics。现有
-`apps/ai-recruitment-copilot/src/lib/start/studio/__tests__/resumes.server.test.ts`
+`apps/web/src/lib/start/studio/__tests__/resumes.server.test.ts`
 甚至固定了这一当前行为。实施时应先改掉这条测试所描述的浪费。
 
 ### 4. sidebar slots 的持久挂载是有意设计
@@ -273,7 +273,7 @@ Studio 时也会获取会话列表；切离 Agent 时还会清理多项编辑状
 
 首选只改 tabs 的 feature-owned 实现及对应测试：
 
-- `apps/ai-recruitment-copilot/src/components/layout/app-sidebar/sidebar-tabs.tsx`
+- `apps/web/src/components/layout/app-sidebar/sidebar-tabs.tsx`
 - 该组件现有或新建的相邻测试文件
 
 ### 设计
@@ -337,7 +337,7 @@ Router 预加载 match 是临时缓存；如果要由 TanStack Query 完整控�
 
 修改：
 
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.tsx`
+- `apps/web/src/routes/w.$slug.studio.tsx`
 
 实施：
 
@@ -357,7 +357,7 @@ server function 仍可由自己的子 loader 并行启动，不应人为等 layo
 
 修改：
 
-- `apps/ai-recruitment-copilot/src/lib/start/studio/resumes.functions.ts`
+- `apps/web/src/lib/start/studio/resumes.functions.ts`
 - 对应 server-function focused test
 
 在一次 `resolveWorkspaceAccessFromRequest` 结果上同时检查：
@@ -379,7 +379,7 @@ workspaceAccessHasPermission({
 
 仅在 2.2 已有测试保护后修改：
 
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.tsx`
+- `apps/web/src/routes/w.$slug.studio.resumes.tsx`
 
 删除 loader 中先执行的 `requireStudioPageAccess(...)`，直接启动
 `loadStudioResumesState(...)`。保留它对 `unauthenticated` redirect 和 `not_found` 的现有
@@ -414,9 +414,9 @@ workspaceAccessHasPermission({
 项目已经：
 
 - 在 Router context 中注入 `queryClient`：
-  `apps/ai-recruitment-copilot/src/router.tsx:17`
+  `apps/web/src/router.tsx:17`
 - 使用 `@tanstack/react-router-ssr-query` 做 Router/Query SSR 集成：
-  `apps/ai-recruitment-copilot/src/router.tsx:2`
+  `apps/web/src/router.tsx:2`
 - 在多处 Start server helper 中使用 `queryClient.prefetchQuery`。
 
 TanStack Router 官方对外部数据层的 deferred 模式是：
@@ -475,8 +475,8 @@ type StudioResumesReadyState =
 需要新增一个浏览器可调用的数据边界。按照本项目 JSON endpoint 约定，优先在 resumes
 Hono read router 中增加 typed `GET /metrics`：
 
-- `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/read-route.ts`
-- `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/studio-resumes.ts`
+- `apps/server/src/server/routes/studio/routes/resumes/read-route.ts`
+- `apps/web/src/lib/client/api/endpoints/studio-resumes.ts`
 
 路由必须声明在 `GET /:id` 之前，并同时要求：
 
@@ -724,8 +724,8 @@ React 还指出，首次挂载前 suspend 的树不会保留 state，而会在�
 验证命令建议：
 
 ```bash
-pnpm --filter @arc/ai-recruitment-copilot exec vitest run <focused-test-files>
-pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @app/web exec vitest run <focused-test-files>
+pnpm --filter @app/web typecheck
 pnpm check
 git diff --check
 ```

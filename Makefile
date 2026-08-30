@@ -1,7 +1,7 @@
 AGENT_DIR := apps/livekit-agent
-WEB_DIR   := apps/ai-recruitment-copilot
-WORKER_PACKAGE := @arc/ai-recruitment-copilot-worker
-DESKTOP_PACKAGE := @arc/ai-recruitment-copilot-desktop
+WEB_DIR   := apps/web
+WORKER_PACKAGE := @app/worker
+DESKTOP_PACKAGE := @app/desktop
 VENV      := $(AGENT_DIR)/.venv
 PY        := uv run --project $(AGENT_DIR)
 AGENT_SCRIPT := src/agent.py
@@ -38,10 +38,10 @@ dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
 web-dev: ## 使用已有依赖缓存启动 TanStack Start dev server
-	bun run --filter @arc/ai-recruitment-copilot dev
+	bun run --filter @app/web dev
 
 web-dev-fresh: ## 清理依赖缓存后启动 TanStack Start dev server
-	bun run --filter @arc/ai-recruitment-copilot dev:fresh
+	bun run --filter @app/web dev:fresh
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
 	bun run --filter $(WORKER_PACKAGE) dev
@@ -105,5 +105,5 @@ agent-clean: ## 删除 Python venv
 	rm -rf $(VENV)
 
 clean: agent-clean ## 清理所有生成目录
-	rm -rf apps/ai-recruitment-copilot/.output apps/ai-recruitment-copilot/node_modules/.vite node_modules/.cache
-	rm -rf apps/ai-recruitment-copilot-desktop/out apps/ai-recruitment-copilot-desktop/dist
+	rm -rf apps/web/.output apps/web/node_modules/.vite node_modules/.cache
+	rm -rf apps/desktop/out apps/desktop/dist

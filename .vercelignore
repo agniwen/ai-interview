@@ -19,7 +19,7 @@ node_modules
 # Docs / non-runtime
 docs
 *.md
-!apps/ai-recruitment-copilot/**/*.md
+!apps/web/**/*.md
 
 # Lockfiles for unrelated tools
 **/uv.lock

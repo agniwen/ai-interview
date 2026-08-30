@@ -1,7 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "tanstack-start",
-  "installCommand": "cd ../.. && bun install --frozen-lockfile",
-  "buildCommand": "cd ../.. && bun run turbo run build --filter=@arc/ai-recruitment-copilot...",
-  "ignoreCommand": "bunx turbo-ignore @arc/ai-recruitment-copilot"
-}
