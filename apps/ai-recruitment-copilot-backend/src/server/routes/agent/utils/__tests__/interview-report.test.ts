@@ -5,7 +5,9 @@ import {
   applyQuestionOutcomesToEvaluation,
   buildInterviewEvaluationPrompt,
   formatCandidateFormSubmissions,
+  generateInterviewEvaluation,
   generateInterviewReport,
+  normalizeInterviewEvaluationOutput,
 } from "../interview-report";
 import type { InterviewEvaluationQuestion } from "../interview-report";
 
@@ -121,6 +123,115 @@ describe("generateInterviewReport", () => {
       evaluation: null,
       evaluationError: "evaluation failed",
       summary: "摘要",
+    });
+  });
+
+  it("enables one invalid-output retry for the structured evaluation", async () => {
+    const generate = vi.fn().mockResolvedValue(EVALUATION);
+
+    await expect(
+      generateInterviewEvaluation(
+        {
+          candidateFormResponses: "",
+          questions: QUESTIONS,
+          transcript: TRANSCRIPT,
+        },
+        generate,
+      ),
+    ).resolves.toEqual(EVALUATION);
+
+    expect(generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fallbackToTextGeneration: true,
+        maxOutputTokens: 8192,
+        normalizeInvalid: expect.any(Function),
+        observabilityLabel: "interview-report-evaluation-v1",
+        retryOnInvalid: true,
+        retryOnTransient: true,
+        retryTextJsonOnInvalid: true,
+        temperature: 0,
+        timeoutMs: 120_000,
+      }),
+    );
+  });
+
+  it("normalizes the observed questionEvaluations model alias", () => {
+    const aliased = {
+      ...EVALUATION,
+      questionEvaluations: [
+        {
+          assessment: "回答覆盖项目背景。",
+          evidence: EVALUATION.questions[0]?.evidence,
+          questionId: "question-1",
+        },
+      ],
+      questions: undefined,
+    };
+
+    expect(normalizeInterviewEvaluationOutput(aliased, QUESTIONS)).toEqual({
+      ...aliased,
+      questions: [
+        {
+          assessment: "回答覆盖项目背景。",
+          evidence: EVALUATION.questions[0]?.evidence,
+          order: 1,
+          question: "请介绍你的项目。",
+          questionId: "question-1",
+          score: null,
+        },
+      ],
+    });
+  });
+
+  it("fills omitted nullable HR fields and derives a safe assessment from question outcomes", () => {
+    const outcomes: InterviewDataCollectionResults = {
+      questions: [
+        {
+          answerSummary: null,
+          difficulty: "easy",
+          endedAtSecs: 30,
+          evaluationFocus: null,
+          followUpCount: 2,
+          followUpDirections: null,
+          question: QUESTIONS[0]?.question ?? "",
+          questionId: "question-1",
+          reason: null,
+          revision: 3,
+          startedAtSecs: 1,
+          status: "insufficient",
+        },
+      ],
+      schemaVersion: 2,
+    };
+    const normalized = normalizeInterviewEvaluationOutput(
+      {
+        ...EVALUATION,
+        hrEvaluation: { jobMotivation: "希望承担完整项目。" },
+        questions: [{ evidence: [], questionId: "question-1" }],
+      },
+      QUESTIONS,
+      outcomes,
+    );
+
+    expect(normalized).toMatchObject({
+      hrEvaluation: {
+        availability: null,
+        careerProgression: null,
+        compensationExpectations: null,
+        jobMotivation: "希望承担完整项目。",
+        overseasTravel: null,
+        projectHighlights: null,
+        recentWork: null,
+      },
+      questions: [
+        {
+          assessment: "经 2 次追问后，现有信息仍不足。",
+          order: 1,
+          question: "请介绍你的项目。",
+          questionId: "question-1",
+          score: null,
+        },
+      ],
     });
   });
 
@@ -319,5 +430,124 @@ describe("generateInterviewReport", () => {
 
     expect(result.overallScore).toBe(80);
     expect(result.recommendation).toBe("待定");
+  });
+
+  it("keeps canonical question outcomes when answers stay missing or the interview ends early", () => {
+    const outcomes: InterviewDataCollectionResults = {
+      questions: [
+        {
+          answerSummary: null,
+          difficulty: "medium",
+          endedAtSecs: 30,
+          evaluationFocus: "核实关键信息",
+          followUpCount: 2,
+          followUpDirections: "信息缺失时继续追问",
+          question: "追问后仍未获得信息的问题",
+          questionId: "insufficient-after-follow-up",
+          reason: null,
+          revision: 3,
+          startedAtSecs: 1,
+          status: "insufficient",
+        },
+        {
+          answerSummary: "候选人仅回答了前半部分",
+          difficulty: "hard",
+          endedAtSecs: 60,
+          evaluationFocus: null,
+          followUpCount: 1,
+          followUpDirections: null,
+          question: "超时前未完整回答的问题",
+          questionId: "interrupted-by-timeout",
+          reason: "time_limit",
+          revision: 2,
+          startedAtSecs: 31,
+          status: "interrupted",
+        },
+        {
+          answerSummary: null,
+          difficulty: "easy",
+          endedAtSecs: 60,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "超时后未问到的问题",
+          questionId: "unasked-by-timeout",
+          reason: "time_limit",
+          revision: 1,
+          startedAtSecs: 60,
+          status: "unasked",
+        },
+      ],
+      schemaVersion: 2,
+    };
+    const result = applyQuestionOutcomesToEvaluation(
+      {
+        ...EVALUATION,
+        questions: [
+          {
+            ...EVALUATION.questions[0],
+            evidence: [{ quote: "我只回答了前半部分。" }],
+            questionId: "interrupted-by-timeout",
+            score: 8,
+          },
+          {
+            ...EVALUATION.questions[0],
+            evidence: [{ quote: "这条证据不应存在。" }],
+            questionId: "unasked-by-timeout",
+            score: 9,
+          },
+        ],
+      },
+      outcomes,
+    );
+
+    expect(result.questions.map((question) => question.questionId)).toEqual([
+      "insufficient-after-follow-up",
+      "interrupted-by-timeout",
+      "unasked-by-timeout",
+    ]);
+    expect(result.questions[0]).toMatchObject({
+      assessment: "报告未能生成本题评估。",
+      evidence: [],
+      score: null,
+    });
+    expect(result.questions[1]).toMatchObject({
+      assessment: "本题在完成前被中断，不参与评分。",
+      evidence: [{ quote: "我只回答了前半部分。" }],
+      score: null,
+    });
+    expect(result.questions[2]).toMatchObject({
+      assessment: "本轮面试结束前未开始本题，不参与评分。",
+      evidence: [],
+      score: null,
+    });
+  });
+
+  it("does not score a question whose prompt was interrupted", () => {
+    const result = applyQuestionOutcomesToEvaluation(EVALUATION, {
+      questions: [
+        {
+          answerSummary: null,
+          difficulty: "medium",
+          endedAtSecs: 88.4,
+          evaluationFocus: "核实最近两份工作",
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "请提供最近两份工作的岗位、汇报线和薪酬。",
+          questionId: "question-1",
+          reason: "question_prompt_interrupted",
+          revision: 1,
+          startedAtSecs: 86.9,
+          status: "interrupted",
+        },
+      ],
+      schemaVersion: 2,
+    });
+
+    expect(result.questions[0]).toMatchObject({
+      assessment: "题目播报未完成，未获得有效回答，不参与评分。",
+      evidence: [],
+      score: null,
+    });
   });
 });

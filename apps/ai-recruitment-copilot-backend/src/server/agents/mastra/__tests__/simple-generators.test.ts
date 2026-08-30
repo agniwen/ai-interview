@@ -384,6 +384,31 @@ describe("simple Mastra generators", () => {
     expect(generate.mock.calls[1]?.[0]).toBe("生成结构化对象");
   });
 
+  it("retries a text-first generation after the provider resets the socket", async () => {
+    const socketError = Object.assign(
+      new TypeError("The socket connection was closed unexpectedly."),
+      { code: "ECONNRESET" },
+    );
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(socketError)
+      .mockResolvedValueOnce({ text: '{"title":"前端工程师"}' });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        retryOnTransient: true,
+        retryTextJsonOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+        textGenerationFirst: true,
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
   it("does not let transient retries opt into invalid-output retries", async () => {
     const generate = vi
       .fn()

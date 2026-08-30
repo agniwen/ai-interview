@@ -238,7 +238,6 @@ export function InterviewQuestionTemplateManagementPage({
   }, [refreshRecord, slug]);
 
   const [createDraft, setCreateDraft] = useState<InterviewQuestionTemplateInput | null>(null);
-  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
@@ -307,16 +306,8 @@ export function InterviewQuestionTemplateManagementPage({
       scope: "job_description",
       title: "",
     });
-    setCreateDraftSessionId((id) => id + 1);
     crud.setEditingRecord(null);
     crud.setFormDialogOpen(true);
-  }
-
-  let editorDialogKey = "create-empty";
-  if (createDraft) {
-    editorDialogKey = `create-draft-${createDraftSessionId}`;
-  } else if (crud.editingRecord) {
-    editorDialogKey = `edit-${crud.editingRecord.id}`;
   }
 
   const columns = useMemo(
@@ -551,7 +542,6 @@ export function InterviewQuestionTemplateManagementPage({
         <InterviewQuestionTemplateEditorDialog
           initialDraft={createDraft}
           jobDescriptions={jobDescriptions}
-          key={editorDialogKey}
           onOpenChange={onEditorOpenChange}
           onSaved={() => {
             grid.invalidate();

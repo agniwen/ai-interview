@@ -60,6 +60,7 @@ const QUESTION_STATUS_VARIANTS = {
 
 const REASON_LABELS = {
   candidate_ended_round: "候选人结束整轮",
+  question_prompt_interrupted: "题目播报被打断",
   reconnect_grace_expired: "重连宽限期耗尽",
   system_shutdown: "系统终止",
   time_limit: "时间截止",

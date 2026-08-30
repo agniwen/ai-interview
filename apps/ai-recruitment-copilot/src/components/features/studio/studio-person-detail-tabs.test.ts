@@ -97,6 +97,11 @@ describe("AI 面试详情 tabs", () => {
     );
   });
 
+  it("keeps the detail modal mounted while its record changes so entrance and exit can animate", () => {
+    expect(viewSource).not.toMatch(/key=\{`\$\{roundId \?\? recordId \?\? "empty"\}`\}/);
+    expect(controllerSource).toContain("}, [defaultTab, mode, recordId, roundId]);");
+  });
+
   it("keeps the floating action bar at its established viewport position", () => {
     expect(viewSource).toContain("bottom-[calc(2.5rem+env(safe-area-inset-bottom))]");
     expect(viewSource).toContain("z-40");

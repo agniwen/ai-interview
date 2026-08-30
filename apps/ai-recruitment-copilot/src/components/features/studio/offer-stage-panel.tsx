@@ -146,7 +146,6 @@ export function OfferStagePanel({
       <CreateOrEditOfferDialog
         candidateEmail={candidateEmail}
         candidateId={candidateId}
-        key={createOpen ? "create-open" : "create-closed"}
         mode="create"
         onOpenChange={(open) => {
           if (!open) {
@@ -159,7 +158,6 @@ export function OfferStagePanel({
       <RespondOfferDialog
         candidateId={candidateId}
         draft={respondTarget}
-        key={respondTarget?.id ?? "closed"}
         onAccepted={(accepted) => {
           setAcceptedConfirm(accepted);
         }}

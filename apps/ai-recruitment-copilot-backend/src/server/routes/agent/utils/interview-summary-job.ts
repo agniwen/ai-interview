@@ -1,6 +1,7 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { captureBackendException } from "@arc/ai-recruitment-copilot-backend/lib/server/sentry";
 import { interviewConversation } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
@@ -140,14 +141,25 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     const hasSummary = report.summary !== null;
     const hasEvaluation = report.evaluation !== null;
 
-    if (!(hasSummary || hasEvaluation)) {
+    if (!(hasSummary && hasEvaluation)) {
+      const generationError =
+        [report.summaryError, report.evaluationError].filter(Boolean).join(" | ") ||
+        "interview report generation was incomplete";
+      captureBackendException(new Error(generationError), "interview.report.partial_generation", {
+        conversationId,
+        hasEvaluation,
+        hasSummary,
+        interviewRecordId,
+      });
       await db
         .update(interviewConversation)
         .set({
-          summaryError:
-            [report.summaryError, report.evaluationError].filter(Boolean).join(" | ") ||
-            "both summary and evaluation generation failed",
+          evaluationCriteriaResults: report.evaluation
+            ? jsonObjectSchema.parse(report.evaluation)
+            : undefined,
+          summaryError: generationError,
           summaryStatus: "failed",
+          transcriptSummary: report.summary ?? undefined,
         })
         .where(eq(interviewConversation.conversationId, conversationId));
       return;

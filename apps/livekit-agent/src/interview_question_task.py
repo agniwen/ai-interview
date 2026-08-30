@@ -454,6 +454,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         self._revisitable_question_ids = frozenset(
             question_id for question_id, _ in allowed_revisitable_questions
         )
+        self._prompt_playout_in_progress = False
         self._handled_speech_ids: set[str] = set()
         self._latest_user_text = ""
         self._draft = draft or _InterviewQuestionDraft()
@@ -493,6 +494,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         self.progress.abuse_count = self._draft.abuse_count
 
     async def on_enter(self) -> None:
+        self._prompt_playout_in_progress = True
         self.session.update_options(
             endpointing_opts={
                 "mode": "dynamic",
@@ -503,16 +505,23 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             }
         )
         if self._previous_outcome is None and not self._previously_asked:
-            self._last_candidate_prompt = self._question.content
+            prompt = self._question.content
+            self._last_candidate_prompt = prompt
             self._persist_draft()
-            self.session.say(self._question.content)
         elif self._previous_outcome is not None:
             prompt = "请直接补充尚未说明的部分。"
             self._last_candidate_prompt = prompt
             self._persist_draft()
-            self.session.say(prompt)
         else:
-            self.session.say("请继续刚才的回答。")
+            prompt = "请继续刚才的回答。"
+
+        # STT may split one answer into adjacent turns while TaskGroup advances.
+        # Keep the new question as a hard boundary so a trailing turn cannot
+        # interrupt its prompt and complete the wrong task before it is heard.
+        handle = self.session.say(prompt, allow_interruptions=False)
+        await handle.wait_for_playout()
+        if not self.done():
+            self._prompt_playout_in_progress = False
 
     async def on_user_turn_completed(
         self,
@@ -702,8 +711,10 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         累计记录已实质回答的追问方向短要点。clarify、wait 和
         continue_current 不消耗追问次数。
         """
+        if self.done() or self._prompt_playout_in_progress:
+            return None
         speech_id = ctx.speech_handle.id
-        if self.done() or speech_id in self._handled_speech_ids:
+        if speech_id in self._handled_speech_ids:
             return None
         self._handled_speech_ids.add(speech_id)
         snapshot = self._snapshot_draft()

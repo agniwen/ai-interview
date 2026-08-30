@@ -220,6 +220,16 @@ function RoleFormDialog({
   const [roleIdentifier, setRoleIdentifier] = useState(defaults.roleIdentifier);
   const [roleName, setRoleName] = useState(defaults.roleName);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    // oxlint-disable-next-line react/set-state-in-effect -- A new role target resets dialog-local fields without remounting the animated root.
+    setError(null);
+    setRoleIdentifier(defaults.roleIdentifier);
+    setRoleName(defaults.roleName);
+  }, [defaults.roleIdentifier, defaults.roleName, open]);
+
   const { description, submitLabel, title } = getRoleFormText(state?.mode ?? "create");
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -660,7 +670,6 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
       </section>
 
       <RoleFormDialog
-        key={roleFormState ? `${roleFormState.mode}:${roleFormState.role?.id ?? "new"}` : "closed"}
         onOpenChange={(open) => {
           if (!open) {
             setRoleFormState(null);

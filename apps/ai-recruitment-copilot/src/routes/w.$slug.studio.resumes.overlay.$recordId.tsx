@@ -35,10 +35,18 @@ function RecruiterResumeDetailOverlayRoute() {
     });
   }, [navigate, routeSearch, router, slug]);
 
+  const showAiInterview = useCallback(() => {
+    void navigate({
+      resetScroll: false,
+      search: (previous) => ({ ...previous, tab: "rounds" }),
+    });
+  }, [navigate]);
+
   return (
     <StudioContentRouteOverlay>
       <RecruiterResumeDetailPage
         onBack={navigateBackToList}
+        onShowAiInterview={showAiInterview}
         recordId={recordId}
         routeSearch={routeSearch}
       />

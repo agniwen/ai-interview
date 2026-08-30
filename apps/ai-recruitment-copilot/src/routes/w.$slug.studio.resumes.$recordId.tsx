@@ -40,9 +40,17 @@ function RecruiterResumeDetailRoute() {
     });
   }, [navigate, routeSearch, router, slug]);
 
+  const showAiInterview = useCallback(() => {
+    void navigate({
+      resetScroll: false,
+      search: (previous) => ({ ...previous, tab: "rounds" }),
+    });
+  }, [navigate]);
+
   return (
     <RecruiterResumeDetailPage
       onBack={navigateBackToList}
+      onShowAiInterview={showAiInterview}
       recordId={recordId}
       routeSearch={routeSearch}
     />

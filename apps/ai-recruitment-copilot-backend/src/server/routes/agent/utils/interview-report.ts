@@ -41,6 +41,7 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 - hrEvaluation.recentWork：最近两份工作的个人角色定位、团队架构及人员分工、离职原因
 - hrEvaluation.projectHighlights：候选人分享的亮点项目
 - 只评估面试中实际提问到的题目
+- 顶层题目数组字段必须命名为 questions，不得使用 questionEvaluations 等别名；每一项都必须包含 questionId、order、question 和 score，无法评分时 score 输出 null
 - 每道题必须原样返回输入中的题目ID到 questionId
 - answered 和 insufficient 根据原始转写证据评分；insufficient 仅依据有限证据，不自动记零分
 - skipped 的 evidence 只引用候选人明确拒答的原话，作为跳过依据；interrupted 的 evidence 只保留已产生的部分上下文；二者都不要包装成正式能力证据
@@ -100,6 +101,83 @@ export interface InterviewEvaluationQuestion extends InterviewQuestion {
   questionId: string;
 }
 
+type InterviewEvaluationGenerator = typeof generateStructuredWithMastraAgent;
+
+export const INTERVIEW_REPORT_EVALUATION_VERSION = "interview-report-evaluation-v1";
+
+// oxlint-disable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion -- Mastra's normalizeInvalid boundary intentionally receives untrusted provider output; this function checks each representation before the strict interviewEvaluationSchema parses the normalized result.
+export function normalizeInterviewEvaluationOutput(
+  value: unknown,
+  configuredQuestions: InterviewEvaluationQuestion[] = [],
+  dataCollectionResults?: InterviewDataCollectionResults | null,
+): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+  const output = value as Record<string, unknown>;
+  const rawQuestions = Array.isArray(output.questions)
+    ? output.questions
+    : output.questionEvaluations;
+  if (!Array.isArray(rawQuestions)) {
+    return value;
+  }
+  const configuredById = new Map(
+    configuredQuestions.map((question) => [question.questionId, question]),
+  );
+  const outcomeById = new Map(
+    (dataCollectionResults?.questions ?? []).map((outcome) => [outcome.questionId, outcome]),
+  );
+  const questions = rawQuestions.map((rawQuestion) => {
+    if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) {
+      return rawQuestion;
+    }
+    const question = rawQuestion as Record<string, unknown>;
+    const configured =
+      typeof question.questionId === "string" ? configuredById.get(question.questionId) : undefined;
+    if (!configured) {
+      return rawQuestion;
+    }
+    const outcome = outcomeById.get(configured.questionId);
+    let fallbackAssessment = "报告未能生成本题评估。";
+    if (outcome?.status === "answered") {
+      fallbackAssessment = "已收集候选人回答，但报告未返回本题的文字评价。";
+    } else if (outcome?.status === "insufficient") {
+      fallbackAssessment =
+        outcome.followUpCount > 0
+          ? `经 ${outcome.followUpCount} 次追问后，现有信息仍不足。`
+          : "候选人已回答，但现有信息不足。";
+    }
+    return {
+      ...question,
+      assessment:
+        typeof question.assessment === "string" && question.assessment.trim()
+          ? question.assessment
+          : fallbackAssessment,
+      order: Number.isInteger(question.order) ? question.order : configured.order,
+      question:
+        typeof question.question === "string" && question.question.trim()
+          ? question.question
+          : configured.question,
+      score: question.score === undefined ? null : question.score,
+    };
+  });
+  const rawHrEvaluation =
+    output.hrEvaluation && typeof output.hrEvaluation === "object"
+      ? (output.hrEvaluation as Record<string, unknown>)
+      : {};
+  const hrEvaluation = {
+    availability: rawHrEvaluation.availability ?? null,
+    careerProgression: rawHrEvaluation.careerProgression ?? null,
+    compensationExpectations: rawHrEvaluation.compensationExpectations ?? null,
+    jobMotivation: rawHrEvaluation.jobMotivation ?? null,
+    overseasTravel: rawHrEvaluation.overseasTravel ?? null,
+    projectHighlights: rawHrEvaluation.projectHighlights ?? null,
+    recentWork: rawHrEvaluation.recentWork ?? null,
+  };
+  return { ...output, hrEvaluation, questions };
+}
+// oxlint-enable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion
+
 const SCORABLE_OUTCOMES = new Set(["answered", "insufficient", "skipped"]);
 
 export function applyQuestionOutcomesToEvaluation(
@@ -128,6 +206,14 @@ export function applyQuestionOutcomesToEvaluation(
       };
     }
     if (outcome.status === "interrupted") {
+      if (outcome.reason === "question_prompt_interrupted") {
+        return {
+          ...base,
+          assessment: "题目播报未完成，未获得有效回答，不参与评分。",
+          evidence: [],
+          score: null,
+        };
+      }
       return {
         ...base,
         assessment: "本题在完成前被中断，不参与评分。",
@@ -281,17 +367,29 @@ export function buildInterviewEvaluationPrompt(options: {
     .replace("{transcript}", formatTranscript(options.transcript));
 }
 
-export async function generateInterviewEvaluation(options: {
-  candidateFormResponses: string;
-  dataCollectionResults?: InterviewDataCollectionResults | null;
-  questions: InterviewEvaluationQuestion[];
-  transcript: InterviewTranscriptTurn[];
-}): Promise<InterviewEvaluation> {
-  const evaluation = await generateStructuredWithMastraAgent({
+export async function generateInterviewEvaluation(
+  options: {
+    candidateFormResponses: string;
+    dataCollectionResults?: InterviewDataCollectionResults | null;
+    questions: InterviewEvaluationQuestion[];
+    transcript: InterviewTranscriptTurn[];
+  },
+  generate: InterviewEvaluationGenerator = generateStructuredWithMastraAgent,
+): Promise<InterviewEvaluation> {
+  const evaluation = await generate({
     agent: interviewReportEvaluationAgent,
+    fallbackToTextGeneration: true,
+    maxOutputTokens: 8192,
+    normalizeInvalid: (value) =>
+      normalizeInterviewEvaluationOutput(value, options.questions, options.dataCollectionResults),
+    observabilityLabel: INTERVIEW_REPORT_EVALUATION_VERSION,
     prompt: buildInterviewEvaluationPrompt(options),
+    retryOnInvalid: true,
+    retryOnTransient: true,
+    retryTextJsonOnInvalid: true,
     schema: interviewEvaluationSchema,
     temperature: 0,
+    timeoutMs: 120_000,
   });
   return options.dataCollectionResults
     ? applyQuestionOutcomesToEvaluation(evaluation, options.dataCollectionResults)

@@ -67,9 +67,7 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     onConfirmHumanInterviewQuestions,
     onHumanInterviewQuestionDialogOpenChange,
     pendingResetSubmissionId,
-    recordId,
     reduceMotion,
-    roundId,
     setActiveTab,
     setMetadataReport,
     shell,
@@ -88,7 +86,6 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
     <>
       <Tabs
         className={cn(floatingActionBar && "pb-[calc(7rem+env(safe-area-inset-bottom))]")}
-        key={`${roundId ?? recordId ?? "empty"}`}
         onValueChange={(value) => {
           if (isStudioPersonDetailTab(value)) {
             setActiveTab(value);

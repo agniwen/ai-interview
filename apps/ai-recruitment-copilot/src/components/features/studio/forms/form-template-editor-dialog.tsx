@@ -232,6 +232,15 @@ export function CandidateFormTemplateEditorDialog({
     if (!open) {
       return;
     }
+    form.reset(resolvedInitialValues);
+    // oxlint-disable-next-line react/set-state-in-effect -- Opening a different template resets dialog-local selection without remounting the animated root.
+    setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
+  }, [form, open, resolvedInitialValues]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
     if (questionIds.length === 0) {
       // oxlint-disable-next-line react/set-state-in-effect -- This effect intentionally synchronizes state with an external lifecycle.
       setSelectedQuestionId(null);

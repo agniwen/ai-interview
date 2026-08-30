@@ -11,6 +11,7 @@ export const interviewQuestionOutcomeStatusSchema = z.enum([
 export const interviewQuestionOutcomeReasonSchema = z.enum([
   "time_limit",
   "candidate_ended_round",
+  "question_prompt_interrupted",
   "reconnect_grace_expired",
   "system_shutdown",
 ]);

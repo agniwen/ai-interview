@@ -13,7 +13,7 @@ import { IconArrowUpRight } from "@tabler/icons-react";
 // the caller to launch the close flow.
 
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
@@ -73,6 +73,20 @@ export function CreateOrEditOfferDialog({
   const setFormField = createOfferFormFieldSetter(setForm);
   const [sendImmediately, setSendImmediately] = useState(false);
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    // oxlint-disable-next-line react/set-state-in-effect -- Each opening resets the draft form while keeping the animated dialog root mounted.
+    setForm(
+      mode === "edit" && existingDraft
+        ? offerFormStateFromDraft(existingDraft)
+        : createBlankOfferFormState(),
+    );
+    setSendImmediately(false);
+    setSendConfirmOpen(false);
+  }, [existingDraft, mode, open]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {
@@ -185,6 +199,14 @@ export function RespondOfferDialog({
   const slug = useWorkspaceSlug();
   const [response, setResponse] = useState<"accepted" | "declined" | "counter">("accepted");
   const [counter, setCounter] = useState("");
+
+  useEffect(() => {
+    if (draft) {
+      // oxlint-disable-next-line react/set-state-in-effect -- A new response target resets dialog-local fields without remounting the animated root.
+      setResponse("accepted");
+      setCounter("");
+    }
+  }, [draft]);
 
   const mutation = useMutation({
     mutationFn: () => {

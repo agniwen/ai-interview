@@ -140,6 +140,41 @@ describe("animation motion regressions", () => {
     expect(tabs).toContain("motion-reduce:transition-none");
   });
 
+  it("does not remount dialog roots when their open state or target changes", () => {
+    const launchInterview = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/resumes/launch-interview-dialog.tsx",
+    );
+    const formTemplates = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/forms/form-template-management-page.tsx",
+    );
+    const mailAccounts = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/platform/mail-ingest-accounts/mail-ingest-accounts-grid.tsx",
+    );
+    const offerStage = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/offer-stage-panel.tsx",
+    );
+    const workspacePermissions = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/members/workspace-permissions-section.tsx",
+    );
+    const interviewQuestionTemplates = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/interview-questions/interview-question-template-management-page.tsx",
+    );
+    const jobDescriptions = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/studio/job-descriptions/job-description-management-page.tsx",
+    );
+
+    expect(launchInterview).not.toContain('key={recordId ?? "empty"}');
+    expect(formTemplates).not.toContain('crud.formDialogOpen ? "open" : "closed"');
+    expect(mailAccounts).not.toMatch(/editingRow \? `\$\{editingRow\.organization\.id\}/);
+    expect(offerStage).not.toContain('key={createOpen ? "create-open" : "create-closed"}');
+    expect(offerStage).not.toContain('key={respondTarget?.id ?? "closed"}');
+    expect(workspacePermissions).not.toMatch(
+      /roleFormState \? `\$\{roleFormState\.mode\}:\$\{roleFormState\.role\?\.id/,
+    );
+    expect(interviewQuestionTemplates).not.toContain("key={editorDialogKey}");
+    expect(jobDescriptions).not.toContain("key={editorDialogKey}");
+  });
+
   it("uses the same interaction-gated toggle recipe on Web and Desktop", () => {
     const webSwitch = readSource("apps/ai-recruitment-copilot/src/components/ui/switch.tsx");
     const desktopSwitch = readSource(

@@ -44,6 +44,22 @@ describe("interview question outcomes", () => {
     ).toBeNull();
   });
 
+  it("parses a question whose prompt was interrupted before an answer", () => {
+    const interrupted = {
+      ...OUTCOME,
+      answerSummary: null,
+      reason: "question_prompt_interrupted" as const,
+      status: "interrupted" as const,
+    };
+
+    expect(
+      parseInterviewDataCollectionResults({
+        questions: [interrupted],
+        schemaVersion: 2,
+      }),
+    ).toEqual({ questions: [interrupted], schemaVersion: 2 });
+  });
+
   it("keeps the latest revision when checkpoints are redelivered", () => {
     const revised = {
       ...OUTCOME,

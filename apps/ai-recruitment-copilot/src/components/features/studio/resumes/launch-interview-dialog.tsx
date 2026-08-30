@@ -303,7 +303,6 @@ export function HumanInterviewQuestionDialog({
       {/* 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
       内容层横向切换，Modal 高度由自然布局直接决定。 */}
       <Tabs
-        key={recordId ?? "empty"}
         onValueChange={(value) => {
           const tab = launchDialogTabSchema.safeParse(value);
           if (tab.success) {

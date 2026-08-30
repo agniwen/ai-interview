@@ -227,7 +227,6 @@ export function JobDescriptionManagementPage({
     });
   }
 
-  const editorDialogKey = crud.editingRecord ? `edit-${crud.editingRecord.id}` : "create";
   const canOpenEditorDialog = crud.editingRecord
     ? canUpdateJobDescription
     : canCreateJobDescription;
@@ -462,7 +461,6 @@ export function JobDescriptionManagementPage({
         <JobDescriptionFormDialog
           departments={departments}
           interviewers={interviewers}
-          key={editorDialogKey}
           onOpenChange={onFormOpenChange}
           onSaved={handleJobDescriptionSaved}
           open={crud.formDialogOpen}

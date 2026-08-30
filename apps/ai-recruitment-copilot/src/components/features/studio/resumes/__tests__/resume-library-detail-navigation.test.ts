@@ -49,4 +49,31 @@ describe("recruitment desk detail navigation", () => {
     expect(cardSource).toContain('return candidateName.trim() || "未命名候选人";');
     expect(cardSource).toContain("seed={getCandidateAvatarSeed(record.candidateName)}");
   });
+
+  it("shows a newly launched AI interview in the existing detail tab instead of another modal", async () => {
+    const [detailSource, detailRouteSource, overlayRouteSource] = await Promise.all([
+      readFile(new URL("../recruiter-resume-detail-page.tsx", import.meta.url), "utf-8"),
+      readFile(
+        new URL("../../../../../routes/w.$slug.studio.resumes.$recordId.tsx", import.meta.url),
+        "utf-8",
+      ),
+      readFile(
+        new URL(
+          "../../../../../routes/w.$slug.studio.resumes.overlay.$recordId.tsx",
+          import.meta.url,
+        ),
+        "utf-8",
+      ),
+    ]);
+
+    expect(detailSource).not.toContain("<StudioPersonDetailDialog");
+    expect(detailSource).not.toContain("interviewDetailDialogOpen");
+    expect(detailSource).not.toContain("interviewRoundDetailId");
+    expect(detailSource).toContain("onShowAiInterview();");
+    for (const routeSource of [detailRouteSource, overlayRouteSource]) {
+      expect(routeSource).toContain('tab: "rounds"');
+      expect(routeSource).toContain("resetScroll: false");
+      expect(routeSource).toContain("onShowAiInterview={showAiInterview}");
+    }
+  });
 });

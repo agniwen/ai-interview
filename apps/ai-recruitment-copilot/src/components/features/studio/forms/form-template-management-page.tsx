@@ -233,7 +233,6 @@ export function CandidateFormTemplateManagementPage({
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
   const [createDraft, setCreateDraft] = useState<CandidateFormTemplateInput | null>(null);
-  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
@@ -467,16 +466,8 @@ export function CandidateFormTemplateManagementPage({
       scope: "job_description",
       title: "",
     });
-    setCreateDraftSessionId((id) => id + 1);
     crud.setEditingRecord(null);
     crud.setFormDialogOpen(true);
-  }
-
-  let editorDialogKey = "create-empty";
-  if (createDraft) {
-    editorDialogKey = `create-draft-${createDraftSessionId}`;
-  } else if (crud.editingRecord) {
-    editorDialogKey = `edit-${crud.editingRecord.id}`;
   }
 
   return (
@@ -567,7 +558,6 @@ export function CandidateFormTemplateManagementPage({
         <CandidateFormTemplateEditorDialog
           initialDraft={createDraft}
           jobDescriptions={jobDescriptions}
-          key={`${editorDialogKey}:${crud.formDialogOpen ? "open" : "closed"}`}
           onOpenChange={onEditorOpenChange}
           onSaved={() => {
             grid.invalidate();

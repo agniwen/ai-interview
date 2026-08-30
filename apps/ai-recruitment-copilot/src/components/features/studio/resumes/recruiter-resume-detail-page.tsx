@@ -10,7 +10,6 @@ import {
   getResumeActionLockedReason,
 } from "@arc/shared/studio-resumes";
 
-import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
@@ -237,10 +236,12 @@ function RecruiterResumeDetailHeaderText({
 
 export function RecruiterResumeDetailPage({
   onBack,
+  onShowAiInterview,
   recordId,
   routeSearch,
 }: {
   onBack: () => void;
+  onShowAiInterview: () => void;
   recordId: string;
   routeSearch: RecruiterResumeDetailSearch;
 }) {
@@ -259,8 +260,6 @@ export function RecruiterResumeDetailPage({
     mode: "close" | "reactivate";
     initialOutcome?: "hired" | "rejected" | "withdrawn" | "archived";
   } | null>(null);
-  const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
-  const [interviewDetailDialogOpen, setInterviewDetailDialogOpen] = useState(false);
   const detailQuery = useQuery({
     queryFn: () => fetchStudioResume(slug, recordId),
     queryKey: ["studio-resumes", slug, "detail", recordId, "authed"] as const,
@@ -379,26 +378,15 @@ export function RecruiterResumeDetailPage({
         />
       </main>
 
-      <StudioPersonDetailDialog
-        defaultTab="overview"
-        mode="interview"
-        onOpenChange={setInterviewDetailDialogOpen}
-        onOpenChangeComplete={(open) => {
-          if (!open && !interviewDetailDialogOpen) {
-            setInterviewRoundDetailId(null);
-          }
-        }}
-        onUpdated={invalidateAll}
-        open={interviewDetailDialogOpen}
-        recordId={interviewRoundDetailId}
-      />
-
       <LaunchInterviewDialog
         candidateName={launchingRecord?.candidateName ?? null}
-        onLaunched={(round) => {
+        onLaunched={() => {
+          queryClient.setQueryData<Awaited<ReturnType<typeof fetchStudioResume>>>(
+            ["studio-resumes", slug, "detail", recordId, "authed"],
+            (current) => (current ? { ...current, pipelineStage: "ai_interview" } : current),
+          );
           invalidateAll();
-          setInterviewRoundDetailId(round.id);
-          setInterviewDetailDialogOpen(true);
+          onShowAiInterview();
         }}
         onOpenChange={(open) => !open && setLaunchingRecord(null)}
         open={launchingRecord !== null}

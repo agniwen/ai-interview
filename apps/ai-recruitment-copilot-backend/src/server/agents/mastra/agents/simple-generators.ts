@@ -360,6 +360,7 @@ function isStructuredOutputCapabilityError(error: Error): boolean {
 
 const transientGenerationErrorSchema = z
   .object({
+    code: z.string().optional(),
     status: z.number().optional(),
     statusCode: z.number().optional(),
   })
@@ -374,8 +375,9 @@ function isRetryableTransientGenerationError(error: Error): boolean {
   ) {
     return true;
   }
-  const message = `${error.name} ${error.message}`.toLowerCase();
-  return /timeout|timed out|aborterror|econnreset|etimedout|eai_again|socket hang up|rate limit/.test(
+  const code = metadata.success ? metadata.data.code : undefined;
+  const message = `${error.name} ${code ?? ""} ${error.message}`.toLowerCase();
+  return /timeout|timed out|aborterror|econnreset|etimedout|eai_again|socket hang up|socket connection was closed|rate limit/.test(
     message,
   );
 }
