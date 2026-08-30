@@ -61,7 +61,7 @@ describe("BackgroundLayers", () => {
     const root = createRoot(container);
 
     await act(async () => {
-      root.render(<DecorativeBackgroundVideo active onReady={() => {}} theme="dark" />);
+      root.render(<DecorativeBackgroundVideo theme="dark" />);
       await Promise.resolve();
     });
 
@@ -69,6 +69,7 @@ describe("BackgroundLayers", () => {
       '[data-slot="home-hero-background-video"]',
     );
     expect(video?.autoplay).toBe(true);
+    expect(video?.preload).toBe("auto");
     expect(video?.muted).toBe(true);
     expect(video?.loop).toBe(true);
     expect(video?.playsInline).toBe(true);

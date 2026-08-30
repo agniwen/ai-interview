@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useDebouncedCallback } from "use-debounce";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { MarkdownEditor } from "@/components/features/markdown-editor";
+import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";

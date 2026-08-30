@@ -5,33 +5,26 @@ import { HomeHeroBackgroundVideo } from "./home-hero-background-video";
 
 interface BackgroundLayersProps {
   fadeToBackground?: boolean;
-  onVideoReadyChange?: (ready: boolean) => void;
   video?: boolean;
 }
 
 export function BackgroundLayersView({
   fadeToBackground = false,
-  onVideoReadyChange,
   video = false,
 }: BackgroundLayersProps) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen">
-      {video ? (
-        <HomeHeroBackgroundVideo onReadyChange={onVideoReadyChange} />
-      ) : (
-        <>
-          <div
-            className="home-hero-artwork-light absolute inset-0 bg-center bg-cover bg-no-repeat dark:hidden"
-            data-slot="home-hero-artwork"
-            data-theme="light"
-          />
-          <div
-            className="home-hero-artwork-dark absolute inset-0 hidden bg-center bg-cover bg-no-repeat dark:block"
-            data-slot="home-hero-artwork"
-            data-theme="dark"
-          />
-        </>
-      )}
+      <div
+        className="home-hero-artwork-light absolute inset-0 bg-center bg-cover bg-no-repeat dark:hidden"
+        data-slot="home-hero-artwork"
+        data-theme="light"
+      />
+      <div
+        className="home-hero-artwork-dark absolute inset-0 hidden bg-center bg-cover bg-no-repeat dark:block"
+        data-slot="home-hero-artwork"
+        data-theme="dark"
+      />
+      {video ? <HomeHeroBackgroundVideo /> : null}
       <div
         className="absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,oklch(0.985_0.012_90/0.3),transparent_52%)] dark:bg-[radial-gradient(circle_at_50%_22%,oklch(0.2_0.045_260/0.18),transparent_54%)]"
         data-slot="home-hero-copy-veil"

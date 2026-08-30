@@ -17,6 +17,8 @@ describe("ProductShot", () => {
     );
     expect(globalStyles).not.toContain("home-product-shot-before-enter");
     expect(globalStyles).not.toContain("@keyframes home-product-shot-enter");
+    expect(globalStyles).toContain("animation-timeline: view()");
+    expect(globalStyles).toContain("@keyframes home-product-shot-scroll-scale");
     expect(globalStyles).not.toContain("@starting-style");
   });
 });

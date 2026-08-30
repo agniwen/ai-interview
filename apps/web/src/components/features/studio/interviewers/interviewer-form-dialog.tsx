@@ -30,7 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 
-import { MarkdownEditor } from "@/components/features/markdown-editor";
+import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/components/features/studio/entity-form-dialog";
 import { useEntityForm } from "@/components/features/studio/entity-form";

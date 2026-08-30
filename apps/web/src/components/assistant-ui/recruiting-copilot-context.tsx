@@ -151,6 +151,7 @@ export function RecruitingCopilotContextProvider({
     | { itemId: string; kind: "resume_pool" }
     | null
   >(null);
+  const [resumeDetailOpen, setResumeDetailOpen] = useState(false);
   const [previewRecord, setPreviewRecord] = useState<Pick<
     CandidateSummaryCard,
     "id" | "resumeFileName"
@@ -165,6 +166,7 @@ export function RecruitingCopilotContextProvider({
     setStateConversationId(conversationId);
     setCitations([]);
     setDetailTarget(null);
+    setResumeDetailOpen(false);
     setPreviewRecord(null);
     setProposals([]);
     setProposalStatuses({});
@@ -194,15 +196,18 @@ export function RecruitingCopilotContextProvider({
   const openCandidateDetail = useCallback((target: CandidateDetailTarget) => {
     if (target.kind === "resume_pool") {
       const itemId = target.id.startsWith("pool:") ? target.id.slice("pool:".length) : target.id;
+      setResumeDetailOpen(false);
       setDetailTarget({ itemId, kind: "resume_pool" });
       return;
     }
     setDetailTarget({ defaultTab: "overview", kind: "resume_record", recordId: target.id });
+    setResumeDetailOpen(true);
   }, []);
 
   const openResumeDetail = useCallback(
     (recordId: string, defaultTab: StudioPersonDetailTab = "overview") => {
       setDetailTarget({ defaultTab, kind: "resume_record", recordId });
+      setResumeDetailOpen(true);
     },
     [],
   );
@@ -252,17 +257,20 @@ export function RecruitingCopilotContextProvider({
   return (
     <RecruitingCopilotContext.Provider value={value}>
       {children}
-      <PersonDetailDialog
-        defaultTab={resumeDetailTarget?.defaultTab}
-        mode="resume"
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailTarget(null);
-          }
-        }}
-        open={resumeDetailTarget !== null}
-        recordId={resumeDetailTarget?.recordId}
-      />
+      {resumeDetailTarget ? (
+        <PersonDetailDialog
+          defaultTab={resumeDetailTarget.defaultTab}
+          mode="resume"
+          onOpenChange={setResumeDetailOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) {
+              setDetailTarget(null);
+            }
+          }}
+          open={resumeDetailOpen}
+          recordId={resumeDetailTarget.recordId}
+        />
+      ) : null}
       {poolDetailTarget ? (
         <Suspense fallback={null}>
           <ResumePoolDetailDialog

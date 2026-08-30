@@ -29,7 +29,7 @@ const LEVEL_COLORS = [
   "#30a14e",
   "#216e39",
 ] as const;
-const CELL_PX = 12;
+const CELL_PX = 10;
 const CELL_GAP_PX = 2;
 const CELL_PITCH = CELL_PX + CELL_GAP_PX;
 const BAND_PADDING_INNER = CELL_GAP_PX / CELL_PITCH;
@@ -290,7 +290,7 @@ export function ContributionCalendar({
         }}
       >
         <ChartContainer
-          className="aspect-auto"
+          className="mx-auto aspect-auto"
           config={chartConfig}
           style={{ height: chartHeight, width: chartWidth }}
         >

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
-import { MarkdownEditor } from "@/components/features/markdown-editor";
+import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";

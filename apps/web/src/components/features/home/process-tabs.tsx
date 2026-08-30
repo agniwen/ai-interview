@@ -401,10 +401,6 @@ export function ProcessTabs() {
               return (
                 <button
                   aria-controls="process-demo-panel"
-                  aria-label={messages.home_process_view_step({
-                    label: step.label,
-                    title: step.title,
-                  })}
                   aria-selected={isActive}
                   className="group block w-full py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-4 active:opacity-80 lg:py-2.5"
                   data-process-step={step.value}
@@ -417,7 +413,7 @@ export function ProcessTabs() {
                     <span
                       className={cn(
                         "font-mono text-[10px] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
-                        isActive ? "text-primary" : "text-foreground/35",
+                        isActive ? "text-primary" : "text-foreground/70",
                       )}
                     >
                       {step.number}
@@ -425,7 +421,7 @@ export function ProcessTabs() {
                     <span
                       className={cn(
                         "font-medium text-sm transition-colors duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
-                        isActive ? "text-foreground" : "text-foreground/50",
+                        isActive ? "text-foreground" : "text-foreground/68",
                       )}
                     >
                       {step.label}
@@ -443,15 +439,14 @@ export function ProcessTabs() {
                       <h3
                         className={cn(
                           "text-balance font-medium text-xl tracking-tight transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none sm:text-2xl",
-                          !isActive && "lg:opacity-45",
+                          !isActive && "text-foreground/72",
                         )}
                       >
                         {step.title}
                       </h3>
                       <p
                         className={cn(
-                          "mt-2 max-w-md text-sm text-foreground/60 leading-relaxed transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none dark:text-white/68 lg:text-[13px] lg:leading-5",
-                          !isActive && "lg:opacity-45",
+                          "mt-2 max-w-md text-sm text-foreground/68 leading-relaxed transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none dark:text-white/72 lg:text-[13px] lg:leading-5",
                         )}
                       >
                         {step.body}

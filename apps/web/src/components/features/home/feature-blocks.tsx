@@ -309,7 +309,7 @@ function StoryCard({ story, index }: { index: number; story: Story }) {
         <h3 className="max-w-md text-balance font-medium text-3xl text-foreground leading-[1.16] tracking-tight sm:text-4xl">
           {story.title}
         </h3>
-        <p className="mt-5 max-w-md text-base text-foreground/62 leading-relaxed dark:text-white/70">
+        <p className="mt-5 max-w-md text-base text-foreground/68 leading-relaxed dark:text-white/72">
           {story.description}
         </p>
         <ul className="mt-10 space-y-3">

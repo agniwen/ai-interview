@@ -11,7 +11,7 @@ import {
 } from "@arc/shared/studio-resumes";
 
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
-import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { CandidateDetailRailSkeleton } from "@/components/features/studio/candidate-detail-rail";

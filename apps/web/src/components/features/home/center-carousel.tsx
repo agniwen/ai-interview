@@ -162,8 +162,10 @@ export function CenterCarousel({
           <button
             aria-label={m.home_carousel_jump_to({ index: i + 1, label: item.label })}
             className={cn(
-              "h-1.5 rounded-full transition-[width,background-color] duration-[var(--duration-fast)] ease-[var(--ease-smooth-out)] motion-reduce:transition-none",
-              i === selectedIndex ? "w-6 bg-foreground/70" : "w-1.5 bg-foreground/20",
+              "relative grid size-6 place-items-center rounded-full motion-reduce:transition-none after:h-1.5 after:rounded-full after:transition-[width,background-color] after:duration-[var(--duration-fast)] after:ease-[var(--ease-smooth-out)] motion-reduce:after:transition-none",
+              i === selectedIndex
+                ? "after:w-6 after:bg-foreground/70"
+                : "after:w-1.5 after:bg-foreground/25",
             )}
             key={item.key}
             onClick={() => embla?.scrollTo(i)}

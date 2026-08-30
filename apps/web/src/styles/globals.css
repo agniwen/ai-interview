@@ -56,7 +56,7 @@
 .home-hero-artwork-light {
   background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg");
   background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.avif")
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-light.avif")
       type("image/avif"),
     url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
       type("image/webp"),
@@ -68,12 +68,77 @@
 .home-hero-artwork-dark {
   background-image: url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg");
   background-image: image-set(
-    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.avif")
+    url("/landing/optimized/home-background-options/mixed-media-k-talent-city-1280-dark.avif")
       type("image/avif"),
     url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
       type("image/webp"),
     url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg") type("image/jpeg")
   );
+}
+
+@media (min-width: 64rem) {
+  .home-hero-artwork-light {
+    background-image: image-set(
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-light.avif")
+        type("image/avif"),
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
+        type("image/webp"),
+      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
+        type("image/jpeg")
+    );
+  }
+
+  .home-hero-artwork-dark {
+    background-image: image-set(
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-2560-dark.avif")
+        type("image/avif"),
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
+        type("image/webp"),
+      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
+        type("image/jpeg")
+    );
+  }
+}
+
+@media (min-width: 120rem) and (min-resolution: 1.5dppx) {
+  .home-hero-artwork-light {
+    background-image: image-set(
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.avif")
+        type("image/avif"),
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-light.webp")
+        type("image/webp"),
+      url("/landing/home-background-options/mixed-media-k-talent-city-4k-light.jpg")
+        type("image/jpeg")
+    );
+  }
+
+  .home-hero-artwork-dark {
+    background-image: image-set(
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.avif")
+        type("image/avif"),
+      url("/landing/optimized/home-background-options/mixed-media-k-talent-city-4k-dark.webp")
+        type("image/webp"),
+      url("/landing/home-background-options/mixed-media-k-talent-city-4k-dark.jpg")
+        type("image/jpeg")
+    );
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .home-product-shot-scroll {
+      animation: home-product-shot-scroll-scale linear both;
+      animation-range: entry 50% exit 100%;
+      animation-timeline: view();
+      transform-origin: 50% 0;
+    }
+  }
+
+  @keyframes home-product-shot-scroll-scale {
+    to {
+      transform: scale(0.96);
+    }
+  }
 }
 
 @source "../node_modules/streamdown/dist/*.js";

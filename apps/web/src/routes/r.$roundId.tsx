@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 
 // 公开访问入口：候选人面试详情独立页（无需登录）。

@@ -3,7 +3,7 @@ import { createFileRoute, useParams, useRouter } from "@tanstack/react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "@/components/features/studio/lazy-studio-person-detail-panel";
 import { InterviewDetailPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 

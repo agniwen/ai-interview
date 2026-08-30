@@ -18,7 +18,6 @@ export function SplitText({ text, className }: SplitTextProps) {
   return (
     <motion.span
       animate="show"
-      aria-label={text}
       className={cn("inline-block whitespace-pre-wrap", className)}
       initial="hidden"
       variants={{
@@ -31,6 +30,7 @@ export function SplitText({ text, className }: SplitTextProps) {
         },
       }}
     >
+      <span className="sr-only">{text}</span>
       {Array.from(text, (char, index) => (
         <motion.span
           aria-hidden="true"

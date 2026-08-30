@@ -27,8 +27,10 @@ describe("FeatureBlocks", () => {
     expect(markup.match(/type="image\/avif"/g)).toHaveLength(6);
     expect(markup.match(/type="image\/webp"/g)).toHaveLength(6);
     expect(markup).toContain("/landing/optimized/feature-scenes/evidence-review-v2.avif");
-    expect(markup).not.toContain("sizes=");
-    expect(markup).not.toContain(" 960w");
+    expect(markup).toContain(
+      "/landing/optimized/feature-scenes/evidence-review-v2-1024.avif 1024w",
+    );
+    expect(markup.match(/sizes="\(min-width: 1024px\) 60vw, 100vw"/g)).toHaveLength(18);
     expect(markup.match(/loading="lazy"/g)).toHaveLength(6);
     expect(markup.match(/data-artwork-theme="light"/g)).toHaveLength(3);
     expect(markup.match(/data-artwork-theme="dark"/g)).toHaveLength(3);

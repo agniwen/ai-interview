@@ -92,11 +92,6 @@ export default defineConfig(({ mode }) => {
           routeFileIgnorePattern: "(__tests__|__test__|\\.test\\.|\\.spec\\.)",
           routesDirectory: "routes",
         },
-        server: {
-          build: {
-            inlineCss: true,
-          },
-        },
         srcDirectory: "src",
       }),
       viteReact(),
@@ -104,6 +99,10 @@ export default defineConfig(({ mode }) => {
         presets: [reactCompilerPreset()],
       }),
       nitro({
+        compressPublicAssets: {
+          brotli: true,
+          gzip: true,
+        },
         preset: "bun",
         routeRules: {
           "/**": {

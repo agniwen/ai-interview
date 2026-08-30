@@ -8,7 +8,7 @@
 // component's external API is unchanged for existing call sites.
 
 import { Modal } from "@/components/ui/modal";
-import { StudioPersonDetailPanel } from "./studio-person-detail-panel";
+import { LazyStudioPersonDetailPanel as StudioPersonDetailPanel } from "./lazy-studio-person-detail-panel";
 import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-person-detail-panel";
 
 export function StudioPersonDetailDialog({

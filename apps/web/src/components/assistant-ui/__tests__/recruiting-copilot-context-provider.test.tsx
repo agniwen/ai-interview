@@ -38,6 +38,7 @@ const queryClient = new QueryClient();
 interface CommitSnapshot {
   citationIds: string[];
   conversationId: string | null;
+  detailDialogMounted: boolean;
   detailDialogOpen: boolean;
   previewDialogOpen: boolean;
   proposalIds: string[];
@@ -56,8 +57,21 @@ const dependencies: RecruitingCopilotContextProviderDependencies = {
   ResumeDocumentPreviewDialog: ({ open }) => (
     <div data-open={String(open)} data-testid="resume-preview-dialog" />
   ),
-  StudioPersonDetailDialog: ({ open }) => (
-    <div data-open={String(open)} data-testid="resume-detail-dialog" />
+  StudioPersonDetailDialog: ({ onOpenChange, onOpenChangeComplete, open }) => (
+    <div data-open={String(open)} data-testid="resume-detail-dialog">
+      <button
+        aria-label="关闭候选人详情"
+        data-testid="close-resume-detail"
+        onClick={() => onOpenChange(false)}
+        type="button"
+      />
+      <button
+        aria-label="完成关闭候选人详情"
+        data-testid="complete-resume-detail-close"
+        onClick={() => onOpenChangeComplete?.(false)}
+        type="button"
+      />
+    </div>
   ),
 };
 
@@ -68,6 +82,9 @@ function ProviderProbe({ onLayoutCommit }: { onLayoutCommit: (snapshot: CommitSn
     onLayoutCommit({
       citationIds: context.citations.map((citation) => citation.id),
       conversationId: context.conversationId,
+      detailDialogMounted: Boolean(
+        document.querySelector<HTMLElement>('[data-testid="resume-detail-dialog"]'),
+      ),
       detailDialogOpen:
         document.querySelector<HTMLElement>('[data-testid="resume-detail-dialog"]')?.dataset
           .open === "true",
@@ -150,6 +167,7 @@ describe("RecruitingCopilotContextProvider", () => {
       expect.objectContaining({
         citationIds: ["resume-a"],
         conversationId: "conversation-a",
+        detailDialogMounted: true,
         detailDialogOpen: true,
         proposalIds: ["proposal-a"],
         proposalStatuses: { "proposal-a": "confirmed" },
@@ -158,6 +176,28 @@ describe("RecruitingCopilotContextProvider", () => {
     expect(
       document.querySelector<HTMLElement>('[data-testid="resume-preview-dialog"]')?.dataset.open,
     ).toBe("true");
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="close-resume-detail"]')?.click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[data-testid="resume-detail-dialog"]')).not.toBeNull();
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="resume-detail-dialog"]')?.dataset.open,
+    ).toBe("false");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('[data-testid="complete-resume-detail-close"]')
+        ?.click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[data-testid="resume-detail-dialog"]')).toBeNull();
+
+    await act(async () => {
+      fillState?.click();
+      await Promise.resolve();
+    });
 
     commits.length = 0;
     await act(async () => {
@@ -173,6 +213,7 @@ describe("RecruitingCopilotContextProvider", () => {
     expect(commits[0]).toEqual({
       citationIds: [],
       conversationId: "conversation-b",
+      detailDialogMounted: false,
       detailDialogOpen: false,
       previewDialogOpen: false,
       proposalIds: [],

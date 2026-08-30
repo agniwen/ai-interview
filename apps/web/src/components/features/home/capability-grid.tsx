@@ -85,7 +85,7 @@ function ChatBubblesVisual() {
       </div>
       <div className="max-w-[88%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         {messages.home_chat_answer_one()}
-        <span className="mt-1 block text-foreground/55 text-xs">
+        <span className="mt-1 block text-foreground/68 text-xs">
           {messages.home_chat_followup()}
         </span>
       </div>
@@ -102,7 +102,7 @@ function ChatBubblesVisual() {
       <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         {messages.home_chat_shortlist()}
       </div>
-      <div className="inline-flex items-center gap-1 self-start text-foreground/45 text-xs">
+      <div className="inline-flex items-center gap-1 self-start text-foreground/68 text-xs">
         <span className="size-1 animate-pulse rounded-full bg-foreground/40" />
         <span className="size-1 animate-pulse rounded-full bg-foreground/40 [animation-delay:120ms]" />
         <span className="size-1 animate-pulse rounded-full bg-foreground/40 [animation-delay:240ms]" />

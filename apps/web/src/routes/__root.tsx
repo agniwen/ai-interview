@@ -101,14 +101,14 @@ export const Route = createRootRouteWithContext<{
   head: ({ matches }) => ({
     links: [
       {
-        href: "/favicon-light.ico?v=3",
+        href: "/favicon-light.ico",
         id: "favicon-light",
         media: "(prefers-color-scheme: light)",
         rel: "icon",
         type: "image/x-icon",
       },
       {
-        href: "/favicon-dark.ico?v=3",
+        href: "/favicon-dark.ico",
         id: "favicon-dark",
         media: "(prefers-color-scheme: dark)",
         rel: "icon",
@@ -126,17 +126,7 @@ export const Route = createRootRouteWithContext<{
       },
       {
         crossOrigin: "anonymous",
-        href: "https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Medium.min.css",
-        rel: "stylesheet",
-      },
-      {
-        crossOrigin: "anonymous",
         href: "https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Semibold.min.css",
-        rel: "stylesheet",
-      },
-      {
-        crossOrigin: "anonymous",
-        href: "https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Bold.min.css",
         rel: "stylesheet",
       },
     ],

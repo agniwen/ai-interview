@@ -60,14 +60,14 @@ describe("ProcessTabs", () => {
       "/landing/process-scenes/recruitment-workflow-v2-dark.jpg",
     );
     expect(container.querySelector('source[type="image/avif"]')?.getAttribute("srcset")).toBe(
-      "/landing/optimized/process-scenes/recruitment-workflow-v2-light.avif",
+      "/landing/optimized/process-scenes/recruitment-workflow-v2-light-1024.avif 1024w, /landing/optimized/process-scenes/recruitment-workflow-v2-light.avif 1343w",
     );
     expect(
       container.querySelector('[data-process-artwork="light"]')?.getAttribute("srcset"),
     ).toBeNull();
-    expect(
-      container.querySelector('[data-process-artwork="light"]')?.getAttribute("sizes"),
-    ).toBeNull();
+    expect(container.querySelector('[data-process-artwork="light"]')?.getAttribute("sizes")).toBe(
+      "(min-width: 1024px) 60vw, 100vw",
+    );
     expect(container.querySelector("[data-process-ui-block]")?.textContent).toContain("岗位标尺");
     expect(container.querySelectorAll("[data-process-progress]")).toHaveLength(1);
     expect(container.querySelector('[data-slot="screen-frame"]')).toBeNull();

@@ -15,10 +15,16 @@ export function ModernArtwork({
   height,
   width,
 }: ModernArtworkProps) {
+  const sizes = "(min-width: 1024px) 60vw, 100vw";
+
   return (
     <picture>
-      <source srcSet={`${assetPath}.avif`} type="image/avif" />
-      <source srcSet={`${assetPath}.webp`} type="image/webp" />
+      <source
+        sizes={sizes}
+        srcSet={`${assetPath}-1024.avif 1024w, ${assetPath}.avif ${width}w`}
+        type="image/avif"
+      />
+      <source sizes={sizes} srcSet={`${assetPath}.webp ${width}w`} type="image/webp" />
       {/* oxlint-disable-next-line next/no-img-element -- TanStack Start has no image runtime; picture supplies full-resolution AVIF/WebP with the original JPEG fallback. */}
       <img
         {...dataAttributes}
@@ -27,6 +33,7 @@ export function ModernArtwork({
         decoding="async"
         height={height}
         loading="lazy"
+        sizes={sizes}
         src={fallbackPath}
         width={width}
       />
