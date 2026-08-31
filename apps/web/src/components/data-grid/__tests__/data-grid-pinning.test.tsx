@@ -24,6 +24,42 @@ afterEach(() => {
 });
 
 describe("DataGrid column pinning", () => {
+  it("pins the conventional actions column to the right by default", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <DataGrid
+          columns={[
+            { accessorKey: "name", header: "姓名" },
+            { cell: () => null, header: "操作", id: "actions", maxSize: 80, minSize: 80 },
+          ]}
+          data={[{ id: "1", name: "张三" }]}
+          empty={<p>暂无记录</p>}
+          getRowId={(row) => row.id}
+          pagination={{
+            onPageChange: vi.fn(),
+            onPageSizeChange: vi.fn(),
+            page: 1,
+            pageSize: 20,
+          }}
+          total={1}
+          totalPages={1}
+        />,
+      );
+    });
+
+    const actionsHeader = [...container.querySelectorAll<HTMLElement>("th")].find(
+      (cell) => cell.textContent === "操作",
+    );
+    expect(actionsHeader?.style.position).toBe("sticky");
+    expect(actionsHeader?.style.insetInlineEnd).toBe("0px");
+
+    act(() => root.unmount());
+  });
+
   it("does not add a scroll-state commit to an unpinned column update", () => {
     const onRender = vi.fn();
     const container = document.createElement("div");
@@ -78,7 +114,7 @@ describe("DataGrid column pinning", () => {
     const root = createRoot(container);
     const renderGrid = (pinned: boolean) => (
       <DataGrid
-        columnPinning={pinned ? { end: ["actions"], start: ["name"] } : undefined}
+        columnPinning={pinned ? { end: ["actions"], start: ["name"] } : { end: [] }}
         columns={pinnedColumns}
         data={[{ id: "1", name: "张三" }]}
         empty={<p>暂无记录</p>}

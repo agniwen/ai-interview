@@ -51,8 +51,17 @@ afterEach(() => {
 describe("DataGrid initial loading", () => {
   it("shows a table skeleton before the first rows arrive", () => {
     const container = renderGrid({ loading: true });
+    const reveal = container.querySelector<HTMLElement>('[data-slot="skeleton-reveal"]');
+    const placeholder = container.querySelector<HTMLElement>(
+      '[data-slot="skeleton-reveal-placeholder"]',
+    );
+    const content = container.querySelector<HTMLElement>('[data-slot="skeleton-reveal-content"]');
 
     expect(container.querySelector('[data-slot="data-grid-skeleton"]')).not.toBeNull();
+    expect(reveal?.classList.contains("min-w-0")).toBe(true);
+    expect(reveal?.classList.contains("grid-cols-[minmax(0,1fr)]")).toBe(true);
+    expect(placeholder?.classList.contains("min-w-0")).toBe(true);
+    expect(content?.classList.contains("min-w-0")).toBe(true);
     expect(
       container.querySelectorAll('[data-slot="data-grid-skeleton"] [data-slot="table-body"] tr'),
     ).toHaveLength(20);
@@ -76,6 +85,9 @@ describe("DataGrid initial loading", () => {
     expect(container.querySelector('[data-slot="data-grid-skeleton"]')).toBeNull();
     expect(container.querySelector('[data-slot="pagination-bar-skeleton"]')).toBeNull();
     expect(container.querySelector('[data-slot="pagination-bar"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-slot="skeleton-reveal-content"] .overflow-x-auto'),
+    ).not.toBeNull();
     expect(container.textContent).toContain("张三");
     expect(container.querySelector("tbody tr")?.classList.contains("h-[53px]")).toBe(true);
     expect(

@@ -40,6 +40,8 @@ import { dataGridFeatures } from "./table-features";
 import type { DataGridFeatures } from "./table-features";
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
+const DEFAULT_END_COLUMN_PINNING = ["actions"];
+const EMPTY_COLUMN_PINNING: string[] = [];
 const DATA_GRID_ROW_CLASS = "h-[53px]";
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
 
@@ -134,7 +136,10 @@ export interface DataGridProps<TData extends RowData> {
 
   columns: DataGridColumnDef<TData>[];
   getRowId: (row: TData) => string;
-  /** Logical pin sides (TanStack Table V9). `start` ≈ left in LTR, `end` ≈ right. */
+  /**
+   * Logical pin sides (TanStack Table V9). `start` ≈ left in LTR, `end` ≈ right.
+   * The conventional `actions` column is pinned to the end by default; pass `end: []` to opt out.
+   */
   columnPinning?: { end?: string[]; start?: string[] };
 
   pagination: {
@@ -212,10 +217,14 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
 
   const normalizedPinning = useMemo(
     () => ({
-      end: columnPinning?.end ?? [],
-      start: columnPinning?.start ?? [],
+      end:
+        columnPinning?.end ??
+        (columns.some((column) => column.id === "actions")
+          ? DEFAULT_END_COLUMN_PINNING
+          : EMPTY_COLUMN_PINNING),
+      start: columnPinning?.start ?? EMPTY_COLUMN_PINNING,
     }),
-    [columnPinning],
+    [columnPinning, columns],
   );
   const hasPinning = normalizedPinning.start.length > 0 || normalizedPinning.end.length > 0;
 
@@ -337,6 +346,8 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
       ) : null}
 
       <SkeletonReveal
+        className="min-w-0 grid-cols-[minmax(0,1fr)]"
+        contentClassName="min-w-0"
         loading={isInitialLoading}
         skeleton={
           <DataGridContentSkeleton
@@ -344,6 +355,7 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
             rowCount={pagination.pageSize}
           />
         }
+        skeletonClassName="min-w-0"
       >
         <div className="flex flex-col gap-4">
           {rows.length > 0 ? (
