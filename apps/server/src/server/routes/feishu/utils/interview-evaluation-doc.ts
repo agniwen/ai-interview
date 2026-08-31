@@ -7,6 +7,7 @@ import type {
 import { INTERVIEW_QUESTION_DIMENSION_LABEL } from "@arc/db-schema/interview/types";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { JsonObject } from "@arc/db-schema/json";
+import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
 
 interface FeishuTextRun {
@@ -76,6 +77,7 @@ export interface HrInterviewEvaluationInput {
 }
 
 export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationInput {
+  communicationQuestionResults?: InterviewDataCollectionResults | null;
   includeResumeLink?: boolean;
   recommendedQuestions?: InterviewQuestion[];
   resumeEvaluation?: Pick<QualitativeResumeEvaluation, "detailedOverall"> | null;
@@ -148,6 +150,31 @@ function calloutBlock(
     },
     children,
   };
+}
+
+function buildCommunicationQuestionBlocks(
+  results: InterviewDataCollectionResults | null | undefined,
+): FeishuDocumentBlock[] {
+  if (!results || results.questions.length === 0) {
+    return [];
+  }
+  const statusText = {
+    answered: "已回答",
+    insufficient: "信息不足",
+    interrupted: "回答中断",
+    skipped: "候选人跳过",
+    unasked: "未提问",
+  } as const;
+  return [
+    calloutBlock(CALLOUT_COLOR.BLUE, CALLOUT_COLOR.BLUE, "speech_balloon", [
+      textBlock("沟通题回答", true),
+      ...results.questions.flatMap((question, index) => [
+        textBlock(`${index + 1}. ${question.question}`, true),
+        textBlock(question.answerSummary?.trim() || `本题状态：${statusText[question.status]}`),
+        ...(index === results.questions.length - 1 ? [] : [textBlock("")]),
+      ]),
+    ]),
+  ];
 }
 
 function todoBlock(content: string): FeishuDocumentBlock {
@@ -341,6 +368,7 @@ export function buildInterviewEvaluationDocument(
       ...resumeLinkBlocks,
       ...buildResumeEvaluationBlocks(input.resumeEvaluation),
       hrEvaluationBlock.block,
+      ...buildCommunicationQuestionBlocks(input.communicationQuestionResults),
       ...buildRecommendedQuestionBlocks(input.recommendedQuestions),
       heading2Block("评级等级确定"),
       todoBlock("A-超出预期 薪资110%~130%"),

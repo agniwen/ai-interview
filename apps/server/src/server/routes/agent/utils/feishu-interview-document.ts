@@ -5,9 +5,13 @@ import type {
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { interviewNotification } from "@arc/db-schema/schema";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import { db } from "@app/server/lib/server/db";
 import { getRequiredEnv } from "@app/server/lib/server/env";
+import { captureBackendException } from "@app/server/lib/server/sentry";
 import { generateFeishuHrEvaluationForInterview } from "@app/server/server/routes/agent/utils/feishu-hr-evaluation";
+import { interviewEvaluationSchema } from "@app/server/server/routes/agent/utils/interview-report";
 import { loadResumePdfAttachment } from "@app/server/server/routes/agent/utils/feishu-resume-attachment";
 import {
   createFeishuInterviewEvaluationDocx,
@@ -20,12 +24,46 @@ import {
 } from "@app/server/server/routes/feishu/utils/interview-evaluation-doc";
 import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
 
+type HrEvaluation = ReturnType<typeof interviewEvaluationSchema.parse>["hrEvaluation"];
+
 interface FeishuInterviewDocumentContext {
+  dataCollectionResults: unknown;
+  evaluationCriteriaResults: unknown;
   interviewQuestions: InterviewQuestion[];
   qualitativeResumeEvaluation: QualitativeResumeEvaluation | null;
   resumeEvaluationArtifactMode: ResumeEvaluationContractMode | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
+}
+
+const EMPTY_HR_EVALUATION = {
+  availability: null,
+  careerProgression: null,
+  compensationExpectations: null,
+  jobMotivation: null,
+  overseasTravel: null,
+  projectHighlights: null,
+  recentWork: null,
+} satisfies HrEvaluation;
+
+async function loadHrEvaluationOrFallback({
+  conversationId,
+  fallback,
+  interviewRecordId,
+}: {
+  conversationId: string;
+  fallback: HrEvaluation;
+  interviewRecordId: string;
+}) {
+  try {
+    return await generateFeishuHrEvaluationForInterview({ conversationId, interviewRecordId });
+  } catch (error) {
+    captureBackendException(error, "interview.feishu_hr_evaluation.fallback", {
+      conversationId,
+      interviewRecordId,
+    });
+    return fallback;
+  }
 }
 
 interface FeishuInterviewDocumentInput {
@@ -74,10 +112,14 @@ export async function ensureInterviewEvaluationDocument({
     return existing.documentUrl;
   }
 
-  const hrEvaluation = await generateFeishuHrEvaluationForInterview({
+  const storedEvaluation = interviewEvaluationSchema.safeParse(context.evaluationCriteriaResults);
+  const hrEvaluation = await loadHrEvaluationOrFallback({
     conversationId,
+    fallback: storedEvaluation.success ? storedEvaluation.data.hrEvaluation : EMPTY_HR_EVALUATION,
     interviewRecordId,
   });
+  const communicationQuestionResults: InterviewDataCollectionResults | null =
+    parseInterviewDataCollectionResults(context.dataCollectionResults);
   const resumePdf = await loadResumePdfAttachment({
     fileName: context.resumeFileName,
     storageKey: context.resumeStorageKey,
@@ -85,6 +127,7 @@ export async function ensureInterviewEvaluationDocument({
   const structureSections = buildInterviewEvaluationStructureSections(context);
   const document = buildInterviewEvaluationDocument({
     candidateName: input.candidateName,
+    communicationQuestionResults,
     evaluation: { hrEvaluation },
     includeResumeLink: !resumePdf,
     recommendedQuestions: structureSections.recommendedQuestionsBlock

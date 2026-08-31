@@ -3,12 +3,9 @@ import { uniq } from "lodash-es";
 
 import { db } from "@app/server/lib/server/db";
 import { interviewConversation } from "@arc/db-schema/schema";
-import {
-  hasExistingInterviewAnswers,
-  isInterviewQuestionSetComplete,
-} from "@arc/shared/interview/question-outcomes";
-import type { FeishuEvaluationDocumentStatus } from "@arc/shared/studio-interview-rounds";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
+import { resolveEvaluationDocument } from "./evaluation-document-status";
+import type { FeishuEvaluationDocumentProjection } from "./evaluation-document-status";
 
 type InterviewConversationRow = typeof interviewConversation.$inferSelect;
 
@@ -19,16 +16,6 @@ export interface LatestEndedInterviewConversation {
   scheduleEntryId: string | null;
   summaryStatus: InterviewConversationRow["summaryStatus"];
 }
-
-export interface FeishuEvaluationDocumentProjection {
-  status: FeishuEvaluationDocumentStatus;
-  url: string | null;
-}
-
-const UNAVAILABLE_FEISHU_EVALUATION_DOCUMENT = {
-  status: "unavailable",
-  url: null,
-} satisfies FeishuEvaluationDocumentProjection;
 
 async function loadLatestEndedInterviewConversations(
   roundIds: string[],
@@ -67,24 +54,6 @@ async function loadLatestEndedInterviewConversations(
     }
   }
   return result;
-}
-
-function resolveEvaluationDocument(
-  conversation: LatestEndedInterviewConversation,
-  documentUrlsByConversationId: Map<string, string>,
-): FeishuEvaluationDocumentProjection {
-  const url = documentUrlsByConversationId.get(conversation.conversationId) ?? null;
-  if (url) {
-    return { status: "generated", url };
-  }
-  if (
-    conversation.summaryStatus === "ready" &&
-    !isInterviewQuestionSetComplete(conversation.dataCollectionResults) &&
-    hasExistingInterviewAnswers(conversation.dataCollectionResults)
-  ) {
-    return { status: "partial_answers_available", url: null };
-  }
-  return UNAVAILABLE_FEISHU_EVALUATION_DOCUMENT;
 }
 
 export async function loadRoundFeishuEvaluationDocuments(

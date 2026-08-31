@@ -352,7 +352,7 @@ describe("queryPaginatedInterviewRounds", () => {
       const result = await queryPaginatedInterviewRounds(ORG);
       const row = result.records.find((record) => record.id === "rnd-b1");
       expect(row?.feishuDocumentUrl).toBeNull();
-      expect(row?.feishuEvaluationDocumentStatus).toBe("partial_answers_available");
+      expect(row?.feishuEvaluationDocumentStatus).toBe("answers_available");
     } finally {
       await db
         .delete(interviewConversation)

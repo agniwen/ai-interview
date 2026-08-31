@@ -12,10 +12,7 @@ import type {
 } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 
-export type FeishuEvaluationDocumentStatus =
-  | "generated"
-  | "partial_answers_available"
-  | "unavailable";
+export type FeishuEvaluationDocumentStatus = "generated" | "answers_available" | "unavailable";
 
 /** 列表行（精简投影）/ List row (light projection). */
 export interface StudioInterviewRoundListRecord {

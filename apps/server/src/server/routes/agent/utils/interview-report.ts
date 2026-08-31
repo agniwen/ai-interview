@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewEvidenceSnapshotFormSubmission } from "@arc/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import { hasExistingInterviewAnswers } from "@arc/shared/interview/question-outcomes";
 import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import {
@@ -314,6 +315,81 @@ export interface InterviewReportResult {
   evaluation: InterviewEvaluation | null;
   summaryError?: string;
   evaluationError?: string;
+}
+
+const FALLBACK_ANSWER_STATUSES = new Set(["answered", "insufficient"]);
+
+export function buildFallbackInterviewSummary(
+  dataCollectionResults: InterviewDataCollectionResults,
+): string {
+  const answeredCount = dataCollectionResults.questions.filter((question) =>
+    FALLBACK_ANSWER_STATUSES.has(question.status),
+  ).length;
+  const insufficientCount = dataCollectionResults.questions.filter(
+    (question) => question.status === "insufficient",
+  ).length;
+  const insufficientNote = insufficientCount > 0 ? `，其中 ${insufficientCount} 道题信息不足` : "";
+  return `本次面试已收集 ${answeredCount} 道题的候选人回答${insufficientNote}。结构化评价未能生成，当前报告仅展示已收集事实，请人工复核。`;
+}
+
+export function buildFallbackInterviewEvaluation(
+  dataCollectionResults: InterviewDataCollectionResults,
+): InterviewEvaluation {
+  const questions = dataCollectionResults.questions.map((outcome, index) => {
+    let assessment = "本轮面试结束前未开始本题，不参与评分。";
+    if (outcome.status === "answered") {
+      assessment = outcome.answerSummary
+        ? `已收集回答：${outcome.answerSummary}`
+        : "候选人已回答本题，但未能生成回答摘要。";
+    } else if (outcome.status === "insufficient") {
+      assessment = outcome.answerSummary
+        ? `信息不足：${outcome.answerSummary}`
+        : "候选人已回答本题，但现有信息不足。";
+    } else if (outcome.status === "skipped") {
+      assessment = "候选人明确跳过本题。";
+    } else if (outcome.status === "interrupted") {
+      assessment = "本题在完成前被中断，不参与评分。";
+    }
+    return {
+      assessment,
+      evidence: [],
+      maxScore: 10,
+      order: index + 1,
+      question: outcome.question,
+      questionId: outcome.questionId,
+      score: outcome.status === "skipped" ? 0 : null,
+    };
+  });
+
+  return {
+    hrEvaluation: {
+      availability: null,
+      careerProgression: null,
+      compensationExpectations: null,
+      jobMotivation: null,
+      overseasTravel: null,
+      projectHighlights: null,
+      recentWork: null,
+    },
+    overallAssessment: buildFallbackInterviewSummary(dataCollectionResults),
+    overallScore: null,
+    questions,
+    recommendation: "待定",
+  };
+}
+
+export function applyInterviewReportAnswerFallback(
+  report: InterviewReportResult,
+  dataCollectionResults: InterviewDataCollectionResults | null,
+): InterviewReportResult {
+  if (!dataCollectionResults || !hasExistingInterviewAnswers(dataCollectionResults)) {
+    return report;
+  }
+  return {
+    ...report,
+    evaluation: report.evaluation ?? buildFallbackInterviewEvaluation(dataCollectionResults),
+    summary: report.summary ?? buildFallbackInterviewSummary(dataCollectionResults),
+  };
 }
 
 export function composeInterviewReport(input: {

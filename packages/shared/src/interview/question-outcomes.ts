@@ -90,16 +90,14 @@ export function isInterviewQuestionSetComplete(
   );
 }
 
-/** Whether the partial interview contains at least one usable candidate answer. */
+/** Whether the interview reached at least one candidate-answer outcome. */
 export function hasExistingInterviewAnswers(
   value: InterviewDataCollectionResults | null | unknown,
 ): boolean {
   const results = parseInterviewDataCollectionResults(value);
   return Boolean(
     results?.questions.some(
-      (question) =>
-        (question.status === "answered" || question.status === "insufficient") &&
-        Boolean(question.answerSummary?.trim()),
+      (question) => question.status === "answered" || question.status === "insufficient",
     ),
   );
 }

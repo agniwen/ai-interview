@@ -3,11 +3,15 @@ import { z } from "zod";
 import { db } from "@app/server/lib/server/db";
 import { captureBackendException } from "@app/server/lib/server/sentry";
 import { interviewConversation } from "@arc/db-schema/schema";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { notifyInterviewSummaryReady } from "@app/server/server/routes/agent/utils/feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
 import { runInterviewReportWorkflow } from "@app/server/server/agents/mastra/workflows/interview-report-workflow";
-import { formatCandidateFormSubmissions } from "@app/server/server/routes/agent/utils/interview-report";
-import type { InterviewEvaluationQuestion } from "@app/server/server/routes/agent/utils/interview-report";
+import {
+  applyInterviewReportAnswerFallback,
+  formatCandidateFormSubmissions,
+  interviewEvaluationSchema,
+} from "@app/server/server/routes/agent/utils/interview-report";
 import { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
 import {
   isInterviewQuestionSetComplete,
@@ -28,9 +32,9 @@ const RUNNING_STALE_MINUTES = 10;
 
 function buildEvaluationQuestionsFromContext(
   context: Awaited<ReturnType<typeof createInterviewEvidenceSnapshot>>["payload"]["context"],
-): InterviewEvaluationQuestion[] {
+): (InterviewQuestion & { questionId: string })[] {
   let nextOrder = 1;
-  const presetQuestions: InterviewEvaluationQuestion[] = [];
+  const presetQuestions: (InterviewQuestion & { questionId: string })[] = [];
 
   for (const template of context.questionTemplates
     .filter((row) => !row.disabledByUser)
@@ -60,6 +64,7 @@ function buildEvaluationQuestionsFromContext(
 export interface RunSummaryJobOptions {
   conversationId: string;
   interviewRecordId: string;
+  notifyOnReady?: boolean;
 }
 
 /**
@@ -73,7 +78,7 @@ export interface RunSummaryJobOptions {
  * - Increments summaryAttempts every run so the recovery endpoint can back off.
  */
 export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void> {
-  const { conversationId, interviewRecordId } = options;
+  const { conversationId, interviewRecordId, notifyOnReady = true } = options;
   const startedAt = new Date();
 
   try {
@@ -131,13 +136,20 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     const shouldAutomaticallyGenerateEvaluationDocument =
       isInterviewQuestionSetComplete(dataCollectionResults);
 
-    const report = await runInterviewReportWorkflow({
+    const workflowReport = await runInterviewReportWorkflow({
       candidateFormResponses: formatCandidateFormSubmissions(evidence.payload.formSubmissions),
       dataCollectionResults,
       questions,
       transcript,
     });
-
+    const parsedEvaluation = interviewEvaluationSchema.safeParse(workflowReport.evaluation);
+    const report = applyInterviewReportAnswerFallback(
+      {
+        ...workflowReport,
+        evaluation: parsedEvaluation.success ? parsedEvaluation.data : null,
+      },
+      dataCollectionResults,
+    );
     const hasSummary = report.summary !== null;
     const hasEvaluation = report.evaluation !== null;
 
@@ -169,9 +181,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       await tx
         .update(interviewConversation)
         .set({
-          evaluationCriteriaResults: report.evaluation
-            ? jsonObjectSchema.parse(report.evaluation)
-            : {},
+          evaluationCriteriaResults: jsonObjectSchema.parse(report.evaluation),
           // Reset attempts on success so a future manual re-run has a full
           // retry budget instead of starting from the accumulated count.
           summaryAttempts: 0,
@@ -190,7 +200,11 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     safeUpdateTag(cacheTags.interviewConversations);
     safeUpdateTag(cacheTags.interviewConversationsByRecord(interviewRecordId));
 
-    if (shouldAutomaticallyGenerateEvaluationDocument && !isInterviewNotificationWorkerEnabled()) {
+    if (
+      notifyOnReady &&
+      shouldAutomaticallyGenerateEvaluationDocument &&
+      !isInterviewNotificationWorkerEnabled()
+    ) {
       void notifyInterviewSummaryReady({
         conversationId,
         interviewRecordId,

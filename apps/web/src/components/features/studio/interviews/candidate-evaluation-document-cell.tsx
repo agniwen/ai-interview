@@ -28,7 +28,7 @@ export function CandidateEvaluationDocumentCell({
       </a>
     );
   }
-  if (row.feishuEvaluationDocumentStatus !== "partial_answers_available") {
+  if (row.feishuEvaluationDocumentStatus !== "answers_available") {
     return <span className="text-muted-foreground">未生成</span>;
   }
 
@@ -54,9 +54,9 @@ export function CandidateEvaluationDocumentCell({
         sideOffset={8}
       >
         <div className="space-y-1">
-          <p className="font-medium text-sm">问题未完整回答</p>
+          <p className="font-medium text-sm">已有候选人回答</p>
           <p className="text-muted-foreground text-sm leading-5">
-            最新一轮面试有问题未完成，因此系统没有自动生成评价表。你仍可以根据候选人已有回答生成。
+            系统尚未自动生成评价表。你可以根据本轮已收集的回答生成；信息不足的内容会标记为待确认。
           </p>
         </div>
         <Button

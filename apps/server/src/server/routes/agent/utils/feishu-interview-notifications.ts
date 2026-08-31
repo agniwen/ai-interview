@@ -54,6 +54,7 @@ interface EmailRecipient {
 }
 
 interface NotificationTarget {
+  allowIncomplete: boolean;
   conversationId: string;
   interviewRecordId: string;
 }
@@ -571,6 +572,7 @@ async function loadMissingGoogleEmailNotificationTargets(
     }
     return [
       {
+        allowIncomplete: false,
         conversationId: row.conversationId,
         interviewRecordId: row.interviewRecordId,
       },
@@ -677,11 +679,22 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
       ),
     )
     .limit(RETRY_BATCH_SIZE);
+  const failedTargets: NotificationTarget[] = failedRows.flatMap((row) =>
+    row.conversationId
+      ? [
+          {
+            allowIncomplete: true,
+            conversationId: row.conversationId,
+            interviewRecordId: row.interviewRecordId,
+          },
+        ]
+      : [],
+  );
   const missingGoogleEmailRows = await loadMissingGoogleEmailNotificationTargets(RETRY_BATCH_SIZE);
 
   let retried = 0;
   const seen = new Set<string>();
-  for (const row of [...failedRows, ...missingGoogleEmailRows]) {
+  for (const row of [...failedTargets, ...missingGoogleEmailRows]) {
     if (!row.conversationId) {
       continue;
     }
@@ -691,6 +704,7 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
     }
     seen.add(key);
     await notifyInterviewSummaryReady({
+      allowIncomplete: row.allowIncomplete,
       conversationId: row.conversationId,
       interviewRecordId: row.interviewRecordId,
     });

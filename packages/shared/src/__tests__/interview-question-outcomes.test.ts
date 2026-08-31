@@ -117,4 +117,13 @@ describe("interview question outcomes", () => {
       }),
     ).toBe(false);
   });
+
+  it("treats an answered outcome as available even when answer summarization failed", () => {
+    expect(
+      hasExistingInterviewAnswers({
+        questions: [{ ...OUTCOME, answerSummary: null, status: "answered" }],
+        schemaVersion: 2,
+      }),
+    ).toBe(true);
+  });
 });

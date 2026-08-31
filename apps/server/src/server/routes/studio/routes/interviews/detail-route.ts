@@ -35,6 +35,7 @@ import {
 import { loadLatestEndedInterviewConversationForRound } from "@app/server/server/routes/studio/routes/interviews/dao/evaluation-documents";
 import { loadLatestFeishuDocumentUrls } from "@app/server/server/routes/studio/routes/interviews/dao/feishu-document-urls";
 import { notifyInterviewSummaryReady } from "@app/server/server/routes/agent/utils/feishu-interview-notifications";
+import { runSummaryJob } from "@app/server/server/routes/agent/utils/interview-summary-job";
 import {
   hasExistingInterviewAnswers,
   isInterviewQuestionSetComplete,
@@ -140,18 +141,27 @@ export const studioInterviewDetailRouter = factory
 
     // Always resolve the latest ended attempt on the server. The list row can
     // become stale while a candidate reconnects or restarts the same round.
-    const conversation = await loadLatestEndedInterviewConversationForRound(roundId, activeOrg.id);
+    let conversation = await loadLatestEndedInterviewConversationForRound(roundId, activeOrg.id);
     if (!conversation?.interviewRecordId) {
       return c.json({ error: "本轮面试还没有可用于生成评价表的已结束记录。" }, 409);
-    }
-    if (conversation.summaryStatus !== "ready") {
-      return c.json({ error: "最新一轮面试报告尚未生成完成，请稍后再试。" }, 409);
     }
     if (
       !isInterviewQuestionSetComplete(conversation.dataCollectionResults) &&
       !hasExistingInterviewAnswers(conversation.dataCollectionResults)
     ) {
       return c.json({ error: "最新一轮面试没有可用于生成评价表的候选人回答。" }, 409);
+    }
+
+    if (conversation.summaryStatus !== "ready") {
+      await runSummaryJob({
+        conversationId: conversation.conversationId,
+        interviewRecordId: conversation.interviewRecordId,
+        notifyOnReady: false,
+      });
+      conversation = await loadLatestEndedInterviewConversationForRound(roundId, activeOrg.id);
+      if (!conversation?.interviewRecordId || conversation.summaryStatus !== "ready") {
+        return c.json({ error: "面试报告自动恢复失败，请稍后重试。" }, 422);
+      }
     }
 
     await notifyInterviewSummaryReady({

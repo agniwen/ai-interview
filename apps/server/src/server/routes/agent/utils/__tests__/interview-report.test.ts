@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import {
+  applyInterviewReportAnswerFallback,
   applyQuestionOutcomesToEvaluation,
+  buildFallbackInterviewEvaluation,
+  buildFallbackInterviewSummary,
   buildInterviewEvaluationPrompt,
   formatCandidateFormSubmissions,
   generateInterviewEvaluation,
@@ -549,5 +552,61 @@ describe("generateInterviewReport", () => {
       evidence: [],
       score: null,
     });
+  });
+});
+
+describe("fallback interview report", () => {
+  const insufficientResults: InterviewDataCollectionResults = {
+    questions: [
+      {
+        answerSummary: "候选人说明岗位是项目产品负责人，但没有提供团队和薪酬信息。",
+        difficulty: "medium",
+        endedAtSecs: 30,
+        evaluationFocus: "岗位、团队与薪酬",
+        followUpCount: 2,
+        followUpDirections: null,
+        question: "请介绍最近两份工作。",
+        questionId: "question-1",
+        reason: null,
+        revision: 1,
+        startedAtSecs: 5,
+        status: "insufficient",
+      },
+    ],
+    schemaVersion: 2,
+  };
+
+  it("builds a transparent review from answered question outcomes", () => {
+    expect(buildFallbackInterviewSummary(insufficientResults)).toContain(
+      "已收集 1 道题的候选人回答",
+    );
+    expect(buildFallbackInterviewEvaluation(insufficientResults)).toEqual(
+      expect.objectContaining({
+        overallScore: null,
+        questions: [
+          expect.objectContaining({
+            assessment: "信息不足：候选人说明岗位是项目产品负责人，但没有提供团队和薪酬信息。",
+            questionId: "question-1",
+            score: null,
+          }),
+        ],
+        recommendation: "待定",
+      }),
+    );
+  });
+
+  it("completes a partially failed model report without overwriting successful output", () => {
+    const completed = applyInterviewReportAnswerFallback(
+      {
+        evaluation: null,
+        evaluationError: "invalid structured output",
+        summary: "模型摘要已成功生成。",
+      },
+      insufficientResults,
+    );
+
+    expect(completed.summary).toBe("模型摘要已成功生成。");
+    expect(completed.evaluation?.recommendation).toBe("待定");
+    expect(completed.evaluationError).toBe("invalid structured output");
   });
 });
