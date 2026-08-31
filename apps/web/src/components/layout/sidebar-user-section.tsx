@@ -244,7 +244,7 @@ export function SidebarUserSection({
     ) : null;
 
   return (
-    <div className="border-border border-t px-2 py-2 select-none">
+    <div className="border-border border-t px-2 pt-4 pb-2 select-none">
       {collapsed ? (
         <div className="flex w-full flex-col items-center gap-2">
           {content}

@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildQualitativeResumeEvaluationPrompt,
   generateQualitativeResumeEvaluation,
+  normalizeGeneratedQualitativeResumeEvaluation,
 } from "./qualitative-resume-evaluation";
+import { qualitativeResumeEvaluationV2Schema } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
 const profile = {
@@ -98,9 +100,64 @@ describe("qualitative resume evaluation prompt", () => {
     expect(generate).toHaveBeenCalledWith(
       expect.objectContaining({
         maxOutputTokens: 8192,
-        observabilityLabel: "qualitative-resume-v5",
+        normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
+        observabilityLabel: "qualitative-resume-v6",
         temperature: 0,
       }),
     );
+    const request = generate.mock.calls[0]?.[0];
+    const { schemaVersion: _schemaVersion, ...generatedOutput } = output;
+    expect(request?.schema.safeParse(generatedOutput).success).toBe(true);
+    expect(request?.schema.safeParse(output).success).toBe(false);
+  });
+
+  it("removes model-owned metadata and canonicalizes missing optional guidance", () => {
+    const { seniorityRecommendation: _seniority, teamPositioning: _positioning, ...rest } = output;
+    const normalized = normalizeGeneratedQualitativeResumeEvaluation({
+      ...rest,
+      schemaVersion: "qualitative-v2",
+    });
+
+    expect(normalized).not.toHaveProperty("schemaVersion");
+    expect(normalized).toMatchObject({
+      seniorityRecommendation: null,
+      teamPositioning: null,
+    });
+  });
+
+  it("drops malformed optional guidance instead of rejecting the core evaluation", () => {
+    const normalized = normalizeGeneratedQualitativeResumeEvaluation({
+      ...output,
+      schemaVersion: null,
+      seniorityRecommendation: undefined,
+      teamPositioning: {
+        position: "业务线负责人",
+        rationale: "候选人有跨团队协作经历。",
+      },
+    });
+
+    expect(normalized).not.toHaveProperty("schemaVersion");
+    expect(normalized).toMatchObject({
+      seniorityRecommendation: null,
+      teamPositioning: null,
+    });
+  });
+
+  it("keeps incomplete core evaluation fields invalid", () => {
+    const normalized = normalizeGeneratedQualitativeResumeEvaluation({
+      ...output,
+      dimensions: {
+        ...output.dimensions,
+        stability: {
+          ...output.dimensions.stability,
+          evaluation: null,
+        },
+      },
+    });
+
+    expect(
+      qualitativeResumeEvaluationV2Schema.omit({ schemaVersion: true }).safeParse(normalized)
+        .success,
+    ).toBe(false);
   });
 });
