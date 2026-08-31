@@ -11,7 +11,7 @@ import type {
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { getMemberInitials } from "@/components/data-grid/cells/member-cell";
+import { getMemberInitials } from "@/components/features/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";

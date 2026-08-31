@@ -21,7 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MemberCell } from "@/components/data-grid/cells/member-cell";
+import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import {
   actionsColumn,
   customColumn,
@@ -29,7 +29,7 @@ import {
   dateColumn,
   textColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";

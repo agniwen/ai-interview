@@ -4,7 +4,10 @@ import type { TrashedMeetingItem } from "@arc/shared/meeting-recording";
 import { DEFAULT_PAGE_SIZE } from "@arc/shared/pagination";
 import type { KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
-import { PaginationBar, PaginationBarSkeleton } from "@/components/data-grid/parts/pagination-bar";
+import {
+  PaginationBar,
+  PaginationBarSkeleton,
+} from "@/components/features/data-grid/parts/pagination-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";

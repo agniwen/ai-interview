@@ -1,5 +1,5 @@
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
+import { parseDataGridSearchParams } from "@/components/features/data-grid/query-contract";
 import { coerceSearchParams } from "./data-grid-search";
 import type { SearchParamsRecord } from "./data-grid-search";
 

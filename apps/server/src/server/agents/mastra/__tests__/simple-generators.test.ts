@@ -263,7 +263,6 @@ describe("simple Mastra generators", () => {
         agent: { generate },
         prompt: "生成结构化对象",
         retryOnInvalid: true,
-        retryTextJsonOnInvalid: true,
         schema: z.object({ title: z.string().min(1) }),
         textGenerationFirst: true,
       }),

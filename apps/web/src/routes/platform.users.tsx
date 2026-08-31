@@ -1,7 +1,7 @@
 import { HydrationBoundary } from "@tanstack/react-query";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
+import { parseDataGridSearchParams } from "@/components/features/data-grid/query-contract";
 import { UsersGrid } from "@/components/features/platform/users/users-grid";
 import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { parseDehydratedState } from "@/lib/client/query-hydration";

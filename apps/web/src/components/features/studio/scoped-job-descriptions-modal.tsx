@@ -23,7 +23,7 @@ import type { PaginatedJobDescriptionResult } from "@app/server/server/routes/st
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/data-grid";
+import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/features/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
 import { rpcFetch } from "@/lib/client/api";

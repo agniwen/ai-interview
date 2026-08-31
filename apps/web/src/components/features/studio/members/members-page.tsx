@@ -5,8 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
-import { MemberCell } from "@/components/data-grid/cells/member-cell";
+import {
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  useDataGridState,
+} from "@/components/features/data-grid";
+import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";

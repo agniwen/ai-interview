@@ -12,7 +12,7 @@ import {
   dateColumn,
   textColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import { Badge } from "@/components/ui/badge";
 import {
   Drawer,

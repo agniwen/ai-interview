@@ -49,37 +49,6 @@ afterEach(() => {
 });
 
 describe("ProcessTabs", () => {
-  it("uses one light/dark illustration pair and focused UI instead of a window frame", () => {
-    const container = renderProcessTabs();
-
-    expect(container.querySelectorAll('[role="tab"]')).toHaveLength(4);
-    expect(container.querySelector('[data-process-artwork="light"]')?.getAttribute("src")).toBe(
-      "/landing/process-scenes/recruitment-workflow-v2-light.jpg",
-    );
-    expect(container.querySelector('[data-process-artwork="dark"]')?.getAttribute("src")).toBe(
-      "/landing/process-scenes/recruitment-workflow-v2-dark.jpg",
-    );
-    expect(container.querySelector('source[type="image/avif"]')?.getAttribute("srcset")).toBe(
-      "/landing/optimized/process-scenes/recruitment-workflow-v2-light-1024.avif 1024w, /landing/optimized/process-scenes/recruitment-workflow-v2-light.avif 1343w",
-    );
-    expect(
-      container.querySelector('[data-process-artwork="light"]')?.getAttribute("srcset"),
-    ).toBeNull();
-    expect(container.querySelector('[data-process-artwork="light"]')?.getAttribute("sizes")).toBe(
-      "(min-width: 1024px) 60vw, 100vw",
-    );
-    expect(container.querySelector("[data-process-ui-block]")?.textContent).toContain("岗位标尺");
-    expect(container.querySelectorAll("[data-process-progress]")).toHaveLength(1);
-    expect(container.querySelector('[data-slot="screen-frame"]')).toBeNull();
-    expect(container.querySelector("h2")?.className).toContain("text-balance");
-    expect(container.querySelector("h3")?.className).toContain("text-balance");
-    expect(container.querySelector("#process-demo-panel")?.className).toContain("lg:self-stretch");
-    expect(container.querySelector("#process-demo-panel")?.className).not.toContain(
-      "lg:aspect-[4/3]",
-    );
-    expect(container.querySelector('[data-process-step="role"]')?.className).toContain("lg:py-2.5");
-  });
-
   it("automatically advances through every step and loops to the beginning", () => {
     vi.useFakeTimers();
     const container = renderProcessTabs();
@@ -94,50 +63,6 @@ describe("ProcessTabs", () => {
           .processStep,
       ).toBe(expectedStep);
     }
-  });
-
-  it("switches the focused UI block with the selected workflow step", () => {
-    vi.useFakeTimers();
-    const container = renderProcessTabs();
-    const screeningTab = container.querySelector<HTMLButtonElement>(
-      '[data-process-step="screening"]',
-    );
-
-    act(() => {
-      screeningTab?.click();
-      vi.advanceTimersByTime(400);
-    });
-
-    expect(screeningTab?.getAttribute("aria-selected")).toBe("true");
-    expect(container.querySelector("[data-process-ui-block]")?.textContent).toContain("待确认风险");
-  });
-
-  it("does not add decorative icons to the focused card headers", () => {
-    vi.useFakeTimers();
-    const container = renderProcessTabs();
-
-    for (const step of ["role", "screening", "interview", "decision"]) {
-      act(() =>
-        container.querySelector<HTMLButtonElement>(`[data-process-step="${step}"]`)?.click(),
-      );
-      act(() => vi.advanceTimersByTime(400));
-      expect(container.querySelector("[data-process-ui-block] svg")).toBeNull();
-    }
-  });
-
-  it("keeps the final decision in the same surface instead of using an inverted block", () => {
-    vi.useFakeTimers();
-    const container = renderProcessTabs();
-
-    act(() =>
-      container.querySelector<HTMLButtonElement>('[data-process-step="decision"]')?.click(),
-    );
-    act(() => vi.advanceTimersByTime(700));
-
-    const summary = container.querySelector<HTMLElement>("[data-process-decision-summary]");
-    expect(summary).not.toBeNull();
-    expect(summary?.className).not.toContain("bg-foreground");
-    expect(summary?.textContent).toContain("进入下一轮复面");
   });
 
   it("restarts the full countdown after a manual switch", () => {

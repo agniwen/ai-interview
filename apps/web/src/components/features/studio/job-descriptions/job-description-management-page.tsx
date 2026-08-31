@@ -29,7 +29,7 @@ import {
   estimateActionsColumnSize,
   textColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import {
   Empty,
   EmptyContent,

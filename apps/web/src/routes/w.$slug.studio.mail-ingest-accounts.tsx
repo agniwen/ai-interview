@@ -12,10 +12,15 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/date-time-picker";
-import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
-import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
+import {
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  useDataGridState,
+} from "@/components/features/data-grid";
+import type { DataGridFetchParams, DataGridFetchResult } from "@/components/features/data-grid";
 import { formatDocumentTitle } from "@/lib/start/document-title";
-import { MemberCell } from "@/components/data-grid/cells/member-cell";
+import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { MailIngestRunNowButton } from "@/components/features/studio/mail-ingest/mail-ingest-run-now-button";
 import { PageHeader } from "@/components/features/studio/page-header";

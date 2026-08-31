@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@app/server/lib/server/db";
 import {
   interviewNotificationEvent,
@@ -102,6 +102,8 @@ describe("human interviewer assignment state", () => {
   const previousAuthSecret = process.env.BETTER_AUTH_SECRET;
 
   beforeAll(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-24T12:00:00.000Z"));
     process.env.BETTER_AUTH_SECRET = "test-only-human-assignment-secret";
     process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED = "false";
     await cleanup();
@@ -114,6 +116,7 @@ describe("human interviewer assignment state", () => {
 
   afterAll(async () => {
     await cleanup();
+    vi.useRealTimers();
     if (previousNotificationFlag === undefined) {
       delete process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED;
     } else {

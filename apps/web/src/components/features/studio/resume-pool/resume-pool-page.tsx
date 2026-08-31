@@ -9,8 +9,8 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { useDataGridState } from "@/components/data-grid";
-import { Toolbar } from "@/components/data-grid/parts/toolbar";
+import { useDataGridState } from "@/components/features/data-grid";
+import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
 import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
@@ -46,7 +46,7 @@ import { bulkResumeBatchRefetchInterval } from "@/lib/client/bulk-resume-batch-q
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-import { DateRangeFilterEditor } from "@/components/data-grid/parts/date-range-filter";
+import { DateRangeFilterEditor } from "@/components/features/data-grid/parts/date-range-filter";
 import { ImportResumePoolDialog } from "./resume-pool-dialogs";
 import { ResumePoolListContent, ResumePoolToolbarActions } from "./resume-pool-list";
 import {

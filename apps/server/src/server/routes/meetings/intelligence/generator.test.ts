@@ -189,7 +189,10 @@ describe("Meeting Intelligence generator", () => {
     const serializedMapChunks: string[] = [];
     const generate = vi.fn((prompt: string) => {
       if (!prompt.includes("分块 Intelligence JSON")) {
-        serializedMapChunks.push(prompt.split("转录 JSON：\n")[1] ?? "");
+        const serializedTurns = prompt
+          .split("转录 JSON：\n")[1]
+          ?.split("\n\n请只输出一个严格符合上述字段和类型的 JSON 对象")[0];
+        serializedMapChunks.push(serializedTurns ?? "");
       }
       return Promise.resolve({
         object: {

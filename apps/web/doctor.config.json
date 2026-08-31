@@ -27,7 +27,7 @@
       },
       {
         "files": [
-          "src/components/data-grid/data-grid.tsx",
+          "src/components/features/data-grid/data-grid.tsx",
           "src/components/features/studio/resume-pool/resume-pool-list.tsx",
           "src/components/features/studio/resumes/resume-library-page-list.tsx",
           "src/components/features/studio/upload-task-inbox.tsx"
@@ -57,7 +57,7 @@
         "rules": ["react-doctor/js-hoist-intl"]
       },
       {
-        "files": ["src/components/data-grid/parts/toolbar.tsx"],
+        "files": ["src/components/features/data-grid/parts/toolbar.tsx"],
         "rules": ["react-doctor/no-noninteractive-tabindex"]
       },
       {
@@ -120,7 +120,7 @@
         "rules": ["react-doctor/query-mutation-missing-invalidation"]
       },
       {
-        "files": ["src/components/data-grid/parts/debounced-search-input.tsx"],
+        "files": ["src/components/features/data-grid/parts/debounced-search-input.tsx"],
         "rules": ["react-doctor/no-derived-useState"]
       },
       {

@@ -19,7 +19,7 @@ import {
   dateColumn,
   textColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import {
   Empty,
   EmptyDescription,

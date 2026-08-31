@@ -1,5 +1,5 @@
-import type { ToolbarFilterConfig } from "@/components/data-grid";
-import { DateRangeFilterEditor } from "@/components/data-grid/parts/date-range-filter";
+import type { ToolbarFilterConfig } from "@/components/features/data-grid";
+import { DateRangeFilterEditor } from "@/components/features/data-grid/parts/date-range-filter";
 import { dateRangeFilterLabel } from "@arc/shared/date-range-filter";
 import type { WorkspaceMember } from "./resume-library-page-model";
 

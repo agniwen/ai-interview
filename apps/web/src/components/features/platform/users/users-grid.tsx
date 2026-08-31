@@ -15,14 +15,14 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MemberCell } from "@/components/data-grid/cells/member-cell";
+import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import {
   actionsColumn,
   customColumn,
   DataGrid,
   dateColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import { authClient } from "@/lib/client/auth-client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import {

@@ -8,7 +8,7 @@ import { JobDescriptionChartsSkeleton } from "./job-descriptions/job-description
 import { ProfilePageContentSkeleton } from "./profile/profile-page-skeleton";
 import { DashboardPanelsSkeleton } from "./dashboard-page-skeleton";
 import { ResumePoolCardSkeleton } from "./resume-pool/resume-pool-card-skeleton";
-import { DataGridContentSkeleton } from "@/components/data-grid";
+import { DataGridContentSkeleton } from "@/components/features/data-grid";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PageShell({ children, label }: { children: ReactNode; label: string }) {

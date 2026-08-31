@@ -6,8 +6,8 @@ import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
-import type { ToolbarFilterConfig } from "@/components/data-grid";
-import { Toolbar } from "@/components/data-grid/parts/toolbar";
+import type { ToolbarFilterConfig } from "@/components/features/data-grid";
+import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
@@ -15,7 +15,7 @@ import { ResumeUploadEntryButton } from "@/components/features/studio/resumes/re
 import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-library-card";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
-import { ListLoadError } from "@/components/data-grid/list-load-error";
+import { ListLoadError } from "@/components/features/data-grid/list-load-error";
 import {
   STUDIO_DATE_GROUP_ROW_HEIGHT,
   StudioDateGroupHeaderSkeleton,

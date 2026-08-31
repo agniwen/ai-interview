@@ -11,16 +11,6 @@ import { ResumeLibraryMetricsSkeleton } from "./resume-library-metrics-skeleton"
 
 type MetricsRetry = () => Promise<void>;
 
-function MetricsChartRenderer({
-  metrics,
-  renderCharts,
-}: {
-  metrics: ResumeLibraryMetrics;
-  renderCharts: (metrics: ResumeLibraryMetrics) => ReactNode;
-}) {
-  return renderCharts(metrics);
-}
-
 function MetricsLoadError({ onRetry }: { onRetry: MetricsRetry }) {
   return (
     <div
@@ -66,7 +56,6 @@ export function ResumeLibraryMetricsSection({
   metrics,
   onRefresh,
   onRetry,
-  renderCharts,
 }: {
   /** Forces chart remount when scope data changes (TanStack Charts is definition-identity driven). */
   chartKey?: string;
@@ -76,7 +65,6 @@ export function ResumeLibraryMetricsSection({
   metrics: ResumeLibraryMetrics | undefined;
   onRefresh?: MetricsRetry;
   onRetry: MetricsRetry;
-  renderCharts?: (metrics: ResumeLibraryMetrics) => ReactNode;
 }) {
   if (error && !metrics) {
     return <MetricsLoadError onRetry={onRetry} />;
@@ -93,16 +81,12 @@ export function ResumeLibraryMetricsSection({
               isSwitching && "pointer-events-none opacity-50",
             )}
           >
-            {renderCharts ? (
-              <MetricsChartRenderer metrics={metrics} renderCharts={renderCharts} />
-            ) : (
-              <ResumeLibraryCharts
-                chartKey={chartKey}
-                isRefreshing={isRefreshing}
-                metrics={metrics}
-                onRefresh={onRefresh}
-              />
-            )}
+            <ResumeLibraryCharts
+              chartKey={chartKey}
+              isRefreshing={isRefreshing}
+              metrics={metrics}
+              onRefresh={onRefresh}
+            />
           </div>
         ) : null}
       </SkeletonReveal>

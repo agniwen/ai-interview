@@ -6,8 +6,13 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { customColumn, DataGrid, dateColumn, useDataGridState } from "@/components/data-grid";
-import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
+import {
+  customColumn,
+  DataGrid,
+  dateColumn,
+  useDataGridState,
+} from "@/components/features/data-grid";
+import type { DataGridFetchParams, DataGridFetchResult } from "@/components/features/data-grid";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";

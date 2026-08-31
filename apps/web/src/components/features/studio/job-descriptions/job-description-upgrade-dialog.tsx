@@ -85,7 +85,7 @@ function LegacyEvaluationReference({ record }: { record: JobDescriptionRecord })
   );
 }
 
-export function JobDescriptionUpgradeDialogLayout({
+function JobDescriptionUpgradeDialogLayout({
   jobDescription,
   scoringRules,
   structuredFields,

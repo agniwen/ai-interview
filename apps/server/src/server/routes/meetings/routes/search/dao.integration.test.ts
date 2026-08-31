@@ -30,8 +30,16 @@ function memberId(userId: string): string {
 }
 
 async function clean(): Promise<void> {
-  await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
-  await db.delete(user).where(inArray(user.id, [CREATOR_ID, SELECTED_ID, UNSELECTED_ID, ADMIN_ID]));
+  await db.transaction(async (tx) => {
+    // Match the search transaction's meeting -> member lock order so suite cleanup
+    // cannot deadlock with a just-completing concurrent search.
+    await tx.delete(meetingSession).where(eq(meetingSession.organizationId, ORGANIZATION_ID));
+    await tx.delete(member).where(eq(member.organizationId, ORGANIZATION_ID));
+    await tx.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
+    await tx
+      .delete(user)
+      .where(inArray(user.id, [CREATOR_ID, SELECTED_ID, UNSELECTED_ID, ADMIN_ID]));
+  });
 }
 
 function searchAs(userId: string, query = "Quartz", timeZone = "Asia/Shanghai") {

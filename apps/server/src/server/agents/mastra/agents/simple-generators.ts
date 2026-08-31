@@ -505,6 +505,8 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   if (textGenerationFirst) {
     maxAttempts = 0;
   }
+  const retryTextOnInvalid =
+    retryTextJsonOnInvalid ?? Boolean(textGenerationFirst && retryOnInvalid);
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
     try {
@@ -632,7 +634,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       : "原生结构化输出不可用。请只输出一个严格符合上述字段和类型的 JSON 对象，不要输出 Markdown、代码围栏、分析或解释。";
     const fallbackPrompt = `${prompt}\n\n${textJsonInstruction}`;
     const generationMode = textGenerationFirst ? "text-json" : "text-fallback";
-    const textMaxAttempts = retryTextJsonOnInvalid ? 2 : 1;
+    const textMaxAttempts = retryTextOnInvalid ? 2 : 1;
     let textAttemptPrompt = fallbackPrompt;
     for (let textAttempt = 0; textAttempt < textMaxAttempts; textAttempt += 1) {
       const fallbackOptions: MastraGenerateOptions = {
@@ -680,6 +682,26 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
         ) {
           continue;
         }
+        if (!isRetryableStructuredOutputError(lastError)) {
+          throw lastError;
+        }
+        const recovered = recoverStructuredOutputFromProviderError(
+          lastError,
+          schema,
+          allowEmptyDefaults,
+          validate,
+        );
+        if (recovered.data !== undefined) {
+          return recovered.data;
+        }
+        if (recovered.error) {
+          lastError = recovered.error;
+        }
+        lastError = new StructuredOutputValidationError(lastError.message);
+        if (retryTextOnInvalid && textAttempt + 1 < textMaxAttempts) {
+          textAttemptPrompt = `${fallbackPrompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+          continue;
+        }
         throw lastError;
       }
       try {
@@ -690,6 +712,11 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
           validate?.(fallbackObject.data);
           return fallbackObject.data;
         }
+        if (!fallbackResult.text.trim()) {
+          throw new StructuredOutputValidationError(
+            fallbackObject.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。",
+          );
+        }
         const fallback = parseJsonOutput(fallbackResult.text, schema, "structured-text-fallback", {
           allowEmptyDefaults,
           normalizeInvalid,
@@ -697,8 +724,13 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
         validate?.(fallback);
         return fallback;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (retryTextJsonOnInvalid && textAttempt + 1 < textMaxAttempts) {
+        lastError =
+          error instanceof StructuredOutputValidationError
+            ? error
+            : new StructuredOutputValidationError(
+                error instanceof Error ? error.message : String(error),
+              );
+        if (retryTextOnInvalid && textAttempt + 1 < textMaxAttempts) {
           textAttemptPrompt = `${fallbackPrompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
           continue;
         }

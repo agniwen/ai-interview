@@ -19,7 +19,7 @@ import {
   dateColumn,
   textColumn,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api";

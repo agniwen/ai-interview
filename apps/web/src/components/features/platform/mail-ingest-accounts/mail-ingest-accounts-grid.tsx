@@ -8,9 +8,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/date-time-picker";
-import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
-import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
-import { MemberCell } from "@/components/data-grid/cells/member-cell";
+import {
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  useDataGridState,
+} from "@/components/features/data-grid";
+import type { DataGridFetchParams, DataGridFetchResult } from "@/components/features/data-grid";
+import { MemberCell } from "@/components/features/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import {
   SettingsGroup,

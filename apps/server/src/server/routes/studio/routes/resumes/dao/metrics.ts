@@ -522,7 +522,3 @@ export function loadResumeLibraryMetrics(
 ): Promise<ResumeLibraryMetrics> {
   return queryResumeLibraryMetrics(organizationId, options);
 }
-
-// 暴露给测试做精确断言（绕开 cache 包装）。
-// Exposed for tests so they can assert on the raw query results.
-export { queryResumeLibraryMetrics };

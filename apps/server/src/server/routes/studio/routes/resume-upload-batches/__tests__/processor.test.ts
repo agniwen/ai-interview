@@ -369,7 +369,7 @@ describe("processNextItem — happy path", () => {
     expect(interview.resumeParsedAt).toBeTruthy();
     expect(interview.resumeText).toBe("Test User OCR 原文");
     expect(interview.interviewQuestions).toEqual(GENERATED_QUESTIONS);
-    expect(dependencies.generateInterviewQuestionsForProfile).toHaveBeenCalledWith(
+    expect(dependencies.generateInterviewQuestionsForProfile.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({ name: "Test User" }),
     );
     expect(

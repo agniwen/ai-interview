@@ -1,5 +1,5 @@
 import { useElementScrollRestoration, useNavigate } from "@tanstack/react-router";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { parseDataGridSearchParams } from "@/components/features/data-grid/query-contract";
 import {
   RESUME_LIBRARY_INFINITE_PAGE_SIZE,
   resumeLibrarySortIds,

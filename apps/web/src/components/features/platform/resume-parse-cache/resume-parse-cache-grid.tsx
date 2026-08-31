@@ -15,7 +15,7 @@ import {
   dateColumn,
   estimateActionsColumnSize,
   useDataGridState,
-} from "@/components/data-grid";
+} from "@/components/features/data-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

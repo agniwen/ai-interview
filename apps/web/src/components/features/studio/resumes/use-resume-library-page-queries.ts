@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useAtom } from "jotai";
-import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
+import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
 import { dateRangeFilterBounds } from "@arc/shared/date-range-filter";
 import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";

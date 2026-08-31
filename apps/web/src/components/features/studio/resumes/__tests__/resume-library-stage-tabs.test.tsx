@@ -18,7 +18,7 @@ import {
   unmountInAct,
   flushReactUpdates,
 } from "@/test-utils/react-act";
-import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
+import { buildInfiniteDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import { ResumeLibraryPageShell } from "../resume-library-page-shell";
 import { coerceSearchParams, useResumeLibrarySearchState } from "../resume-library-page-model";
 import type { ResumeLibraryGridState, SearchParamsRecord } from "../resume-library-page-model";

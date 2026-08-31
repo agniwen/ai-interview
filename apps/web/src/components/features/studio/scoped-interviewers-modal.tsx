@@ -16,7 +16,7 @@ import type { PaginatedInterviewerResult } from "@app/server/server/routes/studi
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { customColumn, DataGrid, textColumn } from "@/components/data-grid";
+import { customColumn, DataGrid, textColumn } from "@/components/features/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
 import { rpcFetch } from "@/lib/client/api";

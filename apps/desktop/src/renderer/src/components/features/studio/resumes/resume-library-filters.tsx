@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Toolbar } from "@/components/data-grid";
+import { Toolbar } from "@/components/features/data-grid";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   RecruitingJobDescriptionOption,

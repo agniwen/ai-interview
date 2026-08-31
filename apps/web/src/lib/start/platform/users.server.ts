@@ -1,8 +1,8 @@
 import { dehydrate } from "@tanstack/react-query";
 import { asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
+import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
+import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
 import { db } from "@app/server/lib/server/db";
