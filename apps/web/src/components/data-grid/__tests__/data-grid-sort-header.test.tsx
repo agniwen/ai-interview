@@ -19,13 +19,13 @@ afterEach(() => {
 });
 
 describe("DataGrid sortable header", () => {
-  it("limits sorting to a ghost icon button beside the regular label", () => {
+  it("renders an isolated sort button for an id-only server-sorted column", () => {
     const onSortingChange = vi.fn();
     const columns: DataGridColumnDef<Row>[] = [
       {
-        accessorKey: "name",
         enableSorting: true,
         header: "姓名",
+        id: "name",
       },
     ];
     const container = document.createElement("div");

@@ -376,7 +376,12 @@ export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
                       {headerGroup.headers.map((header) => {
                         const pin = header.column.getIsPinned();
                         const edge = getPinnedEdgeSides(header.column);
-                        const canSort = Boolean(onSortingChange && header.column.getCanSort());
+                        // Manual server sorting only needs a stable column id; TanStack's check requires an accessor.
+                        const canSort = Boolean(
+                          onSortingChange &&
+                          (header.column.getCanSort() ||
+                            header.column.columnDef.enableSorting === true),
+                        );
                         const headerContent = header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext());
