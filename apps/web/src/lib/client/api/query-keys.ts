@@ -21,6 +21,13 @@ export const interviewNotificationKeys = {
   workspaceMembers: (slug: string) => ["workspace-members", slug] as const,
 };
 
+export const jobDescriptionKeys = {
+  all: ["job-descriptions"] as const,
+  recruiting: (slug: string) => [...jobDescriptionKeys.all, "recruiting", slug] as const,
+  recruitingFilterOptions: (slug: string) =>
+    [...jobDescriptionKeys.all, "recruiting-filter-options", slug] as const,
+};
+
 export const studioCalendarKeys = {
   aiEventPreview: (slug: string, roundId: string, conversationId: string | null) =>
     ["studio-calendar", slug, "ai-event-preview", roundId, conversationId] as const,

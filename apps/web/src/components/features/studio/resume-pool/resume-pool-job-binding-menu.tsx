@@ -19,6 +19,7 @@ import {
   fetchResumePoolJobMatch,
   fetchResumePoolJobRecommendations,
 } from "@/lib/client/api";
+import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 
 import { RESUME_POOL_JOB_RECOMMENDATION_LIMIT } from "./resume-pool-recommendations-panel";
 
@@ -28,6 +29,12 @@ interface ResumePoolJobBindingMenuContentProps {
   onSelect: (jobDescriptionId: string) => void;
   recordId: string;
   slug: string;
+}
+
+export function getPublishedJobDescriptionSummary(jobDescription: {
+  prompt?: string | null;
+}): string {
+  return jobDescription.prompt?.trim() || "暂无岗位描述。";
 }
 
 /* oxlint-disable complexity -- preserves the persisted-match, generated-recommendation, and published-job fallback order. */
@@ -68,7 +75,7 @@ function ResumePoolJobBindingMenuContent({
   const publishedJobsQuery = useQuery({
     enabled: needsPublishedJobFallback,
     queryFn: () => fetchPublishedResumePoolJobDescriptions(slug),
-    queryKey: ["job-descriptions", "recruiting", slug] as const,
+    queryKey: jobDescriptionKeys.recruiting(slug),
     staleTime: 60 * 1000,
   });
   const fallbackJobDescriptions = (publishedJobsQuery.data ?? []).filter(
@@ -88,7 +95,7 @@ function ResumePoolJobBindingMenuContent({
       : [];
   let availableJobDescriptions = fallbackJobDescriptions.map((jobDescription) => ({
     departmentName: jobDescription.departmentName,
-    description: jobDescription.prompt.trim() || "暂无岗位描述。",
+    description: getPublishedJobDescriptionSummary(jobDescription),
     id: jobDescription.id,
     name: jobDescription.name,
   }));

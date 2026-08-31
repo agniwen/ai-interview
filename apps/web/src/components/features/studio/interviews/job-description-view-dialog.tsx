@@ -1,6 +1,7 @@
 "use client";
 
 import { rpcFetch } from "@/lib/client/api";
+import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +29,7 @@ export function JobDescriptionViewDialog({
       );
       return payload.records;
     },
-    queryKey: ["job-descriptions", "recruiting", slug],
+    queryKey: jobDescriptionKeys.recruiting(slug),
     staleTime: 60_000,
   });
 

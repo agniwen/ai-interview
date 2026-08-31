@@ -3,6 +3,7 @@
 import { IconLoader2 } from "@tabler/icons-react";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
+import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
@@ -78,7 +79,7 @@ export function JobDescriptionSelectField({
       );
       return payload.records;
     },
-    queryKey: ["job-descriptions", "recruiting", slug],
+    queryKey: jobDescriptionKeys.recruiting(slug),
     staleTime: 60_000,
   });
 

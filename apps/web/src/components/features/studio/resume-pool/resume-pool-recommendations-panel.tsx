@@ -32,6 +32,7 @@ import {
   fetchResumePoolJobRecommendations,
   isApiError,
 } from "@/lib/client/api";
+import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 
 export const RESUME_POOL_JOB_RECOMMENDATION_LIMIT = 5;
 
@@ -277,7 +278,7 @@ export function ResumePoolRecommendationsPanel({
   const publishedJobsQuery = useQuery({
     enabled: needsPublishedJobFallback,
     queryFn: () => dependencies.fetchPublishedJobs(slug),
-    queryKey: ["job-descriptions", "recruiting", slug] as const,
+    queryKey: jobDescriptionKeys.recruiting(slug),
     staleTime: 60 * 1000,
   });
 

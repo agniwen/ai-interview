@@ -28,7 +28,7 @@ import {
   rpcFetch,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { studioResumeKeys } from "@/lib/client/api/query-keys";
+import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
 import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useResumeLibrarySearchState } from "./resume-library-page-model";
@@ -135,7 +135,7 @@ export function useResumeLibraryPageQueries({
       }
       return payload.data.records;
     },
-    queryKey: ["job-descriptions", "recruiting", slug],
+    queryKey: jobDescriptionKeys.recruitingFilterOptions(slug),
     staleTime: 60_000,
   });
 

@@ -4,6 +4,7 @@ import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   invalidateHumanInterviewWorkspaceQueries,
+  jobDescriptionKeys,
   studioCalendarKeys,
   studioResumeKeys,
 } from "@/lib/client/api/query-keys";
@@ -86,5 +87,20 @@ describe("studioResumeKeys", () => {
     });
 
     expect(queryClient.getQueryState(metricsKey)?.isInvalidated).toBe(false);
+  });
+});
+
+describe("jobDescriptionKeys", () => {
+  it("keeps compact filter options separate from complete recruiting records", () => {
+    expect(jobDescriptionKeys.recruiting("acme")).toEqual([
+      "job-descriptions",
+      "recruiting",
+      "acme",
+    ]);
+    expect(jobDescriptionKeys.recruitingFilterOptions("acme")).toEqual([
+      "job-descriptions",
+      "recruiting-filter-options",
+      "acme",
+    ]);
   });
 });

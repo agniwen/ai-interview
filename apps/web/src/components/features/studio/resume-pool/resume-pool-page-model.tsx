@@ -26,6 +26,7 @@ import type {
 } from "@/components/features/studio/studio-date-group-virtual-list";
 import { Badge } from "@/components/ui/badge";
 import { rpcFetch } from "@/lib/client/api";
+import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
@@ -417,7 +418,7 @@ export function useJobDescriptions(slug: string) {
       );
       return payload.records;
     },
-    queryKey: ["job-descriptions", "recruiting", slug],
+    queryKey: jobDescriptionKeys.recruiting(slug),
     staleTime: 60_000,
   });
 }
