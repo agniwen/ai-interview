@@ -153,6 +153,8 @@
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-ibm-plex-mono, "SFMono-Regular", Consolas, monospace);
   --font-serif: var(--font-source-serif, "Songti SC", "Noto Serif CJK SC", serif);
+  --font-weight-semibold: 520;
+  --font-weight-bold: 520;
   /* Tailwind v4 的 preflight 用 --default-font-family 设置 html/body 默认字体；
      不覆盖时会落回 ui-sans-serif/system-ui 默认栈，导致 MiSans 不生效。
      Tailwind v4 preflight reads --default-font-family for html/body; without
@@ -415,6 +417,7 @@
        emitted as :root custom properties. Use the `font-sans` utility instead. */
     @apply font-sans text-foreground;
     font-optical-sizing: auto;
+    font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
@@ -423,6 +426,10 @@
        kami: minimum 3 lines for widows and orphans — no stranded single lines. */
     widows: 3;
     orphans: 3;
+  }
+
+  :where(strong, b) {
+    font-weight: 520;
   }
 
   [data-sidebar="sidebar"] [data-sidebar="menu-button"],
