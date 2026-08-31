@@ -27,7 +27,8 @@ const output = {
   conciseOverall:
     "候选人的企业软件产品经验与岗位核心要求相符，跨团队交付事实充分，建议进入下一轮。",
   detailedOverall: {
-    judgment: "整体匹配，建议进入下一轮。",
+    judgment:
+      "候选人整体与企业级招聘产品经理岗位较为匹配，建议进入下一轮。其在上一段经历中连续三年负责企业软件产品，从需求调研、方案设计到跨团队交付均有完整实践，并推动招聘流程模块按期上线；这些经历直接支持岗位对B端产品规划、复杂流程抽象和项目协同的要求。候选人还熟悉用户访谈、数据分析与迭代验证，能够结合客户反馈持续优化方案。不过，简历尚未体现招聘行业的长期积累，也缺少大型客户商业化结果和团队管理规模等信息，因此当前判断以已有项目证据为主，相关能力仍需在面试中进一步确认。",
     matchingEvidence: "候选人连续负责企业软件产品，并有跨团队交付经历。",
     risks: "简历未说明招聘行业经验，需在面试中确认迁移能力。",
   },
@@ -71,6 +72,9 @@ describe("qualitative resume evaluation prompt", () => {
     expect(prompt).toContain("普适职业标准");
     expect(prompt).toContain("普适职业标准不能单独导致“不推荐”");
     expect(prompt).toContain("简历事实");
+    expect(prompt).toContain("200–300 个中文字符");
+    expect(prompt).toContain("具体经历、项目、职责、技能或量化成果");
+    expect(prompt).toContain("如何支持综合判断");
     expect(prompt).toContain("受限 Markdown");
     expect(prompt).toContain("粗体、斜体和有序列表");
     expect(prompt).toContain("列点时只允许使用有序列表");
@@ -101,7 +105,7 @@ describe("qualitative resume evaluation prompt", () => {
       expect.objectContaining({
         maxOutputTokens: 8192,
         normalizeInvalid: normalizeGeneratedQualitativeResumeEvaluation,
-        observabilityLabel: "qualitative-resume-v6",
+        observabilityLabel: "qualitative-resume-v7",
         temperature: 0,
       }),
     );
