@@ -116,10 +116,10 @@ export function fetchStudioResumes(
 
 /**
  * 工作区成员（创建人筛选选项）。
- * GET /api/w/:slug/studio/workspace/members
+ * GET /api/w/:slug/studio/workspace/members/options
  */
 export function fetchWorkspaceMembers(slug: string): Promise<WorkspaceMemberOption[]> {
-  const path = `/api/w/${encodeURIComponent(slug)}/studio/workspace/members`;
+  const path = `/api/w/${encodeURIComponent(slug)}/studio/workspace/members/options`;
   return apiJson<{ records: WorkspaceMemberOption[] }>(apiUrl(path), "加载成员列表失败").then(
     (payload) => payload.records,
   );

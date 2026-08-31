@@ -1,12 +1,11 @@
-import { matchesListTextFilters, parseListTextFilters } from "@arc/shared/list-text-filters";
 import { IconSettings, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { actionsColumn, customColumn, DataGrid } from "@/components/data-grid";
+import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -59,9 +58,13 @@ import { WorkspaceSettingsDialog } from "@/components/features/studio/members/wo
 
 import {
   DEFAULT_PAGE_SIZE,
+  WORKSPACE_MEMBER_DEFAULT_SORTING,
+  WORKSPACE_MEMBER_SORT_IDS,
   buildAssignableWorkspaceRoles,
+  buildWorkspaceMemberListQuery,
   canEditMemberWorkspaceRole,
   getWorkspaceRoleBadgeVariant,
+  getPageAfterMemberRemoval,
   reconcileGroupNameDraftState,
   resolveGroupNameDrafts,
   useDynamicWorkspaceRoles,
@@ -86,21 +89,23 @@ import {
   readErrorMessage,
 } from "@/components/features/studio/members/members-groups";
 
+const INITIAL_MEMBER_FILTERS = { textFilters: "" };
+
 export function MembersManagementPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
   const workspaceMemberRole = useWorkspaceMemberRole();
   const routeSearch = useSearch({ from: "/w/$slug/studio/members" });
   const navigate = useNavigate({ from: "/w/$slug/studio/members" });
+  const queryClient = useQueryClient();
   const activeTab = parseWorkspaceManagementTab(routeSearch.tab);
-  const {
-    data: org,
-    refetch,
-    isPending,
-  } = useQuery({
+  const { data: org, refetch: refetchOrganization } = useQuery({
     queryFn: async () => {
       const { data, error } = await authClient.organization.getFullOrganization({
-        query: { organizationId: workspaceId },
+        query: {
+          membersLimit: 1,
+          organizationId: workspaceId,
+        },
       });
       if (error || !data) {
         throw new Error(error?.message ?? "加载工作区成员失败");
@@ -109,31 +114,20 @@ export function MembersManagementPage() {
     },
     queryKey: ["workspace-organization", workspaceId],
   });
+  const memberOptionsQueryKey = ["workspace-member-options", slug, workspaceId] as const;
+  const { data: memberOptions } = useQuery({
+    enabled: activeTab === "groups",
+    queryFn: () =>
+      rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+        "加载工作区成员失败",
+      ),
+    queryKey: memberOptionsQueryKey,
+    refetchOnWindowFocus: false,
+  });
   const groupsQueryKey = ["workspace-recruiting-groups", slug, workspaceId] as const;
   const [pending, setPending] = useState<string | null>(null);
   const [newGroupName, setNewGroupName] = useState("");
-  const [memberSearch, setMemberSearch] = useState("");
-
-  // 「最近活跃」按 userId 索引：服务端取 COALESCE(MAX(session.updatedAt),
-  // user.lastActiveAt)——前者给当前活跃 session 5 分钟级的滚动更新，后者
-  // 在登出/过期后兜底。详见 routes/studio/workspace/dao.ts。
-  // Last-active map keyed by userId. The server returns
-  // COALESCE(MAX(session.updatedAt), user.lastActiveAt) so logout/expiry
-  // doesn't regress previously-seen users to "从未登录".
-  const { data: lastActiveMap = {} } = useQuery({
-    enabled: Boolean(workspaceId),
-    queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["member-last-actives"].$get({
-          param: { slug },
-        }),
-        "加载活跃时间失败",
-      );
-      return Object.fromEntries(payload.records.map((row) => [row.userId, row.lastActiveAt]));
-    },
-    queryKey: ["workspace-member-last-actives", slug, workspaceId],
-    refetchOnWindowFocus: false,
-  });
   const { data: groups = EMPTY_RECRUITING_GROUPS, refetch: refetchGroups } = useQuery({
     enabled: Boolean(workspaceId),
     queryFn: async () => {
@@ -160,8 +154,6 @@ export function MembersManagementPage() {
     setGroupNameDraftState(ownedGroupNameDraftState);
   }
   const resolvedGroupNameDrafts = resolveGroupNameDrafts(groups, ownedGroupNameDraftState.drafts);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<RecruitingGroupRow | null>(null);
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const isDeleteGroupDialogOpen = Boolean(deleteGroupTarget);
@@ -198,42 +190,39 @@ export function MembersManagementPage() {
   );
 
   const allRows: MemberRow[] = useMemo(() => {
-    const list = org?.members ?? [];
-    return list.map((m) => {
-      const { user } = m;
-      return {
-        createdAt: m.createdAt,
-        email: user?.email ?? "—",
-        id: m.id,
-        image: user?.image ?? null,
-        lastActiveAt: lastActiveMap[m.userId] ?? null,
-        name: user?.name ?? user?.email ?? "—",
-        role: m.role,
-        userId: m.userId,
-      };
-    });
-  }, [org?.members, lastActiveMap]);
-  const hasMemberSearch = memberSearch.length > 0;
-  const filteredRows = useMemo(() => {
-    if (!hasMemberSearch) {
-      return allRows;
-    }
-    const conditions = parseListTextFilters(memberSearch);
-    return allRows.filter((row) =>
-      matchesListTextFilters(conditions, { email: row.email, name: row.name }),
-    );
-  }, [allRows, hasMemberSearch, memberSearch]);
-
-  // 成员列表按显式 workspaceId 拉取，这里做客户端切片
-  // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
-  // total <= pageSize 时 totalPages 仍是 1, DataGrid 会隐藏页码控件。
-  const total = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const rows = useMemo(
-    () => filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredRows, safePage, pageSize],
+    const list = memberOptions?.records ?? [];
+    return list.map((member) => ({
+      createdAt: member.createdAt,
+      email: member.email,
+      id: member.memberId,
+      image: member.image,
+      lastActiveAt: null,
+      name: member.name,
+      role: member.role,
+      userId: member.id,
+    }));
+  }, [memberOptions?.records]);
+  const fetchMembers = useMemo(
+    () => (params: Parameters<typeof buildWorkspaceMemberListQuery>[0]) =>
+      rpcFetch(
+        rpc.api.w[":slug"].studio.workspace.members.$get({
+          param: { slug },
+          query: buildWorkspaceMemberListQuery(params),
+        }),
+        "加载工作区成员失败",
+      ),
+    [slug],
   );
+  const memberGrid = useDataGridState<MemberRow, { textFilters: string }>({
+    allowedSortIds: WORKSPACE_MEMBER_SORT_IDS,
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    defaultSorting: [...WORKSPACE_MEMBER_DEFAULT_SORTING],
+    initialFilters: INITIAL_MEMBER_FILTERS,
+    queryFn: fetchMembers,
+    queryKeyBase: ["workspace-member-list", slug, workspaceId],
+    refetchOnWindowFocus: false,
+  });
+  const hasMemberSearch = Boolean(memberGrid.filters.textFilters);
 
   async function createGroup() {
     const name = normalizeGroupName(newGroupName);
@@ -422,7 +411,9 @@ export function MembersManagementPage() {
       toast.error(error.message ?? "更新工作区角色失败");
       return;
     }
-    await refetch();
+    memberGrid.invalidate();
+    void queryClient.invalidateQueries({ queryKey: memberOptionsQueryKey });
+    await refetchOrganization();
     toast.success("工作区角色已更新");
   }
 
@@ -441,7 +432,16 @@ export function MembersManagementPage() {
             toast.error(error.message ?? "移除成员失败");
             return;
           }
-          await refetch();
+          const nextPage = getPageAfterMemberRemoval({
+            page: memberGrid.page,
+            visibleRowCount: memberGrid.data.records.length,
+          });
+          memberGrid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: memberOptionsQueryKey });
+          if (nextPage !== memberGrid.page) {
+            memberGrid.setPage(nextPage);
+          }
+          await refetchOrganization();
           toast.success("成员已移除");
         },
       },
@@ -512,6 +512,7 @@ export function MembersManagementPage() {
             <TimeDisplay value={r.createdAt} />
           </span>
         ),
+        enableSorting: true,
         key: "createdAt",
         title: "加入时间",
       }),
@@ -524,6 +525,7 @@ export function MembersManagementPage() {
           ) : (
             <span className="text-muted-foreground text-sm">从未登录</span>
           ),
+        enableSorting: true,
         key: "lastActiveAt",
         title: "最近活跃",
       }),
@@ -571,8 +573,8 @@ export function MembersManagementPage() {
 
         <TabsContent className="mt-0" value="members">
           <DataGrid<MemberRow>
+            {...memberGrid.bind}
             columns={columns}
-            data={rows}
             empty={
               <Empty className="border-border">
                 <EmptyHeader>
@@ -604,11 +606,6 @@ export function MembersManagementPage() {
                 )}
               </Empty>
             }
-            onResetFilters={() => {
-              setMemberSearch("");
-              setPage(1);
-            }}
-            filterValues={{ textFilters: memberSearch }}
             filters={[
               {
                 key: "textFilters" as const,
@@ -617,23 +614,6 @@ export function MembersManagementPage() {
               },
             ]}
             getRowId={(r) => r.id}
-            loading={isPending}
-            onFilterChange={(key, value) => {
-              if (key !== "textFilters") {
-                return;
-              }
-              setMemberSearch(value);
-              setPage(1);
-            }}
-            pagination={{
-              onPageChange: setPage,
-              onPageSizeChange: (size) => {
-                setPageSize(size);
-                setPage(1);
-              },
-              page: safePage,
-              pageSize,
-            }}
             toolbarRight={
               <div className="flex flex-wrap gap-2">
                 <PermissionGate action="create" resource="invitation">
@@ -657,8 +637,6 @@ export function MembersManagementPage() {
                 </PermissionGate>
               </div>
             }
-            total={total}
-            totalPages={totalPages}
           />
         </TabsContent>
 

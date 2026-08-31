@@ -1,6 +1,54 @@
 import { describe, expect, it } from "vitest";
 
-import { reconcileGroupNameDraftState, resolveGroupNameDrafts } from "./members-page-model";
+import {
+  buildWorkspaceMemberListQuery,
+  getPageAfterMemberRemoval,
+  reconcileGroupNameDraftState,
+  resolveGroupNameDrafts,
+} from "./members-page-model";
+
+describe("workspace member list query", () => {
+  it("uses join-time defaults and forwards selected activity sorting", () => {
+    expect(
+      buildWorkspaceMemberListQuery({
+        filters: { textFilters: "" },
+        page: 1,
+        pageSize: 10,
+        search: "",
+        sortBy: undefined,
+        sortOrder: undefined,
+      }),
+    ).toEqual({
+      page: "1",
+      pageSize: "10",
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      textFilters: undefined,
+    });
+    expect(
+      buildWorkspaceMemberListQuery({
+        filters: { textFilters: '{"name":"张"}' },
+        page: 2,
+        pageSize: 20,
+        search: "",
+        sortBy: "lastActiveAt",
+        sortOrder: "asc",
+      }),
+    ).toEqual({
+      page: "2",
+      pageSize: "20",
+      sortBy: "lastActiveAt",
+      sortOrder: "asc",
+      textFilters: '{"name":"张"}',
+    });
+  });
+
+  it("returns to the previous page after removing the last row on a later page", () => {
+    expect(getPageAfterMemberRemoval({ page: 3, visibleRowCount: 1 })).toBe(2);
+    expect(getPageAfterMemberRemoval({ page: 3, visibleRowCount: 2 })).toBe(3);
+    expect(getPageAfterMemberRemoval({ page: 1, visibleRowCount: 1 })).toBe(1);
+  });
+});
 
 describe("resolveGroupNameDrafts", () => {
   it("follows server names until the user edits, then keeps only visible user drafts", () => {

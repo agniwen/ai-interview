@@ -20,4 +20,18 @@ describe("workspace management search", () => {
     expect(buildWorkspaceManagementSearch({}, "groups")).toEqual({ tab: "groups" });
     expect(buildWorkspaceManagementSearch({ tab: "groups" }, "members")).toEqual({});
   });
+
+  it("preserves member pagination and sorting search state", () => {
+    expect(
+      coerceWorkspaceManagementSearch({
+        page: 2,
+        sortBy: "lastActiveAt",
+        sortOrder: "asc",
+        tab: "members",
+      }),
+    ).toEqual({ page: 2, sortBy: "lastActiveAt", sortOrder: "asc" });
+    expect(
+      buildWorkspaceManagementSearch({ page: 2, sortBy: "createdAt", sortOrder: "desc" }, "groups"),
+    ).toEqual({ page: 2, sortBy: "createdAt", sortOrder: "desc", tab: "groups" });
+  });
 });

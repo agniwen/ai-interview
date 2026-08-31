@@ -150,7 +150,7 @@ export function InterviewManagementPage() {
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
       rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
+        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
         "加载成员列表失败",
       ),
     queryKey: ["workspace-members", slug],

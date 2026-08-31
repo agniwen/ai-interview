@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { coerceSearchParams } from "@/lib/client/data-grid-search";
+import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 
 export const DEFAULT_WORKSPACE_MANAGEMENT_TAB = "members";
 
@@ -8,13 +10,9 @@ const workspaceManagementTabSchema = z.enum(WORKSPACE_MANAGEMENT_TABS);
 export type WorkspaceManagementTab = (typeof WORKSPACE_MANAGEMENT_TABS)[number];
 type WorkspaceManagementTabInput = string | null | undefined;
 
-export interface WorkspaceManagementSearch {
+export type WorkspaceManagementSearch = SearchParamsRecord & {
   tab?: WorkspaceManagementTab;
-}
-
-interface WorkspaceManagementSearchInput {
-  tab?: unknown;
-}
+};
 
 export function parseWorkspaceManagementTab(
   value: WorkspaceManagementTabInput,
@@ -23,11 +21,13 @@ export function parseWorkspaceManagementTab(
 }
 
 export function coerceWorkspaceManagementSearch(
-  search: WorkspaceManagementSearchInput,
+  search: SearchParamsRecord,
 ): WorkspaceManagementSearch {
-  const result = workspaceManagementTabSchema.safeParse(search.tab);
+  const coerced = coerceSearchParams(search);
+  const result = workspaceManagementTabSchema.safeParse(coerced.tab);
   const tab = result.success ? result.data : DEFAULT_WORKSPACE_MANAGEMENT_TAB;
-  return tab === DEFAULT_WORKSPACE_MANAGEMENT_TAB ? {} : { tab };
+  const { tab: _tab, ...rest } = coerced;
+  return tab === DEFAULT_WORKSPACE_MANAGEMENT_TAB ? rest : { ...rest, tab };
 }
 
 export function buildWorkspaceManagementSearch(

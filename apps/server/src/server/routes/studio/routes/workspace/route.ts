@@ -3,7 +3,6 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@app/server/lib/server/db";
 import { organization, recruitingGroup } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { isFeishuHumanInterviewEnabled } from "@app/server/server/routes/feishu/utils/provider";
 import { requirePermission } from "@app/server/server/middlewares/permission";
 import {
   addRecruitingGroupMember,
@@ -11,12 +10,12 @@ import {
   findRecruitingGroupByName,
   listRecruitingGroupBoard,
   listWorkspaceMemberLastActives,
-  listWorkspaceMembers,
   loadMyResumeActivity,
   removeRecruitingGroupMember,
   updateRecruitingGroupMemberRole,
 } from "./dao";
 import { inviteLinksRouter } from "./routes/invite-links/route";
+import { workspaceMembersRouter } from "./routes/members/route";
 import {
   recruitingGroupMemberInputSchema,
   recruitingGroupMemberRoleInputSchema,
@@ -50,6 +49,7 @@ function isRecruitingGroupNameConflict(error: DatabaseErrorBoundary["error"]): b
 export const workspaceRouter = factory
   .createApp()
   .route("/invite-links", inviteLinksRouter)
+  .route("/members", workspaceMembersRouter)
   .get("/my-activity", async (c) => {
     const { activeOrg, user } = c.var;
     if (!(activeOrg && user?.id)) {
@@ -68,22 +68,6 @@ export const workspaceRouter = factory
     }
     const records = await listWorkspaceMemberLastActives(activeOrg.id);
     return c.json({ records }, 200);
-  })
-  // 列出工作区成员（id + name + email + image），用于「面试官多选」picker。
-  // List workspace members for the interviewer multi-select picker.
-  .get("/members", async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const records = await listWorkspaceMembers(activeOrg.id);
-    return c.json(
-      {
-        feishuHumanInterviewEnabled: isFeishuHumanInterviewEnabled(),
-        records,
-      },
-      200,
-    );
   })
   .get("/groups", async (c) => {
     const { activeOrg, user } = c.var;

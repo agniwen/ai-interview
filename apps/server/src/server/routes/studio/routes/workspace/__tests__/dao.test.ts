@@ -15,6 +15,7 @@ import {
   listWorkspaceMembers,
   listWorkspaceMemberLastActives,
   listRecruitingGroupBoard,
+  queryPaginatedWorkspaceMembers,
   UNGROUPED_RECRUITING_GROUP_ID,
 } from "../dao";
 
@@ -213,10 +214,14 @@ describe("workspace recruiting group dao", () => {
       expect.objectContaining({
         feishuProviderIds: ["feishu-jiguang-hr"],
         id: CREATOR,
+        memberId: "m_workspace_groups_creator",
+        role: "owner",
       }),
       expect.objectContaining({
         feishuProviderIds: ["feishu", "feishu-jiguang-hr"],
         id: MEMBER,
+        memberId: "m_workspace_groups_member",
+        role: "member",
       }),
     ]);
   }, 30_000);
@@ -231,5 +236,80 @@ describe("workspace recruiting group dao", () => {
       lastActiveAt: lastActiveAt.toISOString(),
       userId: MEMBER,
     });
+  }, 30_000);
+
+  it("paginates members by newest join time and supports last-active sorting", async () => {
+    await db
+      .update(member)
+      .set({ createdAt: new Date("2026-08-01T00:00:00.000Z") })
+      .where(eq(member.userId, CREATOR));
+    await db
+      .update(member)
+      .set({ createdAt: new Date("2026-08-20T00:00:00.000Z") })
+      .where(eq(member.userId, MEMBER));
+    await db
+      .update(user)
+      .set({ lastActiveAt: new Date("2026-08-30T00:00:00.000Z") })
+      .where(eq(user.id, CREATOR));
+    await db
+      .update(user)
+      .set({ lastActiveAt: new Date("2026-08-10T00:00:00.000Z") })
+      .where(eq(user.id, MEMBER));
+
+    const firstPage = await queryPaginatedWorkspaceMembers(ORG, {
+      page: 1,
+      pageSize: 1,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    });
+    const byLastActive = await queryPaginatedWorkspaceMembers(ORG, {
+      page: 1,
+      pageSize: 10,
+      sortBy: "lastActiveAt",
+      sortOrder: "desc",
+    });
+
+    expect(firstPage).toMatchObject({
+      page: 1,
+      pageSize: 1,
+      total: 2,
+      totalPages: 2,
+    });
+    expect(firstPage.records.map((row) => row.userId)).toEqual([MEMBER]);
+    expect(byLastActive.records.map((row) => row.userId)).toEqual([CREATOR, MEMBER]);
+  }, 30_000);
+
+  it("keeps tied and never-active member pagination stable and filters before counting", async () => {
+    const joinedAt = new Date("2026-08-01T00:00:00.000Z");
+    await db.update(member).set({ createdAt: joinedAt }).where(eq(member.organizationId, ORG));
+
+    const firstPage = await queryPaginatedWorkspaceMembers(ORG, {
+      page: 1,
+      pageSize: 1,
+      sortBy: "lastActiveAt",
+      sortOrder: "desc",
+    });
+    const secondPage = await queryPaginatedWorkspaceMembers(ORG, {
+      page: 2,
+      pageSize: 1,
+      sortBy: "lastActiveAt",
+      sortOrder: "desc",
+    });
+    const filtered = await queryPaginatedWorkspaceMembers(ORG, {
+      page: 1,
+      pageSize: 10,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      textFilters: '{"name":"Creator"}',
+    });
+
+    expect([...firstPage.records, ...secondPage.records].map((row) => row.id)).toEqual([
+      "m_workspace_groups_member",
+      "m_workspace_groups_creator",
+    ]);
+    expect(firstPage.records[0]?.lastActiveAt).toBeNull();
+    expect(secondPage.records[0]?.lastActiveAt).toBeNull();
+    expect(filtered).toMatchObject({ total: 1, totalPages: 1 });
+    expect(filtered.records.map((row) => row.userId)).toEqual([CREATOR]);
   }, 30_000);
 });

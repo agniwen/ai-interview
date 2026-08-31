@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { listTextQuery } from "@arc/shared/list-text-filters";
+import type { DataGridFetchParams } from "@/components/data-grid";
 
 import { authClient } from "@/lib/client/auth-client";
 import { isBuiltInWorkspaceRole } from "@/components/features/studio/members/role-display";
@@ -7,6 +9,37 @@ import type { WorkspaceRole } from "@/components/features/studio/members/role-di
 import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 
 export const DEFAULT_PAGE_SIZE = 10;
+export const WORKSPACE_MEMBER_SORT_IDS = ["createdAt", "lastActiveAt"] as const;
+export const WORKSPACE_MEMBER_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }] as const;
+export type WorkspaceMemberSortColumn = (typeof WORKSPACE_MEMBER_SORT_IDS)[number];
+
+function isWorkspaceMemberSortColumn(
+  value: string | undefined,
+): value is WorkspaceMemberSortColumn {
+  return WORKSPACE_MEMBER_SORT_IDS.some((column) => column === value);
+}
+
+export function buildWorkspaceMemberListQuery(
+  params: DataGridFetchParams<{ textFilters: string }>,
+) {
+  return {
+    ...listTextQuery(params),
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    sortBy: isWorkspaceMemberSortColumn(params.sortBy) ? params.sortBy : "createdAt",
+    sortOrder: params.sortOrder ?? "desc",
+  };
+}
+
+export function getPageAfterMemberRemoval({
+  page,
+  visibleRowCount,
+}: {
+  page: number;
+  visibleRowCount: number;
+}): number {
+  return page > 1 && visibleRowCount === 1 ? page - 1 : page;
+}
 export { DEFAULT_WORKSPACE_MANAGEMENT_TAB as DEFAULT_TAB } from "@/components/features/studio/members/workspace-management-search";
 export {
   buildWorkspaceManagementSearch,

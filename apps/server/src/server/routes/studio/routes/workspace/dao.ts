@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "@app/server/lib/server/db";
+import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
 import { serializeDate } from "@app/server/lib/server/db/serialize";
 import { startOfBeijingDay } from "@arc/shared/beijing-calendar";
 import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
@@ -42,20 +43,26 @@ export interface RecruitingGroupBoardRow {
 // 给「面试官多选」用的精简 member DTO。
 // Lightweight member DTO for interviewer multi-select pickers.
 export interface WorkspaceMemberRow {
+  createdAt: string;
   id: string;
+  memberId: string;
   name: string;
   email: string;
   feishuProviderIds: FeishuProviderId[];
   image: string | null;
+  role: string;
 }
 
 export async function listWorkspaceMembers(organizationId: string): Promise<WorkspaceMemberRow[]> {
   const rows = await db
     .select({
+      createdAt: member.createdAt,
       email: user.email,
       id: user.id,
       image: user.image,
+      memberId: member.id,
       name: user.name,
+      role: member.role,
     })
     .from(member)
     .innerJoin(user, eq(member.userId, user.id))
@@ -90,13 +97,114 @@ export async function listWorkspaceMembers(organizationId: string): Promise<Work
       providerIdsByUser.get(row.id)?.has(providerId),
     );
     return {
+      createdAt: row.createdAt.toISOString(),
       email: row.email,
       feishuProviderIds: feishuProviderIds.length > 0 ? feishuProviderIds : ["feishu-jiguang-hr"],
       id: row.id,
       image: row.image,
+      memberId: row.memberId,
       name: row.name ?? "未命名",
+      role: row.role,
     };
   });
+}
+
+export interface WorkspaceMemberListQuery {
+  page: number;
+  pageSize: number;
+  sortBy: "createdAt" | "lastActiveAt";
+  sortOrder: "asc" | "desc";
+  textFilters?: string;
+}
+
+export interface WorkspaceMemberListRecord {
+  createdAt: string;
+  email: string;
+  id: string;
+  image: string | null;
+  lastActiveAt: string | null;
+  name: string;
+  role: string;
+  userId: string;
+}
+
+export interface PaginatedWorkspaceMembersResult {
+  page: number;
+  pageSize: number;
+  records: WorkspaceMemberListRecord[];
+  total: number;
+  totalPages: number;
+}
+
+const WORKSPACE_MEMBER_LAST_ACTIVE_AT = sql<
+  Date | string | null
+>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`;
+
+export async function queryPaginatedWorkspaceMembers(
+  organizationId: string,
+  query: WorkspaceMemberListQuery,
+): Promise<PaginatedWorkspaceMembersResult> {
+  const where = and(
+    eq(member.organizationId, organizationId),
+    buildListTextFilterWhere("members", query.textFilters, {
+      email: user.email,
+      name: user.name,
+    }),
+  );
+  const offset = (query.page - 1) * query.pageSize;
+  const direction = query.sortOrder === "asc" ? sql`asc` : sql`desc`;
+  const orderBy =
+    query.sortBy === "lastActiveAt"
+      ? [
+          sql`${WORKSPACE_MEMBER_LAST_ACTIVE_AT} ${direction} nulls last`,
+          desc(member.createdAt),
+          desc(member.id),
+        ]
+      : [
+          query.sortOrder === "asc" ? asc(member.createdAt) : desc(member.createdAt),
+          desc(member.id),
+        ];
+
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select({
+        createdAt: member.createdAt,
+        email: user.email,
+        id: member.id,
+        image: user.image,
+        lastActiveAt: WORKSPACE_MEMBER_LAST_ACTIVE_AT.as("last_active_at"),
+        name: user.name,
+        role: member.role,
+        userId: member.userId,
+      })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .leftJoin(session, eq(session.userId, user.id))
+      .where(where)
+      .groupBy(member.id, user.id)
+      .orderBy(...orderBy)
+      .limit(query.pageSize)
+      .offset(offset),
+    db
+      .select({ total: count() })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(where),
+  ]);
+  const total = totalRow?.total ?? 0;
+
+  return {
+    page: query.page,
+    pageSize: query.pageSize,
+    records: rows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      lastActiveAt: serializeDate(row.lastActiveAt),
+      name: row.name ?? row.email,
+    })),
+    total,
+    totalPages: total === 0 ? 0 : Math.ceil(total / query.pageSize),
+  };
 }
 
 export function ensureDefaultRecruitingGroupForWorkspace({

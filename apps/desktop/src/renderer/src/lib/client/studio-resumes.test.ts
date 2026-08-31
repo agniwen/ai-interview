@@ -1,5 +1,9 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { fetchResumeEvaluationHistory, fetchStudioResumes } from "./studio-resumes";
+import {
+  fetchResumeEvaluationHistory,
+  fetchStudioResumes,
+  fetchWorkspaceMembers,
+} from "./studio-resumes";
 
 import { apiUrl } from "./rpc";
 afterEach(() => vi.unstubAllGlobals());
@@ -43,6 +47,17 @@ describe("Desktop recruitment API", () => {
     await expect(fetchResumeEvaluationHistory("team", "resume/a")).rejects.toThrow("无法读取历史");
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       apiUrl("/api/w/team/studio/resumes/resume%2Fa/evaluation-history"),
+    );
+  });
+
+  it("loads the complete workspace member options endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ records: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchWorkspaceMembers("team/a");
+
+    expect(new URL(fetchMock.mock.calls[0]?.[0]).pathname).toBe(
+      "/api/w/team%2Fa/studio/workspace/members/options",
     );
   });
 });
