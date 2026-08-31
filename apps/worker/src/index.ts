@@ -447,10 +447,10 @@ async function main() {
       });
       semanticIndexWorker.on("failed", reportQueueFailure("resume-semantic-index"));
     }
-    reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {
+    reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload, context) => {
       const { processResumeReviewGenerationJob } =
         await import("@app/server/server/routes/studio/routes/resumes/utils/review-worker");
-      await processResumeReviewGenerationJob(payload);
+      await processResumeReviewGenerationJob(payload, undefined, context);
     });
     reviewGenerationWorker.on("failed", reportQueueFailure("resume-review-generation"));
     mailIngestScheduler = startMailIngestScheduler();

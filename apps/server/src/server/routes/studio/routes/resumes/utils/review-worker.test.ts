@@ -45,9 +45,21 @@ describe("processResumeReviewGenerationJob", () => {
         expectedJobDescriptionId: "jd-1",
         expectedRunId: "run-1",
         force: false,
+        hasAttemptsRemaining: false,
         organizationId: "org-1",
         resumeRecordId: "resume-1",
       },
+      expect.any(Object),
+    );
+  });
+
+  it("keeps retryable queue failures out of the terminal lifecycle state", async () => {
+    await processResumeReviewGenerationJob(JOB, dependencies, {
+      hasAttemptsRemaining: true,
+    });
+
+    expect(mocks.runAssessmentLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({ hasAttemptsRemaining: true }),
       expect.any(Object),
     );
   });

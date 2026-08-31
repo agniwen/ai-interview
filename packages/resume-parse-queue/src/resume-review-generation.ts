@@ -6,10 +6,12 @@ import {
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
   getResumeParseRedisSummary,
+  hasResumeParseAttemptsRemaining,
   isResumeParseQueueConfigured,
   shouldRemoveExistingResumeParseJob,
 } from "./resume-parse";
 import type { ResumeParseQueueCounts, ResumeParseRedisSummary } from "./resume-parse";
+import { loadNewestQueueJobsPage } from "./queue-order";
 
 export const RESUME_REVIEW_GENERATION_QUEUE_NAME = "resume-review-generation";
 export const RESUME_REVIEW_GENERATION_QUEUE_DISPLAY_NAME = "AI分析";
@@ -68,8 +70,12 @@ export const resumeReviewGenerationJobSchema = z.discriminatedUnion("source", [
 ]);
 
 export type ResumeReviewGenerationJobData = z.infer<typeof resumeReviewGenerationJobSchema>;
+export interface ResumeReviewGenerationJobContext {
+  hasAttemptsRemaining: boolean;
+}
 export type ResumeReviewGenerationJobProcessor = (
   payload: ResumeReviewGenerationJobData,
+  context: ResumeReviewGenerationJobContext,
 ) => Promise<void>;
 type ResumeReviewGenerationCountState = (typeof RESUME_REVIEW_GENERATION_COUNT_TYPES)[number];
 export type ResumeReviewGenerationJobListState = "all" | ResumeReviewGenerationCountState;
@@ -429,9 +435,12 @@ export async function listResumeReviewGenerationQueueJobs({
   }
 
   const total = getCountTotal(counts, state);
-  const start = (normalizedPage - 1) * normalizedPageSize;
-  const end = start + normalizedPageSize - 1;
-  const jobs = await q.getJobs(stateToJobTypes(state), start, end, false);
+  const jobs = await loadNewestQueueJobsPage(
+    q,
+    stateToJobTypes(state),
+    normalizedPage,
+    normalizedPageSize,
+  );
   const serializedJobs = await Promise.all(jobs.map((job) => serializeJob(job)));
   const records = serializedJobs.filter(
     (job): job is ResumeReviewGenerationQueueJobRecord => job !== null,
@@ -486,7 +495,9 @@ export function createResumeReviewGenerationWorker(
     RESUME_REVIEW_GENERATION_QUEUE_NAME,
     async (job) => {
       const payload = resumeReviewGenerationJobSchema.parse(job.data);
-      await processJob(payload);
+      await processJob(payload, {
+        hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+      });
     },
     {
       concurrency: resolveResumeReviewGenerationWorkerConcurrency(),

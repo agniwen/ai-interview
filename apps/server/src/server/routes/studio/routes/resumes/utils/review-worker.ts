@@ -9,7 +9,10 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
-import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
+import type {
+  ResumeReviewGenerationJobContext,
+  ResumeReviewGenerationJobData,
+} from "@arc/resume-parse-queue/resume-review-generation";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
@@ -656,6 +659,7 @@ const defaultResumeReviewWorkerDependencies: ResumeReviewWorkerDependencies = {
 export async function processResumeReviewGenerationJob(
   input: ResumeReviewGenerationJobData,
   dependencies = defaultResumeReviewWorkerDependencies,
+  context?: ResumeReviewGenerationJobContext,
 ) {
   if (input.source === "resume_pool_import_questions") {
     return dependencies.generateCandidateInterviewQuestions({
@@ -673,6 +677,7 @@ export async function processResumeReviewGenerationJob(
       expectedJobDescriptionId: jobDescriptionId,
       expectedRunId: input.runId,
       force,
+      hasAttemptsRemaining: context?.hasAttemptsRemaining ?? false,
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,
     },

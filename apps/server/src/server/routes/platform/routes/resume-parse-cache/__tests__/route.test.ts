@@ -71,7 +71,12 @@ describe("platform resume parse cache routes", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.queryCache).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 1, pageSize: 10 }),
+      expect.objectContaining({
+        page: 1,
+        pageSize: 10,
+        sortBy: "parsedAt",
+        sortOrder: "desc",
+      }),
     );
   });
 

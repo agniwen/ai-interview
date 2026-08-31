@@ -85,6 +85,9 @@ function createStore(overrides: Partial<ResumeAssessmentRecord> = {}) {
       }
       record.resumeReviewError = errorMessage;
       record.resumeReviewStatus = "failed";
+      if (record.resumeEvaluationAttemptMode === "qualitative") {
+        record.qualitativeAttemptJobDescriptionVersionId = null;
+      }
       record.resumeScreeningError = errorMessage;
       record.resumeScreeningStatus = "failed";
       return Promise.resolve(true);
@@ -158,6 +161,76 @@ describe("runResumeAssessmentLifecycle", () => {
       "model unavailable",
     );
     expect(record.resumeReview).toBeNull();
+    expect(record.resumeReviewStatus).toBe("failed");
+  });
+
+  it("preserves the qualitative JD snapshot until the queue exhausts its attempts", async () => {
+    const { deps, record } = createStore({
+      evaluationMode: "qualitative",
+      qualitativeAttemptJobDescriptionVersionId: "jd-version-1",
+      resumeEvaluationArtifactMode: null,
+      resumeEvaluationAttemptMode: "qualitative",
+      resumeReview: null,
+    });
+    let generationAttempts = 0;
+    deps.generate = () => {
+      generationAttempts += 1;
+      if (generationAttempts === 1) {
+        return Promise.reject(new Error("Failed to parse structured output from model response."));
+      }
+      return Promise.resolve({
+        // SAFETY: This lifecycle test only verifies retry state and does not inspect the payload.
+        evaluation: {} as never,
+        jobDescriptionVersionId: "jd-version-1",
+        mode: "qualitative",
+      });
+    };
+
+    await expect(
+      runResumeAssessmentLifecycle({ ...RUN_INPUT, hasAttemptsRemaining: true }, deps),
+    ).rejects.toThrow("Failed to parse structured output from model response.");
+    expect(record.qualitativeAttemptJobDescriptionVersionId).toBe("jd-version-1");
+
+    await expect(runResumeAssessmentLifecycle(RUN_INPUT, deps)).resolves.toEqual({
+      status: "ready",
+    });
+    expect(generationAttempts).toBe(2);
+  });
+
+  it("marks the final qualitative attempt failed and clears its JD snapshot", async () => {
+    const { deps, record } = createStore({
+      evaluationMode: "qualitative",
+      qualitativeAttemptJobDescriptionVersionId: "jd-version-1",
+      resumeEvaluationArtifactMode: null,
+      resumeEvaluationAttemptMode: "qualitative",
+      resumeReview: null,
+    });
+    deps.generate = () => Promise.reject(new Error("model unavailable"));
+
+    await expect(runResumeAssessmentLifecycle(RUN_INPUT, deps)).rejects.toThrow(
+      "model unavailable",
+    );
+    expect(record.resumeReviewStatus).toBe("failed");
+    expect(record.qualitativeAttemptJobDescriptionVersionId).toBeNull();
+  });
+
+  it("marks a missing qualitative JD snapshot failed only on the final attempt", async () => {
+    const { deps, record } = createStore({
+      evaluationMode: "qualitative",
+      qualitativeAttemptJobDescriptionVersionId: null,
+      resumeEvaluationArtifactMode: null,
+      resumeEvaluationAttemptMode: "qualitative",
+      resumeReview: null,
+    });
+
+    await expect(
+      runResumeAssessmentLifecycle({ ...RUN_INPUT, hasAttemptsRemaining: true }, deps),
+    ).rejects.toThrow("评估任务缺少岗位 JD 快照。");
+    expect(record.resumeReviewStatus).toBe("queued");
+
+    await expect(runResumeAssessmentLifecycle(RUN_INPUT, deps)).rejects.toThrow(
+      "评估任务缺少岗位 JD 快照。",
+    );
     expect(record.resumeReviewStatus).toBe("failed");
   });
 

@@ -11,6 +11,7 @@ import { organization, member, session, user } from "@arc/db-schema/schema";
 import { resumeParseStatusValues } from "@arc/db-schema/studio-interviews";
 import {
   getResumeParseQueueOverview,
+  listAllResumeParseQueueJobs,
   listResumeParseQueueJobs,
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
@@ -565,8 +566,6 @@ const queueJobsQuerySchema = z.object({
 
 type QueueJobsQuery = z.infer<typeof queueJobsQuerySchema>;
 
-const DETAIL_FILTER_SCAN_PAGE_SIZE = 100;
-
 function hasDetailStatusFilter(query: QueueJobsQuery): boolean {
   return query.uploadStatus !== "all" || query.parseStatus !== "all";
 }
@@ -585,29 +584,15 @@ async function listResumeParseQueueJobsWithDetailFilters(query: QueueJobsQuery) 
     return enrichResumeParseQueueJobs(result);
   }
 
-  const firstPage = await listResumeParseQueueJobs({
-    ...queueQuery,
-    page: 1,
-    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
-  });
-  const records = [...firstPage.records];
-
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    const pageResult = await listResumeParseQueueJobs({
-      ...queueQuery,
-      page,
-      pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
-    });
-    records.push(...pageResult.records);
-  }
+  const records = await listAllResumeParseQueueJobs(queueQuery);
 
   const enriched = await enrichResumeParseQueueJobs({
-    ...firstPage,
     page: 1,
-    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+    pageSize: Math.max(1, records.length),
     records,
+    state: query.state,
     total: records.length,
-    totalPages: records.length > 0 ? Math.ceil(records.length / DETAIL_FILTER_SCAN_PAGE_SIZE) : 0,
+    totalPages: records.length > 0 ? 1 : 0,
   });
   const filteredRecords = filterEnrichedResumeParseQueueJobRecords(enriched.records, {
     parseStatus: query.parseStatus,

@@ -41,6 +41,9 @@ describe("platform notifications routes", () => {
     const response = await makeApp("admin").request("/platform/notifications?page=1&pageSize=20");
 
     expect(response.status).toBe(200);
+    expect(mocks.queryNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ sortBy: "createdAt", sortOrder: "desc" }),
+    );
     await expect(response.json()).resolves.toEqual({ records: [], total: 0 });
   });
 

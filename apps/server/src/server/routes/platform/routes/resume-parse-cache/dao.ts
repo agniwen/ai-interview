@@ -28,7 +28,10 @@ function cacheOrderBy(query: ResumeParseCacheQuery): SQL {
   if (query.sortBy === "parsedStatus") {
     return direction(latestCacheValue(sql`${chatAttachment.parsedStatus}`));
   }
-  return direction(sql`max(${chatAttachment.parsedAt})`);
+  const parsedAt = sql`max(${chatAttachment.parsedAt})`;
+  return query.sortOrder === "asc"
+    ? sql`${parsedAt} asc nulls last`
+    : sql`${parsedAt} desc nulls last`;
 }
 
 function buildCacheConditions(query: ResumeParseCacheQuery): SQL | undefined {

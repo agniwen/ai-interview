@@ -138,6 +138,7 @@ export async function runResumeAssessmentLifecycle(
     expectedJobDescriptionId?: string | null;
     expectedRunId?: string;
     force: boolean;
+    hasAttemptsRemaining?: boolean;
   },
   deps: ResumeAssessmentLifecycleDeps,
 ): Promise<ResumeAssessmentLifecycleResult> {
@@ -193,24 +194,23 @@ export async function runResumeAssessmentLifecycle(
     throw new Error("评估任务缺少已持久化的运行标识。");
   }
   const attemptMode = record.resumeEvaluationAttemptMode ?? record.evaluationMode;
-  if (attemptMode === "qualitative" && !record.qualitativeAttemptJobDescriptionVersionId) {
-    throw new Error("评估任务缺少岗位 JD 快照。");
-  }
-
   const guard = {
     expectedJobDescriptionId: record.jobDescriptionId,
     runId: record.resumeReviewRunId,
   };
-  if (
-    !(await deps.markProcessing({
-      ...key,
-      ...guard,
-      mode: attemptMode,
-    }))
-  ) {
-    return { reason: "stale_job_description", status: "skipped" };
-  }
   try {
+    if (attemptMode === "qualitative" && !record.qualitativeAttemptJobDescriptionVersionId) {
+      throw new Error("评估任务缺少岗位 JD 快照。");
+    }
+    if (
+      !(await deps.markProcessing({
+        ...key,
+        ...guard,
+        mode: attemptMode,
+      }))
+    ) {
+      return { reason: "stale_job_description", status: "skipped" };
+    }
     const resumeInputHash = computeResumeEvaluationInputHash({
       resumeContentHash: record.resumeContentHash,
       resumeProfile: record.resumeProfile,
@@ -233,6 +233,9 @@ export async function runResumeAssessmentLifecycle(
     const committed = await deps.markReady({ ...key, ...guard, assessment });
     return committed ? { status: "ready" } : { reason: "superseded", status: "skipped" };
   } catch (error) {
+    if (input.hasAttemptsRemaining) {
+      throw error;
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     const committed = await deps.markFailed({
       ...key,
