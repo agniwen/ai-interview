@@ -21,10 +21,12 @@ function isTextPayload(payload: string | Uint8Array): payload is string {
 
 class DeterministicCaptureSource {
   private sink: CaptureSink | null = null;
+  readonly acquireInputs: ({ microphoneDeviceId?: string } | undefined)[] = [];
   readonly pause = vi.fn(() => Promise.resolve());
   readonly resume = vi.fn(() => Promise.resolve());
 
-  acquire(): Promise<PreparedCapture> {
+  acquire(input?: { microphoneDeviceId?: string }): Promise<PreparedCapture> {
+    this.acquireInputs.push(input);
     const prepared: PreparedCapture = {
       dispose: () => Promise.resolve(),
       pause: this.pause,
@@ -129,7 +131,9 @@ describe("MeetingCapture", () => {
     });
     const observed = latestSnapshot(capture);
 
-    await capture.start({ recruitingRecordId: null });
+    await capture.start({ microphoneDeviceId: "studio-mic", recruitingRecordId: null });
+
+    expect(source.acquireInputs).toEqual([{ microphoneDeviceId: "studio-mic" }]);
 
     expect(observed.read()).toMatchObject({
       active: {
@@ -171,27 +175,39 @@ describe("MeetingCapture", () => {
 
   it("pauses and resumes one active capture without ending its local session", async () => {
     const source = new DeterministicCaptureSource();
+    let currentTimeMs = Date.parse("2026-08-28T00:00:00.000Z");
     const capture = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000091",
+      now: () => new Date(currentTimeMs),
       source,
       store: new LocalMeetingRecordingStore(root),
     });
     const observed = latestSnapshot(capture);
 
     await capture.start();
+    currentTimeMs += 3000;
     await capture.pause();
 
     expect(source.pause).toHaveBeenCalledOnce();
     expect(observed.read()).toMatchObject({
-      active: { captureId: "00000000-0000-4000-8000-000000000091" },
+      active: {
+        captureId: "00000000-0000-4000-8000-000000000091",
+        elapsedMs: 3000,
+        resumedAt: null,
+      },
       phase: "paused",
     });
 
+    currentTimeMs += 2000;
     await capture.resume();
 
     expect(source.resume).toHaveBeenCalledOnce();
     expect(observed.read()).toMatchObject({
-      active: { captureId: "00000000-0000-4000-8000-000000000091" },
+      active: {
+        captureId: "00000000-0000-4000-8000-000000000091",
+        elapsedMs: 3000,
+        resumedAt: "2026-08-28T00:00:05.000Z",
+      },
       phase: "active",
     });
     await capture.discard();

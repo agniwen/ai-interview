@@ -293,11 +293,12 @@ export function NewMeetingRecordingPage({
 
   const isWorkspaceMissing = !workspaceQuery.isPending && !slug;
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (microphoneDeviceId?: string) => {
     setStarting(true);
     setStartError(null);
     try {
       const { captureId } = await startRecording({
+        microphoneDeviceId,
         recruitingRecord: linkRecruiting ? selectedRecord : null,
         recruitingRecordId: linkRecruiting ? selectedId : null,
       });
@@ -315,6 +316,7 @@ export function NewMeetingRecordingPage({
 
   return (
     <MeetingRecordingSessionLayout
+      composerClassName="max-w-2xl"
       composer={
         <MeetingSetupComposer
           disabled={starting || (linkRecruiting && isWorkspaceMissing)}

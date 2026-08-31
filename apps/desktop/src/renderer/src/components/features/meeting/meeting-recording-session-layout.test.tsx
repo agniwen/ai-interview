@@ -11,7 +11,7 @@ describe("MeetingRecordingSessionLayout", () => {
 
     expect(html).toContain('class="@container relative flex w-full flex-col overflow-hidden"');
     expect(html).toContain(
-      'data-overlayscrollbars-contents=""><div class="h-full min-h-full pt-4"',
+      'data-overlayscrollbars-contents=""><div class="box-border h-full min-h-full pt-4 pb-40"',
     );
     expect(html).toContain("pointer-events-none absolute inset-x-0 bottom-0");
     expect(html).toContain("px-4 pb-5 sm:px-6");
@@ -27,9 +27,15 @@ describe("MeetingRecordingSessionLayout", () => {
     );
 
     expect(html).not.toContain("mb-2");
-    expect(html).toContain('data-slot="meeting-composer-frame"');
+    expect(html).toContain('data-slot="meeting-setup-composer"');
     expect(html).toContain('data-slot="meeting-composer-row"');
-    expect(html).toContain("rounded-md");
+    expect(html).toContain('aria-label="开始录制"');
+    expect(html).toContain('data-slot="meeting-combined-audio-visualizer"');
+    expect(html).toContain("bg-primary/10 text-primary");
+    expect(html).not.toContain("00:00");
+    expect(html).not.toContain('aria-label="结束并保存录制"');
+    expect(html).not.toContain('aria-label="选择麦克风"');
+    expect(html).not.toContain('data-slot="meeting-composer-frame"');
   });
 
   it("pins an overlay to the session pane without entering the scroll flow", () => {
@@ -51,5 +57,7 @@ describe("MeetingRecordingSessionLayout", () => {
 
     expect(html).toContain("saved transcript");
     expect(html).not.toContain("pointer-events-none absolute inset-x-0 bottom-0");
+    expect(html).toContain('class="box-border h-full min-h-full pt-4"');
+    expect(html).not.toContain("pt-4 pb-40");
   });
 });

@@ -80,7 +80,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
     this.liveTranscriptSidecar = liveTranscriptSidecar;
   }
 
-  async acquire(): Promise<PreparedCapture> {
+  async acquire(options: { microphoneDeviceId?: string } = {}): Promise<PreparedCapture> {
     let microphoneStream: MediaStream | null = null;
     let displayStream: MediaStream | null = null;
     let acquisitionFailed = false;
@@ -90,6 +90,9 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         .getUserMedia({
           audio: {
             autoGainControl: false,
+            deviceId: options.microphoneDeviceId
+              ? { exact: options.microphoneDeviceId }
+              : undefined,
             echoCancellation: false,
             noiseSuppression: false,
           },

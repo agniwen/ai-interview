@@ -1,6 +1,10 @@
 "use client";
 
-import type { AgentState, TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import type {
+  AgentState,
+  MultiBandTrackVolumeOptions,
+  TrackReferenceOrPlaceholder,
+} from "@livekit/components-react";
 import type { VariantProps } from "class-variance-authority";
 import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
@@ -94,6 +98,12 @@ export interface AgentAudioVisualizerBarProps {
    * If not provided, defaults based on size: 3 for 'icon'/'sm', 5 for others.
    */
   barCount?: number;
+  /** Optional display-only curve for making quiet and loud bands more distinct. */
+  bandTransform?: (band: number, index: number, count: number) => number;
+  /** Optional per-band opacity curve for soft visualizer edges. */
+  bandOpacity?: (index: number, count: number) => number;
+  /** Optional analyser tuning for visualizers that need a faster or smoother response. */
+  volumeOptions?: Omit<MultiBandTrackVolumeOptions, "bands">;
   /**
    * The audio track to visualize. Can be a local/remote audio track or a track reference.
    */
@@ -130,6 +140,9 @@ export function AgentAudioVisualizerBar({
   state = "connecting",
   color,
   barCount,
+  bandTransform,
+  bandOpacity,
+  volumeOptions,
   audioTrack,
   className,
   children,
@@ -157,6 +170,7 @@ export function AgentAudioVisualizerBar({
     bands: _barCount,
     hiPass: 200,
     loPass: 100,
+    ...volumeOptions,
   });
 
   const sequencerInterval = useMemo(() => {
@@ -201,13 +215,24 @@ export function AgentAudioVisualizerBar({
       className={cn(AgentAudioVisualizerBarVariants({ size }), className)}
       {...props}
     >
-      {bands.map((band: number, idx: number) =>
-        children ? (
+      {bands.map((band: number, idx: number) => {
+        const displayedBand = Math.min(
+          1,
+          Math.max(0, bandTransform ? bandTransform(band, idx, _barCount) : band),
+        );
+        const displayedOpacity = bandOpacity
+          ? Math.min(1, Math.max(0, bandOpacity(idx, _barCount)))
+          : undefined;
+        const bandStyle = {
+          height: `${displayedBand * 100}%`,
+          opacity: displayedOpacity,
+        };
+        return children ? (
           <React.Fragment key={idx}>
             {cloneSingleChild(children, {
               "data-lk-highlighted": highlightedIndices.includes(idx),
               "data-lk-index": idx,
-              style: { height: `${band * 100}%` },
+              style: bandStyle,
             })}
           </React.Fragment>
         ) : (
@@ -215,11 +240,11 @@ export function AgentAudioVisualizerBar({
             key={idx}
             data-lk-index={idx}
             data-lk-highlighted={highlightedIndices.includes(idx)}
-            style={{ height: `${band * 100}%` }}
+            style={bandStyle}
             className={cn(AgentAudioVisualizerBarElementVariants({ size }))}
           />
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

@@ -48,6 +48,7 @@ interface MeetingRecordingContextValue {
   resumeRecording: () => Promise<void>;
   saveRecording: (captureId?: string) => Promise<void>;
   startRecording: (input: {
+    microphoneDeviceId?: string;
     recruitingRecord: ResumeLibraryListRecord | null;
     recruitingRecordId: string | null;
   }) => Promise<{ captureId: string }>;
@@ -286,6 +287,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const startRecording = useCallback(
     async (input: {
+      microphoneDeviceId?: string;
       recruitingRecord: ResumeLibraryListRecord | null;
       recruitingRecordId: string | null;
     }) => {
@@ -293,6 +295,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         liveTranscriptHints: input.recruitingRecord
           ? createMeetingLiveTranscriptHints(input.recruitingRecord)
           : undefined,
+        microphoneDeviceId: input.microphoneDeviceId,
         recruitingRecordId: input.recruitingRecordId,
       });
       toast.success("录制已开始，断网不会中断本地录音");

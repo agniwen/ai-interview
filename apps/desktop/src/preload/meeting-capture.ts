@@ -29,7 +29,11 @@ export interface CaptureTrackState {
 
 export interface ActiveMeetingCapture {
   captureId: string;
+  /** Completed active recording time before the current running interval. */
+  elapsedMs: number;
   recruitingRecordId: string | null;
+  /** Start of the current running interval; null while paused. */
+  resumedAt: string | null;
   startedAt: string;
   tracks: Record<CaptureTrack, CaptureTrackState>;
   videoTracksPersisted: 0;
@@ -145,7 +149,7 @@ export interface PreparedCapture {
 }
 
 export interface MeetingCaptureSource {
-  acquire: () => Promise<PreparedCapture>;
+  acquire: (input?: { microphoneDeviceId?: string }) => Promise<PreparedCapture>;
 }
 
 export interface BeginLocalCaptureInput {
@@ -191,6 +195,7 @@ export interface MeetingRecordingStore {
 
 export interface StartMeetingCaptureInput {
   liveTranscriptHints?: MeetingLiveTranscriptHints;
+  microphoneDeviceId?: string;
   recruitingRecordId?: string | null;
 }
 
@@ -672,7 +677,9 @@ export function createMeetingCapture({
     const captureId = idFactory();
     let acquired: PreparedCapture | null = null;
     try {
-      acquired = await source.acquire();
+      acquired = input.microphoneDeviceId
+        ? await source.acquire({ microphoneDeviceId: input.microphoneDeviceId })
+        : await source.acquire();
       const startedAt = now().toISOString();
       await store.begin({
         captureId,
@@ -685,7 +692,9 @@ export function createMeetingCapture({
       prepared = acquired;
       const active: ActiveMeetingCapture = {
         captureId,
+        elapsedMs: 0,
         recruitingRecordId: input.recruitingRecordId ?? null,
+        resumedAt: startedAt,
         startedAt,
         tracks: {
           microphone: { health: "checking", level: 0 },
@@ -767,9 +776,15 @@ export function createMeetingCapture({
       acquired = await source.acquire();
       await store.resumeInterrupted(captureId, acquired.trackContentTypes);
       resumedStore = true;
+      const committedMs = Math.max(
+        recovered.tracks.microphone.committedThroughMs,
+        recovered.tracks.system.committedThroughMs,
+      );
       const active: ActiveMeetingCapture = {
         captureId,
+        elapsedMs: committedMs,
         recruitingRecordId: recovered.recruitingRecordId,
+        resumedAt: now().toISOString(),
         startedAt: recovered.startedAt,
         tracks: {
           microphone: { health: "checking", level: 0 },
@@ -800,10 +815,6 @@ export function createMeetingCapture({
       await acquired.start(continuationSink, { captureId, initialLiveTranscriptDraft });
       await refreshLocalSessions();
       patch({ phase: "active" });
-      const committedMs = Math.max(
-        recovered.tracks.microphone.committedThroughMs,
-        recovered.tracks.system.committedThroughMs,
-      );
       durationTimer = setTimeout(
         () => {
           durationTimer = null;
@@ -859,21 +870,33 @@ export function createMeetingCapture({
     if (!(snapshot.active && prepared && snapshot.phase === "active")) {
       throw new Error("当前没有可暂停的录制");
     }
+    const { active } = snapshot;
     await prepared.pause();
+    const pausedAtMs = now().getTime();
+    const resumedAtMs = active.resumedAt ? Date.parse(active.resumedAt) : pausedAtMs;
+    const elapsedMs = active.elapsedMs + Math.max(0, pausedAtMs - resumedAtMs);
     clearSilenceTimer();
-    await store.updateLocalSession?.(snapshot.active.captureId, { state: "paused" });
+    await store.updateLocalSession?.(active.captureId, { state: "paused" });
     await refreshLocalSessions();
-    patch({ phase: "paused" });
+    patch({
+      active: snapshot.active ? { ...snapshot.active, elapsedMs, resumedAt: null } : null,
+      phase: "paused",
+    });
   };
 
   const resume = async (): Promise<void> => {
     if (!(snapshot.active && prepared && snapshot.phase === "paused")) {
       throw new Error("当前没有可继续的暂停录制");
     }
+    const { captureId } = snapshot.active;
     await prepared.resume();
-    await store.updateLocalSession?.(snapshot.active.captureId, { state: "recording" });
+    const resumedAt = now().toISOString();
+    await store.updateLocalSession?.(captureId, { state: "recording" });
     await refreshLocalSessions();
-    patch({ phase: "active" });
+    patch({
+      active: snapshot.active ? { ...snapshot.active, resumedAt } : null,
+      phase: "active",
+    });
   };
 
   const save = (input: SaveMeetingCaptureInput = {}): Promise<LocalSavedMeeting> => {

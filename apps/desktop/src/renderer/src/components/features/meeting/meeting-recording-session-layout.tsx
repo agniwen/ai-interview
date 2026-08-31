@@ -9,12 +9,14 @@ import { cn } from "@arc/shared/utils";
  */
 export function MeetingRecordingSessionLayout({
   composer,
+  composerClassName,
   main,
   className,
   overlay,
   scrollFade,
 }: {
   composer?: ReactNode;
+  composerClassName?: string;
   main: ReactNode;
   className?: string;
   overlay?: ReactNode;
@@ -28,11 +30,18 @@ export function MeetingRecordingSessionLayout({
     >
       {overlay}
       <ScrollArea className="min-h-0 flex-1" orientation="vertical" scrollFade={scrollFade}>
-        <div className="h-full min-h-full pt-4">{main}</div>
+        <div
+          className={cn("box-border h-full min-h-full pt-4", composer && "pb-40")}
+          data-slot="meeting-session-scroll-content"
+        >
+          {main}
+        </div>
       </ScrollArea>
       {composer ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-5 sm:px-6">
-          <div className="pointer-events-auto mx-auto w-full max-w-lg">{composer}</div>
+          <div className={cn("pointer-events-auto mx-auto w-full max-w-lg", composerClassName)}>
+            {composer}
+          </div>
         </div>
       ) : null}
     </div>

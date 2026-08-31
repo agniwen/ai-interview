@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
-import { WorkspaceSelect } from "@/components/features/workspace/workspace-select";
 import { MeetingInboxMenu } from "@/components/features/meeting/meeting-inbox-menu";
 import { useMeetingCaptureSnapshot } from "@/components/features/meeting/meeting-recording-context";
 import { useMeetingLibrary } from "@/components/features/meeting/use-meeting-library";
@@ -20,8 +19,6 @@ import {
   handleTitleBarDoubleClick,
   isMacPlatform,
 } from "@/components/layout/chrome";
-import { chromeIconControlClassName } from "@/components/layout/chrome-icon-button";
-import { Icon } from "@/components/ui/icon";
 import { useSidebar } from "@/components/ui/sidebar";
 import { WindowControls } from "@/components/window-controls";
 
@@ -45,8 +42,6 @@ const noDragStyle: ElectronNoDragStyle = {
   appRegion: "no-drag",
 };
 
-/** Compact workspace select in the right chrome cluster (max-w ~10rem + caret). */
-const WORKSPACE_SELECT_APPROX_PX = 160;
 /** gap-1.5 between right-cluster controls. */
 const CHROME_RIGHT_GAP_PX = 6;
 
@@ -62,7 +57,7 @@ function windowControlsWidthPx(): number {
  * - Only empty absolute rectangles are `app-drag` (never under buttons).
  * - Toggle / history stay mounted and fixed; history eases between
  *   sidebar-right (expanded) and next-to-toggle (collapsed).
- * - Workspace select + settings stay on the right of this same bar.
+ * - Inbox and native window controls stay on the right of this same bar.
  */
 function isLocalMeetingSession(
   meetingId: string | null,
@@ -120,15 +115,13 @@ export function DesktopChromeBar(): React.JSX.Element {
 
   const toggleEnd = leftInset + CHROME_BTN_PX;
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
-  // Right cluster: workspace + inbox + settings + window controls + edge pad.
-  const settingsClusterPx =
+  // Right cluster: inbox + optional native window controls + edge pad.
+  const windowControlsPx = windowControlsWidthPx();
+  const rightClusterPx =
     CHROME_EDGE_PAD_PX +
-    WORKSPACE_SELECT_APPROX_PX +
-    CHROME_RIGHT_GAP_PX +
     CHROME_BTN_PX +
-    CHROME_RIGHT_GAP_PX +
-    CHROME_BTN_PX +
-    windowControlsWidthPx();
+    (windowControlsPx > 0 ? CHROME_RIGHT_GAP_PX : 0) +
+    windowControlsPx;
 
   // Expanded: history ends at sidebar right pad.
   // Collapsed: history starts just after the toggle.
@@ -166,7 +159,7 @@ export function DesktopChromeBar(): React.JSX.Element {
           style={{
             ...dragStyle,
             left: collapsedLeftEnd,
-            right: settingsClusterPx,
+            right: rightClusterPx,
           }}
         />
       ) : (
@@ -180,13 +173,13 @@ export function DesktopChromeBar(): React.JSX.Element {
               right: expandedSidebarDragRight,
             }}
           />
-          {/* Content middle (between sidebar edge and settings) */}
+          {/* Content middle (between sidebar edge and right-side controls) */}
           <div
             className="app-drag absolute inset-y-0"
             style={{
               ...dragStyle,
               left: "var(--sidebar-width)",
-              right: settingsClusterPx,
+              right: rightClusterPx,
             }}
           />
         </>
@@ -219,7 +212,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         className="pointer-events-none absolute inset-y-0 z-10 flex min-w-0 items-center transition-[left] duration-200 ease-[ease] motion-reduce:transition-none"
         style={{
           left: appTitleLeft,
-          right: settingsClusterPx,
+          right: rightClusterPx,
         }}
       >
         <span className="truncate select-none font-medium text-foreground text-sm tracking-tight">
@@ -231,19 +224,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
-        <div className="app-no-drag flex items-center" style={noDragStyle}>
-          <WorkspaceSelect />
-        </div>
         <MeetingInboxMenu />
-        <Link
-          aria-label="设置"
-          className={chromeIconControlClassName}
-          onDoubleClick={(event) => event.stopPropagation()}
-          style={noDragStyle}
-          to="/settings"
-        >
-          <Icon className="size-4" icon="ph:gear" />
-        </Link>
         <WindowControls />
       </div>
     </div>

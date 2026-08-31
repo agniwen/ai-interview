@@ -131,21 +131,18 @@ function sessionComposer(input: {
   );
 }
 
-function MeetingLocalTranscriptStage({
+export function MeetingLocalTranscriptStage({
   localDraft,
 }: {
   localDraft: LiveTranscriptDraftSnapshot | null;
 }) {
-  if (localDraft) {
-    return (
-      <LiveTranscriptDraftPanel
-        embedded
-        emptyHint="尚未保存到实时字幕草稿；本地双轨录音仍可恢复"
-        snapshot={localDraft}
-      />
-    );
-  }
-  return (
+  return localDraft ? (
+    <LiveTranscriptDraftPanel
+      embedded
+      emptyHint="尚未保存到实时字幕草稿；本地双轨录音仍可恢复"
+      snapshot={localDraft}
+    />
+  ) : (
     <p className="text-center text-muted-foreground text-sm">
       录音已安全保存在本地，工作区验证完成后将在此展示字幕。
     </p>
@@ -153,6 +150,13 @@ function MeetingLocalTranscriptStage({
 }
 
 const MORE_LABEL_MIN_WIDTH_PX = 62 * 16;
+
+function meetingDetailContentClassName(showPlaybackBar: boolean): string {
+  if (showPlaybackBar) {
+    return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6";
+  }
+  return "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6";
+}
 
 function sessionStatusAlertTitle(id: MeetingPostSaveStep["id"]): string {
   if (id === "upload") {
@@ -432,9 +436,80 @@ export function MeetingDetailPage({
     },
   });
 
+  const meeting = detailQuery.data;
+  const title = resolvedMeetingTitle({
+    localTitle: localSession?.title,
+    remoteTitle: meeting?.title,
+  });
+  const canRename = Boolean(
+    localSession || (meeting && canManageMeetingLifecycle(meeting.accessRole)),
+  );
+  const renderDetailHeader = (
+    status: MeetingPostSaveStep | null,
+    draftBadge?: ReactNode,
+  ): ReactNode => (
+    <MeetingDetailHeader
+      canRename={canRename}
+      draftBadge={draftBadge}
+      editingTitle={editingTitle}
+      isEditingTitle={isEditingTitle}
+      meeting={meeting ?? undefined}
+      onCancelTitleEditing={() => {
+        setIsEditingTitle(false);
+        setEditingTitle("");
+      }}
+      onChangeTitle={setEditingTitle}
+      onEditTitle={() => {
+        setEditingTitle(title);
+        setIsEditingTitle(true);
+      }}
+      onRenameTitle={() => {
+        const normalizedTitle = editingTitle.trim();
+        if (
+          !normalizedTitle ||
+          normalizedTitle.length > RECORDING_TITLE_MAX_LENGTH ||
+          normalizedTitle === title
+        ) {
+          if (normalizedTitle === title) {
+            setIsEditingTitle(false);
+            setEditingTitle("");
+          }
+          return;
+        }
+        if (localSession) {
+          renameMutation.mutate({
+            meetingId,
+            source: "local",
+            title: normalizedTitle,
+          });
+          return;
+        }
+        if (workspace) {
+          renameMutation.mutate({
+            meetingId,
+            slug: workspace.slug,
+            source: "remote",
+            title: normalizedTitle,
+          });
+        }
+      }}
+      onRetryPlayback={() => retryPlaybackMutation.mutate()}
+      onRetryTranscript={() => retryTranscriptMutation.mutate()}
+      onRetryUpload={() => {
+        saveRecording(meetingId);
+      }}
+      renamePending={renameMutation.isPending}
+      retryPlaybackPending={retryPlaybackMutation.isPending}
+      retryTranscriptPending={retryTranscriptMutation.isPending}
+      status={status}
+      title={title}
+    />
+  );
+
   if (isActiveCapture) {
     return (
       <MeetingRecordingSessionLayout
+        composerClassName="max-w-2xl"
         composer={
           <MeetingCaptureComposer
             onPause={pauseRecording}
@@ -443,12 +518,11 @@ export function MeetingDetailPage({
             snapshot={captureSnapshot}
           />
         }
-        main={<LiveTranscriptDraftPanel snapshot={liveDraft} />}
+        main={<LiveTranscriptDraftPanel header={renderDetailHeader(null)} snapshot={liveDraft} />}
       />
     );
   }
 
-  const meeting = detailQuery.data;
   const isInitialLoading = isMeetingSessionPagePending({
     detailPending: detailQuery.isPending,
     hasLocalSession: isLocalSession,
@@ -466,13 +540,6 @@ export function MeetingDetailPage({
     );
   }
 
-  const title = resolvedMeetingTitle({
-    localTitle: localSession?.title,
-    remoteTitle: meeting?.title,
-  });
-  const canRename = Boolean(
-    localSession || (meeting && canManageMeetingLifecycle(meeting.accessRole)),
-  );
   const localDraft = localSession
     ? storedDraftSnapshot(meetingId, localSession.liveTranscriptDraft, localSession.state)
     : null;
@@ -488,14 +555,22 @@ export function MeetingDetailPage({
   const showDraftBadge =
     (transcriptQuery.data?.draft?.turns.length ?? 0) > 0 || (localDraft?.turns.length ?? 0) > 0;
   const playback = playbackQuery.data;
-  const showPlaybackBar = Boolean(playback) && localSession?.state !== "interrupted";
+  const isInterruptedSession = localSession?.state === "interrupted";
+  const showPlaybackBar = Boolean(playback) && !isInterruptedSession;
+  const status = sessionDetailStatus({
+    playbackState: meeting?.processingState,
+    transcript: transcriptQuery.data,
+    uploadFailed: workspaceSave?.state === "action-required",
+    uploadLabel,
+  });
 
   return (
     <SkeletonReveal loading={isInitialLoading} skeleton={<MeetingSessionPageSkeleton />}>
       {isInitialLoading ? null : (
         <MeetingRecordingSessionLayout
+          composerClassName={isInterruptedSession ? "max-w-2xl" : undefined}
           composer={sessionComposer({
-            interrupted: localSession?.state === "interrupted",
+            interrupted: isInterruptedSession,
             onContinueInterrupted: () => {
               continueInterruptedRecording(meetingId);
             },
@@ -508,83 +583,21 @@ export function MeetingDetailPage({
           })}
           overlay={meeting ? <MeetingMoreEntryButton meetingId={meetingId} /> : null}
           main={
-            <div
-              className={
-                showPlaybackBar
-                  ? "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-24 sm:px-6"
-                  : "container mx-auto flex min-h-full max-w-3xl flex-col gap-4 px-4 pb-10 sm:px-6"
-              }
-            >
-              <MeetingDetailHeader
-                canRename={canRename}
-                draftBadge={showDraftBadge ? <SessionDraftBadge /> : null}
-                editingTitle={editingTitle}
-                isEditingTitle={isEditingTitle}
-                meeting={meeting ?? undefined}
-                onCancelTitleEditing={() => {
-                  setIsEditingTitle(false);
-                  setEditingTitle("");
-                }}
-                onChangeTitle={setEditingTitle}
-                onEditTitle={() => {
-                  setEditingTitle(title);
-                  setIsEditingTitle(true);
-                }}
-                onRenameTitle={() => {
-                  const normalizedTitle = editingTitle.trim();
-                  if (
-                    !normalizedTitle ||
-                    normalizedTitle.length > RECORDING_TITLE_MAX_LENGTH ||
-                    normalizedTitle === title
-                  ) {
-                    if (normalizedTitle === title) {
-                      setIsEditingTitle(false);
-                      setEditingTitle("");
-                    }
-                    return;
-                  }
-                  if (localSession) {
-                    renameMutation.mutate({
-                      meetingId,
-                      source: "local",
-                      title: normalizedTitle,
-                    });
-                    return;
-                  }
-                  if (workspace) {
-                    renameMutation.mutate({
-                      meetingId,
-                      slug: workspace.slug,
-                      source: "remote",
-                      title: normalizedTitle,
-                    });
-                  }
-                }}
-                onRetryPlayback={() => retryPlaybackMutation.mutate()}
-                onRetryTranscript={() => retryTranscriptMutation.mutate()}
-                onRetryUpload={() => {
-                  saveRecording(meetingId);
-                }}
-                renamePending={renameMutation.isPending}
-                retryPlaybackPending={retryPlaybackMutation.isPending}
-                retryTranscriptPending={retryTranscriptMutation.isPending}
-                status={sessionDetailStatus({
-                  playbackState: meeting?.processingState,
-                  transcript: transcriptQuery.data,
-                  uploadFailed: workspaceSave?.state === "action-required",
-                  uploadLabel,
-                })}
-                title={title}
-              />
-              {meeting ? (
-                <MeetingTranscriptStage
-                  error={transcriptQuery.error}
-                  result={transcriptQuery.data}
-                />
-              ) : (
-                <MeetingLocalTranscriptStage localDraft={localDraft} />
-              )}
-            </div>
+            isInterruptedSession && localDraft ? (
+              <LiveTranscriptDraftPanel header={renderDetailHeader(status)} snapshot={localDraft} />
+            ) : (
+              <div className={meetingDetailContentClassName(showPlaybackBar)}>
+                {renderDetailHeader(status, showDraftBadge ? <SessionDraftBadge /> : null)}
+                {meeting ? (
+                  <MeetingTranscriptStage
+                    error={transcriptQuery.error}
+                    result={transcriptQuery.data}
+                  />
+                ) : (
+                  <MeetingLocalTranscriptStage localDraft={localDraft} />
+                )}
+              </div>
+            )
           }
           scrollFade={isCompletedSession}
         />

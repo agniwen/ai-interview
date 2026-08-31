@@ -25,6 +25,33 @@ const glimm = {
 const playCorrectionSweep = (block: HTMLElement) => playTranscriptCorrectionSweep(block, glimm);
 
 describe("LiveTranscriptDraftPanel", () => {
+  it("places the recording title above the shared draft badge", () => {
+    const html = renderToStaticMarkup(
+      <LiveTranscriptDraftPanel
+        header={<h1>回忆裂缝中未曾消失的你</h1>}
+        snapshot={{
+          captureId: "00000000-0000-4000-8000-000000000077",
+          droppedAudioMs: 0,
+          droppedPcmFrames: 0,
+          error: null,
+          queuePeakAudioMs: 0,
+          queuedAudioMs: 0,
+          queuedPcmBytes: 0,
+          sections: [],
+          status: "live",
+          trackDroppedAudioMs: { microphone: 0, system: 0 },
+          trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+          trackQueuedAudioMs: { microphone: 0, system: 0 },
+          trackStatus: { microphone: "live", system: "live" },
+          turns: [],
+        }}
+      />,
+    );
+
+    expect(html.indexOf("回忆裂缝中未曾消失的你")).toBeLessThan(html.indexOf("录制草稿"));
+    expect(html.match(/录制草稿/g)).toHaveLength(1);
+  });
+
   it("follows new transcript content only while the viewport is within 80px of the bottom", () => {
     expect(
       shouldFollowLiveTranscript({ clientHeight: 400, scrollHeight: 1000, scrollTop: 521 }),
@@ -172,20 +199,23 @@ describe("LiveTranscriptDraftPanel", () => {
 
       expect(html).toContain("第一段转录");
       expect(html).toContain("第二段转录");
+      expect(html).toContain("说话人A");
+      expect(html).toContain("说话人B");
       expect(html.match(/aria-label="AI 正在校正"/g)).toHaveLength(1);
       expect(html).not.toContain("我的麦克风");
       expect(html).not.toContain("系统音频");
       expect(html).not.toContain("草稿区段");
       if (!embedded) {
         expect(html).toContain('aria-label="实时字幕状态：实时"');
-        expect(html).toContain(
-          'data-slot="scroll-area"><div class="h-full w-full min-w-0 overflow-auto scroll-fade"><div class="container mx-auto grid max-w-3xl select-text',
+        expect(html).toContain('data-slot="live-transcript-scroll-content"');
+        expect(html).toMatch(
+          /<div(?=[^>]*data-slot="live-transcript-scroll-content")(?=[^>]*class="[^"]*grid)(?=[^>]*class="[^"]*max-w-3xl)(?=[^>]*class="[^"]*select-text)[^>]*>/,
         );
       }
       expect(html).not.toContain(">live<");
       expect(html).toContain("cursor-text");
-      expect(html).toContain("hover:bg-foreground/4");
-      expect(html.match(/data-slot="hover-card-trigger"/g)).toHaveLength(2);
+      expect(html).not.toContain("hover:bg-foreground/4");
+      expect(html).not.toContain("hover-card");
       expect(html).toContain("px-px");
       expect(html).toContain("py-1");
       expect(html.match(/w-4 shrink-0 select-none/g)).toHaveLength(1);
@@ -224,8 +254,8 @@ describe("LiveTranscriptDraftPanel", () => {
     );
     const idleHtml = renderToStaticMarkup(<MeetingTranscriptIdleStage />);
 
-    expect(liveHtml).toContain(
-      'class="container mx-auto grid max-w-3xl select-text px-4 pb-20 sm:px-6"',
+    expect(liveHtml).toMatch(
+      /<div(?=[^>]*data-slot="live-transcript-scroll-content")(?=[^>]*class="[^"]*max-w-3xl)(?=[^>]*class="[^"]*pb-20)[^>]*>/,
     );
     expect(liveHtml).not.toContain("AI 正在校正");
     expect(idleHtml).toContain("pb-20");
@@ -324,7 +354,7 @@ describe("live correction block sweep", () => {
     // The star must already be gone, and the replacement text committed, when the sweep starts.
     glimm.createShader.mockImplementationOnce(() => {
       expect(container.querySelector('output[aria-label="AI 正在校正"]')).toBeNull();
-      expect(container.querySelector('[data-slot="hover-card-trigger"]')?.textContent).toBe(
+      expect(container.querySelector('[data-live-transcript-turn="mic:1"]')?.textContent).toContain(
         "Kubernetes",
       );
       return { destroy: glimm.destroy };
@@ -332,7 +362,7 @@ describe("live correction block sweep", () => {
     renderTurn(corrected);
     expect(glimm.playSweep).toHaveBeenCalledOnce();
     const canvas = container.querySelector("canvas");
-    expect(canvas?.parentElement?.textContent).toBe("Kubernetes");
+    expect(canvas?.parentElement?.textContent).toContain("Kubernetes");
     expect(container.querySelectorAll("canvas")).toHaveLength(1);
     expect(canvas?.getAttribute("aria-hidden")).toBe("true");
     renderTurn({ ...corrected, correcting: false });
@@ -366,26 +396,15 @@ describe("live correction block sweep", () => {
     expect(glimm.playSweep).toHaveBeenCalledOnce();
   });
 
-  it("shows realtime, correction, and adopted text from the block hover trigger", async () => {
-    vi.useFakeTimers();
-    try {
-      renderTurn(corrected);
-      const trigger = container.querySelector<HTMLElement>('[data-slot="hover-card-trigger"]');
-      expect(trigger).not.toBeNull();
-
-      act(() => trigger?.focus());
-      await act(() => vi.advanceTimersByTimeAsync(250));
-
-      const card = document.body.querySelector('[data-slot="hover-card-content"]');
-      expect(card?.textContent).toContain("实时字幕");
-      expect(card?.textContent).toContain("库伯内提斯");
-      expect(card?.textContent).toContain("模型校正");
-      expect(card?.textContent).toContain("Kubernetes");
-      expect(card?.textContent).toContain("最终采用");
-      expect(card?.textContent).toContain("已采用校正结果");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("renders fixed speaker labels without correction hover details", () => {
+    renderTurn(corrected);
+    expect(container.querySelector('[data-live-transcript-turn="mic:1"]')?.textContent).toContain(
+      "说话人B",
+    );
+    expect(
+      container.querySelector('[data-live-transcript-turn="system:1"]')?.textContent,
+    ).toContain("说话人A");
+    expect(document.body.querySelector('[data-slot="hover-card-content"]')).toBeNull();
   });
 
   it("respects reduced motion without delaying corrected text", () => {

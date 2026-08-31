@@ -74,7 +74,7 @@ function SavedLiveTranscriptDraft({
           {draft.turns.map((turn) => (
             <article className="border-b pb-3 last:border-b-0" key={turn.id}>
               <p className="mb-1 text-muted-foreground text-xs">
-                {turn.track === "microphone" ? "本机" : "系统/远端"}
+                {turn.track === "microphone" ? "说话人B" : "说话人A"}
                 {turn.final ? "" : " · 未完成片段"}
               </p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
@@ -511,10 +511,7 @@ export function MeetingTranscriptStageTurns({ turns }: { turns: MeetingTranscrip
   return (
     <div className="grid select-text" aria-live="polite">
       {turns.map((turn) => (
-        <article
-          className="grid cursor-text gap-1 rounded-sm px-px py-1 hover:bg-foreground/4"
-          key={turn.id}
-        >
+        <article className="grid cursor-text gap-1 rounded-sm px-px py-1" key={turn.id}>
           {turn.speakerKey ? (
             <p className="text-muted-foreground text-xs">
               {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}

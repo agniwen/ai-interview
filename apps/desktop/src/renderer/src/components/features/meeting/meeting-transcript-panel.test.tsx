@@ -143,14 +143,14 @@ describe("Final Meeting Transcript panel", () => {
     expect(transcriptSeekSeconds(1250)).toBe(1.25);
   });
 
-  it("matches the live transcript spacing and hover treatment on the completed page", () => {
+  it("matches the live transcript spacing without hover treatment on the completed page", () => {
     const html = renderToStaticMarkup(
       <MeetingTranscriptStageTurns turns={readyTranscript.revision?.turns ?? []} />,
     );
 
     expect(html).toContain('class="grid select-text"');
     expect(html).toContain("cursor-text");
-    expect(html).toContain("hover:bg-foreground/4");
+    expect(html).not.toContain("hover:bg-foreground/4");
     expect(html).toContain("rounded-sm");
     expect(html).toContain("px-px");
     expect(html).toContain("py-1");

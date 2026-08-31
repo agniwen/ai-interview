@@ -1,14 +1,12 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { LocalAudioTrack } from "livekit-client";
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { AgentAudioVisualizerBar } from "@/components/agents-ui/agent-audio-visualizer-bar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
-  CaptureTrack,
+  ActiveMeetingCapture,
   CaptureTrackState,
   MeetingCaptureSnapshot,
   WorkspaceSaveState,
@@ -17,12 +15,6 @@ import { cn } from "@arc/shared/utils";
 import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
 import { formatAppDateTime } from "@/lib/client/datetime";
-import {
-  MEETING_COMPOSER_ACTION_CLASS,
-  MEETING_COMPOSER_RADIUS,
-  MeetingComposerFrame,
-  MeetingComposerRow,
-} from "./meeting-recording-session-layout";
 
 const HEALTH_LABEL = {
   checking: "检测中",
@@ -37,25 +29,30 @@ function formatElapsed(milliseconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
-  return [hours, minutes, remainingSeconds]
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
+  const parts = hours > 0 ? [hours, minutes, remainingSeconds] : [minutes, remainingSeconds];
+  return parts.map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 function formatRecoveryDeadline(value: string): string {
   return formatAppDateTime(value);
 }
 
-export function useElapsed(startedAt?: string) {
+export function useElapsed(active?: ActiveMeetingCapture | null) {
   const [now, setNow] = useState(Date.now());
+  const resumedAt = active?.resumedAt;
   useEffect(() => {
-    if (!startedAt) {
+    if (!resumedAt) {
       return;
     }
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [startedAt]);
-  return startedAt ? formatElapsed(now - new Date(startedAt).getTime()) : "00:00:00";
+  }, [resumedAt]);
+  if (!active) {
+    return "00:00";
+  }
+  const runningMs = resumedAt ? Math.max(0, now - new Date(resumedAt).getTime()) : 0;
+  return formatElapsed(active.elapsedMs + runningMs);
 }
 
 function useCapturePreviewStreams() {
@@ -67,16 +64,35 @@ function useCapturePreviewStreams() {
   return streams;
 }
 
-function visualizerStateFor(
-  health: CaptureTrackState["health"],
+function visualizerStateForTracks(
+  microphone: CaptureTrackState,
+  system: CaptureTrackState,
 ): "connecting" | "listening" | "speaking" {
-  if (health === "checking") {
+  const health = [microphone.health, system.health];
+  if (health.every((value) => value === "checking")) {
     return "connecting";
   }
-  if (health === "silent" || health === "muted" || health === "ended") {
-    return "listening";
+  if (health.some((value) => value === "healthy")) {
+    return "speaking";
   }
-  return "speaking";
+  return "listening";
+}
+
+function meetingWaveformEdgeEnvelope(index: number, count: number): number {
+  const distanceFromEdge = Math.min(index, count - 1 - index);
+  const taperLength = Math.max(2, Math.ceil(count * 0.3));
+  const taperProgress = Math.min(1, distanceFromEdge / Math.max(1, taperLength - 1));
+  const smoothProgress = taperProgress ** 2 * (3 - 2 * taperProgress);
+  return smoothProgress;
+}
+
+export function emphasizeMeetingWaveformBand(band: number, index: number, count: number): number {
+  const emphasizedBand = band <= 0 ? 0.1 : 0.03 + band ** 1.15 * 1.35;
+  return emphasizedBand * (0.12 + meetingWaveformEdgeEnvelope(index, count) * 0.88);
+}
+
+export function meetingWaveformBandOpacity(index: number, count: number): number {
+  return 0.3 + meetingWaveformEdgeEnvelope(index, count) * 0.7;
 }
 
 export function createCapturePreviewAudioTrack(mediaTrack: MediaStreamTrack): LocalAudioTrack;
@@ -94,68 +110,96 @@ export function createCapturePreviewAudioTrack(
   return createTrack ? createTrack(clonedTrack) : new LocalAudioTrack(clonedTrack, undefined, true);
 }
 
-/** Wrap a capture MediaStream as LiveKit LocalAudioTrack without taking ownership of the track. */
-function useLocalAudioTrackFromMediaStream(
-  stream: MediaStream | null,
+/** Mix both preview streams for visualization while leaving the source recordings independent. */
+function useCombinedPreviewAudioTrack(
+  microphoneStream: MediaStream | null,
+  systemStream: MediaStream | null,
 ): LocalAudioTrack | undefined {
-  const mediaTrack = stream?.getAudioTracks()[0] ?? null;
+  const microphoneTrack = microphoneStream?.getAudioTracks()[0] ?? null;
+  const systemTrack = systemStream?.getAudioTracks()[0] ?? null;
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | undefined>();
 
   useEffect(() => {
-    if (!mediaTrack) {
+    const sourceTracks = [microphoneTrack, systemTrack].filter((track): track is MediaStreamTrack =>
+      Boolean(track),
+    );
+    if (sourceTracks.length === 0) {
       setAudioTrack(undefined);
       return;
     }
-    const local = createCapturePreviewAudioTrack(mediaTrack);
+
+    const audioContext = new AudioContext();
+    const destination = audioContext.createMediaStreamDestination();
+    const sourceNodes = sourceTracks.map((track) => {
+      const source = audioContext.createMediaStreamSource(new MediaStream([track]));
+      source.connect(destination);
+      return source;
+    });
+    const [mixedTrack] = destination.stream.getAudioTracks();
+    if (!mixedTrack) {
+      void audioContext.close();
+      setAudioTrack(undefined);
+      return;
+    }
+    const local = createCapturePreviewAudioTrack(mixedTrack);
     setAudioTrack(local);
     return () => {
       local.stop();
+      for (const source of sourceNodes) {
+        source.disconnect();
+      }
+      for (const track of destination.stream.getTracks()) {
+        track.stop();
+      }
+      void audioContext.close();
     };
-  }, [mediaTrack]);
+  }, [microphoneTrack, systemTrack]);
 
   return audioTrack;
 }
 
-function TrackMeter({
-  label,
-  mediaStream,
-  state,
-  track,
+function CombinedTrackVisualizer({
+  microphoneStream,
+  microphoneState,
+  paused = false,
+  systemStream,
+  systemState,
 }: {
-  label: string;
-  mediaStream: MediaStream | null;
-  state: CaptureTrackState;
-  track: CaptureTrack;
+  microphoneStream: MediaStream | null;
+  microphoneState: CaptureTrackState;
+  paused?: boolean;
+  systemStream: MediaStream | null;
+  systemState: CaptureTrackState;
 }) {
-  const warning = state.health === "silent" || state.health === "ended";
-  const visualizerState = visualizerStateFor(state.health);
-  const audioTrack = useLocalAudioTrackFromMediaStream(mediaStream);
+  const audioTrack = useCombinedPreviewAudioTrack(microphoneStream, systemStream);
+  const warning = [microphoneState.health, systemState.health].some(
+    (health) => health === "silent" || health === "ended",
+  );
+  const state = paused ? "listening" : visualizerStateForTracks(microphoneState, systemState);
   return (
-    <div
-      className={cn("flex h-8 min-w-0 items-center gap-1.5 px-2", MEETING_COMPOSER_RADIUS)}
-      data-track={track}
-      title={`${label} · ${HEALTH_LABEL[state.health]}`}
+    <AgentAudioVisualizerBar
+      audioTrack={audioTrack}
+      aria-label="麦克风与系统音轨的合并音量"
+      bandOpacity={meetingWaveformBandOpacity}
+      bandTransform={emphasizeMeetingWaveformBand}
+      barCount={80}
+      className={cn(
+        "h-12 w-full min-w-0 justify-between gap-0 overflow-hidden",
+        warning ? "text-destructive" : "text-foreground/55",
+      )}
+      data-slot="meeting-combined-audio-visualizer"
+      size="icon"
+      state={state}
+      title={`麦克风 · ${HEALTH_LABEL[microphoneState.health]}；系统音轨 · ${HEALTH_LABEL[systemState.health]}`}
+      volumeOptions={{
+        analyserOptions: { fftSize: 2048, smoothingTimeConstant: 0.25 },
+        hiPass: 600,
+        loPass: 80,
+        updateInterval: 24,
+      }}
     >
-      <span className="shrink-0 text-xs leading-none">{label}</span>
-      <AgentAudioVisualizerBar
-        audioTrack={audioTrack}
-        barCount={5}
-        className={cn(
-          "h-4 w-12 shrink-0 gap-0.5 sm:w-14",
-          warning ? "text-destructive" : "text-foreground/55",
-        )}
-        size="icon"
-        state={visualizerState}
-      />
-      <span
-        className={cn(
-          "hidden shrink-0 text-[10px] leading-none sm:inline",
-          warning ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {HEALTH_LABEL[state.health]}
-      </span>
-    </div>
+      <div className="min-h-px w-1 shrink-0 rounded-full bg-current/10 transition-[height,opacity,background-color] duration-[80ms] ease-out motion-reduce:transition-none data-[lk-highlighted=true]:bg-current" />
+    </AgentAudioVisualizerBar>
   );
 }
 
@@ -254,22 +298,6 @@ export function MeetingLocalSaveStatus({
 const IDLE_TRACK_STATE: CaptureTrackState = { health: "checking", level: 0 };
 
 /**
- * Horizontally scrollable track-meter strip: sides stay fixed, middle scrolls.
- * OverlayScrollbars 不占位；溢出边缘用 scroll-fade-x 渐隐（与 web 一致）。
- */
-function ComposerTrackMetersScroll({ children }: { children: ReactNode }) {
-  return (
-    <ScrollArea
-      className="h-8 min-w-0 flex-1 basis-0 overflow-hidden [--scroll-fade-size:1.25rem]"
-      orientation="horizontal"
-      scrollFade
-    >
-      <div className="flex h-8 w-max items-center gap-1.5 pr-1">{children}</div>
-    </ScrollArea>
-  );
-}
-
-/**
  * Bottom composer while recording: dual-track visualizers + end actions.
  * 录制中底部 composer：双轨电平 + 结束操作。
  */
@@ -284,7 +312,7 @@ export function MeetingCaptureComposer({
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
 }) {
-  const elapsed = useElapsed(snapshot.active?.startedAt);
+  const elapsed = useElapsed(snapshot.active);
   const previewStreams = useCapturePreviewStreams();
   const systemSilent = snapshot.active?.tracks.system.health === "silent";
   const captureId = snapshot.active?.captureId;
@@ -306,14 +334,26 @@ export function MeetingCaptureComposer({
   const paused = snapshot.phase === "paused";
 
   return (
-    <MeetingComposerFrame>
-      <div className="grid min-w-0 gap-1">
-        <MeetingComposerRow>
+    <div className="grid min-w-0 gap-4 px-3 pb-1" data-slot="meeting-recording-composer">
+      <div className="grid min-w-0 gap-3">
+        <div className="flex min-w-0 items-center" data-slot="meeting-composer-waveform-row">
+          <CombinedTrackVisualizer
+            microphoneStream={previewStreams.microphone}
+            microphoneState={snapshot.active.tracks.microphone}
+            paused={paused}
+            systemStream={previewStreams.system}
+            systemState={snapshot.active.tracks.system}
+          />
+        </div>
+        <div
+          className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3"
+          data-slot="meeting-composer-controls"
+        >
           <div
-            className="flex h-8 shrink-0 items-center gap-1.5 pl-2"
+            className="flex h-10 shrink-0 items-center gap-1.5 pl-1"
             data-slot="meeting-recording-status"
           >
-            <span className="relative size-2 shrink-0" aria-hidden>
+            <span className="relative size-1.5 shrink-0" aria-hidden>
               {paused ? null : (
                 <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
               )}
@@ -324,53 +364,39 @@ export function MeetingCaptureComposer({
                 )}
               />
             </span>
-            <span className="font-mono text-[11px] text-muted-foreground tabular-nums leading-none">
-              {elapsed}
-            </span>
+            <span className="font-mono text-sm tabular-nums leading-none">{elapsed}</span>
           </div>
-          <ComposerTrackMetersScroll>
-            <TrackMeter
-              label="麦克风"
-              mediaStream={previewStreams.microphone}
-              state={snapshot.active.tracks.microphone}
-              track="microphone"
-            />
-            <TrackMeter
-              label="系统"
-              mediaStream={previewStreams.system}
-              state={snapshot.active.tracks.system}
-              track="system"
-            />
-          </ComposerTrackMetersScroll>
           <Button
-            className={MEETING_COMPOSER_ACTION_CLASS}
+            aria-label={paused ? "继续录制" : "暂停录制"}
+            className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
             disabled={busy}
             onClick={paused ? onResume : onPause}
-            size="sm"
-            variant="outline"
+            size="icon"
+            title={paused ? "继续录制" : "暂停录制"}
+            variant="ghost"
           >
-            <Icon className="size-4" icon={paused ? "ph:play-fill" : "ph:pause-fill"} />
-            {paused ? "继续" : "暂停"}
+            <Icon className="size-5" icon={paused ? "ph:play-fill" : "ph:pause-fill"} />
           </Button>
           <Button
-            className={MEETING_COMPOSER_ACTION_CLASS}
+            aria-label="结束并保存录制"
+            className="h-10 w-[3.2rem] justify-self-end rounded-full border-transparent bg-muted text-foreground shadow-none hover:bg-muted/80 hover:text-foreground"
             disabled={busy}
             onClick={() => onSave()}
-            size="sm"
-            variant="destructive"
+            size="icon"
+            title="结束并保存录制"
+            variant="ghost"
           >
             <Icon
               className={cn("size-4", snapshot.phase === "saving" && "animate-spin")}
               icon={snapshot.phase === "saving" ? "ph:circle-notch" : "ph:stop-fill"}
             />
-            {snapshot.phase === "saving" ? "保存中…" : "结束"}
           </Button>
-        </MeetingComposerRow>
+        </div>
         {snapshot.error ? (
           <p className="truncate px-1 text-[11px] text-destructive">{snapshot.error}</p>
         ) : null}
       </div>
-    </MeetingComposerFrame>
+    </div>
   );
 }
 
@@ -382,41 +408,57 @@ export function MeetingInterruptedComposer({
   onSave: () => void;
 }) {
   return (
-    <MeetingComposerFrame>
-      <MeetingComposerRow>
-        <div
-          className="flex min-w-0 flex-1 items-center gap-2 pl-2"
-          data-slot="meeting-interrupted-status"
-        >
-          <Icon className="size-4 shrink-0 text-amber-500" icon="ph:warning-circle-fill" />
-          <span className="truncate text-muted-foreground text-xs">录制暂停</span>
+    <div className="grid min-w-0 gap-4 px-3 pb-1" data-slot="meeting-interrupted-composer">
+      <div className="grid min-w-0 gap-3">
+        <div className="flex min-w-0 items-center" data-slot="meeting-composer-waveform-row">
+          <CombinedTrackVisualizer
+            microphoneStream={null}
+            microphoneState={IDLE_TRACK_STATE}
+            paused
+            systemStream={null}
+            systemState={IDLE_TRACK_STATE}
+          />
         </div>
-        <Button
-          className={MEETING_COMPOSER_ACTION_CLASS}
-          onClick={onContinue}
-          size="sm"
-          variant="outline"
+        <div
+          className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3"
+          data-slot="meeting-composer-controls"
         >
-          <Icon className="size-4" icon="ph:play-fill" />
-          继续
-        </Button>
-        <Button
-          className={MEETING_COMPOSER_ACTION_CLASS}
-          onClick={onSave}
-          size="sm"
-          variant="destructive"
-        >
-          <Icon className="size-4" icon="ph:stop-fill" />
-          结束
-        </Button>
-      </MeetingComposerRow>
-    </MeetingComposerFrame>
+          <div
+            className="flex h-10 min-w-0 items-center gap-1.5 pl-1"
+            data-slot="meeting-interrupted-status"
+          >
+            <span className="size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden />
+            <span className="truncate text-muted-foreground text-xs">录制暂停</span>
+          </div>
+          <Button
+            aria-label="继续录制"
+            className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
+            onClick={onContinue}
+            size="icon"
+            title="继续录制"
+            variant="ghost"
+          >
+            <Icon className="size-5" icon="ph:play-fill" />
+          </Button>
+          <Button
+            aria-label="结束并保存录制"
+            className="h-10 w-[3.2rem] justify-self-end rounded-full border-transparent bg-muted text-foreground shadow-none hover:bg-muted/80 hover:text-foreground"
+            onClick={onSave}
+            size="icon"
+            title="结束并保存录制"
+            variant="ghost"
+          >
+            <Icon className="size-4" icon="ph:stop-fill" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 /**
- * Bottom composer on the new-meeting page: idle track bars + start.
- * 新建录制页底部 composer：空闲双轨电平 + 开始录制。
+ * Bottom composer on the new-meeting page: idle combined waveform + centered start.
+ * 新建录制页底部 composer：空闲合并波形 + 居中开始按钮。
  */
 export function MeetingSetupComposer({
   disabled,
@@ -426,39 +468,40 @@ export function MeetingSetupComposer({
 }: {
   disabled?: boolean;
   error?: string | null;
-  onStart: () => void;
+  onStart: (microphoneDeviceId?: string) => void;
   starting: boolean;
 }) {
   return (
-    <MeetingComposerFrame>
-      <div className="grid min-w-0 gap-1">
-        <MeetingComposerRow>
-          <ComposerTrackMetersScroll>
-            <TrackMeter
-              label="麦克风"
-              mediaStream={null}
-              state={IDLE_TRACK_STATE}
-              track="microphone"
-            />
-            <TrackMeter label="系统" mediaStream={null} state={IDLE_TRACK_STATE} track="system" />
-          </ComposerTrackMetersScroll>
+    <div className="grid min-w-0 gap-4 px-3 pb-1" data-slot="meeting-setup-composer">
+      <div className="grid min-w-0 gap-3">
+        <div className="flex min-w-0 items-center" data-slot="meeting-composer-row">
+          <CombinedTrackVisualizer
+            microphoneStream={null}
+            microphoneState={IDLE_TRACK_STATE}
+            systemStream={null}
+            systemState={IDLE_TRACK_STATE}
+          />
+        </div>
+        <div className="flex justify-center">
           <Button
-            className={MEETING_COMPOSER_ACTION_CLASS}
+            aria-label="开始录制"
+            className="h-12 w-[4.8rem] rounded-full border-transparent bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary"
             disabled={disabled || starting}
-            onClick={onStart}
+            onClick={() => onStart()}
+            size="icon"
+            title="开始录制"
             type="button"
-            size="sm"
+            variant="ghost"
           >
             <Icon
-              className={cn("size-4", starting && "animate-spin")}
-              icon={starting ? "ph:circle-notch" : "ph:record-fill"}
+              className={cn("size-5", starting && "animate-spin")}
+              icon={starting ? "ph:circle-notch" : "ph:microphone-fill"}
             />
-            {starting ? "请求权限…" : "开始"}
           </Button>
-        </MeetingComposerRow>
+        </div>
         {error ? <p className="truncate px-1 text-[11px] text-destructive">{error}</p> : null}
       </div>
-    </MeetingComposerFrame>
+    </div>
   );
 }
 
@@ -473,7 +516,7 @@ export function MeetingActiveRecordingIndicator({
 }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const elapsed = useElapsed(snapshot.active?.startedAt);
+  const elapsed = useElapsed(snapshot.active);
   const activeId = snapshot.active?.captureId;
   if (!activeId) {
     return null;

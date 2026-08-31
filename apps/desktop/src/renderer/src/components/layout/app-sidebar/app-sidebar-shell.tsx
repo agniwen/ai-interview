@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { useAtom } from "jotai";
 import { ContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
@@ -10,6 +11,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
+import { desktopSidebarOpenAtom } from "./sidebar-state";
 import {
   SidebarBodyPortalProvider,
   SidebarFooterPortalContent,
@@ -48,11 +50,18 @@ function AuthenticatedSidebarFooter() {
  * content bar on collapse. Drag only paints empty rectangles under the bar.
  */
 export function AppSidebarShell({ children }: { children: ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useAtom(desktopSidebarOpenAtom);
+
   return (
     <SidebarHeaderPortalProvider>
       <SidebarBodyPortalProvider>
         <SidebarFooterPortalProvider>
-          <SidebarProvider className="min-h-0 flex-1" style={sidebarStyle}>
+          <SidebarProvider
+            className="min-h-0 flex-1"
+            onOpenChange={setSidebarOpen}
+            open={sidebarOpen}
+            style={sidebarStyle}
+          >
             <DesktopChromeBar />
             <AppSidebar />
             <AuthenticatedSidebarFooter />

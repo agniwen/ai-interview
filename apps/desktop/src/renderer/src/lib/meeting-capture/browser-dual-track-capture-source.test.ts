@@ -58,6 +58,29 @@ describe("BrowserDualTrackCaptureSource acquisition cleanup", () => {
     vi.unstubAllGlobals();
   });
 
+  it("requests the microphone selected in the composer", async () => {
+    const getUserMedia = vi.fn(() => Promise.resolve(fakeStream({ audioStops: [vi.fn()] })));
+    vi.stubGlobal("navigator", {
+      mediaDevices: {
+        getDisplayMedia: () => Promise.reject(new DOMException("denied", "NotAllowedError")),
+        getUserMedia,
+      },
+    });
+
+    await expect(
+      new BrowserDualTrackCaptureSource().acquire({ microphoneDeviceId: "studio-mic" }),
+    ).rejects.toThrow("权限被拒绝");
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        autoGainControl: false,
+        deviceId: { exact: "studio-mic" },
+        echoCancellation: false,
+        noiseSuppression: false,
+      },
+      video: false,
+    });
+  });
+
   it("stops display video immediately while microphone permission is still pending", async () => {
     const microphone = Promise.withResolvers<FakeMediaStream>();
     const systemAudioStop = vi.fn();

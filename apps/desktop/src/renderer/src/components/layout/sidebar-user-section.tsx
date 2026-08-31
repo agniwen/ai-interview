@@ -1,4 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,16 +9,25 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { authClient } from "@/lib/auth-client";
+import {
+  desktopWorkspaceKeys,
+  listWorkspaces,
+  resolveActiveWorkspace,
+  setActiveWorkspace,
+} from "@/lib/client/workspace";
+import type { WorkspaceOrg } from "@/lib/client/workspace";
 
 const WHITESPACE_REGEX = /\s+/;
 
 const userTriggerClassName =
-  "h-9 w-full justify-start gap-2 rounded-lg px-2 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none";
+  "h-10 w-full justify-start gap-2 rounded-lg px-2 transition-[background-color,border-color,color,opacity] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-100 active:bg-sidebar-accent active:text-sidebar-accent-foreground motion-reduce:transition-none";
 
 function getInitials(name?: string | null, email?: string | null) {
   const source = (name ?? email ?? "").trim();
@@ -43,7 +53,37 @@ interface SessionUser {
   name?: string | null;
 }
 
-function UserMenuDropdown({ onSignOut, user }: { onSignOut: () => void; user: SessionUser }) {
+function SidebarSettingsButton() {
+  return (
+    <Button
+      aria-label="设置"
+      className="shrink-0 rounded-lg"
+      nativeButton={false}
+      render={<Link to="/settings" />}
+      size="icon"
+      title="设置"
+      variant="ghost"
+    >
+      <Icon icon="ph:gear" />
+    </Button>
+  );
+}
+
+export function UserMenuDropdown({
+  activeWorkspace,
+  onSignOut,
+  onSwitchWorkspace,
+  switchingWorkspace,
+  user,
+  workspaces,
+}: {
+  activeWorkspace: WorkspaceOrg | null;
+  onSignOut: () => void;
+  onSwitchWorkspace: (workspaceId: string) => void;
+  switchingWorkspace: boolean;
+  user: SessionUser;
+  workspaces: WorkspaceOrg[];
+}) {
   const userName = user.name ?? "用户";
   const userEmail = user.email ?? "";
   const organizationName = user.feishuTenantName ?? null;
@@ -60,9 +100,13 @@ function UserMenuDropdown({ onSignOut, user }: { onSignOut: () => void; user: Se
               <AvatarImage alt={userName} src={user.image ?? undefined} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1 text-left">
+            <div className="grid min-w-0 flex-1 gap-0.5 text-left">
               <p className="truncate font-medium text-sm leading-none">{userName}</p>
+              <p className="truncate text-[10px] text-muted-foreground leading-none">
+                {activeWorkspace?.name ?? "选择工作区"}
+              </p>
             </div>
+            <Icon className="size-3 shrink-0 text-muted-foreground" icon="ph:caret-up-down" />
           </Button>
         }
       />
@@ -75,6 +119,34 @@ function UserMenuDropdown({ onSignOut, user }: { onSignOut: () => void; user: Se
               <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
             ) : null}
           </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-muted-foreground text-xs">
+            切换工作区
+          </DropdownMenuLabel>
+          {workspaces.length > 0 ? (
+            <DropdownMenuRadioGroup
+              onValueChange={(workspaceId) => {
+                if (workspaceId !== activeWorkspace?.id) {
+                  onSwitchWorkspace(workspaceId);
+                }
+              }}
+              value={activeWorkspace?.id ?? ""}
+            >
+              {workspaces.map((workspace) => (
+                <DropdownMenuRadioItem
+                  disabled={switchingWorkspace}
+                  key={workspace.id}
+                  value={workspace.id}
+                >
+                  <span className="truncate">{workspace.name}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          ) : (
+            <DropdownMenuItem disabled>暂无可用工作区</DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSignOut} variant="destructive">
@@ -92,17 +164,39 @@ function UserMenuDropdown({ onSignOut, user }: { onSignOut: () => void; user: Se
  */
 export function SidebarUserSection() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: session, isPending } = authClient.useSession();
+  const orgsQuery = useQuery({
+    queryFn: listWorkspaces,
+    queryKey: desktopWorkspaceKeys.list,
+    staleTime: 60_000,
+  });
+  const activeQuery = useQuery({
+    queryFn: resolveActiveWorkspace,
+    queryKey: desktopWorkspaceKeys.active,
+    staleTime: 60_000,
+  });
+  const switchMutation = useMutation({
+    mutationFn: setActiveWorkspace,
+    onSuccess: (org: WorkspaceOrg) => {
+      queryClient.setQueryData(desktopWorkspaceKeys.active, org);
+      void queryClient.invalidateQueries({ queryKey: desktopWorkspaceKeys.list });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    },
+  });
 
   const handleSignOut = useCallback(async () => {
     await authClient.signOut();
     void navigate({ replace: true, to: "/login" });
   }, [navigate]);
 
-  if (isPending) {
+  if (isPending || orgsQuery.isPending || activeQuery.isPending) {
     return (
       <div className="border-sidebar-border border-t px-2 py-2 select-none">
-        <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+        <div className="flex min-w-0 items-center gap-1">
+          <div className="h-10 min-w-0 flex-1 animate-pulse rounded-md bg-muted" />
+          <SidebarSettingsButton />
+        </div>
       </div>
     );
   }
@@ -113,12 +207,21 @@ export function SidebarUserSection() {
 
   return (
     <div className="border-sidebar-border border-t px-2 py-2 select-none">
-      <UserMenuDropdown
-        onSignOut={() => {
-          void handleSignOut();
-        }}
-        user={session.user}
-      />
+      <div className="flex min-w-0 items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <UserMenuDropdown
+            activeWorkspace={activeQuery.data ?? null}
+            onSignOut={() => {
+              void handleSignOut();
+            }}
+            onSwitchWorkspace={(workspaceId) => switchMutation.mutate(workspaceId)}
+            switchingWorkspace={switchMutation.isPending}
+            user={session.user}
+            workspaces={orgsQuery.data ?? []}
+          />
+        </div>
+        <SidebarSettingsButton />
+      </div>
     </div>
   );
 }

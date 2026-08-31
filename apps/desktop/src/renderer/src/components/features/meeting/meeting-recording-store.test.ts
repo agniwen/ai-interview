@@ -99,7 +99,9 @@ describe("meeting recording global store", () => {
       ...capture,
       active: {
         captureId: "00000000-0000-4000-8000-000000000077",
+        elapsedMs: 0,
         recruitingRecordId: null,
+        resumedAt: "2026-08-12T08:00:00.000Z",
         startedAt: "2026-08-12T08:00:00.000Z",
         tracks: {
           microphone: { health: "healthy", level: 0.1 },

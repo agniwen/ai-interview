@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCapturePreviewAudioTrack } from "./meeting-capture-status";
+import {
+  createCapturePreviewAudioTrack,
+  emphasizeMeetingWaveformBand,
+  meetingWaveformBandOpacity,
+} from "./meeting-capture-status";
 
 function createMediaTrack(
   overrides: {
@@ -44,5 +48,38 @@ describe("capture preview audio track ownership", () => {
 
     expect(stop).not.toHaveBeenCalled();
     expect(cloneStop).toHaveBeenCalledOnce();
+  });
+});
+
+describe("meeting waveform edge envelope", () => {
+  it("tapers both edges symmetrically toward the center", () => {
+    const band = 0.5;
+    const count = 80;
+
+    expect(emphasizeMeetingWaveformBand(band, 0, count)).toBeCloseTo(
+      emphasizeMeetingWaveformBand(band, count - 1, count),
+    );
+    expect(emphasizeMeetingWaveformBand(band, 12, count)).toBeGreaterThan(
+      emphasizeMeetingWaveformBand(band, 0, count),
+    );
+    expect(emphasizeMeetingWaveformBand(band, 23, count)).toBeGreaterThan(
+      emphasizeMeetingWaveformBand(band, 12, count),
+    );
+    expect(emphasizeMeetingWaveformBand(band, 24, count)).toBeCloseTo(
+      emphasizeMeetingWaveformBand(band, count / 2, count),
+    );
+    expect(meetingWaveformBandOpacity(0, count)).toBeLessThan(
+      meetingWaveformBandOpacity(24, count),
+    );
+  });
+
+  it("amplifies mid-volume changes without flattening the center bands", () => {
+    const count = 80;
+    const center = count / 2;
+
+    expect(emphasizeMeetingWaveformBand(0.5, center, count)).toBeGreaterThan(0.5);
+    expect(emphasizeMeetingWaveformBand(0.8, center, count)).toBeGreaterThan(
+      emphasizeMeetingWaveformBand(0.5, center, count),
+    );
   });
 });
