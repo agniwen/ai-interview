@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-known-value-widening, anti-slop/require-safety-comment-for-type-assertion, class-methods-use-this, max-lines, no-empty-function, no-nested-ternary, no-shadow, no-useless-return, typescript/consistent-type-imports, unicorn/no-await-expression-member, unicorn/no-nested-ternary -- Platform diagnostics aggregate queue, LiveKit, mail, cache, and Feishu provider contracts in one parity service; provider SDK types and deliberate no-op probes are normalized at their boundaries. */
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, no-shadow, no-useless-return, typescript/consistent-type-imports, unicorn/no-await-expression-member -- Platform diagnostics aggregate queue, LiveKit, mail, cache, and Feishu provider contracts in one parity service; provider SDK types and deliberate no-op probes are normalized at their boundaries. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadGatewayException,

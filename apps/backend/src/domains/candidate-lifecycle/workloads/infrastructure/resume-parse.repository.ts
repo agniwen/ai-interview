@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines -- File extraction, AI parsing, CAS persistence, and enrichment dispatch form one retryable workflow. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";

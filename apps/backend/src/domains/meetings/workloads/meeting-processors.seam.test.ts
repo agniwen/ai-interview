@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Async fakes implement processor ports without artificial awaits. */
+/* oxlint-disable unicorn/no-useless-undefined -- Async fakes implement processor ports without artificial awaits. */
 import { describe, expect, it, vi } from "vitest";
 import { processMeetingIntelligenceWorkload } from "./meeting-intelligence.processor.js";
 import type {

@@ -1,4 +1,3 @@
-/* oxlint-disable class-methods-use-this -- The model catalog endpoint remains an instance controller method for Nest route discovery. */
 import {
   Body,
   Controller,

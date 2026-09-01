@@ -1,4 +1,4 @@
-/* oxlint-disable class-methods-use-this, max-classes-per-file, typescript/parameter-properties -- The route-local stateless guard and controller form one diagnostics boundary; Nest DI requires constructor metadata. */
+/* oxlint-disable max-classes-per-file -- The route-local stateless guard and controller form one diagnostics boundary; Nest DI requires constructor metadata. */
 import { timingSafeEqual } from "node:crypto";
 import {
   Controller,

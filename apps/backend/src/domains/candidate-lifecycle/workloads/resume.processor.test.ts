@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Async fakes intentionally match the processor port contract. */
+/* oxlint-disable unicorn/no-useless-undefined -- Async fakes intentionally match the processor port contract. */
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
 import { describe, expect, it, vi } from "vitest";
 import {

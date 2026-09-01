@@ -1,4 +1,4 @@
-/* oxlint-disable no-void, prefer-destructuring, promise/prefer-await-to-callbacks, promise/prefer-await-to-then, typescript/parameter-properties -- The central registry composes owner-local BullMQ processors and controls their shared lifecycle. */
+/* oxlint-disable prefer-destructuring, promise/prefer-await-to-callbacks, promise/prefer-await-to-then -- The central registry composes owner-local BullMQ processors and controls their shared lifecycle. */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { WorkerHost } from "@nestjs/bullmq";
 import {

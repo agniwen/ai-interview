@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "nest build --builder rspack",
+    "check": "ultracite check . && oxlint --config ../../oxlint.config.ts --report-unused-disable-directives-severity=error .",
     "dev": "nest start --builder rspack --watch",
     "openapi": "bun src/openapi/write-openapi.ts && bunx oxfmt openapi.json",
     "openapi:parity": "bun migration/report-http-contract-parity.ts",

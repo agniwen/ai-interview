@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, max-lines, no-accumulating-spread, anti-slop/no-object-parameters -- Durable progress intentionally replaces its accumulator with immutable checkpoint snapshots. */
+/* oxlint-disable complexity, no-accumulating-spread -- Durable progress intentionally replaces its accumulator with immutable checkpoint snapshots. */
 import type { BackendEnvironmentKey } from "../../../../config/backend-environment.schema.js";
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import {

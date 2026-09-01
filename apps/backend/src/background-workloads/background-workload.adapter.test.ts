@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Async fakes intentionally implement promise-returning workload ports without introducing artificial awaits. */
+/* oxlint-disable unicorn/no-useless-undefined -- Async fakes intentionally implement promise-returning workload ports without introducing artificial awaits. */
 import type { MeetingPlaybackJobData } from "@arc/meeting-processing-queue/meeting-playback";
 import { describe, expect, it, vi } from "vitest";
 import { createBackgroundWorkloadAdapter } from "./background-workload.adapter.js";

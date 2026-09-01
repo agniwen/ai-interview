@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines, no-nested-ternary -- Transcription claims, chunk checkpoints, media staging, and publication share one durable state machine. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";

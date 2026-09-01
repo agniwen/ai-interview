@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes discovered through decorator metadata. */
 import { Module } from "@nestjs/common";
 import type { DynamicModule, Provider } from "@nestjs/common";
 import { BullModule, BullRegistrar, getQueueToken } from "@nestjs/bullmq";

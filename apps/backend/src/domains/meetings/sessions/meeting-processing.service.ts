@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, max-lines, no-nested-ternary, typescript/consistent-type-imports -- Processing reads share one boundary; Nest needs injected service classes at runtime. */
+/* oxlint-disable no-nested-ternary, typescript/consistent-type-imports -- Processing reads share one boundary; Nest needs injected service classes at runtime. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,

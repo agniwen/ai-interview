@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, class-methods-use-this -- Request authentication helpers implement the injectable authorization port and narrow session fields after Better Auth middleware populates the request. */
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- Request authentication helpers implement the injectable authorization port and narrow session fields after Better Auth middleware populates the request. */
 import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import type { Request } from "express";

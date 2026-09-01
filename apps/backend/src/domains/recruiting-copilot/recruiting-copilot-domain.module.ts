@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { CandidateLifecycleModule } from "../candidate-lifecycle/candidate-lifecycle.module.js";
 import { WorkspaceAccessHttpModule } from "../../infrastructure/http/workspace-access/index.js";

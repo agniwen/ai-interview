@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes discovered through decorator metadata. */
 import { Global, Module } from "@nestjs/common";
 import type { DynamicModule, ModuleMetadata, Provider } from "@nestjs/common";
 import {

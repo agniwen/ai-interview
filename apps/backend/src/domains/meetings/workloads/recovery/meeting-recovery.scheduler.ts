@@ -1,4 +1,4 @@
-/* oxlint-disable default-case, no-void, promise/prefer-await-to-then -- Recovery intervals deliberately share one non-overlapping owner-local state machine. */
+/* oxlint-disable default-case, no-void -- Recovery intervals deliberately share one non-overlapping owner-local state machine. */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import { BackgroundQueueProducerService } from "../../../../background/background-queue-producer.service.js";

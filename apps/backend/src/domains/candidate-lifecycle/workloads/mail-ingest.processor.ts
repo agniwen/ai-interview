@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-runtime-typeof, complexity, max-lines, max-lines-per-function -- IMAP polling parses external date/subject unions before message idempotency and attachment batching in one copied transactional workload. */
+/* oxlint-disable anti-slop/no-runtime-typeof -- IMAP polling parses external date/subject unions before message idempotency and attachment batching in one copied transactional workload. */
 import type { MailIngestJdBindStatus, mailIngestAccount } from "@arc/db-schema/schema";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {

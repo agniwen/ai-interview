@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { CANDIDATE_VECTOR_STORE } from "../../domains/candidate-lifecycle/semantic-index/candidate-vector-store.port.js";
 import { CandidateVectorStoreAdapter } from "./candidate-vector-store.adapter.js";

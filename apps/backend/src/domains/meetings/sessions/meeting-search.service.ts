@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, max-lines, no-nested-ternary, unicorn/no-nested-ternary -- Search projection, access filtering, and source precedence share one bounded model. */
+/* oxlint-disable no-nested-ternary, unicorn/no-nested-ternary -- Search projection, access filtering, and source precedence share one bounded model. */
 import { Inject, Injectable } from "@nestjs/common";
 import {
   meetingAccessGrant,

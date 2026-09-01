@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-known-value-widening, max-lines, no-nested-ternary, unicorn/no-nested-ternary -- Operational diagnostics require several purpose-built aggregate read queries; this adapter keeps their Drizzle details behind one read-model boundary. */
+/* oxlint-disable anti-slop/no-known-value-widening, no-nested-ternary, unicorn/no-nested-ternary -- Operational diagnostics require several purpose-built aggregate read queries; this adapter keeps their Drizzle details behind one read-model boundary. */
 import { Inject, Injectable } from "@nestjs/common";
 import {
   and,

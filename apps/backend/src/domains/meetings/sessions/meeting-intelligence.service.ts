@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, no-nested-ternary, typescript/consistent-type-imports -- Intelligence remains transactional; Nest needs MeetingCoreService at runtime. */
+/* oxlint-disable no-nested-ternary, typescript/consistent-type-imports -- Intelligence remains transactional; Nest needs MeetingCoreService at runtime. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ForbiddenException,

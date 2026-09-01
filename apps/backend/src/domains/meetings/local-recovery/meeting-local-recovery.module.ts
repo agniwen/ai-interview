@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { HttpInfrastructureModule } from "../../../infrastructure/http/http-infrastructure.module.js";
 import { MeetingLocalRecoveryController } from "./meeting-local-recovery.controller.js";

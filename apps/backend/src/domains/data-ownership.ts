@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/complexity, eslint/sort-keys, anti-slop/require-safety-comment-for-type-assertion -- The temporary source classifier spells out each migration-era location; domain owners follow dependency/lifecycle order and Object.fromEntries preserves the exhaustively constrained DataOwner keys. */
+/* oxlint-disable eslint/sort-keys, anti-slop/require-safety-comment-for-type-assertion -- The temporary source classifier spells out each migration-era location; domain owners follow dependency/lifecycle order and Object.fromEntries preserves the exhaustively constrained DataOwner keys. */
 
 export const DATA_OWNERS = [
   "identity-access",

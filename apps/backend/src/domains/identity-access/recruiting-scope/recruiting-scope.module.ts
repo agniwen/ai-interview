@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "../../../infrastructure/database/database.module.js";
 import { RECRUITING_SCOPE_QUERIES } from "./recruiting-scope.queries.js";

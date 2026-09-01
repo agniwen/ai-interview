@@ -12,6 +12,7 @@ export default defineConfig({
     ".agents/**",
     ".claude/**",
     ".codex/**",
+    "apps/backend/dist/**",
     "**/src/components/agents-ui/**",
     "**/src/hooks/agents-ui/**",
     "**/src/components/ui/**",

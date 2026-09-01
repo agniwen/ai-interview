@@ -1,4 +1,3 @@
-/* oxlint-disable class-methods-use-this -- Title generation is a pure private policy helper colocated with its owning resume workflow. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import OpenAI from "openai";

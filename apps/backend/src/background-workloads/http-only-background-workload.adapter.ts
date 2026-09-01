@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Disabled-replica ports throw a named capability error and intentionally never await. */
+/* oxlint-disable eslint/require-await -- Disabled-replica ports throw a named capability error and intentionally never await. */
 import type { BackgroundWorkloadAdapter } from "../background/background.types.js";
 import { createBackgroundWorkloadAdapter } from "./background-workload.adapter.js";
 

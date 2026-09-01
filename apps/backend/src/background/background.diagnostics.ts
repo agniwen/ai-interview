@@ -1,4 +1,4 @@
-/* oxlint-disable class-methods-use-this, typescript/parameter-properties -- Nest constructor injection and pure queue mappers are intentional module boundaries. */
+/* oxlint-disable class-methods-use-this -- Nest constructor injection and pure queue mappers are intentional module boundaries. */
 import { Inject, Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { MEETING_ANSWER_QUEUE_NAME } from "@arc/meeting-processing-queue/meeting-answer";

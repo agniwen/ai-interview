@@ -1,4 +1,4 @@
-/* oxlint-disable max-classes-per-file, no-void, typescript/parameter-properties -- Closely coupled dynamic schedulers share registry ownership; Nest DI and intentional detached timer triggers require these forms. */
+/* oxlint-disable max-classes-per-file, no-void -- Closely coupled dynamic schedulers share registry ownership; Nest DI and intentional detached timer triggers require these forms. */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import type { MailIngestTriggerJobData } from "@arc/resume-parse-queue/mail-ingest-trigger";

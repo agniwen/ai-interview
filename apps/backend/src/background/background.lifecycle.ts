@@ -1,4 +1,4 @@
-/* oxlint-disable typescript/consistent-type-imports, typescript/parameter-properties -- Nest lifecycle and BullRegistrar tokens require runtime constructor metadata. */
+/* oxlint-disable typescript/consistent-type-imports -- Nest lifecycle and BullRegistrar tokens require runtime constructor metadata. */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { OnApplicationBootstrap } from "@nestjs/common";
 import { BullRegistrar, InjectQueue } from "@nestjs/bullmq";

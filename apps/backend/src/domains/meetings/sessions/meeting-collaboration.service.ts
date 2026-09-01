@@ -1,4 +1,3 @@
-/* oxlint-disable complexity, max-lines -- Notes and share settings are one meeting collaboration boundary. */
 /* oxlint-disable typescript/consistent-type-imports -- Nest reads MeetingCoreService from emitted constructor metadata. */
 import {
   BadRequestException,

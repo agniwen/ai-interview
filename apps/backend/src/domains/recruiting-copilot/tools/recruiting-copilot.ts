@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines -- The six request-scoped Copilot tools share one authorization boundary. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";

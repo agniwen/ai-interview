@@ -1,4 +1,3 @@
-/* oxlint-disable class-methods-use-this -- Pure policy helpers remain private instance methods beside the interview workflow that owns their invariants. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import {
   BadRequestException,

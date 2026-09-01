@@ -1,4 +1,4 @@
-/* oxlint-disable class-methods-use-this, anti-slop/no-unknown-parameters -- Queue package functions are exposed through an instance port and provider errors are normalized immediately. */
+/* oxlint-disable anti-slop/no-unknown-parameters -- Queue package functions are exposed through an instance port and provider errors are normalized immediately. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import { createDecipheriv, createHash } from "node:crypto";
 import {

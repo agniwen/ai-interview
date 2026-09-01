@@ -1,4 +1,4 @@
-/* oxlint-disable max-lines, complexity, require-await, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-runtime-typeof -- Review generation, immutable JD snapshots, and guarded publication are one durable workflow. */
+/* oxlint-disable complexity, require-await, anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-runtime-typeof -- Review generation, immutable JD snapshots, and guarded publication are one durable workflow. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import { createHash, randomUUID } from "node:crypto";
 import OpenAI from "openai";

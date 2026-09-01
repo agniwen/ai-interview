@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { WORKSPACE_AUTHORIZATION_QUERIES } from "../../../domains/identity-access/workspace-authorization/workspace-authorization.queries.js";
 import { DatabaseModule } from "../../database/database.module.js";

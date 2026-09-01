@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-unknown-parameters, max-classes-per-file, typescript/parameter-properties -- BullMQ discovers decorated owner-local processor classes. */
+/* oxlint-disable max-classes-per-file -- BullMQ discovers decorated owner-local processor classes. */
 import { Inject } from "@nestjs/common";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import {

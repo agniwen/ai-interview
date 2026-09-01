@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
 import { BackgroundQueueModule } from "../../../background/background-queue.module.js";
 import { WorkspaceAccessHttpModule } from "../../../infrastructure/http/workspace-access/index.js";

@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion, promise/prefer-await-to-callbacks -- Express and BullMQ test doubles intentionally implement only the middleware/processor seams exercised here; callbacks are the contracts under test. */
+/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- Express and BullMQ test doubles intentionally implement only the middleware/processor seams exercised here; callbacks are the contracts under test. */
 import * as Sentry from "@sentry/nestjs";
 import type { Job } from "bullmq";
 import { describe, expect, it, vi } from "vitest";

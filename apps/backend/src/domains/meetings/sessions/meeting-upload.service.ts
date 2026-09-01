@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, max-lines, require-await, unicorn/no-await-expression-member -- Direct upload leases, multipart plans, object verification, and async ports form one protocol. */
+/* oxlint-disable require-await, unicorn/no-await-expression-member -- Direct upload leases, multipart plans, object verification, and async ports form one protocol. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,

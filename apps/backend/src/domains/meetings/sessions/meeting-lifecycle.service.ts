@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, no-nested-ternary, require-await -- Lifecycle authorization, state transitions, and Promise ports are transactional invariants. */
+/* oxlint-disable no-nested-ternary, require-await -- Lifecycle authorization, state transitions, and Promise ports are transactional invariants. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,

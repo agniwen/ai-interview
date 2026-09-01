@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, typescript/consistent-type-imports -- Question serialization is transactional; Nest needs MeetingCoreService at runtime. */
+/* oxlint-disable typescript/consistent-type-imports -- Question serialization is transactional; Nest needs MeetingCoreService at runtime. */
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,

@@ -1,4 +1,4 @@
-/* oxlint-disable complexity, no-nested-ternary, require-await, typescript/consistent-type-imports, unicorn/prefer-ternary -- Recruiting state stays transactional; Nest needs MeetingCoreService at runtime. */
+/* oxlint-disable no-nested-ternary, require-await, typescript/consistent-type-imports, unicorn/prefer-ternary -- Recruiting state stays transactional; Nest needs MeetingCoreService at runtime. */
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {

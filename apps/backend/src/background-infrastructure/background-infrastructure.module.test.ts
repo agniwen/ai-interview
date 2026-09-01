@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, max-classes-per-file, typescript/no-extraneous-class -- The Nest graph test uses inert database/config doubles and local declarative modules. */
+/* oxlint-disable max-classes-per-file -- The Nest graph test uses inert database/config doubles and local declarative modules. */
 import { Global, Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";

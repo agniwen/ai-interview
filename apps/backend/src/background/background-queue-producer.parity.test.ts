@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- Test doubles intentionally expose only the producer methods used by the shared queue helpers. */
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- Test doubles intentionally expose only the producer methods used by the shared queue helpers. */
 import { getQueueToken } from "@nestjs/bullmq";
 import { Test } from "@nestjs/testing";
 import {

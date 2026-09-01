@@ -1,4 +1,4 @@
-/* oxlint-disable max-lines, class-methods-use-this -- The two-phase purge transaction keeps its lease and deletion invariants together; unsupported remote deletion is an explicit legacy terminal outcome. */
+/* oxlint-disable class-methods-use-this -- The two-phase purge transaction keeps its lease and deletion invariants together; unsupported remote deletion is an explicit legacy terminal outcome. */
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
 import {
   meetingAuditLog,

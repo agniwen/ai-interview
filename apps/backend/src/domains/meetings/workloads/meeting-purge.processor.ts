@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-unknown-fields -- Provider artifacts are opaque, versioned provider payloads passed through to the provider-owned deletion adapter. */
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
 
 export interface MeetingPurgeClaim {

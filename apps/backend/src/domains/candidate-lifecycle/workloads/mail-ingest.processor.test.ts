@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Async fakes implement the IMAP workload ports. */
+/* oxlint-disable unicorn/no-useless-undefined -- Async fakes implement the IMAP workload ports. */
 import { describe, expect, it, vi } from "vitest";
 import { processMailIngestWorkload } from "./mail-ingest.processor.js";
 import type { MailIngestProcessorPorts } from "./mail-ingest.processor.js";

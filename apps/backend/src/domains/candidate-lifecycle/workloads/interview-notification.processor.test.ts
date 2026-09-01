@@ -1,4 +1,3 @@
-/* oxlint-disable eslint/require-await, unicorn/no-useless-undefined -- Async fakes implement the processor port contract. */
 import { describe, expect, it, vi } from "vitest";
 import { processInterviewNotificationBatchWorkload } from "./interview-notification.processor.js";
 

@@ -1,4 +1,3 @@
-/* oxlint-disable complexity -- Meeting access resolution deliberately mirrors the four-role legacy policy. */
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { meetingAuditLog, meetingSession } from "@arc/db-schema/schema";
