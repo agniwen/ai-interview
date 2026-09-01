@@ -5,6 +5,7 @@ import { humanInterviewMeetingStatusSchema } from "@arc/db-schema/studio-intervi
 import { candidateInterviewInvitationStatusSchema } from "@arc/db-schema/interview-notifications";
 import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
@@ -25,22 +26,12 @@ const candidatePreviewSchema = z.object({
   validUntil: z.string().nullable(),
 });
 
-function getBaseUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_BASE_URL is not configured.");
-  }
-  return baseUrl;
-}
-
 const loadHumanInterviewCandidateState = createServerFn({ method: "GET" })
   .validator(inviteTokenInputSchema)
   .handler(async ({ data }): Promise<HumanInterviewCandidateState> => {
     try {
       const response = await fetch(
-        `${getBaseUrl()}/api/public/human-interview-meetings/${encodeURIComponent(
-          data.inviteToken,
-        )}`,
+        backendApiUrl(`/public/human-interview-meetings/${encodeURIComponent(data.inviteToken)}`),
         { cache: "no-store" },
       );
       if (!response.ok) {

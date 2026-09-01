@@ -1,4 +1,10 @@
 "use client";
+import {
+  listPlatformNotifications,
+  previewPlatformNotification,
+  resendPlatformNotification,
+  updatePlatformNotificationDocumentStructure,
+} from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import type { AgentNotificationType } from "@arc/db-schema/db-enums";
@@ -31,8 +37,7 @@ import {
   useDataGridState,
 } from "@/components/features/data-grid";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
 
 type NotificationStatus = "pending" | "sent" | "failed";
 type NotificationProvider = "feishu" | "feishu-jiguang-hr";
@@ -64,8 +69,8 @@ const notificationSortColumnSchema = z.enum([
 ]);
 
 interface NotificationQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   providerId: NotificationProviderFilter;
   search?: string;
   sortBy: NotificationSortColumn;
@@ -240,10 +245,13 @@ function FeishuNotificationPreviewDialog({
 }) {
   const previewMutation = useMutation({
     mutationFn: (notificationId: string) =>
-      rpcFetch(
-        rpc.api.platform.notifications[":id"]["debug-preview"].$post({
-          param: { id: notificationId },
-        }),
+      apiRequest<{
+        block: FeishuPreviewBlock;
+        prompt: string;
+        title: string;
+      }>(
+        previewPlatformNotification({ path: { id: notificationId } }),
+
         "生成飞书通知预览失败",
       ),
     retry: false,
@@ -317,8 +325,8 @@ export function NotificationsGrid() {
   }): Promise<NotificationsResult> {
     const query: NotificationQuery = {
       ...listTextQuery(params),
-      page: String(params.page),
-      pageSize: String(params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
       providerId: params.filters.providerId,
       sortBy: parseNotificationSortColumn(params.sortBy),
       sortOrder: params.sortOrder ?? "desc",
@@ -327,10 +335,11 @@ export function NotificationsGrid() {
     if (params.search) {
       query.search = params.search;
     }
-    return rpcFetch(
-      rpc.api.platform.notifications.$get({
+    return apiRequest(
+      listPlatformNotifications({
         query,
       }),
+
       "加载飞书通知失败",
     );
   }
@@ -338,10 +347,9 @@ export function NotificationsGrid() {
   const resendMutation = useMutation({
     mutationFn: async (record: PlatformNotificationRecord) => {
       setResendingId(record.id);
-      await rpcFetch(
-        rpc.api.platform.notifications[":id"].resend.$post({
-          param: { id: record.id },
-        }),
+      await apiRequest(
+        resendPlatformNotification({ path: { id: record.id } }),
+
         "重新发送飞书通知失败",
       );
     },
@@ -360,10 +368,9 @@ export function NotificationsGrid() {
   const updateStructureMutation = useMutation({
     mutationFn: async (record: PlatformNotificationRecord) => {
       setUpdatingStructureId(record.id);
-      return await rpcFetch(
-        rpc.api.platform.notifications[":id"]["update-document-structure"].$post({
-          param: { id: record.id },
-        }),
+      return await apiRequest(
+        updatePlatformNotificationDocumentStructure({ path: { id: record.id } }),
+
         "更新飞书文档结构失败",
       );
     },
@@ -400,6 +407,7 @@ export function NotificationsGrid() {
       "candidateName",
       "organizationName",
     ],
+
     defaultPageSize: 20,
     defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: DEFAULT_FILTERS,
@@ -416,6 +424,7 @@ export function NotificationsGrid() {
           {STATUS_LABEL[record.status]}
         </Badge>
       ),
+
       enableSorting: true,
       key: "status",
       title: "状态",
@@ -430,6 +439,7 @@ export function NotificationsGrid() {
           </p>
         </div>
       ),
+
       enableSorting: true,
       key: "candidateName",
       title: "候选人",
@@ -442,6 +452,7 @@ export function NotificationsGrid() {
           name={record.recipientUser.name ?? record.recipientUser.email ?? "未知用户"}
         />
       ),
+
       key: "recipient",
       title: "接收人",
     }),
@@ -450,6 +461,7 @@ export function NotificationsGrid() {
       cell: (record) => (
         <Badge variant="outline">{PROVIDER_LABEL[record.providerId] ?? record.providerId}</Badge>
       ),
+
       enableSorting: true,
       key: "providerId",
       title: "机器人",
@@ -463,6 +475,7 @@ export function NotificationsGrid() {
           </p>
         </div>
       ),
+
       enableSorting: true,
       key: "organizationName",
       title: "工作区",
@@ -473,6 +486,7 @@ export function NotificationsGrid() {
           {record.feishuMessageId ?? record.recipientOpenId}
         </span>
       ),
+
       key: "feishuMessageId",
       title: "飞书消息",
       truncate: "max-w-[220px]",
@@ -500,6 +514,7 @@ export function NotificationsGrid() {
                   </span>
                 }
               />
+
               <TooltipContent className="max-w-sm whitespace-pre-wrap">
                 {record.error}
               </TooltipContent>
@@ -508,6 +523,7 @@ export function NotificationsGrid() {
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         ),
+
       key: "error",
       title: "错误",
     }),
@@ -601,6 +617,7 @@ export function NotificationsGrid() {
         ]}
         getRowId={(record) => record.id}
       />
+
       <FeishuNotificationPreviewDialog
         onOpenChange={(open) => {
           if (!open) {

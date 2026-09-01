@@ -1,3 +1,10 @@
+import {
+  createWorkspaceInterviewEvaluationDocument,
+  backendApiUrl,
+  listWorkspaceInterviews,
+  listWorkspaceMemberOptions,
+} from "@/lib/client/backend-api";
+import type { ListWorkspaceMemberOptionsResponse } from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +15,7 @@ import {
   bulkDeleteStudioInterviewRounds,
   deleteStudioInterviewRound,
   fetchStudioInterviewSummary,
-  rpcFetch,
+  apiRequest,
 } from "@/lib/client/api";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -58,7 +65,7 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeDocumentPreviewDialog } from "@/components/features/resume/resume-document-preview-dialog";
-import { rpc } from "@/lib/client/rpc";
+
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -127,8 +134,8 @@ export function InterviewManagementPage() {
         if (params.filters.creatorIds) {
           query.creatorIds = params.filters.creatorIds;
         }
-        return rpcFetch(
-          rpc.api.w[":slug"].studio.interviews.$get({ param: { slug }, query }),
+        return apiRequest(
+          listWorkspaceInterviews({ path: { workspaceSlug: slug }, query }),
           "加载面试列表失败",
         );
       },
@@ -149,8 +156,8 @@ export function InterviewManagementPage() {
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+      apiRequest<ListWorkspaceMemberOptionsResponse>(
+        listWorkspaceMemberOptions({ path: { workspaceSlug: slug } }),
         "加载成员列表失败",
       ),
     queryKey: ["workspace-members", slug],
@@ -255,10 +262,9 @@ export function InterviewManagementPage() {
 
   const generateEvaluationDocument = useMutation({
     mutationFn: (roundId: string) =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.interviews[":id"]["evaluation-document"].$post({
-          param: { id: roundId, slug },
-        }),
+      apiRequest(
+        createWorkspaceInterviewEvaluationDocument({ path: { id: roundId, workspaceSlug: slug } }),
+
         "生成候选人评价表失败",
       ),
     mutationKey: ["studio-interviews", slug, "generate-evaluation-document"],
@@ -376,6 +382,7 @@ export function InterviewManagementPage() {
           ) : (
             <span className="text-muted-foreground">未排期</span>
           ),
+
         key: "scheduledAt",
         title: "排期",
       }),
@@ -394,6 +401,7 @@ export function InterviewManagementPage() {
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
+
         key: "hasReport",
         title: "报告",
       }),
@@ -408,6 +416,7 @@ export function InterviewManagementPage() {
             row={r}
           />
         ),
+
         key: "feishuDocumentUrl",
         title: "候选人评价表",
       }),
@@ -437,6 +446,7 @@ export function InterviewManagementPage() {
             show: () => canUpdateInterview,
           },
         ],
+
         menu: [
           {
             disabled: (row) =>
@@ -461,6 +471,7 @@ export function InterviewManagementPage() {
         ],
       }),
     ],
+
     [canDeleteInterview, canReadJobDescriptions, canUpdateInterview, generateEvaluationDocument],
   );
 
@@ -495,12 +506,14 @@ export function InterviewManagementPage() {
           { label: "已完成", value: "completed" },
           { label: "已中断", value: "interrupted" },
         ],
+
         placeholder: "全部状态",
         selectedFormat: (count: number) => `已选 ${count} 个状态`,
         selectedPreviewLimit: 2,
         type: "multi-select" as const,
       },
     ],
+
     [workspaceMembers],
   );
 
@@ -631,9 +644,9 @@ export function InterviewManagementPage() {
       </div>
 
       {/* 详情 dialog：列表行点击走 roundId(从 row.id 拿,语义对齐);
-          ?recordId= 外部链接走 recordId,Panel 内部 resolver 兜底。
-          Row clicks pass roundId (matches row.id semantics); legacy
-          ?recordId= URLs pass recordId and rely on the Panel resolver. */}
+            ?recordId= 外部链接走 recordId,Panel 内部 resolver 兜底。
+            Row clicks pass roundId (matches row.id semantics); legacy
+            ?recordId= URLs pass recordId and rely on the Panel resolver. */}
       <StudioPersonDetailDialog
         mode="interview"
         onOpenChange={(open) => !open && closeDetail()}
@@ -726,7 +739,9 @@ export function InterviewManagementPage() {
                 kind={previewKind}
                 onOpenChange={(open) => !open && setPreviewRecord(null)}
                 open={previewRecord !== null}
-                url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
+                url={backendApiUrl(
+                  `/workspaces/${slug}/candidates/recruiting-records/${previewRecord.id}/resume`,
+                )}
               />
             ) : null;
           })()

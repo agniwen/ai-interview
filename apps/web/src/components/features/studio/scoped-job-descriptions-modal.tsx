@@ -15,7 +15,11 @@
 // flow — only title / query dimension differ.
 // Local useState + useQuery is used instead of the parent's `useDataGridState`
 // to avoid colliding on the bare `page` / `search` / etc query keys.
-
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  deleteWorkspaceJobDescription,
+  listWorkspaceJobDescriptions,
+} from "@/lib/client/backend-api";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
@@ -26,8 +30,8 @@ import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/features/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -95,17 +99,18 @@ export function ScopedJobDescriptionsModal({
       // Both scopes hit the same JD list RPC; differ only by which filter key.
       const scopedQuery =
         scope.type === "interviewer" ? { interviewerId: scope.id } : { departmentId: scope.id };
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].$get({
-          param: { slug },
+      return apiRequest(
+        listWorkspaceJobDescriptions({
+          path: { workspaceSlug: slug },
           query: {
             ...scopedQuery,
-            page: String(page),
-            pageSize: String(pageSize),
+            page,
+            pageSize,
             sortBy: "createdAt",
             sortOrder: "desc",
           },
         }),
+
         "加载在招岗位失败",
       );
     },
@@ -132,9 +137,8 @@ export function ScopedJobDescriptionsModal({
 
   const crud = useEntityCrud<JobDescriptionListRecord, JobDescriptionListRecord>({
     deleteEntity: (record) =>
-      rpc.api.w[":slug"].studio["job-descriptions"][":id"].$delete({
-        param: { id: record.id, slug },
-      }),
+      apiResponse(deleteWorkspaceJobDescription({ path: { id: record.id, workspaceSlug: slug } })),
+
     invalidate: () => {
       void queryClient.invalidateQueries({ queryKey: [QUERY_KEY_PREFIX] });
       onChange?.();
@@ -163,6 +167,7 @@ export function ScopedJobDescriptionsModal({
             {r.description || "—"}
           </span>
         ),
+
         key: "description",
         title: "描述",
       }),
@@ -198,6 +203,7 @@ export function ScopedJobDescriptionsModal({
         ],
       }),
     ],
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应跟着 crud 引用变化重建
     [canDeleteJobDescription],
   );

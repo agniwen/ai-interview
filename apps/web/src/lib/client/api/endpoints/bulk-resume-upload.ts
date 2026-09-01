@@ -1,10 +1,22 @@
+import {
+  cancelWorkspaceResumeUploadBatch,
+  createWorkspaceResumeUploadBatch,
+  deleteWorkspaceResumeUploadBatch,
+  getWorkspaceResumeUploadBatch,
+  listActiveWorkspaceResumeUploadBatches,
+  listWorkspaceResumeUploadBatches,
+  listWorkspaceResumeUploadTaskInbox,
+  processNextWorkspaceResumeUploadBatchItem,
+  resumeWorkspaceResumeUploadBatch,
+} from "@/lib/client/backend-api";
+
 /**
- * 批量上传简历 API。映射到 `/api/w/:slug/studio/resume-upload-batches/*`。
- * 单文件上传按项目约定走 apiFetch + FormData；其余 JSON 端点走 rpc + rpcFetch。
+ * 批量上传简历 API。映射到 `/workspaces/:workspaceSlug/candidates/intake/upload-batches/*`。
+ * 单文件上传按项目约定走 apiFetch + FormData；其余 JSON 端点走 Hey API SDK。
  *
- * Bulk-resume-upload API — maps to `/api/w/:slug/studio/resume-upload-batches/*`.
+ * Bulk-resume-upload API — maps to `/workspaces/:workspaceSlug/candidates/intake/upload-batches/*`.
  * Single-file uploads use apiFetch + FormData by project convention; the rest
- * of the JSON endpoints go through rpc + rpcFetch.
+ * of the JSON endpoints go through the generated Hey API SDK.
  */
 
 import type {
@@ -16,8 +28,8 @@ import type {
 } from "@arc/shared/bulk-resume-upload";
 import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
 import { apiFetch } from "@/lib/client/api/client";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+
+import { apiRequest } from "../rpc-fetch";
 
 /**
  * 上传单个 PDF。返回 storageKey + contentHash + 原始文件名/大小。
@@ -30,24 +42,22 @@ export function uploadResumeForBulk(
   const fd = new FormData();
   fd.append("file", file);
   return apiFetch<BulkResumeUploadFileDescriptor>(
-    `/api/w/${slug}/studio/resume-upload-batches/uploads`,
+    `/workspaces/${slug}/candidates/intake/upload-batches/uploads`,
     { body: fd, method: "POST" },
   );
 }
 
 /**
- * 创建批次。冲突 (409) 时 rpcFetch 抛 ApiError，前端可读 payload.activeBatchId 处理。
- * Create a batch. On conflict (409) rpcFetch throws ApiError; callers can read payload.activeBatchId.
+ * 创建批次。冲突 (409) 时 apiRequest 抛 ApiError，前端可读 payload.activeBatchId 处理。
+ * Create a batch. On conflict (409) apiRequest throws ApiError; callers can read payload.activeBatchId.
  */
 export function createBulkResumeBatch(
   slug: string,
   input: CreateBulkResumeBatchInput,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].$post({
-      json: input,
-      param: { slug },
-    }),
+  return apiRequest(
+    createWorkspaceResumeUploadBatch({ body: input, path: { workspaceSlug: slug } }),
+
     "创建批次失败",
   );
 }
@@ -57,8 +67,8 @@ export function createBulkResumeBatch(
  * List all batches.
  */
 export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].$get({ param: { slug } }),
+  return apiRequest(
+    listWorkspaceResumeUploadBatches({ path: { workspaceSlug: slug } }),
     "加载批次列表失败",
   );
 }
@@ -68,8 +78,8 @@ export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[
  * Get active batch details; returns an empty array when there are no active batches.
  */
 export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatchDetailDto[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
+  return apiRequest(
+    listActiveWorkspaceResumeUploadBatches({ path: { workspaceSlug: slug } }),
     "加载活跃批次失败",
   );
 }
@@ -78,11 +88,12 @@ export function getUploadTaskInboxPage(
   slug: string,
   cursor: string | null,
 ): Promise<UploadTaskInboxPage> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"].inbox.$get({
-      param: { slug },
+  return apiRequest(
+    listWorkspaceResumeUploadTaskInbox({
+      path: { workspaceSlug: slug },
       query: cursor ? { cursor } : {},
     }),
+
     "加载上传任务失败",
   );
 }
@@ -102,10 +113,9 @@ export function getBulkResumeBatchDetail(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$get({
-      param: { id: batchId, slug },
-    }),
+  return apiRequest(
+    getWorkspaceResumeUploadBatch({ path: { id: batchId, workspaceSlug: slug } }),
+
     "加载批次详情失败",
   );
 }
@@ -118,10 +128,9 @@ export function processNextBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<ProcessNextResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"]["process-next"].$post({
-      param: { id: batchId, slug },
-    }),
+  return apiRequest(
+    processNextWorkspaceResumeUploadBatchItem({ path: { id: batchId, workspaceSlug: slug } }),
+
     "处理失败",
   );
 }
@@ -134,10 +143,9 @@ export function resumeBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].resume.$post({
-      param: { id: batchId, slug },
-    }),
+  return apiRequest(
+    resumeWorkspaceResumeUploadBatch({ path: { id: batchId, workspaceSlug: slug } }),
+
     "继续批次失败",
   );
 }
@@ -150,10 +158,9 @@ export function cancelBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<BulkResumeBatchDetailDto> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].cancel.$post({
-      param: { id: batchId, slug },
-    }),
+  return apiRequest(
+    cancelWorkspaceResumeUploadBatch({ path: { id: batchId, workspaceSlug: slug } }),
+
     "取消批次失败",
   );
 }
@@ -166,10 +173,9 @@ export function deleteBulkResumeBatch(
   slug: string,
   batchId: string,
 ): Promise<{ success: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-upload-batches"][":id"].$delete({
-      param: { id: batchId, slug },
-    }),
+  return apiRequest(
+    deleteWorkspaceResumeUploadBatch({ path: { id: batchId, workspaceSlug: slug } }),
+
     "删除批次失败",
   );
 }

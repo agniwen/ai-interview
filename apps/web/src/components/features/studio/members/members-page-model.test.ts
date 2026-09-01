@@ -19,8 +19,8 @@ describe("workspace member list query", () => {
         sortOrder: undefined,
       }),
     ).toEqual({
-      page: "1",
-      pageSize: "10",
+      page: 1,
+      pageSize: 10,
       sortBy: "createdAt",
       sortOrder: "desc",
       textFilters: undefined,
@@ -35,8 +35,8 @@ describe("workspace member list query", () => {
         sortOrder: "asc",
       }),
     ).toEqual({
-      page: "2",
-      pageSize: "20",
+      page: 2,
+      pageSize: 20,
       sortBy: "lastActiveAt",
       sortOrder: "asc",
       textFilters: '{"name":"张"}',

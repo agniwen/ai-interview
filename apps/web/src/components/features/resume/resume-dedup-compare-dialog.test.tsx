@@ -24,9 +24,10 @@ describe("Resume dedup comparison document model", () => {
         sourceType: "studio_interview",
       }),
     ).toEqual({
-      downloadUrl: "/api/w/acme/studio/resumes/resume-1/review/resume",
+      downloadUrl:
+        "http://localhost:8787/workspaces/acme/candidates/resumes/resume-1/review/resume",
       kind: "pdf",
-      previewUrl: "/api/w/acme/studio/resumes/resume-1/review/resume",
+      previewUrl: "http://localhost:8787/workspaces/acme/candidates/resumes/resume-1/review/resume",
     });
     expect(
       getResumeComparisonDocument({
@@ -35,6 +36,8 @@ describe("Resume dedup comparison document model", () => {
         slug: "acme",
         sourceType: "resume_pool_item",
       })?.downloadUrl,
-    ).toBe("/api/w/acme/studio/resume-pool/pool-1/review/resume");
+    ).toBe(
+      "http://localhost:8787/workspaces/acme/candidates/intake/resume-pool/pool-1/review/resume",
+    );
   });
 });

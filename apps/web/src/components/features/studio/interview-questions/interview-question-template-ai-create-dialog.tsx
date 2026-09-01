@@ -1,11 +1,12 @@
 "use client";
+import { generateWorkspaceQuestionTemplateQuestions } from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { InterviewQuestionTemplateQuestionInput } from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -85,14 +86,12 @@ export function InterviewQuestionTemplateAiCreateDialog({
         toast.error(error instanceof Error ? error.message : "AI 生成失败");
       },
       operation: async () => {
-        const result = await rpcFetch(
-          rpc.api.w[":slug"].studio["interview-questions"]["ai-generate-questions"].$post({
-            json: {
-              jobDescriptionId,
-              prompt: prompt.trim(),
-            },
-            param: { slug },
+        const result = await apiRequest(
+          generateWorkspaceQuestionTemplateQuestions({
+            body: { jobDescriptionId, prompt: prompt.trim() },
+            path: { workspaceSlug: slug },
           }),
+
           "AI 生成沟通题失败",
         );
 
@@ -177,6 +176,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
                 rows={4}
                 value={prompt}
               />
+
               <TextareaCounter maxLength={PROMPT_MAX} value={prompt} />
             </div>
           </FieldContent>

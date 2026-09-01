@@ -1,14 +1,53 @@
+import {
+  bulkDeleteWorkspaceInterviews,
+  cancelWorkspaceHumanInterviewMeeting,
+  cancelWorkspaceHumanInterviewRound,
+  cancelWorkspaceInterviewOfferDraft,
+  completeWorkspaceHumanInterviewRound,
+  createWorkspaceHumanInterviewMeeting,
+  createWorkspaceHumanInterviewMeetingLiveKitToken,
+  createWorkspaceHumanInterviewRound,
+  createWorkspaceInterviewOfferDraft,
+  deleteWorkspaceInterviewFormSubmission,
+  deleteWorkspaceInterviewRound,
+  endWorkspaceHumanInterviewMeeting,
+  findWorkspaceInterviewResumeDuplicates,
+  getWorkspaceHumanInterviewMeeting,
+  getWorkspaceInterview,
+  getWorkspaceInterviewRecording,
+  getWorkspaceInterviewReport,
+  getWorkspaceInterviewSummary,
+  issueWorkspaceHumanInterviewMeetingLinks,
+  listWorkspaceHumanInterviewMeetings,
+  listWorkspaceHumanInterviewRounds,
+  listWorkspaceInterviewFormSubmissions,
+  listWorkspaceInterviewOfferDrafts,
+  listWorkspaceInterviewReports,
+  listWorkspaceInterviews,
+  resetWorkspaceInterviewRound,
+  resolveWorkspaceInterview,
+  respondWorkspaceInterviewOfferDraft,
+  sendWorkspaceInterviewOfferDraft,
+  syncWorkspaceHumanInterviewMeetingToFeishu,
+  transitionWorkspaceInterviewCandidate,
+  updateWorkspaceHumanInterviewMeeting,
+  updateWorkspaceHumanInterviewRound,
+  updateWorkspaceInterviewCandidateExpectations,
+  updateWorkspaceInterviewOfferDraft,
+  updateWorkspaceInterviewRound,
+} from "@/lib/client/backend-api";
+
 /**
  * Studio 后台「面试管理」相关 API。
  * Studio admin "interview management" API.
  *
- * 这一组方法对应 `/api/w/:slug/studio/interviews/*` 路由族。JSON 端点全部已迁到
- * Hono RPC（{@link rpc}），错误以 {@link ApiError} 抛出，404 在适用处会被
+ * 这一组方法对应 `/workspaces/:workspaceSlug/candidates/recruiting-records/*` 路由族。
+ * JSON 端点使用 Hey API 生成 SDK，错误以 ApiError 抛出，404 在适用处会被
  * 静默为 null。文件上传 (POST/PATCH 带 resume File) 仍在 dialog 组件中
  * 直接走 fetch + FormData，不在此文件内。
  *
- * Maps to the `/api/w/:slug/studio/interviews/*` route family. JSON endpoints now
- * use Hono RPC under the hood; errors raise {@link ApiError}, and 404s
+ * Maps to `/workspaces/:workspaceSlug/candidates/recruiting-records/*`. JSON endpoints
+ * use the generated Hey API SDK; errors raise ApiError, and 404s
  * become `null` where applicable. File-upload POST/PATCH stay on raw
  * fetch+FormData inside their dialog components.
  */
@@ -41,8 +80,8 @@ import type {
   OfferDraftRecord,
 } from "@arc/shared/studio-pipeline-stages";
 import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
-import { rpc, studioInterviewsRpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+
+import { apiRequest } from "../rpc-fetch";
 
 /**
  * 简历语义查重单条命中。
@@ -115,8 +154,8 @@ export interface StudioInterviewRoundListParams {
 
 interface StudioInterviewRoundsQuery {
   creatorIds?: string;
-  page?: string;
-  pageSize?: string;
+  page?: number;
+  pageSize?: number;
   search?: string;
   status?: string;
 }
@@ -131,10 +170,10 @@ export function fetchStudioInterviewRounds(
 ): Promise<PaginatedStudioInterviewRoundsResult> {
   const query: StudioInterviewRoundsQuery = {};
   if (params.page !== undefined) {
-    query.page = String(params.page);
+    query.page = params.page;
   }
   if (params.pageSize !== undefined) {
-    query.pageSize = String(params.pageSize);
+    query.pageSize = params.pageSize;
   }
   if (params.search) {
     query.search = params.search;
@@ -145,11 +184,9 @@ export function fetchStudioInterviewRounds(
   if (params.status) {
     query.status = params.status;
   }
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews.$get({
-      param: { slug },
-      query,
-    }),
+  return apiRequest(
+    listWorkspaceInterviews({ path: { workspaceSlug: slug }, query }),
+
     "加载面试列表失败",
   );
 }
@@ -171,8 +208,8 @@ export interface InterviewRoundSummaryResponse {
  * Fetch the round summary (status counts).
  */
 export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoundSummaryResponse> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
+  return apiRequest(
+    getWorkspaceInterviewSummary({ path: { workspaceSlug: slug } }),
     "加载概览失败",
   );
 }
@@ -191,11 +228,13 @@ export function fetchInterviewDedup(
   },
   options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
+  return apiRequest(
+    findWorkspaceInterviewResumeDuplicates({
+      body: input,
+      path: { workspaceSlug: slug },
+      signal: options?.signal,
+    }),
+
     "查重失败",
   );
 }
@@ -213,11 +252,9 @@ export function resolveStudioInterviewRecordId(
   slug: string,
   recordId: string,
 ): Promise<string | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews.resolve.$get({
-      param: { slug },
-      query: { id: recordId },
-    }),
+  return apiRequest(
+    resolveWorkspaceInterview({ path: { workspaceSlug: slug }, query: { id: recordId } }),
+
     "解析面试链接失败",
     { allow404: true },
   ).then((data) => data?.roundId ?? null);
@@ -231,8 +268,8 @@ export function fetchStudioInterviewRound(
   slug: string,
   roundId: string,
 ): Promise<StudioInterviewRoundDetail | null> {
-  return rpcFetch(
-    studioInterviewsRpc(slug)[":id"].$get({ param: { id: roundId } }),
+  return apiRequest(
+    getWorkspaceInterview({ path: { id: roundId, workspaceSlug: slug } }),
     "加载面试详情失败",
     { allow404: true },
   );
@@ -242,9 +279,12 @@ export function fetchStudioInterviewRound(
  * 拉取某轮次的面试报告列表（按时间倒序，仅含本轮次 conversations）。
  * Fetch the interview reports for a single round (newest first, per-round only).
  */
-export function fetchStudioInterviewRoundReports(slug: string, roundId: string) {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].reports.$get({ param: { id: roundId, slug } }),
+export function fetchStudioInterviewRoundReports(
+  slug: string,
+  roundId: string,
+): Promise<StudioInterviewConversationReport[]> {
+  return apiRequest<StudioInterviewConversationReport[]>(
+    listWorkspaceInterviewReports({ path: { id: roundId, workspaceSlug: slug } }),
     "加载面试报告失败",
   );
 }
@@ -254,10 +294,9 @@ export function fetchStudioInterviewRoundReport(
   roundId: string,
   conversationId: string,
 ): Promise<StudioInterviewConversationReport | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].reports[":conversationId"].$get({
-      param: { conversationId, id: roundId, slug },
-    }),
+  return apiRequest(
+    getWorkspaceInterviewReport({ path: { conversationId, id: roundId, workspaceSlug: slug } }),
+
     "加载面试记录失败",
     { allow404: true },
   );
@@ -272,10 +311,9 @@ export function fetchStudioInterviewRecordingUrl(
   roundId: string,
   conversationId: string,
 ): Promise<{ url: string; expiresInSeconds: number }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].recordings[":conversationId"].$get({
-      param: { conversationId, id: roundId, slug },
-    }),
+  return apiRequest(
+    getWorkspaceInterviewRecording({ path: { conversationId, id: roundId, workspaceSlug: slug } }),
+
     "加载录像链接失败",
   );
 }
@@ -288,10 +326,9 @@ export async function fetchStudioInterviewRoundFormSubmissions(
   slug: string,
   roundId: string,
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
-  const data = await rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["form-submissions"].$get({
-      param: { id: roundId, slug },
-    }),
+  const data = await apiRequest(
+    listWorkspaceInterviewFormSubmissions({ path: { id: roundId, workspaceSlug: slug } }),
+
     "加载面试表单填写失败",
   );
   return data.submissions;
@@ -306,10 +343,11 @@ export function deleteStudioInterviewFormSubmission(
   roundId: string,
   submissionId: string,
 ): Promise<{ success: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["form-submissions"][":submissionId"].$delete({
-      param: { id: roundId, slug, submissionId },
+  return apiRequest(
+    deleteWorkspaceInterviewFormSubmission({
+      path: { id: roundId, submissionId, workspaceSlug: slug },
     }),
+
     "删除答卷失败",
   );
 }
@@ -322,8 +360,8 @@ export function resetStudioInterviewRound(
   slug: string,
   roundId: string,
 ): Promise<StudioInterviewRoundDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].reset.$post({ param: { id: roundId, slug } }),
+  return apiRequest(
+    resetWorkspaceInterviewRound({ path: { id: roundId, workspaceSlug: slug } }),
     "重置轮次失败",
   );
 }
@@ -343,11 +381,9 @@ export function updateStudioInterviewRound(
     status?: ScheduleEntryStatus;
   },
 ): Promise<StudioInterviewRoundDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].$patch({
-      json: payload,
-      param: { id: roundId, slug },
-    }),
+  return apiRequest(
+    updateWorkspaceInterviewRound({ body: payload, path: { id: roundId, workspaceSlug: slug } }),
+
     "更新轮次设置失败",
   );
 }
@@ -376,11 +412,12 @@ export async function transitionInterviewRecord(
   candidateId: string,
   input: TransitionInterviewInput,
 ): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].transition.$post({
-      json: input,
-      param: { id: candidateId, slug },
+  await apiRequest(
+    transitionWorkspaceInterviewCandidate({
+      body: input,
+      path: { id: candidateId, workspaceSlug: slug },
     }),
+
     "更新候选人阶段失败",
   );
 }
@@ -394,11 +431,12 @@ export function updateCandidateExpectations(
   candidateId: string,
   input: Partial<CandidateExpectationsMeta>,
 ): Promise<{ candidateExpectationsMeta: CandidateExpectationsMeta }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["candidate-expectations"].$patch({
-      json: input,
-      param: { id: candidateId, slug },
+  return apiRequest(
+    updateWorkspaceInterviewCandidateExpectations({
+      body: input,
+      path: { id: candidateId, workspaceSlug: slug },
     }),
+
     "更新候选人期望失败",
   );
 }
@@ -409,12 +447,15 @@ export function listHumanInterviewMeetings(
   slug: string,
   input: { interviewRecordId?: string } = {},
 ): Promise<HumanInterviewMeetingRecord[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"].$get({
-      param: { slug },
-      query: input,
-    }),
+  return apiRequest<HumanInterviewMeetingRecord[]>(
+    listWorkspaceHumanInterviewMeetings({ path: { workspaceSlug: slug } }),
     "加载真人复面会议失败",
+  ).then((records) =>
+    input.interviewRecordId
+      ? records.filter((record) =>
+          record.rounds.some((round) => round.interviewRecordId === input.interviewRecordId),
+        )
+      : records,
   );
 }
 
@@ -422,11 +463,9 @@ export function createHumanInterviewMeeting(
   slug: string,
   input: HumanInterviewMeetingInput,
 ): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"].$post({
-      json: input,
-      param: { slug },
-    }),
+  return apiRequest(
+    createWorkspaceHumanInterviewMeeting({ body: input, path: { workspaceSlug: slug } }),
+
     "创建真人复面会议失败",
   );
 }
@@ -436,11 +475,9 @@ export function updateHumanInterviewMeeting(
   meetingId: string,
   input: HumanInterviewMeetingScheduleUpdate,
 ): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$patch({
-      json: input,
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    updateWorkspaceHumanInterviewMeeting({ body: input, path: { meetingId, workspaceSlug: slug } }),
+
     "更新真人复面会议时间失败",
   );
 }
@@ -449,10 +486,9 @@ export function getHumanInterviewMeeting(
   slug: string,
   meetingId: string,
 ): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$get({
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    getWorkspaceHumanInterviewMeeting({ path: { meetingId, workspaceSlug: slug } }),
+
     "加载真人复面会议失败",
   );
 }
@@ -461,10 +497,9 @@ export function issueHumanInterviewMeetingLinks(
   slug: string,
   meetingId: string,
 ): Promise<HumanInterviewMeetingLinkBundle> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].links.$post({
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    issueWorkspaceHumanInterviewMeetingLinks({ path: { meetingId, workspaceSlug: slug } }),
+
     "生成真人复面链接失败",
   );
 }
@@ -473,12 +508,9 @@ export function retryHumanInterviewFeishuSync(
   slug: string,
   meetingId: string,
 ): Promise<HumanInterviewMeetingRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
-      "feishu-sync"
-    ].$post({
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    syncWorkspaceHumanInterviewMeetingToFeishu({ path: { meetingId, workspaceSlug: slug } }),
+
     "重试飞书日程同步失败",
   );
 }
@@ -487,10 +519,9 @@ export function endHumanInterviewMeeting(
   slug: string,
   meetingId: string,
 ): Promise<{ ok: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].end.$post({
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    endWorkspaceHumanInterviewMeeting({ path: { meetingId, workspaceSlug: slug } }),
+
     "结束真人复面会议失败",
   );
 }
@@ -499,10 +530,9 @@ export function deleteHumanInterviewMeeting(
   slug: string,
   meetingId: string,
 ): Promise<{ ok: boolean }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$delete({
-      param: { meetingId, slug },
-    }),
+  return apiRequest(
+    cancelWorkspaceHumanInterviewMeeting({ path: { meetingId, workspaceSlug: slug } }),
+
     "删除真人复面会议失败",
   );
 }
@@ -512,13 +542,12 @@ export function getHumanInterviewMeetingLiveKitToken(
   meetingId: string,
   input: { interviewerId?: string } = {},
 ): Promise<HumanInterviewMeetingTokenResponse> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
-      "livekit-token"
-    ].$post({
-      json: input,
-      param: { meetingId, slug },
+  return apiRequest(
+    createWorkspaceHumanInterviewMeetingLiveKitToken({
+      body: input,
+      path: { meetingId, workspaceSlug: slug },
     }),
+
     "进入真人复面会议失败",
   );
 }
@@ -531,10 +560,9 @@ export function listHumanInterviewRounds(
   slug: string,
   candidateId: string,
 ): Promise<HumanInterviewRoundRecord[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"].$get({
-      param: { id: candidateId, slug },
-    }),
+  return apiRequest(
+    listWorkspaceHumanInterviewRounds({ path: { id: candidateId, workspaceSlug: slug } }),
+
     "加载真人复面轮次失败",
   );
 }
@@ -548,11 +576,12 @@ export function createHumanInterviewRound(
   candidateId: string,
   input: HumanInterviewRoundInput,
 ): Promise<HumanInterviewRoundRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"].$post({
-      json: input,
-      param: { id: candidateId, slug },
+  return apiRequest(
+    createWorkspaceHumanInterviewRound({
+      body: input,
+      path: { id: candidateId, workspaceSlug: slug },
     }),
+
     "创建真人复面失败",
   );
 }
@@ -567,11 +596,12 @@ export function patchHumanInterviewRound(
   roundId: string,
   input: Partial<HumanInterviewRoundInput> & { validUntil?: string | null },
 ): Promise<HumanInterviewRoundRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][":roundId"].$patch({
-      json: input,
-      param: { id: candidateId, roundId, slug },
+  return apiRequest(
+    updateWorkspaceHumanInterviewRound({
+      body: input,
+      path: { id: candidateId, roundId, workspaceSlug: slug },
     }),
+
     "更新真人复面失败",
   );
 }
@@ -586,13 +616,12 @@ export function completeHumanInterviewRound(
   roundId: string,
   input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback: string },
 ): Promise<HumanInterviewRoundRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][
-      ":roundId"
-    ].complete.$post({
-      json: input,
-      param: { id: candidateId, roundId, slug },
+  return apiRequest(
+    completeWorkspaceHumanInterviewRound({
+      body: input,
+      path: { id: candidateId, roundId, workspaceSlug: slug },
     }),
+
     "标记完成失败",
   );
 }
@@ -607,11 +636,12 @@ export function cancelHumanInterviewRound(
   roundId: string,
   input: { reason?: string | null } = {},
 ): Promise<HumanInterviewRoundRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][":roundId"].cancel.$post({
-      json: input,
-      param: { id: candidateId, roundId, slug },
+  return apiRequest(
+    cancelWorkspaceHumanInterviewRound({
+      body: input,
+      path: { id: candidateId, roundId, workspaceSlug: slug },
     }),
+
     "取消轮次失败",
   );
 }
@@ -623,10 +653,9 @@ export function cancelHumanInterviewRound(
  * List all offer drafts for a candidate, newest version first.
  */
 export function listOfferDrafts(slug: string, candidateId: string): Promise<OfferDraftRecord[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"].$get({
-      param: { id: candidateId, slug },
-    }),
+  return apiRequest(
+    listWorkspaceInterviewOfferDrafts({ path: { id: candidateId, workspaceSlug: slug } }),
+
     "加载 Offer 列表失败",
   );
 }
@@ -640,11 +669,12 @@ export function createOfferDraft(
   candidateId: string,
   input: OfferDraftInput & { sendImmediately?: boolean },
 ): Promise<OfferDraftRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"].$post({
-      json: input,
-      param: { id: candidateId, slug },
+  return apiRequest(
+    createWorkspaceInterviewOfferDraft({
+      body: input,
+      path: { id: candidateId, workspaceSlug: slug },
     }),
+
     "创建 Offer 失败",
   );
 }
@@ -659,11 +689,12 @@ export function patchOfferDraft(
   draftId: string,
   input: Partial<OfferDraftInput>,
 ): Promise<OfferDraftRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].$patch({
-      json: input,
-      param: { draftId, id: candidateId, slug },
+  return apiRequest(
+    updateWorkspaceInterviewOfferDraft({
+      body: input,
+      path: { draftId, id: candidateId, workspaceSlug: slug },
     }),
+
     "更新 Offer 失败",
   );
 }
@@ -677,10 +708,9 @@ export function sendOfferDraft(
   candidateId: string,
   draftId: string,
 ): Promise<OfferDraftRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].send.$post({
-      param: { draftId, id: candidateId, slug },
-    }),
+  return apiRequest(
+    sendWorkspaceInterviewOfferDraft({ path: { draftId, id: candidateId, workspaceSlug: slug } }),
+
     "发送 Offer 失败",
   );
 }
@@ -695,11 +725,12 @@ export function respondOfferDraft(
   draftId: string,
   input: { response: "accepted" | "declined" | "counter"; candidateCounter?: string | null },
 ): Promise<OfferDraftRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].respond.$post({
-      json: input,
-      param: { draftId, id: candidateId, slug },
+  return apiRequest(
+    respondWorkspaceInterviewOfferDraft({
+      body: input,
+      path: { draftId, id: candidateId, workspaceSlug: slug },
     }),
+
     "记录 Offer 响应失败",
   );
 }
@@ -713,10 +744,9 @@ export function cancelOfferDraft(
   candidateId: string,
   draftId: string,
 ): Promise<OfferDraftRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"]["offer-drafts"][":draftId"].cancel.$post({
-      param: { draftId, id: candidateId, slug },
-    }),
+  return apiRequest(
+    cancelWorkspaceInterviewOfferDraft({ path: { draftId, id: candidateId, workspaceSlug: slug } }),
+
     "撤回 Offer 失败",
   );
 }
@@ -726,8 +756,8 @@ export function cancelOfferDraft(
  * Delete a single interview round.
  */
 export async function deleteStudioInterviewRound(slug: string, roundId: string): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].studio.interviews[":id"].$delete({ param: { id: roundId, slug } }),
+  await apiRequest(
+    deleteWorkspaceInterviewRound({ path: { id: roundId, workspaceSlug: slug } }),
     "删除轮次失败",
   );
 }
@@ -745,11 +775,9 @@ export async function bulkDeleteStudioInterviewRounds(
     return { deleted: 0 };
   }
   const ids: [string, ...string[]] = [firstRoundId, ...remainingRoundIds];
-  const data = await rpcFetch(
-    rpc.api.w[":slug"].studio.interviews["bulk-delete"].$post({
-      json: { ids },
-      param: { slug },
-    }),
+  const data = await apiRequest(
+    bulkDeleteWorkspaceInterviews({ body: { ids }, path: { workspaceSlug: slug } }),
+
     "批量删除失败",
   );
   return { deleted: data.deletedCount, ...data };

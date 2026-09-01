@@ -103,14 +103,15 @@ describe("TanStack Start architecture invariants", () => {
     expect(membersRoute).not.toContain("members-page-model");
   });
 
-  it("keeps auth and API clients cookie-aware for the Hono backend", () => {
+  it("keeps auth and generated API clients cookie-aware for the Nest backend", () => {
     const authClient = readSource("src/lib/client/auth-client.ts");
-    const rpc = readSource("src/lib/client/rpc.ts");
+    const backendApi = readSource("src/lib/client/backend-api.ts");
     const apiClient = readSource("src/lib/client/api/client.ts");
-    const sources = [authClient, rpc, apiClient].join("\n");
+    const sources = [authClient, backendApi, apiClient].join("\n");
 
     expect(sources).toContain('credentials: "include"');
     expect(sources).not.toContain('credentials: "same-origin"');
+    expect(backendApi).toContain("NEXT_PUBLIC_BETTER_AUTH_URL");
     expect(authClient).not.toContain("tanstackStartCookies");
   });
 });

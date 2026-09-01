@@ -184,8 +184,14 @@ function ResumePoolProfileLine({ line }: { line: ResumePoolProfileSnapshotLine }
 }
 
 function ResumePoolProfileSnapshot({ record }: { record: ResumePoolListRecord }) {
-  const work = record.resumeProfileSnapshot.work.slice(0, 2);
-  const education = record.resumeProfileSnapshot.education.slice(0, 2);
+  const work = (
+    Array.isArray(record.resumeProfileSnapshot.work) ? record.resumeProfileSnapshot.work : []
+  ).slice(0, 2);
+  const education = (
+    Array.isArray(record.resumeProfileSnapshot.education)
+      ? record.resumeProfileSnapshot.education
+      : []
+  ).slice(0, 2);
   if (work.length === 0 && education.length === 0) {
     return null;
   }

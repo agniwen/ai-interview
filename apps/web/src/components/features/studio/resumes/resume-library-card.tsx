@@ -311,8 +311,14 @@ function renderResumeCardProfileHoverLine(line: ResumeLibraryProfileSnapshotLine
 }
 
 function getResumeCardProfileSnapshotGroups(snapshot: ResumeLibraryProfileSnapshot) {
-  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
-  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
+  const workLines = (Array.isArray(snapshot.work) ? snapshot.work : []).slice(
+    0,
+    snapshot.workHasMore ? 2 : 3,
+  );
+  const educationLines = (Array.isArray(snapshot.education) ? snapshot.education : []).slice(
+    0,
+    snapshot.educationHasMore ? 2 : 3,
+  );
 
   return {
     educationLines,

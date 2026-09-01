@@ -1,5 +1,14 @@
 /* oxlint-disable complexity -- coordinates the persisted upgrade draft, preview, rule draft, and confirmation state machine. */
 "use client";
+import {
+  createWorkspaceJobEvaluationUpgrade,
+  discardWorkspaceJobEvaluationUpgrade,
+  generateWorkspaceJobEvaluationUpgradePreview,
+  getWorkspaceJobEvaluationUpgrade,
+  publishWorkspaceJobEvaluationUpgrade,
+  saveWorkspaceJobEvaluationUpgradeRuleDraft,
+  updateWorkspaceJobEvaluationUpgrade,
+} from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,8 +47,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const PROMPT_MAX_LENGTH = 10_000;
@@ -140,13 +149,10 @@ export function JobDescriptionUpgradeDialog({
         throw new Error("岗位不存在");
       }
       const request = record.hasEvaluationUpgradeDraft
-        ? rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$get({
-            param: { id: record.id, slug },
-          })
-        : rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$post({
-            param: { id: record.id, slug },
-          });
-      return rpcFetch(request, "加载岗位升级草稿失败");
+        ? getWorkspaceJobEvaluationUpgrade({ path: { id: record.id, workspaceSlug: slug } })
+        : createWorkspaceJobEvaluationUpgrade({ path: { id: record.id, workspaceSlug: slug } });
+
+      return apiRequest(request, "加载岗位升级草稿失败");
     },
     queryKey,
     retry: false,
@@ -197,15 +203,12 @@ export function JobDescriptionUpgradeDialog({
     if (!structuredConfig || !prompt.trim()) {
       throw new Error("请填写新版岗位 JD");
     }
-    return rpcFetch(
-      rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$put({
-        json: {
-          expectedVersion: currentDraft.version,
-          prompt: prompt.trim(),
-          structuredConfig,
-        },
-        param: { id: currentDraft.jobDescriptionId, slug },
+    return apiRequest(
+      updateWorkspaceJobEvaluationUpgrade({
+        body: { expectedVersion: currentDraft.version, prompt: prompt.trim(), structuredConfig },
+        path: { id: currentDraft.jobDescriptionId, workspaceSlug: slug },
       }),
+
       "保存岗位升级草稿失败",
     );
   }
@@ -234,13 +237,12 @@ export function JobDescriptionUpgradeDialog({
         acceptDraft,
         currentDraft: draft,
         generatePreview: (savedDraft) =>
-          rpcFetch(
-            rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade[
-              "evaluation-blueprint-preview"
-            ].$post({
-              json: { expectedVersion: savedDraft.version },
-              param: { id: savedDraft.jobDescriptionId, slug },
+          apiRequest(
+            generateWorkspaceJobEvaluationUpgradePreview({
+              body: { expectedVersion: savedDraft.version },
+              path: { id: savedDraft.jobDescriptionId, workspaceSlug: slug },
             }),
+
             "生成新版评分规则失败",
           ),
         hasUnsavedChanges,
@@ -261,16 +263,17 @@ export function JobDescriptionUpgradeDialog({
       if (!draft || !draft.blueprintPreviewHash || !deductionRules || !ruleDraft) {
         throw new Error("评分规则尚未生成");
       }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade["evaluation-rule-draft"].$put({
-          json: {
+      return apiRequest(
+        saveWorkspaceJobEvaluationUpgradeRuleDraft({
+          body: {
             deductionRules,
             expectedBlueprintHash: draft.blueprintPreviewHash,
             expectedVersion: draft.version,
             ruleDraft,
           },
-          param: { id: draft.jobDescriptionId, slug },
+          path: { id: draft.jobDescriptionId, workspaceSlug: slug },
         }),
+
         "保存新版评分规则失败",
       );
     },
@@ -288,15 +291,16 @@ export function JobDescriptionUpgradeDialog({
       if (!draft?.blueprintPreviewHash) {
         throw new Error("请先生成新版评分规则");
       }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.publish.$post({
-          json: {
+      return apiRequest(
+        publishWorkspaceJobEvaluationUpgrade({
+          body: {
             confirmedBlueprintHash: draft.blueprintPreviewHash,
             expectedVersion: draft.version,
             explicitConfirmation: true,
           },
-          param: { id: draft.jobDescriptionId, slug },
+          path: { id: draft.jobDescriptionId, workspaceSlug: slug },
         }),
+
         "发布新版岗位失败",
       );
     },
@@ -315,11 +319,12 @@ export function JobDescriptionUpgradeDialog({
       if (!draft) {
         throw new Error("升级草稿尚未加载完成");
       }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"][":id"].upgrade.$delete({
-          param: { id: draft.jobDescriptionId, slug },
-          query: { expectedVersion: String(draft.version) },
+      return apiRequest(
+        discardWorkspaceJobEvaluationUpgrade({
+          path: { id: draft.jobDescriptionId, workspaceSlug: slug },
+          query: { expectedVersion: draft.version },
         }),
+
         "放弃岗位升级失败",
       );
     },
@@ -438,6 +443,7 @@ export function JobDescriptionUpgradeDialog({
                         placeholder="明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
                         value={prompt}
                       />
+
                       <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={prompt} />
                     </div>
                   </>

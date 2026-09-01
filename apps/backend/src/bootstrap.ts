@@ -1,6 +1,6 @@
 import "reflect-metadata";
 
-import { StandardSchemaSerializerInterceptor, StandardSchemaValidationPipe } from "@nestjs/common";
+import { StandardSchemaValidationPipe } from "@nestjs/common";
 import type { INestApplication, LoggerService, LogLevel } from "@nestjs/common";
 import { HttpAdapterHost, NestFactory, Reflector } from "@nestjs/core";
 import { SwaggerModule } from "@nestjs/swagger";
@@ -11,6 +11,7 @@ import type { Express } from "express";
 import { BACKEND_AUTH } from "./auth/auth.tokens.js";
 import type { BackendAuth } from "./auth/better-auth.factory.js";
 import { MachineReadableHttpExceptionFilter } from "./infrastructure/http/machine-readable-http-exception.filter.js";
+import { WholeResponseStandardSchemaInterceptor } from "./infrastructure/http/whole-response-standard-schema.interceptor.js";
 import { CorrelatedConsoleLogger } from "./observability/correlated-console.logger.js";
 import { RequestCorrelationMiddleware } from "./observability/request-correlation.middleware.js";
 import { createBackendOpenApiDocument } from "./openapi/create-openapi-document.js";
@@ -84,7 +85,7 @@ export async function createBackendApplication(
 
   app.useGlobalFilters(new MachineReadableHttpExceptionFilter(app.get(HttpAdapterHost)));
   app.useGlobalPipes(new StandardSchemaValidationPipe({ transform: true }));
-  app.useGlobalInterceptors(new StandardSchemaSerializerInterceptor(app.get(Reflector)));
+  app.useGlobalInterceptors(new WholeResponseStandardSchemaInterceptor(app.get(Reflector)));
   app.enableShutdownHooks();
   await app.init();
   return app;

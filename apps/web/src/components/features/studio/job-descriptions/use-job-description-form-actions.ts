@@ -1,7 +1,13 @@
+import {
+  createWorkspaceJobDescription,
+  generateWorkspaceJobDescriptionCode,
+  generateWorkspaceJobDescriptionDraft,
+  updateWorkspaceJobDescription,
+} from "@/lib/client/backend-api";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -53,18 +59,17 @@ export function useJobDescriptionFormActions({
       onError: (error) => toast.error(error.message),
       operation: async () => {
         const saved = currentRecord
-          ? await rpcFetch(
-              rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
-                json: body,
-                param: { id: currentRecord.id, slug },
+          ? await apiRequest(
+              updateWorkspaceJobDescription({
+                body,
+                path: { id: currentRecord.id, workspaceSlug: slug },
               }),
+
               "更新失败",
             )
-          : await rpcFetch(
-              rpc.api.w[":slug"].studio["job-descriptions"].$post({
-                json: body,
-                param: { slug },
-              }),
+          : await apiRequest(
+              createWorkspaceJobDescription({ body, path: { workspaceSlug: slug } }),
+
               "创建失败",
             );
         toast.success(currentRecord ? "在招岗位已更新" : "在招岗位已创建");
@@ -79,10 +84,9 @@ export function useJobDescriptionFormActions({
       cleanup: () => setIsGeneratingCode(false),
       onError: (error) => toast.error(error.message),
       operation: async () => {
-        const payload = await rpcFetch(
-          rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post({
-            param: { slug },
-          }),
+        const payload = await apiRequest(
+          generateWorkspaceJobDescriptionCode({ path: { workspaceSlug: slug } }),
+
           "生成岗位编码失败",
         );
         form.setFieldValue("code", payload.code);
@@ -101,17 +105,18 @@ export function useJobDescriptionFormActions({
       cleanup: () => setIsGeneratingJobDescription(false),
       onError: (error) => toast.error(error.message),
       operation: async () => {
-        const payload = await rpcFetch(
-          rpc.api.w[":slug"].studio["job-descriptions"]["ai-generate"].$post({
-            json: {
+        const payload = await apiRequest(
+          generateWorkspaceJobDescriptionDraft({
+            body: {
               departmentName:
                 departments.find((department) => department.id === values.departmentId)?.name ??
                 undefined,
               jobName: values.name.trim() || undefined,
               prompt: values.prompt.trim(),
             },
-            param: { slug },
+            path: { workspaceSlug: slug },
           }),
+
           "AI 生成岗位 JD 失败",
         );
         setPendingGeneratedJobDescription({

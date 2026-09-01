@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import { CollectedCandidateInfoList, getReportFormItems } from "./studio-person-detail-sections";
+import {
+  CollectedCandidateInfoList,
+  getCollectedCandidateInfoItems,
+  getReportFormItems,
+} from "./studio-person-detail-sections";
 
 describe("CollectedCandidateInfoList", () => {
   it("emphasizes the candidate answer before the AI analysis for communication questions", () => {
@@ -64,5 +68,29 @@ describe("getReportFormItems", () => {
   it("returns null when an older report has no evidence snapshot", () => {
     // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
     expect(getReportFormItems({} as StudioInterviewConversationReport)).toBeNull();
+  });
+});
+
+describe("getCollectedCandidateInfoItems", () => {
+  it("ignores a legacy submission whose template snapshot is missing", () => {
+    const formSubmissions = [
+      {
+        answers: {},
+        id: "submission-1",
+        interviewRecordId: "candidate-1",
+        submittedAt: "2026-09-01T12:00:00.000Z",
+        templateId: "template-1",
+        version: 1,
+        versionId: "version-1",
+      },
+    ];
+
+    expect(() =>
+      getCollectedCandidateInfoItems({
+        evaluation: null,
+        // SAFETY: This deliberately malformed legacy payload reproduces the browser crash boundary.
+        formSubmissions: formSubmissions as never,
+      }),
+    ).not.toThrow();
   });
 });

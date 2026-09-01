@@ -1,4 +1,9 @@
 "use client";
+import {
+  createPlatformMailIngestAccount,
+  listPlatformMailIngestAccounts,
+  updatePlatformMailIngestAccount,
+} from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -49,7 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import {
   dateTimeLocalInputToISOString,
   isoStringToDateTimeLocalInput,
@@ -70,7 +75,6 @@ import {
   resolveMailIngestPlatformId,
 } from "@/lib/client/mail-ingest-platforms";
 import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
-import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
 const DEFAULT_FORM: MailIngestFormState = {
@@ -147,8 +151,8 @@ type MailIngestAccountUpdate = ReturnType<typeof toPayload> & {
 };
 
 interface PlatformMailIngestAccountsQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
   sortBy?: PlatformMailIngestSortBy;
   sortOrder?: "asc" | "desc";
@@ -260,11 +264,9 @@ function PlatformMailIngestAccountDialog({
         if (password) {
           update.password = password;
         }
-        await rpcFetch(
-          rpc.api.platform["mail-ingest-accounts"][":id"].$patch({
-            json: update,
-            param: { id: row.account.id },
-          }),
+        await apiRequest(
+          updatePlatformMailIngestAccount({ body: update, path: { id: row.account.id } }),
+
           "邮箱监听配置更新失败",
         );
         return;
@@ -273,15 +275,16 @@ function PlatformMailIngestAccountDialog({
       if (!password) {
         throw new Error("创建配置时必须填写客户端密码");
       }
-      await rpcFetch(
-        rpc.api.platform["mail-ingest-accounts"].$post({
-          json: {
+      await apiRequest(
+        createPlatformMailIngestAccount({
+          body: {
             ...payload,
             organizationId: row.organization.id,
             password,
             userId: form.userId,
           },
         }),
+
         "邮箱监听配置保存失败",
       );
     },
@@ -489,8 +492,8 @@ export function PlatformMailIngestAccountsGrid() {
     const sortBy = normalizeSortBy(params.sortBy);
     const query: PlatformMailIngestAccountsQuery = {
       ...listTextQuery(params),
-      page: String(params.page),
-      pageSize: String(params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
     };
     if (params.search) {
       query.search = params.search;
@@ -502,10 +505,11 @@ export function PlatformMailIngestAccountsGrid() {
       query.sortOrder = params.sortOrder;
     }
 
-    return rpcFetch(
-      rpc.api.platform["mail-ingest-accounts"].$get({
+    return apiRequest(
+      listPlatformMailIngestAccounts({
         query,
       }),
+
       "加载邮箱监听列表失败",
     );
   }
@@ -530,6 +534,7 @@ export function PlatformMailIngestAccountsGrid() {
             </div>
           </div>
         ),
+
         key: "organizationName",
         title: "工作区",
       }),
@@ -537,6 +542,7 @@ export function PlatformMailIngestAccountsGrid() {
         cell: (row) => (
           <MemberCell email={row.user.email} image={row.user.image} name={row.user.name} />
         ),
+
         key: "userName",
         title: "成员",
       }),
@@ -550,6 +556,7 @@ export function PlatformMailIngestAccountsGrid() {
           ) : (
             <span className="text-muted-foreground">未配置</span>
           ),
+
         key: "emailAddress",
         title: "监听邮箱",
       }),
@@ -559,6 +566,7 @@ export function PlatformMailIngestAccountsGrid() {
             {roleLabel(row.user.role)}
           </Badge>
         ),
+
         key: "role",
         title: "角色",
       }),
@@ -586,6 +594,7 @@ export function PlatformMailIngestAccountsGrid() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "imapHost",
         title: "IMAP",
       }),
@@ -601,6 +610,7 @@ export function PlatformMailIngestAccountsGrid() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "listenStartAt",
         title: "监听起始",
       }),
@@ -618,6 +628,7 @@ export function PlatformMailIngestAccountsGrid() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "lastCheckedAt",
         title: "上次轮询",
       }),
@@ -634,10 +645,12 @@ export function PlatformMailIngestAccountsGrid() {
             show: (row) => !row.account,
           },
         ],
+
         // “编辑”和“新建”互斥显示，按单个最长按钮计算列宽。
         size: 68,
       }),
     ],
+
     [],
   );
 

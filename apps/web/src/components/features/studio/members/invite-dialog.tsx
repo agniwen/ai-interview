@@ -1,4 +1,5 @@
 "use client";
+import { createWorkspaceInviteLink } from "@/lib/client/backend-api";
 
 import { IconMail } from "@tabler/icons-react";
 import type { ReactElement } from "react";
@@ -27,8 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
@@ -91,11 +92,12 @@ export function InviteDialog({
 
     setSubmitting(true);
     try {
-      const link = await rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
-          json: { email: trimmedEmail || undefined, initialRole: role },
-          param: { slug: workspaceSlug },
+      const link = await apiRequest(
+        createWorkspaceInviteLink({
+          body: { email: trimmedEmail || undefined, initialRole: role },
+          path: { workspaceSlug },
         }),
+
         "生成工作区邀请链接失败",
       );
       const url = `${window.location.origin}/join/${link.code}`;

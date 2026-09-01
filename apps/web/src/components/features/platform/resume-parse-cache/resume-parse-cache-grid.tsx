@@ -1,4 +1,9 @@
 "use client";
+import {
+  deletePlatformResumeParseCache,
+  getPlatformResumeParseCache,
+  listPlatformResumeParseCache,
+} from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -35,8 +40,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import type { ResumeParseCacheFilters } from "@app/server/server/routes/platform/routes/resume-parse-cache/schema";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { formatBytes } from "@arc/shared/utils/format";
@@ -89,8 +94,8 @@ type ResumeParseCacheSortColumn = "createdAt" | "filename" | "parsedAt" | "parse
 
 export interface ResumeParseCacheQuery {
   cacheType: ResumeParseCacheFilters["cacheType"];
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   parsedStatus: ResumeParseCacheFilters["parsedStatus"];
   search?: string;
   sortBy: ResumeParseCacheSortColumn;
@@ -135,19 +140,16 @@ export interface ResumeParseCacheDependencies {
 
 const defaultResumeParseCacheDependencies: ResumeParseCacheDependencies = {
   deleteCache: (contentHash) =>
-    rpcFetch(
-      rpc.api.platform["resume-parse-cache"][":hash"].$delete({
-        param: { hash: contentHash },
-      }),
+    apiRequest(
+      deletePlatformResumeParseCache({ path: { hash: contentHash } }),
+
       "删除解析缓存失败",
     ),
-  fetchCache: (query) =>
-    rpcFetch(rpc.api.platform["resume-parse-cache"].$get({ query }), "加载解析缓存失败"),
+  fetchCache: (query) => apiRequest(listPlatformResumeParseCache({ query }), "加载解析缓存失败"),
   fetchDetail: (contentHash) =>
-    rpcFetch(
-      rpc.api.platform["resume-parse-cache"][":hash"].$get({
-        param: { hash: contentHash },
-      }),
+    apiRequest(
+      getPlatformResumeParseCache({ path: { hash: contentHash } }),
+
       "加载缓存 JSON 失败",
     ),
   notifyError: (message) => toast.error(message),
@@ -169,6 +171,7 @@ const FILTERS = [
       { label: "包含结构化 JSON", value: "structured" },
       { label: "仅 OCR 文本", value: "text_only" },
     ],
+
     placeholder: "缓存内容",
     type: "select" as const,
     unfilteredValue: "all",
@@ -181,6 +184,7 @@ const FILTERS = [
       { label: "待解析", value: "pending" },
       { label: "失败", value: "failed" },
     ],
+
     placeholder: "解析状态",
     type: "select" as const,
     unfilteredValue: "all",
@@ -191,6 +195,7 @@ const FILTERS = [
       { label: "全部来源", value: "all" },
       ...Object.entries(TEXT_SOURCE_LABEL).map(([value, label]) => ({ label, value })),
     ],
+
     placeholder: "文本来源",
     type: "select" as const,
     unfilteredValue: "all",
@@ -260,6 +265,7 @@ function DeleteCachePopover({
           </Button>
         }
       />
+
       <PopoverContent align="end" className="w-80" sideOffset={8}>
         <PopoverHeader>
           <PopoverTitle>确定删除这份解析缓存？</PopoverTitle>
@@ -306,8 +312,8 @@ export function ResumeParseCacheGrid({
       const query: ResumeParseCacheQuery = {
         ...listTextQuery(params),
         cacheType: params.filters.cacheType,
-        page: String(params.page),
-        pageSize: String(params.pageSize),
+        page: params.page,
+        pageSize: params.pageSize,
         parsedStatus: params.filters.parsedStatus,
         sortBy:
           params.sortBy && isResumeParseCacheSortColumn(params.sortBy) ? params.sortBy : "parsedAt",
@@ -364,6 +370,7 @@ export function ResumeParseCacheGrid({
             </p>
           </div>
         ),
+
         enableSorting: true,
         key: "filename",
         title: "文件 / Hash",
@@ -375,6 +382,7 @@ export function ResumeParseCacheGrid({
             {record.hasText ? <Badge variant="outline">OCR 文本</Badge> : null}
           </div>
         ),
+
         key: "cacheType",
         title: "缓存内容",
       }),
@@ -397,6 +405,7 @@ export function ResumeParseCacheGrid({
             </p>
           </div>
         ),
+
         key: "source",
         title: "文本来源",
       }),
@@ -414,6 +423,7 @@ export function ResumeParseCacheGrid({
             <p className="truncate text-muted-foreground text-xs">{record.organizationName}</p>
           </div>
         ),
+
         key: "owner",
         title: "用户 / 工作区",
       }),
@@ -442,11 +452,13 @@ export function ResumeParseCacheGrid({
             />
           </div>
         ),
+
         key: "actions",
         size: ACTION_COLUMN_SIZE,
         title: () => <ActionsColumnHeader>操作</ActionsColumnHeader>,
       }),
     ],
+
     [deleteCache, deletingId],
   );
 
@@ -469,6 +481,7 @@ export function ResumeParseCacheGrid({
         filters={FILTERS}
         getRowId={(record) => record.id}
       />
+
       <CacheJsonDialog
         dependencies={dependencies}
         onOpenChange={(open) => !open && setViewTarget(null)}

@@ -24,8 +24,8 @@ export function buildWorkspaceMemberListQuery(
 ) {
   return {
     ...listTextQuery(params),
-    page: String(params.page),
-    pageSize: String(params.pageSize),
+    page: params.page,
+    pageSize: params.pageSize,
     sortBy: isWorkspaceMemberSortColumn(params.sortBy) ? params.sortBy : "createdAt",
     sortOrder: params.sortOrder ?? "desc",
   };

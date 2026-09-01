@@ -714,8 +714,21 @@ export class InterviewWorkflowService {
   async formSubmissions(organizationId: string, roundId: string) {
     const current = await this.round(organizationId, roundId);
     const rows = await this.database
-      .select()
+      .select({
+        answers: candidateFormSubmission.answers,
+        id: candidateFormSubmission.id,
+        interviewRecordId: candidateFormSubmission.interviewRecordId,
+        snapshot: candidateFormTemplateVersion.snapshot,
+        submittedAt: candidateFormSubmission.submittedAt,
+        templateId: candidateFormSubmission.templateId,
+        version: candidateFormTemplateVersion.version,
+        versionId: candidateFormSubmission.versionId,
+      })
       .from(candidateFormSubmission)
+      .innerJoin(
+        candidateFormTemplateVersion,
+        eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
+      )
       .where(
         and(
           eq(candidateFormSubmission.organizationId, organizationId),

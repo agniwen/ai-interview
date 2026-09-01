@@ -1,3 +1,4 @@
+import { listManagedWorkspaceMailIngestMessages } from "@/lib/client/backend-api";
 // 不使用 keepPreviousData（见 remount 契约）
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState } from "react";
@@ -13,8 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
 
 interface MailMessageAttachment {
   fileName: string;
@@ -75,8 +75,8 @@ interface MailIngestDateRange {
 
 export interface MailIngestMessagesQuery extends MailIngestDateRange {
   keyword?: string;
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   status?: Exclude<StatusFilter, "">;
 }
 
@@ -136,11 +136,12 @@ export interface MailIngestLogDependencies {
 
 const defaultMailIngestLogDependencies: MailIngestLogDependencies = {
   fetchMessages: ({ accountId, query, slug }) =>
-    rpcFetch(
-      rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
-        param: { id: accountId, slug },
+    apiRequest(
+      listManagedWorkspaceMailIngestMessages({
+        path: { id: accountId, workspaceSlug: slug },
         query,
       }),
+
       "加载入库记录失败",
     ),
   notifyError: (message) => toast.error(message),
@@ -266,8 +267,8 @@ export function MailIngestLogMessages({
     queryFn: () => {
       const range = serializeDateRange(from, to);
       const messageQuery: MailIngestMessagesQuery = {
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
+        page,
+        pageSize: PAGE_SIZE,
       };
       if (status) {
         messageQuery.status = status;
@@ -456,6 +457,7 @@ export function MailIngestLogMessages({
           placeholder="主题或发件人"
           value={keyword}
         />
+
         {dependencies.renderDatePicker({
           ariaLabel: "起始日期",
           className: "h-8 text-sm",

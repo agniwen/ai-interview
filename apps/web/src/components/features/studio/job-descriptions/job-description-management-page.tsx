@@ -1,3 +1,9 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  deleteWorkspaceJobDescription,
+  getWorkspaceJobDescription,
+  listWorkspaceJobDescriptions,
+} from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,8 +44,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/client/rpc";
-import { createJobDescriptionReferralLink, rpcFetch } from "@/lib/client/api";
+
+import { createJobDescriptionReferralLink, apiRequest } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
@@ -53,10 +59,10 @@ import { z } from "zod";
 interface JobDescriptionListQuery {
   departmentId?: string;
   interviewerId?: string;
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
-  sortBy: string;
+  sortBy: "createdAt" | "name" | "updatedAt";
   sortOrder: "asc" | "desc";
 }
 
@@ -97,9 +103,10 @@ export function JobDescriptionManagementPage({
     }): Promise<PaginatedJobDescriptionResult> => {
       const query: JobDescriptionListQuery = {
         ...listTextQuery(params),
-        page: String(params.page),
-        pageSize: String(params.pageSize),
-        sortBy: params.sortBy ?? "createdAt",
+        page: params.page,
+        pageSize: params.pageSize,
+        sortBy:
+          params.sortBy === "name" || params.sortBy === "updatedAt" ? params.sortBy : "createdAt",
         sortOrder: params.sortOrder ?? "desc",
       };
       if (params.search) {
@@ -111,11 +118,9 @@ export function JobDescriptionManagementPage({
       if (params.filters.interviewerId) {
         query.interviewerId = params.filters.interviewerId;
       }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].$get({
-          param: { slug },
-          query,
-        }),
+      return apiRequest(
+        listWorkspaceJobDescriptions({ path: { workspaceSlug: slug }, query }),
+
         "加载在招岗位列表失败",
       );
     },
@@ -124,9 +129,10 @@ export function JobDescriptionManagementPage({
 
   const loadJobDescriptionDetail = useCallback(
     async (record: JobDescriptionListRecord): Promise<JobDescriptionRecord | null> => {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
-        param: { id: record.id, slug },
-      });
+      const response = await apiResponse(
+        getWorkspaceJobDescription({ path: { id: record.id, workspaceSlug: slug } }),
+      );
+
       if (!response.ok) {
         return null;
       }
@@ -158,9 +164,8 @@ export function JobDescriptionManagementPage({
 
   const crud = useEntityCrud<JobDescriptionListRecord, JobDescriptionRecord>({
     deleteEntity: (record) =>
-      rpc.api.w[":slug"].studio["job-descriptions"][":id"].$delete({
-        param: { id: record.id, slug },
-      }),
+      apiResponse(deleteWorkspaceJobDescription({ path: { id: record.id, workspaceSlug: slug } })),
+
     invalidate: invalidateJobDescriptionData,
     loadDetail: loadJobDescriptionDetail,
     messages: {
@@ -246,6 +251,7 @@ export function JobDescriptionManagementPage({
           ) : (
             <Badge variant="success">已保存</Badge>
           ),
+
         key: "lifecycleStatus",
         title: "状态",
       }),
@@ -256,6 +262,7 @@ export function JobDescriptionManagementPage({
           ) : (
             <span className="text-muted-foreground text-sm">未生成</span>
           ),
+
         key: "code",
         title: "编码",
       }),
@@ -315,6 +322,7 @@ export function JobDescriptionManagementPage({
             {r.prompt || "—"}
           </span>
         ),
+
         key: "description",
         title: "岗位 JD",
       }),
@@ -332,6 +340,7 @@ export function JobDescriptionManagementPage({
             show: () => canUpdateJobDescription,
           },
         ],
+
         menu: [
           {
             label: "推荐",
@@ -354,12 +363,14 @@ export function JobDescriptionManagementPage({
             variant: "destructive",
           },
         ],
+
         size: estimateActionsColumnSize({
           hasMenu: true,
           inlineLabels: ["编辑"],
         }),
       }),
     ],
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [canDeleteJobDescription, canReadResumeLibrary, canUpdateJobDescription, copyingReferralIds],
   );
@@ -390,6 +401,7 @@ export function JobDescriptionManagementPage({
         type: "multi-select" as const,
       },
     ],
+
     [departments, interviewers],
   );
 

@@ -1,4 +1,5 @@
 "use client";
+import { listPlatformOrganizations } from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -14,8 +15,8 @@ import {
   useDataGridState,
 } from "@/components/features/data-grid";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { OrgDetailDialog } from "./org-detail-dialog";
 
 interface OrganizationRecord {
@@ -37,8 +38,8 @@ interface OrganizationsResult {
 type OrganizationSortColumn = "createdAt" | "memberCount" | "name" | "slug";
 
 interface OrganizationsQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
   sortBy: OrganizationSortColumn;
   sortOrder: "asc" | "desc";
@@ -64,8 +65,8 @@ export function OrganizationsGrid() {
       }): Promise<OrganizationsResult> => {
         const query: OrganizationsQuery = {
           ...listTextQuery(params),
-          page: String(params.page),
-          pageSize: String(params.pageSize),
+          page: params.page,
+          pageSize: params.pageSize,
           sortBy:
             params.sortBy && isOrganizationSortColumn(params.sortBy) ? params.sortBy : "createdAt",
           sortOrder: params.sortOrder ?? "desc",
@@ -73,7 +74,7 @@ export function OrganizationsGrid() {
         if (params.search) {
           query.search = params.search;
         }
-        return rpcFetch(rpc.api.platform.organizations.$get({ query }), "加载工作区列表失败");
+        return apiRequest(listPlatformOrganizations({ query }), "加载工作区列表失败");
       },
     [],
   );
@@ -111,6 +112,7 @@ export function OrganizationsGrid() {
             {r.memberCount} 成员
           </Badge>
         ),
+
         key: "memberCount",
         title: "成员数",
       }),
@@ -128,6 +130,7 @@ export function OrganizationsGrid() {
         ],
       }),
     ],
+
     [handleViewDetail],
   );
 

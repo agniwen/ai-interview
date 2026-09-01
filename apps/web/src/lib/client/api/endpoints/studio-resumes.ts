@@ -1,9 +1,35 @@
+import {
+  bulkDeleteWorkspaceResumes,
+  correctWorkspaceResumeStructuredGate,
+  deleteWorkspaceResume,
+  findWorkspaceResumeDuplicates,
+  forceWorkspaceResumeReparse,
+  getWorkspaceResume,
+  getWorkspaceResumeMetrics,
+  getWorkspaceResumeReview,
+  getWorkspaceResumeReviewTimeline,
+  getWorkspaceResumeTimeline,
+  launchWorkspaceResumeInterview,
+  listWorkspaceResumeDuplicateMatches,
+  listWorkspaceResumeMeetings,
+  listWorkspaceResumeReviewRounds,
+  listWorkspaceResumeRounds,
+  listWorkspaceResumeSkillSuggestions,
+  listWorkspaceResumes,
+  reassessWorkspaceResume,
+  retryWorkspaceResumeParse,
+  submitWorkspaceResumeReviewEvaluation,
+  updateWorkspaceResumeEvaluation,
+  updateWorkspaceResumeIdentity,
+  updateWorkspaceResumeInterviewQuestions,
+} from "@/lib/client/backend-api";
+
 /**
- * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
+ * Studio 后台「招聘台」API。映射到 `/workspaces/:workspaceSlug/candidates/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
  * 不在本文件内（与 studio-interviews 同样的约定）。
  *
- * Resume library API — maps to `/api/w/:slug/studio/resumes/*`. File-upload
+ * Resume library API — maps to `/workspaces/:workspaceSlug/candidates/resumes/*`. File-upload
  * POST/PATCH stay on raw fetch+FormData inside their dialog components, same
  * convention as studio-interviews.
  */
@@ -29,8 +55,8 @@ import type {
   StructuredResumeGrade,
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+
+import { apiRequest } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
 
 export interface ResumeListParams {
@@ -65,19 +91,19 @@ interface ResumeListQuery {
   createdTo?: string;
   creatorIds?: string;
   jdIds?: string;
-  knownTotal?: string;
+  knownTotal?: number;
   outcomes?: string;
   recommendationLevels?: string;
-  page?: string;
-  pageSize?: string;
+  page?: number;
+  pageSize?: number;
   pipelineStages?: string;
   search?: string;
   textFilters?: string;
   skills?: string;
-  sortBy?: string;
+  sortBy?: "candidateName" | "createdAt" | "updatedAt";
   sortOrder?: "asc" | "desc";
-  structuredMaxScore?: string;
-  structuredMinScore?: string;
+  structuredMaxScore?: number;
+  structuredMinScore?: number;
 }
 
 function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
@@ -86,13 +112,13 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
     createdTo: params.createdTo,
   };
   if (params.knownTotal !== undefined) {
-    query.knownTotal = String(params.knownTotal);
+    query.knownTotal = params.knownTotal;
   }
   if (params.page !== undefined) {
-    query.page = String(params.page);
+    query.page = params.page;
   }
   if (params.pageSize !== undefined) {
-    query.pageSize = String(params.pageSize);
+    query.pageSize = params.pageSize;
   }
   if (params.textFilters) {
     query.textFilters = params.textFilters;
@@ -100,17 +126,21 @@ function buildResumeScalarQuery(params: ResumeListParams): ResumeListQuery {
   if (params.search) {
     query.search = params.search;
   }
-  if (params.sortBy) {
+  if (
+    params.sortBy === "candidateName" ||
+    params.sortBy === "createdAt" ||
+    params.sortBy === "updatedAt"
+  ) {
     query.sortBy = params.sortBy;
   }
   if (params.sortOrder) {
     query.sortOrder = params.sortOrder;
   }
   if (params.structuredMaxScore !== undefined) {
-    query.structuredMaxScore = String(params.structuredMaxScore);
+    query.structuredMaxScore = params.structuredMaxScore;
   }
   if (params.structuredMinScore !== undefined) {
-    query.structuredMinScore = String(params.structuredMinScore);
+    query.structuredMinScore = params.structuredMinScore;
   }
   return query;
 }
@@ -146,11 +176,9 @@ export function fetchStudioResumes(
   slug: string,
   params: ResumeListParams = {},
 ): Promise<PaginatedResumeLibraryResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes.$get({
-      param: { slug },
-      query: buildResumeListQuery(params),
-    }),
+  return apiRequest(
+    listWorkspaceResumes({ path: { workspaceSlug: slug }, query: buildResumeListQuery(params) }),
+
     "加载简历列表失败",
   );
 }
@@ -159,11 +187,9 @@ export function fetchStudioResumeMetrics(
   slug: string,
   scope: "team" | "personal" = "team",
 ): Promise<ResumeLibraryMetrics> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes.metrics.$get({
-      param: { slug },
-      query: { scope },
-    }),
+  return apiRequest(
+    getWorkspaceResumeMetrics({ path: { workspaceSlug: slug }, query: { scope } }),
+
     "加载招聘指标失败",
   );
 }
@@ -174,7 +200,7 @@ export interface SkillSuggestion {
 }
 
 interface SkillSuggestionQuery {
-  limit?: string;
+  limit?: number;
   prefix?: string;
 }
 
@@ -191,13 +217,11 @@ export function fetchStudioResumeSkillSuggestions(
     query.prefix = params.prefix;
   }
   if (params.limit !== undefined) {
-    query.limit = String(params.limit);
+    query.limit = params.limit;
   }
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes["skill-suggestions"].$get({
-      param: { slug },
-      query,
-    }),
+  return apiRequest(
+    listWorkspaceResumeSkillSuggestions({ path: { workspaceSlug: slug }, query }),
+
     "加载技能建议失败",
   );
 }
@@ -207,16 +231,14 @@ export function fetchStudioResumeSkillSuggestions(
  * Fetch a single resume by id; returns null when not found.
  */
 export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
-    "加载简历详情失败",
-    { allow404: true },
-  );
+  return apiRequest(getWorkspaceResume({ path: { id, workspaceSlug: slug } }), "加载简历详情失败", {
+    allow404: true,
+  });
 }
 
 export function fetchStudioResumeMeetings(slug: string, id: string): Promise<MeetingLibraryItem[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].meetings.$get({ param: { id, slug } }),
+  return apiRequest(
+    listWorkspaceResumeMeetings({ path: { id, workspaceSlug: slug } }),
     "加载候选人关联会议失败",
   ).then((payload) => payload.records);
 }
@@ -229,11 +251,9 @@ export function updateStudioResumeIdentity(
   id: string,
   input: ResumeIdentityUpdateInput,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].identity.$patch({
-      json: input,
-      param: { id, slug },
-    }),
+  return apiRequest(
+    updateWorkspaceResumeIdentity({ body: input, path: { id, workspaceSlug: slug } }),
+
     "保存候选人信息失败",
   );
 }
@@ -242,10 +262,9 @@ export function fetchStudioResumeDuplicateMatches(
   slug: string,
   id: string,
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["duplicate-matches"].$get({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    listWorkspaceResumeDuplicateMatches({ path: { id, workspaceSlug: slug } }),
+
     "加载疑似重复简历失败",
   );
 }
@@ -259,8 +278,8 @@ export function fetchStudioResumeTimeline(
   slug: string,
   id: string,
 ): Promise<CandidateTimelineResponse | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].timeline.$get({ param: { id, slug } }),
+  return apiRequest(
+    getWorkspaceResumeTimeline({ path: { id, workspaceSlug: slug } }),
     "加载候选人时间线失败",
     { allow404: true },
   );
@@ -270,8 +289,8 @@ export function fetchStudioResumeReview(
   slug: string,
   id: string,
 ): Promise<ResumeLibraryDetail | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].review.$get({ param: { id, slug } }),
+  return apiRequest(
+    getWorkspaceResumeReview({ path: { id, workspaceSlug: slug } }),
     "加载简历详情失败",
     { allow404: true },
   );
@@ -290,17 +309,16 @@ export function correctStructuredResumeGate(
   status: "updated";
   summaries: StructuredResumeSummaryFields;
 }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["structured-evaluation"].gates[
-      ":requirementId"
-    ].$patch({
-      json: input,
-      param: {
+  return apiRequest(
+    correctWorkspaceResumeStructuredGate({
+      body: input,
+      path: {
         id: resumeId,
         requirementId,
-        slug,
+        workspaceSlug: slug,
       },
     }),
+
     "更新门槛核实结果失败",
   );
 }
@@ -309,8 +327,8 @@ export function fetchStudioResumeReviewTimeline(
   slug: string,
   id: string,
 ): Promise<CandidateTimelineResponse | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].review.timeline.$get({ param: { id, slug } }),
+  return apiRequest(
+    getWorkspaceResumeReviewTimeline({ path: { id, workspaceSlug: slug } }),
     "加载候选人时间线失败",
     { allow404: true },
   );
@@ -324,10 +342,9 @@ export function fetchStudioResumeRounds(
   slug: string,
   candidateId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].rounds.$get({
-      param: { id: candidateId, slug },
-    }),
+  return apiRequest(
+    listWorkspaceResumeRounds({ path: { id: candidateId, workspaceSlug: slug } }),
+
     "加载面试轮次失败",
   );
 }
@@ -336,10 +353,9 @@ export function fetchStudioResumeReviewRounds(
   slug: string,
   candidateId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].review.rounds.$get({
-      param: { id: candidateId, slug },
-    }),
+  return apiRequest(
+    listWorkspaceResumeReviewRounds({ path: { id: candidateId, workspaceSlug: slug } }),
+
     "加载面试轮次失败",
   );
 }
@@ -358,11 +374,13 @@ export function fetchResumeDedup(
   },
   options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes["dedup-check"].$post(
-      { json: input, param: { slug } },
-      { init: { signal: options?.signal } },
-    ),
+  return apiRequest(
+    findWorkspaceResumeDuplicates({
+      body: input,
+      path: { workspaceSlug: slug },
+      signal: options?.signal,
+    }),
+
     "查重失败",
   );
 }
@@ -387,11 +405,9 @@ export function launchInterviewFromResume(
     } | null;
   },
 ): Promise<StudioInterviewRoundDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
-      json: options,
-      param: { id, slug },
-    }),
+  return apiRequest(
+    launchWorkspaceResumeInterview({ body: options, path: { id, workspaceSlug: slug } }),
+
     "发起 AI 面试失败",
   );
 }
@@ -401,11 +417,9 @@ export function submitResumeReviewEvaluation(
   id: string,
   status: ResumeEvaluationStatus,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].review.evaluation.$post({
-      json: { status },
-      param: { id, slug },
-    }),
+  return apiRequest(
+    submitWorkspaceResumeReviewEvaluation({ body: { status }, path: { id, workspaceSlug: slug } }),
+
     "提交评估失败",
   );
 }
@@ -415,20 +429,17 @@ export function updateResumeEvaluationStatus(
   id: string,
   status: ResumeEvaluationStatus | null,
 ): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].evaluation.$patch({
-      json: { status },
-      param: { id, slug },
-    }),
+  return apiRequest(
+    updateWorkspaceResumeEvaluation({ body: { status }, path: { id, workspaceSlug: slug } }),
+
     "更新评估状态失败",
   );
 }
 
 export function reassessStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].reassess.$post({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    reassessWorkspaceResume({ path: { id, workspaceSlug: slug } }),
+
     "重新评价失败",
   );
 }
@@ -438,11 +449,12 @@ export function updateStudioResumeInterviewQuestions(
   id: string,
   interviewQuestions: InterviewQuestion[],
 ): Promise<{ interviewQuestions: InterviewQuestion[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["interview-questions"].$patch({
-      json: { interviewQuestions },
-      param: { id, slug },
+  return apiRequest(
+    updateWorkspaceResumeInterviewQuestions({
+      body: { interviewQuestions },
+      path: { id, workspaceSlug: slug },
     }),
+
     "保存推荐问题失败",
   );
 }
@@ -452,27 +464,22 @@ export function updateStudioResumeInterviewQuestions(
  * Delete a single resume record.
  */
 export async function deleteStudioResume(slug: string, id: string): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"].$delete({ param: { id, slug } }),
-    "删除简历失败",
-  );
+  await apiRequest(deleteWorkspaceResume({ path: { id, workspaceSlug: slug } }), "删除简历失败");
 }
 
 export function retryStudioResumeParse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["retry-parse"].$post({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    retryWorkspaceResumeParse({ path: { id, workspaceSlug: slug } }),
+
     "重新解析简历失败",
   );
 }
 
 /** Admin force reparse: re-run async parse from storage, bypassing parse cache. */
 export function forceStudioResumeReparse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.resumes[":id"]["force-reparse"].$post({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    forceWorkspaceResumeReparse({ path: { id, workspaceSlug: slug } }),
+
     "强制重新解析失败",
   );
 }
@@ -489,11 +496,12 @@ export async function bulkDeleteStudioResumes(
   if (!firstId) {
     throw new Error("请至少选择一条简历记录");
   }
-  const data = await rpcFetch(
-    rpc.api.w[":slug"].studio.resumes["bulk-delete"].$post({
-      json: { ids: [firstId, ...remainingIds] },
-      param: { slug },
+  const data = await apiRequest(
+    bulkDeleteWorkspaceResumes({
+      body: { ids: [firstId, ...remainingIds] },
+      path: { workspaceSlug: slug },
     }),
+
     "批量删除失败",
   );
   return { deleted: data.deletedCount };

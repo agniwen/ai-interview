@@ -1,4 +1,11 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  createOwnWorkspaceMailIngestAccount,
+  deleteOwnWorkspaceMailIngestAccount,
+  listOwnWorkspaceMailIngestAccounts,
+  updateOwnWorkspaceMailIngestAccount,
+} from "@/lib/client/backend-api";
 
 import { IconDeviceFloppy, IconInbox, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,7 +53,6 @@ import {
   resolveMailIngestPlatformId,
 } from "@/lib/client/mail-ingest-platforms";
 import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
-import { rpc } from "@/lib/client/rpc";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
 
@@ -119,9 +125,10 @@ export function MailIngestAccountCard() {
 
   const accountsQuery = useQuery({
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio["mail-ingest-accounts"].$get({
-        param: { slug },
-      });
+      const response = await apiResponse(
+        listOwnWorkspaceMailIngestAccounts({ path: { workspaceSlug: slug } }),
+      );
+
       if (!response.ok) {
         throw new Error("加载邮箱采集配置失败");
       }
@@ -161,17 +168,19 @@ export function MailIngestAccountCard() {
         username: emailAddress,
       };
       const response = account
-        ? await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$patch({
-            json: form.password.trim() ? { ...payload, password: form.password.trim() } : payload,
-            param: { id: account.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio["mail-ingest-accounts"].$post({
-            json: {
-              ...payload,
-              password: form.password.trim(),
-            },
-            param: { slug },
-          });
+        ? await apiResponse(
+            updateOwnWorkspaceMailIngestAccount({
+              body: form.password.trim() ? { ...payload, password: form.password.trim() } : payload,
+              path: { id: account.id, workspaceSlug: slug },
+            }),
+          )
+        : await apiResponse(
+            createOwnWorkspaceMailIngestAccount({
+              body: { ...payload, password: form.password.trim() },
+              path: { workspaceSlug: slug },
+            }),
+          );
+
       if (!response.ok) {
         const rawBody = await response.json().catch(() => null);
         const parsedBody = errorPayloadSchema.safeParse(rawBody);
@@ -194,9 +203,10 @@ export function MailIngestAccountCard() {
       if (!account) {
         return;
       }
-      const response = await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$delete({
-        param: { id: account.id, slug },
-      });
+      const response = await apiResponse(
+        deleteOwnWorkspaceMailIngestAccount({ path: { id: account.id, workspaceSlug: slug } }),
+      );
+
       if (!response.ok) {
         throw new Error("邮箱采集配置删除失败");
       }

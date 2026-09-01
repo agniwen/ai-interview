@@ -66,6 +66,41 @@ const record: ResumeLibraryListRecord = {
 };
 
 describe("ResumeLibraryCard", () => {
+  it("does not crash when a migrated API response contains a malformed profile snapshot", () => {
+    const noop = vi.fn();
+    expect(() =>
+      renderWithQueryClient(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canForceReparse={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onForceReparse={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{
+            ...record,
+            // SAFETY: This deliberately malformed legacy snapshot verifies the card's runtime fallback.
+            resumeProfileSnapshot: {} as ResumeLibraryListRecord["resumeProfileSnapshot"],
+          }}
+          retrying={false}
+          selected={false}
+        />,
+      ),
+    ).not.toThrow();
+  });
+
   it("renders qualitative recommendations as colored text with the sparkle icon", () => {
     const content = renderWithQueryClient(
       <ResumeLibraryEvaluationSummary

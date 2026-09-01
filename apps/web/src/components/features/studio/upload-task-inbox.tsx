@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { useHasPermission } from "@/hooks/use-has-permission";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { getUploadTaskInboxPage } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -319,7 +320,9 @@ export function UploadTaskInbox() {
       </Popover>
       {previewRecord && previewTarget ? (
         <ResumeDocumentPreviewDialog
-          downloadUrl={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/resume`}
+          downloadUrl={backendApiUrl(
+            `/workspaces/${slug}/candidates/${previewTarget.resource === "resume-pool" ? "intake/resume-pool" : "resumes"}/${previewTarget.id}/resume`,
+          )}
           filename={previewRecord.originalFileName}
           kind={previewTarget.kind}
           onOpenChange={(nextOpen) => {
@@ -328,7 +331,9 @@ export function UploadTaskInbox() {
             }
           }}
           open
-          url={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/${previewTarget.path}`}
+          url={backendApiUrl(
+            `/workspaces/${slug}/candidates/${previewTarget.resource === "resume-pool" ? "intake/resume-pool" : "resumes"}/${previewTarget.id}/${previewTarget.path}`,
+          )}
         />
       ) : null}
     </>

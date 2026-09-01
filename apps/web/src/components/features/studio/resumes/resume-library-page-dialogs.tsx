@@ -2,6 +2,7 @@
 
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { ResumeDocumentPreviewModal } from "@/components/features/resume/resume-document-preview-modal";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,7 +100,9 @@ export function ResumeLibraryPreviewDialog({
     <ResumeDocumentPreviewModal
       fileName={record?.resumeFileName}
       onClose={onClose}
-      url={record ? `/api/w/${slug}/studio/resumes/${record.id}/resume` : null}
+      url={
+        record ? backendApiUrl(`/workspaces/${slug}/candidates/resumes/${record.id}/resume`) : null
+      }
     />
   );
 }

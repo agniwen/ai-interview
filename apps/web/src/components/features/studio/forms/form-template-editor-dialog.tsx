@@ -1,4 +1,9 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  createWorkspaceCandidateForm,
+  updateWorkspaceCandidateForm,
+} from "@/lib/client/backend-api";
 
 import {
   IconCircleDot,
@@ -21,7 +26,7 @@ import type {
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { rpc } from "@/lib/client/rpc";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
 
@@ -116,6 +121,7 @@ function makeDefaultQuestion(
             { label: "选项 1", value: "option_1" },
             { label: "选项 2", value: "option_2" },
           ],
+
     required: true,
     sortOrder,
     type,
@@ -203,11 +209,13 @@ export function CandidateFormTemplateEditorDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.w[":slug"].studio.forms[":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio.forms.$post({ json: body, param: { slug } });
+        ? await apiResponse(
+            updateWorkspaceCandidateForm({
+              body,
+              path: { id: record.id, workspaceSlug: slug },
+            }),
+          )
+        : await apiResponse(createWorkspaceCandidateForm({ body, path: { workspaceSlug: slug } }));
       const rawPayload = await response.json().catch(() => null);
       const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
       const payload = parsedPayload.success ? parsedPayload.data : null;
@@ -302,6 +310,7 @@ export function CandidateFormTemplateEditorDialog({
                           placeholder="例如：候选人背景调查表"
                           value={field.state.value}
                         />
+
                         <FieldError errors={errors} />
                       </FieldContent>
                     </Field>
@@ -328,6 +337,7 @@ export function CandidateFormTemplateEditorDialog({
                             rows={2}
                             value={field.state.value ?? ""}
                           />
+
                           <TextareaCounter
                             maxLength={DESCRIPTION_MAX_LENGTH}
                             value={field.state.value}
@@ -398,6 +408,7 @@ export function CandidateFormTemplateEditorDialog({
                               selectedPreviewLimit={2}
                               value={field.state.value ?? []}
                             />
+
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>
@@ -691,8 +702,7 @@ function QuestionCanvasCard({
   onSelect,
 }: {
   question: CandidateFormQuestionInput;
-  index: number;
-  // oxlint-disable-next-line no-explicit-any
+  index: number; // oxlint-disable-next-line no-explicit-any
   handleProps: any;
   isActive: boolean;
   isDragging: boolean;
@@ -743,6 +753,7 @@ function QuestionCanvasCard({
           onClick={handleDragHandleClick}
           onKeyDown={handleDragHandleKeyDown}
         />
+
         <div className="min-w-0 flex-1">
           <Field>
             <FieldLabel htmlFor={`preview-${question.id}`}>

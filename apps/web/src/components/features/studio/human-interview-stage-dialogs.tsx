@@ -1,4 +1,5 @@
 "use client";
+import { listWorkspaceMemberOptions } from "@/lib/client/backend-api";
 
 import { IconRefresh, IconUserPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,8 +17,8 @@ import {
   isApiError,
 } from "@/lib/client/api";
 import { invalidateHumanInterviewCandidateQueries } from "@/lib/client/api/query-keys";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "@/lib/client/api/rpc-fetch";
+
+import { apiRequest } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
@@ -72,8 +73,8 @@ function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProvi
 function useWorkspaceMembers(slug: string) {
   return useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
+      apiRequest<{ feishuHumanInterviewEnabled: boolean; records: WorkspaceMember[] }>(
+        listWorkspaceMemberOptions({ path: { workspaceSlug: slug } }),
         "加载成员列表失败",
       ),
     queryKey: ["workspace-members", slug],
@@ -272,6 +273,7 @@ export function ScheduleRoundDialogView({
               selectedPreviewLimit={2}
               value={interviewerIds}
             />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
                 找不到面试官时，请先邀请对方加入工作区，加入后刷新列表。
@@ -287,6 +289,7 @@ export function ScheduleRoundDialogView({
                   }
                   workspaceSlug={slug}
                 />
+
                 <Button
                   aria-label="刷新面试官列表"
                   disabled={membersQuery.isFetching}

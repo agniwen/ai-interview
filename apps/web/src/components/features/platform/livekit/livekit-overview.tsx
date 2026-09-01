@@ -1,4 +1,5 @@
 "use client";
+import { getPlatformLiveKitOverview } from "@/lib/client/backend-api";
 
 import {
   IconActivityHeartbeat,
@@ -28,8 +29,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { LIVEKIT_DEPLOYMENT_COMPONENTS } from "./deployment-components";
 import type { DeploymentComponent } from "./deployment-components";
 import { DetailFields } from "./detail-fields";
@@ -145,7 +146,7 @@ function DeploymentCards({
 export function LiveKitOverview() {
   const [selected, setSelected] = useState<DeploymentComponent | null>(null);
   const query = useQuery({
-    queryFn: () => rpcFetch(rpc.api.platform.livekit.overview.$get(), "加载 LiveKit 服务概览失败"),
+    queryFn: () => apiRequest(getPlatformLiveKitOverview({}), "加载 LiveKit 服务概览失败"),
     queryKey: ["platform-livekit-overview"],
     refetchInterval: 15_000,
   });

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
+import { toWebAbsoluteUrl } from "@/lib/client/auth-redirect-url";
 import { withCleanup } from "@/lib/client/async-control";
 import * as m from "@/paraglide/messages";
 import { cn } from "@arc/shared/utils";
@@ -31,8 +33,11 @@ export function FeishuSignInButton({
     await withCleanup(
       async () => {
         const result = await authClient.signIn.social({
-          callbackURL,
-          errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
+          callbackURL: toWebAbsoluteUrl(callbackURL, env.NEXT_PUBLIC_BASE_URL),
+          errorCallbackURL: toWebAbsoluteUrl(
+            `/login?error=${encodeURIComponent(providerId)}`,
+            env.NEXT_PUBLIC_BASE_URL,
+          ),
           provider: providerId,
         });
         shouldResetSubmitting = Boolean(result.error);

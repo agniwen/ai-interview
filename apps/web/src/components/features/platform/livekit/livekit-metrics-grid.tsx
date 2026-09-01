@@ -1,4 +1,5 @@
 "use client";
+import { listPlatformLiveKitMetrics } from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -26,8 +27,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { DetailFields, JsonBlock } from "./detail-fields";
 import type { LiveKitMetricRecord } from "./types";
 import { z } from "zod";
@@ -35,8 +36,8 @@ import { z } from "zod";
 const EMPTY_FILTERS = {};
 
 interface MetricsQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
 }
 
@@ -53,16 +54,17 @@ export function LiveKitMetricsGrid() {
     }) => {
       const query: MetricsQuery = {
         ...listTextQuery(params),
-        page: String(params.page),
-        pageSize: String(params.pageSize),
+        page: params.page,
+        pageSize: params.pageSize,
       };
       if (params.search) {
         query.search = params.search;
       }
-      return rpcFetch(
-        rpc.api.platform.livekit.metrics.$get({
+      return apiRequest(
+        listPlatformLiveKitMetrics({
           query,
         }),
+
         "加载 LiveKit Prometheus 指标失败",
       );
     },
@@ -105,6 +107,7 @@ export function LiveKitMetricsGrid() {
             {Object.keys(metric.labels).length}
           </Badge>
         ),
+
         key: "labels",
         title: "标签",
       }),
@@ -112,6 +115,7 @@ export function LiveKitMetricsGrid() {
         inline: [{ label: "查看", onClick: openDetail }],
       }),
     ],
+
     [openDetail],
   );
 
@@ -166,6 +170,7 @@ export function LiveKitMetricsGrid() {
                 { label: "当前值", value: selected?.value },
               ]}
             />
+
             <div className="flex flex-col gap-2">
               <p className="font-medium text-sm">Labels</p>
               <JsonBlock value={selected?.labels ?? {}} />

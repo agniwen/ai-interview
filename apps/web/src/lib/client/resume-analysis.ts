@@ -1,3 +1,5 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import { backendApiUrl, matchWorkspaceInterviewJobDescription } from "@/lib/client/backend-api";
 import type {
   InterviewQuestion,
   ResumeAnalysisResult,
@@ -11,7 +13,6 @@ import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import { z } from "zod";
 import { analysisStreamEventSchema, readAiRunEventStream } from "./ai-run-event-stream";
-import { rpc } from "./rpc";
 
 export interface ParsedResumeResult {
   fileName: string;
@@ -78,9 +79,12 @@ export async function parseResumeFile(
   }
 
   const response = await fetch(
-    `/api/w/${encodeURIComponent(workspaceSlug)}/interview/parse-resume`,
+    backendApiUrl(
+      `/workspaces/${encodeURIComponent(workspaceSlug)}/copilot/interview-tools/parse-resume`,
+    ),
     {
       body: formData,
+      credentials: "include",
       method: "POST",
       signal: options.signal,
     },
@@ -128,9 +132,12 @@ export async function matchJobDescriptionForResume(
   resumeProfile: ResumeProfile,
   options: { signal?: AbortSignal } = {},
 ): Promise<JobDescriptionMatchResult | null> {
-  const response = await rpc.api.w[":slug"].interview["match-job-description"].$post(
-    { json: { resumeProfile }, param: { slug: workspaceSlug } },
-    { init: { signal: options.signal } },
+  const response = await apiResponse(
+    matchWorkspaceInterviewJobDescription({
+      body: { resumeProfile },
+      path: { workspaceSlug },
+      signal: options.signal,
+    }),
   );
 
   if (!response.ok) {
@@ -151,8 +158,13 @@ export async function matchJobDescriptionForChatAttachment(
   options: { signal?: AbortSignal } = {},
 ): Promise<JobDescriptionMatchResult | null> {
   const response = await fetch(
-    `/api/w/${workspaceSlug}/chat/attachments/${attachmentId}/match-job-description`,
+    backendApiUrl(
+      `/workspaces/${encodeURIComponent(workspaceSlug)}/copilot/attachments/${encodeURIComponent(
+        attachmentId,
+      )}/match-job-description`,
+    ),
     {
+      credentials: "include",
       method: "POST",
       signal: options.signal,
     },
@@ -178,12 +190,17 @@ export async function generateResumeReview({
   signal,
   workspaceSlug,
 }: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
-  const response = await rpc.api.w[":slug"].interview["generate-review"].$post(
+  const response = await fetch(
+    backendApiUrl(
+      `/workspaces/${encodeURIComponent(workspaceSlug)}/copilot/interview-tools/generate-review`,
+    ),
     {
-      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
-      param: { slug: workspaceSlug },
+      body: JSON.stringify({ jobDescriptionId: jobDescriptionId || null, resumeProfile }),
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      signal,
     },
-    { init: { signal } },
   );
 
   if (!response.ok) {
@@ -240,12 +257,17 @@ export async function generateResumeReviewMarkdownFirst({
   signal,
   workspaceSlug,
 }: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
-  const response = await rpc.api.w[":slug"].interview["generate-review-markdown-stream"].$post(
+  const response = await fetch(
+    backendApiUrl(
+      `/workspaces/${encodeURIComponent(workspaceSlug)}/copilot/interview-tools/generate-review-markdown-stream`,
+    ),
     {
-      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
-      param: { slug: workspaceSlug },
+      body: JSON.stringify({ jobDescriptionId: jobDescriptionId || null, resumeProfile }),
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      signal,
     },
-    { init: { signal } },
   );
 
   if (!response.ok) {

@@ -13,6 +13,7 @@ export default defineConfig({
     ".claude/**",
     ".codex/**",
     "apps/backend/dist/**",
+    "apps/web/src/lib/client/generated/**",
     "**/src/components/agents-ui/**",
     "**/src/hooks/agents-ui/**",
     "**/src/components/ui/**",
@@ -30,6 +31,14 @@ export default defineConfig({
     { name: "react-doctor", specifier: "oxlint-plugin-react-doctor" },
   ],
   overrides: [
+    {
+      // OpenAPI normalization must inspect external JSON shapes before handing
+      // a temporary, generator-compatible document to Hey API.
+      files: ["apps/backend/scripts/generate-web-api-client.mjs"],
+      rules: {
+        "anti-slop/no-runtime-typeof": "off",
+      },
+    },
     {
       // Nest uses constructor parameter properties as its canonical dependency
       // injection syntax and empty decorated module classes as metadata hosts.

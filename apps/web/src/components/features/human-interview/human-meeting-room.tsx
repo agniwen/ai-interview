@@ -23,6 +23,7 @@ import type {
 } from "@arc/shared/studio-pipeline-stages";
 import { cn } from "@arc/shared/utils";
 import { Button } from "@/components/ui/button";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { HumanMeetingStage, humanMeetingControlButtonClass } from "./human-meeting-stage";
 import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 import { InterviewerCandidateMaterials } from "./interviewer-candidate-materials";
@@ -54,7 +55,10 @@ const humanInterviewMeetingTokenSchema = z.object({
 });
 
 async function fetchMeetingToken(path: string): Promise<HumanInterviewMeetingTokenResponse> {
-  const response = await fetch(path, { method: "POST" });
+  const response = await fetch(backendApiUrl(path), {
+    credentials: "include",
+    method: "POST",
+  });
   const body = await response.json().catch(() => null);
   const errorPayload = tokenErrorPayloadSchema.safeParse(body);
   if (!response.ok) {
@@ -75,20 +79,22 @@ async function fetchMeetingToken(path: string): Promise<HumanInterviewMeetingTok
 
 function fetchCandidateToken(inviteToken: string): Promise<HumanInterviewMeetingTokenResponse> {
   return fetchMeetingToken(
-    `/api/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/livekit-token`,
+    `/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/livekit-token`,
   );
 }
 
 function fetchInterviewerToken(inviteToken: string): Promise<HumanInterviewMeetingTokenResponse> {
   return fetchMeetingToken(
-    `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/livekit-token`,
+    `/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/livekit-token`,
   );
 }
 
 async function endInterviewerMeeting(inviteToken: string): Promise<void> {
   const response = await fetch(
-    `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/end`,
-    { method: "POST" },
+    backendApiUrl(
+      `/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}/end`,
+    ),
+    { credentials: "include", method: "POST" },
   );
   const body = await response.json().catch(() => null);
   const errorPayload = tokenErrorPayloadSchema.safeParse(body);
@@ -108,9 +114,10 @@ async function respondCandidateInvitation(
   action: "accept" | "decline",
 ): Promise<"accepted" | "declined"> {
   const response = await fetch(
-    `/api/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/respond`,
+    backendApiUrl(`/public/human-interview-meetings/${encodeURIComponent(inviteToken)}/respond`),
     {
       body: JSON.stringify({ action }),
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       method: "POST",
     },

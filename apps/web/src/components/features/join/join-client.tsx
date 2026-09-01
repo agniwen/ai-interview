@@ -1,12 +1,12 @@
 "use client";
+import { acceptWorkspaceInviteLink } from "@/lib/client/backend-api";
 
 import { useNavigate } from "@tanstack/react-router";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
 
 interface JoinClientProps {
   code: string;
@@ -22,8 +22,8 @@ export function JoinClient({ code, initialRole, workspace }: JoinClientProps) {
   async function onAccept() {
     setAccepting(true);
     try {
-      const result = await rpcFetch(
-        rpc.api.join[":code"].accept.$post({ param: { code } }),
+      const result = await apiRequest(
+        acceptWorkspaceInviteLink({ path: { code } }),
         "加入工作区失败",
       );
       await navigate({ href: `/w/${result.organizationSlug}/agent` });

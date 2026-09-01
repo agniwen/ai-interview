@@ -7,6 +7,7 @@ import {
 import type { PublicHumanInterviewInterviewerPreview } from "@arc/shared/studio-pipeline-stages";
 import { z } from "zod";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
@@ -27,22 +28,14 @@ const interviewerPreviewSchema = z.object({
   validUntil: z.string().nullable(),
 });
 
-function getBaseUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_BASE_URL is not configured.");
-  }
-  return baseUrl;
-}
-
 const loadHumanInterviewInterviewerState = createServerFn({ method: "GET" })
   .validator(inviteTokenInputSchema)
   .handler(async ({ data }): Promise<HumanInterviewInterviewerState> => {
     try {
       const response = await fetch(
-        `${getBaseUrl()}/api/public/human-interview-meetings/interviewer/${encodeURIComponent(
-          data.inviteToken,
-        )}`,
+        backendApiUrl(
+          `/public/human-interview-meetings/interviewer/${encodeURIComponent(data.inviteToken)}`,
+        ),
         { cache: "no-store" },
       );
       if (!response.ok) {

@@ -1,5 +1,6 @@
 AGENT_DIR := apps/livekit-agent
 WEB_DIR   := apps/web
+BACKEND_PACKAGE := @app/backend
 WORKER_PACKAGE := @app/worker
 DESKTOP_PACKAGE := @app/desktop
 VENV      := $(AGENT_DIR)/.venv
@@ -9,7 +10,8 @@ AGENT_SCRIPT := src/agent.py
 .DEFAULT_GOAL := help
 
 .PHONY: help install web-install agent-install agent-download \
-        dev web-dev web-dev-fresh worker-dev worker-start worker-typecheck \
+        dev web-dev web-dev-fresh backend-dev backend-build \
+        worker-dev worker-start worker-typecheck \
         desktop-dev desktop-start desktop-typecheck desktop-build \
         desktop-build-mac desktop-build-win desktop-build-linux desktop-build-unpack \
         agent-dev agent-console agent-start agent-shell \
@@ -42,6 +44,12 @@ web-dev: ## 使用已有依赖缓存启动 TanStack Start dev server
 
 web-dev-fresh: ## 清理依赖缓存后启动 TanStack Start dev server
 	bun run --filter @app/web dev:fresh
+
+backend-dev: ## 启动 Nest backend dev server（热更新）
+	bun run --filter $(BACKEND_PACKAGE) dev
+
+backend-build: ## 构建 Nest backend
+	bun run --filter $(BACKEND_PACKAGE) build
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
 	bun run --filter $(WORKER_PACKAGE) dev

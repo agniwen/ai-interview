@@ -1,3 +1,18 @@
+import {
+  bindWorkspaceResumePoolItem,
+  deleteWorkspaceResumePoolItem,
+  getWorkspaceResumePoolItem,
+  getWorkspaceResumePoolJobMatch,
+  getWorkspaceResumePoolReview,
+  importWorkspaceResumePoolItem,
+  listRecruitingWorkspaceJobDescriptions,
+  listWorkspaceResumePool,
+  listWorkspaceResumePoolDuplicateMatches,
+  listWorkspaceResumePoolUploaders,
+  publishWorkspaceResumePoolItem,
+  recommendWorkspaceResumePoolJobs,
+  retryWorkspaceResumePoolParse,
+} from "@/lib/client/backend-api";
 import type {
   JobDescriptionListRecord,
   JobDescriptionRecommendationResult,
@@ -12,10 +27,10 @@ import type {
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
-import { rpc } from "@/lib/client/rpc";
+
 import type { DedupMatchRecord } from "./studio-interviews";
 import { apiFetch } from "../client";
-import { rpcFetch } from "../rpc-fetch";
+import { apiRequest } from "../rpc-fetch";
 
 export function fetchResumePoolItems(
   slug: string,
@@ -35,23 +50,24 @@ export function fetchResumePoolItems(
     uploaderIds?: string;
   } = {},
 ): Promise<PaginatedResumePoolResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"].$get({
-      param: { slug },
+  return apiRequest(
+    listWorkspaceResumePool({
+      path: { workspaceSlug: slug },
       query: {
         ...options,
-        limit: options.limit?.toString(),
-        offset: options.offset?.toString(),
+        limit: options.limit,
+        offset: options.offset,
         scope,
       },
     }),
+
     "加载人才库失败",
   );
 }
 
 export function fetchResumePoolUploaders(slug: string): Promise<ResumePoolUploaderOption[]> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"].uploaders.$get({ param: { slug } }),
+  return apiRequest(
+    listWorkspaceResumePoolUploaders({ path: { workspaceSlug: slug } }),
     "加载上传人列表失败",
   ).then((result) => result.records);
 }
@@ -60,17 +76,16 @@ export function createResumePoolItem(
   slug: string,
   formData: FormData,
 ): Promise<ResumePoolListRecord> {
-  return apiFetch<ResumePoolListRecord>(`/api/w/${slug}/studio/resume-pool`, {
+  return apiFetch<ResumePoolListRecord>(`/workspaces/${slug}/candidates/intake/resume-pool`, {
     body: formData,
     method: "POST",
   });
 }
 
 export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoolDetail | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].$get({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    getWorkspaceResumePoolItem({ path: { id, workspaceSlug: slug } }),
+
     "加载简历详情失败",
     { allow404: true },
   );
@@ -86,10 +101,9 @@ export function fetchResumePoolItemReview(
   slug: string,
   id: string,
 ): Promise<ResumePoolDetail | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].review.$get({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    getWorkspaceResumePoolReview({ path: { id, workspaceSlug: slug } }),
+
     "加载简历详情失败",
     { allow404: true },
   );
@@ -100,11 +114,9 @@ export function bindResumePoolItem(
   id: string,
   jobDescriptionId: string,
 ): Promise<ResumePoolDetail> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].bind.$post({
-      json: { jobDescriptionId },
-      param: { id, slug },
-    }),
+  return apiRequest(
+    bindWorkspaceResumePoolItem({ body: { jobDescriptionId }, path: { id, workspaceSlug: slug } }),
+
     "绑定岗位失败",
   );
 }
@@ -112,8 +124,8 @@ export function bindResumePoolItem(
 export async function fetchPublishedResumePoolJobDescriptions(
   slug: string,
 ): Promise<JobDescriptionListRecord[]> {
-  const payload = await rpcFetch(
-    rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({ param: { slug } }),
+  const payload = await apiRequest(
+    listRecruitingWorkspaceJobDescriptions({ path: { workspaceSlug: slug } }),
     "加载在招岗位列表失败",
   );
   return payload.records;
@@ -123,10 +135,9 @@ export function fetchResumePoolJobMatch(
   slug: string,
   id: string,
 ): Promise<ResumePoolJobMatchResult | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"]["job-match"].$get({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    getWorkspaceResumePoolJobMatch({ path: { id, workspaceSlug: slug } }),
+
     "加载岗位匹配结果失败",
   );
 }
@@ -136,11 +147,9 @@ export function fetchResumePoolJobRecommendations(
   id: string,
   topN: number,
 ): Promise<JobDescriptionRecommendationResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].recommendations.$post({
-      json: { topN },
-      param: { id, slug },
-    }),
+  return apiRequest(
+    recommendWorkspaceResumePoolJobs({ body: { topN }, path: { id, workspaceSlug: slug } }),
+
     "加载岗位推荐失败",
   );
 }
@@ -149,28 +158,25 @@ export function fetchResumePoolDuplicateMatches(
   slug: string,
   id: string,
 ): Promise<{ matches: DedupMatchRecord[] }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"]["duplicate-matches"].$get({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    listWorkspaceResumePoolDuplicateMatches({ path: { id, workspaceSlug: slug } }),
+
     "加载疑似重复简历失败",
   );
 }
 
 export function publishResumePoolItem(slug: string, id: string): Promise<ResumePoolListRecord> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].publish.$post({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    publishWorkspaceResumePoolItem({ path: { id, workspaceSlug: slug } }),
+
     "推送到公共简历池失败",
   );
 }
 
 export function retryResumePoolItemParse(slug: string, id: string): Promise<{ status: "queued" }> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"]["retry-parse"].$post({
-      param: { id, slug },
-    }),
+  return apiRequest(
+    retryWorkspaceResumePoolParse({ path: { id, workspaceSlug: slug } }),
+
     "重新解析简历失败",
   );
 }
@@ -180,20 +186,17 @@ export function importResumePoolItem(
   id: string,
   input: ResumePoolImportInput,
 ): Promise<ResumePoolImportResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].import.$post({
-      json: input,
-      param: { id, slug },
-    }),
+  return apiRequest(
+    importWorkspaceResumePoolItem({ body: input, path: { id, workspaceSlug: slug } }),
+
     "入库失败",
   );
 }
 
 export async function deleteResumePoolItem(slug: string, id: string): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].studio["resume-pool"][":id"].$delete({
-      param: { id, slug },
-    }),
+  await apiRequest(
+    deleteWorkspaceResumePoolItem({ path: { id, workspaceSlug: slug } }),
+
     "删除简历失败",
   );
 }

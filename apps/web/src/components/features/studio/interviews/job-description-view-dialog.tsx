@@ -1,10 +1,12 @@
 "use client";
+import { listRecruitingWorkspaceJobDescriptions } from "@/lib/client/backend-api";
 
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
-import { rpc } from "@/lib/client/rpc";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,10 +23,9 @@ export function JobDescriptionViewDialog({
   const { data: jobDescriptions = [], isLoading } = useQuery({
     enabled: jobDescriptionId !== null,
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
-          param: { slug },
-        }),
+      const payload = await apiRequest<{ records: JobDescriptionListRecord[] }>(
+        listRecruitingWorkspaceJobDescriptions({ path: { workspaceSlug: slug } }),
+
         "加载在招岗位列表失败",
       );
       return payload.records;

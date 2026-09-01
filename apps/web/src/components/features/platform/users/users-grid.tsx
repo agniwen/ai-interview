@@ -1,4 +1,9 @@
 "use client";
+import {
+  listPlatformUserWorkspaces,
+  listPlatformUsers,
+  updatePlatformUserRemark,
+} from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -49,8 +54,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { formatDate, formatDateOnly } from "@arc/shared/utils/time";
 import { formatUserNameWithRemark } from "./user-display";
 
@@ -80,8 +85,8 @@ interface UsersResult {
 }
 
 interface PlatformUsersQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
   sortBy: UserSortColumn;
   sortOrder: "asc" | "desc";
@@ -151,10 +156,9 @@ async function loadUserWorkspaces(
   userId: string,
 ): Promise<{ data: UserWorkspacesResult; error: null } | { data: null; error: string }> {
   try {
-    const data = await rpcFetch(
-      rpc.api.platform.users[":userId"].workspaces.$get({
-        param: { userId },
-      }),
+    const data = await apiRequest(
+      listPlatformUserWorkspaces({ path: { userId } }),
+
       "加载用户工作区失败",
     );
     return { data, error: null };
@@ -290,18 +294,19 @@ export function UsersGrid() {
   }): Promise<UsersResult> {
     const query: PlatformUsersQuery = {
       ...listTextQuery(params),
-      page: String(params.page),
-      pageSize: String(params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
       sortBy: params.sortBy && isUserSortColumn(params.sortBy) ? params.sortBy : "lastActiveAt",
       sortOrder: params.sortOrder ?? "desc",
     };
     if (params.search) {
       query.search = params.search;
     }
-    return rpcFetch(
-      rpc.api.platform.users.$get({
+    return apiRequest(
+      listPlatformUsers({
         query,
       }),
+
       "加载用户列表失败",
     );
   }
@@ -339,13 +344,12 @@ export function UsersGrid() {
       cleanup: () => setRemarkPending(false),
       onError: (error) => toast.error(error instanceof Error ? error.message : "保存备注失败"),
       operation: async () => {
-        await rpcFetch(
-          rpc.api.platform.users[":userId"].remark.$patch({
-            json: {
-              remark: remarkValue.trim() || null,
-            },
-            param: { userId: remarkTarget.id },
+        await apiRequest(
+          updatePlatformUserRemark({
+            body: { remark: remarkValue.trim() || null },
+            path: { userId: remarkTarget.id },
           }),
+
           "保存备注失败",
         );
         toast.success("备注已保存");
@@ -421,6 +425,7 @@ export function UsersGrid() {
           name={formatUserNameWithRemark(r.name, r.remark, r.email)}
         />
       ),
+
       key: "user",
       title: "用户",
     }),
@@ -432,6 +437,7 @@ export function UsersGrid() {
           {r.role}
         </Badge>
       ),
+
       key: "role",
       title: "平台角色",
     }),
@@ -448,6 +454,7 @@ export function UsersGrid() {
             未验证
           </Badge>
         ),
+
       key: "emailVerified",
       title: "邮箱验证",
     }),
@@ -463,12 +470,14 @@ export function UsersGrid() {
                   </Badge>
                 }
               />
+
               <TooltipContent>{r.feishuTenantName}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : (
           <span className="text-muted-foreground text-xs">未绑定</span>
         ),
+
       key: "feishuTenantName",
       title: "飞书租户",
     }),
@@ -485,6 +494,7 @@ export function UsersGrid() {
                   </Badge>
                 }
               />
+
               <TooltipContent>
                 <div className="space-y-1">
                   {r.banReason && <p>原因：{r.banReason}</p>}
@@ -497,6 +507,7 @@ export function UsersGrid() {
         ) : (
           <Badge variant="success">正常</Badge>
         ),
+
       key: "banned",
       title: "状态",
     }),

@@ -220,12 +220,32 @@ export const interviewReportSchema = z.looseObject({
   updatedAt: dateString,
 });
 export const interviewReportsSchema = z.array(interviewReportSchema);
-const formSubmissionSchema = z.looseObject({
+const candidateFormSnapshotQuestionSchema = z.looseObject({
+  displayMode: z.enum(["radio", "checkbox", "select", "input", "textarea"]),
+  helperText: nullableString,
+  id: z.string(),
+  label: z.string(),
+  options: z.array(z.looseObject({ label: z.string(), value: z.string() })),
+  required: z.boolean(),
+  sortOrder: z.number(),
+  type: z.enum(["single", "multi", "text"]),
+});
+const candidateFormSnapshotSchema = z.looseObject({
+  description: nullableString,
+  jobDescriptionIds: z.array(z.string()),
+  questions: z.array(candidateFormSnapshotQuestionSchema),
+  scope: z.enum(["global", "job_description"]),
+  templateId: z.string(),
+  title: z.string(),
+});
+export const formSubmissionSchema = z.looseObject({
   answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
   id: z.string(),
   interviewRecordId: z.string(),
+  snapshot: candidateFormSnapshotSchema,
   submittedAt: dateString,
   templateId: z.string(),
+  version: z.number(),
   versionId: z.string(),
 });
 export const formSubmissionsResponseSchema = z.object({

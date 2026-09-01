@@ -1,4 +1,6 @@
 "use client";
+import { getWorkspaceInterviewAgentInstructions } from "@/lib/client/backend-api";
+import type { GetWorkspaceInterviewAgentInstructionsResponse } from "@/lib/client/backend-api";
 
 import { IconEye, IconFileText, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -6,8 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 
@@ -39,10 +41,11 @@ export function AgentInstructionsPanel({
   const { data: variants = [], isLoading } = useQuery({
     enabled: enabled && !!recordId,
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio.interviews[":id"]["agent-instructions"].$get({
-          param: { id: recordId ?? "", slug },
+      const payload = await apiRequest<GetWorkspaceInterviewAgentInstructionsResponse>(
+        getWorkspaceInterviewAgentInstructions({
+          path: { id: recordId ?? "", workspaceSlug: slug },
         }),
+
         "加载提示词失败",
       );
       return payload.variants;

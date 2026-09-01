@@ -1,10 +1,11 @@
 "use client";
+import { listRecruitingWorkspaceJobDescriptions } from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
-import { rpc } from "@/lib/client/rpc";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 
@@ -71,10 +72,8 @@ export function JobDescriptionSelectField({
   const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useQuery({
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
-          param: { slug },
-        }),
+      const payload = await apiRequest<{ records: JobDescriptionListRecord[] }>(
+        listRecruitingWorkspaceJobDescriptions({ path: { workspaceSlug: slug } }),
         "加载在招岗位列表失败",
       );
       return payload.records;

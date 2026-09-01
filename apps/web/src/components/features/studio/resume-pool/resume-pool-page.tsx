@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useDataGridState } from "@/components/features/data-grid";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { Toolbar } from "@/components/features/data-grid/parts/toolbar";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
@@ -612,7 +613,9 @@ export function ResumePoolPage() {
         onClose={() => setPreviewRecord(null)}
         url={
           previewRecord?.resumeStorageKey
-            ? `/api/w/${slug}/studio/resume-pool/${previewRecord.id}/resume`
+            ? backendApiUrl(
+                `/workspaces/${slug}/candidates/intake/resume-pool/${previewRecord.id}/resume`,
+              )
             : null
         }
       />

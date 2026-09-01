@@ -234,7 +234,7 @@ function ResumeEditBody({
       formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
 
       try {
-        await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes/${recordId}`, {
+        await apiFetch<ResumeLibraryDetail>(`/workspaces/${slug}/candidates/resumes/${recordId}`, {
           body: formData,
           method: "PATCH",
         });

@@ -1,3 +1,8 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  listRecruitingWorkspaceJobDescriptions,
+  listWorkspaceMemberOptions,
+} from "@/lib/client/backend-api";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -25,9 +30,9 @@ import {
   fetchStudioResumes,
   forceStudioResumeReparse,
   retryStudioResumeParse,
-  rpcFetch,
+  apiRequest,
 } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+
 import { jobDescriptionKeys, studioResumeKeys } from "@/lib/client/api/query-keys";
 import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -109,10 +114,7 @@ export function useResumeLibraryPageQueries({
 
   const { data: workspaceMembersResult } = useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.members.options.$get({ param: { slug } }),
-        "加载成员列表失败",
-      ),
+      apiRequest(listWorkspaceMemberOptions({ path: { workspaceSlug: slug } }), "加载成员列表失败"),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
   });
@@ -123,9 +125,10 @@ export function useResumeLibraryPageQueries({
 
   const { data: jobDescriptions = [] } = useQuery({
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
-        param: { slug },
-      });
+      const response = await apiResponse(
+        listRecruitingWorkspaceJobDescriptions({ path: { workspaceSlug: slug } }),
+      );
+
       if (!response.ok) {
         throw new Error("加载在招岗位列表失败");
       }

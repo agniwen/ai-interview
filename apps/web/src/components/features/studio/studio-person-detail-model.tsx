@@ -25,13 +25,13 @@ export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";
 
 /**
- * 数据来源 + 是否可写。"authed" 走 `/api/w/:slug/studio/*` 既有路由族；
- * "public" 走 `/api/public/*`，所有写操作 UI 被隐藏。
+ * 数据来源 + 是否可写。"authed" 走 `/workspaces/:workspaceSlug/*` 路由族；
+ * "public" 走 `/public/*`，所有写操作 UI 被隐藏。
  * "review" 走 workspace 成员级详情 API，给详情链接访问者使用。
  *
  * Data source + write capability.
  * "authed" routes through the existing workspace-scoped API; "public" hits
- * the slug-less `/api/public/*` mirrors and hides all write UI.
+ * the slug-less `/public/*` mirrors and hides all write UI.
  * "review" uses workspace member-scoped detail APIs for reviewer links.
  */
 export type StudioPersonDetailAccessMode = "authed" | "public" | "review";

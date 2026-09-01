@@ -1,4 +1,4 @@
-"use client";
+import { listPlatformQueueJobs, listPlatformQueues } from "@/lib/client/backend-api";
 
 import {
   IconActivity,
@@ -36,8 +36,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { formatBytes } from "@arc/shared/utils/format";
 import {
   batchStatusMeta,
@@ -216,8 +216,8 @@ interface QueueJobsResult {
 
 interface QueueJobsRequest {
   query: {
-    page: string;
-    pageSize: string;
+    page: number;
+    pageSize: number;
     parseStatus: ParseStatusFilter;
     search?: string;
     state: JobStateFilter;
@@ -233,14 +233,12 @@ export interface QueuesGridDependencies {
 
 const defaultQueuesGridDependencies: QueuesGridDependencies = {
   fetchJobs: ({ query, queueName }) =>
-    rpcFetch(
-      rpc.api.platform.queues[":queueName"].jobs.$get({
-        param: { queueName },
-        query,
-      }),
+    apiRequest(
+      listPlatformQueueJobs({ path: { queueName }, query }),
+
       "加载队列任务失败",
     ),
-  fetchOverview: () => rpcFetch(rpc.api.platform.queues.$get(), "加载队列概览失败"),
+  fetchOverview: () => apiRequest(listPlatformQueues({}), "加载队列概览失败"),
 };
 
 export function createQueueJobsFetcher(fetchJobs: QueuesGridDependencies["fetchJobs"]) {
@@ -253,16 +251,16 @@ export function createQueueJobsFetcher(fetchJobs: QueuesGridDependencies["fetchJ
     const queueName = params.filters.queue || DEFAULT_QUEUE_NAME;
     const query = params.search
       ? {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
+          page: params.page,
+          pageSize: params.pageSize,
           parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
           search: params.search,
           state: normalizeStateFilter(params.filters.state),
           uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
         }
       : {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
+          page: params.page,
+          pageSize: params.pageSize,
           parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
           state: normalizeStateFilter(params.filters.state),
           uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
@@ -380,14 +378,17 @@ function UploadTaskStatusPanel({
           label="入队时间"
           value={<LocalDateTimeText format="compact-zh" value={detail.queuedAt} />}
         />
+
         <DetailField
           label="开始时间"
           value={<LocalDateTimeText format="compact-zh" value={detail.startedAt} />}
         />
+
         <DetailField
           label="结束时间"
           value={<LocalDateTimeText format="compact-zh" value={detail.finishedAt} />}
         />
+
         <DetailField label="处理耗时" value={formatDuration(detail.startedAt, detail.finishedAt)} />
       </div>
 
@@ -618,6 +619,7 @@ export function QueuesGrid({
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
+
         key: "originalFileName",
         size: 220,
         title: "文件名",
@@ -626,6 +628,7 @@ export function QueuesGrid({
         cell: (record) => (
           <Badge variant={stateVariant(record.state)}>{stateLabel(record.state)}</Badge>
         ),
+
         key: "state",
         title: "状态",
       }),
@@ -680,6 +683,7 @@ export function QueuesGrid({
             {record.attemptsStarted === null ? "" : ` / ${record.attemptsStarted}`}
           </span>
         ),
+
         key: "attemptsMade",
         title: "尝试",
       }),
@@ -714,6 +718,7 @@ export function QueuesGrid({
         ],
       }),
     ],
+
     [isResumeParseQueue],
   );
 

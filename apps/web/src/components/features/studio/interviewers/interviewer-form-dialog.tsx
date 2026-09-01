@@ -1,4 +1,10 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  createWorkspaceInterviewer,
+  createWorkspaceInterviewerVoicePreview,
+  updateWorkspaceInterviewer,
+} from "@/lib/client/backend-api";
 
 import { IconLoader2, IconSquare, IconVolume2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@arc/shared/departments";
@@ -9,7 +15,7 @@ import {
   DEFAULT_MINIMAX_VOICE_ID,
   MINIMAX_INTERVIEWER_VOICES,
 } from "@arc/db-schema/minimax-voices";
-import { rpc } from "@/lib/client/rpc";
+
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
@@ -116,10 +122,13 @@ export function InterviewerFormDialog({
         toast.error(error instanceof Error ? error.message : "试听音频播放失败");
       },
       operation: async () => {
-        const response = await rpc.api.w[":slug"].studio.interviewers["voice-previews"].$post({
-          json: { voice },
-          param: { slug },
-        });
+        const response = await apiResponse(
+          createWorkspaceInterviewerVoicePreview({
+            body: { voice },
+            path: { workspaceSlug: slug },
+          }),
+        );
+
         const rawPayload = await response.json().catch(() => null);
         const parsedPayload = voicePreviewPayloadSchema.safeParse(rawPayload);
         const payload = parsedPayload.success ? parsedPayload.data : null;
@@ -157,11 +166,13 @@ export function InterviewerFormDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.w[":slug"].studio.interviewers[":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio.interviewers.$post({ json: body, param: { slug } });
+        ? await apiResponse(
+            updateWorkspaceInterviewer({
+              body,
+              path: { id: record.id, workspaceSlug: slug },
+            }),
+          )
+        : await apiResponse(createWorkspaceInterviewer({ body, path: { workspaceSlug: slug } }));
       const rawPayload = await response.json().catch(() => null);
       const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
       const payload = parsedPayload.success ? parsedPayload.data : null;
@@ -211,6 +222,7 @@ export function InterviewerFormDialog({
                     placeholder="如：技术面试官 · 后端方向"
                     value={field.state.value}
                   />
+
                   <FieldError errors={errors} />
                 </FieldContent>
               </Field>
@@ -240,6 +252,7 @@ export function InterviewerFormDialog({
                     searchPlaceholder="搜索部门…"
                     value={field.state.value || null}
                   />
+
                   <FieldError errors={errors} />
                 </FieldContent>
               </Field>
@@ -338,6 +351,7 @@ export function InterviewerFormDialog({
                     rows={3}
                     value={field.state.value ?? ""}
                   />
+
                   <TextareaCounter maxLength={DESCRIPTION_MAX_LENGTH} value={field.state.value} />
                 </div>
                 <FieldError errors={errors} />
@@ -365,6 +379,7 @@ export function InterviewerFormDialog({
                   placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
                   value={field.state.value}
                 />
+
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>

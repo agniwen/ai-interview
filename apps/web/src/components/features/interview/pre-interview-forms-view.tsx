@@ -1,11 +1,16 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  listCandidateInterviewForms,
+  submitCandidateInterviewForm,
+} from "@/lib/client/backend-api";
 
 import { IconClipboardList, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,10 +37,9 @@ export function fetchPreInterviewForms(
   interviewId: string,
   roundId: string,
 ): Promise<FormsPayload> {
-  return rpcFetch(
-    rpc.api.interview[":id"][":roundId"].forms.$get({
-      param: { id: interviewId, roundId },
-    }),
+  return apiRequest(
+    listCandidateInterviewForms({ path: { id: interviewId, roundId } }),
+
     "加载面试表单失败",
   );
 }
@@ -47,10 +51,13 @@ async function submitForm(
   versionId: string,
   answers: Record<string, AnswerValue>,
 ): Promise<{ success: boolean; error?: string }> {
-  const response = await rpc.api.interview[":id"][":roundId"].forms[":templateId"].submit.$post({
-    json: { answers, versionId },
-    param: { id: interviewId, roundId, templateId },
-  });
+  const response = await apiResponse(
+    submitCandidateInterviewForm({
+      body: { answers, versionId },
+      path: { id: interviewId, roundId, templateId },
+    }),
+  );
+
   const payload = formErrorPayloadSchema.safeParse(await response.json().catch(() => null));
   if (!response.ok) {
     return {

@@ -14,9 +14,10 @@ describe("resume dedup comparison model", () => {
         sourceType: "studio_interview",
       }),
     ).toEqual({
-      downloadUrl: "/api/w/acme/studio/resumes/resume-1/review/resume",
+      downloadUrl:
+        "http://localhost:8787/workspaces/acme/candidates/resumes/resume-1/review/resume",
       kind: "docx",
-      previewUrl: "/api/w/acme/studio/resumes/resume-1/review/resume",
+      previewUrl: "http://localhost:8787/workspaces/acme/candidates/resumes/resume-1/review/resume",
     });
     expect(
       getResumeComparisonDocument({
@@ -26,9 +27,11 @@ describe("resume dedup comparison model", () => {
         sourceType: "resume_pool_item",
       }),
     ).toEqual({
-      downloadUrl: "/api/w/acme/studio/resume-pool/pool-1/review/resume",
+      downloadUrl:
+        "http://localhost:8787/workspaces/acme/candidates/intake/resume-pool/pool-1/review/resume",
       kind: "pdf",
-      previewUrl: "/api/w/acme/studio/resume-pool/pool-1/review/resume",
+      previewUrl:
+        "http://localhost:8787/workspaces/acme/candidates/intake/resume-pool/pool-1/review/resume",
     });
   });
 
@@ -41,9 +44,11 @@ describe("resume dedup comparison model", () => {
         sourceType: "studio_interview",
       }),
     ).toEqual({
-      downloadUrl: "/api/w/acme/studio/resumes/resume-2/review/resume",
+      downloadUrl:
+        "http://localhost:8787/workspaces/acme/candidates/resumes/resume-2/review/resume",
       kind: "pdf",
-      previewUrl: "/api/w/acme/studio/resumes/resume-2/review/resume-preview.pdf",
+      previewUrl:
+        "http://localhost:8787/workspaces/acme/candidates/resumes/resume-2/review/resume-preview.pdf",
     });
   });
 

@@ -1,4 +1,8 @@
 "use client";
+import {
+  listWorkspaceCandidateForms,
+  listWorkspaceQuestionTemplates,
+} from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@arc/shared/departments";
@@ -13,8 +17,8 @@ import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 import { JobDescriptionBasicSettingsFields } from "./job-description-basic-settings-fields";
@@ -111,17 +115,18 @@ export function JobDescriptionFormDialog({
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && !!record?.id,
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio.forms.$get({
-          param: { slug },
+      const payload = await apiRequest(
+        listWorkspaceCandidateForms({
+          path: { workspaceSlug: slug },
           query: {
             jobDescriptionId: record?.id ?? "",
-            page: "1",
-            pageSize: "100",
+            page: 1,
+            pageSize: 100,
             sortBy: "createdAt",
             sortOrder: "desc",
           },
         }),
+
         "加载关联表单题失败",
       );
       return payload.records;
@@ -131,17 +136,18 @@ export function JobDescriptionFormDialog({
   const { data: linkedInterviewQuestions = [], isLoading: isInterviewQuestionsLoading } = useQuery({
     enabled: open && !!record?.id,
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio["interview-questions"].$get({
-          param: { slug },
+      const payload = await apiRequest(
+        listWorkspaceQuestionTemplates({
+          path: { workspaceSlug: slug },
           query: {
             jobDescriptionId: record?.id ?? "",
-            page: "1",
-            pageSize: "100",
+            page: 1,
+            pageSize: 100,
             sortBy: "createdAt",
             sortOrder: "desc",
           },
         }),
+
         "加载关联沟通题失败",
       );
       return payload.records;
@@ -233,6 +239,7 @@ export function JobDescriptionFormDialog({
                 selectedDepartmentId={selectedDepartmentId}
                 selectedInterviewerIds={selectedInterviewerIds}
               />
+
               <JobDescriptionPromptFields
                 form={form}
                 handleGenerateJobDescription={actions.handleGenerateJobDescription}

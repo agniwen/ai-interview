@@ -54,6 +54,7 @@ import type {
   WorkspaceObjectStoragePort,
   WorkspaceResumeSemanticPort,
 } from "../../../../infrastructure/workspace/workspace.ports.js";
+import { compactResumeProfileSnapshot } from "../../resume-profile-snapshot.js";
 import { ResumeUploadBatchService } from "../upload-batches/resume-upload-batch.service.js";
 import type { UploadedResumeFile } from "../upload-batches/resume-upload-batch.service.js";
 import type {
@@ -261,7 +262,7 @@ export class ResumePoolService {
       resumeParseStatus: row.resumeParseStatus,
       resumeParsedAt: iso(row.resumeParsedAt),
       resumeProfile: row.resumeProfile,
-      resumeProfileSnapshot: row.resumeProfile ?? {},
+      resumeProfileSnapshot: compactResumeProfileSnapshot(row.resumeProfile),
       resumeStorageKey: row.resumeStorageKey,
       scope: row.scope,
       skillsNormalized: row.skillsNormalized,

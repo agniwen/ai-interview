@@ -1,3 +1,7 @@
+import {
+  getManagedWorkspaceMailIngestAccount,
+  listManagedWorkspaceMailIngestMessages,
+} from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconArrowLeft, IconInbox } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -26,8 +30,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { serializeDateRange } from "./mail-ingest-log-drawer";
 
 interface MailMessageAttachment {
@@ -97,8 +101,8 @@ interface MailIngestDateRange {
 
 interface MailIngestMessagesQuery extends MailIngestDateRange {
   keyword?: string;
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   status?: MailMessageRecord["status"];
 }
 
@@ -140,16 +144,16 @@ export function MailIngestLogPage() {
         </Button>
       </div>
     ),
+
     [navigate, slug],
   );
   useStudioHeaderOverride(headerOverride);
 
   const accountQuery = useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$get({
-          param: { id, slug },
-        }),
+      apiRequest(
+        getManagedWorkspaceMailIngestAccount({ path: { id, workspaceSlug: slug } }),
+
         "加载邮箱监听配置失败",
       ),
     queryKey: ["managed-mail-ingest-account", slug, id],
@@ -164,8 +168,8 @@ export function MailIngestLogPage() {
     );
     const query: MailIngestMessagesQuery = {
       ...listTextQuery(params),
-      page: String(params.page),
-      pageSize: String(params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
       ...range,
     };
     if (params.search) {
@@ -175,11 +179,9 @@ export function MailIngestLogPage() {
     if (status.success) {
       query.status = status.data;
     }
-    const result = await rpcFetch(
-      rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].messages.$get({
-        param: { id, slug },
-        query,
-      }),
+    const result = await apiRequest(
+      listManagedWorkspaceMailIngestMessages({ path: { id, workspaceSlug: slug }, query }),
+
       "加载入库记录失败",
     );
     return {
@@ -213,6 +215,7 @@ export function MailIngestLogPage() {
         cell: (record) => (
           <Badge variant={statusVariant(record.status)}>{STATUS_LABELS[record.status]}</Badge>
         ),
+
         key: "status",
         title: "状态",
       }),
@@ -234,6 +237,7 @@ export function MailIngestLogPage() {
             ) : null}
           </div>
         ),
+
         key: "jdBinding",
         title: "JD 绑定",
       }),
@@ -270,6 +274,7 @@ export function MailIngestLogPage() {
             ) : null}
           </div>
         ),
+
         key: "attachments",
         title: "附件（简历/总）",
       }),
@@ -288,6 +293,7 @@ export function MailIngestLogPage() {
             ) : null}
           </div>
         ),
+
         key: "subject",
         title: "主题",
       }),
@@ -297,6 +303,7 @@ export function MailIngestLogPage() {
         title: "发件人",
       }),
     ],
+
     [expanded],
   );
 

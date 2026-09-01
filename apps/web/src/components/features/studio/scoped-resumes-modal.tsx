@@ -12,7 +12,7 @@
 // dialog stacks on top via Radix and closing it leaves this modal open.
 // Local page state via useModalPagination avoids colliding with the host
 // page's URL keys.
-
+import { listWorkspaceResumes } from "@/lib/client/backend-api";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type {
   PaginatedResumeLibraryResult,
@@ -25,8 +25,8 @@ import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, dateColumn } from "@/components/features/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
@@ -68,17 +68,18 @@ export function ScopedResumesModal({
       if (!jobDescription) {
         return EMPTY_RESULT;
       }
-      return await rpcFetch(
-        rpc.api.w[":slug"].studio.resumes.$get({
-          param: { slug },
+      return await apiRequest(
+        listWorkspaceResumes({
+          path: { workspaceSlug: slug },
           query: {
             jdIds: jobDescription.id,
-            page: String(page),
-            pageSize: String(pageSize),
+            page,
+            pageSize,
             sortBy: "createdAt",
             sortOrder: "desc",
           },
         }),
+
         "加载简历列表失败",
       );
     },
@@ -105,6 +106,7 @@ export function ScopedResumesModal({
             </p>
           </div>
         ),
+
         key: "candidateName",
         title: "候选人",
       }),
@@ -120,6 +122,7 @@ export function ScopedResumesModal({
           ) : (
             <Badge variant="outline">无文件</Badge>
           ),
+
         key: "resumeFileName",
         title: "简历文件",
       }),
@@ -130,6 +133,7 @@ export function ScopedResumesModal({
           ) : (
             <Badge variant="outline">未发起</Badge>
           ),
+
         key: "hasInterviewRounds",
         title: "AI 面试",
       }),
@@ -146,6 +150,7 @@ export function ScopedResumesModal({
         ],
       }),
     ],
+
     [],
   );
 
@@ -189,10 +194,10 @@ export function ScopedResumesModal({
       </Modal>
 
       {/* 详情弹窗叠在外层弹窗之上；Radix Dialog 原生支持 stacking。
-          编辑 / 发起 AI 面试不在本上下文支持，跳转到招聘台主页面继续。
-          Detail dialog stacks on top of the scoped modal — Radix handles
-          this natively. Edit / launch route back to the resume library
-          since they need full context (PDF preview, bulk actions, etc.). */}
+            编辑 / 发起 AI 面试不在本上下文支持，跳转到招聘台主页面继续。
+            Detail dialog stacks on top of the scoped modal — Radix handles
+            this natively. Edit / launch route back to the resume library
+            since they need full context (PDF preview, bulk actions, etc.). */}
       <StudioPersonDetailDialog
         mode="resume"
         onEdit={(id) => {

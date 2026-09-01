@@ -10,7 +10,7 @@
 // read-only over interviewers, but each row's "referenced JDs" cell opens a
 // nested ScopedJobDescriptionsModal (scope=interviewer) reused from the
 // interviewer page, which DOES support row-level JD delete.
-
+import { listWorkspaceInterviewers } from "@/lib/client/backend-api";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@app/server/server/routes/studio/routes/interviewers/dao";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,8 +19,8 @@ import { Button } from "@/components/ui/button";
 import { customColumn, DataGrid, textColumn } from "@/components/features/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
@@ -66,17 +66,18 @@ export function ScopedInterviewersModal({
       if (!departmentId) {
         return Promise.resolve({ page, pageSize, records: [], total: 0, totalPages: 1 });
       }
-      return rpcFetch(
-        rpc.api.w[":slug"].studio.interviewers.$get({
-          param: { slug },
+      return apiRequest(
+        listWorkspaceInterviewers({
+          path: { workspaceSlug: slug },
           query: {
             departmentId,
-            page: String(page),
-            pageSize: String(pageSize),
+            page,
+            pageSize,
             sortBy: "createdAt",
             sortOrder: "desc",
           },
         }),
+
         "加载面试官失败",
       );
     },
@@ -140,6 +141,7 @@ export function ScopedInterviewersModal({
         title: "引用岗位",
       }),
     ],
+
     [canReadJobDescriptions],
   );
 
@@ -178,12 +180,12 @@ export function ScopedInterviewersModal({
       </Modal>
 
       {/* 嵌套：本 modal 内的面试官行点击"引用岗位"打开 scope=interviewer 的 JD modal。
-          关闭嵌套 modal 不影响外层；嵌套删 JD 时除了刷新当前面试官列表（引用计数变），
-          也通过 onChange 把信号向上传给部门页刷新部门表的 jobDescriptionCount。
-          Nested: a row's "referenced JDs" cell opens scope=interviewer JD modal.
-          Closing the inner modal doesn't propagate to the outer. JD deletes
-          invalidate this modal's interviewer list AND bubble up via onChange
-          so the department page can refresh its JD-count column. */}
+            关闭嵌套 modal 不影响外层；嵌套删 JD 时除了刷新当前面试官列表（引用计数变），
+            也通过 onChange 把信号向上传给部门页刷新部门表的 jobDescriptionCount。
+            Nested: a row's "referenced JDs" cell opens scope=interviewer JD modal.
+            Closing the inner modal doesn't propagate to the outer. JD deletes
+            invalidate this modal's interviewer list AND bubble up via onChange
+            so the department page can refresh its JD-count column. */}
       <ScopedJobDescriptionsModal
         onChange={() => {
           void queryClient.invalidateQueries({ queryKey: [QUERY_KEY_PREFIX] });

@@ -4,12 +4,12 @@ import { formatDocumentTitle } from "@/lib/start/document-title";
 
 // 公开访问入口：候选人面试详情独立页（无需登录）。
 // 与 /w/[slug]/studio/interviews/[roundId] 共享同一份 StudioPersonDetailPanel
-// 渲染，差异在 accessMode="public" —— 数据从 /api/public/* 拉，所有写操作被
+// 渲染，差异在 accessMode="public" —— 数据从 /public/* 拉，所有写操作被
 // 隐藏。
 //
 // Public-access full-page view of an interview round detail. Renders the same
 // StudioPersonDetailPanel as the authed studio path; data goes through
-// /api/public/* and every mutation UI is suppressed via accessMode="public".
+// /public/* and every mutation UI is suppressed via accessMode="public".
 
 function PublicInterviewRoundPage({ roundId }: { roundId: string }) {
   return (

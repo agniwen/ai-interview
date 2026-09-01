@@ -1,3 +1,11 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  archiveWorkspaceCandidateForm,
+  getWorkspaceCandidateForm,
+  listWorkspaceCandidateForms,
+  refreshWorkspaceCandidateFormEligibleCandidates,
+  unarchiveWorkspaceCandidateForm,
+} from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,8 +43,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "@/lib/client/api";
+
+import { apiRequest } from "@/lib/client/api";
 import { coerceSearchParams, firstSearchValue } from "@/lib/client/data-grid-search";
 import type { SearchParamsRecord } from "@/lib/client/data-grid-search";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -50,13 +58,13 @@ function scopeLabel(scope: CandidateFormScope) {
 }
 
 interface TemplateListQuery {
-  archived?: string;
+  archived?: "active" | "all" | "archived";
   jobDescriptionId?: string;
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   scope?: string;
   search?: string;
-  sortBy: string;
+  sortBy: "createdAt" | "title" | "updatedAt";
   sortOrder: "asc" | "desc";
 }
 
@@ -86,9 +94,12 @@ export function CandidateFormTemplateManagementPage({
       }): Promise<PaginatedCandidateFormTemplateResult> => {
         const query: TemplateListQuery = {
           ...listTextQuery(params),
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          sortBy: params.sortBy ?? "createdAt",
+          page: params.page,
+          pageSize: params.pageSize,
+          sortBy:
+            params.sortBy === "title" || params.sortBy === "updatedAt"
+              ? params.sortBy
+              : "createdAt",
           sortOrder: params.sortOrder ?? "desc",
         };
         if (params.search) {
@@ -100,14 +111,15 @@ export function CandidateFormTemplateManagementPage({
         if (params.filters.jobDescriptionId) {
           query.jobDescriptionId = params.filters.jobDescriptionId;
         }
-        if (params.filters.archivedFilter !== "active") {
+        if (
+          params.filters.archivedFilter === "all" ||
+          params.filters.archivedFilter === "archived"
+        ) {
           query.archived = params.filters.archivedFilter;
         }
-        return rpcFetch(
-          rpc.api.w[":slug"].studio.forms.$get({
-            param: { slug },
-            query,
-          }),
+        return apiRequest(
+          listWorkspaceCandidateForms({ path: { workspaceSlug: slug }, query }),
+
           "加载表单题列表失败",
         );
       },
@@ -116,8 +128,8 @@ export function CandidateFormTemplateManagementPage({
 
   const loadTemplateDetailById = useCallback(
     async (id: string): Promise<CandidateFormTemplateRecord | null> =>
-      await rpcFetch(
-        rpc.api.w[":slug"].studio.forms[":id"].$get({ param: { id, slug } }),
+      await apiRequest(
+        getWorkspaceCandidateForm({ path: { id, workspaceSlug: slug } }),
         "加载模版失败",
         { allow404: true },
       ),
@@ -159,7 +171,7 @@ export function CandidateFormTemplateManagementPage({
 
   const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
     deleteEntity: (record) =>
-      rpc.api.w[":slug"].studio.forms[":id"].$delete({ param: { id: record.id, slug } }),
+      apiResponse(archiveWorkspaceCandidateForm({ path: { id: record.id, workspaceSlug: slug } })),
     invalidate: () => {
       grid.invalidate();
       void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
@@ -176,10 +188,9 @@ export function CandidateFormTemplateManagementPage({
   const unarchiveTemplate = useCallback(
     async (record: CandidateFormTemplateListRecord) => {
       try {
-        await rpcFetch(
-          rpc.api.w[":slug"].studio.forms[":id"].unarchive.$post({
-            param: { id: record.id, slug },
-          }),
+        await apiRequest(
+          unarchiveWorkspaceCandidateForm({ path: { id: record.id, workspaceSlug: slug } }),
+
           "取消归档失败",
         );
       } catch (error) {
@@ -211,10 +222,11 @@ export function CandidateFormTemplateManagementPage({
     }
     const toastId = toast.loading("正在刷新未填写候选人表单题…");
     try {
-      const body = await rpcFetch(
-        rpc.api.w[":slug"].studio.forms[":id"]["refresh-eligible-candidates"].$post({
-          param: { id: record.id, slug },
+      const body = await apiRequest(
+        refreshWorkspaceCandidateFormEligibleCandidates({
+          path: { id: record.id, workspaceSlug: slug },
         }),
+
         "刷新失败",
       );
       const refreshedCount = body.refreshedCount ?? 0;
@@ -299,6 +311,7 @@ export function CandidateFormTemplateManagementPage({
           ) : (
             <Badge variant="success">使用中</Badge>
           ),
+
         key: "archivedAt",
         title: "状态",
       }),
@@ -308,6 +321,7 @@ export function CandidateFormTemplateManagementPage({
             {scopeLabel(r.scope)}
           </Badge>
         ),
+
         key: "scope",
         title: "作用范围",
       }),
@@ -365,6 +379,7 @@ export function CandidateFormTemplateManagementPage({
           ) : (
             <span className="text-muted-foreground tabular-nums">0</span>
           ),
+
         key: "submissionCount",
         title: "已填写",
       }),
@@ -382,6 +397,7 @@ export function CandidateFormTemplateManagementPage({
             show: () => canUpdateCandidateForm,
           },
         ],
+
         // 行的归档态决定显示「归档」还是「取消归档」；show 回调按状态二选一。
         // The row's archived state picks one of the two: archive vs unarchive.
         menu: [
@@ -408,6 +424,7 @@ export function CandidateFormTemplateManagementPage({
         ],
       }),
     ],
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [canDeleteCandidateForm, canUpdateCandidateForm, openRefreshConfirm],
   );
@@ -421,6 +438,7 @@ export function CandidateFormTemplateManagementPage({
           { label: "未归档", value: "active" },
           { label: "已归档", value: "archived" },
         ],
+
         type: "select" as const,
         unfilteredValue: "all",
       },
@@ -431,6 +449,7 @@ export function CandidateFormTemplateManagementPage({
           { label: "全局", value: "global" },
           { label: "岗位绑定", value: "job_description" },
         ],
+
         placeholder: "全部作用域",
         selectedFormat: (count: number) => `已选 ${count} 个作用域`,
         selectedPreviewLimit: 2,
@@ -446,6 +465,7 @@ export function CandidateFormTemplateManagementPage({
         type: "multi-select" as const,
       },
     ],
+
     [jobDescriptions],
   );
 

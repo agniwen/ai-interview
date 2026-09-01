@@ -1,4 +1,5 @@
 "use client";
+import { recommendWorkspaceJobDescriptionCandidates } from "@/lib/client/backend-api";
 
 import {
   IconBriefcase2,
@@ -36,8 +37,8 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface TalentRecommendationsDialogProps {
@@ -306,14 +307,12 @@ export function JobDescriptionTalentRecommendationsDialog({
       if (!jobDescription) {
         return EMPTY_RESULT;
       }
-      return await rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"][":id"].recommendations.$post({
-          json: {
-            excludeAlreadyLinked: true,
-            limit: 20,
-          },
-          param: { id: jobDescription.id, slug },
+      return await apiRequest(
+        recommendWorkspaceJobDescriptionCandidates({
+          body: { excludeAlreadyLinked: true, limit: 20 },
+          path: { id: jobDescription.id, workspaceSlug: slug },
         }),
+
         "加载人才推荐失败",
       );
     },

@@ -1,4 +1,9 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  createWorkspaceQuestionTemplate,
+  updateWorkspaceQuestionTemplate,
+} from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type {
@@ -10,7 +15,7 @@ import {
   interviewQuestionTemplateSchema,
 } from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { rpc } from "@/lib/client/rpc";
+
 import { useForm, useStore } from "@tanstack/react-form";
 
 import { useEffect, useMemo } from "react";
@@ -52,6 +57,7 @@ export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplat
         sortOrder: 0,
       },
     ],
+
     scope: "global",
     title: "",
   };
@@ -122,14 +128,16 @@ export function InterviewQuestionTemplateEditorDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.w[":slug"].studio["interview-questions"][":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio["interview-questions"].$post({
-            json: body,
-            param: { slug },
-          });
+        ? await apiResponse(
+            updateWorkspaceQuestionTemplate({
+              body,
+              path: { id: record.id, workspaceSlug: slug },
+            }),
+          )
+        : await apiResponse(
+            createWorkspaceQuestionTemplate({ body, path: { workspaceSlug: slug } }),
+          );
+
       const payload = errorPayloadSchema.safeParse(await response.json().catch(() => null));
       if (!response.ok) {
         toast.error(
@@ -204,6 +212,7 @@ export function InterviewQuestionTemplateEditorDialog({
                         placeholder="例如：通用沟通题、前端深度题"
                         value={field.state.value}
                       />
+
                       <FieldError errors={errors} />
                     </FieldContent>
                   </Field>
@@ -230,6 +239,7 @@ export function InterviewQuestionTemplateEditorDialog({
                           rows={2}
                           value={field.state.value ?? ""}
                         />
+
                         <TextareaCounter
                           maxLength={DESCRIPTION_MAX_LENGTH}
                           value={field.state.value}
@@ -300,6 +310,7 @@ export function InterviewQuestionTemplateEditorDialog({
                             selectedPreviewLimit={2}
                             value={field.state.value ?? []}
                           />
+
                           <FieldError errors={errors} />
                         </FieldContent>
                       </Field>
@@ -333,6 +344,7 @@ export function InterviewQuestionTemplateEditorDialog({
               form={form}
               resetKey={record?.id ?? "new"}
             />
+
             <FieldError errors={questionListErrors} />
           </div>
         </div>

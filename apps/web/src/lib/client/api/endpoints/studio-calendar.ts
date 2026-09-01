@@ -1,13 +1,22 @@
-import type { StudioAiCalendarEventPreview } from "@arc/shared/studio-calendar";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+import {
+  getWorkspaceAiCalendarPreview,
+  listWorkspaceCalendarEvents,
+} from "@/lib/client/backend-api";
+import type {
+  StudioAiCalendarEventPreview,
+  StudioCalendarEvent,
+} from "@arc/shared/studio-calendar";
 
-export function fetchStudioCalendar(slug: string, start: string, end: string) {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.calendar.$get({
-      param: { slug },
-      query: { end, start },
-    }),
+import { apiRequest } from "../rpc-fetch";
+
+export function fetchStudioCalendar(
+  slug: string,
+  start: string,
+  end: string,
+): Promise<{ events: StudioCalendarEvent[] }> {
+  return apiRequest<{ events: StudioCalendarEvent[] }>(
+    listWorkspaceCalendarEvents({ path: { workspaceSlug: slug }, query: { end, start } }),
+
     "加载面试日程失败",
   );
 }
@@ -17,11 +26,12 @@ export function fetchStudioAiCalendarEventPreview(
   roundId: string,
   conversationId: string | null,
 ): Promise<StudioAiCalendarEventPreview | null> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio.calendar["ai-events"][":roundId"].preview.$get({
-      param: { roundId, slug },
+  return apiRequest(
+    getWorkspaceAiCalendarPreview({
+      path: { roundId, workspaceSlug: slug },
       query: conversationId ? { conversationId } : {},
     }),
+
     "加载 AI 面试事件详情失败",
     { allow404: true },
   );

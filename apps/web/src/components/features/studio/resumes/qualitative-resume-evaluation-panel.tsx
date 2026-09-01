@@ -1,4 +1,5 @@
 "use client";
+import { getWorkspaceResumeEvaluationHistory } from "@/lib/client/backend-api";
 
 import { IconQuestionMark, IconSparkles, IconThumbUp, IconX } from "@tabler/icons-react";
 import type {
@@ -20,8 +21,7 @@ import { RestrictedMarkdownView } from "@/components/features/display/markdown-v
 import { Badge } from "@/components/ui/badge";
 import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
 
 export const QUALITATIVE_RECOMMENDATION_LABEL = {
   highly_recommended: "非常推荐",
@@ -203,6 +203,7 @@ function QualitativeDimensionGroup({
               className="mt-3 text-sm leading-6"
               content={dimension.evaluation}
             />
+
             <p
               className="mt-2 text-muted-foreground text-xs leading-5"
               data-qualitative-dimension-basis={dimension.basis}
@@ -328,6 +329,7 @@ function EvaluationHistoryItem({ item }: { item: ResumeEvaluationHistoryRecord }
   let statusIndicator: ReactNode = (
     <Badge variant="outline">{historyTypeLabel(item.contractVersion)}</Badge>
   );
+
   if (item.recommendationLevel) {
     statusIndicator = <QualitativeRecommendationIndicator level={item.recommendationLevel} />;
   }
@@ -336,6 +338,7 @@ function EvaluationHistoryItem({ item }: { item: ResumeEvaluationHistoryRecord }
       {JSON.stringify(item.artifact, null, 2)}
     </pre>
   );
+
   if (qualitative.success) {
     content = <QualitativeEvaluationDetails evaluation={qualitative.data} />;
   }
@@ -404,10 +407,12 @@ export function QualitativeResumeEvaluationPanel({
   const { data } = useQuery({
     enabled: Boolean(detail.jobDescriptionId),
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.resumes[":id"]["evaluation-history"].$get({
-          param: { id: detail.id, slug },
-        }),
+      apiRequest<{
+        failures: ResumeEvaluationFailureRecord[];
+        records: ResumeEvaluationHistoryRecord[];
+      }>(
+        getWorkspaceResumeEvaluationHistory({ path: { id: detail.id, workspaceSlug: slug } }),
+
         "加载评价历史失败",
       ),
     queryKey: ["resume-evaluation-history", slug, detail.id],

@@ -1,4 +1,5 @@
 "use client";
+import { backendApiUrl } from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 // 真人面试准备弹窗：确认候选人的异步生成题目并落库，供真人面试官参考。
@@ -46,7 +47,7 @@ import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { analysisStreamEventSchema, readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { rpc } from "@/lib/client/rpc";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
@@ -132,14 +133,19 @@ async function streamGenerateQuestions(
   jobDescriptionId: string | null,
   signal: AbortSignal,
 ): Promise<InterviewQuestion[] | null> {
-  // 用 hc 客户端调流式接口：URL 常量化 + body 类型推断走 zValidator schema；
-  // body 自己 await 拿 Response 后用 readAiRunEventStream 读流（rpcFetch 会消费整个 body）。
-  // Streaming via hc: URL + body types come from the zValidator schema. Consume
-  // the stream manually because rpcFetch would parse the whole body.
-  const response = await rpc.api.w[":slug"].interview["generate-questions"].$post(
-    { json: { jobDescriptionId, resumeProfile }, param: { slug } },
-    { init: { signal } },
+  const response = await fetch(
+    backendApiUrl(
+      `/workspaces/${encodeURIComponent(slug)}/copilot/interview-tools/generate-questions`,
+    ),
+    {
+      body: JSON.stringify({ jobDescriptionId, resumeProfile }),
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      signal,
+    },
   );
+
   if (!response.ok) {
     const errorPayload = streamErrorPayloadSchema.safeParse(
       await response.json().catch(() => null),
@@ -301,7 +307,7 @@ export function HumanInterviewQuestionDialog({
   return (
     <>
       {/* 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
-      内容层横向切换，Modal 高度由自然布局直接决定。 */}
+        内容层横向切换，Modal 高度由自然布局直接决定。 */}
       <Tabs
         onValueChange={(value) => {
           const tab = launchDialogTabSchema.safeParse(value);
@@ -327,11 +333,11 @@ export function HumanInterviewQuestionDialog({
             // modal's stack-mode column would stretch it to 100% width.
             <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               {/* 生成面试题期间锁住所有 tab，避免用户切到「概览/经历」时面试题
-                还没准备好，回来一脸空 list；overlay 已经覆盖 body，禁用 tab
-                让锁定看起来一致。
-                Lock all tabs during question generation so the user can't slip
-                away mid-stream — the overlay already blocks the body, this
-                keeps the header consistent. */}
+               还没准备好，回来一脸空 list；overlay 已经覆盖 body，禁用 tab
+               让锁定看起来一致。
+               Lock all tabs during question generation so the user can't slip
+               away mid-stream — the overlay already blocks the body, this
+               keeps the header consistent. */}
               <TabsList className="mt-0 w-full sm:w-auto">
                 <TabsTrigger
                   className="flex-1 sm:min-w-[6em] sm:flex-none"

@@ -17,6 +17,7 @@
 
 import { ApiError } from "./errors";
 import { z } from "zod";
+import { backendApiUrl } from "@/lib/client/backend-api";
 
 const apiErrorPayloadSchema = z.union([
   z.string(),
@@ -104,13 +105,13 @@ function extractMessage(payload: ApiErrorPayload): string | null {
 }
 
 /**
- * 调用项目内的 API 路由。`path` 通常以 `/api/...` 开头。
- * Call an internal API route. `path` typically starts with `/api/...`.
+ * 调用独立后端的特殊传输路由（multipart / stream / binary）。
+ * Call a special-transport route on the standalone backend.
  *
  * @example
  * ```ts
- * const list = await apiFetch<{ items: Foo[] }>("/api/foos");
- * await apiFetch("/api/foos", { method: "POST", body: { name: "x" } });
+ * const list = await apiFetch<{ items: Foo[] }>("/workspaces/acme/foos");
+ * await apiFetch("/public/foos", { method: "POST", body: { name: "x" } });
  * ```
  */
 export async function apiFetch<T = unknown>(
@@ -135,7 +136,7 @@ export async function apiFetch<T = unknown>(
 
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(backendApiUrl(path), {
       credentials: "include",
       ...rest,
       body: finalBody,

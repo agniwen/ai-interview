@@ -11,6 +11,7 @@ import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
@@ -203,13 +204,15 @@ export function buildStudioPersonDetailHeader({
       return "";
     }
     if (isPublic) {
-      return `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`;
+      return backendApiUrl(`/public/interview-rounds/${record.roundId ?? record.id}/resume`);
     }
     if (isReview) {
-      return `/api/w/${slug}/studio/resumes/${record.id}/review/resume`;
+      return backendApiUrl(`/workspaces/${slug}/candidates/resumes/${record.id}/review/resume`);
     }
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
-    return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
+    return backendApiUrl(
+      `/workspaces/${slug}/candidates/${mode === "resume" ? "resumes" : "recruiting-records"}/${previewRecordId}/resume`,
+    );
   })();
 
   const actionBarAiRound = candidateRounds.at(-1);

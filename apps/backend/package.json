@@ -7,6 +7,7 @@
   "scripts": {
     "build": "nest build --builder rspack",
     "check": "ultracite check . && oxlint --config ../../oxlint.config.ts --report-unused-disable-directives-severity=error .",
+    "client:generate": "bun scripts/generate-web-api-client.mjs && cd ../.. && bunx oxfmt apps/web/src/lib/client/generated/backend",
     "dev": "nest start --builder rspack --watch",
     "openapi": "bun src/openapi/write-openapi.ts && bun migration/generate-http-route-migration.ts && bunx oxfmt openapi.json migration/http-route-migration.md",
     "openapi:parity": "bun run openapi",
@@ -82,6 +83,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@hey-api/client-fetch": "0.13.1",
+    "@hey-api/openapi-ts": "0.99.0",
     "@nestjs/cli": "12.0.0",
     "@nestjs/testing": "12.0.1",
     "@rspack/core": "2.2.1",

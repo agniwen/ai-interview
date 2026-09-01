@@ -149,6 +149,35 @@ const defaultRetryProps = {
 } as const;
 
 describe("ResumePoolCard", () => {
+  it("does not crash when a migrated API response contains a malformed profile snapshot", () => {
+    expect(() =>
+      renderToStaticMarkup(
+        <QueryClientProvider client={new QueryClient()}>
+          <ResumePoolCard
+            {...defaultRetryProps}
+            bindingJobDescription={false}
+            canDelete={false}
+            canEnterRecruiting={true}
+            canRecommend={true}
+            deleting={false}
+            enteringRecruiting={false}
+            onBindJobDescription={() => {}}
+            onDelete={() => {}}
+            onEnterRecruiting={() => {}}
+            onOpenDetail={() => {}}
+            onOpenDuplicateMatches={() => {}}
+            record={{
+              ...record,
+              // SAFETY: This deliberately malformed legacy snapshot verifies the card's runtime fallback.
+              resumeProfileSnapshot: {} as ResumePoolListRecord["resumeProfileSnapshot"],
+            }}
+            slug="test-workspace"
+          />
+        </QueryClientProvider>,
+      ),
+    ).not.toThrow();
+  });
+
   it("shows the recruitment-desk job preview trigger for a bound job", () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>

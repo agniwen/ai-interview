@@ -1,4 +1,12 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  backendApiUrl,
+  completeCandidateInterviewRound,
+  createCandidateInterviewLiveKitToken,
+  getCandidateInterview,
+  submitCandidateInterviewFeedback,
+} from "@/lib/client/backend-api";
 
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
@@ -27,8 +35,8 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { ApiError, rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { ApiError, apiRequest } from "@/lib/client/api";
+
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewBackground } from "./interview-background";
 import { InterviewTimer } from "./interview-timer";
@@ -191,6 +199,7 @@ function InterviewNoticeDialog({
             checked={acknowledged}
             onCheckedChange={(checked) => onAcknowledgedChange(checked === true)}
           />
+
           <label className="cursor-pointer" htmlFor={acknowledgementId}>
             我已阅读并了解以上事项
           </label>
@@ -226,9 +235,9 @@ function WaitingView({
   interviewView: CandidateInterviewView | null;
   isConnecting: boolean;
   isLoadingStatus: boolean;
-  isRoundCompleted: boolean;
   // 重连恢复中：跳过 RuleItem 与开始按钮，仅展示「正在恢复连接」骨架。
   // Recovery mode: hide rules + start buttons, show only a "reconnecting" hint.
+  isRoundCompleted: boolean;
   isRecovering: boolean;
   onBack?: () => void;
   onStart: (options?: { muted?: boolean }) => void;
@@ -391,10 +400,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         ),
       operation: async () => {
         const [data, nextFormsPayload] = await Promise.all([
-          rpcFetch(
-            rpc.api.interview[":id"][":roundId"].$get({
-              param: { id: interviewId, roundId },
-            }),
+          apiRequest(
+            getCandidateInterview({ path: { id: interviewId, roundId } }),
+
             "当前面试链接暂不可用，请联系招聘负责人确认。",
           ),
           fetchPreInterviewForms(interviewId, roundId),
@@ -443,9 +451,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         if (isLoadingStatus) {
           throw new Error("interview status not loaded yet");
         }
-        const response = await rpc.api.interview[":id"][":roundId"]["livekit-token"].$post({
-          param: { id: interviewId, roundId },
-        });
+        const response = await apiResponse(
+          createCandidateInterviewLiveKitToken({ path: { id: interviewId, roundId } }),
+        );
 
         if (!response.ok) {
           const body = livekitTokenErrorSchema.safeParse(await response.json().catch(() => null));
@@ -545,9 +553,11 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         // auto-rejoin effect 再读一次), 避免与短时间内的连续状态翻转打架.
         return;
       }
-      void rpc.api.interview[":id"][":roundId"].complete.$post(
-        { param: { id: interviewId, roundId }, query: { mode: "interrupt" } },
-        { init: { keepalive: true } },
+      void apiResponse(
+        completeCandidateInterviewRound({
+          path: { id: interviewId, roundId },
+          query: { mode: "interrupt" },
+        }),
       );
     }
   }, [session.connectionState, interviewId, roundId]);
@@ -562,7 +572,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       if (userEndedRef.current) {
         return;
       }
-      navigator.sendBeacon(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`);
+      navigator.sendBeacon(
+        backendApiUrl(`/public/ai-interviews/${interviewId}/${roundId}/complete?mode=interrupt`),
+      );
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -668,9 +680,11 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     setRoundStatus("completed");
     setAutoRejoinTriggered(true);
     try {
-      await rpc.api.interview[":id"][":roundId"].complete.$post(
-        { param: { id: interviewId, roundId }, query: { mode: "final" } },
-        { init: { keepalive: true } },
+      await apiResponse(
+        completeCandidateInterviewRound({
+          path: { id: interviewId, roundId },
+          query: { mode: "final" },
+        }),
       );
     } catch {
       // 上报失败不阻断 session.end —— agent 端 grace 超时仍会兜底落 completed。
@@ -678,7 +692,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     }
     await session.end();
   }, [interviewId, roundId, session]);
-
   // isRecovering 决定 WaitingView 是否展示「正在恢复连接」。已结束态强制 false，
   // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
   // Force false when the round is completed; otherwise the deliberate-end flow
@@ -688,11 +701,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const handleSubmitFeedback = useCallback(
     async (input: CandidateInterviewFeedbackInput) => {
       try {
-        const { feedback } = await rpcFetch(
-          rpc.api.interview[":id"][":roundId"].feedback.$post({
-            json: input,
-            param: { id: interviewId, roundId },
-          }),
+        const { feedback } = await apiRequest(
+          submitCandidateInterviewFeedback({ body: input, path: { id: interviewId, roundId } }),
+
           "提交反馈失败，请重试。",
         );
         setInterviewView((current) =>
@@ -724,6 +735,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         recordingEnabled={interviewRecordingEnabled}
       />
     );
+
     return (
       <InterviewPreSessionFlow
         entryLoadError={entryLoadError}

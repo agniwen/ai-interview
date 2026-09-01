@@ -97,7 +97,7 @@ export function getCollectedCandidateInfoItems<const T>({
   const formItems: CollectedCandidateInfoItem[] = [];
 
   for (const submission of formSubmissions) {
-    for (const question of submission.snapshot.questions) {
+    for (const question of submission.snapshot?.questions ?? []) {
       const answer = formatFormAnswer(question, submission.answers[question.id]);
       formItems.push({
         analysis: null,

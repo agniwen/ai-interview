@@ -47,7 +47,7 @@ describe("server env", () => {
     expect(env.S3_FORCE_PATH_STYLE).toBe("false");
   });
 
-  it("writes validated values back to process env for the mounted Hono backend", () => {
+  it("writes validated values back to process env for TanStack server functions", () => {
     const target: Record<string, string | undefined> = {};
 
     applyServerEnv(target, createServerEnv(configuredEnv));

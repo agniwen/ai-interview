@@ -1,80 +1,97 @@
-import type { ClientResponse } from "hono/client";
-import { DetailedError, parseResponse } from "hono/client";
 import { z } from "zod";
 import { ApiError } from "./errors";
 
-// 保留 hc Promise 的具体响应联合类型，并只提取 ok 响应的 JSON body。
-// Keeping the concrete response union on the Promise avoids Hono's large status-filter
-// conditional type at every call site while preserving the same successful JSON body.
-type RpcCall = Promise<ClientResponse<unknown>>;
-type SuccessfulJsonBody<T> = T extends {
-  json(): Promise<infer Body>;
-  ok: true;
+interface ApiResult {
+  data: unknown;
+  error: unknown;
+  response?: Response;
 }
-  ? Body
-  : never;
-type RpcResult<T extends RpcCall> = SuccessfulJsonBody<Awaited<T>>;
 
-const rpcErrorSchema = z.object({
+type ApiCall = Promise<ApiResult>;
+type ContextualResponse = Awaited<ReturnType<Response["json"]>>;
+
+const apiErrorSchema = z.object({
   error: z.string().optional(),
-  message: z.string().optional(),
+  message: z.union([z.string(), z.array(z.string())]).optional(),
 });
-const detailedErrorSchema = z.object({ data: z.json().optional() });
 
-function extractRpcErrorMessage<const T>(data: T): string | null {
-  const parsed = rpcErrorSchema.safeParse(data);
-  return parsed.success ? (parsed.data.error ?? parsed.data.message ?? null) : null;
+function rebuildConsumedResponse(result: ApiResult, response: Response): Response {
+  const payload = result.error === undefined ? result.data : result.error;
+  const hasResponseBody = ![204, 205, 304].includes(response.status) && payload !== undefined;
+  const headers = new Headers(response.headers);
+  let body: BodyInit | null = null;
+
+  if (hasResponseBody) {
+    const contentType = headers.get("Content-Type") ?? "";
+    const parsedText = z.string().safeParse(payload);
+    body =
+      contentType.startsWith("text/") && parsedText.success
+        ? parsedText.data
+        : JSON.stringify(payload);
+    if (!contentType) {
+      headers.set("Content-Type", "application/json");
+    }
+  }
+
+  return new Response(body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 /**
- * 把 hc/rpc 的调用结果解码成 JSON：基于 Hono 官方 `parseResponse` 包装一层，
- * 失败时把 {@link DetailedError} 转成本项目统一的 {@link ApiError}（带中文兜底
- * 文案 + status + payload）；`allow404: true` 时 404 静默为 null（用于幂等
- * GET / DELETE）。
- *
- * Thin wrapper around Hono's `parseResponse` (`hono/client`): converts
- * {@link DetailedError} thrown on non-OK responses into the project-wide
- * {@link ApiError} so existing UI catch-blocks and error toasts keep working.
- * `allow404: true` resolves a 404 to `null` instead of throwing.
- *
- * 调用方传入 hc 调用产生的 Promise（不需要 await），返回类型直接由后端响应推导：
- *   `rpcFetch(rpc.api.foo.$get(), "加载失败")`
- *
- * Pass the `Promise<Response>` produced by an hc call directly — matches the
- * Hono docs idiom and saves one `await`.
+ * 解包 Hey API 的字段式响应，并统一转换为项目的 ApiError。
+ * Unwrap Hey API's field-style response and normalize failures to ApiError.
  */
-export function rpcFetch<T extends RpcCall>(
-  promise: T,
+export function apiRequest<T = ContextualResponse>(
+  promise: ApiCall,
   errorFallback: string,
-): Promise<RpcResult<T>>;
-export function rpcFetch<T extends RpcCall>(
-  promise: T,
+): Promise<T>;
+export function apiRequest<T = ContextualResponse>(
+  promise: ApiCall,
   errorFallback: string,
   options: { allow404: true },
-): Promise<RpcResult<T> | null>;
-export async function rpcFetch<T extends RpcCall>(
-  promise: T,
+): Promise<T | null>;
+export async function apiRequest<T = ContextualResponse>(
+  promise: ApiCall,
   errorFallback: string,
   options?: { allow404?: boolean },
-): Promise<RpcResult<T> | null> {
-  try {
-    // SAFETY: rpcFetch accepts JSON hc calls only; RpcResult selects the same ok response
-    // body that parseResponse returns and excludes non-ok branches handled below.
-    return (await parseResponse(promise)) as RpcResult<T>;
-  } catch (error) {
-    if (!(error instanceof DetailedError)) {
-      throw error;
-    }
-    if (options?.allow404 && error.statusCode === 404) {
-      return null;
-    }
-    const parsedDetail = detailedErrorSchema.safeParse(error.detail);
-    const data = parsedDetail.success ? (parsedDetail.data.data ?? null) : null;
-    const serverMessage = extractRpcErrorMessage(data);
-    throw new ApiError(serverMessage ?? errorFallback, {
-      cause: error,
-      payload: data,
-      status: error.statusCode ?? 0,
+): Promise<T | null> {
+  const result = await promise;
+  if (options?.allow404 && result.response?.status === 404) {
+    return null;
+  }
+  if (result.error !== undefined) {
+    const parsedError = apiErrorSchema.safeParse(result.error);
+    const parsedMessage = parsedError.success
+      ? (parsedError.data.error ?? parsedError.data.message)
+      : null;
+    const message = Array.isArray(parsedMessage)
+      ? parsedMessage.join("；")
+      : (parsedMessage ?? errorFallback);
+    throw new ApiError(message, {
+      cause: result.error,
+      payload: result.error,
+      status: result.response?.status ?? 0,
     });
   }
+  // SAFETY: Hey API places the operation's declared success body in `data`;
+  // callers bind T to that operation's response contract.
+  return result.data as T;
+}
+
+/** Return the raw response for callers that inspect status/body themselves. */
+export async function apiResponse(promise: ApiCall): Promise<Response> {
+  const result = await promise;
+  if (result.response) {
+    return result.response.bodyUsed
+      ? rebuildConsumedResponse(result, result.response)
+      : result.response;
+  }
+  throw new ApiError("网络请求失败 / Network request failed", {
+    cause: result.error,
+    payload: result.error,
+    status: 0,
+  });
 }

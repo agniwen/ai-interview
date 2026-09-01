@@ -1,3 +1,8 @@
+import {
+  createManagedWorkspaceMailIngestAccount,
+  listManagedWorkspaceMailIngestAccounts,
+  updateManagedWorkspaceMailIngestAccount,
+} from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconInbox } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,7 +69,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { authClient } from "@/lib/client/auth-client";
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import {
   dateTimeLocalInputToISOString,
@@ -86,7 +91,7 @@ import {
   resolveMailIngestPlatformId,
 } from "@/lib/client/mail-ingest-platforms";
 import type { MailIngestPlatformId } from "@/lib/client/mail-ingest-platforms";
-import { rpc } from "@/lib/client/rpc";
+
 import {
   useWorkspaceId,
   useWorkspaceMemberRole,
@@ -138,11 +143,11 @@ interface ManagedMailIngestResult extends DataGridFetchResult<ManagedMailIngestR
 }
 
 interface ManagedMailIngestQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
-  sortBy?: string;
-  sortOrder?: string;
+  sortBy?: "emailAddress" | "lastCheckedAt" | "userEmail" | "userName";
+  sortOrder?: "asc" | "desc";
 }
 
 interface MailIngestFormState {
@@ -274,11 +279,12 @@ function MailIngestAccountDialog({
 
       if (row.account) {
         const updatePayload = password ? { ...payload, password } : payload;
-        await rpcFetch(
-          rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed[":id"].$patch({
-            json: updatePayload,
-            param: { id: row.account.id, slug },
+        await apiRequest(
+          updateManagedWorkspaceMailIngestAccount({
+            path: { id: row.account.id, workspaceSlug: slug },
+            body: updatePayload,
           }),
+
           "邮箱监听配置更新失败",
         );
         return;
@@ -287,15 +293,12 @@ function MailIngestAccountDialog({
       if (!password) {
         throw new Error("创建配置时必须填写客户端密码");
       }
-      await rpcFetch(
-        rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$post({
-          json: {
-            ...payload,
-            password,
-            userId: form.userId,
-          },
-          param: { slug },
+      await apiRequest(
+        createManagedWorkspaceMailIngestAccount({
+          path: { workspaceSlug: slug },
+          body: { ...payload, password, userId: form.userId },
         }),
+
         "邮箱监听配置保存失败",
       );
     },
@@ -521,23 +524,26 @@ function ManagedMailIngestPage() {
   ): Promise<ManagedMailIngestResult> {
     const query: ManagedMailIngestQuery = {
       ...listTextQuery(params),
-      page: String(params.page),
-      pageSize: String(params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
     };
     if (params.search) {
       query.search = params.search;
     }
-    if (params.sortBy) {
+    if (
+      params.sortBy === "emailAddress" ||
+      params.sortBy === "lastCheckedAt" ||
+      params.sortBy === "userEmail" ||
+      params.sortBy === "userName"
+    ) {
       query.sortBy = params.sortBy;
     }
     if (params.sortOrder) {
       query.sortOrder = params.sortOrder;
     }
-    return rpcFetch(
-      rpc.api.w[":slug"].studio["mail-ingest-accounts"].managed.$get({
-        param: { slug },
-        query,
-      }),
+    return apiRequest(
+      listManagedWorkspaceMailIngestAccounts({ path: { workspaceSlug: slug }, query }),
+
       "加载邮箱监听配置失败",
     );
   }
@@ -565,6 +571,7 @@ function ManagedMailIngestPage() {
         cell: (row) => (
           <MemberCell email={row.user.email} image={row.user.image} name={row.user.name} />
         ),
+
         key: "userName",
         title: "成员",
       }),
@@ -578,6 +585,7 @@ function ManagedMailIngestPage() {
           ) : (
             <span className="text-muted-foreground">未配置</span>
           ),
+
         key: "emailAddress",
         title: "监听邮箱",
       }),
@@ -587,6 +595,7 @@ function ManagedMailIngestPage() {
             {roleLabelByValue.get(row.user.role) ?? row.user.role}
           </Badge>
         ),
+
         key: "role",
         title: "角色",
       }),
@@ -625,6 +634,7 @@ function ManagedMailIngestPage() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "imapHost",
         title: "IMAP",
       }),
@@ -640,6 +650,7 @@ function ManagedMailIngestPage() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "listenStartAt",
         title: "监听起始",
       }),
@@ -657,6 +668,7 @@ function ManagedMailIngestPage() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+
         key: "lastCheckedAt",
         title: "上次轮询",
       }),
@@ -686,10 +698,12 @@ function ManagedMailIngestPage() {
             show: (row) => canManageMailIngestAccounts && !row.account,
           },
         ],
+
         // 最多同时显示“查看”和“编辑”，按两个实际按钮的内容宽度锁定列宽。
         size: 114,
       }),
     ],
+
     [canManageMailIngestAccounts, navigate, roleLabelByValue, slug],
   );
 

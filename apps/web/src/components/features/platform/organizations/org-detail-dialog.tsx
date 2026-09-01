@@ -1,4 +1,5 @@
 "use client";
+import { getPlatformOrganization } from "@/lib/client/backend-api";
 
 import { IconBuilding, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
@@ -15,9 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import { withCleanup } from "@/lib/client/async-control";
-import { rpc } from "@/lib/client/rpc";
+
 import { formatDateOnly } from "@arc/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
@@ -160,11 +161,12 @@ export function OrgDetailDialog({
       setLoading(true);
       await withCleanup(
         async () => {
-          const result = await rpcFetch(
-            rpc.api.platform.organizations[":orgId"].$get({
-              param: { orgId },
-              query: { page: String(p), pageSize: String(pageSize) },
+          const result = await apiRequest(
+            getPlatformOrganization({
+              path: { workspaceId: orgId },
+              query: { page: p, pageSize },
             }),
+
             "加载工作区详情失败",
           );
           setData(result);

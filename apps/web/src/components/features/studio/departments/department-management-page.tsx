@@ -1,3 +1,6 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import { deleteWorkspaceDepartment, listWorkspaceDepartments } from "@/lib/client/backend-api";
+import type { ListWorkspaceDepartmentsData } from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconBuilding, IconPlus } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,8 +24,8 @@ import {
   useDataGridState,
 } from "@/components/features/data-grid";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "@/lib/client/api";
+
+import { apiRequest } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -47,21 +50,20 @@ export function DepartmentManagementPage() {
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedDepartmentResult> => {
-        const query = {
+        const query: NonNullable<ListWorkspaceDepartmentsData["query"]> = {
           ...listTextQuery(params),
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          sortBy: params.sortBy ?? "createdAt",
+          page: params.page,
+          pageSize: params.pageSize,
+          sortBy:
+            params.sortBy === "name" || params.sortBy === "updatedAt" ? params.sortBy : "createdAt",
           sortOrder: params.sortOrder ?? "desc",
         };
         if (params.search) {
           Object.assign(query, { search: params.search });
         }
-        return rpcFetch(
-          rpc.api.w[":slug"].studio.departments.$get({
-            param: { slug },
-            query,
-          }),
+        return apiRequest(
+          listWorkspaceDepartments({ path: { workspaceSlug: slug }, query }),
+
           "加载部门列表失败",
         );
       },
@@ -94,7 +96,7 @@ export function DepartmentManagementPage() {
 
   const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
     deleteEntity: (record) =>
-      rpc.api.w[":slug"].studio.departments[":id"].$delete({ param: { id: record.id, slug } }),
+      apiResponse(deleteWorkspaceDepartment({ path: { id: record.id, workspaceSlug: slug } })),
     detailFromList: (record) => record,
     invalidate: invalidateDepartmentData,
     messages: {
@@ -173,6 +175,7 @@ export function DepartmentManagementPage() {
             show: () => canUpdateDepartment,
           },
         ],
+
         menu: [
           {
             label: "删除",
@@ -183,6 +186,7 @@ export function DepartmentManagementPage() {
         ],
       }),
     ],
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应每次 crud 引用变化都重建
     [canDeleteDepartment, canReadInterviewers, canReadJobDescriptions, canUpdateDepartment],
   );
@@ -195,6 +199,7 @@ export function DepartmentManagementPage() {
         type: "text-filters" as const,
       },
     ],
+
     [],
   );
 

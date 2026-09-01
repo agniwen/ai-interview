@@ -1,11 +1,39 @@
 import { DefaultChatTransport } from "ai";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { getChatMeta } from "./chat-meta";
 
 const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
 
+export async function fetchChatRequest(fetchInput: RequestInfo | URL, init?: RequestInit) {
+  const timeoutController = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    timeoutController.abort("Chat request timed out after 8 minutes.");
+  }, CHAT_REQUEST_TIMEOUT_MS);
+
+  if (init?.signal) {
+    if (init.signal.aborted) {
+      timeoutController.abort(init.signal.reason);
+    } else {
+      init.signal.addEventListener("abort", () => timeoutController.abort(init.signal?.reason), {
+        once: true,
+      });
+    }
+  }
+
+  try {
+    return await fetch(fetchInput, {
+      ...init,
+      credentials: "include",
+      signal: timeoutController.signal,
+    });
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 export function createChatTransport(chatId: string, workspaceSlug: string) {
   return new DefaultChatTransport({
-    api: `/api/w/${encodeURIComponent(workspaceSlug)}/resume/chat`,
+    api: backendApiUrl(`/workspaces/${encodeURIComponent(workspaceSlug)}/copilot/resume-chat`),
     body: () => {
       const meta = getChatMeta(chatId);
       return {
@@ -13,33 +41,7 @@ export function createChatTransport(chatId: string, workspaceSlug: string) {
         ...(meta.focus && { focus: meta.focus }),
       };
     },
-    fetch: async (fetchInput, init) => {
-      const timeoutController = new AbortController();
-      const timeoutId = window.setTimeout(() => {
-        timeoutController.abort("Chat request timed out after 8 minutes.");
-      }, CHAT_REQUEST_TIMEOUT_MS);
-
-      if (init?.signal) {
-        if (init.signal.aborted) {
-          timeoutController.abort(init.signal.reason);
-        } else {
-          init.signal.addEventListener(
-            "abort",
-            () => timeoutController.abort(init.signal?.reason),
-            { once: true },
-          );
-        }
-      }
-
-      try {
-        return await fetch(fetchInput, {
-          ...init,
-          signal: timeoutController.signal,
-        });
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-    },
+    fetch: fetchChatRequest,
     // Defensive layer over the SDK's default body builder: when regenerating,
     // ensure `messages` is trimmed *before* the message being replaced and
     // that `messageId` is present so the server can prune the DB row. The SDK

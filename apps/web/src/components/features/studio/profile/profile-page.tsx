@@ -1,4 +1,5 @@
 "use client";
+import { getMyWorkspaceResumeActivity } from "@/lib/client/backend-api";
 
 import { IconBuilding } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -31,8 +32,8 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { formatDateOnly } from "@arc/shared/utils/time";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { cn } from "@arc/shared/utils";
 
 const WHITESPACE_REGEX = /\s+/u;
@@ -123,8 +124,8 @@ function ActivitySection() {
   const slug = useWorkspaceSlug();
   const activityQuery = useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["my-activity"].$get({ param: { slug } }),
+      apiRequest<{ dailyAdded: { count: number; day: string }[] }>(
+        getMyWorkspaceResumeActivity({ path: { workspaceSlug: slug } }),
         "加载个人活动失败",
       ),
     queryKey: ["workspace-my-activity", slug] as const,
@@ -183,12 +184,7 @@ function OrganizationSection({
 }: {
   currentRole: string | null;
   currentSlug: string;
-  organizations: {
-    createdAt: Date | string;
-    id: string;
-    name: string;
-    slug: string;
-  }[];
+  organizations: { createdAt: Date | string; id: string; name: string; slug: string }[];
 }) {
   return (
     <SettingsSection title="我的工作区">
@@ -387,6 +383,7 @@ export function ProfilePage() {
                   placeholder="请输入姓名"
                   value={name}
                 />
+
                 {nameSaveLabel ? (
                   <p
                     className={cn(

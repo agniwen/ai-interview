@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formSubmissionSchema } from "../../recruiting-records/interviews/interview-workflow.schemas.js";
 
 export const invitationResponseSchema = z.object({
   action: z.enum(["accept", "decline"]),
@@ -77,12 +78,7 @@ export const publicInterviewRoundReportsResponseSchema = z.array(publicReportSch
 export const publicInterviewRoundReportResponseSchema = publicReportSchema;
 
 export const publicFormSubmissionsResponseSchema = z.object({
-  submissions: z.array(
-    z.looseObject({
-      id: z.string(),
-      templateId: z.string(),
-    }),
-  ),
+  submissions: z.array(formSubmissionSchema),
 });
 
 export const publicRecordingResponseSchema = z.object({

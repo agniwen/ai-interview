@@ -1,4 +1,5 @@
 "use client";
+import { listWorkspaceCandidateFormSubmissions } from "@/lib/client/backend-api";
 
 import { IconInbox, IconLoader2 } from "@tabler/icons-react";
 import type {
@@ -8,8 +9,8 @@ import type {
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { useMemo } from "react";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";
@@ -116,11 +117,12 @@ export function CandidateFormTemplateSubmissionsDrawer({
         if (!template) {
           return Promise.resolve({ submissions: [], total: 0 });
         }
-        return rpcFetch(
-          rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
-            param: { id: template.id, slug },
-            query: { limit: String(PAGE_SIZE), offset: String(pageParam ?? 0) },
+        return apiRequest(
+          listWorkspaceCandidateFormSubmissions({
+            path: { id: template.id, workspaceSlug: slug },
+            query: { limit: PAGE_SIZE, offset: Number(pageParam ?? 0) },
           }),
+
           "加载填写记录失败",
         );
       },
@@ -162,10 +164,10 @@ export function CandidateFormTemplateSubmissionsDrawer({
             <Card className="gap-0 rounded-2xl border-border bg-card py-0" key={submission.id}>
               <CardContent className="space-y-4 p-5">
                 {/* 头部：候选人名称 + 版本徽章为一级元数据；提交时间为二级元数据，
-                  纵向排列让候选人姓名独占一行（长名字不会跟时间挤）。
-                  Header: name + version are the primary metadata stack; submitted-at
-                  is secondary, placed below so a long name no longer fights with
-                  the timestamp for horizontal space. */}
+                纵向排列让候选人姓名独占一行（长名字不会跟时间挤）。
+                Header: name + version are the primary metadata stack; submitted-at
+                is secondary, placed below so a long name no longer fights with
+                the timestamp for horizontal space. */}
                 <header className="flex flex-col gap-1 border-border border-b pb-3">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-base text-foreground leading-tight">
@@ -183,10 +185,10 @@ export function CandidateFormTemplateSubmissionsDrawer({
                 </header>
 
                 {/* 问答区：每题"问"作为 muted 标签 + "答"作为前景内容，
-                  跟 parsed-resume-button.tsx 的 Field 风格保持一致。
-                  Each Q&A pair styles "question" as a muted label and "answer"
-                  as the foreground value — same hierarchy as the parsed-resume
-                  Field component, so the visual language matches. */}
+                跟 parsed-resume-button.tsx 的 Field 风格保持一致。
+                Each Q&A pair styles "question" as a muted label and "answer"
+                as the foreground value — same hierarchy as the parsed-resume
+                Field component, so the visual language matches. */}
                 <div className="space-y-3.5">
                   {submission.snapshot.questions.map((question) => (
                     <div className="space-y-1.5" key={question.id}>

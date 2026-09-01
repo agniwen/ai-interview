@@ -1,4 +1,5 @@
 "use client";
+import { updateWorkspaceSettings } from "@/lib/client/backend-api";
 
 import { IconSettings } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,8 +20,8 @@ import {
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface WorkspaceSettingsDialogProps {
@@ -69,11 +70,9 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
         toast.error(message);
       },
       operation: async () => {
-        await rpcFetch(
-          rpc.api.w[":slug"].studio.workspace.$patch({
-            json: { name: trimmedName },
-            param: { slug },
-          }),
+        await apiRequest(
+          updateWorkspaceSettings({ body: { name: trimmedName }, path: { workspaceSlug: slug } }),
+
           "更新工作区名称失败",
         );
         await Promise.all([
@@ -98,6 +97,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
           )
         }
       />
+
       <DialogContent>
         <DialogHeader>
           <DialogTitle>工作区设置</DialogTitle>
@@ -118,6 +118,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
                 }}
                 value={name}
               />
+
               <FieldDescription>用于侧边栏切换器和工作区列表展示。</FieldDescription>
               <FieldError>{fieldError}</FieldError>
             </Field>
@@ -131,6 +132,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
               </Button>
             }
           />
+
           <Button disabled={!canSubmit} form="workspace-settings-form" type="submit">
             {submitting ? "保存中..." : "保存"}
           </Button>

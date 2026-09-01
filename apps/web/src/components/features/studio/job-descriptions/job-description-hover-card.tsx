@@ -1,4 +1,5 @@
 "use client";
+import { getWorkspaceJobDescription } from "@/lib/client/backend-api";
 
 import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
 import { cn } from "@arc/shared/utils";
@@ -6,8 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { MarkdownView } from "@/components/features/display/markdown-view";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -117,6 +118,7 @@ export function JobDescriptionHoverCardView({
           </button>
         }
       />
+
       <HoverCardContent
         align="start"
         className="w-96 max-w-[calc(100vw-2rem)]"
@@ -148,10 +150,9 @@ export function JobDescriptionHoverCard(props: {
       {...props}
       dependencies={{
         fetchDetail: (workspaceSlug, id) =>
-          rpcFetch(
-            rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
-              param: { id, slug: workspaceSlug },
-            }),
+          apiRequest(
+            getWorkspaceJobDescription({ path: { id, workspaceSlug } }),
+
             "加载岗位详情失败",
           ),
         slug,

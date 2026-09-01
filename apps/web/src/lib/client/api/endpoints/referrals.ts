@@ -1,29 +1,33 @@
+import {
+  createWorkspaceJobDescriptionReferralLink,
+  getPublicReferral,
+} from "@/lib/client/backend-api";
 import type {
   PublicReferralPreview,
   PublicReferralUploadResult,
   ReferralLinkCreateResult,
 } from "@arc/shared/referrals";
 import { apiFetch } from "../client";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
+
+import { apiRequest } from "../rpc-fetch";
 
 export function createJobDescriptionReferralLink(
   slug: string,
   jobDescriptionId: string,
 ): Promise<ReferralLinkCreateResult> {
-  return rpcFetch(
-    rpc.api.w[":slug"].studio["job-descriptions"][":id"]["referral-link"].$post({
-      param: { id: jobDescriptionId, slug },
+  return apiRequest(
+    createWorkspaceJobDescriptionReferralLink({
+      path: { id: jobDescriptionId, workspaceSlug: slug },
     }),
+
     "创建内推链接失败",
   );
 }
 
 export function fetchPublicReferralPreview(token: string): Promise<PublicReferralPreview> {
-  return rpcFetch(
-    rpc.api.public.referrals[":token"].$get({
-      param: { token },
-    }),
+  return apiRequest(
+    getPublicReferral({ path: { token } }),
+
     "加载内推信息失败",
   );
 }
@@ -35,7 +39,7 @@ export function uploadPublicReferralResume(
   const formData = new FormData();
   formData.append("resume", file);
   return apiFetch<PublicReferralUploadResult>(
-    `/api/public/referrals/${encodeURIComponent(token)}/resumes`,
+    `/public/referrals/${encodeURIComponent(token)}/resumes`,
     {
       body: formData,
       method: "POST",

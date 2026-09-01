@@ -1,8 +1,10 @@
 "use client";
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import { createWorkspaceDepartment, updateWorkspaceDepartment } from "@/lib/client/backend-api";
 
 import type { DepartmentFormValues, DepartmentRecord } from "@arc/shared/departments";
 import { departmentFormSchema } from "@arc/shared/departments";
-import { rpc } from "@/lib/client/rpc";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 import { useCallback } from "react";
@@ -57,11 +59,10 @@ export function DepartmentFormDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.w[":slug"].studio.departments[":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio.departments.$post({ json: body, param: { slug } });
+        ? await apiResponse(
+            updateWorkspaceDepartment({ body, path: { id: record.id, workspaceSlug: slug } }),
+          )
+        : await apiResponse(createWorkspaceDepartment({ body, path: { workspaceSlug: slug } }));
 
       const rawPayload = await response.json().catch(() => null);
       const parsedPayload = errorPayloadSchema.safeParse(rawPayload);
@@ -111,6 +112,7 @@ export function DepartmentFormDialog({
                   placeholder="如：研发部、产品部"
                   value={field.state.value}
                 />
+
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>
@@ -137,6 +139,7 @@ export function DepartmentFormDialog({
                     rows={3}
                     value={field.state.value ?? ""}
                   />
+
                   <TextareaCounter maxLength={DESCRIPTION_MAX_LENGTH} value={field.state.value} />
                 </div>
                 <FieldError errors={errors} />

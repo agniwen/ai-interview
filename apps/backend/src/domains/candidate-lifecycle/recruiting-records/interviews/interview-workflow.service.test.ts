@@ -39,3 +39,68 @@ describe("InterviewWorkflowService round email summary", () => {
     });
   });
 });
+
+describe("InterviewWorkflowService form submissions", () => {
+  it("returns the immutable template snapshot required by interview details", async () => {
+    let selectCall = 0;
+    const submission = {
+      answers: { "question-1": "两周内" },
+      id: "submission-1",
+      interviewRecordId: "candidate-1",
+      submittedAt: new Date("2026-09-01T12:00:00.000Z"),
+      templateId: "template-1",
+      versionId: "version-1",
+    };
+    const snapshot = {
+      description: null,
+      jobDescriptionIds: [],
+      questions: [],
+      scope: "global",
+      templateId: "template-1",
+      title: "候选人信息",
+    };
+    const select = vi.fn(() => {
+      selectCall += 1;
+      if (selectCall === 1) {
+        return {
+          from: () => ({
+            innerJoin: () => ({
+              where: () => ({
+                limit: async () => [{ candidate: { id: "candidate-1" }, round: {} }],
+              }),
+            }),
+          }),
+        };
+      }
+
+      let joinedTemplateVersion = false;
+      const query = {
+        innerJoin: () => {
+          joinedTemplateVersion = true;
+          return query;
+        },
+        orderBy: async () => [
+          joinedTemplateVersion ? { ...submission, snapshot, version: 1 } : submission,
+        ],
+        where: () => query,
+      };
+      return { from: () => query };
+    });
+    const service = new InterviewWorkflowService(
+      { select } as never,
+      {} as WorkspaceObjectStoragePort,
+      {} as ResumeUploadBatchService,
+    );
+
+    await expect(service.formSubmissions("organization-1", "round-1")).resolves.toEqual({
+      submissions: [
+        {
+          ...submission,
+          snapshot,
+          submittedAt: "2026-09-01T12:00:00.000Z",
+          version: 1,
+        },
+      ],
+    });
+  });
+});

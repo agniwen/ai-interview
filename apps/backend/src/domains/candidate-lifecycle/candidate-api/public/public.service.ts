@@ -1,4 +1,4 @@
-/* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/no-unknown-parameters, anti-slop/require-safety-comment-for-type-assertion, complexity, max-lines, no-negated-condition, no-nested-ternary, prefer-destructuring, require-await, typescript/no-non-null-assertion, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/no-nested-ternary, unicorn/prefer-structured-clone -- Public invitation, material, referral, and meeting flows preserve one copied authorization and token-validity boundary; provider payload normalization and optional response fields mirror the legacy wire contract. */
+/* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion, complexity, max-lines, no-negated-condition, no-nested-ternary, prefer-destructuring, require-await, typescript/no-non-null-assertion, unicorn/no-await-expression-member, unicorn/no-nested-ternary, unicorn/prefer-structured-clone -- Public invitation, material, referral, and meeting flows preserve one copied authorization and token-validity boundary; provider payload normalization and optional response fields mirror the legacy wire contract. */
 import { rawBackendEnvironment } from "../../../../config/raw-backend-environment.js";
 import type { BackendEnvironmentKey } from "../../../../config/backend-environment.schema.js";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
@@ -27,6 +27,7 @@ import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
 import {
   candidateFormSubmission,
+  candidateFormTemplateVersion,
   chatAttachment,
   department,
   globalConfig,
@@ -63,7 +64,6 @@ import { buildInterviewNotificationDedupeKey } from "@arc/shared/interview-notif
 import { hasExistingInterviewAnswers } from "@arc/shared/interview/question-outcomes";
 import { deriveJdRequiredSkills, resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { resumeReviewActionSchema } from "@arc/shared/resume-review";
-import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import type { Request } from "express";
 import { BackgroundQueueProducerService } from "../../../../background/background-queue-producer.service.js";
 import { HTTP_DATABASE } from "../../../../infrastructure/http/http.ports.js";
@@ -72,6 +72,7 @@ import type {
   HttpDatabase,
 } from "../../../../infrastructure/http/http.ports.js";
 import { enqueuePreparedNotificationEvent } from "../../notifications/notification-preparation.js";
+import { compactResumeProfileSnapshot } from "../../resume-profile-snapshot.js";
 import type { PublicRecruitingPort } from "./public.port.js";
 import { buildPublicConversationReport } from "./public-report.js";
 import type { invitationResponseSchema } from "./public.schemas.js";
@@ -194,67 +195,6 @@ function serializeTimestamp(value: Date | string | null | undefined) {
     return null;
   }
   return value instanceof Date ? value.toISOString() : value;
-}
-
-function compactResumeProfileSnapshot(value: unknown) {
-  const parsed = resumeProfileSchema.safeParse(value);
-  if (!parsed.success) {
-    return {
-      education: [],
-      educationHasMore: false,
-      projects: [],
-      projectsHasMore: false,
-      work: [],
-      workHasMore: false,
-    };
-  }
-  const recentFirst = <T extends { period?: string | null }>(rows: T[]) =>
-    rows.toSorted((left, right) => (right.period ?? "").localeCompare(left.period ?? ""));
-  const work = recentFirst(parsed.data.workExperiences).flatMap((item) => {
-    const company = item.company?.trim();
-    const role = item.role?.trim();
-    const primary = company || role;
-    return primary
-      ? [{ period: item.period?.trim() || null, primary, secondary: company ? role || null : null }]
-      : [];
-  });
-  const education = recentFirst(parsed.data.educationExperiences ?? []).flatMap((item) => {
-    const school = item.school?.trim();
-    if (!school) {
-      return [];
-    }
-    return [
-      {
-        period: item.period?.trim() || item.graduationYear?.trim() || null,
-        primary:
-          formatResumeEducationSchoolWithLevel({
-            educationLevel: item.educationLevel?.trim() || null,
-            school,
-          }) ?? school,
-        secondary: item.major?.trim() || null,
-      },
-    ];
-  });
-  const projects = recentFirst(parsed.data.projectExperiences).flatMap((item) => {
-    const name = item.name?.trim();
-    return name
-      ? [
-          {
-            period: item.period?.trim() || null,
-            primary: name,
-            secondary: item.role?.trim() || null,
-          },
-        ]
-      : [];
-  });
-  return {
-    education: education.slice(0, 3),
-    educationHasMore: education.length > 3,
-    projects: projects.slice(0, 3),
-    projectsHasMore: projects.length > 3,
-    work: work.slice(0, 3),
-    workHasMore: work.length > 3,
-  };
 }
 
 const execFileAsync = promisify(execFile);
@@ -928,8 +868,21 @@ export class PublicService implements PublicRecruitingPort {
   async getRoundFormSubmissions(id: string) {
     const scope = await this.requireRoundScope(id);
     const rows = await this.database
-      .select()
+      .select({
+        answers: candidateFormSubmission.answers,
+        id: candidateFormSubmission.id,
+        interviewRecordId: candidateFormSubmission.interviewRecordId,
+        snapshot: candidateFormTemplateVersion.snapshot,
+        submittedAt: candidateFormSubmission.submittedAt,
+        templateId: candidateFormSubmission.templateId,
+        version: candidateFormTemplateVersion.version,
+        versionId: candidateFormSubmission.versionId,
+      })
       .from(candidateFormSubmission)
+      .innerJoin(
+        candidateFormTemplateVersion,
+        eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
+      )
       .where(eq(candidateFormSubmission.interviewRecordId, scope.candidateId))
       .orderBy(asc(candidateFormSubmission.submittedAt));
     return { submissions: jsonSafe(rows) };

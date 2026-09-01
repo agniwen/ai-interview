@@ -1,23 +1,23 @@
+import { generateResumeConversationTitle, listResumeChatModels } from "@/lib/client/backend-api";
+import { apiRequest } from "../rpc-fetch";
+
 /**
  * 简历筛选（resume screening）相关 API。
  * Resume-screening API.
  *
- * 这一组方法对应 `/api/resume/*` 路由族。当前对外暴露：
+ * 这一组方法对应 system 平台配置与 workspace copilot 路由族。当前对外暴露：
  *   - `requestResumeChatTitle`：根据用户首条消息生成会话标题。
  *
- * 注：`/api/w/:slug/resume/chat`（POST）是 AI SDK 的流式聊天端点，调用方应通过 `useChat` 使用
+ * 注：`/workspaces/:workspaceSlug/copilot/resume-chat`（POST）是 AI SDK 的流式聊天端点，调用方应通过 `useChat` 使用
  * `DefaultChatTransport` 直接对接，而不是本模块——因此这里不暴露同步包装。
  *
- * Maps to the `/api/resume/*` route family. Currently exposes:
+ * Maps to the Nest system/copilot route families. Currently exposes:
  *   - `requestResumeChatTitle` — generate a conversation title from the first message.
  *
- * Note: `/api/w/:slug/resume/chat` (POST) is an AI SDK streaming chat endpoint. Callers should use
+ * Note: `/workspaces/:workspaceSlug/copilot/resume-chat` is an AI SDK streaming endpoint. Callers should use
  * the `useChat` + `DefaultChatTransport` integration directly rather than going
  * through this module, so we deliberately don't wrap it.
  */
-
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "../rpc-fetch";
 
 /**
  * 简历筛选会话的智能标题生成请求体。
@@ -48,7 +48,7 @@ export interface ChatModelsResponse {
  * Fetch the list of models exposed in the chat composer picker.
  */
 export function fetchChatModels(): Promise<ChatModelsResponse> {
-  return rpcFetch(rpc.api.resume.models.$get(), "加载模型列表失败");
+  return apiRequest(listResumeChatModels({}), "加载模型列表失败");
 }
 
 /**
@@ -58,5 +58,5 @@ export function fetchChatModels(): Promise<ChatModelsResponse> {
 export function requestResumeChatTitle(
   payload: ResumeChatTitleRequest,
 ): Promise<{ title?: string }> {
-  return rpcFetch(rpc.api.resume.title.$post({ json: payload }), "生成标题失败");
+  return apiRequest(generateResumeConversationTitle({ body: payload }), "生成标题失败");
 }

@@ -1,4 +1,5 @@
 "use client";
+import { listRecruitingWorkspaceJobDescriptions } from "@/lib/client/backend-api";
 
 import { useQuery } from "@tanstack/react-query";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
@@ -25,10 +26,9 @@ import type {
   StudioStickyDateHeaderPosition,
 } from "@/components/features/studio/studio-date-group-virtual-list";
 import { Badge } from "@/components/ui/badge";
-import { rpcFetch } from "@/lib/client/api";
+import { apiRequest } from "@/lib/client/api";
 import { jobDescriptionKeys } from "@/lib/client/api/query-keys";
 import type { DedupMatchRecord } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
 
 export { dateRangeFilterBounds as resumePoolCreatedAtBounds } from "@arc/shared/date-range-filter";
 
@@ -210,6 +210,7 @@ export function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
     record.resumeFileName,
     record.targetRole,
   ]
+
     .filter(Boolean)
     .some((value) => value?.toLowerCase().includes(search));
 }
@@ -264,10 +265,7 @@ export function canDeletePoolRecord(
   {
     currentOrganizationId,
     currentUserId,
-  }: {
-    currentOrganizationId: string | null;
-    currentUserId: string | null;
-  },
+  }: { currentOrganizationId: string | null; currentUserId: string | null },
 ) {
   return Boolean(
     currentOrganizationId &&
@@ -410,10 +408,9 @@ export function filterPoolRecords(
 export function useJobDescriptions(slug: string) {
   return useQuery({
     queryFn: async () => {
-      const payload = await rpcFetch(
-        rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
-          param: { slug },
-        }),
+      const payload = await apiRequest(
+        listRecruitingWorkspaceJobDescriptions({ path: { workspaceSlug: slug } }),
+
         "加载在招岗位列表失败",
       );
       return payload.records;

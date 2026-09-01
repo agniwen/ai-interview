@@ -1,4 +1,5 @@
 "use client";
+import { getPlatformLiveKitRoom, listPlatformLiveKitRooms } from "@/lib/client/backend-api";
 
 import { listTextQuery } from "@arc/shared/list-text-filters";
 
@@ -31,14 +32,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { DetailFields, JsonBlock } from "./detail-fields";
 import type { LiveKitParticipantRecord, LiveKitRoomRecord } from "./types";
 
 interface LiveKitRoomsQuery {
-  page: string;
-  pageSize: string;
+  page: number;
+  pageSize: number;
   search?: string;
 }
 
@@ -64,6 +65,7 @@ function ParticipantCard({ participant }: { participant: LiveKitParticipantRecor
           { label: "Participant SID", value: participant.sid },
         ]}
       />
+
       <div className="flex flex-col gap-2">
         <p className="font-medium text-sm">发布轨道</p>
         {participant.tracks.length === 0 ? (
@@ -110,10 +112,13 @@ function RoomDetailDrawer({
   const query = useQuery({
     enabled: open && roomName !== null,
     queryFn: () =>
-      rpcFetch(
-        rpc.api.platform.livekit.rooms[":roomName"].$get({
-          param: { roomName: roomName ?? "" },
-        }),
+      apiRequest<{
+        metadata: string;
+        participants: LiveKitParticipantRecord[];
+        room: LiveKitRoomRecord;
+      }>(
+        getPlatformLiveKitRoom({ path: { roomName: roomName ?? "" } }),
+
         "加载房间详情失败",
       ),
     queryKey: ["platform-livekit-room", roomName],
@@ -148,6 +153,7 @@ function RoomDetailDrawer({
                   },
                 ]}
               />
+
               {query.data.metadata ? (
                 <div className="flex flex-col gap-2">
                   <p className="font-medium text-sm">Room Metadata</p>
@@ -186,13 +192,13 @@ export function LiveKitRoomsGrid() {
     }) => {
       const query: LiveKitRoomsQuery = {
         ...listTextQuery(params),
-        page: String(params.page),
-        pageSize: String(params.pageSize),
+        page: params.page,
+        pageSize: params.pageSize,
       };
       if (params.search) {
         query.search = params.search;
       }
-      return rpcFetch(rpc.api.platform.livekit.rooms.$get({ query }), "加载 LiveKit 房间失败");
+      return apiRequest(listPlatformLiveKitRooms({ query }), "加载 LiveKit 房间失败");
     },
     [],
   );
@@ -223,6 +229,7 @@ export function LiveKitRoomsGrid() {
             {room.numParticipants}
           </Badge>
         ),
+
         key: "numParticipants",
         title: "参与者",
       }),
@@ -237,6 +244,7 @@ export function LiveKitRoomsGrid() {
             {room.activeRecording ? "录制中" : "未录制"}
           </Badge>
         ),
+
         key: "activeRecording",
         title: "录制",
       }),
@@ -245,6 +253,7 @@ export function LiveKitRoomsGrid() {
         inline: [{ label: "查看", onClick: openDetail }],
       }),
     ],
+
     [openDetail],
   );
 
@@ -275,6 +284,7 @@ export function LiveKitRoomsGrid() {
         ]}
         getRowId={(room) => room.sid}
       />
+
       <RoomDetailDrawer onOpenChange={setDetailOpen} open={detailOpen} roomName={detailRoomName} />
     </div>
   );

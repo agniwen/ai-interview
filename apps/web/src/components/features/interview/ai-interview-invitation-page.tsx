@@ -1,4 +1,5 @@
 "use client";
+import { respondPublicAiInterviewInvitation } from "@/lib/client/backend-api";
 
 import { IconCalendarEvent, IconCheck, IconX } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
@@ -10,8 +11,7 @@ import type { CandidateInterviewInvitationStatus } from "@arc/db-schema/intervie
 import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { Button } from "@/components/ui/button";
-import { ApiError, rpcFetch } from "@/lib/client/api";
-import { publicRpc } from "@/lib/client/rpc";
+import { ApiError, apiRequest } from "@/lib/client/api";
 
 interface InvitationResponseError {
   message: string;
@@ -61,11 +61,9 @@ export function AiInterviewInvitationPage({
   const [responseError, setResponseError] = useState<InvitationResponseError | null>(null);
   const responseMutation = useMutation({
     mutationFn: (action: "accept" | "decline") =>
-      rpcFetch(
-        publicRpc["ai-interview-invitations"][":token"].respond.$post({
-          json: { action },
-          param: { token: inviteToken },
-        }),
+      apiRequest(
+        respondPublicAiInterviewInvitation({ body: { action }, path: { token: inviteToken } }),
+
         "提交面试邀请响应失败",
       ),
     onError: (error) => {

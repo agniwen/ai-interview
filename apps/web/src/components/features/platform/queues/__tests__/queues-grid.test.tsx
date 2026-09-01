@@ -212,8 +212,8 @@ describe("QueuesGrid", () => {
     expect(document.body.textContent).toContain("解析中");
     expect(dependencies.fetchJobs).toHaveBeenCalledWith({
       query: {
-        page: "1",
-        pageSize: "20",
+        page: 1,
+        pageSize: 20,
         parseStatus: "all",
         state: "all",
         uploadStatus: "all",
@@ -257,8 +257,8 @@ describe("QueuesGrid", () => {
 
     expect(dependencies.fetchJobs).toHaveBeenCalledWith({
       query: {
-        page: "2",
-        pageSize: "20",
+        page: 2,
+        pageSize: 20,
         parseStatus: "failed",
         state: "all",
         uploadStatus: "processing",
@@ -285,8 +285,8 @@ describe("QueuesGrid", () => {
 
     expect(dependencies.fetchJobs).toHaveBeenCalledWith({
       query: {
-        page: "1",
-        pageSize: "20",
+        page: 1,
+        pageSize: 20,
         parseStatus: "all",
         state: "waiting",
         uploadStatus: "all",

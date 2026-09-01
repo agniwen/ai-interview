@@ -2409,14 +2409,144 @@
                       "items": {
                         "additionalProperties": {},
                         "properties": {
+                          "answers": {
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              ]
+                            },
+                            "type": "object"
+                          },
                           "id": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "snapshot": {
+                            "additionalProperties": {},
+                            "properties": {
+                              "description": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "jobDescriptionIds": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "questions": {
+                                "items": {
+                                  "additionalProperties": {},
+                                  "properties": {
+                                    "displayMode": {
+                                      "enum": ["radio", "checkbox", "select", "input", "textarea"],
+                                      "type": "string"
+                                    },
+                                    "helperText": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "options": {
+                                      "items": {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["label", "value"],
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "required": {
+                                      "type": "boolean"
+                                    },
+                                    "sortOrder": {
+                                      "type": "number"
+                                    },
+                                    "type": {
+                                      "enum": ["single", "multi", "text"],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "displayMode",
+                                    "helperText",
+                                    "id",
+                                    "label",
+                                    "options",
+                                    "required",
+                                    "sortOrder",
+                                    "type"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "scope": {
+                                "enum": ["global", "job_description"],
+                                "type": "string"
+                              },
+                              "templateId": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "description",
+                              "jobDescriptionIds",
+                              "questions",
+                              "scope",
+                              "templateId",
+                              "title"
+                            ],
+                            "type": "object"
+                          },
+                          "submittedAt": {
                             "type": "string"
                           },
                           "templateId": {
                             "type": "string"
+                          },
+                          "version": {
+                            "type": "number"
+                          },
+                          "versionId": {
+                            "type": "string"
                           }
                         },
-                        "required": ["id", "templateId"],
+                        "required": [
+                          "answers",
+                          "id",
+                          "interviewRecordId",
+                          "snapshot",
+                          "submittedAt",
+                          "templateId",
+                          "version",
+                          "versionId"
+                        ],
                         "type": "object"
                       },
                       "type": "array"
@@ -21455,11 +21585,107 @@
                           "interviewRecordId": {
                             "type": "string"
                           },
+                          "snapshot": {
+                            "additionalProperties": {},
+                            "properties": {
+                              "description": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "jobDescriptionIds": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "questions": {
+                                "items": {
+                                  "additionalProperties": {},
+                                  "properties": {
+                                    "displayMode": {
+                                      "enum": ["radio", "checkbox", "select", "input", "textarea"],
+                                      "type": "string"
+                                    },
+                                    "helperText": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "options": {
+                                      "items": {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["label", "value"],
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "required": {
+                                      "type": "boolean"
+                                    },
+                                    "sortOrder": {
+                                      "type": "number"
+                                    },
+                                    "type": {
+                                      "enum": ["single", "multi", "text"],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "displayMode",
+                                    "helperText",
+                                    "id",
+                                    "label",
+                                    "options",
+                                    "required",
+                                    "sortOrder",
+                                    "type"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "scope": {
+                                "enum": ["global", "job_description"],
+                                "type": "string"
+                              },
+                              "templateId": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "description",
+                              "jobDescriptionIds",
+                              "questions",
+                              "scope",
+                              "templateId",
+                              "title"
+                            ],
+                            "type": "object"
+                          },
                           "submittedAt": {
                             "type": "string"
                           },
                           "templateId": {
                             "type": "string"
+                          },
+                          "version": {
+                            "type": "number"
                           },
                           "versionId": {
                             "type": "string"
@@ -21469,8 +21695,10 @@
                           "answers",
                           "id",
                           "interviewRecordId",
+                          "snapshot",
                           "submittedAt",
                           "templateId",
+                          "version",
                           "versionId"
                         ],
                         "type": "object"

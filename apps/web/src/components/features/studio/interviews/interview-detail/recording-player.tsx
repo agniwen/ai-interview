@@ -30,11 +30,11 @@ interface RecordingPlayerProps {
   durationSecs: number | null;
   seekToSecs?: number | null;
   /**
-   * "authed"：走 /api/w/:slug/studio 路径（默认）。
-   * "public"：走 /api/public 路径，无需 slug，用于 /r/[roundId] 等公开访问入口。
+   * "authed"：走 /workspaces/:workspaceSlug 路径（默认）。
+   * "public"：走 /public 路径，无需 slug，用于 /r/[roundId] 等公开访问入口。
    *
-   * "authed" routes through /api/w/:slug/studio (default).
-   * "public" hits /api/public, slug-less, used by public-access routes.
+   * "authed" routes through /workspaces/:workspaceSlug (default).
+   * "public" hits /public, slug-less, used by public-access routes.
    */
   accessMode?: "authed" | "public";
 }

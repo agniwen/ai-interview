@@ -1,3 +1,9 @@
+import { apiResponse } from "@/lib/client/api/rpc-fetch";
+import {
+  deleteWorkspaceInterviewer,
+  getWorkspaceInterviewer,
+  listWorkspaceInterviewers,
+} from "@/lib/client/backend-api";
 import { listTextQuery } from "@arc/shared/list-text-filters";
 import { IconPlus, IconUserCircle } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,8 +34,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/client/rpc";
-import { rpcFetch } from "@/lib/client/api";
+
+import { apiRequest } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
@@ -55,28 +61,31 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedInterviewerResult> =>
-        rpcFetch(
-          rpc.api.w[":slug"].studio.interviewers.$get({
-            param: { slug },
+        apiRequest(
+          listWorkspaceInterviewers({
+            path: { workspaceSlug: slug },
             query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
+              page: params.page,
+              pageSize: params.pageSize,
               search: params.search || undefined,
               ...listTextQuery(params),
-              sortBy: params.sortBy ?? "createdAt",
+              sortBy:
+                params.sortBy === "name" || params.sortBy === "updatedAt"
+                  ? params.sortBy
+                  : "createdAt",
               sortOrder: params.sortOrder ?? "desc",
             },
           }),
+
           "加载 AI面试官列表失败",
         ),
     [slug],
   );
 
   function loadInterviewerDetail(record: InterviewerListRecord): Promise<InterviewerRecord | null> {
-    return rpcFetch(
-      rpc.api.w[":slug"].studio.interviewers[":id"].$get({
-        param: { id: record.id, slug },
-      }),
+    return apiRequest(
+      getWorkspaceInterviewer({ path: { id: record.id, workspaceSlug: slug } }),
+
       "加载 AI 面试官详情失败",
       { allow404: true },
     );
@@ -108,7 +117,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
 
   const crud = useEntityCrud<InterviewerListRecord, InterviewerRecord>({
     deleteEntity: (record) =>
-      rpc.api.w[":slug"].studio.interviewers[":id"].$delete({ param: { id: record.id, slug } }),
+      apiResponse(deleteWorkspaceInterviewer({ path: { id: record.id, workspaceSlug: slug } })),
     invalidate: invalidateInterviewerData,
     loadDetail: loadInterviewerDetail,
     messages: {
@@ -184,6 +193,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
             show: () => canUpdateInterviewer,
           },
         ],
+
         menu: [
           {
             label: "删除",
@@ -194,6 +204,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         ],
       }),
     ],
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应跟着 crud 引用变化重建
     [canDeleteInterviewer, canReadJobDescriptions, canUpdateInterviewer],
   );
@@ -206,6 +217,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
         type: "text-filters" as const,
       },
     ],
+
     [],
   );
 

@@ -35,6 +35,7 @@
     "doctor:react": "bun run --filter @app/web doctor",
     "fix": "ultracite fix",
     "hooks": "lefthook install",
+    "api:generate": "bun run --filter @app/backend openapi && bun run --filter @app/backend client:generate",
     "backfill:interview-snapshots": "bun run --filter @app/server backfill:interview-snapshots",
     "backfill:resume-pool-semantic-index": "bun run --filter @app/server backfill:resume-pool-semantic-index",
     "backfill:resume-semantic-index": "bun run --filter @app/server backfill:resume-semantic-index",

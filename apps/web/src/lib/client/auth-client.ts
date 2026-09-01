@@ -5,6 +5,7 @@ import { ac, roles } from "@arc/shared/permissions";
 import { env } from "@/env/client";
 
 export const authClient = createAuthClient({
+  basePath: "/public/auth",
   baseURL: env.NEXT_PUBLIC_BETTER_AUTH_URL,
   fetchOptions: {
     credentials: "include",

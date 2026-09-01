@@ -1,11 +1,12 @@
 "use client";
+import { generateWorkspaceCandidateFormQuestions } from "@/lib/client/backend-api";
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -81,14 +82,12 @@ export function FormTemplateAiCreateDialog({
         toast.error(error instanceof Error ? error.message : "AI 生成失败");
       },
       operation: async () => {
-        const result = await rpcFetch(
-          rpc.api.w[":slug"].studio.forms["ai-generate-questions"].$post({
-            json: {
-              jobDescriptionId,
-              prompt: prompt.trim(),
-            },
-            param: { slug },
+        const result = await apiRequest(
+          generateWorkspaceCandidateFormQuestions({
+            body: { jobDescriptionId, prompt: prompt.trim() },
+            path: { workspaceSlug: slug },
           }),
+
           "AI 生成题目失败",
         );
 
@@ -173,6 +172,7 @@ export function FormTemplateAiCreateDialog({
                 rows={4}
                 value={prompt}
               />
+
               <TextareaCounter maxLength={PROMPT_MAX} value={prompt} />
             </div>
           </FieldContent>

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { candidateInterviewInvitationStatusSchema } from "@arc/db-schema/interview-notifications";
 import type { PublicAiInterviewInvitationPreview } from "@arc/shared/studio-pipeline-stages";
 import { AiInterviewInvitationPage } from "@/components/features/interview/ai-interview-invitation-page";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
@@ -22,20 +23,12 @@ const previewSchema = z.object({
   status: candidateInterviewInvitationStatusSchema,
 });
 
-function getBaseUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_BASE_URL is not configured.");
-  }
-  return baseUrl;
-}
-
 const loadAiInterviewInvitation = createServerFn({ method: "GET" })
   .validator(inviteTokenInputSchema)
   .handler(async ({ data }): Promise<AiInterviewInvitationState> => {
     try {
       const response = await fetch(
-        `${getBaseUrl()}/api/public/ai-interview-invitations/${encodeURIComponent(data.inviteToken)}`,
+        backendApiUrl(`/public/ai-interview-invitations/${encodeURIComponent(data.inviteToken)}`),
         { cache: "no-store" },
       );
       if (!response.ok) {

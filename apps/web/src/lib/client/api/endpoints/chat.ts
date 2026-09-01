@@ -1,11 +1,22 @@
+import {
+  confirmWorkspaceRecruitingCopilotAction,
+  deleteWorkspaceChatConversation,
+  getWorkspaceChatConversation,
+  listWorkspaceChatConversations,
+  patchWorkspaceChatConversation,
+  persistWorkspaceRecruitingCopilotMessage,
+  preflightWorkspaceChatAttachmentUpload,
+  upsertWorkspaceChatConversation,
+} from "@/lib/client/backend-api";
+
 /**
  * 聊天会话相关的 API 调用集合。
  * Chat-conversation API call collection.
  *
- * JSON 端点全部走 Hono RPC（{@link rpc}）+ {@link rpcFetch}；上传 (`uploadAttachment`)
+ * JSON 端点全部走 Hey API 生成 SDK；上传 (`uploadAttachment`)
  * 按项目约定继续使用 `apiFetch` + multipart。
  *
- * JSON endpoints use Hono RPC (`rpc`) + `rpcFetch`. The multipart upload path
+ * JSON endpoints use the generated Hey API SDK. The multipart upload path
  * (`uploadAttachment`) stays on `apiFetch` by project convention.
  */
 
@@ -16,14 +27,18 @@ import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import type { JsonValue } from "@arc/db-schema/json";
 import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
-import { chatRpc, rpc } from "@/lib/client/rpc";
+
 import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { apiFetch } from "../client";
-import { rpcFetch } from "../rpc-fetch";
+import { apiRequest } from "../rpc-fetch";
 
 const storedChatMessageSchema = z
   .object({ role: z.enum(["assistant", "system", "tool", "user"]) })
+  .catchall(z.json());
+
+const persistedChatMessageSchema = z
+  .object({ id: z.string(), role: z.enum(["system", "user", "assistant"]) })
   .catchall(z.json());
 
 function normalizeStoredChatMessage(message: JsonValue): JsonValue {
@@ -32,6 +47,12 @@ function normalizeStoredChatMessage(message: JsonValue): JsonValue {
     return message;
   }
   return { ...parsed.data, role: "assistant" };
+}
+
+export function toPersistedChatMessage(message: UIMessage) {
+  // oxlint-disable-next-line unicorn/prefer-structured-clone -- The JSON round-trip intentionally drops undefined fields before wire validation.
+  const serializedMessage: unknown = JSON.parse(JSON.stringify(message));
+  return persistedChatMessageSchema.parse(serializedMessage);
 }
 
 /**
@@ -168,7 +189,10 @@ export interface UploadedAttachment {
  * Fetch the full list of conversation summaries.
  */
 export async function fetchConversations(slug: string): Promise<ChatConversationSummary[]> {
-  const data = await rpcFetch(chatRpc(slug).conversations.$get(), "加载会话列表失败");
+  const data = await apiRequest(
+    listWorkspaceChatConversations({ path: { workspaceSlug: slug } }),
+    "加载会话列表失败",
+  );
   return data.conversations;
 }
 
@@ -180,8 +204,8 @@ export async function fetchConversation(
   slug: string,
   id: string,
 ): Promise<ChatConversationDetail | null> {
-  const data = await rpcFetch(
-    chatRpc(slug).conversations[":id"].$get({ param: { id } }),
+  const data = await apiRequest(
+    getWorkspaceChatConversation({ path: { id, workspaceSlug: slug } }),
     "加载会话失败",
     { allow404: true },
   );
@@ -203,8 +227,8 @@ export async function upsertConversation(
   slug: string,
   payload: UpsertConversationPayload,
 ): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations.$post({ json: payload, param: { slug } }),
+  await apiRequest(
+    upsertWorkspaceChatConversation({ body: payload, path: { workspaceSlug: slug } }),
     "保存会话失败",
   );
 }
@@ -218,11 +242,9 @@ export async function patchConversation(
   id: string,
   payload: PatchConversationPayload,
 ): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations[":id"].$patch({
-      json: payload,
-      param: { id, slug },
-    }),
+  await apiRequest(
+    patchWorkspaceChatConversation({ body: payload, path: { id, workspaceSlug: slug } }),
+
     "更新会话失败",
   );
 }
@@ -232,8 +254,8 @@ export async function patchConversation(
  * Delete a conversation; 404 from the server is treated as success (idempotent).
  */
 export async function deleteConversation(slug: string, id: string): Promise<void> {
-  await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations[":id"].$delete({ param: { id, slug } }),
+  await apiRequest(
+    deleteWorkspaceChatConversation({ path: { id, workspaceSlug: slug } }),
     "删除会话失败",
     { allow404: true },
   );
@@ -248,15 +270,13 @@ export async function upsertChatMessageOnServer(
   conversationId: string,
   message: UIMessage,
 ): Promise<void> {
-  const wireMessage = z
-    .object({ id: z.string(), role: z.enum(["system", "user", "assistant"]) })
-    .catchall(z.json())
-    .parse(message);
-  await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations[":id"].messages.$post({
-      json: { message: wireMessage },
-      param: { id: conversationId, slug },
+  const wireMessage = toPersistedChatMessage(message);
+  await apiRequest(
+    persistWorkspaceRecruitingCopilotMessage({
+      body: { message: wireMessage },
+      path: { id: conversationId, workspaceSlug: slug },
     }),
+
     "保存消息失败",
   );
 }
@@ -267,14 +287,12 @@ export async function confirmRecruitingAction(
   proposal: RecruitingActionProposal,
   options?: { decision?: "confirm" | "ignore" },
 ): Promise<ConfirmRecruitingActionResult> {
-  return await rpcFetch(
-    rpc.api.w[":slug"].chat.conversations[":id"].actions.confirm.$post({
-      json: {
-        decision: options?.decision ?? "confirm",
-        proposal,
-      },
-      param: { id: conversationId, slug },
+  return await apiRequest(
+    confirmWorkspaceRecruitingCopilotAction({
+      body: { decision: options?.decision ?? "confirm", proposal },
+      path: { id: conversationId, workspaceSlug: slug },
     }),
+
     "确认动作失败",
   );
 }
@@ -299,16 +317,17 @@ async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAtt
     return null;
   }
   try {
-    const result = await rpcFetch(
-      rpc.api.w[":slug"].chat.uploads.preflight.$post({
-        json: {
+    const result = await apiRequest(
+      preflightWorkspaceChatAttachmentUpload({
+        body: {
           filename: file.name || "attachment.pdf",
           hash,
           mediaType: file.type,
           size: file.size,
         },
-        param: { slug },
+        path: { workspaceSlug: slug },
       }),
+
       "检查附件缓存失败",
     );
     if (!result.hit) {
@@ -346,7 +365,7 @@ export async function uploadAttachment(
   const form = new FormData();
   form.append("file", file, filename);
 
-  return apiFetch<UploadedAttachment>(`/api/w/${slug}/chat/uploads`, {
+  return apiFetch<UploadedAttachment>(`/workspaces/${slug}/copilot/uploads`, {
     body: form,
     method: "POST",
   });

@@ -45,6 +45,7 @@ import type {
   WorkspaceDatabasePort,
   WorkspaceResumeSemanticPort,
 } from "../../../../infrastructure/workspace/workspace.ports.js";
+import { compactResumeProfileSnapshot } from "../../resume-profile-snapshot.js";
 import { ResumeUploadBatchService } from "../../intake/upload-batches/resume-upload-batch.service.js";
 import type { UploadedResumeFile } from "../../intake/upload-batches/resume-upload-batch.service.js";
 import type {
@@ -175,7 +176,7 @@ export class ResumeWorkflowService {
           ?.toISOString() ?? null,
       qualitativeResumeSummary: row.qualitativeResumeEvaluation?.conciseOverall ?? null,
       resumeParseRetryable: row.resumeParseStatus === "failed",
-      resumeProfileSnapshot: row.resumeProfile ?? {},
+      resumeProfileSnapshot: compactResumeProfileSnapshot(row.resumeProfile),
       resumeReviewBaseScore: row.resumeReview ? getResumeReviewBaseScore(row.resumeReview) : null,
       resumeReviewNextStepAction: row.resumeReview?.nextStep?.action ?? null,
       resumeScreeningStale: false,

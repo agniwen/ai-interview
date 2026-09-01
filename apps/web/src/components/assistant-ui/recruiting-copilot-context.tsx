@@ -15,6 +15,7 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { authClient } from "@/lib/client/auth-client";
+import { backendApiUrl } from "@/lib/client/backend-api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 export interface CandidateSummaryCard {
@@ -283,7 +284,7 @@ export function RecruitingCopilotContextProvider({
           kind={previewKind}
           onOpenChange={(open) => !open && setPreviewRecord(null)}
           open={previewRecord !== null}
-          url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
+          url={backendApiUrl(`/workspaces/${slug}/candidates/resumes/${previewRecord.id}/resume`)}
         />
       ) : null}
     </RecruitingCopilotContext.Provider>

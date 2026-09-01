@@ -1,4 +1,5 @@
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { backendApiUrl } from "@/lib/client/backend-api";
 
 export type ResumeComparisonSourceType = "resume_pool_item" | "studio_interview";
 export type ResumeComparisonDocumentKind = "docx" | "image" | "pdf" | "xlsx";
@@ -40,8 +41,10 @@ export function getResumeComparisonDocument(input: {
   // 保证对照查看不受 resumeLibrary/resumePool 读权限与可见范围配置影响。
   // The comparison dialog reads resume files from the permission-free
   // /:id/review surface so dedup viewing ignores the permission config.
-  const resource = input.sourceType === "resume_pool_item" ? "resume-pool" : "resumes";
-  const baseUrl = `/api/w/${input.slug}/studio/${resource}/${input.id}/review`;
+  const resource = input.sourceType === "resume_pool_item" ? "intake/resume-pool" : "resumes";
+  const baseUrl = backendApiUrl(
+    `/workspaces/${input.slug}/candidates/${resource}/${input.id}/review`,
+  );
   const downloadUrl = `${baseUrl}/resume`;
 
   if (sourceDocumentKind === "pptx") {

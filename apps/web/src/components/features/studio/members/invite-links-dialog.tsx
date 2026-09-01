@@ -1,4 +1,12 @@
 "use client";
+import {
+  createWorkspaceInviteLink,
+  disableWorkspaceInviteLink,
+  enableWorkspaceInviteLink,
+  listWorkspaceInviteLinkMembers,
+  listWorkspaceInviteLinks,
+  updateWorkspaceInviteLinkRole,
+} from "@/lib/client/backend-api";
 
 import {
   IconBan,
@@ -36,8 +44,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
@@ -143,10 +151,11 @@ function InviteLinkRoleDialog({
 function LinkMembers({ id, slug }: { id: string; slug: string }) {
   const { data, isPending } = useQuery({
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].members.$get({
-          param: { id, slug },
-        }),
+      apiRequest<{
+        members: { email: string; joinedAt: string; name: string; userId: string }[];
+      }>(
+        listWorkspaceInviteLinkMembers({ path: { id, workspaceSlug: slug } }),
+
         "加载成员失败",
       ),
     queryKey: ["invite-link-members", slug, id],
@@ -282,8 +291,8 @@ export function InviteLinksDialog({
   const { data: linksData, isPending } = useQuery({
     enabled: open,
     queryFn: () =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"].$get({ param: { slug } }),
+      apiRequest<{ links: InviteLinkDto[] }>(
+        listWorkspaceInviteLinks({ path: { workspaceSlug: slug } }),
         "加载邀请链接失败",
       ),
     queryKey: QUERY_KEY(slug),
@@ -291,11 +300,9 @@ export function InviteLinksDialog({
 
   const createMutation = useMutation({
     mutationFn: (initialRole: string) =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
-          json: { initialRole },
-          param: { slug },
-        }),
+      apiRequest(
+        createWorkspaceInviteLink({ body: { initialRole }, path: { workspaceSlug: slug } }),
+
         "生成邀请链接失败",
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : "生成失败"),
@@ -314,11 +321,9 @@ export function InviteLinksDialog({
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ id, initialRole }: { id: string; initialRole: string }) =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].$patch({
-          json: { initialRole },
-          param: { id, slug },
-        }),
+      apiRequest(
+        updateWorkspaceInviteLinkRole({ body: { initialRole }, path: { id, workspaceSlug: slug } }),
+
         "更新初始化角色失败",
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : "更新失败"),
@@ -331,10 +336,9 @@ export function InviteLinksDialog({
 
   const disableMutation = useMutation({
     mutationFn: (id: string) =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].disable.$patch({
-          param: { id, slug },
-        }),
+      apiRequest(
+        disableWorkspaceInviteLink({ path: { id, workspaceSlug: slug } }),
+
         "禁用失败",
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : "禁用失败"),
@@ -346,10 +350,9 @@ export function InviteLinksDialog({
 
   const enableMutation = useMutation({
     mutationFn: (id: string) =>
-      rpcFetch(
-        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].enable.$patch({
-          param: { id, slug },
-        }),
+      apiRequest(
+        enableWorkspaceInviteLink({ path: { id, workspaceSlug: slug } }),
+
         "启用失败",
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : "启用失败"),
@@ -370,6 +373,7 @@ export function InviteLinksDialog({
           </Button>
         }
       />
+
       <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">
         <DialogHeader>
           <DialogTitle>共享邀请链接</DialogTitle>
@@ -422,6 +426,7 @@ export function InviteLinksDialog({
         title="生成邀请链接"
         value={createRole}
       />
+
       <InviteLinkRoleDialog
         actionLabel="保存"
         assignableRoleOptions={assignableRoleOptions}

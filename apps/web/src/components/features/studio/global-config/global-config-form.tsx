@@ -1,4 +1,5 @@
 "use client";
+import { updateWorkspaceGlobalConfig } from "@/lib/client/backend-api";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -7,8 +8,8 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { LazyMarkdownEditor as MarkdownEditor } from "@/components/features/markdown-editor/lazy-markdown-editor";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
-import { rpcFetch } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
+import { apiRequest } from "@/lib/client/api";
+
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { GlobalConfigRecord } from "@arc/shared/global-config";
 
@@ -93,11 +94,9 @@ export function GlobalConfigForm({ initial }: Props) {
     requestSeqRef.current += 1;
     const seq = requestSeqRef.current;
     try {
-      const saved = await rpcFetch(
-        rpc.api.w[":slug"].studio["global-config"].$put({
-          json: values,
-          param: { slug },
-        }),
+      const saved = await apiRequest(
+        updateWorkspaceGlobalConfig({ body: values, path: { workspaceSlug: slug } }),
+
         "保存失败",
       );
       if (seq !== requestSeqRef.current) {
