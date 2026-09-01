@@ -1,8 +1,9 @@
 # ARC Nest backend
 
-Standalone Nest 12 application migrated additively from
-`apps/server` and `apps/worker`. The legacy applications are not imported or
-modified by this package.
+Standalone Nest 12 application and the forward-looking backend for ARC. Its
+initial behavior was migrated additively from `apps/server` and `apps/worker`,
+but its module and data boundaries are designed independently; the legacy
+applications are not imported or modified by this package.
 
 ## Commands
 
@@ -34,11 +35,13 @@ processing read-only, and waits for BullMQ to mark it completed. Both modes
 require SIGTERM to finish within five seconds;
 needing SIGKILL is reported as a failed smoke run.
 
-The workspace catalog tracks TypeScript 7.1 next. This package temporarily pins
-TypeScript 6.0 because the current Nest 12 CLI/Rspack compiler integration does
-not yet expose the TypeScript 7.1 compiler API required by `nest build`.
+The backend uses TypeScript 6 for type checking, the static architecture tests,
+and the Nest/Rspack production build.
 
 `openapi.json` is deterministic input for a future HeyAPI client generation
 step. Regenerate it whenever public route schemas change. The parity command
 compares it with the frozen migration inventory and exits non-zero for a missing
 or unexpected operation.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the Nest module boundaries and the
+recommended mapping from current OpenAPI tags to future frontend API domains.

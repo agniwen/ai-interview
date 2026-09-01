@@ -71,7 +71,7 @@ describe("BackgroundQueueProducerService", () => {
     process.env.BACKGROUND_WORKERS_ENABLED = "false";
     process.env.REDIS_URL = "redis://127.0.0.1:6379/15";
 
-    @Module({ imports: [BackgroundQueueModule.register()] })
+    @Module({ imports: [BackgroundQueueModule] })
     class ProducerApplicationModule {}
 
     const application = await NestFactory.createApplicationContext(ProducerApplicationModule, {

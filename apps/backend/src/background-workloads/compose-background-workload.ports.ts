@@ -14,31 +14,31 @@ import type {
 } from "../background/background.types.js";
 import type { BackgroundWorkloadPorts } from "./background-workload.ports.js";
 import { createBackgroundWorkloadAdapter } from "./background-workload.adapter.js";
-import { processInterviewNotificationBatchWorkload } from "./processors/interview-notification.processor.js";
-import type { InterviewNotificationProcessorPorts } from "./processors/interview-notification.processor.js";
-import { processMailIngestWorkload } from "./processors/mail-ingest.processor.js";
-import type { MailIngestProcessorPorts } from "./processors/mail-ingest.processor.js";
-import { processMeetingAnswerWorkload } from "./processors/meeting-answer.processor.js";
-import type { MeetingAnswerProcessorPorts } from "./processors/meeting-answer.processor.js";
-import { processMeetingIntelligenceWorkload } from "./processors/meeting-intelligence.processor.js";
-import type { MeetingIntelligenceProcessorPorts } from "./processors/meeting-intelligence.processor.js";
-import { processMeetingPlaybackWorkload } from "./processors/meeting-playback.processor.js";
-import type { MeetingPlaybackProcessorPorts } from "./processors/meeting-playback.processor.js";
-import { processMeetingPurgeWorkload } from "./processors/meeting-purge.processor.js";
-import type { MeetingPurgeProcessorPorts } from "./processors/meeting-purge.processor.js";
-import {
-  prepareMeetingTranscriptionWorkload,
-  processMeetingTranscriptionWorkload,
-} from "./processors/meeting-transcription.processor.js";
-import type { MeetingTranscriptionProcessorPorts } from "./processors/meeting-transcription.processor.js";
+import { processInterviewNotificationBatchWorkload } from "../domains/candidate-lifecycle/workloads/interview-notification.processor.js";
+import type { InterviewNotificationProcessorPorts } from "../domains/candidate-lifecycle/workloads/interview-notification.processor.js";
+import { processMailIngestWorkload } from "../domains/candidate-lifecycle/workloads/mail-ingest.processor.js";
+import type { MailIngestProcessorPorts } from "../domains/candidate-lifecycle/workloads/mail-ingest.processor.js";
 import {
   processResumeParseWorkload,
   processResumeSemanticIndexWorkload,
-} from "./processors/resume.processor.js";
+} from "../domains/candidate-lifecycle/workloads/resume.processor.js";
 import type {
   ResumeParseProcessorPorts,
   ResumeSemanticIndexProcessorPorts,
-} from "./processors/resume.processor.js";
+} from "../domains/candidate-lifecycle/workloads/resume.processor.js";
+import { processMeetingAnswerWorkload } from "../domains/meetings/workloads/meeting-answer.processor.js";
+import type { MeetingAnswerProcessorPorts } from "../domains/meetings/workloads/meeting-answer.processor.js";
+import { processMeetingIntelligenceWorkload } from "../domains/meetings/workloads/meeting-intelligence.processor.js";
+import type { MeetingIntelligenceProcessorPorts } from "../domains/meetings/workloads/meeting-intelligence.processor.js";
+import { processMeetingPlaybackWorkload } from "../domains/meetings/workloads/meeting-playback.processor.js";
+import type { MeetingPlaybackProcessorPorts } from "../domains/meetings/workloads/meeting-playback.processor.js";
+import { processMeetingPurgeWorkload } from "../domains/meetings/workloads/meeting-purge.processor.js";
+import type { MeetingPurgeProcessorPorts } from "../domains/meetings/workloads/meeting-purge.processor.js";
+import {
+  prepareMeetingTranscriptionWorkload,
+  processMeetingTranscriptionWorkload,
+} from "../domains/meetings/workloads/meeting-transcription.processor.js";
+import type { MeetingTranscriptionProcessorPorts } from "../domains/meetings/workloads/meeting-transcription.processor.js";
 
 /**
  * Infrastructure-only inputs. Unlike BackgroundWorkloadPorts, process methods

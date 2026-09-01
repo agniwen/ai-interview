@@ -25,33 +25,33 @@ export {
   createMigratedBackgroundWorkloadAdapter,
 } from "./compose-background-workload.ports.js";
 export type { BackgroundWorkloadInfrastructurePorts } from "./compose-background-workload.ports.js";
-export { processMeetingAnswerWorkload } from "./processors/meeting-answer.processor.js";
+export { processMeetingAnswerWorkload } from "../domains/meetings/workloads/meeting-answer.processor.js";
 export type {
   MeetingAnswerClaim,
   MeetingAnswerGenerationContext,
   MeetingAnswerProcessorPorts,
-} from "./processors/meeting-answer.processor.js";
-export { processMeetingIntelligenceWorkload } from "./processors/meeting-intelligence.processor.js";
+} from "../domains/meetings/workloads/meeting-answer.processor.js";
+export { processMeetingIntelligenceWorkload } from "../domains/meetings/workloads/meeting-intelligence.processor.js";
 export type {
   MeetingIntelligenceClaim,
   MeetingIntelligenceProcessorPorts,
-} from "./processors/meeting-intelligence.processor.js";
+} from "../domains/meetings/workloads/meeting-intelligence.processor.js";
 export {
   createMeetingPlaybackProcessorPorts,
   describeMeetingPlaybackError,
   processMeetingPlaybackWorkload,
-} from "./processors/meeting-playback.processor.js";
+} from "../domains/meetings/workloads/meeting-playback.processor.js";
 export type {
   MeetingPlaybackExternalPorts,
   MeetingPlaybackProcessorPorts,
   MeetingPlaybackSource,
   PlaybackSourceAsset,
-} from "./processors/meeting-playback.processor.js";
-export { processMeetingPurgeWorkload } from "./processors/meeting-purge.processor.js";
+} from "../domains/meetings/workloads/meeting-playback.processor.js";
+export { processMeetingPurgeWorkload } from "../domains/meetings/workloads/meeting-purge.processor.js";
 export type {
   MeetingPurgeClaim,
   MeetingPurgeProcessorPorts,
-} from "./processors/meeting-purge.processor.js";
+} from "../domains/meetings/workloads/meeting-purge.processor.js";
 export {
   assertMeetingTranscriptionFfmpegAvailable,
   createMeetingTranscriptionProcessorPorts,
@@ -62,37 +62,37 @@ export {
   processMeetingTranscriptionWorkload,
   reapStaleMeetingTranscriptionDirectories,
   validateMeetingTranscriptionRuntime,
-} from "./processors/meeting-transcription.processor.js";
+} from "../domains/meetings/workloads/meeting-transcription.processor.js";
 export type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionChunkClaim,
   MeetingTranscriptionExternalPorts,
   MeetingTranscriptionProcessorPorts,
   MeetingTranscriptionSource,
-} from "./processors/meeting-transcription.processor.js";
+} from "../domains/meetings/workloads/meeting-transcription.processor.js";
 export {
   processInterviewNotificationBatchWorkload,
   processInterviewNotificationEvent,
-} from "./processors/interview-notification.processor.js";
+} from "../domains/candidate-lifecycle/workloads/interview-notification.processor.js";
 export type {
   InterviewNotificationDeliveryRecord,
   InterviewNotificationEventRecord,
   InterviewNotificationProcessorPorts,
-} from "./processors/interview-notification.processor.js";
+} from "../domains/candidate-lifecycle/workloads/interview-notification.processor.js";
 export {
   extractJobCodesFromMailSubject,
   processMailIngestWorkload,
   selectSupportedMailAttachments,
-} from "./processors/mail-ingest.processor.js";
+} from "../domains/candidate-lifecycle/workloads/mail-ingest.processor.js";
 export type {
   MailIngestProcessorPorts,
   WorkerMailIngestAccount,
-} from "./processors/mail-ingest.processor.js";
+} from "../domains/candidate-lifecycle/workloads/mail-ingest.processor.js";
 export {
   processResumeParseWorkload,
   processResumeSemanticIndexWorkload,
-} from "./processors/resume.processor.js";
+} from "../domains/candidate-lifecycle/workloads/resume.processor.js";
 export type {
   ResumeParseProcessorPorts,
   ResumeSemanticIndexProcessorPorts,
-} from "./processors/resume.processor.js";
+} from "../domains/candidate-lifecycle/workloads/resume.processor.js";

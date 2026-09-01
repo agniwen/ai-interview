@@ -2,7 +2,7 @@
 import * as Sentry from "@sentry/nestjs";
 import type { Job } from "bullmq";
 import { describe, expect, it, vi } from "vitest";
-import { ResumeSemanticIndexProcessor } from "../background/background.processors.js";
+import { ResumeSemanticIndexProcessor } from "../domains/candidate-lifecycle/workloads/bullmq/candidate-bullmq.processors.js";
 import { CorrelatedConsoleLogger } from "./correlated-console.logger.js";
 import {
   correlationIdFromJobOptions,

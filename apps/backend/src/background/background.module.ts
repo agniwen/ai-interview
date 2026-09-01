@@ -8,23 +8,25 @@ import {
 import { BackgroundDiagnosticsService } from "./background.diagnostics.js";
 import { BACKGROUND_LIFECYCLE, BackgroundLifecycleService } from "./background.lifecycle.js";
 import {
-  BackgroundProcessorRegistry,
   MailIngestTriggerProcessor,
+  ResumeParseProcessor,
+  ResumeReviewGenerationProcessor,
+  ResumeSemanticIndexProcessor,
+} from "../domains/candidate-lifecycle/workloads/bullmq/candidate-bullmq.processors.js";
+import {
   MeetingAnswerProcessor,
   MeetingIntelligenceProcessor,
   MeetingPlaybackProcessor,
   MeetingPurgeProcessor,
   MeetingTranscriptionProcessor,
-  ResumeParseProcessor,
-  ResumeReviewGenerationProcessor,
-  ResumeSemanticIndexProcessor,
-} from "./background.processors.js";
+} from "../domains/meetings/workloads/bullmq/meeting-bullmq.processors.js";
+import { BackgroundProcessorRegistry } from "./background.processors.js";
 import { BackgroundRecoveryService } from "./background.recovery.js";
 import { BackgroundQueueModule } from "./background-queue.module.js";
 import {
   InterviewNotificationSchedulerService,
   MailIngestSchedulerService,
-} from "./background.schedulers.js";
+} from "../domains/candidate-lifecycle/workloads/schedulers/candidate.schedulers.js";
 import { BACKGROUND_WORKLOAD_ADAPTER } from "./background.types.js";
 import type { BackgroundModuleAsyncOptions, BackgroundModuleOptions } from "./background.types.js";
 
@@ -70,16 +72,15 @@ export class BackgroundModule {
     adapterProvider: Provider,
     adapterImports: NonNullable<ModuleMetadata["imports"]> = [],
   ): DynamicModule {
-    const queueModule = BackgroundQueueModule.register();
     return {
       controllers: [BackgroundDiagnosticsController],
       exports: [
         BACKGROUND_LIFECYCLE,
         BackgroundDiagnosticsService,
-        queueModule,
+        BackgroundQueueModule,
         MailIngestSchedulerService,
       ],
-      imports: [...adapterImports, queueModule],
+      imports: [...adapterImports, BackgroundQueueModule],
       module: BackgroundModule,
       providers: [adapterProvider, ...BACKGROUND_PROVIDERS],
     };

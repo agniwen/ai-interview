@@ -1,7 +1,9 @@
-import { Global, Module, RequestMethod } from "@nestjs/common";
+import { Module, RequestMethod } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { API_DATABASE } from "../infrastructure/database/database.tokens.js";
 import type { Database } from "../infrastructure/database/database.tokens.js";
+import { DatabaseModule } from "../infrastructure/database/database.module.js";
+import { BackendConfigModule } from "../config/backend-config.module.js";
 import { BackendConfigService } from "../config/backend-config.service.js";
 import { AuthSessionMiddleware } from "./auth-session.middleware.js";
 import { AUTH_MEMBER_JOINED_NOTIFIER, BACKEND_AUTH } from "./auth.tokens.js";
@@ -10,9 +12,9 @@ import { FeishuMemberJoinedNotifier } from "./member-joined-notifier.js";
 import type { AuthMemberJoinedNotifier } from "./member-joined-notifier.js";
 import { RequiredAuthGuard } from "./required-auth.guard.js";
 
-@Global()
 @Module({
   exports: [BACKEND_AUTH, RequiredAuthGuard],
+  imports: [BackendConfigModule, DatabaseModule],
   providers: [
     {
       inject: [API_DATABASE, AUTH_MEMBER_JOINED_NOTIFIER, BackendConfigService],

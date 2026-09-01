@@ -2,28 +2,40 @@
 import { Module } from "@nestjs/common";
 import { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
 import { BackgroundQueueModule } from "../background/background-queue.module.js";
+import { BackendConfigModule } from "../config/backend-config.module.js";
 import {
   BACKGROUND_DATABASE,
   BACKGROUND_DATABASE_CONNECTION,
 } from "../infrastructure/database/database.tokens.js";
 import type { Database } from "../infrastructure/database/database.tokens.js";
 import type { DatabaseConnection } from "../infrastructure/database/database-connection.js";
+import { DatabaseModule } from "../infrastructure/database/database.module.js";
+import { WORKLOAD_OBJECT_STORAGE } from "../infrastructure/object-storage/workload-object-storage.port.js";
+import type { WorkloadObjectStorage } from "../infrastructure/object-storage/workload-object-storage.port.js";
 import { BackendConfigService } from "../config/backend-config.service.js";
+import { JOB_EVALUATION_SNAPSHOT_COMMANDS } from "../domains/jobs/public.js";
+import type { JobEvaluationSnapshotCommands } from "../domains/jobs/public.js";
+import { CANDIDATE_RECOVERY_COMMANDS } from "../domains/candidate-lifecycle/public.js";
+import type { CandidateRecoveryCommands } from "../domains/candidate-lifecycle/public.js";
+import { MEETING_RECOVERY_COMMANDS } from "../domains/meetings/public.js";
+import type { MeetingRecoveryCommands } from "../domains/meetings/public.js";
+import { JobEvaluationSnapshotModule } from "../domains/jobs/evaluation-snapshots/job-evaluation-snapshot.module.js";
+import { CandidateRecoveryModule } from "../domains/candidate-lifecycle/workloads/recovery/candidate-recovery.module.js";
+import { MeetingRecoveryModule } from "../domains/meetings/workloads/recovery/meeting-recovery.module.js";
+import { InterviewNotificationInfrastructure } from "../domains/candidate-lifecycle/workloads/infrastructure/interview-notification.repository.js";
+import { MailIngestInfrastructure } from "../domains/candidate-lifecycle/workloads/infrastructure/mail-ingest.repository.js";
+import { ResumeParseInfrastructure } from "../domains/candidate-lifecycle/workloads/infrastructure/resume-parse.repository.js";
+import { ResumeReviewInfrastructure } from "../domains/candidate-lifecycle/workloads/infrastructure/resume-review.repository.js";
+import { ResumeSemanticInfrastructure } from "../domains/candidate-lifecycle/workloads/infrastructure/resume-semantic.repository.js";
+import { MeetingAnswerInfrastructure } from "../domains/meetings/workloads/infrastructure/meeting-answer.repository.js";
+import { MeetingIntelligenceInfrastructure } from "../domains/meetings/workloads/infrastructure/meeting-intelligence.repository.js";
+import { MeetingOperationsRepository } from "../domains/meetings/workloads/infrastructure/meeting-operations.repository.js";
+import { MeetingPlaybackRepository } from "../domains/meetings/workloads/infrastructure/meeting-playback.repository.js";
+import { MeetingPurgeInfrastructure } from "../domains/meetings/workloads/infrastructure/meeting-purge.repository.js";
+import { MeetingTranscriptionInfrastructure } from "../domains/meetings/workloads/infrastructure/meeting-transcription.repository.js";
 import { BackgroundCoreInfrastructureService } from "./background-core.service.js";
 import { BackgroundRecoveryRepository } from "./background-recovery.repository.js";
 import { BackgroundObjectStorageService } from "./background-object-storage.service.js";
-import { MeetingOperationsRepository } from "./meeting-operations.repository.js";
-import { MeetingPlaybackRepository } from "./meeting-playback.repository.js";
-import { MeetingIntelligenceRecoveryService } from "./meeting-intelligence-recovery.service.js";
-import { InterviewNotificationInfrastructure } from "./interview-notification.repository.js";
-import { MailIngestInfrastructure } from "./mail-ingest.repository.js";
-import { MeetingPurgeInfrastructure } from "./meeting-purge.repository.js";
-import { MeetingAnswerInfrastructure } from "./meeting-answer.repository.js";
-import { ResumeSemanticInfrastructure } from "./resume-semantic.repository.js";
-import { MeetingIntelligenceInfrastructure } from "./meeting-intelligence.repository.js";
-import { MeetingTranscriptionInfrastructure } from "./meeting-transcription.repository.js";
-import { ResumeParseInfrastructure } from "./resume-parse.repository.js";
-import { ResumeReviewInfrastructure } from "./resume-review.repository.js";
 
 export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUCTURE");
 
@@ -31,10 +43,9 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
   exports: [
     BACKGROUND_CORE_INFRASTRUCTURE,
     BackgroundRecoveryRepository,
-    BackgroundObjectStorageService,
+    WORKLOAD_OBJECT_STORAGE,
     MeetingOperationsRepository,
     MeetingPlaybackRepository,
-    MeetingIntelligenceRecoveryService,
     InterviewNotificationInfrastructure,
     MailIngestInfrastructure,
     MeetingPurgeInfrastructure,
@@ -45,7 +56,14 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
     ResumeParseInfrastructure,
     ResumeReviewInfrastructure,
   ],
-  imports: [BackgroundQueueModule.register()],
+  imports: [
+    BackendConfigModule,
+    BackgroundQueueModule,
+    DatabaseModule,
+    JobEvaluationSnapshotModule,
+    CandidateRecoveryModule,
+    MeetingRecoveryModule,
+  ],
   providers: [
     {
       inject: [BackendConfigService],
@@ -63,36 +81,36 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
       },
     },
     {
-      inject: [
-        BACKGROUND_DATABASE,
-        BackgroundObjectStorageService,
-        MeetingIntelligenceRecoveryService,
-      ],
+      provide: WORKLOAD_OBJECT_STORAGE,
+      useExisting: BackgroundObjectStorageService,
+    },
+    {
+      inject: [BACKGROUND_DATABASE, WORKLOAD_OBJECT_STORAGE, MEETING_RECOVERY_COMMANDS],
       provide: MeetingTranscriptionInfrastructure,
       useFactory(
         database: Database,
-        storage: BackgroundObjectStorageService,
-        intelligenceRecovery: MeetingIntelligenceRecoveryService,
+        storage: WorkloadObjectStorage,
+        meetingRecovery: MeetingRecoveryCommands,
       ) {
-        return new MeetingTranscriptionInfrastructure(database, storage, intelligenceRecovery);
+        return new MeetingTranscriptionInfrastructure(database, storage, meetingRecovery);
       },
     },
     {
-      inject: [BACKGROUND_DATABASE, BackgroundObjectStorageService, BackgroundQueueProducerService],
+      inject: [BACKGROUND_DATABASE, WORKLOAD_OBJECT_STORAGE, BackgroundQueueProducerService],
       provide: ResumeParseInfrastructure,
       useFactory(
         database: Database,
-        storage: BackgroundObjectStorageService,
+        storage: WorkloadObjectStorage,
         queueProducer: BackgroundQueueProducerService,
       ) {
         return new ResumeParseInfrastructure(database, storage, queueProducer);
       },
     },
     {
-      inject: [BACKGROUND_DATABASE],
+      inject: [BACKGROUND_DATABASE, JOB_EVALUATION_SNAPSHOT_COMMANDS],
       provide: ResumeReviewInfrastructure,
-      useFactory(database: Database) {
-        return new ResumeReviewInfrastructure(database);
+      useFactory(database: Database, snapshots: JobEvaluationSnapshotCommands) {
+        return new ResumeReviewInfrastructure(database, snapshots);
       },
     },
     {
@@ -117,20 +135,20 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
       },
     },
     {
-      inject: [BACKGROUND_DATABASE, BackgroundObjectStorageService, BackgroundQueueProducerService],
+      inject: [BACKGROUND_DATABASE, WORKLOAD_OBJECT_STORAGE, BackgroundQueueProducerService],
       provide: MailIngestInfrastructure,
       useFactory(
         database: Database,
-        storage: BackgroundObjectStorageService,
+        storage: WorkloadObjectStorage,
         queueProducer: BackgroundQueueProducerService,
       ) {
         return new MailIngestInfrastructure(database, storage, queueProducer);
       },
     },
     {
-      inject: [BACKGROUND_DATABASE, BackgroundObjectStorageService],
+      inject: [BACKGROUND_DATABASE, WORKLOAD_OBJECT_STORAGE],
       provide: MeetingPurgeInfrastructure,
-      useFactory(database: Database, storage: BackgroundObjectStorageService) {
+      useFactory(database: Database, storage: WorkloadObjectStorage) {
         return new MeetingPurgeInfrastructure(database, storage);
       },
     },
@@ -142,10 +160,13 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
       },
     },
     {
-      inject: [BACKGROUND_DATABASE],
+      inject: [CANDIDATE_RECOVERY_COMMANDS, MEETING_RECOVERY_COMMANDS],
       provide: BackgroundRecoveryRepository,
-      useFactory(database: Database) {
-        return new BackgroundRecoveryRepository(database);
+      useFactory(
+        candidateRecovery: CandidateRecoveryCommands,
+        meetingRecovery: MeetingRecoveryCommands,
+      ) {
+        return new BackgroundRecoveryRepository(candidateRecovery, meetingRecovery);
       },
     },
     {
@@ -160,17 +181,6 @@ export const BACKGROUND_CORE_INFRASTRUCTURE = Symbol("BACKGROUND_CORE_INFRASTRUC
       provide: MeetingPlaybackRepository,
       useFactory(database: Database) {
         return new MeetingPlaybackRepository(database);
-      },
-    },
-    {
-      inject: [BACKGROUND_DATABASE, BackgroundRecoveryRepository, BackgroundQueueProducerService],
-      provide: MeetingIntelligenceRecoveryService,
-      useFactory(
-        database: Database,
-        recovery: BackgroundRecoveryRepository,
-        queueProducer: BackgroundQueueProducerService,
-      ) {
-        return new MeetingIntelligenceRecoveryService(database, recovery, queueProducer);
       },
     },
     {

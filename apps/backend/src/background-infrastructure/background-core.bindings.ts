@@ -1,6 +1,5 @@
 import type { BackgroundWorkloadPorts } from "../background-workloads/background-workload.ports.js";
 import type { BackgroundCoreInfrastructureService } from "./background-core.service.js";
-import type { MeetingIntelligenceRecoveryService } from "./meeting-intelligence-recovery.service.js";
 
 export interface BackgroundCoreBindings {
   base: Pick<
@@ -22,7 +21,6 @@ export interface BackgroundCoreBindings {
 /** Binds the eleven real core infrastructure operations without losing `this`. */
 export function createBackgroundCoreBindings(
   core: BackgroundCoreInfrastructureService,
-  intelligenceRecovery: MeetingIntelligenceRecoveryService,
 ): BackgroundCoreBindings {
   return {
     base: {
@@ -42,7 +40,7 @@ export function createBackgroundCoreBindings(
       listRecoverableResumeParseJobs: () => core.recovery.listRecoverableResumeParseJobs(),
       listRecoverableResumeSemanticIndexJobs: () =>
         core.recovery.listRecoverableResumeSemanticIndexJobs(),
-      recoverMissingMeetingIntelligence: () => intelligenceRecovery.recoverMissing(),
+      recoverMissingMeetingIntelligence: () => core.recovery.recoverMissingMeetingIntelligence(),
     },
   };
 }

@@ -15,7 +15,7 @@ export {
 export { BackgroundModule } from "./background.module.js";
 export { BackgroundQueueProducerService } from "./background-queue-producer.service.js";
 export type { BackgroundRecoverySnapshot } from "./background.recovery.js";
-export { MailIngestSchedulerService } from "./background.schedulers.js";
+export { MailIngestSchedulerService } from "../domains/candidate-lifecycle/workloads/schedulers/candidate.schedulers.js";
 export {
   BACKGROUND_WORKLOAD_ADAPTER,
   type BackgroundAttemptContext,

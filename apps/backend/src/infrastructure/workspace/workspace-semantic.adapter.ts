@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
 import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
-import type { WorkspaceResumeSemanticPort } from "../../features/workspace/workspace.ports.js";
+import type { WorkspaceResumeSemanticPort } from "./workspace.ports.js";
 import { API_DATABASE } from "../database/database.tokens.js";
 import type { Database } from "../database/database.tokens.js";
 

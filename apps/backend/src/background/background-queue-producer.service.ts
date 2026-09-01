@@ -31,6 +31,17 @@ import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resu
 import { RESUME_SEMANTIC_INDEX_QUEUE_NAME } from "@arc/resume-parse-queue/resume-semantic-index";
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
 import type { JobsOptions, Queue } from "bullmq";
+import type {
+  RecoverableResumeParse,
+  RecoverableResumeSemanticIndex,
+} from "../domains/candidate-lifecycle/workloads/recovery/candidate-recovery.commands.js";
+import type {
+  RecoverableMeetingAnswer,
+  RecoverableMeetingIntelligence,
+  RecoverableMeetingPlayback,
+  RecoverableMeetingPurge,
+  RecoverableMeetingTranscription,
+} from "../domains/meetings/workloads/recovery/meeting-recovery.commands.js";
 import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import {
   getRequestCorrelationId,
@@ -91,20 +102,25 @@ export class BackgroundQueueProducerService {
     private readonly meetingTranscriptionQueue: Queue<MeetingTranscriptionJobData>,
   ) {}
 
-  async enqueueResumeParseJobs(jobs: ResumeParseJobData[]): Promise<void> {
+  async enqueueResumeParseJobs(jobs: RecoverableResumeParse[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
-    await enqueueResumeParseJobsWithQueue(this.resumeParseQueue, jobs, getRequestCorrelationId());
+    const payloads: ResumeParseJobData[] = jobs.map((job) => ({ ...job }));
+    await enqueueResumeParseJobsWithQueue(
+      this.resumeParseQueue,
+      payloads,
+      getRequestCorrelationId(),
+    );
   }
 
-  async enqueueResumeSemanticIndexJobs(jobs: ResumeSemanticIndexJobData[]): Promise<void> {
+  async enqueueResumeSemanticIndexJobs(jobs: RecoverableResumeSemanticIndex[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
     await enqueueResumeSemanticIndexJobsWithQueue(
       this.resumeSemanticIndexQueue,
-      jobs,
+      jobs.map((job): ResumeSemanticIndexJobData => ({ ...job })),
       getRequestCorrelationId(),
     );
   }
@@ -131,34 +147,40 @@ export class BackgroundQueueProducerService {
     );
   }
 
-  async enqueueMeetingAnswerJobs(jobs: MeetingAnswerJobData[]): Promise<void> {
+  async enqueueMeetingAnswerJobs(jobs: RecoverableMeetingAnswer[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
     const queue = correlatedReconcileQueue(this.meetingAnswerQueue, getRequestCorrelationId());
-    await Promise.all(jobs.map((job) => reconcileMeetingAnswerJob(queue, job)));
+    await Promise.all(
+      jobs.map((job) =>
+        reconcileMeetingAnswerJob(queue, { ...job } satisfies MeetingAnswerJobData),
+      ),
+    );
   }
 
-  async enqueueMeetingPlaybackJobs(jobs: MeetingPlaybackJobData[]): Promise<void> {
+  async enqueueMeetingPlaybackJobs(jobs: RecoverableMeetingPlayback[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
     await enqueueMeetingPlaybackJobsWithQueue(
       this.meetingPlaybackQueue,
-      jobs,
+      jobs.map((job): MeetingPlaybackJobData => ({ ...job })),
       getRequestCorrelationId(),
     );
   }
 
-  async enqueueMeetingPurgeJobs(jobs: MeetingPurgeJobData[]): Promise<void> {
+  async enqueueMeetingPurgeJobs(jobs: RecoverableMeetingPurge[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
     const queue = correlatedReconcileQueue(this.meetingPurgeQueue, getRequestCorrelationId());
-    await Promise.all(jobs.map((job) => reconcileMeetingPurgeJob(queue, job)));
+    await Promise.all(
+      jobs.map((job) => reconcileMeetingPurgeJob(queue, { ...job } satisfies MeetingPurgeJobData)),
+    );
   }
 
-  async enqueueMeetingIntelligenceJobs(jobs: MeetingIntelligenceJobData[]): Promise<void> {
+  async enqueueMeetingIntelligenceJobs(jobs: RecoverableMeetingIntelligence[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
@@ -166,10 +188,16 @@ export class BackgroundQueueProducerService {
       this.meetingIntelligenceQueue,
       getRequestCorrelationId(),
     );
-    await Promise.all(jobs.map((job) => reconcileMeetingIntelligenceJob(queue, job)));
+    await Promise.all(
+      jobs.map((job) =>
+        reconcileMeetingIntelligenceJob(queue, {
+          ...job,
+        } satisfies MeetingIntelligenceJobData),
+      ),
+    );
   }
 
-  async enqueueMeetingTranscriptionJobs(jobs: MeetingTranscriptionJobData[]): Promise<void> {
+  async enqueueMeetingTranscriptionJobs(jobs: RecoverableMeetingTranscription[]): Promise<void> {
     if (this.disabled()) {
       return;
     }
@@ -177,7 +205,13 @@ export class BackgroundQueueProducerService {
       this.meetingTranscriptionQueue,
       getRequestCorrelationId(),
     );
-    await Promise.all(jobs.map((job) => reconcileMeetingTranscriptionJob(queue, job)));
+    await Promise.all(
+      jobs.map((job) =>
+        reconcileMeetingTranscriptionJob(queue, {
+          ...job,
+        } satisfies MeetingTranscriptionJobData),
+      ),
+    );
   }
 
   private disabled(): boolean {

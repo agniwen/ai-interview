@@ -1,8 +1,11 @@
-import { Global, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import postgres from "postgres";
+import { BackendConfigModule } from "../../config/backend-config.module.js";
 import { BackendConfigService } from "../../config/backend-config.service.js";
+import { RuntimeModule } from "../../runtime/runtime.module.js";
 import { DatabaseConnection } from "./database-connection.js";
 import { DatabaseShutdownService } from "./database-shutdown.service.js";
+import { ApiDatabaseUnitOfWork } from "./api-database-unit-of-work.js";
 import {
   API_DATABASE,
   API_DATABASE_CONNECTION,
@@ -20,14 +23,15 @@ function connectionOptions(config: BackendConfigService, max: number) {
   };
 }
 
-@Global()
 @Module({
   exports: [
     API_DATABASE,
     API_DATABASE_CONNECTION,
     BACKGROUND_DATABASE,
     BACKGROUND_DATABASE_CONNECTION,
+    ApiDatabaseUnitOfWork,
   ],
+  imports: [BackendConfigModule, RuntimeModule],
   providers: [
     {
       inject: [BackendConfigService],
@@ -66,6 +70,7 @@ function connectionOptions(config: BackendConfigService, max: number) {
       },
     },
     DatabaseShutdownService,
+    ApiDatabaseUnitOfWork,
   ],
 })
 export class DatabaseModule {}

@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { WorkspaceDocumentPreviewPort } from "../../features/workspace/workspace.ports.js";
+import type { WorkspaceDocumentPreviewPort } from "./workspace.ports.js";
 
 const execFileAsync = promisify(execFile);
 

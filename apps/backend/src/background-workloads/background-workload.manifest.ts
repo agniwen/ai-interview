@@ -128,7 +128,7 @@ export const BACKGROUND_WORKLOAD_REQUIRED_PORTS = BACKGROUND_WORKLOAD_IMPLEMENTA
   (entry) => entry.port,
 );
 
-/** Methods whose legacy business state machine now executes from this directory. */
+/** Methods whose business state machine now executes from its owner-local domain workload. */
 export const COPIED_BACKGROUND_WORKLOAD_METHODS = [
   "prepareMeetingTranscription",
   "processInterviewNotificationBatch",

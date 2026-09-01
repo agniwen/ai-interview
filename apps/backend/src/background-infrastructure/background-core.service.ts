@@ -2,8 +2,8 @@ import * as Sentry from "@sentry/nestjs";
 import type { BackgroundJobFailure } from "../background/background.types.js";
 import type { BackendEnvironment } from "../config/backend-environment.schema.js";
 import type { DatabaseConnection } from "../infrastructure/database/database-connection.js";
+import type { MeetingOperationsRepository } from "../domains/meetings/workloads/infrastructure/meeting-operations.repository.js";
 import type { BackgroundRecoveryRepository } from "./background-recovery.repository.js";
-import type { MeetingOperationsRepository } from "./meeting-operations.repository.js";
 
 type BackgroundCoreConfiguration = Partial<
   Pick<

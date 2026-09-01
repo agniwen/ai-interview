@@ -13,7 +13,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Inject, Injectable } from "@nestjs/common";
 import { Readable } from "node:stream";
 import { BackendConfigService } from "../../config/backend-config.service.js";
-import type { WorkspaceObjectStoragePort } from "../../features/workspace/workspace.ports.js";
+import type { WorkspaceObjectStoragePort } from "./workspace.ports.js";
 
 interface StorageConfig {
   bucket: string;

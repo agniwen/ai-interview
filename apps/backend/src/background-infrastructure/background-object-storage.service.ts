@@ -9,6 +9,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { WorkloadObjectStorage } from "../infrastructure/object-storage/workload-object-storage.port.js";
 
 interface StorageConfiguration {
   bucket: string;
@@ -42,7 +43,7 @@ function required(
   return value;
 }
 
-export class BackgroundObjectStorageService {
+export class BackgroundObjectStorageService implements WorkloadObjectStorage {
   private configuration?: StorageConfiguration;
 
   constructor(private readonly environment: BackgroundObjectStorageConfiguration) {}

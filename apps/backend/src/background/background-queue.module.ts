@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes discovered through decorator metadata. */
-import { Global, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import type { DynamicModule, Provider } from "@nestjs/common";
 import { BullModule, BullRegistrar, getQueueToken } from "@nestjs/bullmq";
 import {
@@ -90,21 +90,18 @@ function infrastructureImports(): DynamicModule[] {
   ];
 }
 
-@Global()
-@Module({})
-export class BackgroundQueueModule {
-  static register(): DynamicModule {
-    const redisConfigured = getBackgroundRedisConnection(rawBackendEnvironment) !== undefined;
-    const infrastructure = redisConfigured ? infrastructureImports() : [];
-    const disabled = redisConfigured ? [] : disabledInfrastructureProviders();
-    return {
-      exports: [
-        BackgroundQueueProducerService,
-        ...(redisConfigured ? infrastructure : [BullRegistrar, ...QUEUE_NAMES.map(getQueueToken)]),
-      ],
-      imports: infrastructure,
-      module: BackgroundQueueModule,
-      providers: [BackgroundQueueProducerService, ...disabled],
-    };
-  }
-}
+const REDIS_CONFIGURED = getBackgroundRedisConnection(rawBackendEnvironment) !== undefined;
+const QUEUE_INFRASTRUCTURE = REDIS_CONFIGURED ? infrastructureImports() : [];
+const DISABLED_INFRASTRUCTURE = REDIS_CONFIGURED ? [] : disabledInfrastructureProviders();
+
+@Module({
+  exports: [
+    BackgroundQueueProducerService,
+    ...(REDIS_CONFIGURED
+      ? QUEUE_INFRASTRUCTURE
+      : [BullRegistrar, ...QUEUE_NAMES.map(getQueueToken)]),
+  ],
+  imports: QUEUE_INFRASTRUCTURE,
+  providers: [BackgroundQueueProducerService, ...DISABLED_INFRASTRUCTURE],
+})
+export class BackgroundQueueModule {}

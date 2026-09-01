@@ -208,7 +208,7 @@ export const BACKGROUND_WORKLOAD_PARITY_LEDGER = {
   processInterviewNotificationBatch: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/interview-notification.processor.test.ts#claims a scheduler batch through the public port and reports the processed count",
+      "src/domains/candidate-lifecycle/workloads/interview-notification.processor.test.ts#claims a scheduler batch through the public port and reports the processed count",
     id: "processInterviewNotificationBatch",
   },
   processMeetingAnswer: {
@@ -220,31 +220,31 @@ export const BACKGROUND_WORKLOAD_PARITY_LEDGER = {
   processMeetingIntelligence: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/meeting-processors.seam.test.ts#does not invoke intelligence generation when another worker owns the lease",
+      "src/domains/meetings/workloads/meeting-processors.seam.test.ts#does not invoke intelligence generation when another worker owns the lease",
     id: "processMeetingIntelligence",
   },
   processMeetingPlayback: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/meeting-processors.seam.test.ts#keeps ready playback idempotent before claiming a new processing run",
+      "src/domains/meetings/workloads/meeting-processors.seam.test.ts#keeps ready playback idempotent before claiming a new processing run",
     id: "processMeetingPlayback",
   },
   processMeetingPurge: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/meeting-processors.seam.test.ts#does not run destructive purge operations when the DB lease is not claimed",
+      "src/domains/meetings/workloads/meeting-processors.seam.test.ts#does not run destructive purge operations when the DB lease is not claimed",
     id: "processMeetingPurge",
   },
   processMeetingTranscription: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/meeting-processors.seam.test.ts#fails transcription explicitly when the source meeting is absent",
+      "src/domains/meetings/workloads/meeting-processors.seam.test.ts#fails transcription explicitly when the source meeting is absent",
     id: "processMeetingTranscription",
   },
   processResumeParse: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/resume.processor.test.ts#maps the public retry seam into the migrated bulk workflow",
+      "src/domains/candidate-lifecycle/workloads/resume.processor.test.ts#maps the public retry seam into the migrated bulk workflow",
     id: "processResumeParse",
   },
   processResumeReviewGeneration: {
@@ -257,7 +257,7 @@ export const BACKGROUND_WORKLOAD_PARITY_LEDGER = {
   processResumeSemanticIndex: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/resume.processor.test.ts#routes job descriptions to the JD indexer without touching resume enrichment",
+      "src/domains/candidate-lifecycle/workloads/resume.processor.test.ts#routes job descriptions to the JD indexer without touching resume enrichment",
     id: "processResumeSemanticIndex",
   },
   recoverMissingMeetingIntelligence: {
@@ -277,7 +277,7 @@ export const BACKGROUND_WORKLOAD_PARITY_LEDGER = {
   runMailIngest: {
     category: "unit-seam",
     evidence:
-      "src/background-workloads/processors/mail-ingest.processor.test.ts#honors organization-scoped account discovery before opening IMAP",
+      "src/domains/candidate-lifecycle/workloads/mail-ingest.processor.test.ts#honors organization-scoped account discovery before opening IMAP",
     id: "runMailIngest",
   },
 } as const satisfies Record<BackgroundWorkloadAdapterMethod, WorkloadCoverageEntry>;

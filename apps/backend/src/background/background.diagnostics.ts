@@ -31,7 +31,7 @@ import type {
   InterviewNotificationSchedulerSnapshot,
   MeetingOperationsSnapshot,
 } from "./background.types.js";
-import { InterviewNotificationSchedulerService } from "./background.schedulers.js";
+import { InterviewNotificationSchedulerService } from "../domains/candidate-lifecycle/workloads/schedulers/candidate.schedulers.js";
 
 const COUNT_TYPES = [
   "waiting",

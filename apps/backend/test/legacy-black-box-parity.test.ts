@@ -10,11 +10,11 @@ import { HttpAdapterHost, NestFactory, Reflector } from "@nestjs/core";
 import { TerminusModule } from "@nestjs/terminus";
 import supertest from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { TOP_LEVEL_AUTH_PORT } from "../src/features/top-level/top-level.ports.js";
-import type { TopLevelAuthPort } from "../src/features/top-level/top-level.ports.js";
-import { JoinController } from "../src/features/top-level/join/join.controller.js";
-import { TOP_LEVEL_JOIN_PORT } from "../src/features/top-level/join/join.port.js";
-import type { TopLevelJoinPort } from "../src/features/top-level/join/join.port.js";
+import { HTTP_REQUEST_AUTH } from "../src/infrastructure/http/http.ports.js";
+import type { HttpRequestAuth } from "../src/infrastructure/http/http.ports.js";
+import { JoinController } from "../src/domains/identity-access/join/join.controller.js";
+import { JOIN_PORT } from "../src/domains/identity-access/join/join.port.js";
+import type { JoinPort } from "../src/domains/identity-access/join/join.port.js";
 import {
   BackgroundDiagnosticsController,
   WorkerDiagnosticsGuard,
@@ -94,7 +94,7 @@ const legacyWorker = createWorkerApp({
   pingDatabase: vi.fn(async () => {}),
 });
 
-const authPort: TopLevelAuthPort = {
+const authPort: HttpRequestAuth = {
   actor: () => null,
   requireActor: () => {
     throw new Error("The invalid-code parity case must fail before authentication.");
@@ -103,7 +103,7 @@ const authPort: TopLevelAuthPort = {
   requirePlatformAdministrator: () => ({ id: "platform-admin" }),
 };
 
-const joinPort: TopLevelJoinPort = {
+const joinPort: JoinPort = {
   accept: vi.fn(),
   preview: vi.fn(),
 };
@@ -139,8 +139,8 @@ const joinPort: TopLevelJoinPort = {
       },
     },
     { provide: RuntimeReadinessService, useValue: { isDraining: () => false } },
-    { provide: TOP_LEVEL_AUTH_PORT, useValue: authPort },
-    { provide: TOP_LEVEL_JOIN_PORT, useValue: joinPort },
+    { provide: HTTP_REQUEST_AUTH, useValue: authPort },
+    { provide: JOIN_PORT, useValue: joinPort },
   ],
 })
 class BlackBoxParityModule {}

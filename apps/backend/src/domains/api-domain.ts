@@ -1,0 +1,63 @@
+export const API_DOMAINS = [
+  "identity-access",
+  "recruiting-setup",
+  "jobs",
+  "candidate-intake",
+  "resume-library",
+  "recruiting-records",
+  "interviews",
+  "meetings",
+  "recruiting-copilot",
+  "platform-operations",
+  "operations",
+] as const;
+
+export type ApiDomain = (typeof API_DOMAINS)[number];
+
+export const API_DOMAIN_BY_TAG = {
+  agent: "interviews",
+  health: "operations",
+  interview: "interviews",
+  join: "identity-access",
+  livekit: "interviews",
+  "meeting-local-recovery": "meetings",
+  platform: "platform-operations",
+  public: "candidate-intake",
+  "public-human-interview-materials": "interviews",
+  resume: "candidate-intake",
+  "worker-diagnostics": "platform-operations",
+  "workspace-calendar": "interviews",
+  "workspace-candidate-forms": "recruiting-setup",
+  "workspace-chat": "recruiting-copilot",
+  "workspace-departments": "recruiting-setup",
+  "workspace-global-config": "recruiting-setup",
+  "workspace-interview-tools": "recruiting-copilot",
+  "workspace-interviewers": "recruiting-setup",
+  "workspace-interviews": "recruiting-records",
+  "workspace-invite-links": "identity-access",
+  "workspace-job-descriptions": "jobs",
+  "workspace-mail-ingest": "candidate-intake",
+  "workspace-meeting-collaboration": "meetings",
+  "workspace-meeting-exports": "meetings",
+  "workspace-meeting-intelligence": "meetings",
+  "workspace-meeting-lifecycle": "meetings",
+  "workspace-meeting-live-transcript": "meetings",
+  "workspace-meeting-processing": "meetings",
+  "workspace-meeting-questions": "meetings",
+  "workspace-meeting-recruiting-context": "meetings",
+  "workspace-meeting-search": "meetings",
+  "workspace-meeting-title": "meetings",
+  "workspace-meeting-upload": "meetings",
+  "workspace-meetings": "meetings",
+  "workspace-members": "identity-access",
+  "workspace-question-templates": "recruiting-setup",
+  "workspace-resume-chat": "recruiting-copilot",
+  "workspace-resume-pool": "candidate-intake",
+  "workspace-resume-upload-batches": "candidate-intake",
+  "workspace-resumes": "resume-library",
+  "workspace-settings": "identity-access",
+} as const satisfies Record<string, ApiDomain>;
+
+export function isApiTag(tag: string): tag is keyof typeof API_DOMAIN_BY_TAG {
+  return Object.hasOwn(API_DOMAIN_BY_TAG, tag);
+}

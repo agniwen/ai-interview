@@ -20,7 +20,7 @@ import { BackgroundRecoveryService } from "./background.recovery.js";
 import {
   InterviewNotificationSchedulerService,
   MailIngestSchedulerService,
-} from "./background.schedulers.js";
+} from "../domains/candidate-lifecycle/workloads/schedulers/candidate.schedulers.js";
 import { BACKGROUND_WORKLOAD_ADAPTER } from "./background.types.js";
 import type { BackgroundLifecycleSnapshot, BackgroundWorkloadAdapter } from "./background.types.js";
 

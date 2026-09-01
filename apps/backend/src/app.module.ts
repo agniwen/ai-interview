@@ -2,23 +2,26 @@
 import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
 import { BackendConfigModule } from "./config/backend-config.module.js";
-import { AuthModule } from "./auth/auth.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { DatabaseModule } from "./infrastructure/database/database.module.js";
 import { ObservabilityModule } from "./observability/observability.module.js";
 import { RuntimeModule } from "./runtime/runtime.module.js";
-import { WorkspaceFeaturesModule } from "./features/workspace/workspace-features.module.js";
 import { BackgroundModule } from "./background/background.module.js";
 import { MIGRATED_BACKGROUND_WORKLOAD_ADAPTER } from "./background-workloads/index.js";
 import { BackgroundInfrastructureModule } from "./background-infrastructure/index.js";
 import type { BackgroundWorkloadAdapter } from "./background/background.types.js";
-import { TopLevelFeaturesModule } from "./features/top-level/top-level-features.module.js";
+import { CandidateLifecycleModule } from "./domains/candidate-lifecycle/candidate-lifecycle.module.js";
+import { IdentityAccessModule } from "./domains/identity-access/identity-access.module.js";
+import { JobsModule } from "./domains/jobs/jobs.module.js";
+import { MeetingsDomainModule } from "./domains/meetings/meetings-domain.module.js";
+import { PlatformOperationsModule } from "./domains/platform-operations/platform-operations.module.js";
+import { RecruitingCopilotDomainModule } from "./domains/recruiting-copilot/recruiting-copilot-domain.module.js";
+import { RecruitingSetupModule } from "./domains/recruiting-setup/recruiting-setup.module.js";
 
 @Module({
   imports: [
     BackendConfigModule,
     DatabaseModule,
-    AuthModule,
     ObservabilityModule,
     ScheduleModule.forRoot(),
     BackgroundModule.registerAsync({
@@ -30,8 +33,13 @@ import { TopLevelFeaturesModule } from "./features/top-level/top-level-features.
     }),
     RuntimeModule,
     HealthModule,
-    WorkspaceFeaturesModule,
-    TopLevelFeaturesModule,
+    IdentityAccessModule,
+    RecruitingSetupModule,
+    JobsModule,
+    CandidateLifecycleModule,
+    MeetingsDomainModule,
+    RecruitingCopilotDomainModule,
+    PlatformOperationsModule,
   ],
 })
 export class AppModule {}
