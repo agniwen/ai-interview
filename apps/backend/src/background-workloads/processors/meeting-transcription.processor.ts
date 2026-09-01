@@ -1,4 +1,6 @@
 /* oxlint-disable eslint/max-classes-per-file -- The two provider error classes are the public error protocol consumed by this single processor boundary. */
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../config/backend-environment.schema.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
@@ -121,8 +123,8 @@ export interface MeetingTranscriptionProcessorPorts {
   ): Promise<Result>;
 }
 
-function positiveEnvInteger(name: string, fallback: number): number {
-  const value = Number.parseInt(process.env[name] ?? "", 10);
+function positiveEnvInteger(name: BackendEnvironmentKey, fallback: number): number {
+  const value = Number.parseInt(rawBackendEnvironment[name] ?? "", 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
@@ -182,12 +184,16 @@ export function assertMeetingTranscriptionFfmpegAvailable(versionLine: string): 
 }
 
 export async function validateMeetingTranscriptionRuntime(): Promise<void> {
-  const { stdout } = await execFileAsync(process.env.FFMPEG_BIN?.trim() || "ffmpeg", ["-version"], {
-    timeout: 10_000,
-  });
+  const { stdout } = await execFileAsync(
+    rawBackendEnvironment.FFMPEG_BIN?.trim() || "ffmpeg",
+    ["-version"],
+    {
+      timeout: 10_000,
+    },
+  );
   const versionLine = stdout.split("\n")[0] ?? "";
   assertMeetingTranscriptionFfmpegAvailable(versionLine);
-  const expected = process.env.MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX?.trim();
+  const expected = rawBackendEnvironment.MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX?.trim();
   if (expected && !versionLine.startsWith(expected)) {
     throw new Error(`FFmpeg version mismatch; expected prefix ${expected}`);
   }

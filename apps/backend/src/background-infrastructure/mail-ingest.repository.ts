@@ -1,6 +1,6 @@
 /* oxlint-disable class-methods-use-this, anti-slop/no-unknown-parameters -- Queue package functions are exposed through an instance port and provider errors are normalized immediately. */
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { createDecipheriv, createHash } from "node:crypto";
-import { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
 import {
   jobDescription,
   mailIngestAccount,
@@ -17,6 +17,7 @@ import type {
   WorkerMailIngestAccount,
 } from "../background-workloads/processors/mail-ingest.processor.js";
 import type { MailIngestRunScope } from "../background/background.types.js";
+import type { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
 import type { BackgroundObjectStorageService } from "./background-object-storage.service.js";
 
 const ACCOUNT_LEASE_MS = 14 * 60 * 1000;
@@ -28,7 +29,10 @@ function truncateError(error: unknown): string {
   return message.length > ERROR_MAX ? message.slice(0, ERROR_MAX) : message;
 }
 
-function decryptMailSecret(encryptedValue: string, secret = process.env.MAIL_INGEST_SECRET_KEY) {
+function decryptMailSecret(
+  encryptedValue: string,
+  secret = rawBackendEnvironment.MAIL_INGEST_SECRET_KEY,
+) {
   const value = secret?.trim();
   if (!value) {
     throw new Error("MAIL_INGEST_SECRET_KEY is required when mail ingest is enabled");
@@ -60,11 +64,17 @@ function candidateName(fileName: string): string {
 
 export class MailIngestInfrastructure implements MailIngestProcessorPorts {
   private readonly database: Database;
+  private readonly queueProducer: BackgroundQueueProducerService;
   private readonly storage: BackgroundObjectStorageService;
 
-  constructor(database: Database, storage: BackgroundObjectStorageService) {
+  constructor(
+    database: Database,
+    storage: BackgroundObjectStorageService,
+    queueProducer: BackgroundQueueProducerService,
+  ) {
     this.database = database;
     this.storage = storage;
+    this.queueProducer = queueProducer;
   }
 
   buildAttachmentKeyByHash(contentHash: string, extension: string): Promise<string> {
@@ -440,6 +450,6 @@ export class MailIngestInfrastructure implements MailIngestProcessorPorts {
       userId: string;
     }[],
   ): Promise<void> {
-    return enqueueResumeParseJobs(jobs);
+    return this.queueProducer.enqueueResumeParseJobs(jobs);
   }
 }

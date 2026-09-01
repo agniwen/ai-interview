@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import type { OnApplicationShutdown, BeforeApplicationShutdown } from "@nestjs/common";
+import type { BeforeApplicationShutdown } from "@nestjs/common";
 import * as Sentry from "@sentry/nestjs";
 import { setTimeout as delay } from "node:timers/promises";
+import { BackendConfigService } from "../config/backend-config.service.js";
 import { RuntimeReadinessService } from "./runtime-readiness.service.js";
 
 async function rejectAfterTimeout(timeoutMs: number, signal: AbortSignal): Promise<never> {
@@ -12,17 +13,34 @@ async function rejectAfterTimeout(timeoutMs: number, signal: AbortSignal): Promi
 export interface DrainParticipant {
   drain(): Promise<void>;
   name: string;
+  order: number;
 }
 
+export const DRAIN_ORDER = {
+  backgroundFinalize: 100,
+  backgroundQuiesce: 25,
+  database: 900,
+  http: 50,
+  sentry: 1000,
+} as const;
+
 @Injectable()
-export class DrainCoordinatorService implements BeforeApplicationShutdown, OnApplicationShutdown {
-  private readonly flushSentry = Sentry.flush.bind(undefined, 5000);
+export class DrainCoordinatorService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(DrainCoordinatorService.name);
-  private readonly participants: DrainParticipant[] = [];
+  private readonly participants: DrainParticipant[] = [
+    {
+      drain: async () => {
+        await Sentry.flush(5000);
+      },
+      name: "sentry",
+      order: DRAIN_ORDER.sentry,
+    },
+  ];
   private drainPromise: Promise<void> | undefined;
 
   constructor(
     @Inject(RuntimeReadinessService) private readonly readiness: RuntimeReadinessService,
+    @Inject(BackendConfigService) private readonly config: BackendConfigService,
   ) {}
 
   beforeApplicationShutdown(signal?: string): Promise<void> {
@@ -30,10 +48,6 @@ export class DrainCoordinatorService implements BeforeApplicationShutdown, OnApp
     this.logger.log("Backend drain started", { signal });
     this.drainPromise ??= this.drainWithinTimeout();
     return this.drainPromise;
-  }
-
-  onApplicationShutdown(): Promise<boolean> {
-    return this.flushSentry();
   }
 
   register(participant: DrainParticipant): () => void {
@@ -47,16 +61,29 @@ export class DrainCoordinatorService implements BeforeApplicationShutdown, OnApp
   }
 
   private async drainWithinTimeout(): Promise<void> {
-    const timeoutMs = Number.parseInt(process.env.SHUTDOWN_TIMEOUT_MS || "120000", 10);
+    const timeoutMs = this.config.get("SHUTDOWN_TIMEOUT_MS") ?? 120_000;
+    const participants = this.participants.toSorted((left, right) => left.order - right.order);
+    const pending = new Set(participants.map((participant) => participant.name));
     const drain = async () => {
-      for (const participant of this.participants) {
+      for (const participant of participants) {
         this.logger.log("Draining backend component", { component: participant.name });
         await participant.drain();
+        pending.delete(participant.name);
       }
     };
     const timeoutController = new AbortController();
     try {
       await Promise.race([drain(), rejectAfterTimeout(timeoutMs, timeoutController.signal)]);
+    } catch (error) {
+      if (pending.size > 0) {
+        const unfinished = [...pending].join(", ");
+        this.logger.error("Backend drain did not finish", { unfinished });
+        throw new Error(
+          `${error instanceof Error ? error.message : "Backend drain failed"}; unfinished: ${unfinished}`,
+          { cause: error },
+        );
+      }
+      throw error;
     } finally {
       timeoutController.abort();
     }

@@ -17,6 +17,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { ApiConsumes, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import type { z } from "zod";
@@ -252,6 +253,7 @@ export class ResumeWorkflowController {
   @Post()
   @UseInterceptors(FileInterceptor("resume"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "resume", schema: resumeCreateSchema })
   @ApiOperation({ operationId: "createWorkspaceResume" })
   @ApiResponse({ status: 201 })
   @SerializeOptions({ schema: resumeDetailSchema })
@@ -298,6 +300,7 @@ export class ResumeWorkflowController {
   }
   @Patch(":id")
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ schema: resumeEditSchema })
   @ApiOperation({ operationId: "updateWorkspaceResume" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: resumeDetailSchema })

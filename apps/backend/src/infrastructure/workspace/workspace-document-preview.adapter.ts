@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
 import { Injectable } from "@nestjs/common";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -18,7 +19,7 @@ async function convertPptxToPdf(input: {
   try {
     await writeFile(source, input.bytes);
     await execFileAsync(
-      process.env.LIBREOFFICE_BIN?.trim() || "soffice",
+      rawBackendEnvironment.LIBREOFFICE_BIN?.trim() || "soffice",
       ["--headless", "--convert-to", "pdf:impress_pdf_Export", "--outdir", directory, source],
       { maxBuffer: 1024 * 1024, timeout: 30_000 },
     );

@@ -1,11 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import {
-  enqueueResumeParseJobs,
-  isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
+import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
 import { and, eq } from "drizzle-orm";
 import { resumeUploadBatch, resumeUploadBatchItem, studioInterview } from "@arc/db-schema/schema";
 import type { WorkspaceResumeQueuePort } from "../../features/workspace/workspace.ports.js";
+import { BackgroundQueueProducerService } from "../../background/background-queue-producer.service.js";
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
 import { API_DATABASE } from "../database/database.tokens.js";
 import type { Database } from "../database/database.tokens.js";
 
@@ -13,7 +12,11 @@ type ParseStatus = "failed" | "ready" | "unparsed";
 
 @Injectable()
 export class WorkspaceResumeQueueAdapter implements WorkspaceResumeQueuePort {
-  constructor(@Inject(API_DATABASE) private readonly database: Database) {}
+  constructor(
+    @Inject(API_DATABASE) private readonly database: Database,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
+  ) {}
 
   forceReparse(input: { organizationId: string; requestedBy: string; resumeRecordId: string }) {
     return this.claimAndQueue(input, true);
@@ -28,7 +31,7 @@ export class WorkspaceResumeQueueAdapter implements WorkspaceResumeQueuePort {
     input: { organizationId: string; requestedBy: string; resumeRecordId: string },
     force: boolean,
   ): Promise<"busy" | "missing" | "no_file" | "queue_unavailable" | "queued"> {
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       return "queue_unavailable";
     }
     const claim = await this.database.transaction(async (transaction) => {
@@ -120,7 +123,7 @@ export class WorkspaceResumeQueueAdapter implements WorkspaceResumeQueuePort {
       return claim.status;
     }
     try {
-      await enqueueResumeParseJobs([claim.job]);
+      await this.queueProducer.enqueueResumeParseJobs([claim.job]);
       return "queued";
     } catch (error) {
       await this.database.transaction(async (transaction) => {

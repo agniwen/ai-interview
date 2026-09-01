@@ -15,12 +15,31 @@ import {
 import { ApiConsumes, ApiOperation, ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import type { z } from "zod";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { sendTopLevelBinaryResponse } from "../binary-response.js";
-import { identifierSchema, jsonResponseSchema, okResponseSchema } from "../shared.schemas.js";
+import { identifierSchema, okResponseSchema } from "../shared.schemas.js";
 import { TOP_LEVEL_PUBLIC_PORT } from "./public.port.js";
 import type { TopLevelPublicPort } from "./public.port.js";
 import {
   invitationResponseSchema,
+  publicAiInterviewInvitationResponseSchema,
+  publicCandidateAiEvaluationResponseSchema,
+  publicCandidateHrInformationResponseSchema,
+  publicCandidateMaterialResponseSchema,
+  publicCandidateMaterialsResponseSchema,
+  publicCandidateQuestionsResponseSchema,
+  publicFormSubmissionsResponseSchema,
+  publicHumanMeetingResponseSchema,
+  publicInterviewRoundReportResponseSchema,
+  publicInterviewRoundReportsResponseSchema,
+  publicInterviewRoundResponseSchema,
+  publicInvitationDecisionResponseSchema,
+  publicLiveKitTokenResponseSchema,
+  publicRecordingResponseSchema,
+  publicReferralResponseSchema,
+  publicReferralUploadResponseSchema,
+  publicResumeResponseSchema,
+  publicResumeRoundsResponseSchema,
   publicRoundResolveQuerySchema,
   publicRoundResolveResponseSchema,
 } from "./public.schemas.js";
@@ -46,7 +65,7 @@ export class PublicController {
   ) {}
 
   @Get("referrals/:token")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicReferralResponseSchema })
   @ApiOperation({ operationId: "getPublicReferral" })
   @ApiResponse({ status: 200 })
   referral(@Param("token", { schema: identifierSchema }) token: string) {
@@ -55,7 +74,8 @@ export class PublicController {
 
   @Post("referrals/:token/resumes")
   @ApiConsumes("multipart/form-data")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @ApiMultipartBody({ fileField: "resume" })
+  @SerializeOptions({ schema: publicReferralUploadResponseSchema })
   @ApiOperation({ operationId: "uploadPublicReferralResume" })
   @ApiResponse({ status: 201 })
   uploadReferralResume(
@@ -77,7 +97,7 @@ export class PublicController {
   }
 
   @Get("ai-interview-invitations/:token")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicAiInterviewInvitationResponseSchema })
   @ApiOperation({ operationId: "getPublicAiInterviewInvitation" })
   @ApiResponse({ status: 200 })
   aiInterviewInvitation(@Param("token", { schema: identifierSchema }) token: string) {
@@ -86,7 +106,7 @@ export class PublicController {
 
   @Post("ai-interview-invitations/:token/respond")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicInvitationDecisionResponseSchema })
   @ApiOperation({ operationId: "respondPublicAiInterviewInvitation" })
   @ApiResponse({ status: 200 })
   respondAiInterviewInvitation(
@@ -97,7 +117,7 @@ export class PublicController {
   }
 
   @Get("human-interview-meetings/interviewer/:inviteToken")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicHumanMeetingResponseSchema })
   @ApiOperation({ operationId: "getPublicInterviewerMeeting" })
   @ApiResponse({ status: 200 })
   interviewerMeeting(@Param("inviteToken", { schema: identifierSchema }) inviteToken: string) {
@@ -106,7 +126,7 @@ export class PublicController {
 
   @Post("human-interview-meetings/interviewer/:inviteToken/livekit-token")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicLiveKitTokenResponseSchema })
   @ApiOperation({ operationId: "createPublicInterviewerMeetingLiveKitToken" })
   @ApiResponse({ status: 200 })
   interviewerMeetingLiveKitToken(
@@ -125,7 +145,7 @@ export class PublicController {
   }
 
   @Get("human-interview-meetings/:inviteToken")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicHumanMeetingResponseSchema })
   @ApiOperation({ operationId: "getPublicCandidateMeeting" })
   @ApiResponse({ status: 200 })
   candidateMeeting(@Param("inviteToken", { schema: identifierSchema }) inviteToken: string) {
@@ -134,7 +154,7 @@ export class PublicController {
 
   @Post("human-interview-meetings/:inviteToken/respond")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicInvitationDecisionResponseSchema })
   @ApiOperation({ operationId: "respondPublicCandidateMeetingInvitation" })
   @ApiResponse({ status: 200 })
   respondCandidateMeetingInvitation(
@@ -146,7 +166,7 @@ export class PublicController {
 
   @Post("human-interview-meetings/:inviteToken/livekit-token")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicLiveKitTokenResponseSchema })
   @ApiOperation({ operationId: "createPublicCandidateMeetingLiveKitToken" })
   @ApiResponse({ status: 200 })
   candidateMeetingLiveKitToken(
@@ -167,7 +187,7 @@ export class PublicController {
   }
 
   @Get("interview-rounds/:id")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicInterviewRoundResponseSchema })
   @ApiOperation({ operationId: "getPublicInterviewRound" })
   @ApiResponse({ status: 200 })
   round(@Param("id", { schema: identifierSchema }) id: string) {
@@ -175,7 +195,7 @@ export class PublicController {
   }
 
   @Get("interview-rounds/:id/reports")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicInterviewRoundReportsResponseSchema })
   @ApiOperation({ operationId: "listPublicInterviewRoundReports" })
   @ApiResponse({ status: 200 })
   roundReports(@Param("id", { schema: identifierSchema }) id: string) {
@@ -183,7 +203,7 @@ export class PublicController {
   }
 
   @Get("interview-rounds/:id/reports/:conversationId")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicInterviewRoundReportResponseSchema })
   @ApiOperation({ operationId: "getPublicInterviewRoundReport" })
   @ApiResponse({ status: 200 })
   roundReport(
@@ -194,7 +214,7 @@ export class PublicController {
   }
 
   @Get("interview-rounds/:id/form-submissions")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicFormSubmissionsResponseSchema })
   @ApiOperation({ operationId: "listPublicInterviewRoundFormSubmissions" })
   @ApiResponse({ status: 200 })
   roundFormSubmissions(@Param("id", { schema: identifierSchema }) id: string) {
@@ -202,7 +222,7 @@ export class PublicController {
   }
 
   @Get("interview-rounds/:id/recordings/:conversationId")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicRecordingResponseSchema })
   @ApiOperation({ operationId: "getPublicInterviewRoundRecording" })
   @ApiResponse({ status: 200 })
   roundRecording(
@@ -235,7 +255,7 @@ export class PublicController {
   }
 
   @Get("resumes/:id")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicResumeResponseSchema })
   @ApiOperation({ operationId: "getPublicResume" })
   @ApiResponse({ status: 200 })
   resume(@Param("id", { schema: identifierSchema }) id: string) {
@@ -243,7 +263,7 @@ export class PublicController {
   }
 
   @Get("resumes/:id/rounds")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicResumeRoundsResponseSchema })
   @ApiOperation({ operationId: "listPublicResumeRounds" })
   @ApiResponse({ status: 200 })
   resumeRounds(@Param("id", { schema: identifierSchema }) id: string) {
@@ -260,7 +280,7 @@ export class PublicHumanInterviewCandidateMaterialsController {
   ) {}
 
   @Get(":inviteToken")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicCandidateMaterialsResponseSchema })
   @ApiOperation({ operationId: "listPublicHumanInterviewCandidateMaterials" })
   @ApiResponse({ status: 200 })
   list(@Param("inviteToken", { schema: identifierSchema }) inviteToken: string) {
@@ -268,7 +288,7 @@ export class PublicHumanInterviewCandidateMaterialsController {
   }
 
   @Get(":inviteToken/:candidateId")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicCandidateMaterialResponseSchema })
   @ApiOperation({ operationId: "getPublicHumanInterviewCandidateMaterial" })
   @ApiResponse({ status: 200 })
   detail(
@@ -279,7 +299,7 @@ export class PublicHumanInterviewCandidateMaterialsController {
   }
 
   @Get(":inviteToken/:candidateId/ai-evaluation")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicCandidateAiEvaluationResponseSchema })
   @ApiOperation({ operationId: "getPublicHumanInterviewCandidateAiEvaluation" })
   @ApiResponse({ status: 200 })
   aiEvaluation(
@@ -290,7 +310,7 @@ export class PublicHumanInterviewCandidateMaterialsController {
   }
 
   @Get(":inviteToken/:candidateId/hr-initial-information")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicCandidateHrInformationResponseSchema })
   @ApiOperation({ operationId: "getPublicHumanInterviewCandidateHrInformation" })
   @ApiResponse({ status: 200 })
   hrInformation(
@@ -301,7 +321,7 @@ export class PublicHumanInterviewCandidateMaterialsController {
   }
 
   @Get(":inviteToken/:candidateId/interview-questions")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: publicCandidateQuestionsResponseSchema })
   @ApiOperation({ operationId: "getPublicHumanInterviewCandidateQuestions" })
   @ApiResponse({ status: 200 })
   questions(

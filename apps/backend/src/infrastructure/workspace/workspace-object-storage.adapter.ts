@@ -10,8 +10,9 @@ import {
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Readable } from "node:stream";
+import { BackendConfigService } from "../../config/backend-config.service.js";
 import type { WorkspaceObjectStoragePort } from "../../features/workspace/workspace.ports.js";
 
 interface StorageConfig {
@@ -19,26 +20,38 @@ interface StorageConfig {
   client: S3Client;
 }
 
-function required(name: string): string {
-  const value = process.env[name]?.trim();
+type StorageEnvironmentKey =
+  | "RECORDING_R2_ACCESS_KEY_ID"
+  | "RECORDING_R2_BUCKET_NAME"
+  | "RECORDING_R2_ENDPOINT"
+  | "RECORDING_R2_REGION"
+  | "RECORDING_R2_SECRET_ACCESS_KEY"
+  | "S3_ACCESS_KEY_ID"
+  | "S3_BUCKET_NAME"
+  | "S3_ENDPOINT"
+  | "S3_REGION"
+  | "S3_SECRET_ACCESS_KEY";
+
+function required(config: BackendConfigService, name: StorageEnvironmentKey): string {
+  const value = config.get(name)?.trim();
   if (!value) {
     throw new Error(`S3 storage is not configured: ${name} is required`);
   }
   return value;
 }
 
-function createStorageConfig(): StorageConfig {
-  const endpoint = new URL(required("S3_ENDPOINT")).origin;
+function createStorageConfig(config: BackendConfigService): StorageConfig {
+  const endpoint = new URL(required(config, "S3_ENDPOINT")).origin;
   return {
-    bucket: required("S3_BUCKET_NAME"),
+    bucket: required(config, "S3_BUCKET_NAME"),
     client: new S3Client({
       credentials: {
-        accessKeyId: required("S3_ACCESS_KEY_ID"),
-        secretAccessKey: required("S3_SECRET_ACCESS_KEY"),
+        accessKeyId: required(config, "S3_ACCESS_KEY_ID"),
+        secretAccessKey: required(config, "S3_SECRET_ACCESS_KEY"),
       },
       endpoint,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-      region: required("S3_REGION"),
+      forcePathStyle: config.get("S3_FORCE_PATH_STYLE") ?? false,
+      region: required(config, "S3_REGION"),
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
     }),
@@ -50,27 +63,29 @@ export class WorkspaceObjectStorageAdapter implements WorkspaceObjectStoragePort
   private configuration?: StorageConfig;
   private recordingConfiguration?: StorageConfig & { keyPrefix: string };
 
+  constructor(@Inject(BackendConfigService) private readonly config: BackendConfigService) {}
+
   private recording() {
     this.recordingConfiguration ??= {
-      bucket: required("RECORDING_R2_BUCKET_NAME"),
+      bucket: required(this.config, "RECORDING_R2_BUCKET_NAME"),
       client: new S3Client({
         credentials: {
-          accessKeyId: required("RECORDING_R2_ACCESS_KEY_ID"),
-          secretAccessKey: required("RECORDING_R2_SECRET_ACCESS_KEY"),
+          accessKeyId: required(this.config, "RECORDING_R2_ACCESS_KEY_ID"),
+          secretAccessKey: required(this.config, "RECORDING_R2_SECRET_ACCESS_KEY"),
         },
-        endpoint: new URL(required("RECORDING_R2_ENDPOINT")).origin,
-        forcePathStyle: process.env.RECORDING_R2_FORCE_PATH_STYLE === "true",
-        region: required("RECORDING_R2_REGION"),
+        endpoint: new URL(required(this.config, "RECORDING_R2_ENDPOINT")).origin,
+        forcePathStyle: this.config.get("RECORDING_R2_FORCE_PATH_STYLE") ?? false,
+        region: required(this.config, "RECORDING_R2_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",
       }),
-      keyPrefix: process.env.RECORDING_R2_KEY_PREFIX?.trim() ?? "",
+      keyPrefix: this.config.get("RECORDING_R2_KEY_PREFIX")?.trim() ?? "",
     };
     return this.recordingConfiguration;
   }
 
   async getBytes(key: string) {
-    this.configuration ??= createStorageConfig();
+    this.configuration ??= createStorageConfig(this.config);
     try {
       const result = await this.configuration.client.send(
         new GetObjectCommand({ Bucket: this.configuration.bucket, Key: key }),
@@ -91,7 +106,7 @@ export class WorkspaceObjectStorageAdapter implements WorkspaceObjectStoragePort
   }
 
   async getStream(key: string) {
-    this.configuration ??= createStorageConfig();
+    this.configuration ??= createStorageConfig(this.config);
     try {
       const result = await this.configuration.client.send(
         new GetObjectCommand({ Bucket: this.configuration.bucket, Key: key }),
@@ -116,7 +131,7 @@ export class WorkspaceObjectStorageAdapter implements WorkspaceObjectStoragePort
   }
 
   presignGet(key: string, expiresInSeconds: number): Promise<string> {
-    this.configuration ??= createStorageConfig();
+    this.configuration ??= createStorageConfig(this.config);
     return getSignedUrl(
       this.configuration.client,
       new GetObjectCommand({ Bucket: this.configuration.bucket, Key: key }),

@@ -1,4 +1,5 @@
 /* oxlint-disable max-lines -- The six request-scoped Copilot tools share one authorization boundary. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { Mastra } from "@mastra/core";
@@ -383,31 +384,60 @@ export function createRecruitingCopilotTools(input: {
 
 function modelConfig() {
   const modelId =
-    process.env.MASTRA_FAST_MODEL?.trim() ||
-    process.env.ALIBABA_FAST_MODEL?.trim() ||
-    process.env.ALIBABA_MODEL?.trim() ||
+    rawBackendEnvironment.MASTRA_FAST_MODEL?.trim() ||
+    rawBackendEnvironment.ALIBABA_FAST_MODEL?.trim() ||
+    rawBackendEnvironment.ALIBABA_MODEL?.trim() ||
     "deepseek-v4-flash-0731";
   return {
-    apiKey: process.env.ALIBABA_API_KEY,
+    apiKey: rawBackendEnvironment.ALIBABA_API_KEY,
     modelId: modelId.replace(/^alibaba-coding-plan\//u, ""),
     providerId: "alibaba",
     url:
-      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      rawBackendEnvironment.ALIBABA_BASE_URL?.trim() ||
+      "https://dashscope.aliyuncs.com/compatible-mode/v1",
   };
 }
 
 let mastraSingleton: Mastra | undefined;
+let mastraStorageClosePromise: Promise<void> | undefined;
+let mastraStorageSingleton: PostgresStore | undefined;
+
+export async function closeRecruitingMastraStorage(): Promise<void> {
+  if (mastraStorageClosePromise) {
+    await mastraStorageClosePromise;
+    return;
+  }
+
+  const storage = mastraStorageSingleton;
+  mastraSingleton = undefined;
+  mastraStorageSingleton = undefined;
+
+  if (!storage) {
+    return;
+  }
+
+  mastraStorageClosePromise = storage.close();
+  try {
+    await mastraStorageClosePromise;
+  } finally {
+    mastraStorageClosePromise = undefined;
+  }
+}
+
 export function getRecruitingMastra() {
   if (!mastraSingleton) {
-    const connectionString = process.env.DATABASE_URL?.trim();
+    const connectionString = rawBackendEnvironment.DATABASE_URL?.trim();
+    mastraStorageSingleton = connectionString
+      ? new PostgresStore({
+          connectionString,
+          id: "arc-backend-mastra-storage",
+          schemaName: rawBackendEnvironment.MASTRA_POSTGRES_SCHEMA?.trim() || "mastra",
+        })
+      : undefined;
     mastraSingleton = new Mastra(
-      connectionString
+      mastraStorageSingleton
         ? {
-            storage: new PostgresStore({
-              connectionString,
-              id: "arc-backend-mastra-storage",
-              schemaName: process.env.MASTRA_POSTGRES_SCHEMA?.trim() || "mastra",
-            }),
+            storage: mastraStorageSingleton,
           }
         : {},
     );

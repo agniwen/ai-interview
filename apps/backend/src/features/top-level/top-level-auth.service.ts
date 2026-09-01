@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, class-methods-use-this -- Request authentication helpers implement the injectable authorization port and narrow session fields after Better Auth middleware populates the request. */
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
 import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import type { Request } from "express";
 import type { TopLevelActor, TopLevelAuthPort } from "./top-level.ports.js";
@@ -21,7 +22,7 @@ export class TopLevelAuthService implements TopLevelAuthPort {
   }
 
   requireAgent(request: Request): void {
-    const expected = process.env.AGENT_CALLBACK_SECRET?.trim();
+    const expected = rawBackendEnvironment.AGENT_CALLBACK_SECRET?.trim();
     const received = request.header("x-agent-secret")?.trim();
     if (!(expected && received && received === expected)) {
       throw new UnauthorizedException("Invalid agent credentials", {

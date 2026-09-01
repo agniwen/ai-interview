@@ -1,0 +1,131 @@
+name: Backend runtime smoke
+
+on:
+  pull_request:
+    paths:
+      - "apps/backend/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/backend-runtime-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/backend-runtime-smoke.yml"
+
+jobs:
+  built-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Verify generated OpenAPI contract
+        run: |
+          bun run --filter @app/backend openapi
+          bun run --filter @app/backend openapi:parity
+          git diff --exit-code -- apps/backend/openapi.json
+      - run: bun run --filter @app/backend smoke:runtimes
+        env:
+          NODE24_BINARY: node
+      - uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: backend-openapi
+          path: apps/backend/openapi.json
+
+  external-background-artifact:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: backend_contract
+          POSTGRES_PASSWORD: backend
+          POSTGRES_USER: backend
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U backend -d backend_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ALIBABA_API_KEY: test
+      BACKGROUND_WORKERS_ENABLED: "true"
+      BETTER_AUTH_SECRET: backend-external-smoke-secret-that-is-at-least-32-characters
+      BETTER_AUTH_URL: http://127.0.0.1:8787
+      DATABASE_URL: postgres://backend:backend@127.0.0.1:5432/backend_contract
+      FEISHU_APP_ID: test
+      FEISHU_APP_ID2: test-secondary
+      FEISHU_APP_SECRET: test
+      FEISHU_APP_SECRET2: test-secondary
+      GOOGLE_CLIENT_ID: test
+      GOOGLE_CLIENT_SECRET: test
+      INTERVIEW_NOTIFICATION_FLOW_ENABLED: "false"
+      INTERVIEW_NOTIFICATION_WORKER_ENABLED: "false"
+      MAIL_INGEST_ENABLED: "false"
+      MEETING_INTELLIGENCE_MODEL: test
+      MEETING_TRANSCRIPTION_QWEN_ENABLED: "false"
+      NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: "false"
+      NODE24_BINARY: node
+      READINESS_DATABASE_CHECK_ENABLED: "true"
+      REDIS_URL: redis://127.0.0.1:6379/15
+      RESUME_SEMANTIC_INDEX_ENABLED: "false"
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_BUCKET_NAME: backend-contract
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_FORCE_PATH_STYLE: "true"
+      S3_REGION: us-east-1
+      S3_SECRET_ACCESS_KEY: minioadmin
+      WORKER_BACKGROUND_PROCESSING_ENABLED: "true"
+      WORKER_DIAGNOSTICS_SECRET: parity-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Start isolated S3-compatible storage
+        run: |
+          docker run --rm -d --name backend-parity-minio \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            -p 9000:9000 \
+            minio/minio:latest server /data
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs backend-parity-minio
+          exit 1
+      - run: bun run --filter @app/backend prepare:external-smoke
+      - run: bun run --filter @app/server test
+      - run: bun run --filter @app/worker test
+      - run: bun run --filter @app/backend test
+      - run: bun run --filter @app/backend smoke:runtimes:external
+      - if: always()
+        run: docker stop backend-parity-minio || true

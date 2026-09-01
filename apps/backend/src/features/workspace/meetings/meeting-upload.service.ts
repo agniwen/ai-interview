@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, max-lines, require-await, unicorn/no-await-expression-member -- Direct upload leases, multipart plans, object verification, and async ports form one protocol. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,
   HttpException,
@@ -9,13 +10,11 @@ import {
 } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { meetingRecordingAsset, meetingSession } from "@arc/db-schema/schema";
-import {
-  enqueueMeetingPlaybackJobs,
-  isMeetingProcessingQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-playback";
+import { isMeetingProcessingQueueConfigured } from "@arc/meeting-processing-queue/meeting-playback";
 import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT, WORKSPACE_OBJECT_STORAGE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort, WorkspaceObjectStoragePort } from "../workspace.ports.js";
 import { rebuildMeetingSearchProjection } from "./meeting-search.service.js";
@@ -42,6 +41,8 @@ export class MeetingUploadService {
   constructor(
     @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
     @Inject(WORKSPACE_OBJECT_STORAGE_PORT) private readonly storage: WorkspaceObjectStoragePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
 
   private capacityError() {
@@ -84,7 +85,8 @@ export class MeetingUploadService {
             and(gt(meetingSession.uploadLeaseExpiresAt, now), ne(meetingSession.id, meetingId)),
           );
         const limit =
-          Number.parseInt(process.env.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) || 100;
+          Number.parseInt(rawBackendEnvironment.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) ||
+          100;
         if ((active?.count ?? 0) >= limit) {
           return false;
         }
@@ -166,7 +168,8 @@ export class MeetingUploadService {
         .from(meetingSession)
         .where(gt(meetingSession.uploadLeaseExpiresAt, now));
       const limit =
-        Number.parseInt(process.env.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) || 100;
+        Number.parseInt(rawBackendEnvironment.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) ||
+        100;
       if ((active?.count ?? 0) >= limit) {
         throw this.capacityError();
       }
@@ -223,10 +226,12 @@ export class MeetingUploadService {
       (await this.markVerified(organizationId, ownerId, meeting.id));
     if (
       (meeting.status === "workspace-verified" || meeting.status === "processing") &&
-      isMeetingProcessingQueueConfigured()
+      isMeetingProcessingQueueConfigured(rawBackendEnvironment)
     ) {
       try {
-        await enqueueMeetingPlaybackJobs([{ meetingId: meeting.id, organizationId }]);
+        await this.queueProducer.enqueueMeetingPlaybackJobs([
+          { meetingId: meeting.id, organizationId },
+        ]);
       } catch (error) {
         console.error("[meeting-playback] enqueue failed; startup recovery will retry", {
           errorName: error instanceof Error ? error.name : "UnknownError",
@@ -580,9 +585,9 @@ export class MeetingUploadService {
       });
     }
     const deadline = await this.markVerified(organizationId, ownerId, meetingId);
-    if (isMeetingProcessingQueueConfigured()) {
+    if (isMeetingProcessingQueueConfigured(rawBackendEnvironment)) {
       try {
-        await enqueueMeetingPlaybackJobs([{ meetingId, organizationId }]);
+        await this.queueProducer.enqueueMeetingPlaybackJobs([{ meetingId, organizationId }]);
       } catch (error) {
         console.error("[meeting-playback] enqueue failed; startup recovery will retry", {
           errorName: error instanceof Error ? error.name : "UnknownError",

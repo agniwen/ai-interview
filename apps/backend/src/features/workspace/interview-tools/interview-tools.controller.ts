@@ -13,6 +13,7 @@ import {
   SerializeOptions,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { ApiConsumes, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { Readable } from "node:stream";
@@ -69,6 +70,7 @@ export class InterviewToolsController {
   @HttpCode(200)
   @UseInterceptors(FileInterceptor("resume"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "resume" })
   @ApiOperation({ operationId: "parseWorkspaceInterviewResume" })
   @ApiResponse(eventStreamResponse)
   parseResume(

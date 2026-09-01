@@ -2,18 +2,17 @@ import {
   Controller,
   Get,
   Inject,
-  Optional,
   SerializeOptions,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { HealthCheckService } from "@nestjs/terminus";
+import type { HealthIndicatorFunction } from "@nestjs/terminus";
 import { z } from "zod";
-import { RuntimeReadinessService } from "../runtime/runtime-readiness.service.js";
-import { BACKGROUND_LIFECYCLE } from "../background/background.lifecycle.js";
-import type { BackgroundLifecycle } from "../background/background.lifecycle.js";
 import { BackendConfigService } from "../config/backend-config.service.js";
-import { API_DATABASE_CONNECTION } from "../infrastructure/database/database.tokens.js";
-import type { DatabaseConnection } from "../infrastructure/database/database-connection.js";
+import { BackgroundReadinessHealthIndicator } from "./background-readiness-health.indicator.js";
+import { DatabaseHealthIndicator } from "./database-health.indicator.js";
+import { RuntimeReadinessHealthIndicator } from "./runtime-readiness-health.indicator.js";
 
 const healthResponseSchema = z.object({ ok: z.literal(true) });
 @ApiTags("health")
@@ -23,9 +22,13 @@ export class HealthController {
 
   constructor(
     @Inject(BackendConfigService) private readonly config: BackendConfigService,
-    @Inject(API_DATABASE_CONNECTION) private readonly database: DatabaseConnection,
-    @Inject(RuntimeReadinessService) private readonly readiness: RuntimeReadinessService,
-    @Optional() @Inject(BACKGROUND_LIFECYCLE) private readonly background?: BackgroundLifecycle,
+    @Inject(HealthCheckService) private readonly healthChecks: HealthCheckService,
+    @Inject(DatabaseHealthIndicator)
+    private readonly databaseHealth: DatabaseHealthIndicator,
+    @Inject(RuntimeReadinessHealthIndicator)
+    private readonly runtimeHealth: RuntimeReadinessHealthIndicator,
+    @Inject(BackgroundReadinessHealthIndicator)
+    private readonly backgroundHealth: BackgroundReadinessHealthIndicator,
   ) {}
 
   @Get("api/health")
@@ -50,12 +53,20 @@ export class HealthController {
   @ApiResponse({ status: 503 })
   @SerializeOptions({ schema: healthResponseSchema })
   async getApiReadiness() {
-    if (this.readiness.isDraining()) {
-      throw new ServiceUnavailableException("Backend is draining", {
-        errorCode: "BACKEND_DRAINING",
-      });
-    }
-    await this.assertDatabaseReady();
+    await this.assertHealthy(
+      () => this.runtimeHealth.check(),
+      () =>
+        new ServiceUnavailableException("Backend is draining", {
+          errorCode: "BACKEND_DRAINING",
+        }),
+    );
+    await this.assertHealthy(
+      () => this.databaseHealth.check(),
+      () =>
+        new ServiceUnavailableException("Database is unavailable", {
+          errorCode: "DATABASE_UNAVAILABLE",
+        }),
+    );
     return { ok: true } as const;
   }
 
@@ -65,45 +76,52 @@ export class HealthController {
   @ApiResponse({ status: 503 })
   @SerializeOptions({ schema: healthResponseSchema })
   async getWorkerReadiness() {
-    if (process.env.BACKGROUND_WORKERS_ENABLED === "false") {
+    if (!this.config.get("BACKGROUND_WORKERS_ENABLED")) {
       throw new ServiceUnavailableException("Background workers are disabled", {
         errorCode: "BACKGROUND_WORKERS_DISABLED",
       });
     }
-    if (this.readiness.isDraining()) {
-      throw new ServiceUnavailableException("Backend is draining", {
-        errorCode: "BACKEND_DRAINING",
-      });
-    }
-    await this.assertDatabaseReady();
-    if (!this.background) {
-      throw new ServiceUnavailableException("Background runtime is unavailable", {
-        errorCode: "BACKGROUND_RUNTIME_UNAVAILABLE",
-      });
-    }
-    const snapshot = this.background.getSnapshot();
-    if (!snapshot.ready) {
-      throw new ServiceUnavailableException("Background runtime is not ready", {
-        errorCode: "BACKGROUND_RUNTIME_NOT_READY",
-      });
-    }
+    await this.assertHealthy(
+      () => this.runtimeHealth.check(),
+      () =>
+        new ServiceUnavailableException("Backend is draining", {
+          errorCode: "BACKEND_DRAINING",
+        }),
+    );
+    await this.assertHealthy(
+      () => this.databaseHealth.check(),
+      () =>
+        new ServiceUnavailableException("Database is unavailable", {
+          errorCode: "DATABASE_UNAVAILABLE",
+        }),
+    );
+    const background = await this.backgroundHealth.check();
+    await this.assertHealthy(
+      () => background,
+      () => {
+        const details = background.background;
+        if ("reason" in details && details.reason === "unavailable") {
+          return new ServiceUnavailableException("Background runtime is unavailable", {
+            errorCode: "BACKGROUND_RUNTIME_UNAVAILABLE",
+          });
+        }
+        return new ServiceUnavailableException(
+          "message" in details ? details.message : "Background workers are not ready",
+          { errorCode: "BACKGROUND_RUNTIME_NOT_READY" },
+        );
+      },
+    );
     return { ok: true } as const;
   }
 
-  private async assertDatabaseReady(): Promise<void> {
-    const explicit = process.env.READINESS_DATABASE_CHECK_ENABLED?.trim().toLowerCase();
-    if (explicit === "false") {
-      return;
-    }
-    if (explicit !== "true" && this.config.get("NODE_ENV") !== "production") {
-      return;
-    }
+  private async assertHealthy(
+    check: HealthIndicatorFunction,
+    failure: () => ServiceUnavailableException,
+  ): Promise<void> {
     try {
-      await this.database.ping();
+      await this.healthChecks.check([check]);
     } catch {
-      throw new ServiceUnavailableException("Database is unavailable", {
-        errorCode: "DATABASE_UNAVAILABLE",
-      });
+      throw failure();
     }
   }
 }

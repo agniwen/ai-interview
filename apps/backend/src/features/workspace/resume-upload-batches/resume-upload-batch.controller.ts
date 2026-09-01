@@ -15,6 +15,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { ApiConsumes, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import type { z } from "zod";
@@ -55,6 +56,7 @@ export class ResumeUploadBatchController {
   @Post("uploads")
   @UseInterceptors(FileInterceptor("file"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "file" })
   @ApiOperation({ operationId: "uploadWorkspaceResumeBatchFile" })
   @ApiResponse({ status: 201 })
   @SerializeOptions({ schema: resumeUploadDescriptorSchema })

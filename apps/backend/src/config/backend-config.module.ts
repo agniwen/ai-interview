@@ -16,6 +16,7 @@ import { backendEnvironmentSchema } from "./backend-environment.schema.js";
         ".env",
       ],
       isGlobal: true,
+      skipProcessEnv: true,
       validationSchema: backendEnvironmentSchema,
     }),
   ],

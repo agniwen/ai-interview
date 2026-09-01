@@ -13,6 +13,8 @@ bun run --filter @app/backend test
 bun run --filter @app/backend build
 bun run --filter @app/backend openapi
 bun run --filter @app/backend openapi:parity
+bun run --filter @app/backend smoke:runtimes
+bun run --filter @app/backend smoke:runtimes:external
 ```
 
 Copy `.env.example` to `.env` for a fresh installation. This workspace also
@@ -22,7 +24,15 @@ their workloads.
 
 The production bundle is ESM and runs on Bun 1.4.0. The same artifact can be
 started with Node 24 through `start:node`. `Dockerfile` defaults to the Bun
-runtime; build target `node-runtime` provides the fallback image.
+runtime; build target `node-runtime` provides the fallback image. The runtime
+smoke command builds once, then boots that exact artifact under both runtimes
+and verifies `/api/health` plus the legacy-compatible `/healthz` endpoint.
+The external variant additionally requires the configured PostgreSQL and Redis
+services, starts background consumers, enqueues a uniquely named meeting-answer
+job on a per-runtime isolated queue prefix whose missing exchange makes
+processing read-only, and waits for BullMQ to mark it completed. Both modes
+require SIGTERM to finish within five seconds;
+needing SIGKILL is reported as a failed smoke run.
 
 The workspace catalog tracks TypeScript 7.1 next. This package temporarily pins
 TypeScript 6.0 because the current Nest 12 CLI/Rspack compiler integration does

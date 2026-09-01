@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadGatewayException,
   BadRequestException,
@@ -43,8 +44,8 @@ const jsonValueSchema = z.json();
 type JsonValue = z.infer<typeof jsonValueSchema>;
 
 function aiProviderConfig() {
-  const alibabaKey = process.env.ALIBABA_API_KEY?.trim();
-  const openAiKey = process.env.OPENAI_API_KEY?.trim();
+  const alibabaKey = rawBackendEnvironment.ALIBABA_API_KEY?.trim();
+  const openAiKey = rawBackendEnvironment.OPENAI_API_KEY?.trim();
   const apiKey = alibabaKey || openAiKey;
   if (!apiKey) {
     throw new ServiceUnavailableException("AI 服务未配置。", {
@@ -55,22 +56,23 @@ function aiProviderConfig() {
     return {
       apiKey,
       baseUrl: (
-        process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        rawBackendEnvironment.ALIBABA_BASE_URL?.trim() ||
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
       ).replace(/\/+$/, ""),
       model:
-        process.env.MASTRA_STRUCTURED_MODEL?.trim() ||
-        process.env.ALIBABA_STRUCTURED_MODEL?.trim() ||
-        process.env.ALIBABA_MODEL?.trim() ||
+        rawBackendEnvironment.MASTRA_STRUCTURED_MODEL?.trim() ||
+        rawBackendEnvironment.ALIBABA_STRUCTURED_MODEL?.trim() ||
+        rawBackendEnvironment.ALIBABA_MODEL?.trim() ||
         "deepseek-v4-flash-0731",
     };
   }
   return {
     apiKey,
-    baseUrl: (process.env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(
+    baseUrl: (rawBackendEnvironment.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(
       /\/+$/,
       "",
     ),
-    model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
+    model: rawBackendEnvironment.OPENAI_MODEL?.trim() || "gpt-4o-mini",
   };
 }
 

@@ -1,3 +1,5 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createHash } from "node:crypto";
@@ -29,8 +31,8 @@ const minimaxTtsResponseSchema = z.object({
   data: z.object({ audio: z.string().nullable().optional() }).optional(),
 });
 
-function requiredStorageEnvironment(name: string) {
-  const value = process.env[name]?.trim();
+function requiredStorageEnvironment(name: BackendEnvironmentKey) {
+  const value = rawBackendEnvironment[name]?.trim();
   if (!value) {
     throw new Error(`S3 storage is not configured: ${name} is required`);
   }
@@ -87,8 +89,8 @@ export class InterviewerService {
     if (cached[0]) {
       return { cached: true, previewText, url: cached[0].publicUrl, voice };
     }
-    const apiKey = process.env.MINIMAX_API_KEY?.trim();
-    const baseUrl = process.env.MINIMAX_TTS_BASE_URL?.trim().replace(/\/+$/, "");
+    const apiKey = rawBackendEnvironment.MINIMAX_API_KEY?.trim();
+    const baseUrl = rawBackendEnvironment.MINIMAX_TTS_BASE_URL?.trim().replace(/\/+$/, "");
     if (!apiKey || !baseUrl) {
       throw new Error("MiniMax TTS is not configured.");
     }
@@ -138,7 +140,7 @@ export class InterviewerService {
           secretAccessKey: requiredStorageEnvironment("S3_SECRET_ACCESS_KEY"),
         },
         endpoint: new URL(requiredStorageEnvironment("S3_ENDPOINT")).origin,
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
         region: requiredStorageEnvironment("S3_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",

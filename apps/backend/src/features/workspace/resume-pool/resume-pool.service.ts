@@ -22,15 +22,7 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import {
-  enqueueResumeParseJobs,
-  isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
-import { enqueueResumeSemanticIndexJobs } from "@arc/resume-parse-queue/resume-semantic-index";
-import {
-  enqueueResumeReviewGenerationJobs,
-  isResumeReviewGenerationQueueConfigured,
-} from "@arc/resume-parse-queue/resume-review-generation";
+import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
 import {
   and,
   asc,
@@ -48,6 +40,8 @@ import {
   sql,
 } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   WORKSPACE_DATABASE_PORT,
   WORKSPACE_DOCUMENT_PREVIEW_PORT,
@@ -135,6 +129,8 @@ export class ResumePoolService {
     @Inject(WORKSPACE_OBJECT_STORAGE_PORT) private readonly storage: WorkspaceObjectStoragePort,
     @Inject(WORKSPACE_RESUME_SEMANTIC_PORT) private readonly semantic: WorkspaceResumeSemanticPort,
     @Inject(ResumeUploadBatchService) private readonly uploads: ResumeUploadBatchService,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
 
   private visible(
@@ -481,7 +477,7 @@ export class ResumePoolService {
     source: { contentHash: string; fileSize: number; originalFileName: string; storageKey: string },
     bypassCache = false,
   ) {
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历解析队列未配置 REDIS_URL。");
     }
     const batchId = crypto.randomUUID();
@@ -516,7 +512,7 @@ export class ResumePoolService {
       });
     });
     try {
-      await enqueueResumeParseJobs([
+      await this.queueProducer.enqueueResumeParseJobs([
         { batchId, bypassCache: bypassCache || undefined, itemId, organizationId, userId: actorId },
       ]);
     } catch (error) {
@@ -674,11 +670,13 @@ export class ResumePoolService {
         },
       ]);
     });
-    await enqueueResumeSemanticIndexJobs([
-      { organizationId, sourceId: publicId, sourceType: "resume_pool_item" },
-    ]).catch((error) =>
-      console.error("[resume-pool] semantic enqueue failed", { error, publicId }),
-    );
+    await this.queueProducer
+      .enqueueResumeSemanticIndexJobs([
+        { organizationId, sourceId: publicId, sourceType: "resume_pool_item" },
+      ])
+      .catch((error) =>
+        console.error("[resume-pool] semantic enqueue failed", { error, publicId }),
+      );
     return this.get(organizationId, actorId, publicId, null);
   }
 
@@ -753,16 +751,18 @@ export class ResumePoolService {
     if (
       updated.resumeParseStatus === "ready" &&
       updated.resumeProfile &&
-      isResumeReviewGenerationQueueConfigured()
+      isResumeParseQueueConfigured(rawBackendEnvironment)
     ) {
-      await enqueueResumeReviewGenerationJobs([
-        {
-          jobDescriptionId: input.jobDescriptionId,
-          organizationId,
-          poolItemId: id,
-          source: "resume_pool_upload",
-        },
-      ]).catch((error) => console.error("[resume-pool] review enqueue failed", { error, id }));
+      await this.queueProducer
+        .enqueueResumeReviewGenerationJobs([
+          {
+            jobDescriptionId: input.jobDescriptionId,
+            organizationId,
+            poolItemId: id,
+            source: "resume_pool_upload",
+          },
+        ])
+        .catch((error) => console.error("[resume-pool] review enqueue failed", { error, id }));
     }
     return this.get(organizationId, actorId, id, null);
   }
@@ -862,30 +862,36 @@ export class ResumePoolService {
         type: "imported",
       });
     });
-    await enqueueResumeSemanticIndexJobs([
-      { organizationId, sourceId: recordId, sourceType: "studio_interview" },
-    ]).catch((error) =>
-      console.error("[resume-pool] imported semantic enqueue failed", { error, recordId }),
-    );
-    if (isResumeReviewGenerationQueueConfigured()) {
-      await enqueueResumeReviewGenerationJobs([
-        { organizationId, resumeRecordId: recordId, source: "resume_pool_import_questions" },
-      ]).catch((error) =>
-        console.error("[resume-pool] imported questions enqueue failed", { error, recordId }),
+    await this.queueProducer
+      .enqueueResumeSemanticIndexJobs([
+        { organizationId, sourceId: recordId, sourceType: "studio_interview" },
+      ])
+      .catch((error) =>
+        console.error("[resume-pool] imported semantic enqueue failed", { error, recordId }),
       );
-      if (input.jobDescriptionId) {
-        await enqueueResumeReviewGenerationJobs([
-          {
-            jobDescriptionId: input.jobDescriptionId,
-            organizationId,
-            poolItemId: id,
-            resumeRecordId: recordId,
-            runId: crypto.randomUUID(),
-            source: "resume_pool_import",
-          },
-        ]).catch((error) =>
-          console.error("[resume-pool] imported review enqueue failed", { error, recordId }),
+    if (isResumeParseQueueConfigured(rawBackendEnvironment)) {
+      await this.queueProducer
+        .enqueueResumeReviewGenerationJobs([
+          { organizationId, resumeRecordId: recordId, source: "resume_pool_import_questions" },
+        ])
+        .catch((error) =>
+          console.error("[resume-pool] imported questions enqueue failed", { error, recordId }),
         );
+      if (input.jobDescriptionId) {
+        await this.queueProducer
+          .enqueueResumeReviewGenerationJobs([
+            {
+              jobDescriptionId: input.jobDescriptionId,
+              organizationId,
+              poolItemId: id,
+              resumeRecordId: recordId,
+              runId: crypto.randomUUID(),
+              source: "resume_pool_import",
+            },
+          ])
+          .catch((error) =>
+            console.error("[resume-pool] imported review enqueue failed", { error, recordId }),
+          );
       }
     }
     return { resumeRecordId: recordId, status: "imported" as const };

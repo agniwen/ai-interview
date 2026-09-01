@@ -13,6 +13,7 @@ import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { z } from "zod";
+import { BackendConfigService } from "../config/backend-config.service.js";
 import { BackgroundDiagnosticsService } from "./background.diagnostics.js";
 
 const queueCountsSchema = z.object({
@@ -64,9 +65,11 @@ function secureTokenMatches(actual: string, expected: string): boolean {
 
 @Injectable()
 export class WorkerDiagnosticsGuard implements CanActivate {
+  constructor(@Inject(BackendConfigService) private readonly config: BackendConfigService) {}
+
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    const expected = process.env.WORKER_DIAGNOSTICS_SECRET?.trim();
+    const expected = this.config.get("WORKER_DIAGNOSTICS_SECRET")?.trim();
     const authorization = request.header("authorization");
     const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
     if (!expected || !token || !secureTokenMatches(token, expected)) {

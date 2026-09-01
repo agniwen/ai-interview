@@ -11,11 +11,16 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
-import { identifierSchema, jsonResponseSchema, successResponseSchema } from "../shared.schemas.js";
+import { identifierSchema, successResponseSchema } from "../shared.schemas.js";
 import { TOP_LEVEL_INTERVIEW_PORT } from "./interview.port.js";
 import type { TopLevelInterviewPort } from "./interview.port.js";
 import {
+  candidateInterviewFeedbackResponseSchema,
   candidateInterviewFeedbackInputSchema,
+  candidateInterviewFormSubmissionResponseSchema,
+  candidateInterviewFormsResponseSchema,
+  candidateInterviewLiveKitTokenResponseSchema,
+  candidateInterviewResponseSchema,
   interviewCompleteQuerySchema,
   interviewFormSubmissionSchema,
 } from "./interview.schemas.js";
@@ -32,7 +37,7 @@ export class InterviewController {
 
   @Post(":id/:roundId/feedback")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: candidateInterviewFeedbackResponseSchema })
   @ApiOperation({ operationId: "submitCandidateInterviewFeedback" })
   @ApiResponse({ status: 200 })
   feedback(
@@ -46,7 +51,7 @@ export class InterviewController {
 
   @Post(":id/:roundId/livekit-token")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: candidateInterviewLiveKitTokenResponseSchema })
   @ApiOperation({ operationId: "createCandidateInterviewLiveKitToken" })
   @ApiResponse({ status: 200 })
   liveKitToken(
@@ -65,7 +70,7 @@ export class InterviewController {
   }
 
   @Get(":id/:roundId")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: candidateInterviewResponseSchema })
   @ApiOperation({ operationId: "getCandidateInterview" })
   @ApiResponse({ status: 200 })
   getInterview(
@@ -76,7 +81,7 @@ export class InterviewController {
   }
 
   @Get(":id/:roundId/forms")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: candidateInterviewFormsResponseSchema })
   @ApiOperation({ operationId: "listCandidateInterviewForms" })
   @ApiResponse({ status: 200 })
   forms(
@@ -88,7 +93,7 @@ export class InterviewController {
 
   @Post(":id/:roundId/forms/:templateId/submit")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: candidateInterviewFormSubmissionResponseSchema })
   @ApiOperation({ operationId: "submitCandidateInterviewForm" })
   @ApiResponse({ status: 200 })
   submitForm(

@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import OpenAI from "openai";
 
@@ -16,18 +17,20 @@ export function sanitizeRecordingTitle(value: string) {
 @Injectable()
 export class MeetingTitleService {
   async generate(transcript: string) {
-    const apiKey = process.env.ALIBABA_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
+    const apiKey =
+      rawBackendEnvironment.ALIBABA_API_KEY?.trim() || rawBackendEnvironment.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       throw new ServiceUnavailableException("暂时无法生成录制标题", {
         errorCode: "MEETING_TITLE_UNAVAILABLE",
       });
     }
-    const alibaba = Boolean(process.env.ALIBABA_API_KEY?.trim());
+    const alibaba = Boolean(rawBackendEnvironment.ALIBABA_API_KEY?.trim());
     try {
       const client = new OpenAI({
         apiKey,
         baseURL: alibaba
-          ? process.env.ALIBABA_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1"
+          ? rawBackendEnvironment.ALIBABA_BASE_URL ||
+            "https://dashscope.aliyuncs.com/compatible-mode/v1"
           : undefined,
       });
       const response = await client.chat.completions.create({
@@ -39,8 +42,8 @@ export class MeetingTitleService {
           },
         ],
         model:
-          process.env.MEETING_TITLE_MODEL?.trim() ||
-          process.env.MEETING_INTELLIGENCE_MODEL?.trim()?.split("/").at(-1) ||
+          rawBackendEnvironment.MEETING_TITLE_MODEL?.trim() ||
+          rawBackendEnvironment.MEETING_INTELLIGENCE_MODEL?.trim()?.split("/").at(-1) ||
           (alibaba ? "qwen-plus" : "gpt-5-mini"),
         temperature: 0.2,
       });

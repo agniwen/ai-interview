@@ -1,4 +1,6 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns, anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion, complexity, max-lines -- Interview lifecycle transitions, reports, offers, human rounds, meetings, and legacy JSON serialization share one transactional parity boundary; external JSON and Drizzle projections are validated before use. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { createHash, randomBytes } from "node:crypto";
 import {
   BadGatewayException,
@@ -121,8 +123,8 @@ function optionalDate(value: string | null | undefined): Date | null | undefined
   return value ? new Date(value) : null;
 }
 
-function requiredEnvironment(name: string) {
-  const value = process.env[name]?.trim();
+function requiredEnvironment(name: BackendEnvironmentKey) {
+  const value = rawBackendEnvironment[name]?.trim();
   if (!value) {
     throw new ServiceUnavailableException(`${name} 未配置。`);
   }
@@ -2128,7 +2130,7 @@ export class InterviewWorkflowService {
     return {
       candidates: links.map((item) => ({
         ...item,
-        url: `${process.env.BETTER_AUTH_URL ?? "http://localhost:3000"}/human-interview/${item.inviteToken}`,
+        url: `${rawBackendEnvironment.BETTER_AUTH_URL ?? "http://localhost:3000"}/human-interview/${item.inviteToken}`,
       })),
       meetingId,
     };
@@ -2205,14 +2207,14 @@ export class InterviewWorkflowService {
       .where(eq(studioHumanInterviewMeeting.id, meetingId));
     if (
       meeting.liveKitRoomName &&
-      process.env.LIVEKIT_API_KEY &&
-      process.env.LIVEKIT_API_SECRET &&
-      process.env.LIVEKIT_URL
+      rawBackendEnvironment.LIVEKIT_API_KEY &&
+      rawBackendEnvironment.LIVEKIT_API_SECRET &&
+      rawBackendEnvironment.LIVEKIT_URL
     ) {
       await new RoomServiceClient(
-        process.env.LIVEKIT_URL,
-        process.env.LIVEKIT_API_KEY,
-        process.env.LIVEKIT_API_SECRET,
+        rawBackendEnvironment.LIVEKIT_URL,
+        rawBackendEnvironment.LIVEKIT_API_KEY,
+        rawBackendEnvironment.LIVEKIT_API_SECRET,
       )
         .deleteRoom(meeting.liveKitRoomName)
         .catch(() => null);
@@ -2238,14 +2240,14 @@ export class InterviewWorkflowService {
       .where(eq(studioHumanInterviewMeeting.id, meetingId));
     if (
       meeting.liveKitRoomName &&
-      process.env.LIVEKIT_API_KEY &&
-      process.env.LIVEKIT_API_SECRET &&
-      process.env.LIVEKIT_URL
+      rawBackendEnvironment.LIVEKIT_API_KEY &&
+      rawBackendEnvironment.LIVEKIT_API_SECRET &&
+      rawBackendEnvironment.LIVEKIT_URL
     ) {
       await new RoomServiceClient(
-        process.env.LIVEKIT_URL,
-        process.env.LIVEKIT_API_KEY,
-        process.env.LIVEKIT_API_SECRET,
+        rawBackendEnvironment.LIVEKIT_URL,
+        rawBackendEnvironment.LIVEKIT_API_KEY,
+        rawBackendEnvironment.LIVEKIT_API_SECRET,
       )
         .deleteRoom(meeting.liveKitRoomName)
         .catch(() => null);
@@ -2265,7 +2267,7 @@ export class InterviewWorkflowService {
     const from = requiredEnvironment("RESEND_FROM");
     const token = randomBytes(32).toString("base64url");
     const now = new Date();
-    const url = `${process.env.BETTER_AUTH_URL ?? "http://localhost:3000"}/interview/${token}`;
+    const url = `${rawBackendEnvironment.BETTER_AUTH_URL ?? "http://localhost:3000"}/interview/${token}`;
     await this.database
       .update(studioInterviewSchedule)
       .set({
@@ -2329,6 +2331,14 @@ export class InterviewWorkflowService {
         ),
       )
       .groupBy(studioRoundEmailLog.roundId);
-    return { records: serialize(rows) };
+    return {
+      records: serialize(
+        rows.map((row) => ({
+          ...row,
+          failed: Number(row.failed),
+          sent: Number(row.sent),
+        })),
+      ),
+    };
   }
 }

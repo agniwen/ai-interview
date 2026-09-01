@@ -2,16 +2,12 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import type { MailIngestTriggerJobData } from "@arc/resume-parse-queue/mail-ingest-trigger";
-import {
-  isInterviewNotificationEnabled,
-  resolveInterviewNotificationBatchSize,
-  resolveInterviewNotificationIntervalMs,
-  resolveMailIngestConfig,
-} from "./background.config.js";
+import { BackendConfigService } from "../config/backend-config.service.js";
 import { BACKGROUND_WORKLOAD_ADAPTER } from "./background.types.js";
 import type {
   BackgroundWorkloadAdapter,
   InterviewNotificationSchedulerSnapshot,
+  MailIngestConfig,
   MailIngestRunResult,
   MailIngestRunScope,
 } from "./background.types.js";
@@ -22,7 +18,7 @@ const EVENT_LEASE_DURATION_MS = 120_000;
 
 @Injectable()
 export class MailIngestSchedulerService {
-  private readonly config = resolveMailIngestConfig();
+  private readonly config: MailIngestConfig & { enabled: boolean };
   private readonly logger = new Logger(MailIngestSchedulerService.name);
   private activeRun: Promise<MailIngestRunResult> | null = null;
   private closed = true;
@@ -32,7 +28,15 @@ export class MailIngestSchedulerService {
     private readonly schedulerRegistry: SchedulerRegistry,
     @Inject(BACKGROUND_WORKLOAD_ADAPTER)
     private readonly adapter: BackgroundWorkloadAdapter,
-  ) {}
+    @Inject(BackendConfigService) config: BackendConfigService,
+  ) {
+    this.config = {
+      enabled: config.get("MAIL_INGEST_ENABLED") ?? false,
+      intervalMs: config.get("MAIL_INGEST_INTERVAL_MS") ?? 15 * 60 * 1000,
+      maxAccountsPerRun: config.get("MAIL_INGEST_MAX_ACCOUNTS_PER_RUN") ?? 20,
+      maxMessagesPerAccount: config.get("MAIL_INGEST_MAX_MESSAGES_PER_ACCOUNT") ?? 20,
+    };
+  }
 
   get enabled(): boolean {
     return this.config.enabled;
@@ -121,6 +125,9 @@ export class MailIngestSchedulerService {
 export class InterviewNotificationSchedulerService {
   private readonly logger = new Logger(InterviewNotificationSchedulerService.name);
   private readonly leaseOwner = `notification-worker:${process.pid}:${crypto.randomUUID()}`;
+  private readonly batchSize: number;
+  private readonly enabled: boolean;
+  private readonly intervalMs: number;
   private activeRun: Promise<void> | null = null;
   private closed = true;
   private snapshot: InterviewNotificationSchedulerSnapshot = {
@@ -137,24 +144,30 @@ export class InterviewNotificationSchedulerService {
     private readonly schedulerRegistry: SchedulerRegistry,
     @Inject(BACKGROUND_WORKLOAD_ADAPTER)
     private readonly adapter: BackgroundWorkloadAdapter,
-  ) {}
+    @Inject(BackendConfigService) config: BackendConfigService,
+  ) {
+    this.batchSize = Math.min(config.get("INTERVIEW_NOTIFICATION_BATCH_SIZE") ?? 20, 100);
+    this.enabled =
+      (config.get("INTERVIEW_NOTIFICATION_FLOW_ENABLED") ?? false) &&
+      (config.get("INTERVIEW_NOTIFICATION_WORKER_ENABLED") ?? false);
+    this.intervalMs = config.get("INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS") ?? 5000;
+  }
 
   start(): void {
-    if (!isInterviewNotificationEnabled()) {
+    if (!this.enabled) {
       this.snapshot = { ...this.snapshot, enabled: false, running: false };
       this.logger.log("Interview notification polling is disabled");
       return;
     }
     this.closed = false;
-    const intervalMs = resolveInterviewNotificationIntervalMs();
-    const interval = setInterval(() => void this.runOnce(), intervalMs);
+    const interval = setInterval(() => void this.runOnce(), this.intervalMs);
     interval.unref();
     this.schedulerRegistry.addInterval(INTERVIEW_NOTIFICATION_INTERVAL, interval);
     this.snapshot = { ...this.snapshot, enabled: true };
     queueMicrotask(() => void this.runOnce());
     this.logger.log("Interview notification scheduler started", {
-      batchSize: resolveInterviewNotificationBatchSize(),
-      intervalMs,
+      batchSize: this.batchSize,
+      intervalMs: this.intervalMs,
     });
   }
 
@@ -202,7 +215,7 @@ export class InterviewNotificationSchedulerService {
     const claimed = await this.adapter.processInterviewNotificationBatch({
       leaseDurationMs: EVENT_LEASE_DURATION_MS,
       leaseOwner: this.leaseOwner,
-      limit: resolveInterviewNotificationBatchSize(),
+      limit: this.batchSize,
       now: new Date(),
     });
     this.snapshot = { ...this.snapshot, claimed };

@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -128,7 +129,7 @@ async function normalizeSegments(input: {
     { mode: 0o600 },
   );
   await execFileAsync(
-    process.env.FFMPEG_BIN?.trim() || "ffmpeg",
+    rawBackendEnvironment.FFMPEG_BIN?.trim() || "ffmpeg",
     [
       "-nostdin",
       "-y",
@@ -171,7 +172,7 @@ async function mixSources(input: {
     }),
   ]);
   await execFileAsync(
-    process.env.FFMPEG_BIN?.trim() || "ffmpeg",
+    rawBackendEnvironment.FFMPEG_BIN?.trim() || "ffmpeg",
     [
       "-nostdin",
       "-y",

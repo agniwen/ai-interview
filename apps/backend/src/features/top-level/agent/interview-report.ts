@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion, no-nested-ternary, no-plusplus -- Legacy AI report payloads are recursively normalized from versioned provider JSON while preserving omission semantics and stable array traversal. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
 import type { InterviewEvidenceSnapshotPayload } from "@arc/db-schema/interview-snapshots";
@@ -57,15 +58,16 @@ interface Question {
 
 function model() {
   return {
-    apiKey: process.env.ALIBABA_API_KEY?.trim(),
+    apiKey: rawBackendEnvironment.ALIBABA_API_KEY?.trim(),
     modelId:
-      process.env.MASTRA_STRUCTURED_MODEL?.trim() ||
-      process.env.ALIBABA_STRUCTURED_MODEL?.trim() ||
-      process.env.ALIBABA_MODEL?.trim() ||
+      rawBackendEnvironment.MASTRA_STRUCTURED_MODEL?.trim() ||
+      rawBackendEnvironment.ALIBABA_STRUCTURED_MODEL?.trim() ||
+      rawBackendEnvironment.ALIBABA_MODEL?.trim() ||
       "deepseek-v4-flash-0731",
     providerId: "alibaba",
     url:
-      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      rawBackendEnvironment.ALIBABA_BASE_URL?.trim() ||
+      "https://dashscope.aliyuncs.com/compatible-mode/v1",
   };
 }
 

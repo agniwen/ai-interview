@@ -31,3 +31,45 @@ export const interviewFormSubmissionSchema = z.object({
 export const interviewCompleteQuerySchema = z.object({
   mode: z.enum(["interrupt", "final"]).optional(),
 });
+
+export const candidateInterviewFeedbackResponseSchema = z.object({
+  feedback: z.object({
+    categories: candidateInterviewFeedbackInputSchema.shape.categories,
+    detail: z.string(),
+    submittedAt: z.string(),
+  }),
+});
+
+export const candidateInterviewLiveKitTokenResponseSchema = z.object({
+  isReconnect: z.boolean(),
+  participantName: z.string(),
+  participantToken: z.string(),
+  roomName: z.string(),
+  serverUrl: z.string(),
+});
+
+export const candidateInterviewResponseSchema = z.looseObject({
+  currentRoundId: z.string().optional(),
+  currentRoundStatus: z.string(),
+  interviewQuestions: z.array(z.json()),
+  organizationId: z.string(),
+});
+
+export const candidateInterviewFormsResponseSchema = z.object({
+  required: z.array(
+    z.object({
+      snapshot: z.json(),
+      templateId: z.string(),
+      version: z.number(),
+      versionId: z.string(),
+    }),
+  ),
+  submitted: z.record(z.string(), z.boolean()),
+});
+
+export const candidateInterviewFormSubmissionResponseSchema = z.object({
+  submissionId: z.string(),
+  success: z.literal(true),
+  version: z.number(),
+  versionId: z.string(),
+});

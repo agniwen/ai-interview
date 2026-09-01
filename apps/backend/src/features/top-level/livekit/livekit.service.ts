@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   Inject,
   Injectable,
@@ -110,8 +111,8 @@ export class LiveKitService implements TopLevelLiveKitPort {
     if (this.receiver) {
       return this.receiver;
     }
-    const apiKey = process.env.LIVEKIT_API_KEY?.trim();
-    const apiSecret = process.env.LIVEKIT_API_SECRET?.trim();
+    const apiKey = rawBackendEnvironment.LIVEKIT_API_KEY?.trim();
+    const apiSecret = rawBackendEnvironment.LIVEKIT_API_SECRET?.trim();
     if (!(apiKey && apiSecret)) {
       throw new InternalServerErrorException("LiveKit webhook is not configured", {
         errorCode: "LIVEKIT_WEBHOOK_NOT_CONFIGURED",

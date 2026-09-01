@@ -15,29 +15,49 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import type { z } from "zod";
-import { identifierSchema, jsonResponseSchema } from "../shared.schemas.js";
+import { identifierSchema } from "../shared.schemas.js";
 import { TOP_LEVEL_AUTH_PORT } from "../top-level.ports.js";
 import type { TopLevelAuthPort } from "../top-level.ports.js";
 import { TOP_LEVEL_PLATFORM_PORT } from "./platform.port.js";
 import type { TopLevelPlatformPort } from "./platform.port.js";
 import {
   platformCreateMailAccountSchema,
+  platformLiveKitMetricsResponseSchema,
   platformLiveKitMetricsQuerySchema,
+  platformLiveKitOverviewResponseSchema,
+  platformLiveKitRoomResponseSchema,
+  platformLiveKitRoomsResponseSchema,
   platformLiveKitRoomsQuerySchema,
+  platformMailAccountMutationResponseSchema,
+  platformMailAccountsResponseSchema,
   platformMailAccountsQuerySchema,
+  platformNotificationDocumentAccessResponseSchema,
+  platformNotificationPreviewResponseSchema,
+  platformNotificationResendResponseSchema,
+  platformNotificationsResponseSchema,
   platformNotificationsQuerySchema,
+  platformNotificationStructureResponseSchema,
+  platformOrganizationResponseSchema,
+  platformOrganizationsResponseSchema,
   platformOrganizationMembersQuerySchema,
   platformOrganizationQuerySchema,
+  platformQueueJobsResponseSchema,
   platformQueueJobsQuerySchema,
+  platformQueuesResponseSchema,
+  platformResumeParseCacheDeleteResponseSchema,
+  platformResumeParseCacheEntryResponseSchema,
+  platformResumeParseCacheResponseSchema,
   platformResumeParseCacheQuerySchema,
   platformUpdateMailAccountSchema,
+  platformUserRemarkResponseSchema,
   platformUserRemarkSchema,
+  platformUsersResponseSchema,
   platformUsersQuerySchema,
+  platformUserWorkspacesResponseSchema,
 } from "./platform.schemas.js";
 
 @ApiTags("platform")
 @Controller("api/platform")
-@SerializeOptions({ schema: jsonResponseSchema })
 export class PlatformController {
   constructor(
     @Inject(TOP_LEVEL_PLATFORM_PORT)
@@ -51,7 +71,7 @@ export class PlatformController {
   }
 
   @Get("organizations")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformOrganizationsResponseSchema })
   @ApiOperation({ operationId: "listPlatformOrganizations" })
   @ApiResponse({ status: 200 })
   organizations(
@@ -64,7 +84,7 @@ export class PlatformController {
   }
 
   @Get("organizations/:orgId")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformOrganizationResponseSchema })
   @ApiOperation({ operationId: "getPlatformOrganization" })
   @ApiResponse({ status: 200 })
   organization(
@@ -78,7 +98,7 @@ export class PlatformController {
   }
 
   @Get("users")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformUsersResponseSchema })
   @ApiOperation({ operationId: "listPlatformUsers" })
   @ApiResponse({ status: 200 })
   users(
@@ -91,7 +111,7 @@ export class PlatformController {
   }
 
   @Patch("users/:userId/remark")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformUserRemarkResponseSchema })
   @ApiOperation({ operationId: "updatePlatformUserRemark" })
   @ApiResponse({ status: 200 })
   userRemark(
@@ -105,7 +125,7 @@ export class PlatformController {
   }
 
   @Get("users/:userId/workspaces")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformUserWorkspacesResponseSchema })
   @ApiOperation({ operationId: "listPlatformUserWorkspaces" })
   @ApiResponse({ status: 200 })
   userWorkspaces(
@@ -117,7 +137,7 @@ export class PlatformController {
   }
 
   @Get("mail-ingest-accounts")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformMailAccountsResponseSchema })
   @ApiOperation({ operationId: "listPlatformMailIngestAccounts" })
   @ApiResponse({ status: 200 })
   mailAccounts(
@@ -130,7 +150,7 @@ export class PlatformController {
   }
 
   @Post("mail-ingest-accounts")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformMailAccountMutationResponseSchema })
   @ApiOperation({ operationId: "createPlatformMailIngestAccount" })
   @ApiResponse({ status: 201 })
   createMailAccount(
@@ -143,7 +163,7 @@ export class PlatformController {
   }
 
   @Patch("mail-ingest-accounts/:id")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformMailAccountMutationResponseSchema })
   @ApiOperation({ operationId: "updatePlatformMailIngestAccount" })
   @ApiResponse({ status: 200 })
   updateMailAccount(
@@ -157,7 +177,7 @@ export class PlatformController {
   }
 
   @Get("queues")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformQueuesResponseSchema })
   @ApiOperation({ operationId: "listPlatformQueues" })
   @ApiResponse({ status: 200 })
   queues(@Req() request: Request) {
@@ -166,7 +186,7 @@ export class PlatformController {
   }
 
   @Get("queues/:queueName/jobs")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformQueueJobsResponseSchema })
   @ApiOperation({ operationId: "listPlatformQueueJobs" })
   @ApiResponse({ status: 200 })
   queueJobs(
@@ -180,7 +200,7 @@ export class PlatformController {
   }
 
   @Get("resume-parse-cache")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformResumeParseCacheResponseSchema })
   @ApiOperation({ operationId: "listPlatformResumeParseCache" })
   @ApiResponse({ status: 200 })
   resumeParseCache(
@@ -193,7 +213,7 @@ export class PlatformController {
   }
 
   @Get("resume-parse-cache/:hash")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformResumeParseCacheEntryResponseSchema })
   @ApiOperation({ operationId: "getPlatformResumeParseCache" })
   @ApiResponse({ status: 200 })
   resumeParseCacheEntry(
@@ -205,7 +225,7 @@ export class PlatformController {
   }
 
   @Delete("resume-parse-cache/:hash")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformResumeParseCacheDeleteResponseSchema })
   @ApiOperation({ operationId: "deletePlatformResumeParseCache" })
   @ApiResponse({ status: 200 })
   deleteResumeParseCache(
@@ -217,7 +237,7 @@ export class PlatformController {
   }
 
   @Get("notifications")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformNotificationsResponseSchema })
   @ApiOperation({ operationId: "listPlatformNotifications" })
   @ApiResponse({ status: 200 })
   notifications(
@@ -231,7 +251,7 @@ export class PlatformController {
 
   @Post("notifications/:id/resend")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformNotificationResendResponseSchema })
   @ApiOperation({ operationId: "resendPlatformNotification" })
   @ApiResponse({ status: 200 })
   resendNotification(
@@ -244,7 +264,7 @@ export class PlatformController {
 
   @Post("notifications/:id/update-document-structure")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformNotificationStructureResponseSchema })
   @ApiOperation({ operationId: "updatePlatformNotificationDocumentStructure" })
   @ApiResponse({ status: 200 })
   updateNotificationDocumentStructure(
@@ -257,7 +277,7 @@ export class PlatformController {
 
   @Post("notifications/:id/debug-preview")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformNotificationPreviewResponseSchema })
   @ApiOperation({ operationId: "previewPlatformNotification" })
   @ApiResponse({ status: 200 })
   notificationPreview(
@@ -270,7 +290,7 @@ export class PlatformController {
 
   @Post("notifications/:id/document-access")
   @HttpCode(200)
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformNotificationDocumentAccessResponseSchema })
   @ApiOperation({ operationId: "grantPlatformNotificationDocumentAccess" })
   @ApiResponse({ status: 200 })
   notificationDocumentAccess(
@@ -282,7 +302,7 @@ export class PlatformController {
   }
 
   @Get("livekit/overview")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformLiveKitOverviewResponseSchema })
   @ApiOperation({ operationId: "getPlatformLiveKitOverview" })
   @ApiResponse({ status: 200 })
   liveKitOverview(@Req() request: Request) {
@@ -291,7 +311,7 @@ export class PlatformController {
   }
 
   @Get("livekit/rooms")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformLiveKitRoomsResponseSchema })
   @ApiOperation({ operationId: "listPlatformLiveKitRooms" })
   @ApiResponse({ status: 200 })
   liveKitRooms(
@@ -304,7 +324,7 @@ export class PlatformController {
   }
 
   @Get("livekit/rooms/:roomName")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformLiveKitRoomResponseSchema })
   @ApiOperation({ operationId: "getPlatformLiveKitRoom" })
   @ApiResponse({ status: 200 })
   liveKitRoom(
@@ -316,7 +336,7 @@ export class PlatformController {
   }
 
   @Get("livekit/metrics")
-  @SerializeOptions({ schema: jsonResponseSchema })
+  @SerializeOptions({ schema: platformLiveKitMetricsResponseSchema })
   @ApiOperation({ operationId: "listPlatformLiveKitMetrics" })
   @ApiResponse({ status: 200 })
   liveKitMetrics(

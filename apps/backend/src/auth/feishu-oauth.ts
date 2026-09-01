@@ -178,8 +178,15 @@ export function buildFeishuOAuthProvider(input: FeishuOAuthProviderOptions): Gen
   };
 }
 
+export interface FeishuOAuthEnvironment {
+  FEISHU_APP_ID?: string;
+  FEISHU_APP_ID2?: string;
+  FEISHU_APP_SECRET?: string;
+  FEISHU_APP_SECRET2?: string;
+}
+
 export function configuredFeishuProviders(
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: FeishuOAuthEnvironment,
 ): GenericOAuthConfig[] {
   const candidates = [
     {

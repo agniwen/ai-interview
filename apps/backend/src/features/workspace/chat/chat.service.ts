@@ -1,4 +1,5 @@
 /* oxlint-disable max-lines -- Conversation persistence, confirmed recruiting actions, and attachment lifecycle form one HTTP feature. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,
   ForbiddenException,
@@ -113,12 +114,12 @@ type ActionResult =
 
 function cacheEnabled() {
   return !["1", "true", "yes"].includes(
-    process.env.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase() ?? "",
+    rawBackendEnvironment.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase() ?? "",
   );
 }
 
 function cacheCompatible(source: string | null) {
-  const provider = process.env.RESUME_PARSE_PROVIDER?.trim() || "ocr-llm";
+  const provider = rawBackendEnvironment.RESUME_PARSE_PROVIDER?.trim() || "ocr-llm";
   return provider === "aliyun-docmining"
     ? source === "aliyun-docmining"
     : source !== "aliyun-docmining" && source !== "qwen3.5-ocr";

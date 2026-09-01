@@ -1,4 +1,6 @@
 /* oxlint-disable complexity, max-lines, no-accumulating-spread, anti-slop/no-object-parameters -- Durable progress intentionally replaces its accumulator with immutable checkpoint snapshots. */
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../config/backend-environment.schema.js";
 import {
   createMeetingIntelligenceLeaseLostError,
   MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
@@ -104,8 +106,8 @@ ${templateInstructions(input.template)}
 ${JSON.stringify(input.partials)}`;
 }
 
-function readPositiveIntegerEnv(name: string, fallback: number): number {
-  const value = Number(process.env[name] ?? fallback);
+function readPositiveIntegerEnv(name: BackendEnvironmentKey, fallback: number): number {
+  const value = Number(rawBackendEnvironment[name] ?? fallback);
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new MeetingIntelligenceTerminalError(`${name} 配置无效`);
   }

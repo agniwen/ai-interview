@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/no-known-value-widening, anti-slop/require-safety-comment-for-type-assertion, class-methods-use-this, max-lines, no-empty-function, no-nested-ternary, no-shadow, no-useless-return, typescript/consistent-type-imports, unicorn/no-await-expression-member, unicorn/no-nested-ternary -- Platform diagnostics aggregate queue, LiveKit, mail, cache, and Feishu provider contracts in one parity service; provider SDK types and deliberate no-op probes are normalized at their boundaries. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import {
   BadGatewayException,
@@ -57,7 +58,7 @@ import { z } from "zod";
 import { syncInterviewEvaluationDocument } from "./feishu-document-structure.js";
 
 function encryptSecret(value: string) {
-  const secret = process.env.MAIL_INGEST_SECRET_KEY?.trim();
+  const secret = rawBackendEnvironment.MAIL_INGEST_SECRET_KEY?.trim();
   if (!secret) {
     throw new BadRequestException("Mail ingest encryption is not configured", {
       errorCode: "MAIL_INGEST_SECRET_MISSING",
@@ -90,7 +91,7 @@ function paginate<T>(records: T[], page: number, pageSize: number) {
 }
 
 function liveKitUrl() {
-  const value = process.env.LIVEKIT_URL?.trim();
+  const value = rawBackendEnvironment.LIVEKIT_URL?.trim();
   if (!value) {
     throw new Error("LiveKit is not configured");
   }
@@ -1152,17 +1153,17 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
       });
     }
     const prompt = `你是一位 HR 信息整理助手。只根据以下候选人面试对话，整理 jobMotivation、availability、overseasTravel、compensationExpectations、careerProgression、recentWork、projectHighlights 七个字段。没有证据的字段返回 null。只输出 JSON。\n\n${row.transcript.map((turn) => `${turn.role === "agent" ? "面试官" : "候选人"}：${turn.message}`).join("\n")}`;
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey = rawBackendEnvironment.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       throw new BadRequestException("AI provider is not configured", {
         errorCode: "AI_PROVIDER_CONFIGURATION_MISSING",
       });
     }
-    const endpoint = `${(process.env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/$/u, "")}/chat/completions`;
+    const endpoint = `${(rawBackendEnvironment.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/$/u, "")}/chat/completions`;
     const response = await fetch(endpoint, {
       body: JSON.stringify({
         messages: [{ content: prompt, role: "user" }],
-        model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
+        model: rawBackendEnvironment.OPENAI_MODEL?.trim() || "gpt-4o-mini",
         response_format: { type: "json_object" },
         temperature: 0,
       }),
@@ -1291,7 +1292,7 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
       return {
         endpoint: liveKitUrl(),
         latencyMs: Math.round(performance.now() - startedAt),
-        metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
+        metricsConfigured: Boolean(rawBackendEnvironment.LIVEKIT_PROMETHEUS_URL),
         status: "online",
         totals: {
           activeRecordings: rooms.filter((room) => room.activeRecording).length,
@@ -1302,10 +1303,10 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
       };
     } catch (error) {
       return {
-        endpoint: process.env.LIVEKIT_URL ?? null,
+        endpoint: rawBackendEnvironment.LIVEKIT_URL ?? null,
         error: error instanceof Error ? error.message : "LiveKit unavailable",
         latencyMs: Math.round(performance.now() - startedAt),
-        metricsConfigured: Boolean(process.env.LIVEKIT_PROMETHEUS_URL),
+        metricsConfigured: Boolean(rawBackendEnvironment.LIVEKIT_PROMETHEUS_URL),
         status: "offline",
         totals: { activeRecordings: 0, participants: 0, publishers: 0, rooms: 0 },
       };
@@ -1361,7 +1362,7 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
   }
 
   async getLiveKitMetrics(query: z.infer<typeof platformLiveKitMetricsQuerySchema>) {
-    const metricsUrl = process.env.LIVEKIT_PROMETHEUS_URL?.trim();
+    const metricsUrl = rawBackendEnvironment.LIVEKIT_PROMETHEUS_URL?.trim();
     if (!metricsUrl) {
       return { configured: false, ...paginate([], query.page, query.pageSize) };
     }
@@ -1392,8 +1393,8 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
   private roomService() {
     return new RoomServiceClient(
       liveKitUrl(),
-      process.env.LIVEKIT_API_KEY?.trim(),
-      process.env.LIVEKIT_API_SECRET?.trim(),
+      rawBackendEnvironment.LIVEKIT_API_KEY?.trim(),
+      rawBackendEnvironment.LIVEKIT_API_SECRET?.trim(),
     );
   }
 
@@ -1443,8 +1444,9 @@ export class PlatformOperationsService implements TopLevelPlatformOperationsPort
 
   private async feishuAccessToken(providerId: "feishu" | "feishu-jiguang-hr") {
     const secondary = providerId === "feishu-jiguang-hr";
-    const appId = process.env[secondary ? "FEISHU_APP_ID2" : "FEISHU_APP_ID"]?.trim();
-    const appSecret = process.env[secondary ? "FEISHU_APP_SECRET2" : "FEISHU_APP_SECRET"]?.trim();
+    const appId = rawBackendEnvironment[secondary ? "FEISHU_APP_ID2" : "FEISHU_APP_ID"]?.trim();
+    const appSecret =
+      rawBackendEnvironment[secondary ? "FEISHU_APP_SECRET2" : "FEISHU_APP_SECRET"]?.trim();
     if (!(appId && appSecret)) {
       throw new BadRequestException("Feishu application is not configured", {
         errorCode: "FEISHU_CONFIGURATION_MISSING",

@@ -20,6 +20,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { ApiConsumes, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { z } from "zod";
@@ -40,17 +41,27 @@ import {
   cancelHumanRoundSchema,
   completeHumanRoundSchema,
   createOfferDraftSchema,
+  contextSnapshotResponseSchema,
+  formSubmissionDeleteResponseSchema,
+  formSubmissionsResponseSchema,
   humanInterviewMeetingInputSchema,
   humanInterviewMeetingScheduleUpdateSchema,
   humanInterviewRoundInputSchema,
   humanMeetingTokenInputSchema,
+  humanMeetingLinksResponseSchema,
+  humanMeetingResponseSchema,
+  humanMeetingsResponseSchema,
+  interviewAgentInstructionsResponseSchema,
   interviewChildPathSchema,
   interviewCreateMultipartSchema,
+  interviewDetailResponseSchema,
+  interviewEvaluationDocumentResponseSchema,
   interviewIdPathSchema,
   interviewListQuerySchema,
   interviewRoundPatchSchema,
-  looseRecordSchema,
-  looseRecordsSchema,
+  interviewReportSchema,
+  interviewReportsSchema,
+  interviewResolveResponseSchema,
   meetingListQuerySchema,
   meetingPathSchema,
   meetingTokenResponseSchema,
@@ -59,6 +70,7 @@ import {
   offerRecordSchema,
   offerResponseInputSchema,
   paginatedInterviewsSchema,
+  questionTemplateBindingsSchema,
   recipientInputSchema,
   recipientsResponseSchema,
   recordingLinkSchema,
@@ -66,6 +78,8 @@ import {
   resolveInterviewQuerySchema,
   roundDeleteResponseSchema,
   roundEmailPathSchema,
+  roundEmailSendResponseSchema,
+  roundEmailSummaryResponseSchema,
   roundEmailSummaryQuerySchema,
   submissionPathSchema,
   successSchema,
@@ -124,9 +138,10 @@ export class InterviewCollectionController extends InterviewControllerBase {
   @Post()
   @UseInterceptors(FileInterceptor("resume"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "resume", schema: interviewCreateMultipartSchema })
   @ApiOperation({ operationId: "createWorkspaceInterview" })
   @ApiResponse({ status: 201 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewDetailResponseSchema })
   @RequireWorkspacePermission("interview", "create")
   create(
     @Req() request: Request,
@@ -140,7 +155,7 @@ export class InterviewCollectionController extends InterviewControllerBase {
   @Get("resolve")
   @ApiOperation({ operationId: "resolveWorkspaceInterview" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewResolveResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   async resolve(
     @Req() request: Request,
@@ -193,7 +208,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "createWorkspaceInterviewEvaluationDocument" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewEvaluationDocumentResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   evaluationDocument(
     @Req() request: Request,
@@ -205,7 +220,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get()
   @ApiOperation({ operationId: "getWorkspaceInterview" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewDetailResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   async get(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     const { context, visible } = await this.requestContext(request);
@@ -215,7 +230,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get("agent-instructions")
   @ApiOperation({ operationId: "getWorkspaceInterviewAgentInstructions" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewAgentInstructionsResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   instructions(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     return this.workflows.agentInstructions(getWorkspaceContext(request).workspace.id, path.id);
@@ -224,7 +239,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get("reports")
   @ApiOperation({ operationId: "listWorkspaceInterviewReports" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordsSchema })
+  @SerializeOptions({ schema: interviewReportsSchema })
   @RequireWorkspacePermission("interview", "read")
   reports(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     return this.workflows.reports(getWorkspaceContext(request).workspace.id, path.id);
@@ -233,7 +248,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get("reports/:conversationId")
   @ApiOperation({ operationId: "getWorkspaceInterviewReport" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewReportSchema })
   @RequireWorkspacePermission("interview", "read")
   report(@Req() request: Request, @Param({ schema: interviewChildPathSchema }) path: ChildPath) {
     return this.workflows.reports(
@@ -259,7 +274,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get("form-submissions")
   @ApiOperation({ operationId: "listWorkspaceInterviewFormSubmissions" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: formSubmissionsResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   submissions(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     return this.workflows.formSubmissions(getWorkspaceContext(request).workspace.id, path.id);
@@ -269,7 +284,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "deleteWorkspaceInterviewFormSubmission" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: formSubmissionDeleteResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   deleteSubmission(
     @Req() request: Request,
@@ -287,7 +302,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Patch()
   @ApiOperation({ operationId: "updateWorkspaceInterviewRound" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewDetailResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   async patch(
     @Req() request: Request,
@@ -307,7 +322,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Get("question-template-bindings")
   @ApiOperation({ operationId: "listWorkspaceInterviewQuestionTemplateBindings" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordsSchema })
+  @SerializeOptions({ schema: questionTemplateBindingsSchema })
   @RequireWorkspacePermission("interview", "read")
   bindings(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     return this.workflows.bindings(getWorkspaceContext(request).workspace.id, path.id);
@@ -316,7 +331,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @Put("question-template-bindings")
   @ApiOperation({ operationId: "replaceWorkspaceInterviewQuestionTemplateBindings" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordsSchema })
+  @SerializeOptions({ schema: questionTemplateBindingsSchema })
   @RequireWorkspacePermission("interview", "update")
   replaceBindings(
     @Req() request: Request,
@@ -334,7 +349,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "refreshWorkspaceInterviewContextSnapshot" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: contextSnapshotResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   async refresh(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     const { context } = await this.requestContext(request);
@@ -351,7 +366,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "resetWorkspaceInterviewRound" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: interviewDetailResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   async reset(@Req() request: Request, @Param({ schema: interviewIdPathSchema }) path: IdPath) {
     const { context, visible } = await this.requestContext(request);
@@ -627,7 +642,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @Get()
   @ApiOperation({ operationId: "listWorkspaceHumanInterviewMeetings" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordsSchema })
+  @SerializeOptions({ schema: humanMeetingsResponseSchema })
   @RequireWorkspacePermission("humanInterview", "read")
   list(
     @Req() request: Request,
@@ -640,7 +655,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "createWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "create")
   create(
     @Req() request: Request,
@@ -655,7 +670,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @Get(":meetingId")
   @ApiOperation({ operationId: "getWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "read")
   get(@Req() request: Request, @Param({ schema: meetingPathSchema }) path: MeetingPath) {
     return this.workflows.getMeeting(getWorkspaceContext(request).workspace.id, path.meetingId);
@@ -664,7 +679,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @Patch(":meetingId")
   @ApiOperation({ operationId: "updateWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "update")
   update(
     @Req() request: Request,
@@ -685,7 +700,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "syncWorkspaceHumanInterviewMeetingToFeishu" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "update")
   sync(@Req() request: Request, @Param({ schema: meetingPathSchema }) path: MeetingPath) {
     return this.workflows.syncMeetingToFeishu(
@@ -698,7 +713,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "issueWorkspaceHumanInterviewMeetingLinks" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingLinksResponseSchema })
   @RequireWorkspacePermission("humanInterview", "update")
   links(@Req() request: Request, @Param({ schema: meetingPathSchema }) path: MeetingPath) {
     return this.workflows.issueMeetingLinks(
@@ -733,7 +748,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "endWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "update")
   end(@Req() request: Request, @Param({ schema: meetingPathSchema }) path: MeetingPath) {
     return this.workflows.endMeeting(getWorkspaceContext(request).workspace.id, path.meetingId);
@@ -743,7 +758,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "cancelWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: humanMeetingResponseSchema })
   @RequireWorkspacePermission("humanInterview", "delete")
   cancel(@Req() request: Request, @Param({ schema: meetingPathSchema }) path: MeetingPath) {
     return this.workflows.cancelMeeting(getWorkspaceContext(request).workspace.id, path.meetingId);
@@ -758,7 +773,7 @@ export class InterviewRoundEmailController extends InterviewControllerBase {
   @HttpCode(200)
   @ApiOperation({ operationId: "sendWorkspaceInterviewRoundEmail" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: roundEmailSendResponseSchema })
   @RequireWorkspacePermission("interview", "update")
   send(@Req() request: Request, @Param({ schema: roundEmailPathSchema }) path: RoundEmailPath) {
     const context = getWorkspaceContext(request);
@@ -768,7 +783,7 @@ export class InterviewRoundEmailController extends InterviewControllerBase {
   @Get("summary")
   @ApiOperation({ operationId: "getWorkspaceInterviewRoundEmailSummary" })
   @ApiResponse({ status: 200 })
-  @SerializeOptions({ schema: looseRecordSchema })
+  @SerializeOptions({ schema: roundEmailSummaryResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   summary(
     @Req() request: Request,

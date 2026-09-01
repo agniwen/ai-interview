@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BackgroundQueueModule } from "../../background/background-queue.module.js";
 import { DepartmentController } from "./departments/department.controller.js";
 import { DepartmentService } from "./departments/department.service.js";
 import { WorkspaceAccessGuard } from "./workspace-access.js";
@@ -74,6 +75,7 @@ import { InterviewToolsController } from "./interview-tools/interview-tools.cont
 import { InterviewToolsService } from "./interview-tools/interview-tools.service.js";
 import { ResumeChatController } from "./interview-tools/resume-chat.controller.js";
 import { ResumeChatService } from "./interview-tools/resume-chat.service.js";
+import { RecruitingMastraLifecycleService } from "./interview-tools/recruiting-mastra-lifecycle.service.js";
 
 @Module({
   controllers: [
@@ -151,7 +153,7 @@ import { ResumeChatService } from "./interview-tools/resume-chat.service.js";
     WorkspaceMembersService,
     WorkspaceSettingsService,
   ],
-  imports: [WorkspaceInfrastructureModule],
+  imports: [BackgroundQueueModule.register(), WorkspaceInfrastructureModule],
   providers: [
     ChatService,
     ChatStorage,
@@ -184,6 +186,7 @@ import { ResumeChatService } from "./interview-tools/resume-chat.service.js";
     ResumeUploadBatchService,
     ResumeCoreService,
     ResumeChatService,
+    RecruitingMastraLifecycleService,
     ResumeWorkflowService,
     WorkspaceAccessGuard,
     WorkspaceMembersService,

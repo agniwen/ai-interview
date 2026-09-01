@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/require-safety-comment-for-type-assertion, no-nested-ternary, unicorn/prefer-structured-clone -- Provider payload normalization and immutable interview-report snapshots preserve the copied agent contract at this external boundary. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
@@ -40,12 +41,14 @@ function hashPayload(value: unknown) {
 
 function notificationFlowEnabled() {
   return ["1", "true", "yes"].includes(
-    process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED?.trim().toLocaleLowerCase() ?? "",
+    rawBackendEnvironment.INTERVIEW_NOTIFICATION_FLOW_ENABLED?.trim().toLocaleLowerCase() ?? "",
   );
 }
 
 function reportUrl(roundId: string, organizationSlug: string) {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
+  const baseUrl =
+    rawBackendEnvironment.BETTER_AUTH_URL?.trim() ||
+    rawBackendEnvironment.NEXT_PUBLIC_BASE_URL?.trim();
   const pathname = `/w/${encodeURIComponent(organizationSlug)}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
   return baseUrl ? `${baseUrl.replace(/\/$/u, "")}${pathname}` : undefined;
 }

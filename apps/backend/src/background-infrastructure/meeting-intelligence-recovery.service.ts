@@ -1,27 +1,31 @@
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { meetingProcessingRun, meetingSession } from "@arc/db-schema/schema";
 import {
-  enqueueMeetingIntelligenceJobs,
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
 } from "@arc/meeting-processing-queue/meeting-intelligence";
 import type { MeetingIntelligenceTemplate } from "@arc/shared/meeting-intelligence";
 import type { Database } from "../infrastructure/database/database.tokens.js";
+import type { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
 import type { BackgroundRecoveryRepository } from "./background-recovery.repository.js";
 
 export class MeetingIntelligenceRecoveryService {
   private readonly database: Database;
   private readonly env: NodeJS.ProcessEnv;
+  private readonly queueProducer: BackgroundQueueProducerService;
   private readonly recovery: BackgroundRecoveryRepository;
 
   constructor(
     database: Database,
     recovery: BackgroundRecoveryRepository,
-    env: NodeJS.ProcessEnv = process.env,
+    queueProducer: BackgroundQueueProducerService,
+    env: NodeJS.ProcessEnv = rawBackendEnvironment,
   ) {
     this.database = database;
     this.env = env;
+    this.queueProducer = queueProducer;
     this.recovery = recovery;
   }
 
@@ -40,7 +44,7 @@ export class MeetingIntelligenceRecoveryService {
       }
     }
     if (jobs.length > 0) {
-      await enqueueMeetingIntelligenceJobs(jobs);
+      await this.queueProducer.enqueueMeetingIntelligenceJobs(jobs);
     }
   }
 

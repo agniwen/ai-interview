@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import * as lark from "@larksuiteoapi/node-sdk";
 import type {
   InterviewNotificationAudienceType,
@@ -44,7 +45,7 @@ export class InterviewNotificationInfrastructure implements InterviewNotificatio
   private readonly database: Database;
   private readonly env: NodeJS.ProcessEnv;
 
-  constructor(database: Database, env: NodeJS.ProcessEnv = process.env) {
+  constructor(database: Database, env: NodeJS.ProcessEnv = rawBackendEnvironment) {
     this.database = database;
     this.env = env;
   }

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BackgroundQueueModule } from "../../background/background-queue.module.js";
 import {
   WORKSPACE_ACCESS_PORT,
   WORKSPACE_DATABASE_PORT,
@@ -23,6 +24,7 @@ import { WorkspaceResumeQueueAdapter } from "./workspace-resume-queue.adapter.js
     WORKSPACE_RESUME_QUEUE_PORT,
     WORKSPACE_RESUME_SEMANTIC_PORT,
   ],
+  imports: [BackgroundQueueModule.register()],
   providers: [
     { provide: WORKSPACE_DATABASE_PORT, useExisting: API_DATABASE },
     { provide: WORKSPACE_ACCESS_PORT, useClass: WorkspaceAccessAdapter },

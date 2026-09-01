@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, no-nested-ternary, require-await -- Lifecycle authorization, state transitions, and Promise ports are transactional invariants. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,
   ForbiddenException,
@@ -17,13 +18,11 @@ import {
   member,
   user,
 } from "@arc/db-schema/schema";
-import {
-  enqueueMeetingPurgeJobs,
-  isMeetingPurgeQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-purge";
+import { isMeetingPurgeQueueConfigured } from "@arc/meeting-processing-queue/meeting-purge";
 import { MEETING_TRASH_RETENTION_MS } from "@arc/shared/meeting-recording";
 import { and, asc, count, desc, eq, gt, ilike, isNotNull, ne, sql } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import type { purgeMeetingQuerySchema, trashedMeetingListQuerySchema } from "./meeting.schemas.js";
@@ -41,7 +40,11 @@ const UPLOAD_AUTHORIZATION_DRAIN_MS = 61 * 60 * 1000;
 
 @Injectable()
 export class MeetingLifecycleService {
-  constructor(@Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort) {}
+  constructor(
+    @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
+  ) {}
 
   private async member(
     tx: Parameters<Parameters<WorkspaceDatabasePort["transaction"]>[0]>[0],
@@ -247,7 +250,8 @@ export class MeetingLifecycleService {
             and(gt(meetingSession.uploadLeaseExpiresAt, now), ne(meetingSession.id, meetingId)),
           );
         const limit =
-          Number.parseInt(process.env.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) || 100;
+          Number.parseInt(rawBackendEnvironment.MEETING_DIRECT_UPLOAD_CONCURRENCY ?? "100", 10) ||
+          100;
         if ((active?.count ?? 0) >= limit) {
           throw new HttpException(
             {
@@ -354,9 +358,9 @@ export class MeetingLifecycleService {
       });
       return "purging" as const;
     });
-    if (result === "purging" && isMeetingPurgeQueueConfigured()) {
+    if (result === "purging" && isMeetingPurgeQueueConfigured(rawBackendEnvironment)) {
       try {
-        await enqueueMeetingPurgeJobs([{ meetingId, organizationId }]);
+        await this.queueProducer.enqueueMeetingPurgeJobs([{ meetingId, organizationId }]);
       } catch (error) {
         console.error("[meeting-purge] enqueue failed; reconciliation will retry", {
           errorName: error instanceof Error ? error.name : "UnknownError",

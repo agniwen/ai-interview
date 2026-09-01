@@ -14,15 +14,7 @@ import {
 } from "@arc/shared/structured-resume-scoring";
 import { getResumeReviewBaseScore } from "@arc/shared/resume-review";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
-import {
-  enqueueResumeParseJobs,
-  isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
-import {
-  enqueueResumeReviewGenerationJobs,
-  isResumeReviewGenerationQueueConfigured,
-} from "@arc/resume-parse-queue/resume-review-generation";
-import { enqueueResumeSemanticIndexJobs } from "@arc/resume-parse-queue/resume-semantic-index";
+import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
 import {
   interviewAuditLog,
   jobDescription,
@@ -43,6 +35,8 @@ import {
 } from "@arc/db-schema/schema";
 import { and, asc, count, desc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { WORKSPACE_DATABASE_PORT, WORKSPACE_RESUME_SEMANTIC_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort, WorkspaceResumeSemanticPort } from "../workspace.ports.js";
 import { ResumeUploadBatchService } from "../resume-upload-batches/resume-upload-batch.service.js";
@@ -94,6 +88,8 @@ export class ResumeWorkflowService {
     @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
     @Inject(WORKSPACE_RESUME_SEMANTIC_PORT) private readonly semantic: WorkspaceResumeSemanticPort,
     @Inject(ResumeUploadBatchService) private readonly uploads: ResumeUploadBatchService,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
   private visibility(visible: string[] | null) {
     return visible ? inArray(studioInterview.createdBy, visible) : undefined;
@@ -479,7 +475,7 @@ export class ResumeWorkflowService {
     if (!row.jobDescriptionId) {
       throw new ConflictException("请先关联在招岗位后再重新评估。");
     }
-    if (!isResumeReviewGenerationQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历评估队列未配置 REDIS_URL。");
     }
     const runId = crypto.randomUUID();
@@ -493,7 +489,7 @@ export class ResumeWorkflowService {
         updatedAt: new Date(),
       })
       .where(eq(studioInterview.id, id));
-    await enqueueResumeReviewGenerationJobs([
+    await this.queueProducer.enqueueResumeReviewGenerationJobs([
       {
         force: true,
         jobDescriptionId: row.jobDescriptionId,
@@ -833,9 +829,11 @@ export class ResumeWorkflowService {
       }
     });
     if (profile) {
-      await enqueueResumeSemanticIndexJobs([
-        { organizationId, sourceId: id, sourceType: "studio_interview" },
-      ]).catch((error) => console.error("[resumes] semantic enqueue failed", { error, id }));
+      await this.queueProducer
+        .enqueueResumeSemanticIndexJobs([
+          { organizationId, sourceId: id, sourceType: "studio_interview" },
+        ])
+        .catch((error) => console.error("[resumes] semantic enqueue failed", { error, id }));
     }
     return this.get(organizationId, id, visible);
   }
@@ -881,9 +879,11 @@ export class ResumeWorkflowService {
       })
       .where(eq(studioInterview.id, id));
     if (profile) {
-      await enqueueResumeSemanticIndexJobs([
-        { organizationId, sourceId: id, sourceType: "studio_interview" },
-      ]).catch((error) => console.error("[resumes] semantic enqueue failed", { error, id }));
+      await this.queueProducer
+        .enqueueResumeSemanticIndexJobs([
+          { organizationId, sourceId: id, sourceType: "studio_interview" },
+        ])
+        .catch((error) => console.error("[resumes] semantic enqueue failed", { error, id }));
     }
     return this.get(organizationId, id, visible);
   }
@@ -897,7 +897,7 @@ export class ResumeWorkflowService {
       throw new BadRequestException("请上传简历文件。");
     }
     await this.assertJob(organizationId, input.jobDescriptionId);
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历解析队列未配置 REDIS_URL。");
     }
     const source = await this.uploads.upload(organizationId, actorId, file);
@@ -951,7 +951,9 @@ export class ResumeWorkflowService {
         storageKey: source.storageKey,
       });
     });
-    await enqueueResumeParseJobs([{ batchId, itemId, organizationId, userId: actorId }]);
+    await this.queueProducer.enqueueResumeParseJobs([
+      { batchId, itemId, organizationId, userId: actorId },
+    ]);
     return this.get(organizationId, id, [actorId]);
   }
   async remove(organizationId: string, id: string, visible: string[] | null) {

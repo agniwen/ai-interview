@@ -760,34 +760,58 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "enum": [null],
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  "properties": {
+                    "currentRoundId": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "currentRoundStatus": {
                       "type": "string"
                     },
-                    {
+                    "interviewQuestions": {
                       "items": {
-                        "$ref": "#"
+                        "$ref": "#/definitions/__schema0"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "organizationId": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["currentRoundStatus", "interviewQuestions", "organizationId"],
+                  "type": "object"
                 }
               }
             },
@@ -989,34 +1013,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "additionalProperties": false,
+                  "properties": {
+                    "feedback": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "categories": {
+                          "items": {
+                            "enum": [
+                              "audio",
+                              "video",
+                              "network",
+                              "ai_conversation",
+                              "question_content",
+                              "page_operation",
+                              "other"
+                            ],
+                            "type": "string"
+                          },
+                          "maxItems": 7,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        }
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
+                      "required": ["categories", "detail", "submittedAt"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["feedback"],
+                  "type": "object"
                 }
               }
             },
@@ -1091,34 +1122,71 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "enum": [null],
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  "properties": {
+                    "required": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": false,
+                        "properties": {
+                          "snapshot": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "templateId": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "number"
+                          },
+                          "versionId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["snapshot", "templateId", "version", "versionId"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
+                    "submitted": {
                       "additionalProperties": {
-                        "$ref": "#"
+                        "type": "boolean"
                       },
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["required", "submitted"],
+                  "type": "object"
                 }
               }
             },
@@ -1223,34 +1291,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "submissionId": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
+                    "success": {
+                      "enum": [true],
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "version": {
+                      "type": "number"
+                    },
+                    "versionId": {
                       "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["submissionId", "success", "version", "versionId"],
+                  "type": "object"
                 }
               }
             },
@@ -1325,34 +1383,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "isReconnect": {
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "participantName": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "participantToken": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "roomName": {
+                      "type": "string"
+                    },
+                    "serverUrl": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "isReconnect",
+                    "participantName",
+                    "participantToken",
+                    "roomName",
+                    "serverUrl"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -1976,34 +2032,63 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "configured": {
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
+                    "page": {
+                      "type": "number"
                     },
-                    {
+                    "pageSize": {
+                      "type": "number"
+                    },
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": false,
+                        "properties": {
+                          "help": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "labels": {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["help", "labels", "name", "type", "value"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "configured", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -2059,34 +2144,44 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                  "additionalProperties": {},
+                  "properties": {
+                    "endpoint": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "latencyMs": {
+                      "type": "number"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                    "metricsConfigured": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "enum": ["online", "offline"],
+                      "type": "string"
+                    },
+                    "totals": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "activeRecordings": {
+                          "type": "number"
+                        },
+                        "participants": {
+                          "type": "number"
+                        },
+                        "publishers": {
+                          "type": "number"
+                        },
+                        "rooms": {
+                          "type": "number"
+                        }
                       },
+                      "required": ["activeRecordings", "participants", "publishers", "rooms"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["endpoint", "latencyMs", "metricsConfigured", "status", "totals"],
+                  "type": "object"
                 }
               }
             },
@@ -2182,34 +2277,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "activeRecording": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "numParticipants": {
+                            "type": "number"
+                          },
+                          "numPublishers": {
+                            "type": "number"
+                          },
+                          "sid": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "activeRecording",
+                          "createdAt",
+                          "name",
+                          "numParticipants",
+                          "numPublishers",
+                          "sid"
+                        ],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -2275,34 +2395,69 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "metadata": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "participants": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "identity": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "sid": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["identity", "name", "sid", "state"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                    "room": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "activeRecording": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "numParticipants": {
+                          "type": "number"
+                        },
+                        "numPublishers": {
+                          "type": "number"
+                        },
+                        "sid": {
+                          "type": "string"
+                        }
                       },
+                      "required": [
+                        "activeRecording",
+                        "createdAt",
+                        "name",
+                        "numParticipants",
+                        "numPublishers",
+                        "sid"
+                      ],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["metadata", "participants", "room"],
+                  "type": "object"
                 }
               }
             },
@@ -2418,34 +2573,98 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "account": {
+                            "additionalProperties": {},
+                            "nullable": true,
+                            "properties": {
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "emailAddress": {
+                                "type": "string"
+                              },
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "imapHost": {
+                                "type": "string"
+                              },
+                              "username": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "createdAt",
+                              "emailAddress",
+                              "enabled",
+                              "id",
+                              "imapHost",
+                              "username"
+                            ],
+                            "type": "object"
+                          },
+                          "organization": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "name", "slug"],
+                            "type": "object"
+                          },
+                          "user": {
+                            "additionalProperties": {},
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["email", "id", "name"],
+                            "type": "object"
+                          }
+                        },
+                        "required": ["account", "organization", "user"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -2579,34 +2798,36 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "createdAt": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "emailAddress": {
+                      "type": "string"
                     },
-                    {
+                    "enabled": {
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "id": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "imapHost": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "username": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "createdAt",
+                    "emailAddress",
+                    "enabled",
+                    "id",
+                    "imapHost",
+                    "username"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -2748,34 +2969,36 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "createdAt": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "emailAddress": {
+                      "type": "string"
                     },
-                    {
+                    "enabled": {
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "id": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "imapHost": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "username": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "createdAt",
+                    "emailAddress",
+                    "enabled",
+                    "id",
+                    "imapHost",
+                    "username"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -2919,34 +3142,58 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "providerId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateName",
+                          "createdAt",
+                          "id",
+                          "providerId",
+                          "status",
+                          "type"
+                        ],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -3012,34 +3259,52 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                  "additionalProperties": false,
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "enum": [null],
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "object"
+                        }
+                      ]
                     }
-                  ]
+                  },
+                  "properties": {
+                    "block": {
+                      "$ref": "#/definitions/__schema0"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["block", "prompt", "title"],
+                  "type": "object"
                 }
               }
             },
@@ -3105,34 +3370,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "documentUrl": {
                       "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["documentUrl"],
+                  "type": "object"
                 }
               }
             },
@@ -3198,34 +3443,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "status": {
                       "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["id", "status"],
+                  "type": "object"
                 }
               }
             },
@@ -3291,34 +3519,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "documentUrl": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "insertedSections": {
                       "items": {
-                        "$ref": "#"
+                        "type": "string"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                    "updatedSections": {
+                      "items": {
+                        "type": "string"
                       },
-                      "type": "object"
+                      "type": "array"
                     }
-                  ]
+                  },
+                  "required": ["documentUrl", "insertedSections", "updatedSections"],
+                  "type": "object"
                 }
               }
             },
@@ -3434,34 +3654,48 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": false,
+                        "properties": {
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "memberCount": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["createdAt", "id", "memberCount", "name", "slug"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -3549,34 +3783,89 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "additionalProperties": false,
+                  "properties": {
+                    "members": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "page": {
+                          "type": "number"
+                        },
+                        "pageSize": {
+                          "type": "number"
+                        },
+                        "records": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "type": "string"
+                              },
+                              "userEmail": {
+                                "type": "string"
+                              },
+                              "userId": {
+                                "type": "string"
+                              },
+                              "userImage": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "userName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "createdAt",
+                              "id",
+                              "role",
+                              "userEmail",
+                              "userId",
+                              "userImage",
+                              "userName"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "totalPages": {
+                          "type": "number"
+                        }
                       },
-                      "type": "array"
+                      "required": ["page", "pageSize", "total", "totalPages", "records"],
+                      "type": "object"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                    "organization": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        }
                       },
+                      "required": ["createdAt", "id", "name", "slug"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["members", "organization"],
+                  "type": "object"
                 }
               }
             },
@@ -3632,34 +3921,39 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "counts": {
+                            "additionalProperties": {
+                              "type": "number"
+                            },
+                            "type": "object"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "workersCount": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["counts", "displayName", "name", "workersCount"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["records", "total"],
+                  "type": "object"
                 }
               }
             },
@@ -3803,34 +4097,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["id", "name", "state"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "records", "total", "totalPages"],
+                  "type": "object"
                 }
               }
             },
@@ -3986,34 +4288,45 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "contentHash": {
+                            "type": "string"
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "parsedStatus": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["contentHash", "filename", "parsedStatus", "size"],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -4079,34 +4392,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "clearedCount": {
                       "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["clearedCount"],
+                  "type": "object"
                 }
               }
             },
@@ -4170,34 +4463,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "contentHash": {
                       "type": "string"
                     },
-                    {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "parsedStatus": {
+                      "type": "string"
+                    },
+                    "size": {
                       "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["contentHash", "filename", "parsedStatus", "size"],
+                  "type": "object"
                 }
               }
             },
@@ -4313,34 +4595,64 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "page": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
+                    "pageSize": {
+                      "type": "number"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "lastActiveAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "createdAt",
+                          "email",
+                          "id",
+                          "lastActiveAt",
+                          "name",
+                          "role",
+                          "updatedAt"
+                        ],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "total": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "required": ["page", "pageSize", "total", "totalPages", "records"],
+                  "type": "object"
                 }
               }
             },
@@ -4424,34 +4736,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                    "remark": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "updatedAt": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["id", "remark", "updatedAt"],
+                  "type": "object"
                 }
               }
             },
@@ -4517,34 +4816,65 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "records": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "organizationName": {
+                            "type": "string"
+                          },
+                          "organizationSlug": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "organizationId",
+                          "organizationName",
+                          "organizationSlug",
+                          "role"
+                        ],
+                        "type": "object"
                       },
                       "type": "array"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                    "total": {
+                      "type": "number"
+                    },
+                    "user": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "email": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "image": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
                       },
+                      "required": ["email", "id", "image", "name"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["records", "total", "user"],
+                  "type": "object"
                 }
               }
             },
@@ -4610,34 +4940,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidateName": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "companyName": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "expiresAt": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "jobName": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "roundName": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "candidateName",
+                    "companyName",
+                    "expiresAt",
+                    "jobName",
+                    "roundName",
+                    "scheduledAt",
+                    "status"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -4725,34 +5063,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                  "additionalProperties": {},
+                  "properties": {
+                    "interviewUrl": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "status": {
+                      "enum": ["accepted", "declined"],
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["status"],
+                  "type": "object"
                 }
               }
             },
@@ -4818,34 +5141,39 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "candidateName": {
+                        "type": "string"
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                      "id": {
+                        "type": "string"
                       },
-                      "type": "object"
-                    }
-                  ]
+                      "rounds": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["id", "label"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "targetRole": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["candidateName", "id", "rounds", "targetRole"],
+                    "type": "object"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -4920,34 +5248,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "candidateName": {
+                          "type": "string"
+                        },
+                        "hasResumeFile": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "targetRole": {
+                          "nullable": true,
+                          "type": "string"
+                        }
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
+                      "required": ["candidateName", "hasResumeFile", "id", "targetRole"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["candidate"],
+                  "type": "object"
                 }
               }
             },
@@ -5022,34 +5347,62 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "additionalProperties": false,
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "enum": [null],
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  "properties": {
+                    "aiEvaluation": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "evaluation": {
+                          "allOf": [
+                            {
+                              "$ref": "#/definitions/__schema0"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "status": {
+                          "enum": ["ready", "legacy", "pending", "failed", "missing"],
+                          "type": "string"
+                        }
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
+                      "required": ["evaluation", "status"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["aiEvaluation"],
+                  "type": "object"
                 }
               }
             },
@@ -5124,34 +5477,64 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                  "additionalProperties": false,
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "enum": [null],
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        {
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  "properties": {
+                    "hrInitialInformation": {
+                      "additionalProperties": {},
                       "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                      "properties": {
+                        "conversationId": {
+                          "type": "string"
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "roundLabel": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "values": {
+                          "$ref": "#/definitions/__schema0"
+                        }
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
+                      "required": ["conversationId", "generatedAt", "roundLabel", "values"],
                       "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["hrInitialInformation"],
+                  "type": "object"
                 }
               }
             },
@@ -5226,34 +5609,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "interviewQuestions": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "question": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
                       },
                       "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["interviewQuestions"],
+                  "type": "object"
                 }
               }
             },
@@ -5477,34 +5852,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "candidateName": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "meetingId": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "roundLabel": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "scheduledAt": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "status": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "title": {
+                      "type": "string"
+                    },
+                    "validUntil": {
+                      "nullable": true,
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "candidateName",
+                    "meetingId",
+                    "roundLabel",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "validUntil"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -5570,34 +5953,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "participantRole": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "participantToken": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "roomName": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "serverUrl": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["participantRole", "participantToken", "roomName", "serverUrl"],
+                  "type": "object"
                 }
               }
             },
@@ -5685,34 +6057,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                  "additionalProperties": {},
+                  "properties": {
+                    "interviewUrl": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "status": {
+                      "enum": ["accepted", "declined"],
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["status"],
+                  "type": "object"
                 }
               }
             },
@@ -5778,34 +6135,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "candidateName": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "meetingId": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "roundLabel": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "scheduledAt": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "status": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "title": {
+                      "type": "string"
+                    },
+                    "validUntil": {
+                      "nullable": true,
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "candidateName",
+                    "meetingId",
+                    "roundLabel",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "validUntil"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -5945,34 +6310,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "participantRole": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "participantToken": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "roomName": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "serverUrl": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["participantRole", "participantToken", "roomName", "serverUrl"],
+                  "type": "object"
                 }
               }
             },
@@ -6038,34 +6392,33 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
+                  "additionalProperties": {},
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["id"],
+                      "type": "object"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
+                    "hasReport": {
                       "type": "boolean"
                     },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "id": {
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
+                    "roundLabel": {
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "status": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["candidate", "hasReport", "id", "roundLabel", "status"],
+                  "type": "object"
                 }
               }
             },
@@ -6131,34 +6484,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "submissions": {
                       "items": {
-                        "$ref": "#"
+                        "additionalProperties": {},
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "templateId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["id", "templateId"],
+                        "type": "object"
                       },
                       "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["submissions"],
+                  "type": "object"
                 }
               }
             },
@@ -6233,34 +6579,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expiresInSeconds": {
                       "type": "number"
                     },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
+                    "url": {
                       "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": ["expiresInSeconds", "url"],
+                  "type": "object"
                 }
               }
             },
@@ -6326,34 +6655,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "items": {
+                    "additionalProperties": {},
+                    "properties": {
+                      "conversationId": {
+                        "type": "string"
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                      "createdAt": {
+                        "type": "string"
                       },
-                      "type": "object"
-                    }
-                  ]
+                      "status": {
+                        "type": "string"
+                      },
+                      "transcriptSummary": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "turnCount": {
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -6428,34 +6752,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "conversationId": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "createdAt": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "status": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "transcriptSummary": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "turnCount": {
+                      "type": "number"
                     }
-                  ]
+                  },
+                  "type": "object"
                 }
               }
             },
@@ -6813,34 +7129,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "companyName": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "jobDescriptionCode": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "jobDescriptionName": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "referrerName": {
                       "nullable": true,
                       "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
                     }
-                  ]
+                  },
+                  "required": [
+                    "companyName",
+                    "jobDescriptionCode",
+                    "jobDescriptionName",
+                    "referrerName"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -6901,39 +7212,44 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "resume": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": ["resume"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "properties": {
+                    "batchId": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
+                    "poolItemId": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "status": {
+                      "enum": ["queued"],
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["batchId", "poolItemId", "status"],
+                  "type": "object"
                 }
               }
             },
@@ -6999,34 +7315,34 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": {},
+                  "properties": {
+                    "candidateName": {
                       "type": "string"
                     },
-                    {
-                      "type": "number"
+                    "id": {
+                      "type": "string"
                     },
-                    {
-                      "type": "boolean"
+                    "pipelineStage": {
+                      "type": "string"
                     },
-                    {
-                      "enum": [null],
+                    "resumeFileName": {
                       "nullable": true,
                       "type": "string"
                     },
-                    {
-                      "items": {
-                        "$ref": "#"
-                      },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
-                      },
-                      "type": "object"
+                    "targetRole": {
+                      "nullable": true,
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "candidateName",
+                    "id",
+                    "pipelineStage",
+                    "resumeFileName",
+                    "targetRole"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -7092,34 +7408,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "enum": [null],
-                      "nullable": true,
-                      "type": "string"
-                    },
-                    {
-                      "items": {
-                        "$ref": "#"
+                  "items": {
+                    "additionalProperties": {},
+                    "properties": {
+                      "id": {
+                        "type": "string"
                       },
-                      "type": "array"
-                    },
-                    {
-                      "additionalProperties": {
-                        "$ref": "#"
+                      "roundLabel": {
+                        "type": "string"
                       },
-                      "type": "object"
-                    }
-                  ]
+                      "sortOrder": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "roundLabel", "sortOrder", "status"],
+                    "type": "object"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -8820,6 +9128,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": ["file"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -10789,6 +11114,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "resume": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": ["resume"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -25525,7 +25867,42 @@
                     "records": {
                       "items": {
                         "additionalProperties": {},
-                        "properties": {},
+                        "properties": {
+                          "candidateId": {
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "roundLabel": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateId",
+                          "candidateName",
+                          "createdAt",
+                          "id",
+                          "interviewRecordId",
+                          "roundLabel",
+                          "status",
+                          "updatedAt"
+                        ],
                         "type": "object"
                       },
                       "type": "array"
@@ -25617,6 +25994,10 @@
                     "maxLength": 2000,
                     "type": "string"
                   },
+                  "resume": {
+                    "format": "binary",
+                    "type": "string"
+                  },
                   "resumePayload": {
                     "type": "string"
                   },
@@ -25629,7 +26010,7 @@
                     "type": "string"
                   }
                 },
-                "required": ["candidateName", "jobDescriptionId", "scheduleEntries"],
+                "required": ["candidateName", "jobDescriptionId", "scheduleEntries", "resume"],
                 "type": "object"
               }
             }
@@ -25642,7 +26023,52 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "candidateName": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["candidateName", "id"],
+                      "type": "object"
+                    },
+                    "candidateId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewRecordId": {
+                      "type": "string"
+                    },
+                    "roundLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "candidate",
+                    "candidateId",
+                    "createdAt",
+                    "id",
+                    "interviewRecordId",
+                    "roundLabel",
+                    "status",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -25800,7 +26226,52 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "candidateName": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["candidateName", "id"],
+                      "type": "object"
+                    },
+                    "candidateId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewRecordId": {
+                      "type": "string"
+                    },
+                    "roundLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "candidate",
+                    "candidateId",
+                    "createdAt",
+                    "id",
+                    "interviewRecordId",
+                    "roundLabel",
+                    "status",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -25914,7 +26385,52 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "candidateName": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["candidateName", "id"],
+                      "type": "object"
+                    },
+                    "candidateId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewRecordId": {
+                      "type": "string"
+                    },
+                    "roundLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "candidate",
+                    "candidateId",
+                    "createdAt",
+                    "id",
+                    "interviewRecordId",
+                    "roundLabel",
+                    "status",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -25990,8 +26506,38 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "variants": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "closingPrompt": {
+                            "type": "string"
+                          },
+                          "instructions": {
+                            "type": "string"
+                          },
+                          "interviewerName": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "openingPrompt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "closingPrompt",
+                          "instructions",
+                          "interviewerName",
+                          "openingPrompt"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": ["variants"],
                   "type": "object"
                 }
               }
@@ -26206,8 +26752,52 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "snapshot": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": {},
+                          "properties": {
+                            "interviewRecordId": {
+                              "type": "string"
+                            },
+                            "scheduleEntryId": {
+                              "type": "string"
+                            },
+                            "schemaVersion": {
+                              "maximum": 9007199254740991,
+                              "minimum": -9007199254740991,
+                              "type": "integer"
+                            }
+                          },
+                          "required": ["interviewRecordId", "scheduleEntryId", "schemaVersion"],
+                          "type": "object"
+                        },
+                        "reason": {
+                          "enum": ["create", "manual_refresh", "reset"],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": ["active"],
+                          "type": "string"
+                        },
+                        "version": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["id", "payload", "reason", "status", "version"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["snapshot"],
                   "type": "object"
                 }
               }
@@ -26283,8 +26873,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "feishuDocumentUrl": {
+                      "format": "uri",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["conversationId", "feishuDocumentUrl"],
                   "type": "object"
                 }
               }
@@ -26360,8 +26959,58 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "submissions": {
+                      "items": {
+                        "additionalProperties": {},
+                        "properties": {
+                          "answers": {
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              ]
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "submittedAt": {
+                            "type": "string"
+                          },
+                          "templateId": {
+                            "type": "string"
+                          },
+                          "versionId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "answers",
+                          "id",
+                          "interviewRecordId",
+                          "submittedAt",
+                          "templateId",
+                          "versionId"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": ["submissions"],
                   "type": "object"
                 }
               }
@@ -26446,8 +27095,56 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "snapshot": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": {},
+                          "properties": {
+                            "interviewRecordId": {
+                              "type": "string"
+                            },
+                            "scheduleEntryId": {
+                              "type": "string"
+                            },
+                            "schemaVersion": {
+                              "maximum": 9007199254740991,
+                              "minimum": -9007199254740991,
+                              "type": "integer"
+                            }
+                          },
+                          "required": ["interviewRecordId", "scheduleEntryId", "schemaVersion"],
+                          "type": "object"
+                        },
+                        "reason": {
+                          "enum": ["create", "manual_refresh", "reset"],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": ["active"],
+                          "type": "string"
+                        },
+                        "version": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["id", "payload", "reason", "status", "version"],
+                      "type": "object"
+                    },
+                    "success": {
+                      "enum": [true],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["snapshot", "success"],
                   "type": "object"
                 }
               }
@@ -27942,7 +28639,54 @@
                 "schema": {
                   "items": {
                     "additionalProperties": {},
-                    "properties": {},
+                    "properties": {
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "disabledByUser": {
+                        "type": "boolean"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "interviewRecordId": {
+                        "type": "string"
+                      },
+                      "scope": {
+                        "type": "string"
+                      },
+                      "sortOrder": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "templateId": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "versionId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "createdAt",
+                      "disabledByUser",
+                      "id",
+                      "interviewRecordId",
+                      "scope",
+                      "sortOrder",
+                      "templateId",
+                      "title",
+                      "version",
+                      "versionId"
+                    ],
                     "type": "object"
                   },
                   "type": "array"
@@ -28040,7 +28784,54 @@
                 "schema": {
                   "items": {
                     "additionalProperties": {},
-                    "properties": {},
+                    "properties": {
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "disabledByUser": {
+                        "type": "boolean"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "interviewRecordId": {
+                        "type": "string"
+                      },
+                      "scope": {
+                        "type": "string"
+                      },
+                      "sortOrder": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "templateId": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "versionId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "createdAt",
+                      "disabledByUser",
+                      "id",
+                      "interviewRecordId",
+                      "scope",
+                      "sortOrder",
+                      "templateId",
+                      "title",
+                      "version",
+                      "versionId"
+                    ],
                     "type": "object"
                   },
                   "type": "array"
@@ -28218,7 +29009,30 @@
                 "schema": {
                   "items": {
                     "additionalProperties": {},
-                    "properties": {},
+                    "properties": {
+                      "conversationId": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "summaryStatus": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "conversationId",
+                      "createdAt",
+                      "status",
+                      "summaryStatus",
+                      "updatedAt"
+                    ],
                     "type": "object"
                   },
                   "type": "array"
@@ -28306,7 +29120,30 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "summaryStatus": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "createdAt",
+                    "status",
+                    "summaryStatus",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -28383,7 +29220,52 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "candidate": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "candidateName": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["candidateName", "id"],
+                      "type": "object"
+                    },
+                    "candidateId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewRecordId": {
+                      "type": "string"
+                    },
+                    "roundLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "candidate",
+                    "candidateId",
+                    "createdAt",
+                    "id",
+                    "interviewRecordId",
+                    "roundLabel",
+                    "status",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -28855,8 +29737,39 @@
                     },
                     "records": {
                       "items": {
-                        "additionalProperties": {},
-                        "properties": {},
+                        "additionalProperties": false,
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "feishuBound": {
+                            "type": "boolean"
+                          },
+                          "feishuProviderIds": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "email",
+                          "feishuBound",
+                          "feishuProviderIds",
+                          "image",
+                          "name",
+                          "userId"
+                        ],
                         "type": "object"
                       },
                       "type": "array"
@@ -28964,8 +29877,39 @@
                     },
                     "records": {
                       "items": {
-                        "additionalProperties": {},
-                        "properties": {},
+                        "additionalProperties": false,
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "feishuBound": {
+                            "type": "boolean"
+                          },
+                          "feishuProviderIds": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "email",
+                          "feishuBound",
+                          "feishuProviderIds",
+                          "image",
+                          "name",
+                          "userId"
+                        ],
                         "type": "object"
                       },
                       "type": "array"
@@ -29603,7 +30547,107 @@
                 "schema": {
                   "items": {
                     "additionalProperties": {},
-                    "properties": {},
+                    "properties": {
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "interviewers": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "image": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string"
+                            },
+                            "userId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["image", "name", "role", "userId"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "organizationId": {
+                        "type": "string"
+                      },
+                      "rounds": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "candidateEmail": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "candidateName": {
+                              "type": "string"
+                            },
+                            "interviewRecordId": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "roundId": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "candidateEmail",
+                            "candidateName",
+                            "interviewRecordId",
+                            "label",
+                            "roundId",
+                            "status"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "scheduledAt": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "scheduleVersion": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "createdAt",
+                      "id",
+                      "interviewers",
+                      "organizationId",
+                      "rounds",
+                      "scheduleVersion",
+                      "scheduledAt",
+                      "status",
+                      "title",
+                      "updatedAt"
+                    ],
                     "type": "object"
                   },
                   "type": "array"
@@ -29709,7 +30753,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -29786,7 +30930,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -29861,7 +31105,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -29962,7 +31306,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -30039,7 +31483,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -30116,7 +31660,107 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {},
-                  "properties": {},
+                  "properties": {
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "interviewers": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "image": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["image", "name", "role", "userId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "candidateEmail": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "candidateName": {
+                            "type": "string"
+                          },
+                          "interviewRecordId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "candidateEmail",
+                          "candidateName",
+                          "interviewRecordId",
+                          "label",
+                          "roundId",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "scheduledAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "scheduleVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "createdAt",
+                    "id",
+                    "interviewers",
+                    "organizationId",
+                    "rounds",
+                    "scheduleVersion",
+                    "scheduledAt",
+                    "status",
+                    "title",
+                    "updatedAt"
+                  ],
                   "type": "object"
                 }
               }
@@ -30192,8 +31836,33 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidates": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "inviteToken": {
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "format": "uri",
+                            "type": "string"
+                          }
+                        },
+                        "required": ["inviteToken", "roundId", "url"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "meetingId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["candidates", "meetingId"],
                   "type": "object"
                 }
               }
@@ -30364,8 +32033,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": ["candidate", "round"],
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "kind"],
                   "type": "object"
                 }
               }
@@ -30441,8 +32119,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "messageId": {
+                      "type": "string"
+                    },
+                    "roundId": {
+                      "type": "string"
+                    },
+                    "sentAt": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["messageId", "roundId", "sentAt", "to"],
                   "type": "object"
                 }
               }
@@ -30508,8 +32200,33 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {},
-                  "properties": {},
+                  "additionalProperties": false,
+                  "properties": {
+                    "records": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "failed": {
+                            "type": "number"
+                          },
+                          "lastSentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "roundId": {
+                            "type": "string"
+                          },
+                          "sent": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["failed", "lastSentAt", "roundId", "sent"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": ["records"],
                   "type": "object"
                 }
               }
@@ -46179,6 +47896,10 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "resume": {
+                    "format": "binary",
+                    "type": "string"
+                  },
                   "scope": {
                     "enum": ["private", "public"],
                     "type": "string"
@@ -46189,7 +47910,7 @@
                     "type": "string"
                   }
                 },
-                "required": ["scope"],
+                "required": ["scope", "resume"],
                 "type": "object"
               }
             }
@@ -52143,6 +53864,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": ["file"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "content": {
@@ -52519,6 +54257,10 @@
                     "maxLength": 2000,
                     "type": "string"
                   },
+                  "resume": {
+                    "format": "binary",
+                    "type": "string"
+                  },
                   "resumeEvaluationStatus": {
                     "anyOf": [
                       {
@@ -52544,7 +54286,8 @@
                   "jobDescriptionId",
                   "notes",
                   "resumeEvaluationStatus",
-                  "targetRole"
+                  "targetRole",
+                  "resume"
                 ],
                 "type": "object"
               }

@@ -5,8 +5,8 @@ import {
   meetingStorageCleanupKey,
 } from "@arc/db-schema/schema";
 import type { MeetingPlaybackJobData } from "@arc/meeting-processing-queue/meeting-playback";
-import { enqueueMeetingTranscriptionJobs } from "@arc/meeting-processing-queue/meeting-transcription";
 import type { Database } from "../infrastructure/database/database.tokens.js";
+import type { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
 import { createMeetingPlaybackProcessorPorts } from "../background-workloads/processors/meeting-playback.processor.js";
 import type { MeetingPlaybackProcessorPorts } from "../background-workloads/processors/meeting-playback.processor.js";
 import type { BackgroundObjectStorageService } from "./background-object-storage.service.js";
@@ -173,6 +173,7 @@ export class MeetingPlaybackRepository {
 }
 
 export function createMeetingPlaybackInfrastructure(input: {
+  queueProducer: BackgroundQueueProducerService;
   recovery: BackgroundRecoveryRepository;
   repository: MeetingPlaybackRepository;
   storage: BackgroundObjectStorageService;
@@ -188,7 +189,7 @@ export function createMeetingPlaybackInfrastructure(input: {
           candidate.meetingId === job.meetingId && candidate.organizationId === job.organizationId,
       );
       if (transcriptionJob) {
-        await enqueueMeetingTranscriptionJobs([transcriptionJob]);
+        await input.queueProducer.enqueueMeetingTranscriptionJobs([transcriptionJob]);
       }
     },
     loadSource: (job) => input.repository.loadSource(job),

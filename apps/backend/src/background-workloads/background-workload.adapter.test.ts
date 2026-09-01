@@ -87,6 +87,30 @@ describe("createBackgroundWorkloadAdapter", () => {
     expect(processMeetingPlayback).toHaveBeenCalledWith(data);
   });
 
+  it("forwards transcription preparation, meeting answers, and job failures to their ports", async () => {
+    const ports = configuredPorts();
+    const prepare = vi.spyOn(ports.meetingTranscription, "prepare");
+    const processAnswer = vi.spyOn(ports.meetingAnswer, "process");
+    const reportFailure = vi.spyOn(ports.observability, "reportJobFailure");
+    const adapter = createBackgroundWorkloadAdapter(ports);
+    const answer = { exchangeId: "exchange-1" };
+    const context = { attempt: 2, maxAttempts: 5 };
+    const failure = {
+      attemptsMade: 2,
+      error: new Error("failed"),
+      jobId: "job-1",
+      queue: "meeting-answer",
+    };
+
+    await expect(adapter.prepareMeetingTranscription()).resolves.toBe(true);
+    await adapter.processMeetingAnswer(answer, context);
+    adapter.reportJobFailure?.(failure);
+
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(processAnswer).toHaveBeenCalledWith(answer, context);
+    expect(reportFailure).toHaveBeenCalledWith(failure);
+  });
+
   it("fails fast with the exact missing workload port instead of starting a no-op worker", () => {
     const ports = configuredPorts();
     Object.defineProperty(ports.meetingTranscription, "process", { value: undefined });

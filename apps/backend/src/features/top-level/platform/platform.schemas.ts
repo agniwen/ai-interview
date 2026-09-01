@@ -141,3 +141,239 @@ export const platformLiveKitRoomsQuerySchema = platformLiveKitListQuerySchema.ex
 export const platformLiveKitMetricsQuerySchema = platformLiveKitListQuerySchema.extend({
   textFilters: listTextFiltersSchema("metrics"),
 });
+
+const nullableStringSchema = z.string().nullable();
+const paginationFields = {
+  page: z.number(),
+  pageSize: z.number(),
+  total: z.number(),
+  totalPages: z.number(),
+};
+
+const platformOrganizationRecordSchema = z.object({
+  createdAt: z.string(),
+  id: z.string(),
+  memberCount: z.number(),
+  name: z.string(),
+  slug: z.string(),
+});
+
+export const platformOrganizationsResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(platformOrganizationRecordSchema),
+});
+
+export const platformOrganizationResponseSchema = z.object({
+  members: z.object({
+    ...paginationFields,
+    records: z.array(
+      z.object({
+        createdAt: z.string(),
+        id: z.string(),
+        role: z.string(),
+        userEmail: z.string(),
+        userId: z.string(),
+        userImage: nullableStringSchema,
+        userName: z.string(),
+      }),
+    ),
+  }),
+  organization: z.looseObject({
+    createdAt: z.string(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+  }),
+});
+
+const platformUserRecordSchema = z.looseObject({
+  createdAt: z.string(),
+  email: z.string(),
+  id: z.string(),
+  lastActiveAt: nullableStringSchema,
+  name: z.string(),
+  role: nullableStringSchema,
+  updatedAt: z.string(),
+});
+
+export const platformUsersResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(platformUserRecordSchema),
+});
+
+export const platformUserRemarkResponseSchema = z.object({
+  id: z.string(),
+  remark: nullableStringSchema,
+  updatedAt: z.string(),
+});
+
+export const platformUserWorkspacesResponseSchema = z.object({
+  records: z.array(
+    z.looseObject({
+      id: z.string(),
+      organizationId: z.string(),
+      organizationName: z.string(),
+      organizationSlug: z.string(),
+      role: z.string(),
+    }),
+  ),
+  total: z.number(),
+  user: z.object({
+    email: z.string(),
+    id: z.string(),
+    image: nullableStringSchema,
+    name: z.string(),
+  }),
+});
+
+const platformMailAccountResponseSchema = z.looseObject({
+  createdAt: z.string(),
+  emailAddress: z.string(),
+  enabled: z.boolean(),
+  id: z.string(),
+  imapHost: z.string(),
+  username: z.string(),
+});
+
+export const platformMailAccountsResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(
+    z.looseObject({
+      account: platformMailAccountResponseSchema.nullable(),
+      organization: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+      user: z.looseObject({ email: z.string(), id: z.string(), name: z.string() }),
+    }),
+  ),
+});
+
+export const platformMailAccountMutationResponseSchema = platformMailAccountResponseSchema;
+
+const platformQueueRecordSchema = z.looseObject({
+  counts: z.record(z.string(), z.number()),
+  displayName: z.string(),
+  name: z.string(),
+  workersCount: z.number(),
+});
+
+export const platformQueuesResponseSchema = z.object({
+  records: z.array(platformQueueRecordSchema),
+  total: z.number(),
+});
+
+export const platformQueueJobsResponseSchema = z.looseObject({
+  page: z.number(),
+  pageSize: z.number(),
+  records: z.array(
+    z.looseObject({
+      id: z.string(),
+      name: z.string(),
+      state: z.string(),
+    }),
+  ),
+  total: z.number(),
+  totalPages: z.number(),
+});
+
+const platformResumeParseCacheRecordSchema = z.looseObject({
+  contentHash: z.string(),
+  filename: z.string(),
+  parsedStatus: z.string(),
+  size: z.number(),
+});
+
+export const platformResumeParseCacheResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(platformResumeParseCacheRecordSchema),
+});
+
+export const platformResumeParseCacheEntryResponseSchema = platformResumeParseCacheRecordSchema;
+export const platformResumeParseCacheDeleteResponseSchema = z.object({ clearedCount: z.number() });
+
+const platformNotificationRecordSchema = z.looseObject({
+  candidateName: z.string(),
+  createdAt: z.string(),
+  id: z.string(),
+  providerId: z.string(),
+  status: z.string(),
+  type: z.string(),
+});
+
+export const platformNotificationsResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(platformNotificationRecordSchema),
+});
+
+export const platformNotificationResendResponseSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+});
+
+export const platformNotificationStructureResponseSchema = z.looseObject({
+  documentUrl: z.string(),
+  insertedSections: z.array(z.string()),
+  updatedSections: z.array(z.string()),
+});
+
+export const platformNotificationPreviewResponseSchema = z.object({
+  block: z.json(),
+  prompt: z.string(),
+  title: z.string(),
+});
+
+export const platformNotificationDocumentAccessResponseSchema = z.object({
+  documentUrl: z.string(),
+});
+
+const liveKitRoomRecordSchema = z.looseObject({
+  activeRecording: z.boolean(),
+  createdAt: nullableStringSchema,
+  name: z.string(),
+  numParticipants: z.number(),
+  numPublishers: z.number(),
+  sid: z.string(),
+});
+
+export const platformLiveKitOverviewResponseSchema = z.looseObject({
+  endpoint: nullableStringSchema,
+  latencyMs: z.number(),
+  metricsConfigured: z.boolean(),
+  status: z.enum(["online", "offline"]),
+  totals: z.object({
+    activeRecordings: z.number(),
+    participants: z.number(),
+    publishers: z.number(),
+    rooms: z.number(),
+  }),
+});
+
+export const platformLiveKitRoomsResponseSchema = z.object({
+  ...paginationFields,
+  records: z.array(liveKitRoomRecordSchema),
+});
+
+export const platformLiveKitRoomResponseSchema = z.object({
+  metadata: z.string(),
+  participants: z.array(
+    z.looseObject({
+      identity: z.string(),
+      name: z.string(),
+      sid: z.string(),
+      state: z.string(),
+    }),
+  ),
+  room: liveKitRoomRecordSchema,
+});
+
+export const platformLiveKitMetricsResponseSchema = z.object({
+  ...paginationFields,
+  configured: z.boolean(),
+  records: z.array(
+    z.object({
+      help: nullableStringSchema,
+      labels: z.record(z.string(), z.string()),
+      name: z.string(),
+      type: nullableStringSchema,
+      value: z.union([z.number(), z.string()]),
+    }),
+  ),
+});

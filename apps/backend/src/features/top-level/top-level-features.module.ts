@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BackgroundQueueModule } from "../../background/background-queue.module.js";
 import { API_DATABASE } from "../../infrastructure/database/database.tokens.js";
 import { AgentController } from "./agent/agent.controller.js";
 import { TOP_LEVEL_AGENT_PORT, TOP_LEVEL_AGENT_JOBS_PORT } from "./agent/agent.port.js";
@@ -72,6 +73,7 @@ export const TOP_LEVEL_CONTROLLERS = [
     TOP_LEVEL_PUBLIC_PORT,
     TOP_LEVEL_RESUME_PORT,
   ],
+  imports: [BackgroundQueueModule.register()],
   providers: [
     { provide: TOP_LEVEL_DATABASE_PORT, useExisting: API_DATABASE },
     { provide: TOP_LEVEL_AGENT_PORT, useClass: AgentService },

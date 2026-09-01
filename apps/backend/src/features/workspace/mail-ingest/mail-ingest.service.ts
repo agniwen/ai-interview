@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,
   Inject,
@@ -7,10 +8,7 @@ import {
 } from "@nestjs/common";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { ImapFlow } from "imapflow";
-import {
-  enqueueMailIngestTrigger,
-  isMailIngestTriggerQueueConfigured,
-} from "@arc/resume-parse-queue/mail-ingest-trigger";
+import { isMailIngestTriggerQueueConfigured } from "@arc/resume-parse-queue/mail-ingest-trigger";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
   jobDescription,
@@ -24,6 +22,7 @@ import {
 } from "@arc/db-schema/schema";
 import { parseListTextFilters } from "@arc/shared/list-text-filters";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import type {
@@ -77,7 +76,11 @@ function summarizePoolItems(items: { resumeParseStatus: string | null }[]) {
 
 @Injectable()
 export class MailIngestService {
-  constructor(@Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort) {}
+  constructor(
+    @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
+  ) {}
 
   async listOwn(organizationId: string, userId: string) {
     const rows = await this.database
@@ -94,7 +97,7 @@ export class MailIngestService {
   }
 
   private secretKey() {
-    const value = process.env.MAIL_INGEST_SECRET_KEY?.trim();
+    const value = rawBackendEnvironment.MAIL_INGEST_SECRET_KEY?.trim();
     if (!value) {
       throw new Error("MAIL_INGEST_SECRET_KEY is not set.");
     }
@@ -639,12 +642,12 @@ export class MailIngestService {
   }
 
   async pollNow(organizationId: string) {
-    if (!isMailIngestTriggerQueueConfigured()) {
+    if (!isMailIngestTriggerQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("邮箱轮训队列未配置 REDIS_URL。", {
         errorCode: "MAIL_INGEST_QUEUE_UNAVAILABLE",
       });
     }
-    await enqueueMailIngestTrigger({ organizationId });
+    await this.queueProducer.enqueueMailIngestTrigger({ organizationId });
     return { status: "queued" } as const;
   }
 }

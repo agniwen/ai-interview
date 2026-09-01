@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { parseListTextFilters } from "@arc/shared/list-text-filters";
@@ -53,7 +54,7 @@ export class WorkspaceMembersService {
       providers.set(row.userId, values);
     }
     return {
-      feishuHumanInterviewEnabled: process.env.FEISHU_HUMAN_INTERVIEW_ENABLED === "true",
+      feishuHumanInterviewEnabled: rawBackendEnvironment.FEISHU_HUMAN_INTERVIEW_ENABLED === "true",
       records: rows.map((row) => ({
         ...row,
         createdAt: row.createdAt.toISOString(),

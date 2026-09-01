@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { member, organizationRole, user, workspaceInviteLink } from "@arc/db-schema/schema";
@@ -82,9 +83,11 @@ export class InviteLinkService {
     inviterName: string;
     workspaceName: string;
   }) {
-    const apiKey = process.env.RESEND_API_KEY;
-    const fromValue = process.env.RESEND_FROM;
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
+    const apiKey = rawBackendEnvironment.RESEND_API_KEY;
+    const fromValue = rawBackendEnvironment.RESEND_FROM;
+    const baseUrl =
+      rawBackendEnvironment.NEXT_PUBLIC_BASE_URL?.trim() ||
+      rawBackendEnvironment.BETTER_AUTH_URL?.trim();
     if (!(apiKey && fromValue && baseUrl)) {
       throw new Error("邀请邮件配置不完整");
     }

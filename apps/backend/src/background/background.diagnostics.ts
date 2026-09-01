@@ -1,6 +1,7 @@
 /* oxlint-disable class-methods-use-this, typescript/parameter-properties -- Nest constructor injection and pure queue mappers are intentional module boundaries. */
 import { Inject, Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
+import { MEETING_ANSWER_QUEUE_NAME } from "@arc/meeting-processing-queue/meeting-answer";
 import {
   MEETING_INTELLIGENCE_QUEUE_NAME,
   resolveMeetingIntelligenceWorkerConcurrency,
@@ -9,13 +10,17 @@ import {
   MEETING_PLAYBACK_QUEUE_NAME,
   resolveMeetingPlaybackWorkerConcurrency,
 } from "@arc/meeting-processing-queue/meeting-playback";
+import { MEETING_PURGE_QUEUE_NAME } from "@arc/meeting-processing-queue/meeting-purge";
 import {
   MEETING_TRANSCRIPTION_QUEUE_NAME,
   resolveMeetingTranscriptionWorkerConcurrency,
 } from "@arc/meeting-processing-queue/meeting-transcription";
 import { RESUME_PARSE_QUEUE_NAME } from "@arc/resume-parse-queue/resume-parse";
+import { MAIL_INGEST_TRIGGER_QUEUE_NAME } from "@arc/resume-parse-queue/mail-ingest-trigger";
 import { RESUME_REVIEW_GENERATION_QUEUE_NAME } from "@arc/resume-parse-queue/resume-review-generation";
+import { RESUME_SEMANTIC_INDEX_QUEUE_NAME } from "@arc/resume-parse-queue/resume-semantic-index";
 import type { Queue } from "bullmq";
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { BackgroundRecoveryService } from "./background.recovery.js";
 import { BACKGROUND_WORKLOAD_ADAPTER } from "./background.types.js";
 import type {
@@ -56,10 +61,18 @@ export class BackgroundDiagnosticsService {
     private readonly recovery: BackgroundRecoveryService,
     @InjectQueue(RESUME_PARSE_QUEUE_NAME)
     private readonly resumeParseQueue: Queue,
+    @InjectQueue(RESUME_SEMANTIC_INDEX_QUEUE_NAME)
+    private readonly resumeSemanticIndexQueue: Queue,
     @InjectQueue(RESUME_REVIEW_GENERATION_QUEUE_NAME)
     private readonly resumeReviewGenerationQueue: Queue,
+    @InjectQueue(MAIL_INGEST_TRIGGER_QUEUE_NAME)
+    private readonly mailIngestTriggerQueue: Queue,
+    @InjectQueue(MEETING_ANSWER_QUEUE_NAME)
+    private readonly meetingAnswerQueue: Queue,
     @InjectQueue(MEETING_PLAYBACK_QUEUE_NAME)
     private readonly meetingPlaybackQueue: Queue,
+    @InjectQueue(MEETING_PURGE_QUEUE_NAME)
+    private readonly meetingPurgeQueue: Queue,
     @InjectQueue(MEETING_TRANSCRIPTION_QUEUE_NAME)
     private readonly meetingTranscriptionQueue: Queue,
     @InjectQueue(MEETING_INTELLIGENCE_QUEUE_NAME)
@@ -126,7 +139,16 @@ export class BackgroundDiagnosticsService {
       return "Background workers are not ready";
     }
     try {
-      await Promise.all([this.adapter.pingDependencies(), this.resumeParseQueue.waitUntilReady()]);
+      this.adapter.assertConfigured();
+    } catch {
+      return "Feature configuration is incomplete";
+    }
+    try {
+      await Promise.all([
+        this.adapter.pingDependencies(),
+        this.resumeParseQueue.getJobCounts("waiting"),
+        ...this.queues().map((queue) => queue.waitUntilReady()),
+      ]);
       return null;
     } catch {
       return "Dependency check failed";
@@ -139,12 +161,18 @@ export class BackgroundDiagnosticsService {
     mediaFinalization: BackgroundQueueStats;
   }> {
     const [mediaFinalization, finalTranscription, intelligence] = await Promise.all([
-      this.queueStats(this.meetingPlaybackQueue, resolveMeetingPlaybackWorkerConcurrency()),
+      this.queueStats(
+        this.meetingPlaybackQueue,
+        resolveMeetingPlaybackWorkerConcurrency(rawBackendEnvironment),
+      ),
       this.queueStats(
         this.meetingTranscriptionQueue,
-        resolveMeetingTranscriptionWorkerConcurrency(),
+        resolveMeetingTranscriptionWorkerConcurrency(rawBackendEnvironment),
       ),
-      this.queueStats(this.meetingIntelligenceQueue, resolveMeetingIntelligenceWorkerConcurrency()),
+      this.queueStats(
+        this.meetingIntelligenceQueue,
+        resolveMeetingIntelligenceWorkerConcurrency(rawBackendEnvironment),
+      ),
     ]);
     return { finalTranscription, intelligence, mediaFinalization };
   }
@@ -189,5 +217,19 @@ export class BackgroundDiagnosticsService {
       paused: counts.paused ?? 0,
       waiting: counts.waiting ?? 0,
     };
+  }
+
+  private queues(): Queue[] {
+    return [
+      this.resumeParseQueue,
+      this.resumeSemanticIndexQueue,
+      this.resumeReviewGenerationQueue,
+      this.mailIngestTriggerQueue,
+      this.meetingAnswerQueue,
+      this.meetingPlaybackQueue,
+      this.meetingPurgeQueue,
+      this.meetingIntelligenceQueue,
+      this.meetingTranscriptionQueue,
+    ];
   }
 }

@@ -1,6 +1,6 @@
 /* oxlint-disable typescript/consistent-type-imports, typescript/parameter-properties -- Nest lifecycle and BullRegistrar tokens require runtime constructor metadata. */
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import type { OnApplicationBootstrap, OnApplicationShutdown } from "@nestjs/common";
+import type { OnApplicationBootstrap } from "@nestjs/common";
 import { BullRegistrar, InjectQueue } from "@nestjs/bullmq";
 import { MEETING_ANSWER_QUEUE_NAME } from "@arc/meeting-processing-queue/meeting-answer";
 import { MEETING_INTELLIGENCE_QUEUE_NAME } from "@arc/meeting-processing-queue/meeting-intelligence";
@@ -12,11 +12,8 @@ import { RESUME_PARSE_QUEUE_NAME } from "@arc/resume-parse-queue/resume-parse";
 import { RESUME_REVIEW_GENERATION_QUEUE_NAME } from "@arc/resume-parse-queue/resume-review-generation";
 import { RESUME_SEMANTIC_INDEX_QUEUE_NAME } from "@arc/resume-parse-queue/resume-semantic-index";
 import type { Queue } from "bullmq";
-import {
-  assertBackgroundRedisConfigured,
-  isBackgroundWorkersEnabled,
-  isResumeSemanticIndexEnabled,
-} from "./background.config.js";
+import { BackendConfigService } from "../config/backend-config.service.js";
+import { DRAIN_ORDER, DrainCoordinatorService } from "../runtime/drain-coordinator.service.js";
 import { BackgroundDiagnosticsService } from "./background.diagnostics.js";
 import { BackgroundProcessorRegistry } from "./background.processors.js";
 import { BackgroundRecoveryService } from "./background.recovery.js";
@@ -36,15 +33,17 @@ export interface BackgroundLifecycle {
 }
 
 @Injectable()
-export class BackgroundLifecycleService
-  implements BackgroundLifecycle, OnApplicationBootstrap, OnApplicationShutdown
-{
-  private readonly enabled = isBackgroundWorkersEnabled();
+export class BackgroundLifecycleService implements BackgroundLifecycle, OnApplicationBootstrap {
+  private readonly enabled: boolean;
+  private readonly redisConfigured: boolean;
+  private readonly resumeSemanticIndexEnabled: boolean;
   private readonly logger = new Logger(BackgroundLifecycleService.name);
-  private closePromise: Promise<void> | null = null;
+  private finalizePromise: Promise<void> | null = null;
+  private processorClosePromise: Promise<void> | null = null;
+  private quiescePromise: Promise<void> | null = null;
   private snapshot: BackgroundLifecycleSnapshot = {
     draining: false,
-    enabled: this.enabled,
+    enabled: false,
     lastStartupError: null,
     ready: false,
     registered: false,
@@ -61,6 +60,8 @@ export class BackgroundLifecycleService
     private readonly mailIngest: MailIngestSchedulerService,
     private readonly notifications: InterviewNotificationSchedulerService,
     diagnostics: BackgroundDiagnosticsService,
+    @Inject(DrainCoordinatorService) drainCoordinator: DrainCoordinatorService,
+    @Inject(BackendConfigService) config: BackendConfigService,
     @InjectQueue(RESUME_PARSE_QUEUE_NAME) private readonly resumeParseQueue: Queue,
     @InjectQueue(RESUME_SEMANTIC_INDEX_QUEUE_NAME)
     private readonly resumeSemanticIndexQueue: Queue,
@@ -75,15 +76,25 @@ export class BackgroundLifecycleService
     @InjectQueue(MEETING_TRANSCRIPTION_QUEUE_NAME)
     private readonly meetingTranscriptionQueue: Queue,
   ) {
+    this.enabled = config.get("BACKGROUND_WORKERS_ENABLED");
+    this.redisConfigured = Boolean(config.get("REDIS_URL"));
+    this.resumeSemanticIndexEnabled = config.get("RESUME_SEMANTIC_INDEX_ENABLED");
+    this.snapshot = { ...this.snapshot, enabled: this.enabled };
     diagnostics.bindLifecycle(this);
+    drainCoordinator.register({
+      drain: () => this.quiesce(),
+      name: "background-intake",
+      order: DRAIN_ORDER.backgroundQuiesce,
+    });
+    drainCoordinator.register({
+      drain: () => this.finalize(),
+      name: "background-resources",
+      order: DRAIN_ORDER.backgroundFinalize,
+    });
   }
 
   async onApplicationBootstrap(): Promise<void> {
     await this.start();
-  }
-
-  async onApplicationShutdown(): Promise<void> {
-    await this.close();
   }
 
   async start(): Promise<void> {
@@ -95,7 +106,9 @@ export class BackgroundLifecycleService
       return;
     }
     try {
-      assertBackgroundRedisConfigured();
+      if (!this.redisConfigured) {
+        throw new Error("REDIS_URL is required when BACKGROUND_WORKERS_ENABLED is enabled.");
+      }
       this.adapter.assertConfigured();
       this.bullRegistrar.register();
       this.snapshot = { ...this.snapshot, registered: true };
@@ -105,7 +118,7 @@ export class BackgroundLifecycleService
       this.notifications.start();
       this.processors.start({
         mailIngest: this.mailIngest.enabled,
-        resumeSemanticIndex: isResumeSemanticIndexEnabled(),
+        resumeSemanticIndex: this.resumeSemanticIndexEnabled,
         transcription: transcriptionEnabled,
       });
       this.snapshot = {
@@ -130,19 +143,39 @@ export class BackgroundLifecycleService
   }
 
   async close(): Promise<void> {
-    this.closePromise ??= this.closeOnce();
-    await this.closePromise;
+    await this.finalize();
   }
 
-  private async closeOnce(): Promise<void> {
+  private async quiesce(): Promise<void> {
+    this.quiescePromise ??= this.quiesceOnce();
+    await this.quiescePromise;
+  }
+
+  private async quiesceOnce(): Promise<void> {
     this.snapshot = { ...this.snapshot, draining: true, ready: false };
-    await Promise.allSettled([
+
+    const intakeClosures = [
       this.mailIngest.close(),
       this.notifications.close(),
       this.recovery.close(),
-    ]);
+    ];
+
     if (this.snapshot.registered) {
-      await this.processors.close();
+      this.processorClosePromise ??= this.processors.close();
+    }
+
+    await Promise.allSettled(intakeClosures);
+  }
+
+  private async finalize(): Promise<void> {
+    this.finalizePromise ??= this.finalizeOnce();
+    await this.finalizePromise;
+  }
+
+  private async finalizeOnce(): Promise<void> {
+    await this.quiesce();
+    if (this.snapshot.registered) {
+      await this.processorClosePromise;
       await Promise.allSettled(this.queues().map((queue) => queue.close()));
     }
     this.snapshot = { ...this.snapshot, draining: false, registered: false };

@@ -1,3 +1,5 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { Injectable } from "@nestjs/common";
 import { Readable } from "node:stream";
@@ -8,8 +10,8 @@ interface Configuration {
   prefix: string;
 }
 
-function required(name: string) {
-  const value = process.env[name]?.trim();
+function required(name: BackendEnvironmentKey) {
+  const value = rawBackendEnvironment[name]?.trim();
   if (!value) {
     throw new Error(`S3 storage is not configured: ${name} is required`);
   }
@@ -29,12 +31,12 @@ export class ChatStorage {
           secretAccessKey: required("S3_SECRET_ACCESS_KEY"),
         },
         endpoint: new URL(required("S3_ENDPOINT")).origin,
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
         region: required("S3_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",
       }),
-      prefix: process.env.S3_KEY_PREFIX?.replaceAll(/^\/+|\/+$/gu, "") ?? "",
+      prefix: rawBackendEnvironment.S3_KEY_PREFIX?.replaceAll(/^\/+|\/+$/gu, "") ?? "",
     };
     return this.configuration;
   }

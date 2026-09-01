@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../config/raw-backend-environment.js";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
@@ -29,7 +30,7 @@ const qdrantResponseSchema = z.object({
 
 function enabled(): boolean {
   return ["1", "true", "yes"].includes(
-    process.env.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase() ?? "",
+    rawBackendEnvironment.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase() ?? "",
   );
 }
 
@@ -162,8 +163,9 @@ export class WorkspaceResumeSemanticAdapter implements WorkspaceResumeSemanticPo
       return [];
     }
 
-    const apiKey = process.env.RESUME_EMBEDDING_API_KEY || process.env.ALIBABA_API_KEY;
-    const qdrantUrl = process.env.QDRANT_URL?.trim();
+    const apiKey =
+      rawBackendEnvironment.RESUME_EMBEDDING_API_KEY || rawBackendEnvironment.ALIBABA_API_KEY;
+    const qdrantUrl = rawBackendEnvironment.QDRANT_URL?.trim();
     if (!(apiKey && qdrantUrl)) {
       throw new Error(
         "Resume semantic search requires RESUME_EMBEDDING_API_KEY/ALIBABA_API_KEY and QDRANT_URL",
@@ -171,13 +173,17 @@ export class WorkspaceResumeSemanticAdapter implements WorkspaceResumeSemanticPo
     }
     const semanticChunks = chunks(resumeProfile);
     const baseUrl = (
-      process.env.RESUME_EMBEDDING_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      rawBackendEnvironment.RESUME_EMBEDDING_BASE_URL ||
+      "https://dashscope.aliyuncs.com/compatible-mode/v1"
     ).replace(/\/+$/, "");
     const embeddingResponse = await fetch(`${baseUrl}/embeddings`, {
       body: JSON.stringify({
-        dimensions: Number.parseInt(process.env.RESUME_EMBEDDING_DIMENSIONS || "1024", 10),
+        dimensions: Number.parseInt(
+          rawBackendEnvironment.RESUME_EMBEDDING_DIMENSIONS || "1024",
+          10,
+        ),
         input: semanticChunks.map((chunk) => chunk.text),
-        model: process.env.RESUME_EMBEDDING_MODEL || "text-embedding-v4",
+        model: rawBackendEnvironment.RESUME_EMBEDDING_MODEL || "text-embedding-v4",
       }),
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       method: "POST",
@@ -191,11 +197,11 @@ export class WorkspaceResumeSemanticAdapter implements WorkspaceResumeSemanticPo
     }
 
     const qdrant = new QdrantClient({
-      apiKey: process.env.QDRANT_API_KEY || undefined,
+      apiKey: rawBackendEnvironment.QDRANT_API_KEY || undefined,
       checkCompatibility: false,
       url: qdrantUrl,
     });
-    const collection = process.env.QDRANT_RESUME_COLLECTION || "resume_semantic_v1";
+    const collection = rawBackendEnvironment.QDRANT_RESUME_COLLECTION || "resume_semantic_v1";
     const searches = await Promise.all(
       semanticChunks.map(async (chunk, index) => {
         const embedding = embedded.data[index]?.embedding;

@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, no-nested-ternary, typescript/consistent-type-imports -- Intelligence remains transactional; Nest needs MeetingCoreService at runtime. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ForbiddenException,
   Inject,
@@ -17,7 +18,6 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import {
-  enqueueMeetingIntelligenceJobs,
   isMeetingIntelligenceQueueConfigured,
   MEETING_INTELLIGENCE_PIPELINE_VERSION,
   MEETING_INTELLIGENCE_PROMPT_VERSION,
@@ -28,12 +28,14 @@ import {
 } from "@arc/shared/meeting-intelligence";
 import type { MeetingIntelligenceTemplate } from "@arc/shared/meeting-intelligence";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import { MeetingCoreService } from "./meeting-core.service.js";
 
 function generatorSnapshot() {
-  const model = process.env.MEETING_INTELLIGENCE_MODEL?.trim() || "alibaba/deepseek-v4-flash-0731";
+  const model =
+    rawBackendEnvironment.MEETING_INTELLIGENCE_MODEL?.trim() || "alibaba/deepseek-v4-flash-0731";
   return { model, provider: model.split("/", 1)[0] || "unknown" };
 }
 
@@ -42,6 +44,8 @@ export class MeetingIntelligenceService {
   constructor(
     @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
     private readonly core: MeetingCoreService,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
 
   private async required(
@@ -127,7 +131,7 @@ export class MeetingIntelligenceService {
   }
 
   async requestAutomatic(organizationId: string, meetingId: string): Promise<void> {
-    if (!isMeetingIntelligenceQueueConfigured()) {
+    if (!isMeetingIntelligenceQueueConfigured(rawBackendEnvironment)) {
       return;
     }
     const generator = generatorSnapshot();
@@ -226,7 +230,7 @@ export class MeetingIntelligenceService {
       return;
     }
     try {
-      await enqueueMeetingIntelligenceJobs([run]);
+      await this.queueProducer.enqueueMeetingIntelligenceJobs([run]);
     } catch (error) {
       console.error("[meeting-intelligence] failed to enqueue automatic processing run", {
         errorName: error instanceof Error ? error.name : "UnknownError",
@@ -248,7 +252,7 @@ export class MeetingIntelligenceService {
         errorCode: "MEETING_INTELLIGENCE_FORBIDDEN",
       });
     }
-    if (!isMeetingIntelligenceQueueConfigured()) {
+    if (!isMeetingIntelligenceQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("Meeting Intelligence 队列暂不可用", {
         errorCode: "MEETING_INTELLIGENCE_QUEUE_UNAVAILABLE",
       });
@@ -338,7 +342,7 @@ export class MeetingIntelligenceService {
       return { processingRunId };
     });
     try {
-      await enqueueMeetingIntelligenceJobs([run]);
+      await this.queueProducer.enqueueMeetingIntelligenceJobs([run]);
     } catch (error) {
       console.error("[meeting-intelligence] failed to enqueue processing run", {
         errorName: error instanceof Error ? error.name : "UnknownError",

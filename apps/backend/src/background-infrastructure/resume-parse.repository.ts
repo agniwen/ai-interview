@@ -1,4 +1,5 @@
 /* oxlint-disable max-lines -- File extraction, AI parsing, CAS persistence, and enrichment dispatch form one retryable workflow. */
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -24,10 +25,9 @@ import {
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { enqueueResumeReviewGenerationJobs } from "@arc/resume-parse-queue/resume-review-generation";
-import { enqueueResumeSemanticIndexJobs } from "@arc/resume-parse-queue/resume-semantic-index";
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../infrastructure/database/database.tokens.js";
+import type { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
 import type { ResumeParseProcessorPorts } from "../background-workloads/processors/resume.processor.js";
 import type { BackgroundObjectStorageService } from "./background-object-storage.service.js";
 
@@ -167,7 +167,7 @@ async function convertLegacyOffice(input: {
   try {
     await writeFile(source, input.bytes);
     await execFileAsync(
-      process.env.LIBREOFFICE_BIN || "soffice",
+      rawBackendEnvironment.LIBREOFFICE_BIN || "soffice",
       ["--headless", "--convert-to", targetExtension, "--outdir", directory, source],
       { timeout: 120_000 },
     );
@@ -253,16 +253,19 @@ export class ResumeParseInfrastructure implements ResumeParseProcessorPorts {
   private readonly client: OpenAI;
   private readonly database: Database;
   private readonly env: NodeJS.ProcessEnv;
+  private readonly queueProducer: BackgroundQueueProducerService;
   private readonly storage: BackgroundObjectStorageService;
 
   constructor(
     database: Database,
     storage: BackgroundObjectStorageService,
-    env: NodeJS.ProcessEnv = process.env,
+    queueProducer: BackgroundQueueProducerService,
+    env: NodeJS.ProcessEnv = rawBackendEnvironment,
   ) {
     this.database = database;
     this.storage = storage;
     this.env = env;
+    this.queueProducer = queueProducer;
     this.client = new OpenAI({
       apiKey: env.ALIBABA_API_KEY?.trim() || "missing",
       baseURL: env.ALIBABA_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -558,7 +561,7 @@ export class ResumeParseInfrastructure implements ResumeParseProcessorPorts {
             eq(studioInterview.resumeParseStatus, "processing"),
           ),
         );
-      await enqueueResumeReviewGenerationJobs([
+      await this.queueProducer.enqueueResumeReviewGenerationJobs([
         {
           autoMatchJobDescription: claimed.batch.jdMode === "auto",
           generationToken: claimed.item.id,
@@ -581,7 +584,7 @@ export class ResumeParseInfrastructure implements ResumeParseProcessorPorts {
         .where(
           and(eq(resumePoolItem.id, target.id), eq(resumePoolItem.resumeParseStatus, "processing")),
         );
-      await enqueueResumeReviewGenerationJobs([
+      await this.queueProducer.enqueueResumeReviewGenerationJobs([
         {
           autoMatchJobDescription: claimed.batch.jdMode === "auto",
           generationToken: claimed.item.id,
@@ -592,7 +595,7 @@ export class ResumeParseInfrastructure implements ResumeParseProcessorPorts {
         },
       ]);
     }
-    await enqueueResumeSemanticIndexJobs([
+    await this.queueProducer.enqueueResumeSemanticIndexJobs([
       {
         organizationId: claimed.batch.organizationId,
         sourceId: target.id,

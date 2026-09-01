@@ -1,5 +1,7 @@
 /* oxlint-disable typescript/no-extraneous-class -- Nest modules are declarative classes. */
 import { Module } from "@nestjs/common";
+import { BackgroundQueueProducerService } from "../background/background-queue-producer.service.js";
+import { BackgroundQueueModule } from "../background/background-queue.module.js";
 import { MIGRATED_BACKGROUND_WORKLOAD_ADAPTER } from "../background-workloads/background-workload.infrastructure.module.js";
 import { createMigratedBackgroundWorkloadAdapter } from "../background-workloads/compose-background-workload.ports.js";
 import {
@@ -27,7 +29,7 @@ import { ResumeSemanticInfrastructure } from "./resume-semantic.repository.js";
 
 @Module({
   exports: [MIGRATED_BACKGROUND_WORKLOAD_ADAPTER],
-  imports: [BackgroundCoreInfrastructureModule],
+  imports: [BackgroundCoreInfrastructureModule, BackgroundQueueModule.register()],
   providers: [
     {
       inject: [
@@ -45,6 +47,7 @@ import { ResumeSemanticInfrastructure } from "./resume-semantic.repository.js";
         MeetingTranscriptionInfrastructure,
         ResumeParseInfrastructure,
         ResumeReviewInfrastructure,
+        BackgroundQueueProducerService,
       ],
       provide: MIGRATED_BACKGROUND_WORKLOAD_ADAPTER,
       useFactory(
@@ -62,6 +65,7 @@ import { ResumeSemanticInfrastructure } from "./resume-semantic.repository.js";
         transcription: MeetingTranscriptionInfrastructure,
         resumeParse: ResumeParseInfrastructure,
         review: ResumeReviewInfrastructure,
+        queueProducer: BackgroundQueueProducerService,
       ) {
         const bindings = createBackgroundCoreBindings(core, intelligenceRecovery);
         return createMigratedBackgroundWorkloadAdapter({
@@ -85,6 +89,7 @@ import { ResumeSemanticInfrastructure } from "./resume-semantic.repository.js";
           meetingPlayback: {
             listRecoverable: () => recovery.listRecoverableMeetingPlaybackJobs(),
             processor: createMeetingPlaybackInfrastructure({
+              queueProducer,
               recovery,
               repository: playback,
               storage,

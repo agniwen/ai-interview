@@ -1,4 +1,5 @@
 /* oxlint-disable max-classes-per-file, require-await -- The local rate-limit error belongs to this service, and async port methods intentionally preserve their Promise contract. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { meetingLiveTranscriptLease } from "@arc/db-schema/schema";
 import type {
@@ -52,7 +53,7 @@ export class MeetingLiveTranscriptService {
   async authorize(
     input: TrackLeaseIdentity,
   ): Promise<MeetingLiveTranscriptAuthorization | "capacity" | "unavailable"> {
-    const apiKey = process.env.ALIBABA_API_KEY?.trim();
+    const apiKey = rawBackendEnvironment.ALIBABA_API_KEY?.trim();
     if (!apiKey) {
       return "unavailable";
     }
@@ -204,7 +205,7 @@ export class MeetingLiveTranscriptService {
           .from(meetingLiveTranscriptLease)
           .where(gt(meetingLiveTranscriptLease.expiresAt, now));
         const parsed = Number.parseInt(
-          process.env.MEETING_LIVE_TRANSCRIPT_CONCURRENCY || "100",
+          rawBackendEnvironment.MEETING_LIVE_TRANSCRIPT_CONCURRENCY || "100",
           10,
         );
         const capacity = Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
@@ -243,13 +244,14 @@ export class MeetingLiveTranscriptService {
     apiKey: string,
   ): Promise<MeetingLiveTranscriptAuthorization> {
     const rawBaseUrl =
-      process.env.MEETING_TRANSCRIPTION_QWEN_BASE_URL?.trim() ||
-      process.env.ALIBABA_BASE_URL?.trim() ||
+      rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_BASE_URL?.trim() ||
+      rawBackendEnvironment.ALIBABA_BASE_URL?.trim() ||
       "https://dashscope.aliyuncs.com";
     const { origin } = new URL(rawBaseUrl);
-    const model = process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL?.trim() || DEFAULT_MODEL;
+    const model =
+      rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL?.trim() || DEFAULT_MODEL;
     const requestedTtl = Number.parseInt(
-      process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS || "1800",
+      rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_LIVE_TOKEN_TTL_SECONDS || "1800",
       10,
     );
     const ttl = Number.isFinite(requestedTtl)
@@ -266,13 +268,14 @@ export class MeetingLiveTranscriptService {
       );
     }
     const token = tokenResponseSchema.parse(await response.json());
-    const thresholdRaw = process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD;
+    const thresholdRaw =
+      rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_LIVE_SPEECH_NOISE_THRESHOLD;
     const threshold = thresholdRaw?.trim() ? Number(thresholdRaw) : undefined;
     const authorization: MeetingLiveTranscriptAuthorization = {
       baseUrl: `wss://${new URL(origin).hostname}/api-ws/v1/${model.startsWith(DEFAULT_MODEL) ? "inference" : "realtime"}`,
       clientSecret: token.token,
       expiresAt: new Date(token.expires_at * 1000).toISOString(),
-      language: process.env.MEETING_TRANSCRIPTION_QWEN_LIVE_LANGUAGE?.trim() || undefined,
+      language: rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_LIVE_LANGUAGE?.trim() || undefined,
       model,
       provider: "qwen",
       track: input.track,

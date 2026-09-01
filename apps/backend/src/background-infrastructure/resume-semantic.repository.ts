@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, anti-slop/no-unknown-parameters -- Stable JSON hashing and status projection are internal deterministic boundaries. */
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { createHash } from "node:crypto";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -65,7 +66,7 @@ export class ResumeSemanticInfrastructure implements ResumeSemanticIndexProcesso
   private readonly database: Database;
   private readonly env: NodeJS.ProcessEnv;
 
-  constructor(database: Database, env: NodeJS.ProcessEnv = process.env) {
+  constructor(database: Database, env: NodeJS.ProcessEnv = rawBackendEnvironment) {
     this.database = database;
     this.env = env;
   }

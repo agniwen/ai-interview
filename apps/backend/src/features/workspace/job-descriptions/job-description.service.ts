@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-conditional-empty-object-spread -- Database conflict causes and versioned job-description payloads are normalized at this boundary; conditional properties intentionally preserve the legacy response omission contract. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,
   ConflictException,
@@ -30,11 +31,11 @@ import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,
 } from "@arc/shared/resume-screening";
-import { enqueueResumeSemanticIndexJobs } from "@arc/resume-parse-queue/resume-semantic-index";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { and, asc, count, desc, eq, ilike, inArray, max, ne, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import type {
@@ -119,7 +120,11 @@ function parseStructured(value: typeof jobDescription.$inferSelect.structuredCon
 
 @Injectable()
 export class JobDescriptionService {
-  constructor(@Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort) {}
+  constructor(
+    @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
+  ) {}
 
   aiGenerate(input: AiGenerateInput) {
     return generateJobDraft(input);
@@ -438,14 +443,15 @@ export class JobDescriptionService {
   private async enqueueIndex(organizationId: string, jobDescriptionId: string) {
     if (
       !(
-        process.env.QDRANT_URL?.trim() &&
-        (process.env.RESUME_EMBEDDING_API_KEY?.trim() || process.env.ALIBABA_API_KEY?.trim())
+        rawBackendEnvironment.QDRANT_URL?.trim() &&
+        (rawBackendEnvironment.RESUME_EMBEDDING_API_KEY?.trim() ||
+          rawBackendEnvironment.ALIBABA_API_KEY?.trim())
       )
     ) {
       return;
     }
     try {
-      await enqueueResumeSemanticIndexJobs([
+      await this.queueProducer.enqueueResumeSemanticIndexJobs([
         { organizationId, sourceId: jobDescriptionId, sourceType: "job_description" },
       ]);
     } catch (error) {
@@ -666,23 +672,26 @@ export class JobDescriptionService {
           updatedAt: new Date(),
         })
         .where(semanticFilter);
-      const qdrantUrl = process.env.QDRANT_URL?.trim();
+      const qdrantUrl = rawBackendEnvironment.QDRANT_URL?.trim();
       if (qdrantUrl) {
         const client = new QdrantClient({
-          apiKey: process.env.QDRANT_API_KEY?.trim() || undefined,
+          apiKey: rawBackendEnvironment.QDRANT_API_KEY?.trim() || undefined,
           checkCompatibility: false,
           url: qdrantUrl,
         });
-        await client.delete(process.env.QDRANT_RESUME_COLLECTION?.trim() || "resume_semantic_v1", {
-          filter: {
-            must: [
-              { key: "sourceType", match: { value: "job_description" } },
-              { key: "sourceId", match: { value: id } },
-              { key: "organizationId", match: { value: organizationId } },
-            ],
+        await client.delete(
+          rawBackendEnvironment.QDRANT_RESUME_COLLECTION?.trim() || "resume_semantic_v1",
+          {
+            filter: {
+              must: [
+                { key: "sourceType", match: { value: "job_description" } },
+                { key: "sourceId", match: { value: id } },
+                { key: "organizationId", match: { value: organizationId } },
+              ],
+            },
+            wait: true,
           },
-          wait: true,
-        });
+        );
         await this.database
           .update(resumeSemanticIndex)
           .set({

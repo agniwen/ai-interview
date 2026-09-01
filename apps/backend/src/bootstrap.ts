@@ -1,20 +1,18 @@
 import "reflect-metadata";
 
-import {
-  ConsoleLogger,
-  StandardSchemaSerializerInterceptor,
-  StandardSchemaValidationPipe,
-} from "@nestjs/common";
+import { StandardSchemaSerializerInterceptor, StandardSchemaValidationPipe } from "@nestjs/common";
 import type { INestApplication, LoggerService, LogLevel } from "@nestjs/common";
 import { HttpAdapterHost, NestFactory, Reflector } from "@nestjs/core";
 import { SwaggerModule } from "@nestjs/swagger";
 import { toNodeHandler } from "better-auth/node";
+import cors from "cors";
 import express from "express";
 import type { Express } from "express";
-import { AppModule } from "./app.module.js";
 import { BACKEND_AUTH } from "./auth/auth.tokens.js";
 import type { BackendAuth } from "./auth/better-auth.factory.js";
 import { MachineReadableHttpExceptionFilter } from "./infrastructure/http/machine-readable-http-exception.filter.js";
+import { CorrelatedConsoleLogger } from "./observability/correlated-console.logger.js";
+import { RequestCorrelationMiddleware } from "./observability/request-correlation.middleware.js";
 import { createBackendOpenApiDocument } from "./openapi/create-openapi-document.js";
 
 export { createBackendOpenApiDocument } from "./openapi/create-openapi-document.js";
@@ -35,11 +33,12 @@ export async function createBackendApplication(
     process.env.READINESS_DATABASE_CHECK_ENABLED = String(options.readinessDatabaseCheck);
   }
 
+  const { AppModule } = await import("./app.module.js");
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
     logger:
       options.logger ??
-      new ConsoleLogger({
+      new CorrelatedConsoleLogger({
         colors: process.env.NODE_ENV !== "production",
         json: process.env.NODE_ENV === "production",
         prefix: "arc-backend",
@@ -47,12 +46,6 @@ export async function createBackendApplication(
     routeConflictPolicy: { duplicate: "error", shadow: "warn" },
     routeResolutionStrategy: "specificity",
   });
-
-  // SAFETY: Nest's Express adapter owns an Express application instance at this bootstrap boundary.
-  const expressApp = app.getHttpAdapter().getInstance() as Express;
-  expressApp.all("/api/auth/*splat", toNodeHandler(app.get<BackendAuth>(BACKEND_AUTH)));
-  expressApp.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "10mb" }));
-  expressApp.use(express.urlencoded({ extended: true }));
 
   const trustedOrigins = new Set(
     [
@@ -69,10 +62,25 @@ export async function createBackendApplication(
       .map((origin) => origin?.trim())
       .filter((origin): origin is string => Boolean(origin)),
   );
-  app.enableCors({
-    credentials: true,
-    origin: [...trustedOrigins],
-  });
+  // SAFETY: Nest's Express adapter owns an Express application instance at this bootstrap boundary.
+  const expressApp = app.getHttpAdapter().getInstance() as Express;
+  const requestCorrelation = new RequestCorrelationMiddleware();
+  expressApp.use(requestCorrelation.use.bind(requestCorrelation));
+  expressApp.use(
+    "/api",
+    cors({
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
+      exposedHeaders: ["Content-Length"],
+      maxAge: 600,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      // oxlint-disable-next-line promise/prefer-await-to-callbacks -- The cors origin delegate contract is callback-only.
+      origin: (origin, callback) => callback(null, !origin || trustedOrigins.has(origin)),
+    }),
+  );
+  expressApp.all("/api/auth/*splat", toNodeHandler(app.get<BackendAuth>(BACKEND_AUTH)));
+  expressApp.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "10mb" }));
+  expressApp.use(express.urlencoded({ extended: true }));
 
   app.useGlobalFilters(new MachineReadableHttpExceptionFilter(app.get(HttpAdapterHost)));
   app.useGlobalPipes(new StandardSchemaValidationPipe({ transform: true }));

@@ -1,4 +1,6 @@
 /* oxlint-disable complexity, max-lines -- The upload batch transaction and inbox projection intentionally remain co-located so the migrated HTTP contract and queue state machine can be audited together. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   BadRequestException,
@@ -27,7 +29,6 @@ import {
 } from "@arc/shared/resume-documents";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
-  enqueueResumeParseJobs,
   getResumeParseQueueJobsByItemIds,
   isResumeParseQueueConfigured,
   removeResumeParseJobs,
@@ -35,6 +36,7 @@ import {
 import { UPLOAD_TASK_INBOX_PAGE_SIZE } from "@arc/shared/upload-task-inbox";
 import { and, asc, count, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import type { createResumeUploadBatchSchema } from "./resume-upload-batch.schemas.js";
@@ -83,8 +85,8 @@ function itemDto(row: typeof resumeUploadBatchItem.$inferSelect) {
     status: row.status,
   };
 }
-function required(name: string) {
-  const value = process.env[name]?.trim();
+function required(name: BackendEnvironmentKey) {
+  const value = rawBackendEnvironment[name]?.trim();
   if (!value) {
     throw new Error(`S3 storage is not configured: ${name} is required`);
   }
@@ -100,12 +102,12 @@ function candidateName(fileName: string) {
 }
 function isCacheEnabled() {
   return !["1", "true", "yes"].includes(
-    process.env.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase() ?? "",
+    rawBackendEnvironment.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase() ?? "",
   );
 }
 function isCacheSourceCompatible(source: string | null | undefined) {
   const aliyun = source === "aliyun-docmining";
-  const provider = process.env.RESUME_PARSE_PROVIDER?.trim() || "ocr-llm";
+  const provider = rawBackendEnvironment.RESUME_PARSE_PROVIDER?.trim() || "ocr-llm";
   return provider === "aliyun-docmining" ? aliyun : !aliyun && source !== "qwen3.5-ocr";
 }
 
@@ -177,7 +179,11 @@ function resolvePreviewTarget(row: {
 @Injectable()
 export class ResumeUploadBatchService {
   private storage?: { bucket: string; client: S3Client; prefix: string };
-  constructor(@Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort) {}
+  constructor(
+    @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
+  ) {}
 
   private storageConfig() {
     this.storage ??= {
@@ -188,12 +194,12 @@ export class ResumeUploadBatchService {
           secretAccessKey: required("S3_SECRET_ACCESS_KEY"),
         },
         endpoint: new URL(required("S3_ENDPOINT")).origin,
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
         region: required("S3_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",
       }),
-      prefix: process.env.S3_KEY_PREFIX?.trim().replace(/\/+$/, "") ?? "",
+      prefix: rawBackendEnvironment.S3_KEY_PREFIX?.trim().replace(/\/+$/, "") ?? "",
     };
     return this.storage;
   }
@@ -327,7 +333,7 @@ export class ResumeUploadBatchService {
   }
 
   async create(organizationId: string, userId: string, input: CreateInput) {
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历解析队列未配置 REDIS_URL。");
     }
     if (input.target === "resume_pool" && !input.resumePoolScope) {
@@ -506,7 +512,7 @@ export class ResumeUploadBatchService {
       throw new InternalServerErrorException("批次创建失败。");
     }
     try {
-      await enqueueResumeParseJobs(
+      await this.queueProducer.enqueueResumeParseJobs(
         detail.items.map((item) => ({ batchId, itemId: item.id, organizationId, userId })),
       );
     } catch (error) {
@@ -533,7 +539,7 @@ export class ResumeUploadBatchService {
   }
 
   async processNext(organizationId: string, userId: string, id: string) {
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历解析队列未配置 REDIS_URL。");
     }
     const detail = await this.detail(organizationId, userId, id);
@@ -571,7 +577,9 @@ export class ResumeUploadBatchService {
       .set({ status: "running", updatedAt: now })
       .where(eq(resumeUploadBatch.id, id));
     try {
-      await enqueueResumeParseJobs([{ batchId: id, itemId: item.id, organizationId, userId }]);
+      await this.queueProducer.enqueueResumeParseJobs([
+        { batchId: id, itemId: item.id, organizationId, userId },
+      ]);
     } catch (error) {
       throw new ServiceUnavailableException("简历解析队列入队失败，请稍后重试。", {
         cause: error,
@@ -764,11 +772,11 @@ export class ResumeUploadBatchService {
   }
 
   async resume(organizationId: string, userId: string, id: string) {
-    if (!isResumeParseQueueConfigured()) {
+    if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("简历解析队列未配置 REDIS_URL。");
     }
     const threshold = Number.parseInt(
-      process.env.RESUME_PARSE_STALE_PROCESSING_SECONDS || "900",
+      rawBackendEnvironment.RESUME_PARSE_STALE_PROCESSING_SECONDS || "900",
       10,
     );
     const stale = Number.isFinite(threshold) && threshold > 0 ? threshold : 900;
@@ -847,7 +855,7 @@ export class ResumeUploadBatchService {
     });
     const detail = await this.get(organizationId, userId, id);
     const pending = detail.items.filter((item) => item.status === "pending");
-    await enqueueResumeParseJobs(
+    await this.queueProducer.enqueueResumeParseJobs(
       pending.map((item) => ({ batchId: id, itemId: item.id, organizationId, userId })),
     );
     return detail;

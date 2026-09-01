@@ -1,4 +1,5 @@
 /* oxlint-disable class-methods-use-this -- Pure policy helpers remain private instance methods beside the interview workflow that owns their invariants. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,
   ConflictException,
@@ -314,9 +315,9 @@ export class InterviewService implements TopLevelInterviewPort {
         });
       }
     }
-    const apiKey = process.env.LIVEKIT_API_KEY?.trim();
-    const apiSecret = process.env.LIVEKIT_API_SECRET?.trim();
-    const serverUrl = process.env.LIVEKIT_URL?.trim();
+    const apiKey = rawBackendEnvironment.LIVEKIT_API_KEY?.trim();
+    const apiSecret = rawBackendEnvironment.LIVEKIT_API_SECRET?.trim();
+    const serverUrl = rawBackendEnvironment.LIVEKIT_URL?.trim();
     if (!(apiKey && apiSecret && serverUrl)) {
       throw new InternalServerErrorException("LiveKit is not configured", {
         errorCode: "LIVEKIT_NOT_CONFIGURED",
@@ -431,7 +432,11 @@ export class InterviewService implements TopLevelInterviewPort {
       roomJoin: true,
     });
     token.roomConfig = new RoomConfiguration({
-      agents: [new RoomAgentDispatch({ agentName: process.env.AGENT_NAME?.trim() || "giaogiao" })],
+      agents: [
+        new RoomAgentDispatch({
+          agentName: rawBackendEnvironment.AGENT_NAME?.trim() || "giaogiao",
+        }),
+      ],
     });
     return {
       isReconnect,
@@ -533,18 +538,18 @@ export class InterviewService implements TopLevelInterviewPort {
 
   private recordingEnabled() {
     return (
-      resolveInterviewRecordingEnabled(process.env) &&
+      resolveInterviewRecordingEnabled(rawBackendEnvironment) &&
       Boolean(
-        process.env.RECORDING_R2_BUCKET_NAME &&
-        process.env.RECORDING_R2_ACCESS_KEY_ID &&
-        process.env.RECORDING_R2_SECRET_ACCESS_KEY &&
-        process.env.RECORDING_R2_ENDPOINT,
+        rawBackendEnvironment.RECORDING_R2_BUCKET_NAME &&
+        rawBackendEnvironment.RECORDING_R2_ACCESS_KEY_ID &&
+        rawBackendEnvironment.RECORDING_R2_SECRET_ACCESS_KEY &&
+        rawBackendEnvironment.RECORDING_R2_ENDPOINT,
       )
     );
   }
 
   private recordingFileKey(input: { interviewId: string; roundId: string }, roomName: string) {
-    const prefix = process.env.RECORDING_R2_KEY_PREFIX?.trim().replace(/\/+$/u, "");
+    const prefix = rawBackendEnvironment.RECORDING_R2_KEY_PREFIX?.trim().replace(/\/+$/u, "");
     return `${prefix ? `${prefix}/` : ""}interviews/${input.interviewId}/${input.roundId}/${roomName}.mp4`;
   }
 

@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,32 +28,33 @@ import { projectResumeProfile } from "../../../background-infrastructure/resume-
 const execFileAsync = promisify(execFile);
 
 function provider() {
-  const alibabaApiKey = process.env.ALIBABA_API_KEY?.trim();
-  const apiKey = alibabaApiKey || process.env.OPENAI_API_KEY?.trim();
+  const alibabaApiKey = rawBackendEnvironment.ALIBABA_API_KEY?.trim();
+  const apiKey = alibabaApiKey || rawBackendEnvironment.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("AI provider is not configured");
   }
   return new OpenAI({
     apiKey,
     baseURL: alibabaApiKey
-      ? process.env.ALIBABA_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1"
-      : process.env.OPENAI_BASE_URL || undefined,
+      ? rawBackendEnvironment.ALIBABA_BASE_URL ||
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      : rawBackendEnvironment.OPENAI_BASE_URL || undefined,
   });
 }
 
 function model() {
   return (
-    process.env.MASTRA_STRUCTURED_MODEL?.trim()?.split("/").at(-1) ||
-    process.env.ALIBABA_STRUCTURED_MODEL?.trim()?.split("/").at(-1) ||
-    process.env.RESUME_PARSE_MODEL?.trim() ||
-    (process.env.ALIBABA_API_KEY?.trim() ? "qwen3.5-plus" : "gpt-4.1-mini")
+    rawBackendEnvironment.MASTRA_STRUCTURED_MODEL?.trim()?.split("/").at(-1) ||
+    rawBackendEnvironment.ALIBABA_STRUCTURED_MODEL?.trim()?.split("/").at(-1) ||
+    rawBackendEnvironment.RESUME_PARSE_MODEL?.trim() ||
+    (rawBackendEnvironment.ALIBABA_API_KEY?.trim() ? "qwen3.5-plus" : "gpt-4.1-mini")
   );
 }
 
 function streamModel() {
   return (
-    process.env.MASTRA_TEXT_MODEL?.trim()?.split("/").at(-1) ||
-    process.env.ALIBABA_TEXT_MODEL?.trim()?.split("/").at(-1) ||
+    rawBackendEnvironment.MASTRA_TEXT_MODEL?.trim()?.split("/").at(-1) ||
+    rawBackendEnvironment.ALIBABA_TEXT_MODEL?.trim()?.split("/").at(-1) ||
     model()
   );
 }
@@ -190,7 +192,7 @@ async function convertLegacy(bytes: Uint8Array, extension: "doc" | "ppt" | "xls"
   try {
     await writeFile(source, bytes);
     await execFileAsync(
-      process.env.LIBREOFFICE_BIN || "soffice",
+      rawBackendEnvironment.LIBREOFFICE_BIN || "soffice",
       ["--headless", "--convert-to", target, "--outdir", directory, source],
       { timeout: 120_000 },
     );

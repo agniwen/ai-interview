@@ -1,4 +1,5 @@
 /* oxlint-disable complexity -- Recommendation eligibility is intentionally evaluated in one pass so ranking reasons remain aligned with each candidate. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { BadGatewayException } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -27,7 +28,7 @@ const pointSchema = z.object({
 });
 function enabled() {
   return ["1", "true", "yes"].includes(
-    process.env.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase() ?? "",
+    rawBackendEnvironment.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase() ?? "",
   );
 }
 function texts(profile: ResumeProfile) {
@@ -83,8 +84,9 @@ export async function recommendJobsForPoolResume(
     };
   }
   const apiKey =
-    process.env.RESUME_EMBEDDING_API_KEY?.trim() || process.env.ALIBABA_API_KEY?.trim();
-  const url = process.env.QDRANT_URL?.trim();
+    rawBackendEnvironment.RESUME_EMBEDDING_API_KEY?.trim() ||
+    rawBackendEnvironment.ALIBABA_API_KEY?.trim();
+  const url = rawBackendEnvironment.QDRANT_URL?.trim();
   if (!(enabled() && apiKey && url && input.profile)) {
     return {
       diagnostics: { aboveThresholdCount: 0, eligibleCount: 0, vectorHitCount: 0 },
@@ -103,12 +105,15 @@ export async function recommendJobsForPoolResume(
     };
   }
   const response = await fetch(
-    `${(process.env.RESUME_EMBEDDING_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1").replace(/\/+$/, "")}/embeddings`,
+    `${(rawBackendEnvironment.RESUME_EMBEDDING_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1").replace(/\/+$/, "")}/embeddings`,
     {
       body: JSON.stringify({
-        dimensions: Number.parseInt(process.env.RESUME_EMBEDDING_DIMENSIONS || "1024", 10),
+        dimensions: Number.parseInt(
+          rawBackendEnvironment.RESUME_EMBEDDING_DIMENSIONS || "1024",
+          10,
+        ),
         input: chunks.map((item) => item.text),
-        model: process.env.RESUME_EMBEDDING_MODEL || "text-embedding-v4",
+        model: rawBackendEnvironment.RESUME_EMBEDDING_MODEL || "text-embedding-v4",
       }),
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       method: "POST",
@@ -120,11 +125,11 @@ export async function recommendJobsForPoolResume(
   }
   const vectors = embeddingSchema.parse(await response.json());
   const client = new QdrantClient({
-    apiKey: process.env.QDRANT_API_KEY?.trim() || undefined,
+    apiKey: rawBackendEnvironment.QDRANT_API_KEY?.trim() || undefined,
     checkCompatibility: false,
     url,
   });
-  const collection = process.env.QDRANT_RESUME_COLLECTION || "resume_semantic_v1";
+  const collection = rawBackendEnvironment.QDRANT_RESUME_COLLECTION || "resume_semantic_v1";
   const groups = await Promise.all(
     chunks.map(async (chunk, index) =>
       pointSchema.parse(

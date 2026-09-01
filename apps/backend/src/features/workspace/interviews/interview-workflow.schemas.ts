@@ -168,19 +168,116 @@ export {
 };
 
 const dateString = z.string();
-export const looseRecordSchema = z.object({}).passthrough();
-export const looseRecordsSchema = z.array(looseRecordSchema);
+const nullableDateString = dateString.nullable();
+const nullableString = z.string().nullable();
+
+export const interviewListRecordSchema = z.looseObject({
+  candidateId: z.string(),
+  candidateName: z.string(),
+  createdAt: dateString,
+  id: z.string(),
+  interviewRecordId: z.string(),
+  roundLabel: z.string(),
+  status: z.string(),
+  updatedAt: dateString,
+});
+export const interviewDetailResponseSchema = z.looseObject({
+  candidate: z.looseObject({
+    candidateName: z.string(),
+    id: z.string(),
+  }),
+  candidateId: z.string(),
+  createdAt: dateString,
+  id: z.string(),
+  interviewRecordId: z.string(),
+  roundLabel: z.string(),
+  status: z.string(),
+  updatedAt: dateString,
+});
+export const interviewResolveResponseSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["candidate", "round"]),
+});
+export const interviewEvaluationDocumentResponseSchema = z.object({
+  conversationId: z.string(),
+  feishuDocumentUrl: z.string().url(),
+});
+export const interviewAgentInstructionsResponseSchema = z.object({
+  variants: z.array(
+    z.object({
+      closingPrompt: z.string(),
+      instructions: z.string(),
+      interviewerName: nullableString,
+      openingPrompt: z.string(),
+    }),
+  ),
+});
+export const interviewReportSchema = z.looseObject({
+  conversationId: z.string(),
+  createdAt: dateString,
+  status: z.string(),
+  summaryStatus: z.string(),
+  updatedAt: dateString,
+});
+export const interviewReportsSchema = z.array(interviewReportSchema);
+const formSubmissionSchema = z.looseObject({
+  answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+  id: z.string(),
+  interviewRecordId: z.string(),
+  submittedAt: dateString,
+  templateId: z.string(),
+  versionId: z.string(),
+});
+export const formSubmissionsResponseSchema = z.object({
+  submissions: z.array(formSubmissionSchema),
+});
+const contextSnapshotSchema = z.looseObject({
+  id: z.string(),
+  payload: z.looseObject({
+    interviewRecordId: z.string(),
+    scheduleEntryId: z.string(),
+    schemaVersion: z.number().int(),
+  }),
+  reason: z.enum(["create", "manual_refresh", "reset"]),
+  status: z.literal("active"),
+  version: z.number().int().positive(),
+});
+export const contextSnapshotResponseSchema = z.object({ snapshot: contextSnapshotSchema });
+export const formSubmissionDeleteResponseSchema = contextSnapshotResponseSchema.extend({
+  success: z.literal(true),
+});
+export const questionTemplateBindingSchema = z.looseObject({
+  createdAt: dateString,
+  disabledByUser: z.boolean(),
+  id: z.string(),
+  interviewRecordId: z.string(),
+  scope: z.string(),
+  sortOrder: z.number().int(),
+  templateId: z.string(),
+  title: z.string(),
+  version: z.number().int(),
+  versionId: z.string(),
+});
+export const questionTemplateBindingsSchema = z.array(questionTemplateBindingSchema);
 export const successSchema = z.object({ success: z.literal(true) });
 export const paginatedInterviewsSchema = z.object({
   page: z.number(),
   pageSize: z.number(),
-  records: looseRecordsSchema,
+  records: z.array(interviewListRecordSchema),
   total: z.number(),
   totalPages: z.number(),
 });
+const notificationRecipientSchema = z.object({
+  email: z.string(),
+  feishuBound: z.boolean(),
+  feishuProviderIds: z.array(z.string()),
+  image: nullableString,
+  name: z.string(),
+  userId: z.string(),
+});
 export const recipientsResponseSchema = z.object({
   fallbackToInitiator: z.boolean(),
-  records: looseRecordsSchema,
+  records: z.array(notificationRecipientSchema),
 });
 export const recordingLinkSchema = z.object({
   expiresInSeconds: z.number().int().positive(),
@@ -195,18 +292,71 @@ export const meetingTokenResponseSchema = z.object({
   token: z.string(),
   url: z.string().optional(),
 });
-export const offerRecordSchema = looseRecordSchema.extend({
+export const offerRecordSchema = z.looseObject({
   id: z.string(),
   interviewRecordId: z.string(),
   status: z.string(),
   version: z.number().int(),
 });
-export const humanRoundRecordSchema = looseRecordSchema.extend({
+export const humanRoundRecordSchema = z.looseObject({
   createdAt: dateString,
   id: z.string(),
   interviewRecordId: z.string(),
   status: z.string(),
   updatedAt: dateString,
+});
+const humanMeetingInterviewerSchema = z.object({
+  image: nullableString,
+  name: z.string(),
+  role: z.string(),
+  userId: z.string(),
+});
+const humanMeetingRoundSchema = z.object({
+  candidateEmail: nullableString,
+  candidateName: z.string(),
+  interviewRecordId: z.string(),
+  label: z.string(),
+  roundId: z.string(),
+  status: z.string(),
+});
+export const humanMeetingResponseSchema = z.looseObject({
+  createdAt: dateString,
+  id: z.string(),
+  interviewers: z.array(humanMeetingInterviewerSchema),
+  organizationId: z.string(),
+  rounds: z.array(humanMeetingRoundSchema),
+  scheduleVersion: z.number().int().positive(),
+  scheduledAt: nullableDateString,
+  status: z.string(),
+  title: z.string(),
+  updatedAt: dateString,
+});
+export const humanMeetingsResponseSchema = z.array(humanMeetingResponseSchema);
+export const humanMeetingLinksResponseSchema = z.object({
+  candidates: z.array(
+    z.object({
+      inviteToken: z.string(),
+      roundId: z.string(),
+      url: z.string().url(),
+    }),
+  ),
+  meetingId: z.string(),
+});
+export const roundEmailSendResponseSchema = z.object({
+  messageId: z.string(),
+  roundId: z.string(),
+  sentAt: dateString,
+  to: z.string(),
+});
+export const roundEmailSummaryResponseSchema = z.object({
+  records: z.array(
+    z.object({
+      failed: z.number(),
+      lastSentAt: nullableDateString,
+      roundId: z.string(),
+      sent: z.number(),
+    }),
+  ),
 });
 export const candidateExpectationsResponseSchema = z.object({
   candidateExpectationsMeta: candidateExpectationsMetaSchema.partial(),

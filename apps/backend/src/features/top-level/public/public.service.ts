@@ -1,4 +1,6 @@
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/no-unknown-parameters, anti-slop/require-safety-comment-for-type-assertion, class-methods-use-this, complexity, max-lines, no-negated-condition, no-nested-ternary, prefer-destructuring, require-await, typescript/no-non-null-assertion, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/no-nested-ternary, unicorn/prefer-structured-clone -- Public invitation, material, referral, and meeting flows preserve one copied authorization and token-validity boundary; provider payload normalization and optional response fields mirror the legacy wire contract. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
+import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -64,6 +66,7 @@ import { deriveJdRequiredSkills, resumeScreeningResultSchema } from "@arc/shared
 import { resumeReviewActionSchema } from "@arc/shared/resume-review";
 import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import type { Request } from "express";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { TOP_LEVEL_DATABASE_PORT } from "../top-level.ports.js";
 import type { TopLevelBinaryResponse, TopLevelDatabasePort } from "../top-level.ports.js";
 import { enqueuePreparedNotificationEvent } from "../notification-preparation.js";
@@ -114,8 +117,8 @@ function jsonSafe<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function requiredEnvironment(name: string): string {
-  const value = process.env[name]?.trim();
+function requiredEnvironment(name: BackendEnvironmentKey): string {
+  const value = rawBackendEnvironment[name]?.trim();
   if (!value) {
     throw new InternalServerErrorException(`${name} is not configured`, {
       errorCode: "TOP_LEVEL_CONFIGURATION_MISSING",
@@ -157,12 +160,14 @@ function isBeforeJoinWindow(scheduledAt: Date | null) {
 
 function notificationFlowEnabled() {
   return ["1", "true", "yes"].includes(
-    process.env.INTERVIEW_NOTIFICATION_FLOW_ENABLED?.trim().toLocaleLowerCase() ?? "",
+    rawBackendEnvironment.INTERVIEW_NOTIFICATION_FLOW_ENABLED?.trim().toLocaleLowerCase() ?? "",
   );
 }
 
 function absoluteAppUrl(pathname: string) {
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_BASE_URL?.trim();
+  const baseUrl =
+    rawBackendEnvironment.BETTER_AUTH_URL?.trim() ||
+    rawBackendEnvironment.NEXT_PUBLIC_BASE_URL?.trim();
   return baseUrl ? `${baseUrl.replace(/\/$/u, "")}${pathname}` : undefined;
 }
 
@@ -259,7 +264,7 @@ async function convertPptxToPdf(bytes: Uint8Array) {
   try {
     await writeFile(input, bytes);
     await execFileAsync(
-      process.env.LIBREOFFICE_BIN?.trim() || "soffice",
+      rawBackendEnvironment.LIBREOFFICE_BIN?.trim() || "soffice",
       ["--headless", "--convert-to", "pdf:impress_pdf_Export", "--outdir", directory, input],
       { maxBuffer: 1024 * 1024, timeout: 30_000 },
     );
@@ -276,6 +281,8 @@ export class PublicService implements TopLevelPublicPort {
   constructor(
     @Inject(TOP_LEVEL_DATABASE_PORT)
     private readonly database: TopLevelDatabasePort,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
 
   async getReferral(token: string) {
@@ -343,12 +350,11 @@ export class PublicService implements TopLevelPublicPort {
       });
     });
     try {
-      const { enqueueResumeParseJobs, isResumeParseQueueConfigured } =
-        await import("@arc/resume-parse-queue/resume-parse");
-      if (!isResumeParseQueueConfigured()) {
+      const { isResumeParseQueueConfigured } = await import("@arc/resume-parse-queue/resume-parse");
+      if (!isResumeParseQueueConfigured(rawBackendEnvironment)) {
         throw new Error("queue unavailable");
       }
-      await enqueueResumeParseJobs([
+      await this.queueProducer.enqueueResumeParseJobs([
         { batchId, itemId, organizationId: link.organizationId, userId: link.createdBy },
       ]);
     } catch {
@@ -1645,7 +1651,7 @@ export class PublicService implements TopLevelPublicPort {
           secretAccessKey: requiredEnvironment("S3_SECRET_ACCESS_KEY"),
         },
         endpoint: new URL(requiredEnvironment("S3_ENDPOINT")).origin,
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
         region: requiredEnvironment("S3_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",

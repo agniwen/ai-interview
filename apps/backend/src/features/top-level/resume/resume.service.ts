@@ -1,4 +1,5 @@
 /* oxlint-disable class-methods-use-this -- Title generation is a pure private policy helper colocated with its owning resume workflow. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import OpenAI from "openai";
 import type { TopLevelResumePort } from "./resume.port.js";
@@ -8,7 +9,7 @@ const DEFAULT_ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode
 @Injectable()
 export class ResumeService implements TopLevelResumePort {
   async generateTitle(input: { hasFiles: boolean; text: string }): Promise<string> {
-    const apiKey = process.env.ALIBABA_API_KEY?.trim();
+    const apiKey = rawBackendEnvironment.ALIBABA_API_KEY?.trim();
     if (!apiKey) {
       throw new InternalServerErrorException("ALIBABA_API_KEY is not configured", {
         errorCode: "RESUME_TITLE_PROVIDER_NOT_CONFIGURED",
@@ -16,7 +17,7 @@ export class ResumeService implements TopLevelResumePort {
     }
     const client = new OpenAI({
       apiKey,
-      baseURL: process.env.ALIBABA_BASE_URL?.trim() || DEFAULT_ALIBABA_BASE_URL,
+      baseURL: rawBackendEnvironment.ALIBABA_BASE_URL?.trim() || DEFAULT_ALIBABA_BASE_URL,
     });
     const completion = await client.chat.completions.create({
       messages: [
@@ -29,7 +30,7 @@ export class ResumeService implements TopLevelResumePort {
           role: "user",
         },
       ],
-      model: process.env.RESUME_TITLE_MODEL?.trim() || "qwen3.6-plus",
+      model: rawBackendEnvironment.RESUME_TITLE_MODEL?.trim() || "qwen3.6-plus",
       temperature: 0.2,
     });
     return completion.choices[0]?.message.content ?? "";

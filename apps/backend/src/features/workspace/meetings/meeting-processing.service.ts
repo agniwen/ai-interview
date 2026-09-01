@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, max-lines, no-nested-ternary, typescript/consistent-type-imports -- Processing reads share one boundary; Nest needs injected service classes at runtime. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   BadRequestException,
   ConflictException,
@@ -20,10 +21,7 @@ import {
   meetingTranscriptionPolicy,
   user,
 } from "@arc/db-schema/schema";
-import {
-  enqueueMeetingPlaybackJobs,
-  isMeetingProcessingQueueConfigured,
-} from "@arc/meeting-processing-queue/meeting-playback";
+import { isMeetingProcessingQueueConfigured } from "@arc/meeting-processing-queue/meeting-playback";
 import {
   isMeetingTranscriptionQueueConfigured,
   MEETING_TRANSCRIPTION_PIPELINE_VERSION,
@@ -31,6 +29,7 @@ import {
 } from "@arc/meeting-processing-queue/meeting-transcription";
 import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import type { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT, WORKSPACE_OBJECT_STORAGE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort, WorkspaceObjectStoragePort } from "../workspace.ports.js";
 import { MeetingCoreService } from "./meeting-core.service.js";
@@ -46,16 +45,16 @@ function enabled(value: string | undefined): boolean {
 }
 
 function qwenCandidate() {
-  if (!enabled(process.env.MEETING_TRANSCRIPTION_QWEN_ENABLED)) {
+  if (!enabled(rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_ENABLED)) {
     return null;
   }
   const { origin } = new URL(
-    process.env.MEETING_TRANSCRIPTION_QWEN_BASE_URL || "https://dashscope.aliyuncs.com",
+    rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_BASE_URL || "https://dashscope.aliyuncs.com",
   );
   return {
     id: "qwen" as const,
     label: "通义千问 ASR（百炼 Qwen3-ASR-Flash）",
-    model: process.env.MEETING_TRANSCRIPTION_QWEN_MODEL || "qwen3-asr-flash-filetrans",
+    model: rawBackendEnvironment.MEETING_TRANSCRIPTION_QWEN_MODEL || "qwen3-asr-flash-filetrans",
     region: origin === "https://dashscope-intl.aliyuncs.com" ? "qwen-singapore" : "qwen-cn-beijing",
   };
 }
@@ -67,6 +66,8 @@ export class MeetingProcessingService {
     @Inject(WORKSPACE_OBJECT_STORAGE_PORT) private readonly storage: WorkspaceObjectStoragePort,
     private readonly core: MeetingCoreService,
     private readonly intelligence: MeetingIntelligenceService,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
 
   private async required(
@@ -122,12 +123,12 @@ export class MeetingProcessingService {
     if (meeting.status !== "processing-failed") {
       return { state: "processing" as const };
     }
-    if (!isMeetingProcessingQueueConfigured()) {
+    if (!isMeetingProcessingQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("Meeting playback 队列暂不可用", {
         errorCode: "MEETING_PLAYBACK_QUEUE_UNAVAILABLE",
       });
     }
-    await enqueueMeetingPlaybackJobs([{ meetingId, organizationId }]);
+    await this.queueProducer.enqueueMeetingPlaybackJobs([{ meetingId, organizationId }]);
     return { state: "processing" as const };
   }
 
@@ -552,7 +553,7 @@ export class MeetingProcessingService {
     if (meeting.transcriptionStatus !== "failed") {
       return { state: "processing" as const };
     }
-    if (!isMeetingTranscriptionQueueConfigured()) {
+    if (!isMeetingTranscriptionQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("最终转录 provider 或队列暂不可用", {
         errorCode: "MEETING_TRANSCRIPTION_UNAVAILABLE",
       });

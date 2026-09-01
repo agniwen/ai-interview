@@ -17,6 +17,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 import { ApiConsumes, ApiOperation, ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import type { z } from "zod";
@@ -297,6 +298,7 @@ export class ResumePoolController {
   @Post()
   @UseInterceptors(FileInterceptor("resume"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "resume", schema: resumePoolCreateInputSchema })
   @ApiOperation({ operationId: "createWorkspaceResumePoolItem" })
   @ApiResponse({ status: 201 })
   @SerializeOptions({ schema: resumePoolItemSchema })

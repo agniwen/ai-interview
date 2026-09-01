@@ -22,21 +22,30 @@ export interface AuthMemberJoinedNotifier {
   notify(input: MemberJoinedNotificationInput): Promise<"sent" | "skipped">;
 }
 
+export interface FeishuMemberJoinedNotifierConfiguration {
+  BETTER_AUTH_URL: string;
+  FEISHU_APP_ID?: string;
+  FEISHU_APP_ID2?: string;
+  FEISHU_APP_SECRET?: string;
+  FEISHU_APP_SECRET2?: string;
+  NEXT_PUBLIC_BASE_URL?: string;
+}
+
 function isFeishuProviderId(value: string): value is FeishuProviderId {
   return FEISHU_PROVIDER_IDS.some((providerId) => providerId === value);
 }
 
 function providerCredentials(
+  config: FeishuMemberJoinedNotifierConfiguration,
   providerId: FeishuProviderId,
 ): { appId: string; appSecret: string } | null {
-  const suffix = providerId === "feishu" ? "" : "2";
-  const appId = process.env[`FEISHU_APP_ID${suffix}`];
-  const appSecret = process.env[`FEISHU_APP_SECRET${suffix}`];
+  const appId = providerId === "feishu" ? config.FEISHU_APP_ID : config.FEISHU_APP_ID2;
+  const appSecret = providerId === "feishu" ? config.FEISHU_APP_SECRET : config.FEISHU_APP_SECRET2;
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
-function membersUrl(slug: string): string | null {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
+function membersUrl(config: FeishuMemberJoinedNotifierConfiguration, slug: string): string | null {
+  const baseUrl = config.NEXT_PUBLIC_BASE_URL?.trim() || config.BETTER_AUTH_URL.trim();
   return baseUrl
     ? `${baseUrl.replace(/\/$/, "")}/w/${encodeURIComponent(slug)}/studio/members`
     : null;
@@ -105,11 +114,10 @@ function memberJoinedCard(input: {
 }
 
 export class FeishuMemberJoinedNotifier implements AuthMemberJoinedNotifier {
-  private readonly database: Database;
-
-  constructor(database: Database) {
-    this.database = database;
-  }
+  constructor(
+    private readonly database: Database,
+    private readonly config: FeishuMemberJoinedNotifierConfiguration,
+  ) {}
 
   async notify(input: MemberJoinedNotificationInput): Promise<"sent" | "skipped"> {
     if (!input.creatorUserId || input.creatorUserId === input.joinedUserId) {
@@ -129,7 +137,7 @@ export class FeishuMemberJoinedNotifier implements AuthMemberJoinedNotifier {
     if (!(creatorAccount && isFeishuProviderId(creatorAccount.providerId))) {
       return "skipped";
     }
-    const credentials = providerCredentials(creatorAccount.providerId);
+    const credentials = providerCredentials(this.config, creatorAccount.providerId);
     if (!credentials) {
       return "skipped";
     }
@@ -156,7 +164,7 @@ export class FeishuMemberJoinedNotifier implements AuthMemberJoinedNotifier {
           content: JSON.stringify(
             memberJoinedCard({
               joinedMemberName: joinedMember.name,
-              membersUrl: membersUrl(workspace.slug),
+              membersUrl: membersUrl(this.config, workspace.slug),
               workspaceName: workspace.name,
             }),
           ),

@@ -48,6 +48,17 @@ describe("public health contracts", () => {
 });
 
 describe("HTTP error protocol boundaries", () => {
+  it("echoes the request correlation header on Nest and Better Auth responses", async () => {
+    const correlationId = "contract-request-correlation";
+    const [nestResponse, authResponse] = await Promise.all([
+      backend.http.get("/api/health").set("x-request-id", correlationId),
+      backend.http.get("/api/auth/__contract_missing_route__").set("x-request-id", correlationId),
+    ]);
+
+    expect(nestResponse.headers["x-request-id"]).toBe(correlationId);
+    expect(authResponse.headers["x-request-id"]).toBe(correlationId);
+  });
+
   it("uses the Nest standard exception envelope for Nest-owned routes", async () => {
     const response = await backend.http.get("/api/__contract_missing_route__");
 

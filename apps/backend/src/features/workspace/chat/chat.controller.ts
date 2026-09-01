@@ -44,6 +44,7 @@ import {
 } from "./chat.schemas.js";
 import { ChatService } from "./chat.service.js";
 import type { ChatUploadedFile } from "./chat.service.js";
+import { ApiMultipartBody } from "../../../openapi/api-multipart-body.js";
 
 type WorkspacePath = z.infer<typeof chatWorkspacePathSchema>;
 type ConversationPath = z.infer<typeof chatConversationPathSchema>;
@@ -183,6 +184,7 @@ export class ChatController {
   @HttpCode(200)
   @UseInterceptors(FileInterceptor("file"))
   @ApiConsumes("multipart/form-data")
+  @ApiMultipartBody({ fileField: "file" })
   @ApiOperation({ operationId: "uploadWorkspaceChatAttachment" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: uploadResponseSchema })

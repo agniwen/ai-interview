@@ -15,6 +15,20 @@ import { resolveSessionAuthProviderId } from "./session-auth-provider.js";
 import { createWorkspaceAuthorizationHook } from "./workspace-auth-hook.js";
 import { canAssignWorkspaceRole, isNoAccessWorkspaceRole } from "./workspace-role-policy.js";
 
+export interface BackendAuthEnvironment {
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_TRUSTED_ORIGINS?: string;
+  BETTER_AUTH_URL: string;
+  FEISHU_APP_ID?: string;
+  FEISHU_APP_ID2?: string;
+  FEISHU_APP_SECRET?: string;
+  FEISHU_APP_SECRET2?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  NODE_ENV: "development" | "production" | "provision" | "test";
+  TRUSTED_ORIGINS?: string;
+}
+
 const DEFAULT_TRUSTED_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -33,7 +47,12 @@ function originList(value: string | undefined): string[] {
   );
 }
 
-export function resolveTrustedOrigins(environment: NodeJS.ProcessEnv = process.env): string[] {
+export function resolveTrustedOrigins(
+  environment: Pick<
+    BackendAuthEnvironment,
+    "BETTER_AUTH_TRUSTED_ORIGINS" | "BETTER_AUTH_URL" | "TRUSTED_ORIGINS"
+  >,
+): string[] {
   return [
     environment.BETTER_AUTH_URL,
     ...DEFAULT_TRUSTED_ORIGINS,
@@ -45,7 +64,9 @@ export function resolveTrustedOrigins(environment: NodeJS.ProcessEnv = process.e
   );
 }
 
-function googleProvider(environment: NodeJS.ProcessEnv) {
+function googleProvider(
+  environment: Pick<BackendAuthEnvironment, "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET">,
+) {
   if (Boolean(environment.GOOGLE_CLIENT_ID) !== Boolean(environment.GOOGLE_CLIENT_SECRET)) {
     throw new Error("Google OAuth requires both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
   }
@@ -59,8 +80,11 @@ function googleProvider(environment: NodeJS.ProcessEnv) {
     : {};
 }
 
-export function createBackendAuth(database: Database, notifier: AuthMemberJoinedNotifier) {
-  const environment = process.env;
+export function createBackendAuth(
+  database: Database,
+  notifier: AuthMemberJoinedNotifier,
+  environment: BackendAuthEnvironment,
+) {
   const feishuProviders = configuredFeishuProviders(environment);
   const lifecycle = new OrganizationLifecycle(database, notifier);
 

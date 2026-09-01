@@ -1,4 +1,5 @@
 /* oxlint-disable complexity, typescript/consistent-type-imports -- Question serialization is transactional; Nest needs MeetingCoreService at runtime. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import {
   ConflictException,
   Inject,
@@ -14,7 +15,6 @@ import {
   meetingSession,
 } from "@arc/db-schema/schema";
 import {
-  enqueueMeetingAnswerJobs,
   isMeetingAnswerQueueConfigured,
   MEETING_ANSWER_PROMPT_VERSION,
 } from "@arc/meeting-processing-queue/meeting-answer";
@@ -25,6 +25,7 @@ import {
 } from "@arc/shared/meeting-answer";
 import { and, asc, count, desc, eq, gte, inArray, max } from "drizzle-orm";
 import { z } from "zod";
+import { BackgroundQueueProducerService } from "../../../background/background-queue-producer.service.js";
 import { WORKSPACE_DATABASE_PORT } from "../workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../workspace.ports.js";
 import { MeetingCoreService } from "./meeting-core.service.js";
@@ -39,6 +40,8 @@ export class MeetingQuestionService {
   constructor(
     @Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort,
     private readonly core: MeetingCoreService,
+    @Inject(BackgroundQueueProducerService)
+    private readonly queueProducer: BackgroundQueueProducerService,
   ) {}
   private async required(
     organizationId: string,
@@ -180,14 +183,14 @@ export class MeetingQuestionService {
     input: z.infer<typeof createMeetingQuestionSchema>,
   ) {
     await this.required(organizationId, userId, memberRole, meetingId);
-    if (!isMeetingAnswerQueueConfigured()) {
+    if (!isMeetingAnswerQueueConfigured(rawBackendEnvironment)) {
       throw new ServiceUnavailableException("Meeting Answer 服务暂不可用", {
         errorCode: "MEETING_ANSWER_UNAVAILABLE",
       });
     }
     const model =
-      process.env.MEETING_ANSWER_MODEL?.trim() ||
-      process.env.MEETING_INTELLIGENCE_MODEL?.trim() ||
+      rawBackendEnvironment.MEETING_ANSWER_MODEL?.trim() ||
+      rawBackendEnvironment.MEETING_INTELLIGENCE_MODEL?.trim() ||
       "alibaba/deepseek-v4-flash-0731";
     const provider = model.split("/", 1)[0] || "unknown";
     const result = await this.database.transaction(async (tx) => {
@@ -301,7 +304,7 @@ export class MeetingQuestionService {
     }
     const exchange = meetingQuestionExchangeSchema.parse(result);
     try {
-      await enqueueMeetingAnswerJobs([{ exchangeId: exchange.id }]);
+      await this.queueProducer.enqueueMeetingAnswerJobs([{ exchangeId: exchange.id }]);
     } catch (error) {
       console.error("[meeting-answer] failed to enqueue exchange", {
         errorName: error instanceof Error ? error.name : "UnknownError",

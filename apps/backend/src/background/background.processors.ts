@@ -56,10 +56,12 @@ import {
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
 import type { Job } from "bullmq";
 import { z } from "zod";
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { resolveMeetingAnswerConcurrency } from "./background.config.js";
 import { MailIngestSchedulerService } from "./background.schedulers.js";
 import { BACKGROUND_WORKLOAD_ADAPTER } from "./background.types.js";
 import type { BackgroundAttemptContext, BackgroundWorkloadAdapter } from "./background.types.js";
+import { runWithJobCorrelation } from "../observability/request-correlation.context.js";
 
 function attemptContext(job: Job): BackgroundAttemptContext {
   const attempts = z.number().safeParse(job.opts.attempts);
@@ -71,7 +73,7 @@ function attemptContext(job: Job): BackgroundAttemptContext {
 
 @Processor(RESUME_PARSE_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveResumeParseWorkerConcurrency(),
+  concurrency: resolveResumeParseWorkerConcurrency(rawBackendEnvironment),
 })
 export class ResumeParseProcessor extends WorkerHost {
   readonly queueName = RESUME_PARSE_QUEUE_NAME;
@@ -84,16 +86,18 @@ export class ResumeParseProcessor extends WorkerHost {
   }
 
   async process(job: Job<ResumeParseJobData>): Promise<void> {
-    const data = resumeParseJobSchema.parse(job.data);
-    await this.adapter.processResumeParse(data, {
-      hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+    await runWithJobCorrelation(job.opts, async () => {
+      const data = resumeParseJobSchema.parse(job.data);
+      await this.adapter.processResumeParse(data, {
+        hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+      });
     });
   }
 }
 
 @Processor(RESUME_SEMANTIC_INDEX_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveResumeSemanticIndexWorkerConcurrency(),
+  concurrency: resolveResumeSemanticIndexWorkerConcurrency(rawBackendEnvironment),
 })
 export class ResumeSemanticIndexProcessor extends WorkerHost {
   readonly queueName = RESUME_SEMANTIC_INDEX_QUEUE_NAME;
@@ -106,13 +110,15 @@ export class ResumeSemanticIndexProcessor extends WorkerHost {
   }
 
   async process(job: Job<ResumeSemanticIndexJobData>): Promise<void> {
-    await this.adapter.processResumeSemanticIndex(resumeSemanticIndexJobSchema.parse(job.data));
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processResumeSemanticIndex(resumeSemanticIndexJobSchema.parse(job.data));
+    });
   }
 }
 
 @Processor(RESUME_REVIEW_GENERATION_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveResumeReviewGenerationWorkerConcurrency(),
+  concurrency: resolveResumeReviewGenerationWorkerConcurrency(rawBackendEnvironment),
 })
 export class ResumeReviewGenerationProcessor extends WorkerHost {
   readonly queueName = RESUME_REVIEW_GENERATION_QUEUE_NAME;
@@ -125,9 +131,11 @@ export class ResumeReviewGenerationProcessor extends WorkerHost {
   }
 
   async process(job: Job<ResumeReviewGenerationJobData>): Promise<void> {
-    const data = resumeReviewGenerationJobSchema.parse(job.data);
-    await this.adapter.processResumeReviewGeneration(data, {
-      hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+    await runWithJobCorrelation(job.opts, async () => {
+      const data = resumeReviewGenerationJobSchema.parse(job.data);
+      await this.adapter.processResumeReviewGeneration(data, {
+        hasAttemptsRemaining: hasResumeParseAttemptsRemaining(job.attemptsMade, job.opts.attempts),
+      });
     });
   }
 }
@@ -144,13 +152,15 @@ export class MailIngestTriggerProcessor extends WorkerHost {
   }
 
   async process(job: Job<MailIngestTriggerJobData>): Promise<void> {
-    await this.scheduler.runNow(mailIngestTriggerJobSchema.parse(job.data));
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.scheduler.runNow(mailIngestTriggerJobSchema.parse(job.data));
+    });
   }
 }
 
 @Processor(MEETING_ANSWER_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveMeetingAnswerConcurrency(),
+  concurrency: resolveMeetingAnswerConcurrency(rawBackendEnvironment),
 })
 export class MeetingAnswerProcessor extends WorkerHost {
   readonly queueName = MEETING_ANSWER_QUEUE_NAME;
@@ -163,16 +173,18 @@ export class MeetingAnswerProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingAnswerJobData>): Promise<void> {
-    await this.adapter.processMeetingAnswer(
-      meetingAnswerJobSchema.parse(job.data),
-      attemptContext(job),
-    );
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processMeetingAnswer(
+        meetingAnswerJobSchema.parse(job.data),
+        attemptContext(job),
+      );
+    });
   }
 }
 
 @Processor(MEETING_PLAYBACK_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveMeetingPlaybackWorkerConcurrency(),
+  concurrency: resolveMeetingPlaybackWorkerConcurrency(rawBackendEnvironment),
 })
 export class MeetingPlaybackProcessor extends WorkerHost {
   readonly queueName = MEETING_PLAYBACK_QUEUE_NAME;
@@ -185,13 +197,15 @@ export class MeetingPlaybackProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingPlaybackJobData>): Promise<void> {
-    await this.adapter.processMeetingPlayback(meetingPlaybackJobSchema.parse(job.data));
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processMeetingPlayback(meetingPlaybackJobSchema.parse(job.data));
+    });
   }
 }
 
 @Processor(MEETING_PURGE_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveMeetingPurgeWorkerConcurrency(),
+  concurrency: resolveMeetingPurgeWorkerConcurrency(rawBackendEnvironment),
 })
 export class MeetingPurgeProcessor extends WorkerHost {
   readonly queueName = MEETING_PURGE_QUEUE_NAME;
@@ -204,13 +218,15 @@ export class MeetingPurgeProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingPurgeJobData>): Promise<void> {
-    await this.adapter.processMeetingPurge(meetingPurgeJobSchema.parse(job.data));
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processMeetingPurge(meetingPurgeJobSchema.parse(job.data));
+    });
   }
 }
 
 @Processor(MEETING_INTELLIGENCE_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveMeetingIntelligenceWorkerConcurrency(),
+  concurrency: resolveMeetingIntelligenceWorkerConcurrency(rawBackendEnvironment),
 })
 export class MeetingIntelligenceProcessor extends WorkerHost {
   readonly queueName = MEETING_INTELLIGENCE_QUEUE_NAME;
@@ -223,16 +239,18 @@ export class MeetingIntelligenceProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingIntelligenceJobData>): Promise<void> {
-    await this.adapter.processMeetingIntelligence(
-      meetingIntelligenceJobSchema.parse(job.data),
-      attemptContext(job),
-    );
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processMeetingIntelligence(
+        meetingIntelligenceJobSchema.parse(job.data),
+        attemptContext(job),
+      );
+    });
   }
 }
 
 @Processor(MEETING_TRANSCRIPTION_QUEUE_NAME, {
   autorun: false,
-  concurrency: resolveMeetingTranscriptionWorkerConcurrency(),
+  concurrency: resolveMeetingTranscriptionWorkerConcurrency(rawBackendEnvironment),
 })
 export class MeetingTranscriptionProcessor extends WorkerHost {
   readonly queueName = MEETING_TRANSCRIPTION_QUEUE_NAME;
@@ -245,10 +263,12 @@ export class MeetingTranscriptionProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingTranscriptionJobData>): Promise<void> {
-    await this.adapter.processMeetingTranscription(
-      meetingTranscriptionJobSchema.parse(job.data),
-      attemptContext(job),
-    );
+    await runWithJobCorrelation(job.opts, async () => {
+      await this.adapter.processMeetingTranscription(
+        meetingTranscriptionJobSchema.parse(job.data),
+        attemptContext(job),
+      );
+    });
   }
 }
 

@@ -16,8 +16,26 @@ interface StorageConfiguration {
   keyPrefix: string;
 }
 
-function required(env: NodeJS.ProcessEnv, name: string): string {
-  const value = env[name]?.trim();
+export interface BackgroundObjectStorageConfiguration {
+  S3_ACCESS_KEY_ID?: string;
+  S3_BUCKET_NAME?: string;
+  S3_ENDPOINT?: string;
+  S3_FORCE_PATH_STYLE?: boolean;
+  S3_KEY_PREFIX?: string;
+  S3_REGION?: string;
+  S3_SECRET_ACCESS_KEY?: string;
+}
+
+type BackgroundObjectStorageStringKey = Exclude<
+  keyof BackgroundObjectStorageConfiguration,
+  "S3_FORCE_PATH_STYLE"
+>;
+
+function required(
+  config: BackgroundObjectStorageConfiguration,
+  name: BackgroundObjectStorageStringKey,
+): string {
+  const value = config[name]?.trim();
   if (!value) {
     throw new Error(`Background object storage is not configured: ${name} is required`);
   }
@@ -26,27 +44,24 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
 
 export class BackgroundObjectStorageService {
   private configuration?: StorageConfiguration;
-  private readonly env: NodeJS.ProcessEnv;
 
-  constructor(env: NodeJS.ProcessEnv = process.env) {
-    this.env = env;
-  }
+  constructor(private readonly environment: BackgroundObjectStorageConfiguration) {}
 
   private get config(): StorageConfiguration {
     this.configuration ??= {
-      bucket: required(this.env, "S3_BUCKET_NAME"),
+      bucket: required(this.environment, "S3_BUCKET_NAME"),
       client: new S3Client({
         credentials: {
-          accessKeyId: required(this.env, "S3_ACCESS_KEY_ID"),
-          secretAccessKey: required(this.env, "S3_SECRET_ACCESS_KEY"),
+          accessKeyId: required(this.environment, "S3_ACCESS_KEY_ID"),
+          secretAccessKey: required(this.environment, "S3_SECRET_ACCESS_KEY"),
         },
-        endpoint: required(this.env, "S3_ENDPOINT"),
-        forcePathStyle: this.env.S3_FORCE_PATH_STYLE === "true",
-        region: required(this.env, "S3_REGION"),
+        endpoint: required(this.environment, "S3_ENDPOINT"),
+        forcePathStyle: this.environment.S3_FORCE_PATH_STYLE ?? false,
+        region: required(this.environment, "S3_REGION"),
         requestChecksumCalculation: "WHEN_REQUIRED",
         responseChecksumValidation: "WHEN_REQUIRED",
       }),
-      keyPrefix: this.env.S3_KEY_PREFIX?.replaceAll(/^\/+|\/+$/g, "") ?? "",
+      keyPrefix: this.environment.S3_KEY_PREFIX?.replaceAll(/^\/+|\/+$/g, "") ?? "",
     };
     return this.configuration;
   }

@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { randomUUID } from "node:crypto";
 import OpenAI from "openai";
 import {
@@ -94,7 +95,7 @@ export class MeetingAnswerInfrastructure implements MeetingAnswerProcessorPorts 
   private readonly env: NodeJS.ProcessEnv;
   private readonly tokenFactory = randomUUID;
 
-  constructor(database: Database, env: NodeJS.ProcessEnv = process.env) {
+  constructor(database: Database, env: NodeJS.ProcessEnv = rawBackendEnvironment) {
     this.database = database;
     this.env = env;
   }

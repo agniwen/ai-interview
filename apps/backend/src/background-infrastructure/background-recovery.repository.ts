@@ -1,3 +1,4 @@
+import { rawBackendEnvironment } from "../config/raw-backend-environment.js";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import {
   meetingIntelligenceRevision,
@@ -47,7 +48,7 @@ export class BackgroundRecoveryRepository {
   private readonly database: Database;
   private readonly env: NodeJS.ProcessEnv;
 
-  constructor(database: Database, env: NodeJS.ProcessEnv = process.env) {
+  constructor(database: Database, env: NodeJS.ProcessEnv = rawBackendEnvironment) {
     this.database = database;
     this.env = env;
   }

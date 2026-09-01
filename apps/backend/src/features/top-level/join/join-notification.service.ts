@@ -1,4 +1,5 @@
 /* oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- The notification adapter checks the selected member row before projecting its stable persisted shape. */
+import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import { Inject, Injectable } from "@nestjs/common";
 import * as lark from "@larksuiteoapi/node-sdk";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -48,8 +49,9 @@ export class JoinNotificationService implements TopLevelJoinNotificationPort {
       return;
     }
     const secondary = creator.providerId === "feishu-jiguang-hr";
-    const appId = process.env[secondary ? "FEISHU_APP_ID2" : "FEISHU_APP_ID"]?.trim();
-    const appSecret = process.env[secondary ? "FEISHU_APP_SECRET2" : "FEISHU_APP_SECRET"]?.trim();
+    const appId = rawBackendEnvironment[secondary ? "FEISHU_APP_ID2" : "FEISHU_APP_ID"]?.trim();
+    const appSecret =
+      rawBackendEnvironment[secondary ? "FEISHU_APP_SECRET2" : "FEISHU_APP_SECRET"]?.trim();
     if (!(appId && appSecret)) {
       return;
     }
