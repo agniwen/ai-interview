@@ -14,8 +14,11 @@ COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
 COPY apps/desktop/package.json apps/desktop/
 COPY apps/worker/package.json apps/worker/
+COPY packages/ai-runtime/package.json packages/ai-runtime/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/meeting-media/package.json packages/meeting-media/
 COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
+COPY packages/object-storage/package.json packages/object-storage/
 COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --filter @app/web

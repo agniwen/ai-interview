@@ -9,6 +9,29 @@ function readRepoFile(relativePath: string) {
 }
 
 describe("Docker env configuration", () => {
+  it("copies app runtime workspace manifests before every Bun install", () => {
+    const runtimeWorkspaceManifests = [
+      "packages/ai-runtime/package.json",
+      "packages/meeting-media/package.json",
+      "packages/object-storage/package.json",
+    ];
+
+    for (const dockerfilePath of ["apps/web/Dockerfile", "apps/worker/Dockerfile"]) {
+      const installStages = readRepoFile(dockerfilePath)
+        .split(/^FROM /m)
+        .filter((stage) => stage.includes("RUN bun install"));
+
+      expect(installStages.length).toBeGreaterThan(0);
+      for (const stage of installStages) {
+        for (const manifest of runtimeWorkspaceManifests) {
+          expect(stage, `${dockerfilePath} must copy ${manifest} before bun install`).toContain(
+            `COPY ${manifest}`,
+          );
+        }
+      }
+    }
+  });
+
   it("does not silently default public auth URLs to example.com", () => {
     const dockerfile = readRepoFile("apps/web/Dockerfile");
     const compose = readRepoFile("docker-compose.yml");
