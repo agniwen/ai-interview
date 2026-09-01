@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { studioInterview } from "@arc/db-schema/schema";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import type {
   ResumeSemanticChunkType,
   ResumeSemanticTextChunk,
-} from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/text-builders";
 import {
   recommendationCandidateWhere,
   recommendCandidatesForJobDescription,

@@ -1,105 +1,19 @@
-import { createEnv } from "@t3-oss/env-core";
-import { z } from "zod";
+import { createServerEnv, SERVER_ENV_NAMES } from "@app/server/env";
+import type { ServerEnvName } from "@app/server/env";
 
-export const SERVER_ENV_NAMES = [
-  "ALIBABA_BASE_URL",
-  "ALIBABA_FAST_MODEL",
-  "ALIBABA_MODEL",
-  "ALIBABA_STRUCTURED_MODEL",
-  "BETTER_AUTH_SECRET",
-  "BETTER_AUTH_URL",
-  "FEISHU_APP_ID",
-  "FEISHU_APP_ID2",
-  "FEISHU_APP_SECRET",
-  "FEISHU_APP_SECRET2",
-  "FEISHU_EVALUATION_FOLDER_TOKEN",
-  "FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN",
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
-  "INTERVIEW_EVALUATION_MODEL",
-  "MINIMAX_TTS_BASE_URL",
-  "NEXT_PUBLIC_BASE_URL",
-  "QWEN_OCR_BASE_URL",
-  "QWEN_OCR_MODEL",
-  "RESUME_PARSE_PROVIDER",
-  "RECORDING_R2_FORCE_PATH_STYLE",
-  "RECORDING_R2_KEY_PREFIX",
-  "RECORDING_R2_REGION",
-  "S3_FORCE_PATH_STYLE",
-  "S3_KEY_PREFIX",
-  "S3_REGION",
-] as const;
-
-export type ServerEnvName = (typeof SERVER_ENV_NAMES)[number];
-
-export function createServerEnv(runtimeEnv: Record<string, string | undefined>) {
-  return createEnv({
-    emptyStringAsUndefined: true,
-    runtimeEnvStrict: {
-      ALIBABA_BASE_URL: runtimeEnv.ALIBABA_BASE_URL,
-      ALIBABA_FAST_MODEL: runtimeEnv.ALIBABA_FAST_MODEL,
-      ALIBABA_MODEL: runtimeEnv.ALIBABA_MODEL,
-      ALIBABA_STRUCTURED_MODEL: runtimeEnv.ALIBABA_STRUCTURED_MODEL,
-      BETTER_AUTH_SECRET: runtimeEnv.BETTER_AUTH_SECRET,
-      BETTER_AUTH_URL: runtimeEnv.BETTER_AUTH_URL,
-      FEISHU_APP_ID: runtimeEnv.FEISHU_APP_ID,
-      FEISHU_APP_ID2: runtimeEnv.FEISHU_APP_ID2,
-      FEISHU_APP_SECRET: runtimeEnv.FEISHU_APP_SECRET,
-      FEISHU_APP_SECRET2: runtimeEnv.FEISHU_APP_SECRET2,
-      FEISHU_EVALUATION_FOLDER_TOKEN: runtimeEnv.FEISHU_EVALUATION_FOLDER_TOKEN,
-      FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN:
-        runtimeEnv.FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN,
-      GOOGLE_CLIENT_ID: runtimeEnv.GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET: runtimeEnv.GOOGLE_CLIENT_SECRET,
-      INTERVIEW_EVALUATION_MODEL: runtimeEnv.INTERVIEW_EVALUATION_MODEL,
-      MINIMAX_TTS_BASE_URL: runtimeEnv.MINIMAX_TTS_BASE_URL,
-      NEXT_PUBLIC_BASE_URL: runtimeEnv.NEXT_PUBLIC_BASE_URL,
-      QWEN_OCR_BASE_URL: runtimeEnv.QWEN_OCR_BASE_URL,
-      QWEN_OCR_MODEL: runtimeEnv.QWEN_OCR_MODEL,
-      RECORDING_R2_FORCE_PATH_STYLE: runtimeEnv.RECORDING_R2_FORCE_PATH_STYLE,
-      RECORDING_R2_KEY_PREFIX: runtimeEnv.RECORDING_R2_KEY_PREFIX,
-      RECORDING_R2_REGION: runtimeEnv.RECORDING_R2_REGION,
-      RESUME_PARSE_PROVIDER: runtimeEnv.RESUME_PARSE_PROVIDER,
-      S3_FORCE_PATH_STYLE: runtimeEnv.S3_FORCE_PATH_STYLE,
-      S3_KEY_PREFIX: runtimeEnv.S3_KEY_PREFIX,
-      S3_REGION: runtimeEnv.S3_REGION,
-    },
-    server: {
-      ALIBABA_BASE_URL: z.url(),
-      ALIBABA_FAST_MODEL: z.string().min(1),
-      ALIBABA_MODEL: z.string().min(1),
-      ALIBABA_STRUCTURED_MODEL: z.string().min(1),
-      BETTER_AUTH_SECRET: z.string().min(1),
-      BETTER_AUTH_URL: z.url(),
-      FEISHU_APP_ID: z.string().min(1),
-      FEISHU_APP_ID2: z.string().min(1),
-      FEISHU_APP_SECRET: z.string().min(1),
-      FEISHU_APP_SECRET2: z.string().min(1),
-      FEISHU_EVALUATION_FOLDER_TOKEN: z.string().min(1).optional(),
-      FEISHU_JIGUANG_HR_EVALUATION_FOLDER_TOKEN: z.string().min(1).optional(),
-      GOOGLE_CLIENT_ID: z.string().min(1),
-      GOOGLE_CLIENT_SECRET: z.string().min(1),
-      INTERVIEW_EVALUATION_MODEL: z.string().min(1),
-      MINIMAX_TTS_BASE_URL: z.url(),
-      NEXT_PUBLIC_BASE_URL: z.url(),
-      QWEN_OCR_BASE_URL: z.url(),
-      QWEN_OCR_MODEL: z.string().min(1),
-      RECORDING_R2_FORCE_PATH_STYLE: z.string().min(1),
-      RECORDING_R2_KEY_PREFIX: z.string().min(1),
-      RECORDING_R2_REGION: z.string().min(1),
-      RESUME_PARSE_PROVIDER: z.enum(["ocr-llm", "aliyun-docmining"]).default("ocr-llm"),
-      S3_FORCE_PATH_STYLE: z.string().min(1),
-      S3_KEY_PREFIX: z.string().min(1),
-      S3_REGION: z.string().min(1),
-    },
-  });
-}
+export { createServerEnv, SERVER_ENV_NAMES };
+export type { ServerEnvName };
 
 export function applyServerEnv(
   target: Record<string, string | undefined> = process.env,
   source = createServerEnv(process.env),
 ) {
   for (const key of SERVER_ENV_NAMES) {
-    target[key] = source[key];
+    const value = source[key];
+    if (value === undefined) {
+      Reflect.deleteProperty(target, key);
+    } else {
+      target[key] = value;
+    }
   }
 }

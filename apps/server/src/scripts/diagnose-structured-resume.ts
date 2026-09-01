@@ -8,9 +8,9 @@ import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-eva
 import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { z } from "zod";
-import { loadServerEnv, loadWebEnv } from "../standalone/env";
+import { loadServerEnv } from "../standalone/env";
 import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
-import type { MastraGeneratorLike } from "../server/agents/mastra/agents/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 import type { StructuredResumeWorkflowLogContext } from "../server/agents/mastra/workflows/structured-resume-review-workflow";
 import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
 import type { ArtifactAudit } from "./diagnose-structured-resume-audit";
@@ -392,7 +392,6 @@ function recordSyncStage<TInput extends DiagnosticPayload, TOutput extends Diagn
 }
 
 async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
-  loadWebEnv();
   loadServerEnv();
   forceDiagnosticNonOcrModels(process.env);
 
@@ -431,15 +430,15 @@ async function runDiagnostic(options: DiagnosticOptions): Promise<string> {
   ] = await Promise.all([
     import("../server/agents/structured-resume-evaluation"),
     import("../server/agents/mastra/workflows/structured-resume-review-workflow"),
-    import("../server/agents/mastra/agents/simple-generators"),
-    import("../server/agents/mastra/models"),
+    import("@app/ai-runtime/simple-generators"),
+    import("@app/ai-runtime/models"),
     import("../lib/server/resume-evaluation-input-hash"),
     import("../lib/server/resume-parse-pipeline"),
     import("../lib/server/resume-parse-pipeline-dependencies"),
     import("../lib/server/resume-parse-provider"),
     import("../server/agents/resume-analysis-agent"),
     import("../server/agents/resume-parser-agent"),
-    import("../lib/server/s3"),
+    import("@app/object-storage"),
     import("@arc/shared/file-hash"),
   ]);
   const actualStructuredModel = modelModule.getMastraModelIdentifier(

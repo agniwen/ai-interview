@@ -4,7 +4,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
   interviewConversation,
@@ -20,12 +20,9 @@ import {
   studioOrgSkill,
   user,
 } from "@arc/db-schema/schema";
-import {
-  loadResumeDetail,
-  queryPaginatedResumeRecords,
-} from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
-import { syncResumeSkills } from "@app/server/server/routes/studio/routes/resumes/dao/skills";
-import { loadCandidateTimeline } from "@app/server/server/routes/studio/routes/resumes/dao/timeline";
+import { loadResumeDetail, queryPaginatedResumeRecords } from "../dao/resumes";
+import { syncResumeSkills } from "../dao/skills";
+import { loadCandidateTimeline } from "../dao/timeline";
 
 const ORG_A = "test_org_resume_dao_a";
 const ORG_B = "test_org_resume_dao_b";

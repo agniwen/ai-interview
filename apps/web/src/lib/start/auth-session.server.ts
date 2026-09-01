@@ -7,20 +7,19 @@ import type {
   WorkspaceAccessState,
   WorkspaceSelectionState,
 } from "@/lib/start/auth-session-types";
-import { auth } from "@app/server/lib/server/auth";
-import { db } from "@app/server/lib/server/db";
+import {
+  auth,
+  db,
+  isNoAccessWorkspaceRole,
+  computeWorkspacePermissionSnapshot,
+} from "@app/server/web/runtime";
 import {
   member as memberTable,
   organization as organizationTable,
   user as userTable,
 } from "@arc/db-schema/schema";
-import { isNoAccessWorkspaceRole } from "@app/server/server/access/workspace-roles";
-import type {
-  WorkspaceAction,
-  WorkspaceResource,
-} from "@app/server/server/access/workspace-access-policy";
+import type { WorkspaceAction, WorkspaceResource } from "@app/server/web/runtime";
 import { hasPermissionInStatements } from "@arc/shared/permission-statements";
-import { computeWorkspacePermissionSnapshot } from "@app/server/server/access/workspace-permission-snapshot";
 
 export function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,

@@ -3,9 +3,9 @@ import {
   meetingIntelligenceAgent,
   meetingIntelligenceDecisionPolicyAgent,
   StructuredOutputValidationError,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import type { MastraGeneratorLike } from "@app/server/server/agents/mastra/agents/simple-generators";
-import { getMastraModelIdentifier, mastraModels } from "@app/server/server/agents/mastra/models";
+} from "@app/ai-runtime/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
+import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import {
   MEETING_INTELLIGENCE_GENERATION_PROGRESS_VERSION,
   MeetingIntelligenceTerminalError,

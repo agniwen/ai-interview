@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { resumeUploadBatch, resumeUploadBatchItem } from "@arc/db-schema/schema";
 
 export class BatchItemCancelledError extends Error {

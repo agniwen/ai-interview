@@ -7,35 +7,35 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { normalizeResumeScoringFacts } from "@arc/db-schema/resume-scoring-facts";
 import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
-import { generateResumeStructured } from "@app/server/lib/server/resume-parse-pipeline";
+import { generateResumeStructured } from "../../lib/server/resume-parse-pipeline";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
   supportedResumeDocumentLabel,
 } from "@arc/shared/resume-documents";
-import { isResumeParseCacheEnabled } from "@app/server/lib/server/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "@app/server/lib/server/resume-parse-provider";
-import type { ResumeTextSource } from "@app/server/lib/server/resume-parse-pipeline";
-import { buildAttachmentKeyByHash, putObjectBytes } from "@app/server/lib/server/s3";
+import { isResumeParseCacheEnabled } from "../../lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "../../lib/server/resume-parse-provider";
+import type { ResumeTextSource } from "../../lib/server/resume-parse-pipeline";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import {
   generateStructuredWithMastraAgent,
   interviewQuestionAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import { createAiRunEventStream } from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+} from "@app/ai-runtime/simple-generators";
+import { createAiRunEventStream } from "./mastra/adapters/ai-run-stream";
 import {
   runResumeParseWorkflow,
   streamResumeParseWorkflow,
-} from "@app/server/server/agents/mastra/workflows/resume-parse-workflow";
+} from "./mastra/workflows/resume-parse-workflow";
 import type {
   ResumeParseWorkflowProgressEvent,
   ResumeParseWorkflowOutput,
-} from "@app/server/server/agents/mastra/workflows/resume-parse-workflow";
+} from "./mastra/workflows/resume-parse-workflow";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
+} from "../routes/chat/dao/chat-attachments";
 import {
   projectAttachmentToResumeProfile,
   structuredSchema,
@@ -282,7 +282,7 @@ function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]) {
 }
 
 // `parseJsonOutput` is re-exported from json-output below for backward compat.
-export { parseJsonOutput } from "./json-output";
+export { parseJsonOutput } from "@app/ai-runtime/json-output";
 
 export function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -648,7 +648,7 @@ export function streamGenerateInterviewQuestions(
   return createAiRunEventStream({
     run: async (emit) => {
       const { createInterviewQuestionsWorkflow, streamInterviewQuestionsWorkflow } =
-        await import("@app/server/server/agents/mastra/workflows/interview-questions-workflow");
+        await import("./mastra/workflows/interview-questions-workflow");
       return streamInterviewQuestionsWorkflow(
         resumeProfile,
         {
@@ -783,8 +783,7 @@ export type {
 } from "./resume-analysis-review";
 
 export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
-  const { runResumeAnalysisWorkflow } =
-    await import("@app/server/server/agents/mastra/workflows/resume-analysis-workflow");
+  const { runResumeAnalysisWorkflow } = await import("./mastra/workflows/resume-analysis-workflow");
   return runResumeAnalysisWorkflow({
     bytes: new Uint8Array(await file.arrayBuffer()),
     fileName: file.name,

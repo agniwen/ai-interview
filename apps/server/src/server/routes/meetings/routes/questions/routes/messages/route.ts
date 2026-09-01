@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../../../factory";
 import {
   createMeetingQuestionSchema,
   MEETING_ANSWER_REQUEST_BODY_MAX_BYTES,

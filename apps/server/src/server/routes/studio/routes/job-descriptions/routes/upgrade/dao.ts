@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import {
   jobDescription,
   jobDescriptionEvaluationUpgradeAudit,
@@ -15,7 +15,7 @@ import {
   parseStoredJobDescriptionStructuredConfig,
 } from "@arc/db-schema/job-description-structured-config";
 import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@arc/shared/structured-resume-scoring";
-import { computeJobEvaluationDraftInputHash } from "@app/server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationDraftInputHash } from "../../../../../../../lib/server/job-evaluation-hash";
 import type {
   JobEvaluationUpgradeDraft,
   JobEvaluationUpgradeKey,

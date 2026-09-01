@@ -1,7 +1,7 @@
 import "../standalone/preload";
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { generateResumeReview } from "@app/server/server/agents/resume-analysis-agent";
+import { generateResumeReview } from "../server/agents/resume-analysis-agent";
 import { SYNTHETIC_RESUME_REVIEW_CASES } from "./resume-review-synthetic-eval/cases";
 import {
   computeSyntheticEvalMetrics,

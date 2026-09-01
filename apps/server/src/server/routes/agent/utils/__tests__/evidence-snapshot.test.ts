@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   interviewContextSnapshot,
   interviewConversation,
@@ -10,7 +10,7 @@ import {
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
 import type { InterviewContextSnapshotPayload } from "@arc/db-schema/interview-snapshots";
-import { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
+import { createInterviewEvidenceSnapshot } from "../evidence-snapshot";
 
 const ORG_ID = "test_evidence_snapshot_org";
 const INTERVIEW_ID = "test_evidence_snapshot_interview";

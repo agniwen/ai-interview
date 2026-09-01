@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
 import { listStudioCalendarEvents, loadAiCalendarEventPreview } from "./dao";
 import { studioAiCalendarPreviewQuerySchema, studioCalendarQuerySchema } from "./schema";
 

@@ -1,20 +1,20 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   streamGenerateInterviewQuestions,
   streamGenerateResumeReview,
   streamGenerateResumeReviewMarkdownFirst,
   streamParseResumeProfile,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { resolveJobDescriptionMatchBestEffort } from "@app/server/server/routes/interview/match-job-description";
+} from "../../../../agents/resume-analysis-agent";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { resolveJobDescriptionMatchBestEffort } from "../../match-job-description";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+} from "../../../studio/routes/job-descriptions/dao";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { studioInterview } from "@arc/db-schema/schema";
 

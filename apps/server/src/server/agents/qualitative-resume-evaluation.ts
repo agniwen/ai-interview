@@ -7,7 +7,7 @@ import type { QualitativeResumeEvaluationV2 } from "@arc/db-schema/qualitative-r
 import {
   generateStructuredWithMastraAgent,
   resumeReviewQualitativeAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 export const QUALITATIVE_RESUME_PROMPT_VERSION = "qualitative-resume-v7";
 

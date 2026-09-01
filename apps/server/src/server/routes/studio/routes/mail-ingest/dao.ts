@@ -3,11 +3,11 @@ import {
   buildPlatformMailIngestFilters,
 } from "./dao/account-filters";
 import { and, asc, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { calcTotalPages, makePaginationSchema } from "@app/server/lib/server/db/pagination";
-import type { PaginatedResult, PaginationParams } from "@app/server/lib/server/db/pagination";
+import { db } from "../../../../../lib/server/db/index";
+import { calcTotalPages, makePaginationSchema } from "../../../../../lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "../../../../../lib/server/db/pagination";
 import { mailIngestAccount, member, organization, user as userTable } from "@arc/db-schema/schema";
-import { encryptMailIngestSecret } from "@app/server/lib/server/mail-ingest-crypto";
+import { encryptMailIngestSecret } from "../../../../../lib/server/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
 import type { MailIngestLoginConfig } from "./validation";
 import { z } from "zod";

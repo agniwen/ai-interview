@@ -1,4 +1,4 @@
-import type { InterviewNotificationEventRecord } from "@app/server/server/routes/studio/routes/interview-notifications/dao";
+import type { InterviewNotificationEventRecord } from "./dao";
 
 const DEFAULT_INTERVAL_MS = 5000;
 const DEFAULT_BATCH_SIZE = 20;

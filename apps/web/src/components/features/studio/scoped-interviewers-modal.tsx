@@ -12,7 +12,7 @@
 // interviewer page, which DOES support row-level JD delete.
 
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import type { PaginatedInterviewerResult } from "@app/server/server/routes/studio/routes/interviewers/dao";
+import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";

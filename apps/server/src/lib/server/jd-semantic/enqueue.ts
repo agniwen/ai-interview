@@ -1,4 +1,4 @@
-import { isResumeSemanticIndexEnabled } from "@app/server/lib/server/resume-semantic/embedding";
+import { isResumeSemanticIndexEnabled } from "../resume-semantic/embedding";
 
 interface JobDescriptionSemanticIndexJob {
   organizationId: string;
@@ -33,8 +33,7 @@ export interface JobDescriptionSemanticIndexDependencies {
 
 const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
   async createStore(config) {
-    const { QdrantResumeVectorStore } =
-      await import("@app/server/lib/server/qdrant/resume-vector-store");
+    const { QdrantResumeVectorStore } = await import("../qdrant/resume-vector-store");
     return new QdrantResumeVectorStore({
       apiKey: config.qdrantApiKey,
       collectionName: config.qdrantCollectionName,
@@ -48,14 +47,13 @@ const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
     await enqueueResumeSemanticIndexJobs(jobs);
   },
   async getConfig() {
-    const { getResumeSemanticIndexConfig } =
-      await import("@app/server/lib/server/resume-semantic/indexer");
+    const { getResumeSemanticIndexConfig } = await import("../resume-semantic/indexer");
     return getResumeSemanticIndexConfig();
   },
   isEnabled: isResumeSemanticIndexEnabled,
   async markDeleted(input) {
     const { getResumeSemanticIndexConfig, upsertResumeSemanticIndexState } =
-      await import("@app/server/lib/server/resume-semantic/indexer");
+      await import("../resume-semantic/indexer");
     const config = getResumeSemanticIndexConfig();
     await upsertResumeSemanticIndexState({
       contentHash: null,
@@ -71,7 +69,7 @@ const defaultDependencies: JobDescriptionSemanticIndexDependencies = {
   },
   async markStale(input) {
     const { getResumeSemanticIndexConfig, upsertResumeSemanticIndexState } =
-      await import("@app/server/lib/server/resume-semantic/indexer");
+      await import("../resume-semantic/indexer");
     const config = getResumeSemanticIndexConfig();
     await upsertResumeSemanticIndexState({
       contentHash: null,

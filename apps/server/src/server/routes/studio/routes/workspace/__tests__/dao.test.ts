@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   account,
   member,

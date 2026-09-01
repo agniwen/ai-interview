@@ -2,7 +2,7 @@ import type {
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
 } from "@arc/shared/meeting-recording";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "../../access/recruiting-visibility";
 import { meetingAccessCapabilities } from "./access";
 import { loadAuthorizedMeeting, meetingRole } from "./authorized-meeting";
 import { recordMeetingAudit } from "./dao";

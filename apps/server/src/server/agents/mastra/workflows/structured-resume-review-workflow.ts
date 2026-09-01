@@ -22,11 +22,11 @@ import {
   structuredResumePromptContextSchema,
   structuredResumeWorkflowInputSchema,
   validateStructuredResumeInput,
-} from "@app/server/server/agents/structured-resume-evaluation";
+} from "../../structured-resume-evaluation";
 import type {
   StructuredResumeWorkflowInput,
   StructuredResumePromptContext,
-} from "@app/server/server/agents/structured-resume-evaluation";
+} from "../../structured-resume-evaluation";
 import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 

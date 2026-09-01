@@ -1,7 +1,7 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   interviewConversation,
   interviewNotification,
@@ -11,8 +11,8 @@ import {
 } from "@arc/db-schema/schema";
 import type { AgentNotificationStatus, AgentNotificationType } from "@arc/db-schema/db-enums";
 import { agentNotificationStatusSchema } from "@arc/db-schema/db-enums";
-import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
-import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
+import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
 import type { InterviewNotificationEventType } from "@arc/db-schema/interview-notifications";
 
 export const platformNotificationStatusFilterValues = ["all", "pending", "sent", "failed"] as const;

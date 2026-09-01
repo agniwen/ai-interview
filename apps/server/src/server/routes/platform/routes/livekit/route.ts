@@ -6,7 +6,7 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import {
   parsePrometheusMetrics,
   safeEndpoint,

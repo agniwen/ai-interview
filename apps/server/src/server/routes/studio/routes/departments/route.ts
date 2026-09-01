@@ -2,19 +2,19 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { department } from "@arc/db-schema/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@arc/shared/departments";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   listAllDepartments,
   loadDepartmentById,
   loadDepartmentReferenceCounts,
   queryPaginatedDepartments,
   serializeDepartment,
-} from "@app/server/server/routes/studio/routes/departments/dao";
-import { safeUpdateTag } from "@app/server/server/cache-tags";
+} from "./dao";
+import { safeUpdateTag } from "../../../../cache-tags";
 
 const departmentListQuerySchema = z.object({
   page: z.string().optional(),

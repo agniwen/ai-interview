@@ -1,20 +1,18 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
-import { buildAttachmentKeyByHash, putObjectBytes } from "@app/server/lib/server/s3";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import {
   claimMailIngestAccount,
   claimMailIngestMessageForProcessing,
+  fetchPublishedJobDescriptionsByCodes,
   finishMailIngestAccountRun,
+  insertBatchWithItems,
   listEnabledMailIngestAccounts,
+  loadBatchDetail,
   markMailIngestMessageSkipped,
   updateMailIngestMessageResult,
-} from "@app/server/server/routes/studio/routes/mail-ingest/dao";
-import { fetchPublishedJobDescriptionsByCodes } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import {
-  insertBatchWithItems,
-  loadBatchDetail,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
+} from "@app/server/worker/mail-ingest";
 import { createMailIngestProcessor } from "./processor";
 import type { ImapClient, MailIngestDependencies } from "./processor";
 

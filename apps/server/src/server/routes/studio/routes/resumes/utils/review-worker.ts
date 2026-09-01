@@ -1,6 +1,6 @@
 /* oxlint-disable import/consistent-type-specifier-style -- value and type imports share review-lifecycle to avoid duplicate module imports. */
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   jobDescription,
   resumeEvaluationFailure,
@@ -21,13 +21,13 @@ import {
   qualitativeResumeEvaluationV2Schema,
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
-import { computeResumeEvaluationInputHash } from "@app/server/lib/server/resume-evaluation-input-hash";
-import { matchJobDescriptionForResume } from "@app/server/server/agents/job-description-match-agent";
-import { matchNewMailResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/utils/job-match/service";
+import { computeResumeEvaluationInputHash } from "../../../../../../lib/server/resume-evaluation-input-hash";
+import { matchJobDescriptionForResume } from "../../../../../agents/job-description-match-agent";
+import { matchNewMailResumePoolItem } from "../../resume-pool/utils/job-match/service";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+} from "../../job-descriptions/dao";
 import { generateResumeAssessment } from "./review-generation";
 import { generateCandidateInterviewQuestions } from "./candidate-question-generation";
 import {

@@ -8,15 +8,15 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
-import type { db as database } from "@app/server/lib/server/db";
+import type { db as database } from "../../../../../../lib/server/db/index";
 import type {
   member as memberTable,
   organization as organizationTable,
   studioInterview as studioInterviewTable,
   user as userTable,
 } from "@arc/db-schema/schema";
-import type { loadResumeDetail as loadResumeDetailFn } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
-import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "@app/server/server/routes/studio/routes/resumes/route";
+import type { loadResumeDetail as loadResumeDetailFn } from "../dao/resumes";
+import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "../route";
 
 const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -61,12 +61,10 @@ describeWithDatabase("resume detail route database behavior", () => {
   }
 
   beforeAll(async () => {
-    ({ db } = await import("@app/server/lib/server/db"));
+    ({ db } = await import("../../../../../../lib/server/db/index"));
     ({ member, organization, studioInterview, user } = await import("@arc/db-schema/schema"));
-    ({ loadResumeDetail } =
-      await import("@app/server/server/routes/studio/routes/resumes/dao/resumes"));
-    ({ parseResumeLibraryEditFormInput } =
-      await import("@app/server/server/routes/studio/routes/resumes/route"));
+    ({ loadResumeDetail } = await import("../dao/resumes"));
+    ({ parseResumeLibraryEditFormInput } = await import("../route"));
 
     await cleanup();
     await db.insert(user).values({
@@ -141,8 +139,7 @@ describeWithDatabase("resume detail route database behavior", () => {
 
 describeWithDatabase("resolveResumeUploadStorage", () => {
   it("stores only the uploaded object when the client already sent resumePayload", async () => {
-    const { resolveResumeUploadStorage } =
-      await import("@app/server/server/routes/interview/utils");
+    const { resolveResumeUploadStorage } = await import("../../../../interview/utils");
     const storeObjectOnly = vi.fn().mockResolvedValue({
       contentHash: "hash-1",
       storageKey: "resume/hash-1.pdf",

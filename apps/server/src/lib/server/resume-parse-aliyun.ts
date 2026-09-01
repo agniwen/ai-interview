@@ -1,4 +1,4 @@
-import { parseJsonOutput } from "@app/server/server/agents/json-output";
+import { parseJsonOutput } from "@app/ai-runtime/json-output";
 import {
   normalizeResumeStructuredSourceFileName,
   resumeParserGenerationSchema,

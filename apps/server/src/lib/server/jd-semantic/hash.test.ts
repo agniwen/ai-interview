@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildJobDescriptionSemanticTexts } from "@app/server/lib/server/resume-semantic/text-builders";
-import type { JobDescriptionSemanticInput } from "@app/server/lib/server/resume-semantic/text-builders";
+import { buildJobDescriptionSemanticTexts } from "../resume-semantic/text-builders";
+import type { JobDescriptionSemanticInput } from "../resume-semantic/text-builders";
 import { hashJobDescriptionForSemanticIndex } from "./hash";
 
 const base = {

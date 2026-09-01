@@ -8,7 +8,7 @@ import { ScopedInterviewersModal } from "@/components/features/studio/scoped-int
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
-import type { PaginatedDepartmentResult } from "@app/server/server/routes/studio/routes/departments/dao";
+import type { PaginatedDepartmentResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";

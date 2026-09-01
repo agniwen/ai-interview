@@ -6,7 +6,7 @@ import type {
   ResumeParseRetryClaim,
   ResumeParseRetryRequest,
   ResumeParseRetryTarget,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/retry";
+} from "../dao/retry";
 import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
 
 interface ResumeParseRetryAdapters {
@@ -22,15 +22,13 @@ interface ResumeParseRetryAdapters {
 
 const DEFAULT_ADAPTERS: ResumeParseRetryAdapters = {
   claim: async (input) => {
-    const { claimFailedResumeParseRetry } =
-      await import("@app/server/server/routes/studio/routes/resume-upload-batches/dao/retry");
+    const { claimFailedResumeParseRetry } = await import("../dao/retry");
     return claimFailedResumeParseRetry(input);
   },
   enqueue: enqueueResumeParseJobs,
   isQueueConfigured: isResumeParseQueueConfigured,
   rollback: async (input) => {
-    const { rollbackFailedResumeParseRetry } =
-      await import("@app/server/server/routes/studio/routes/resume-upload-batches/dao/retry");
+    const { rollbackFailedResumeParseRetry } = await import("../dao/retry");
     await rollbackFailedResumeParseRetry(input);
   },
 };
@@ -75,8 +73,7 @@ export async function forceResumeReparse(input: {
   if (!isResumeParseQueueConfigured()) {
     return { status: "queue_unavailable" };
   }
-  const { claimForceResumeReparse, rollbackForceResumeReparse } =
-    await import("@app/server/server/routes/studio/routes/resume-upload-batches/dao/retry");
+  const { claimForceResumeReparse, rollbackForceResumeReparse } = await import("../dao/retry");
   const claim = await claimForceResumeReparse(input);
   if (claim.status !== "claimed") {
     return claim;

@@ -25,7 +25,7 @@ import {
   mergeMeetingTranscriptionChunkResults,
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
-} from "../../server/routes/meetings/transcription/audio-pipeline";
+} from "@app/meeting-media";
 import { createDeepgramMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/deepgram";
 import { createOpenAiMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/openai";
 import { createTingwuMeetingTranscriptionProvider } from "../../server/routes/meetings/transcription/providers/tingwu";

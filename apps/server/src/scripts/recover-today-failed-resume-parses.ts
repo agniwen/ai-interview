@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
-import { loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 const TARGET_WORKSPACE_ID = "org_default";
 const TARGET_WORKSPACE_NAME = "极光/幻游";
@@ -133,7 +133,7 @@ function chinaDateWindow(date: string) {
 }
 
 async function main(options: RecoveryOptions) {
-  loadWebEnv();
+  loadStandaloneEnv();
 
   const [
     { closeDatabase, db },
@@ -150,12 +150,12 @@ async function main(options: RecoveryOptions) {
     { closeResumeSemanticIndexQueue },
     { rollbackFailedResumeParseRetry },
   ] = await Promise.all([
-    import("@app/server/lib/server/db"),
+    import("../lib/server/db/index"),
     import("@arc/db-schema/schema"),
     import("@arc/resume-parse-queue/resume-parse"),
     import("@arc/resume-parse-queue/resume-review-generation"),
     import("@arc/resume-parse-queue/resume-semantic-index"),
-    import("@app/server/server/routes/studio/routes/resume-upload-batches/dao/retry"),
+    import("../server/routes/studio/routes/resume-upload-batches/dao/retry"),
   ]);
 
   const { from, to } = chinaDateWindow(options.date);
@@ -382,7 +382,7 @@ async function main(options: RecoveryOptions) {
 
     if (direct && claimedJobs.length > 0) {
       const processorModule =
-        await import("@app/server/server/routes/studio/routes/resume-upload-batches/utils/processor");
+        await import("../server/routes/studio/routes/resume-upload-batches/utils/processor");
       const processor = processorModule.createResumeUploadBatchProcessor(
         processorModule.defaultResumeUploadBatchProcessorDependencies,
       );

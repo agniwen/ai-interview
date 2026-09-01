@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createRequestWorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { legacyUiMessageToArcMessage } from "@app/server/server/agents/mastra/adapters/arc-message-adapter";
+import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { legacyUiMessageToArcMessage } from "../../../../agents/mastra/adapters/arc-message-adapter";
 import {
   checkConversationOwner,
   deleteUserConversation,
@@ -10,19 +10,19 @@ import {
   listUserConversations,
   upsertChatMessage,
   upsertConversation,
-} from "@app/server/server/routes/chat/dao/chat";
+} from "../../dao/chat";
 import {
   patchConversationSchema,
   confirmRecruitingActionSchema,
   upsertChatMessageSchema,
   upsertConversationSchema,
-} from "@app/server/server/routes/chat/schema";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+} from "../../schema";
+import { requirePermission } from "../../../../middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { confirmRecruitingAction } from "./actions";
-import { loadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
-import { loadResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import { normalizeResumePoolItemId } from "@app/server/server/agents/mastra/tools/resume-pool-id";
+import { loadResumeDetail } from "../../../studio/routes/resumes/dao/resumes";
+import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
+import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
 
 export interface ConversationsRouteDependencies {
   checkConversationOwner: typeof checkConversationOwner;

@@ -2,10 +2,10 @@
 // Unit tests for updateStructuredByHash — backfill, multi-row spread, idempotency, hash isolation.
 
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
-import { updateStructuredByHash } from "@app/server/server/routes/chat/dao/chat-attachments";
+import { updateStructuredByHash } from "../dao/chat-attachments";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { asc, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import { chatAttachment, organization, user } from "@arc/db-schema/schema";
 
 const ORG_ID = "chat_structured_hash_test_org";

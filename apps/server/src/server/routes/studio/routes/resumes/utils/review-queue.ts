@@ -1,5 +1,5 @@
 import { and, eq, isNull, notInArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { resumeEvaluationFailure, studioInterview } from "@arc/db-schema/schema";
 import {
   QUALITATIVE_RESUME_EVALUATION_CONTRACT_VERSION,
@@ -14,8 +14,8 @@ import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-re
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { matchJobDescriptionForResume } from "@app/server/server/agents/job-description-match-agent";
+} from "../../job-descriptions/dao";
+import { matchJobDescriptionForResume } from "../../../../../agents/job-description-match-agent";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { ensureCurrentJobDescriptionVersion } from "./job-description-version";
 

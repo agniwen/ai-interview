@@ -1,4 +1,4 @@
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../factory";
 import { createMeetingPlaybackAuthorization, retryMeetingPlayback } from "../../service";
 
 export const meetingPlaybackRouter = factory

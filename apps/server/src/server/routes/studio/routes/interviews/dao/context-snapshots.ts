@@ -7,9 +7,9 @@ import type {
 } from "@arc/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
-import { jsonValueSchema, stableStringify } from "@app/server/lib/server/stable-stringify";
-import type { JsonValue } from "@app/server/lib/server/stable-stringify";
-import { db } from "@app/server/lib/server/db";
+import { jsonValueSchema, stableStringify } from "../../../../../../lib/server/stable-stringify";
+import type { JsonValue } from "../../../../../../lib/server/stable-stringify";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
@@ -23,12 +23,12 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
-import { resolveOrCreateTemplateVersion } from "@app/server/server/routes/studio/routes/forms/dao/versions";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { resolveOrCreateTemplateVersion } from "../../forms/dao/versions";
 import {
   autoBindApplicableTemplates,
   refreshInterviewBindingsToLatest,
-} from "@app/server/server/routes/studio/routes/interview-questions/dao/bindings";
+} from "../../interview-questions/dao/bindings";
 
 export type BuildInterviewContextSnapshotPayloadInput = Omit<
   InterviewContextSnapshotPayload,

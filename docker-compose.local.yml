@@ -6,8 +6,6 @@ services:
         NEXT_PUBLIC_BASE_URL: http://localhost:3000
         NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:3000
     env_file:
-      - path: apps/ai-recruitment-copilot/.env
-        required: false
       - path: apps/web/.env
         required: false
     healthcheck:
@@ -20,9 +18,7 @@ services:
 
   worker:
     env_file:
-      - path: apps/ai-recruitment-copilot/.env
-        required: false
-      - path: apps/web/.env
+      - path: apps/worker/.env
         required: false
     healthcheck:
       test:

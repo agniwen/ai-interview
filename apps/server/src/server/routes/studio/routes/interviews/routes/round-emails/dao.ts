@@ -4,7 +4,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import type { RoundEmailLogStatus, RoundEmailSummaryMap } from "@arc/db-schema/round-email-log";
 import { studioRoundEmailLog } from "@arc/db-schema/schema";
 

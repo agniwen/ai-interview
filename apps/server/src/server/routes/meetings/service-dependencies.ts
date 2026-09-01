@@ -8,7 +8,7 @@ import {
   presignMeetingRecordingPutObject,
   presignMeetingRecordingUploadPart,
   presignRecordingGetObjectUrl,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import {
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,

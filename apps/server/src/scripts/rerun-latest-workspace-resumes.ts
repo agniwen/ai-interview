@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import pLimit from "p-limit";
-import { loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 const DEFAULT_TARGET_COUNT = 10;
 const MAX_DATE_TARGET_COUNT = 500;
@@ -276,7 +276,7 @@ async function loadRowsByIds<T>(
 
 // oxlint-disable-next-line complexity -- one-shot orchestration keeps preflight, execution, and report finalization in one auditable flow.
 async function run(options: Options): Promise<void> {
-  loadWebEnv();
+  loadStandaloneEnv();
   process.env.ALIBABA_FAST_MODEL = TARGET_MODEL;
   process.env.ALIBABA_STRUCTURED_MODEL = TARGET_MODEL;
   process.env.MASTRA_FAST_MODEL = TARGET_MODEL;

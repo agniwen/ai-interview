@@ -1,10 +1,10 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import { interviewConversation } from "@arc/db-schema/schema";
-import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
-import { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
-import { generateInterviewKeyInformation } from "@app/server/server/routes/agent/utils/interview-key-information";
-import { buildInterviewReportQuestionsFromContext } from "@app/server/server/routes/agent/utils/interview-report-questions";
+import { cacheTags, safeUpdateTag } from "../../../cache-tags";
+import { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
+import { generateInterviewKeyInformation } from "./interview-key-information";
+import { buildInterviewReportQuestionsFromContext } from "./interview-report-questions";
 import { runKeyInformationJob as runKeyInformationJobWithDependencies } from "./interview-key-information-job-core";
 import type { KeyInformationJobDependencies } from "./interview-key-information-job-core";
 

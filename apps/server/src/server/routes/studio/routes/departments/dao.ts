@@ -1,16 +1,16 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
 import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "@app/server/lib/server/db/pagination";
-import type { PaginatedResult, PaginationParams } from "@app/server/lib/server/db/pagination";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
+} from "../../../../../lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "../../../../../lib/server/db/pagination";
+import { serializeDate } from "../../../../../lib/server/db/serialize";
 import { department, interviewer, jobDescription } from "@arc/db-schema/schema";
 
 const departmentListFiltersSchema = z.object({

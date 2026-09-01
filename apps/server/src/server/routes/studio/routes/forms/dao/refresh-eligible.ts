@@ -1,5 +1,5 @@
 import { and, eq, exists, isNull, notExists, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
@@ -12,7 +12,7 @@ import {
 import {
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+} from "../../interviews/dao/context-snapshots";
 
 /**
  * Candidates whose AI interview rounds are all still pending (never started).

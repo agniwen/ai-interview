@@ -10,7 +10,7 @@ import {
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
 import type { ResumeParseJobListState } from "@arc/resume-parse-queue/resume-parse";
-import { enrichResumeParseQueueJobs } from "@app/server/server/routes/platform/queue-details";
+import { enrichResumeParseQueueJobs } from "@app/server/web/platform";
 import { z } from "zod";
 
 export interface PlatformQueueFilters extends Record<string, string> {

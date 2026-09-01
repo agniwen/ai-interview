@@ -1,8 +1,5 @@
-import {
-  LOCAL_CHAT_MODELS,
-  LOCAL_DEFAULT_MODEL_ID,
-} from "@app/server/server/agents/chat-models.config";
-import { factory } from "@app/server/server/factory";
+import { LOCAL_CHAT_MODELS, LOCAL_DEFAULT_MODEL_ID } from "../../../../agents/chat-models.config";
+import { factory } from "../../../../factory";
 
 /**
  * 返回 composer 模型选择器的可选项。

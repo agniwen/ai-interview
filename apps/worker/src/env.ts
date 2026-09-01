@@ -1,100 +1,51 @@
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { config as loadEnvFile } from "dotenv";
+import { createEnv } from "@t3-oss/env-core";
+import { z } from "zod";
 
-const DEFAULT_ENV_MODE = "development";
-type EnvironmentValues = Record<string, string | undefined>;
+const booleanString = z.enum(["1", "true", "yes", "0", "false", "no"]);
+const positiveIntegerString = z.string().regex(/^\d+$/);
 
-interface EnvFileReadResult {
-  knownValues: Map<string, Set<string>>;
-  values: EnvironmentValues;
+export function createWorkerEnv(runtimeEnv: Record<string, string | undefined>) {
+  return createEnv({
+    emptyStringAsUndefined: true,
+    runtimeEnvStrict: {
+      DATABASE_URL: runtimeEnv.DATABASE_URL,
+      INTERVIEW_NOTIFICATION_BATCH_SIZE: runtimeEnv.INTERVIEW_NOTIFICATION_BATCH_SIZE,
+      INTERVIEW_NOTIFICATION_FLOW_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_FLOW_ENABLED,
+      INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: runtimeEnv.INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS,
+      INTERVIEW_NOTIFICATION_WORKER_ENABLED: runtimeEnv.INTERVIEW_NOTIFICATION_WORKER_ENABLED,
+      POSTGRES_CONNECT_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_CONNECT_TIMEOUT_SECONDS,
+      POSTGRES_IDLE_TIMEOUT_SECONDS: runtimeEnv.POSTGRES_IDLE_TIMEOUT_SECONDS,
+      POSTGRES_MAX_LIFETIME_SECONDS: runtimeEnv.POSTGRES_MAX_LIFETIME_SECONDS,
+      POSTGRES_POOL_MAX: runtimeEnv.POSTGRES_POOL_MAX,
+      REDIS_URL: runtimeEnv.REDIS_URL,
+      RESUME_SEMANTIC_INDEX_ENABLED: runtimeEnv.RESUME_SEMANTIC_INDEX_ENABLED,
+      WORKER_BACKGROUND_PROCESSING_ENABLED: runtimeEnv.WORKER_BACKGROUND_PROCESSING_ENABLED,
+      WORKER_DIAGNOSTICS_SECRET: runtimeEnv.WORKER_DIAGNOSTICS_SECRET,
+      WORKER_HOST: runtimeEnv.WORKER_HOST,
+      WORKER_PORT: runtimeEnv.WORKER_PORT,
+    },
+    server: {
+      DATABASE_URL: z.url().optional(),
+      INTERVIEW_NOTIFICATION_BATCH_SIZE: positiveIntegerString.optional(),
+      INTERVIEW_NOTIFICATION_FLOW_ENABLED: booleanString.optional(),
+      INTERVIEW_NOTIFICATION_POLL_INTERVAL_MS: positiveIntegerString.optional(),
+      INTERVIEW_NOTIFICATION_WORKER_ENABLED: booleanString.optional(),
+      POSTGRES_CONNECT_TIMEOUT_SECONDS: positiveIntegerString.optional(),
+      POSTGRES_IDLE_TIMEOUT_SECONDS: positiveIntegerString.optional(),
+      POSTGRES_MAX_LIFETIME_SECONDS: positiveIntegerString.optional(),
+      POSTGRES_POOL_MAX: positiveIntegerString.optional(),
+      REDIS_URL: z.url().optional(),
+      RESUME_SEMANTIC_INDEX_ENABLED: booleanString.optional(),
+      WORKER_BACKGROUND_PROCESSING_ENABLED: booleanString.optional(),
+      WORKER_DIAGNOSTICS_SECRET: z.string().trim().min(1).optional(),
+      WORKER_HOST: z.string().trim().min(1).optional(),
+      WORKER_PORT: positiveIntegerString.optional(),
+    },
+  });
 }
 
-export function envFiles(directory: string, mode: string): string[] {
-  return [
-    `${directory}/.env.${mode}.local`,
-    `${directory}/.env.${mode}`,
-    `${directory}/.env.local`,
-    `${directory}/.env`,
-  ];
-}
-
-function envPath(relativePath: string): string {
-  return fileURLToPath(new URL(relativePath, import.meta.url));
-}
-
-function readEnvFiles(relativePaths: readonly string[]): EnvFileReadResult {
-  const knownValues = new Map<string, Set<string>>();
-  const values: Record<string, string | undefined> = {};
-  for (const relativePath of relativePaths) {
-    const fileValues: Record<string, string | undefined> = {};
-    loadEnvFile({ path: envPath(relativePath), processEnv: fileValues, quiet: true });
-    for (const [key, value] of Object.entries(fileValues)) {
-      if (value === undefined) {
-        continue;
-      }
-      const known = knownValues.get(key) ?? new Set<string>();
-      known.add(value);
-      knownValues.set(key, known);
-      values[key] ??= value;
-    }
-  }
-  return { knownValues, values };
-}
-
-export function mergeWorkerEnvValues(
-  initialEnv: Readonly<EnvironmentValues>,
-  webValues: Readonly<EnvironmentValues>,
-  workerValues: Readonly<EnvironmentValues>,
-  knownFileValues: ReadonlyMap<string, ReadonlySet<string>>,
-) {
-  const merged = { ...initialEnv };
-  for (const [key, value] of Object.entries({ ...webValues, ...workerValues })) {
-    const initialValue = initialEnv[key];
-    if (initialValue === undefined || knownFileValues.get(key)?.has(initialValue)) {
-      merged[key] = value;
-    }
-  }
-  return merged;
-}
-
-export function selectEnvFiles(
-  currentFiles: readonly string[],
-  legacyFiles: readonly string[],
-  fileExists: (filePath: string) => boolean = existsSync,
-): readonly string[] {
-  return currentFiles.some((relativePath) => fileExists(envPath(relativePath)))
-    ? currentFiles
-    : legacyFiles;
-}
-
-export function loadWorkerEnv(mode = process.env.NODE_ENV ?? DEFAULT_ENV_MODE): void {
-  const webEnvFiles = selectEnvFiles(
-    envFiles("../../web", mode),
-    envFiles("../../ai-recruitment-copilot", mode),
-  );
-  const workerEnvFiles = selectEnvFiles(
-    envFiles("..", mode),
-    envFiles("../../ai-recruitment-copilot-worker", mode),
-  );
-
-  const initialEnv = { ...process.env };
-  const web = readEnvFiles(webEnvFiles);
-  const worker = readEnvFiles(workerEnvFiles);
-  const knownFileValues = new Map(web.knownValues);
-  for (const [key, values] of worker.knownValues) {
-    const known = knownFileValues.get(key) ?? new Set<string>();
-    for (const value of values) {
-      known.add(value);
-    }
-    knownFileValues.set(key, known);
-  }
-  const merged = mergeWorkerEnvValues(initialEnv, web.values, worker.values, knownFileValues);
-  for (const [key, value] of Object.entries(merged)) {
-    if (value !== undefined) {
-      process.env[key] = value;
-    }
-  }
+export function validateWorkerEnv(): void {
+  createWorkerEnv(process.env);
 }
 
 function summarizeUrl(raw: string | undefined): Record<string, string | boolean> | null {

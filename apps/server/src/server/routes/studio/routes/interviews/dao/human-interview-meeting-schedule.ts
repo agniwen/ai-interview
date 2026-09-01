@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
@@ -16,8 +16,8 @@ import {
   resolveValidUntilInput,
 } from "./human-interview-meeting-access";
 import { loadHumanInterviewMeetingById } from "./human-interview-meetings";
-import { enqueueHumanMeetingEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 
 export async function updateHumanInterviewMeetingSchedule({
   actorUserId,

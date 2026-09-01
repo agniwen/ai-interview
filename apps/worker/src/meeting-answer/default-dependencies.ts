@@ -4,11 +4,8 @@ import {
   loadMeetingAnswerContext,
   markMeetingAnswerFailed,
   publishMeetingAnswerExchange,
-} from "@app/server/server/routes/meetings/answers/dao";
-import {
-  generateMeetingAnswer,
-  getMeetingAnswerGeneratorSnapshot,
-} from "@app/server/server/routes/meetings/answers/generator";
+} from "./dao";
+import { generateMeetingAnswer, getMeetingAnswerGeneratorSnapshot } from "./generator";
 import type { MeetingAnswerDependencies } from "./processor";
 
 export const defaultMeetingAnswerDependencies: MeetingAnswerDependencies = {

@@ -1,7 +1,4 @@
-import type {
-  InterviewNotificationDeliveryRecord,
-  InterviewNotificationEventRecord,
-} from "@app/server/server/routes/studio/routes/interview-notifications/dao";
+import type { InterviewNotificationDeliveryRecord, InterviewNotificationEventRecord } from "./dao";
 import type {
   InterviewNotificationAudienceType,
   InterviewNotificationChannel,

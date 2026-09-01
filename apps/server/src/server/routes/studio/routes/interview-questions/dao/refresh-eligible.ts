@@ -1,5 +1,5 @@
 import { and, desc, eq, exists, isNull, notExists, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewAuditLog,
   interviewQuestionTemplate,
@@ -11,7 +11,7 @@ import {
 import {
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+} from "../../interviews/dao/context-snapshots";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

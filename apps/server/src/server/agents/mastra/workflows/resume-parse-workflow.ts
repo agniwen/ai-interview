@@ -4,12 +4,12 @@ import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import { attachmentTextSourceSchema } from "@arc/db-schema/db-enums";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
-import { emitMastraWorkflowStreamEvents } from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import {
   generateResumeStructured,
   parseResumeDocument,
-} from "@app/server/lib/server/resume-parse-pipeline";
-import type { ResumeParseProgressEvent } from "@app/server/lib/server/resume-parse-pipeline";
+} from "../../../../lib/server/resume-parse-pipeline";
+import type { ResumeParseProgressEvent } from "../../../../lib/server/resume-parse-pipeline";
 
 const resumeParseInputSchema = z.object({
   bytesBase64: z.string().min(1),

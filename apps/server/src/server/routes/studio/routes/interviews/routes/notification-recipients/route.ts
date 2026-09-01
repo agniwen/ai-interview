@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
 import {
   interviewRecordExists,
   listInterviewNotificationRecipients,

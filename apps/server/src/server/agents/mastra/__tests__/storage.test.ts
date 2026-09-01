@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMastraStorage } from "@app/server/server/agents/mastra/storage";
+import { createMastraStorage } from "../storage";
 
 describe("Mastra storage", () => {
   it("throws a clear error when DATABASE_URL is missing", () => {

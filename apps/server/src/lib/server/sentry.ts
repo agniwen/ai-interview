@@ -5,6 +5,7 @@ const createBackendSentryOptions = () =>
   createSentryOptions({
     dsn: resolveSentryDsn(process.env, "SENTRY_BACKEND_DSN"),
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+    nodeEnvironment: process.env.NODE_ENV,
     release: process.env.SENTRY_RELEASE,
     runtime: "backend",
   });

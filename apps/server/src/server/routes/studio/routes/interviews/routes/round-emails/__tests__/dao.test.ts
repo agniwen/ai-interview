@@ -6,7 +6,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../../lib/server/db/index";
 import {
   organization,
   studioInterview,
@@ -14,10 +14,7 @@ import {
   studioRoundEmailLog,
   user,
 } from "@arc/db-schema/schema";
-import {
-  insertRoundEmailLog,
-  summarizeRoundEmailLogs,
-} from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/dao";
+import { insertRoundEmailLog, summarizeRoundEmailLogs } from "../dao";
 
 const ORG = "test_org_round_emails_dao";
 const ORG_OTHER = "test_org_round_emails_dao_other";

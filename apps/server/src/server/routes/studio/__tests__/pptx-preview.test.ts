@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 describe("PPTX preview conversion", () => {
   it("converts PPTX bytes to a generated PDF buffer", async () => {
-    const pptxPreview = await import("@app/server/server/routes/studio/utils/pptx-preview");
+    const pptxPreview = await import("../utils/pptx-preview");
     const calls: { args: string[]; command: string }[] = [];
 
     const pdf = await pptxPreview.convertPptxToPdf(new Uint8Array([1, 2, 3]), {

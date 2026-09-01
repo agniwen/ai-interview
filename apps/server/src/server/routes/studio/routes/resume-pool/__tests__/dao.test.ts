@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- resume-pool DAO assertions share one integration fixture. */
 import { and, eq, inArray, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   mailIngestAccount,
   mailIngestMessage,
@@ -23,12 +23,12 @@ import {
   markResumePoolItemParsed,
   publishPrivatePoolItem,
   queryResumePoolItems,
-} from "@app/server/server/routes/studio/routes/resume-pool/dao";
+} from "../dao";
 import type {
   DeleteOwnPoolItemDependencies,
   ImportPoolItemDependencies,
   PublishPrivatePoolItemDependencies,
-} from "@app/server/server/routes/studio/routes/resume-pool/dao";
+} from "../dao";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 import { PROFILE, PROFILE_WITH_HIGHLIGHTS } from "./fixtures";
 

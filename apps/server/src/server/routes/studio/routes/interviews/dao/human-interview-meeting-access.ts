@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
-import { getRequiredEnv } from "@app/server/lib/server/env";
+import { getRequiredEnv } from "../../../../../../lib/server/env";
 
 const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;

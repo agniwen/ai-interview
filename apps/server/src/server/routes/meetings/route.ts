@@ -6,7 +6,7 @@ import {
   createSmallSavedMeetingSchema,
   updateMeetingMetadataSchema,
 } from "@arc/shared/meeting-recording";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../factory";
 import {
   completeSmallSavedMeeting,
   createMultipartSavedMeeting,

@@ -2,20 +2,20 @@ import type { UIMessage } from "ai";
 import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { zValidator } from "@hono/zod-validator";
 import { toAISdkStream } from "@mastra/ai-sdk";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { legacyUiMessageToArcMessage } from "@app/server/server/agents/mastra/adapters/arc-message-adapter";
-import { createRecruitingCopilotAgent } from "@app/server/server/agents/mastra/agents/recruiting-copilot-agent";
-import { mastra } from "@app/server/server/agents/mastra/index";
-import { factory } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { resumeChatRequestSchema } from "@app/server/server/routes/resume/schema";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import { legacyUiMessageToArcMessage } from "../../../../agents/mastra/adapters/arc-message-adapter";
+import { createRecruitingCopilotAgent } from "../../../../agents/mastra/agents/recruiting-copilot-agent";
+import { mastra } from "../../../../agents/mastra/index";
+import { factory } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
+import { resumeChatRequestSchema } from "../../schema";
 import {
   checkConversationOwner,
   deleteMessagesFromId,
   loadConversationContextBindings,
   upsertChatMessage,
-} from "@app/server/server/routes/chat/dao/chat";
-import { extractV6NativeApproval } from "@app/server/server/routes/chat/utils/extract-v6-native-approval";
+} from "../../../chat/dao/chat";
+import { extractV6NativeApproval } from "../../../chat/utils/extract-v6-native-approval";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { loadResumeRecordFocus } from "./dao";
 import { resolveRecruitingCopilotFocus } from "./focus";

@@ -2,7 +2,7 @@ import type { parseScheduleEntriesInput } from "@arc/db-schema/studio-interviews
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../lib/server/db/index";
 import {
   globalConfig,
   jobDescription,
@@ -14,27 +14,24 @@ import {
   pickCurrentScheduleEntry,
   sortScheduleEntries,
 } from "@arc/shared/interview/interview-record";
-import {
-  parseResumeFastToProfile,
-  ResumeAnalysisError,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { projectAttachmentToResumeProfile } from "@app/server/server/agents/resume-parser-agent";
+import { parseResumeFastToProfile, ResumeAnalysisError } from "../../agents/resume-analysis-agent";
+import { projectAttachmentToResumeProfile } from "../../agents/resume-parser-agent";
 import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
-import { generateResumeStructured } from "@app/server/lib/server/resume-parse-pipeline";
+} from "../chat/dao/chat-attachments";
+import { generateResumeStructured } from "../../../lib/server/resume-parse-pipeline";
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+} from "../studio/routes/interviews/dao/context-snapshots";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import { buildAttachmentKeyByHash, putObjectBytes } from "@app/server/lib/server/s3";
-import { isResumeParseCacheEnabled } from "@app/server/lib/server/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "@app/server/lib/server/resume-parse-provider";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
+import { isResumeParseCacheEnabled } from "../../../lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "../../../lib/server/resume-parse-provider";
+import { createInternalErrorResponse } from "../../error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
 import {
   createResumeUploadStorage,

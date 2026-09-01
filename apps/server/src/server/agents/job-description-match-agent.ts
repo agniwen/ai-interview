@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   generateStructuredWithMastraAgent,
   jobDescriptionMatchAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 const MATCH_INSTRUCTIONS = `你是一名招聘匹配助手。你会收到候选人的结构化简历信息与一份在招岗位候选列表，请从中挑选与候选人最匹配的一个。
 

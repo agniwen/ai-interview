@@ -1,6 +1,6 @@
-import { loadInterviewContextsForFormAi } from "@app/server/server/routes/studio/routes/forms/dao/form-ai-context";
-import { loadManagedJobDescriptionById } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import type { AiCandidateContext } from "@app/server/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
+import { loadInterviewContextsForFormAi } from "../dao/form-ai-context";
+import { loadManagedJobDescriptionById } from "../../job-descriptions/dao";
+import type { AiCandidateContext } from "./ai-candidate-context-format";
 
 export interface AiGenerateJobDescriptionContext {
   name: string;

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
 import { z } from "zod";
-import { loadServerEnv, loadWebEnv } from "../standalone/env";
+import { loadServerEnv } from "../standalone/env";
 import { auditStructuredArtifact } from "./diagnose-structured-resume-audit";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -166,7 +166,6 @@ async function mapConcurrent<T, R>(
 }
 
 async function main(): Promise<void> {
-  loadWebEnv();
   loadServerEnv();
   forceModels();
   // This script executes the persisted lifecycle locally so one run owns timing and completion.
@@ -189,7 +188,7 @@ async function main(): Promise<void> {
     import("../server/routes/studio/routes/resumes/utils/review-queue"),
     import("../server/routes/studio/routes/resumes/utils/review-worker"),
     import("../lib/server/resume-evaluation-input-hash"),
-    import("../server/agents/mastra/models"),
+    import("@app/ai-runtime/models"),
   ]);
 
   const [workspace] = await db

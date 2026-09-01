@@ -4,7 +4,7 @@ import {
   MINIMAX_VOICE_PREVIEW_FORMAT,
   MINIMAX_VOICE_PREVIEW_MODEL,
   MINIMAX_VOICE_PREVIEW_TEXT,
-} from "@app/server/server/routes/studio/routes/interviewers/voice-preview";
+} from "../voice-preview";
 
 const IDENTITY = {
   format: MINIMAX_VOICE_PREVIEW_FORMAT,

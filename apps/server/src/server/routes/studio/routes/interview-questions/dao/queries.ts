@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import type {
   InterviewQuestionTemplateListRecord,
@@ -10,14 +10,14 @@ import type {
 import type { SQL } from "drizzle-orm";
 import { and, asc, count, eq, exists, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "@app/server/lib/server/db/pagination";
-import type { PaginatedResult, PaginationParams } from "@app/server/lib/server/db/pagination";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
+} from "../../../../../../lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "../../../../../../lib/server/db/pagination";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,

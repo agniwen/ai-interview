@@ -1,7 +1,7 @@
 import { and, desc, eq, ne } from "drizzle-orm";
-import type { db } from "@app/server/lib/server/db";
-import { enqueueHumanMeetingEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import type { db } from "../../../../../../lib/server/db/index";
+import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,

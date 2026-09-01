@@ -3,7 +3,6 @@ import type {
   JobEvaluationRuleDraft,
 } from "@arc/db-schema/job-description-evaluation";
 import {
-  JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
   jobEvaluationRuleDraftSchema,
 } from "@arc/db-schema/job-description-evaluation";
@@ -11,23 +10,19 @@ import type {
   JobDescriptionDeductionRules,
   JobDescriptionStructuredConfig,
 } from "@arc/db-schema/job-description-structured-config";
-import { parseStoredJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@arc/shared/structured-resume-scoring";
-import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
 import {
   computeJobEvaluationDraftInputHash,
   computeJobEvaluationPayloadHash,
-} from "@app/server/lib/server/job-evaluation-hash";
-import { jobDescription } from "@arc/db-schema/schema";
-import { getMastraModelIdentifier, mastraModels } from "@app/server/server/agents/mastra/models";
+} from "../../../../../../lib/server/job-evaluation-hash";
 import {
   compileEvaluationBlueprint,
-  generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
   stableSkillRequirementGroupId,
 } from "../utils/evaluation-blueprint-compiler";
-import type { JobEvaluationRuleDraftProgress } from "../utils/evaluation-blueprint-compiler";
+import type {
+  BlueprintCompilerCandidate,
+  JobEvaluationRuleDraftProgress,
+} from "../utils/evaluation-blueprint-compiler";
 
 export interface JobEvaluationDraft {
   description: string | null;
@@ -40,34 +35,34 @@ export interface JobEvaluationDraft {
   structuredConfig: JobDescriptionStructuredConfig;
 }
 
-interface GeneratePreviewInput {
+export interface GeneratePreviewInput {
   actorId: string;
   jobDescriptionId: string;
   organizationId: string;
 }
 
-interface PublishInput extends GeneratePreviewInput {
+export interface PublishInput extends GeneratePreviewInput {
   confirmedBlueprintHash: string;
 }
 
-interface SaveRuleDraftInput extends GeneratePreviewInput {
+export interface SaveRuleDraftInput extends GeneratePreviewInput {
   deductionRules: JobDescriptionDeductionRules;
   expectedBlueprintHash: string;
   ruleDraft: JobEvaluationRuleDraft;
 }
 
-interface PreviewResult {
+export interface PreviewResult {
   blueprint: JobEvaluationBlueprint;
   blueprintHash: string;
   generatedAt: string;
   inputHash: string;
 }
 
-type PublishStoredResult =
-  | { job: typeof jobDescription.$inferSelect; status: "published" }
+export type PublishStoredResult<PublishedJob> =
+  | { job: PublishedJob; status: "published" }
   | { status: "already_published" | "not_found" | "stale" };
 
-interface LifecycleDependencies {
+export interface LifecycleDependencies<PublishedJob> {
   compile(
     job: JobEvaluationDraft,
     onProgress?: JobEvaluationRuleDraftProgress,
@@ -76,7 +71,7 @@ interface LifecycleDependencies {
     jobDescriptionId: string;
     organizationId: string;
   }): Promise<JobEvaluationDraft | null>;
-  publishStoredPreview(input: PublishInput): Promise<PublishStoredResult>;
+  publishStoredPreview(input: PublishInput): Promise<PublishStoredResult<PublishedJob>>;
   saveManualPreview(
     input: GeneratePreviewInput &
       PreviewResult & {
@@ -253,7 +248,9 @@ export function applyManualRuleDraft(
   });
 }
 
-export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies) {
+export function createJobEvaluationLifecycle<PublishedJob>(
+  dependencies: LifecycleDependencies<PublishedJob>,
+) {
   return {
     async generatePreview(
       input: GeneratePreviewInput,
@@ -343,119 +340,18 @@ export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies
   };
 }
 
-async function loadDefault(input: {
-  jobDescriptionId: string;
-  organizationId: string;
-}): Promise<JobEvaluationDraft | null> {
-  const [row] = await db
-    .select({
-      description: jobDescription.description,
-      evaluationBlueprintPreview: jobDescription.evaluationBlueprintPreview,
-      evaluationBlueprintPreviewHash: jobDescription.evaluationBlueprintPreviewHash,
-      evaluationMode: jobDescription.evaluationMode,
-      id: jobDescription.id,
-      lifecycleStatus: jobDescription.lifecycleStatus,
-      prompt: jobDescription.prompt,
-      structuredConfig: jobDescription.structuredConfig,
-    })
-    .from(jobDescription)
-    .where(
-      and(
-        eq(jobDescription.id, input.jobDescriptionId),
-        eq(jobDescription.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!row) {
-    return null;
-  }
-  return {
-    ...row,
-    evaluationBlueprintPreview: row.evaluationBlueprintPreview
-      ? jobEvaluationBlueprintSchema.parse(row.evaluationBlueprintPreview)
-      : null,
-    structuredConfig: parseStoredJobDescriptionStructuredConfig(row.structuredConfig),
-  };
-}
-
-function saveManualPreviewDefault(
-  input: GeneratePreviewInput &
-    PreviewResult & {
-      deductionRules: JobDescriptionDeductionRules;
-      expectedBlueprintHash: string;
-    },
-): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, input.jobDescriptionId),
-          eq(jobDescription.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1)
-      .for("update");
-    if (
-      !current ||
-      current.evaluationMode !== "structured" ||
-      current.lifecycleStatus !== "draft" ||
-      current.evaluationBlueprintPreviewHash !== input.expectedBlueprintHash
-    ) {
-      return false;
-    }
-    const currentConfig = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
-    if (
-      computeJobEvaluationDraftInputHash({
-        description: current.description,
-        prompt: current.prompt,
-        structuredConfig: currentConfig,
-      }) !== current.evaluationBlueprintPreviewInputHash
-    ) {
-      return false;
-    }
-    const nextConfig = {
-      ...currentConfig,
-      deductionRules: input.deductionRules,
-    };
-    if (
-      computeJobEvaluationDraftInputHash({
-        description: current.description,
-        prompt: current.prompt,
-        structuredConfig: nextConfig,
-      }) !== input.inputHash
-    ) {
-      return false;
-    }
-    await tx
-      .update(jobDescription)
-      .set({
-        evaluationBlueprintPreview: input.blueprint,
-        evaluationBlueprintPreviewHash: input.blueprintHash,
-        evaluationBlueprintPreviewInputHash: input.inputHash,
-        structuredConfig: nextConfig,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobDescription.id, current.id));
-    return true;
-  });
-}
-
 export interface CompileJobEvaluationDraftDependencies {
-  generate: typeof generateEvaluationBlueprintCandidate;
+  generate(
+    job: Pick<JobEvaluationDraft, "description" | "id" | "prompt" | "structuredConfig">,
+    onProgress?: JobEvaluationRuleDraftProgress,
+  ): Promise<BlueprintCompilerCandidate>;
   getModelId(): string;
 }
 
-const defaultCompileDependencies: CompileJobEvaluationDraftDependencies = {
-  generate: generateEvaluationBlueprintCandidate,
-  getModelId: () => getMastraModelIdentifier(mastraModels.structuredModel),
-};
-
 export async function compileJobEvaluationDraft(
   job: Pick<JobEvaluationDraft, "description" | "id" | "prompt" | "structuredConfig">,
-  onProgress?: JobEvaluationRuleDraftProgress,
-  dependencies: CompileJobEvaluationDraftDependencies = defaultCompileDependencies,
+  onProgress: JobEvaluationRuleDraftProgress | undefined,
+  dependencies: CompileJobEvaluationDraftDependencies,
 ): Promise<JobEvaluationBlueprint> {
   const startedAt = Date.now();
   const generatedAt = new Date().toISOString();
@@ -486,118 +382,3 @@ export async function compileJobEvaluationDraft(
     },
   );
 }
-
-function savePreviewDefault(input: GeneratePreviewInput & PreviewResult): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, input.jobDescriptionId),
-          eq(jobDescription.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1)
-      .for("update");
-    if (
-      !current ||
-      current.evaluationMode !== "structured" ||
-      current.lifecycleStatus !== "draft"
-    ) {
-      return false;
-    }
-    const currentConfig = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
-    if (
-      computeJobEvaluationDraftInputHash({
-        description: current.description,
-        prompt: current.prompt,
-        structuredConfig: currentConfig,
-      }) !== input.inputHash
-    ) {
-      return false;
-    }
-    await tx
-      .update(jobDescription)
-      .set({
-        evaluationBlueprintPreview: input.blueprint,
-        evaluationBlueprintPreviewGeneratedAt: new Date(input.generatedAt),
-        evaluationBlueprintPreviewHash: input.blueprintHash,
-        evaluationBlueprintPreviewInputHash: input.inputHash,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobDescription.id, current.id));
-    return true;
-  });
-}
-
-function publishStoredPreviewDefault(input: PublishInput): Promise<PublishStoredResult> {
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, input.jobDescriptionId),
-          eq(jobDescription.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1)
-      .for("update");
-    if (!current) {
-      return { status: "not_found" };
-    }
-    if (current.lifecycleStatus === "published") {
-      return { status: "already_published" };
-    }
-    const config = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
-    const currentInputHash = computeJobEvaluationDraftInputHash({
-      description: current.description,
-      prompt: current.prompt,
-      structuredConfig: config,
-    });
-    if (
-      current.evaluationMode !== "structured" ||
-      !current.evaluationBlueprintPreview ||
-      current.evaluationBlueprintPreviewHash !== input.confirmedBlueprintHash ||
-      current.evaluationBlueprintPreviewInputHash !== currentInputHash
-    ) {
-      return { status: "stale" };
-    }
-    const blueprint = jobEvaluationBlueprintSchema.parse(current.evaluationBlueprintPreview);
-    const now = new Date();
-    const [published] = await tx
-      .update(jobDescription)
-      .set({
-        deductionRuleSetVersion: STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION,
-        evaluationBlueprint: blueprint,
-        evaluationBlueprintHash: current.evaluationBlueprintPreviewHash,
-        evaluationBlueprintPreview: null,
-        evaluationBlueprintPreviewGeneratedAt: null,
-        evaluationBlueprintPreviewHash: null,
-        evaluationBlueprintPreviewInputHash: null,
-        evaluationBlueprintSchemaVersion: JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
-        lifecycleStatus: "published",
-        publishedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(jobDescription.id, current.id))
-      .returning();
-    if (!published) {
-      return { status: "stale" };
-    }
-    return { job: published, status: "published" };
-  });
-}
-
-const defaultLifecycle = createJobEvaluationLifecycle({
-  compile: compileJobEvaluationDraft,
-  load: loadDefault,
-  publishStoredPreview: publishStoredPreviewDefault,
-  saveManualPreview: saveManualPreviewDefault,
-  savePreview: savePreviewDefault,
-});
-
-export const generateStructuredJobBlueprintPreview = defaultLifecycle.generatePreview;
-export const publishStructuredJob = defaultLifecycle.publish;
-export const saveStructuredJobRuleDraft = defaultLifecycle.saveRuleDraft;

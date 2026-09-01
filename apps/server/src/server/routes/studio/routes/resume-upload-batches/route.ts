@@ -1,15 +1,12 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { chatAttachment, jobDescription } from "@arc/db-schema/schema";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { validateResumeFile } from "@app/server/server/agents/resume-analysis-agent";
-import {
-  normalizeResumeFile,
-  storeResumeObjectOnly,
-} from "@app/server/server/routes/interview/utils";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { requirePermission } from "../../../../middlewares/permission";
+import { validateResumeFile } from "../../../../agents/resume-analysis-agent";
+import { normalizeResumeFile, storeResumeObjectOnly } from "../../../interview/utils";
 import {
   cancelBatch,
   deleteBatch,
@@ -19,8 +16,8 @@ import {
   loadBatchDetail,
   reviveOrphans,
   reviveRetriableFailures,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import { processNextItem } from "@app/server/server/routes/studio/routes/resume-upload-batches/utils/processor";
+} from "./dao/batches";
+import { processNextItem } from "./utils/processor";
 import { uploadTaskInboxRouter } from "./routes/inbox/route";
 import { createBatchInputSchema } from "./schema";
 

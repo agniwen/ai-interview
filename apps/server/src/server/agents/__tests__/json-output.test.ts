@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { parseJsonOutput } from "@app/server/server/agents/json-output";
+import { parseJsonOutput } from "@app/ai-runtime/json-output";
 
 const SCHEMA = z.object({
   age: z.number(),

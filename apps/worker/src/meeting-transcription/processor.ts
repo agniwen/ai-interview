@@ -2,35 +2,31 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { downloadMeetingRecordingObjectToFile } from "@app/server/lib/server/s3";
-import type {
-  claimMeetingTranscriptionChunk,
-  claimMeetingTranscriptionRun,
-  markMeetingTranscriptionChunkFailed,
-  markMeetingTranscriptionFailed,
-  publishMeetingTranscript,
-} from "@app/server/server/routes/meetings/transcription/dao";
-import { createQwenAsrMeetingTranscriptionProvider } from "@app/server/server/routes/meetings/transcription/providers/qwen-asr";
-import {
-  assertMeetingTranscriptionJobEndpoint,
-  resolveMeetingTranscriptionQwenBaseUrl,
-} from "@app/server/server/routes/meetings/transcription/provider-endpoint";
-import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
+import type { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
   assertMeetingTranscriptionFfmpegAvailable,
   mergeMeetingTranscriptionChunkResults,
   prepareMeetingTranscriptionAudioChunks,
   readMeetingTranscriptionFfmpegVersion,
-} from "@app/server/server/routes/meetings/transcription/audio-pipeline";
-import type { requestAutomaticMeetingIntelligence } from "@app/server/server/routes/meetings/intelligence/service";
+} from "@app/meeting-media";
+import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type {
-  FinalTranscriptionAudioChunk,
+  claimMeetingTranscriptionChunk,
+  claimMeetingTranscriptionRun,
   MeetingTranscriptionProvider,
-} from "@app/server/server/routes/meetings/transcription/provider";
+  markMeetingTranscriptionChunkFailed,
+  markMeetingTranscriptionFailed,
+  publishMeetingTranscript,
+} from "@app/server/worker/meeting-transcription";
 import {
+  assertMeetingTranscriptionJobEndpoint,
+  createQwenAsrMeetingTranscriptionProvider,
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
-} from "@app/server/server/routes/meetings/transcription/provider";
+  resolveMeetingTranscriptionQwenBaseUrl,
+} from "@app/server/worker/meeting-transcription";
+import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
+import type { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
 import pLimit from "p-limit";
@@ -38,7 +34,7 @@ import pLimit from "p-limit";
 export {
   assertMeetingTranscriptionFfmpegAvailable,
   assertMeetingTranscriptionFfmpegVersion,
-} from "@app/server/server/routes/meetings/transcription/audio-pipeline";
+} from "@app/meeting-media";
 
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;

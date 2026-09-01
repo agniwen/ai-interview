@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { PublicReferralPreview } from "@arc/shared/referrals";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { jobDescription, organization, referralLink, user } from "@arc/db-schema/schema";
 
 const TOKEN_BYTES = 32;

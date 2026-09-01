@@ -1,5 +1,5 @@
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
-import { loadRecruitingDashboardMetrics } from "@app/server/server/routes/studio/routes/resumes/dao/metrics";
+import { loadRecruitingDashboardMetrics } from "@app/server/web/studio";
 import { LRUCache } from "lru-cache";
 
 interface DashboardMetricsCacheEntry {

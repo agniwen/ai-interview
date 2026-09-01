@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { generateRecordingTitle } from "./generator";
 
 const recordingTitleRequestSchema = z.object({

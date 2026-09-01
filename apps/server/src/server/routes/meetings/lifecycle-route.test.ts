@@ -1,6 +1,6 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { createMeetingRestoreRouter } from "./routes/restore/route";
 import { createMeetingTrashActionRouter } from "./routes/trash-action/route";
 import { createMeetingTrashRouter } from "./routes/trash/route";

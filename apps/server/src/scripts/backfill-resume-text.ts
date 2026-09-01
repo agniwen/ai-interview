@@ -8,10 +8,10 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
-import type { Database } from "@app/server/lib/server/db";
-import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@app/server/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "@app/server/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import type { Database } from "../lib/server/db/index";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
+import { loadStandaloneEnv } from "../standalone/env";
 
 export type ResumeTextBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
 export type ResumeTextBackfillRecordType = "resume_pool_item" | "studio_interview";
@@ -122,7 +122,6 @@ function parseBooleanEnv(value: string | undefined): boolean {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 function resumeTextMissingCondition(column: typeof studioInterview.resumeText): SQL {
@@ -402,7 +401,7 @@ export async function runResumeTextBackfillRecords({
 
 async function backfillResumeText(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@app/server/lib/server/db");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const target = parseResumeTextBackfillTarget(process.env.BACKFILL_RESUME_TEXT_TARGET);
   const concurrency = parseResumeTextBackfillConcurrency(
     process.env.BACKFILL_RESUME_TEXT_CONCURRENCY,

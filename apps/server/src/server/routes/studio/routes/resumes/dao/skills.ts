@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { studioInterview, studioOrgSkill } from "@arc/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

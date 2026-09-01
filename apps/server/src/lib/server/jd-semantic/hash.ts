@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { JobDescriptionSemanticInput } from "@app/server/lib/server/resume-semantic/text-builders";
+import type { JobDescriptionSemanticInput } from "../resume-semantic/text-builders";
 
 function cleanText(value: string | null | undefined): string {
   return (value ?? "").replaceAll(/\s+/g, " ").trim();

@@ -2,27 +2,27 @@
 import { createTool } from "@mastra/core/tools";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
+import { db } from "../../../../lib/server/db/index";
+import type { RecruitingVisibilityScope } from "../../../access/recruiting-visibility";
+import { QdrantResumeVectorStore } from "../../../../lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
   getResumeEmbeddingConfig,
   isResumeSemanticIndexEnabled,
-} from "@app/server/lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "@app/server/lib/server/resume-semantic/indexer";
-import type { ResumeSemanticTextChunk } from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "../../../../lib/server/resume-semantic/indexer";
+import type { ResumeSemanticTextChunk } from "../../../../lib/server/resume-semantic/text-builders";
 import type {
   ResumeVectorSearchResult,
   ResumeVectorStore,
-} from "@app/server/lib/server/resume-semantic/vector-store";
-import { listResumeRecords } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+} from "../../../../lib/server/resume-semantic/vector-store";
+import { listResumeRecords } from "../../../routes/studio/routes/resumes/dao/resumes";
 import {
   listRecruitingJobDescriptions,
   loadRecruitingJobDescriptionById,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { loadResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import { upsertConversationContextJobBinding } from "@app/server/server/routes/chat/dao/chat";
+} from "../../../routes/studio/routes/job-descriptions/dao";
+import { loadResumePoolItem } from "../../../routes/studio/routes/resume-pool/dao";
+import { upsertConversationContextJobBinding } from "../../../routes/chat/dao/chat";
 import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { jobEvaluationModeSchema } from "@arc/db-schema/job-description-evaluation";

@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 

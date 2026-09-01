@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import type { WorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { db } from "@app/server/lib/server/db";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
+import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
+import { db } from "../../../../../../lib/server/db/index";
+import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
 import {
   getHumanInterviewOfferReadinessError,
   loadHumanInterviewRoundReadiness,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+} from "../dao/human-interview-rounds";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
 import type { JsonObject } from "@arc/db-schema/json";
 import {

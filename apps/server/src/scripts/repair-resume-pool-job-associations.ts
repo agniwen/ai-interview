@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import type { Database } from "@app/server/lib/server/db";
+import type { Database } from "../lib/server/db/index";
 import {
   jobDescription,
   resumePoolEvent,
@@ -8,7 +8,7 @@ import {
   resumePoolItem,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 export interface ResumePoolJobAssociationRepairCandidate {
   candidateName: string;
@@ -137,7 +137,6 @@ export async function repairResumePoolJobAssociations(input: {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 function printResult(result: ResumePoolJobAssociationRepairResult, apply: boolean): void {
@@ -160,7 +159,7 @@ export async function runResumePoolJobAssociationRepairCli(
   args: string[] = process.argv.slice(2),
 ): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@app/server/lib/server/db");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   try {
     const apply = args.includes("--apply");
     const result = await repairResumePoolJobAssociations({ apply, db });

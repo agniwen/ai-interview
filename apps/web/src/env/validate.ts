@@ -2,7 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnv } from "vite";
 import { createClientEnv } from "./client.schema";
-import { resolveWebEnvDir } from "./files";
+import { webAppRoot } from "./files";
 import { createServerEnv } from "./server";
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -16,7 +16,7 @@ export function validateEnv(runtimeEnv: RuntimeEnv) {
   createClientEnv(runtimeEnv);
 }
 
-export function loadBuildEnv(mode = "production", envDir = resolveWebEnvDir(mode)) {
+export function loadBuildEnv(mode = "production", envDir = webAppRoot) {
   return toRuntimeEnv({
     ...loadEnv(mode, envDir, ""),
     ...process.env,

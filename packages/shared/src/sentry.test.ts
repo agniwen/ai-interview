@@ -19,6 +19,18 @@ describe("resolveSentryDsn", () => {
 });
 
 describe("createSentryOptions", () => {
+  it("stays disabled in NODE_ENV development even when Sentry is configured for production", () => {
+    expect(
+      createSentryOptions({
+        dsn: "https://public@example.ingest.sentry.io/1",
+        environment: "production",
+        nodeEnvironment: " development ",
+        release: "abc123",
+        runtime: "worker",
+      }),
+    ).toBeNull();
+  });
+
   it("stays disabled when the shared DSN is blank", () => {
     expect(
       createSentryOptions({

@@ -1,23 +1,23 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { jobDescriptionVersion } from "@arc/db-schema/schema";
 import {
   generateResumeReview,
   generateResumeScreeningResult,
-} from "@app/server/server/agents/resume-analysis-agent";
+} from "../../../../../agents/resume-analysis-agent";
 import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
-import type { loadRecruitingJobDescriptionById } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+import type { loadRecruitingJobDescriptionById } from "../../job-descriptions/dao";
 import {
   STRUCTURED_RESUME_ENGINE_VERSION,
   STRUCTURED_RESUME_MODEL_ID,
   STRUCTURED_RESUME_PROMPT_VERSION,
-} from "@app/server/server/agents/structured-resume-evaluation";
-import { runStructuredResumeReviewWorkflow } from "@app/server/server/agents/mastra/workflows/structured-resume-review-workflow";
+} from "../../../../../agents/structured-resume-evaluation";
+import { runStructuredResumeReviewWorkflow } from "../../../../../agents/mastra/workflows/structured-resume-review-workflow";
 import type { GeneratedResumeAssessment } from "./review-lifecycle";
-import { generateQualitativeResumeEvaluation } from "@app/server/server/agents/qualitative-resume-evaluation";
+import { generateQualitativeResumeEvaluation } from "../../../../../agents/qualitative-resume-evaluation";
 
 interface ResumeReviewContext {
   jobDescription: string | null;
@@ -47,7 +47,7 @@ const defaultDependencies: ResumeReviewGenerationDependencies = {
   generateScreeningResult: generateResumeScreeningResult,
   loadJobDescription: async (organizationId, jobDescriptionId) => {
     const { loadRecruitingJobDescriptionById: loadJobDescription } =
-      await import("@app/server/server/routes/studio/routes/job-descriptions/dao");
+      await import("../../job-descriptions/dao");
     return loadJobDescription(organizationId, jobDescriptionId);
   },
   loadJobDescriptionVersion: async (organizationId, jobDescriptionVersionId) => {

@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, max, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   department,
   interviewer,
@@ -25,9 +25,9 @@ import {
 } from "@arc/db-schema/job-description-structured-config";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   listAllJobDescriptions,
   listRecruitingJobDescriptions,
@@ -35,27 +35,27 @@ import {
   loadRecruitingJobDescriptionById,
   queryPaginatedJobDescriptions,
   serializeJobDescription,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
+} from "./dao";
+import { cacheTags, safeUpdateTag } from "../../../../cache-tags";
 import {
   deleteJobDescriptionSemanticIndexBestEffort,
   enqueueJobDescriptionIndexJobBestEffort,
-} from "@app/server/lib/server/jd-semantic/enqueue";
-import { generateJobDescriptionFromPrompt } from "@app/server/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
-import { generateResumeScreeningPolicyFromJobDescription } from "@app/server/server/routes/studio/routes/job-descriptions/utils/resume-screening-policy-generate";
+} from "../../../../../lib/server/jd-semantic/enqueue";
+import { generateJobDescriptionFromPrompt } from "./utils/ai-job-description-generate";
+import { generateResumeScreeningPolicyFromJobDescription } from "./utils/resume-screening-policy-generate";
 import {
   buildJobDescriptionCodeCandidates,
   pickAvailableJobDescriptionCode,
-} from "@app/server/server/routes/studio/routes/job-descriptions/utils/job-description-code";
-import { recommendCandidatesForJobDescription } from "@app/server/server/routes/studio/routes/job-descriptions/utils/recommendations";
-import { getGlobalConfig } from "@app/server/server/routes/studio/routes/global-config/dao";
+} from "./utils/job-description-code";
+import { recommendCandidatesForJobDescription } from "./utils/recommendations";
+import { getGlobalConfig } from "../global-config/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";
 import {
   generateStructuredJobBlueprintPreview,
-  JobEvaluationLifecycleError,
   publishStructuredJob,
   saveStructuredJobRuleDraft,
-} from "./application/job-evaluation-lifecycle";
+} from "./application/default-job-evaluation-lifecycle";
+import { JobEvaluationLifecycleError } from "./application/job-evaluation-lifecycle";
 import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
 import { jobEvaluationUpgradeRouter } from "./routes/upgrade/route";
 import { jobEvaluationPreviewStreamRouter } from "./routes/evaluation-blueprint-preview/route";

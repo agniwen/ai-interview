@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorkerMailIngestAccount } from "@app/server/server/routes/studio/routes/mail-ingest/dao";
+import type { WorkerMailIngestAccount } from "@app/server/worker/mail-ingest";
 import { getMailIngestGroupListenStart, groupMailIngestAccounts } from "./account-groups";
 
 function account(input: Partial<WorkerMailIngestAccount>): WorkerMailIngestAccount {

@@ -3,7 +3,7 @@ import {
   encodeAiRunStreamEvent,
   emitMastraWorkflowStreamEvents,
   mastraWorkflowEventToAiRunEvents,
-} from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+} from "../adapters/ai-run-stream";
 import { describe, expect, it, vi } from "vitest";
 
 interface SseEvent {

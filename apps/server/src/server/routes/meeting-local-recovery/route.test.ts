@@ -1,6 +1,6 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { createMeetingLocalRecoveryRouter } from "./route";
 import type { MeetingLocalRecoveryDependencies } from "./route";
 

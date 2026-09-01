@@ -10,10 +10,10 @@ import {
   resumePoolItem,
   studioInterview,
 } from "@arc/db-schema/schema";
-import type { Database } from "@app/server/lib/server/db";
-import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@app/server/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "@app/server/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import type { Database } from "../lib/server/db/index";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
+import { loadStandaloneEnv } from "../standalone/env";
 
 type BackfillTarget = "all" | "pool" | "private";
 type BackfillRecordType = "pool" | "private";
@@ -172,7 +172,6 @@ function clipForStructured(text: string): string {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 async function loadPrivateRecords(db: Database, limit: number | null): Promise<BackfillRecord[]> {
@@ -275,7 +274,7 @@ async function findCachedParsedText(db: Database, record: BackfillRecord) {
 
 async function generateEducationExperiences(text: string): Promise<ResumeEducationExperience[]> {
   const { generateStructuredWithMastraAgent, resumeEducationBackfillAgent } =
-    await import("@app/server/server/agents/mastra/agents/simple-generators");
+    await import("@app/ai-runtime/simple-generators");
   const parsed = await generateStructuredWithMastraAgent({
     agent: resumeEducationBackfillAgent,
     maxOutputTokens: 4096,
@@ -302,8 +301,8 @@ async function extractEducationForRecord(
   }
 
   const [{ extractResumeDocumentText }, { getObjectBytes }] = await Promise.all([
-    import("@app/server/lib/server/resume-parse-pipeline"),
-    import("@app/server/lib/server/s3"),
+    import("../lib/server/resume-parse-pipeline"),
+    import("@app/object-storage"),
   ]);
   const object = await getObjectBytes(record.storageKey);
   if (!object) {
@@ -429,7 +428,7 @@ async function writeBackfillResult(
 
 async function backfillResumeProfiles(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@app/server/lib/server/db");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const target = parseBackfillTarget(process.env.BACKFILL_RESUME_PROFILE_TARGET);
   const concurrency = parseBackfillConcurrency(process.env.BACKFILL_RESUME_PROFILE_CONCURRENCY);
   const limit = parseOptionalPositiveInteger(

@@ -1,8 +1,8 @@
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-information";
-import type { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
-import type { generateInterviewKeyInformation } from "@app/server/server/routes/agent/utils/interview-key-information";
-import type { buildInterviewReportQuestionsFromContext } from "@app/server/server/routes/agent/utils/interview-report-questions";
+import type { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
+import type { generateInterviewKeyInformation } from "./interview-key-information";
+import type { buildInterviewReportQuestionsFromContext } from "./interview-report-questions";
 
 const LOG_PREFIX = "[interview-key-information]";
 const RUNNING_STALE_MINUTES = 10;

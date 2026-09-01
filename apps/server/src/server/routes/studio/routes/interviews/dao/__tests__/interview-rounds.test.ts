@@ -6,7 +6,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import {
   interviewConversation,
   interviewNotification,
@@ -20,8 +20,8 @@ import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
   summarizeInterviewRoundCounts,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { loadAiCalendarEventPreview } from "@app/server/server/routes/studio/routes/calendar/dao";
+} from "../interview-rounds";
+import { loadAiCalendarEventPreview } from "../../../calendar/dao";
 
 const ORG = "test_org_interview_rounds";
 const USER_ID = "test_user_interview_rounds";

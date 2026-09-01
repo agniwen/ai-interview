@@ -6,7 +6,7 @@
 import { testClient } from "hono/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
   jobDescription,
@@ -25,19 +25,19 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../../factory";
 import {
   createResumePoolItem,
   bindResumePoolItemJobDescription,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
-} from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import type { ImportPoolItemDependencies } from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import { listRecruitingJobDescriptions } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { matchNewMailResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/utils/job-match/service";
-import type { MailResumeJobMatchServiceDependencies } from "@app/server/server/routes/studio/routes/resume-pool/utils/job-match/service";
-import { createResumePoolRouter } from "@app/server/server/routes/studio/routes/resume-pool/route";
-import type { ResumePoolRouterDependencies } from "@app/server/server/routes/studio/routes/resume-pool/route";
+} from "../dao";
+import type { ImportPoolItemDependencies } from "../dao";
+import { listRecruitingJobDescriptions } from "../../job-descriptions/dao";
+import { matchNewMailResumePoolItem } from "../utils/job-match/service";
+import type { MailResumeJobMatchServiceDependencies } from "../utils/job-match/service";
+import { createResumePoolRouter } from "../route";
+import type { ResumePoolRouterDependencies } from "../route";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 const mocks = {

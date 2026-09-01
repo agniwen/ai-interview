@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { updateMeetingTranscriptionPolicySchema } from "@arc/shared/meeting-transcription";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import {
   getWorkspaceMeetingTranscriptionPolicy,
   updateWorkspaceMeetingTranscriptionPolicy,

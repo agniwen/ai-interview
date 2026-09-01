@@ -2,21 +2,21 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { department, interviewer } from "@arc/db-schema/schema";
 import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
 import { interviewerFormSchema, interviewerUpdateSchema } from "@arc/shared/interviewers";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { getOrCreateMinimaxVoicePreview } from "@app/server/server/routes/studio/routes/interviewers/voice-preview";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { getOrCreateMinimaxVoicePreview } from "./voice-preview";
 import {
   listAllInterviewers,
   loadInterviewerById,
   loadInterviewerReferenceCounts,
   queryPaginatedInterviewers,
   serializeInterviewer,
-} from "@app/server/server/routes/studio/routes/interviewers/dao";
-import { safeUpdateTag } from "@app/server/server/cache-tags";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+} from "./dao";
+import { safeUpdateTag } from "../../../../cache-tags";
+import { requirePermission } from "../../../../middlewares/permission";
 
 async function validateDepartmentExists(
   departmentId: string,

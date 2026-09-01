@@ -4,7 +4,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
   jobDescription,
@@ -26,11 +26,11 @@ import {
   loadActiveBatch,
   loadActiveBatches,
   loadBatchDetail,
-  recoverIncompleteBatchItems,
   reconcileBatchProgress,
+  recoverIncompleteBatchItems,
   reviveOrphans,
   reviveRetriableFailures,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
+} from "../dao/batches";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // 固定前缀，避免与其他测试数据冲突。

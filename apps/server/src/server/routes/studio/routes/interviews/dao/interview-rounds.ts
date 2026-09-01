@@ -1,4 +1,4 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
 // Round-keyed DAO for AI 面试 列表与详情。
 // 主查询：FROM studio_interview_schedule LEFT JOIN studio_interview
 // LEFT JOIN job_description LEFT JOIN user LEFT JOIN (conversations 是否存在) AS hasReport。
@@ -9,15 +9,15 @@ import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-fi
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "@app/server/lib/server/db/pagination";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
-import { intersectRequestedCreatorIds } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+} from "../../../../../../lib/server/db/pagination";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import {
   department,
   interviewConversation,

@@ -2,9 +2,9 @@
 /** @jsxImportSource chat */
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section } from "chat";
-import { db } from "@app/server/lib/server/db";
-import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
-import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
+import { db } from "../../../../../../lib/server/db/index";
+import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
+import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import { account, organization, user } from "@arc/db-schema/schema";
 
 export interface WorkspaceMemberJoinedNotificationContext {
@@ -113,7 +113,7 @@ export interface WorkspaceMemberJoinedNotificationDependencies {
 const defaultDependencies: WorkspaceMemberJoinedNotificationDependencies = {
   loadContext: loadNotificationContext,
   postCard: async (providerId, openId, card) => {
-    const { postFeishuDirectCard } = await import("@app/server/server/routes/feishu/utils/bot");
+    const { postFeishuDirectCard } = await import("../../../../../integrations/feishu/bot");
     return postFeishuDirectCard(providerId, openId, card);
   },
 };

@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { db } from "../../../../../../lib/server/db/index";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import type { JsonObject } from "@arc/db-schema/json";
 import type {
   CandidateTimelineEvent,

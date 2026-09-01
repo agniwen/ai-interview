@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
-import { createUploadsRouter } from "@app/server/server/routes/chat/routes/uploads/route";
+import { factory } from "../../../../../factory";
+import { createUploadsRouter } from "../route";
 
 const mocks = {
   buildAttachmentKeyByHash: vi.fn(),

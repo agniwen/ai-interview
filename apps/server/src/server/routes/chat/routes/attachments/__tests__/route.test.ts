@@ -4,10 +4,10 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { factory } from "@app/server/server/factory";
-import type { ChatAttachmentRow } from "@app/server/server/routes/chat/dao/chat-attachments";
-import { createAttachmentsRouter } from "@app/server/server/routes/chat/routes/attachments/route";
-import type { AttachmentRouteDependencies } from "@app/server/server/routes/chat/routes/attachments/route";
+import { factory } from "../../../../../factory";
+import type { ChatAttachmentRow } from "../../../dao/chat-attachments";
+import { createAttachmentsRouter } from "../route";
+import type { AttachmentRouteDependencies } from "../route";
 
 const mocks = {
   generateResumeStructured: vi.fn<AttachmentRouteDependencies["generateResumeStructured"]>(),

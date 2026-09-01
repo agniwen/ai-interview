@@ -6,32 +6,32 @@ import type {
 } from "@arc/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { department, jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
-import { db } from "@app/server/lib/server/db";
-import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
+import { db } from "../../../../../../lib/server/db/index";
+import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
   getResumeEmbeddingConfig,
   isResumeSemanticIndexEnabled,
-} from "@app/server/lib/server/resume-semantic/embedding";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@app/server/lib/server/resume-semantic/enqueue";
+} from "../../../../../../lib/server/resume-semantic/embedding";
+import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../../lib/server/resume-semantic/enqueue";
 import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
-import { getResumeSemanticIndexConfig } from "@app/server/lib/server/resume-semantic/indexer";
+import { getResumeSemanticIndexConfig } from "../../../../../../lib/server/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,
   mergeVectorScores,
   weightedScore,
-} from "@app/server/lib/server/resume-semantic/scoring";
-import type { VectorScores } from "@app/server/lib/server/resume-semantic/scoring";
-import { buildResumeSemanticTexts } from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/scoring";
+import type { VectorScores } from "../../../../../../lib/server/resume-semantic/scoring";
+import { buildResumeSemanticTexts } from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   ResumeSemanticChunkType,
   ResumeSemanticTextChunk,
-} from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
   ResumeStoredEmbeddingChunk,
   ResumeVectorStore,
-} from "@app/server/lib/server/resume-semantic/vector-store";
+} from "../../../../../../lib/server/resume-semantic/vector-store";
 
 const JD_REC_EMBED_TIMEOUT_MS = 3000;
 const DESCRIPTION_SUMMARY_LENGTH = 200;

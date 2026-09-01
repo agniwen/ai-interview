@@ -2,11 +2,11 @@ import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/features/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { queryPaginatedPlatformNotifications } from "@app/server/server/routes/platform/routes/notifications/dao";
+import { queryPaginatedPlatformNotifications } from "@app/server/web/platform";
 import type {
   PlatformNotificationProviderFilter,
   PlatformNotificationStatusFilter,
-} from "@app/server/server/routes/platform/routes/notifications/dao";
+} from "@app/server/web/platform";
 import { createQueryClient } from "@arc/shared/query-client";
 import { z } from "zod";
 

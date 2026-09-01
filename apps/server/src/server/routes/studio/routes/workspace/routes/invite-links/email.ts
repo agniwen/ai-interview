@@ -1,4 +1,4 @@
-import { buildSenderFromAddress, getResendClient } from "@app/server/lib/server/resend";
+import { buildSenderFromAddress, getResendClient } from "../../../../../../../lib/server/resend";
 
 function escapeHtml(value: string): string {
   return value

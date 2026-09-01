@@ -1,8 +1,8 @@
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { isFeishuHumanInterviewEnabled } from "@app/server/server/routes/feishu/utils/provider";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { isFeishuHumanInterviewEnabled } from "../../../../../../integrations/feishu/provider";
 import { listWorkspaceMembers, queryPaginatedWorkspaceMembers } from "../../dao";
 import type { WorkspaceMemberListQuery } from "../../dao";
 

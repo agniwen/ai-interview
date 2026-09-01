@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@arc/db-schema/json";
 import {
   interviewAuditLog,
@@ -9,16 +9,16 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
-import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
+import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
   notifyInterviewSummaryReady,
   retryFailedInterviewSummaryNotifications,
-} from "@app/server/server/routes/agent/utils/feishu-interview-notifications";
-import { runKeyInformationJob } from "@app/server/server/routes/agent/utils/interview-key-information-job";
-import { runSummaryJob } from "@app/server/server/routes/agent/utils/interview-summary-job";
-import { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
-import { enqueueAiInterviewCompletedEvent } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+} from "./utils/feishu-interview-notifications";
+import { runKeyInformationJob } from "./utils/interview-key-information-job";
+import { runSummaryJob } from "./utils/interview-summary-job";
+import { createInterviewEvidenceSnapshot } from "./utils/evidence-snapshot";
+import { enqueueAiInterviewCompletedEvent } from "../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
 import { mergeInterviewEndReasonMetadata } from "@arc/shared/interview/end-reason";
 import {
   mergeInterviewQuestionOutcome,

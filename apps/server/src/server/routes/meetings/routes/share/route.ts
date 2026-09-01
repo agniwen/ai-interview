@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { updateMeetingShareSchema } from "@arc/shared/meeting-recording";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { getMeetingShareSettings, updateMeetingShare } from "../../collaboration-service";
 import { meetingShareOwnerRouter } from "./routes/owner/route";
 

@@ -1,15 +1,15 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { getResumeEmbeddingConfig } from "@app/server/lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "@app/server/lib/server/resume-semantic/indexer";
-import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
-import { loadRecruitingJobDescriptionById } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+import { getResumeEmbeddingConfig } from "../lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "../lib/server/resume-semantic/indexer";
+import { QdrantResumeVectorStore } from "../lib/server/qdrant/resume-vector-store";
+import { loadRecruitingJobDescriptionById } from "../server/routes/studio/routes/job-descriptions/dao";
 import {
   createDefaultRecommendationDeps,
   loadRecommendationCandidates,
   scoreCandidatesForJobDescription,
-} from "@app/server/server/routes/studio/routes/job-descriptions/utils/recommendations";
+} from "../server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { dedupeLabels, validateLabels } from "./reco-eval/labels";
 import { loadValidLabelKeys, mineLabels } from "./reco-eval/mine-labels";
 import { formatReport } from "./reco-eval/report";

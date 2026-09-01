@@ -1,6 +1,6 @@
 /* oxlint-disable max-lines -- transcription claims, checkpoints, and publication share transactional invariants. */
 import { and, desc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import {
   meetingAuditLog,
   meetingProcessingRun,

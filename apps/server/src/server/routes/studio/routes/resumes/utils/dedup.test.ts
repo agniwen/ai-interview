@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DedupMatchRecord } from "@app/server/server/routes/studio/routes/interviews/dao/studio-interviews";
+import type { DedupMatchRecord } from "../../interviews/dao/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { resolveResumeCreateDedupConflict } from "./dedup";
 

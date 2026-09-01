@@ -1,5 +1,5 @@
-import type { getObjectBytes } from "@app/server/lib/server/s3";
-import type { convertPptxToPdf } from "@app/server/server/routes/studio/utils/pptx-preview";
+import type { getObjectBytes } from "@app/object-storage";
+import type { convertPptxToPdf } from "../../studio/utils/pptx-preview";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 
 function isPdf(bytes: Uint8Array): boolean {
@@ -20,12 +20,11 @@ export interface ResumePdfAttachmentDependencies {
 
 const defaultDependencies: ResumePdfAttachmentDependencies = {
   convertPptxToPdf: async (bytes) => {
-    const { convertPptxToPdf: convert } =
-      await import("@app/server/server/routes/studio/utils/pptx-preview");
+    const { convertPptxToPdf: convert } = await import("../../studio/utils/pptx-preview");
     return convert(bytes);
   },
   getObjectBytes: async (storageKey) => {
-    const { getObjectBytes: loadObject } = await import("@app/server/lib/server/s3");
+    const { getObjectBytes: loadObject } = await import("@app/object-storage");
     return loadObject(storageKey);
   },
 };

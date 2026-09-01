@@ -16,9 +16,9 @@ import {
   structuredDimensionAgentOutputSchema,
   structuredGateAgentOutputSchema,
   validateStructuredResumeInput,
-} from "@app/server/server/agents/structured-resume-evaluation";
-import type { StructuredResumeGenerator } from "@app/server/server/agents/structured-resume-evaluation";
-import { computeJobEvaluationPayloadHash } from "@app/server/lib/server/job-evaluation-hash";
+} from "../../structured-resume-evaluation";
+import type { StructuredResumeGenerator } from "../../structured-resume-evaluation";
+import { computeJobEvaluationPayloadHash } from "../../../../lib/server/job-evaluation-hash";
 import {
   createStructuredResumeReviewWorkflow,
   runStructuredResumeReviewWorkflow,

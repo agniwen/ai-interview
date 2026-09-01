@@ -1,4 +1,4 @@
-import { db } from "@app/server/lib/server/db";
+import { db } from "../db";
 import {
   claimInterviewNotificationDelivery,
   claimPendingInterviewNotificationEvents,
@@ -6,8 +6,8 @@ import {
   markInterviewNotificationDeliveryFailed,
   markInterviewNotificationDeliverySent,
   updateInterviewNotificationEventState,
-} from "@app/server/server/routes/studio/routes/interview-notifications/dao";
-import { sendInterviewNotification } from "@app/server/server/routes/studio/routes/interview-notifications/utils/channel-adapters";
+} from "./dao";
+import { sendInterviewNotification } from "@app/server/worker/interview-notifications";
 import type { InterviewNotificationProcessorDependencies } from "./processor";
 
 export const defaultInterviewNotificationProcessorDependencies = {

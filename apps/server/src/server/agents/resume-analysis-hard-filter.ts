@@ -4,7 +4,7 @@ import {
   generateStructuredWithMastraAgent,
   resumeHardFilterAgent,
   resumeScreeningEvidenceAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 import type { ResumeReview } from "@arc/shared/resume-review";
 import {

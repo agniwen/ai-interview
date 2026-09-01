@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { interviewReportEvaluationAgent } from "@app/server/server/agents/mastra/agents/simple-generators";
+import { interviewReportEvaluationAgent } from "@app/ai-runtime/simple-generators";
 import {
   generateFeishuHrEvaluation,
   generateFeishuHrEvaluationForInterview,

@@ -1,4 +1,4 @@
-import { presignRecordingGetObjectUrl } from "@app/server/lib/server/s3";
+import { presignRecordingGetObjectUrl } from "@app/object-storage";
 import { z } from "zod";
 import {
   formatMeetingExportFooter,

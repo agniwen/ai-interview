@@ -1,5 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../db/index";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";

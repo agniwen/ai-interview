@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, gt, lt, or } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import {
   resumePoolItem,
   resumeUploadBatch,

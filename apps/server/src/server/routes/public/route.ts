@@ -13,64 +13,60 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { db } from "@app/server/lib/server/db";
-import {
-  getObjectBytes,
-  getObjectStream,
-  presignRecordingGetObjectUrl,
-} from "@app/server/lib/server/s3";
+import { db } from "../../../lib/server/db/index";
+import { getObjectBytes, getObjectStream, presignRecordingGetObjectUrl } from "@app/object-storage";
 import { interviewConversation, minimaxVoicePreview, studioInterview } from "@arc/db-schema/schema";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
+import { factory, jsonValidatorError } from "../../factory";
+import { createInternalErrorResponse } from "../../error-handler";
 import {
   buildTokenErrorResponse,
   normalizeResumeFile,
   storeResumeObjectOnly,
-} from "@app/server/server/routes/interview/utils";
-import { loadSubmissionsByInterview } from "@app/server/server/routes/studio/routes/forms/dao/submissions";
+} from "../interview/utils";
+import { loadSubmissionsByInterview } from "../studio/routes/forms/dao/submissions";
 import {
   queryInterviewConversationReportByRound,
   queryInterviewConversationReportsByRound,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-conversations";
+} from "../studio/routes/interviews/dao/interview-conversations";
 import {
   endHumanInterviewMeeting,
   isHumanInterviewMeetingBeforeScheduledStart,
   isHumanInterviewMeetingAfterValidUntil,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+} from "../studio/routes/interviews/dao/human-interview-meetings";
 import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
   resolvePublicInterviewScope,
   resolvePublicResumeOrgId,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { createPptxPreviewPdfResponse } from "@app/server/server/routes/studio/utils/pptx-preview";
+} from "../studio/routes/interviews/dao/interview-rounds";
+import { createPptxPreviewPdfResponse } from "../studio/utils/pptx-preview";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
-} from "@app/server/server/routes/studio/routes/interviews/utils/human-interview-livekit";
-import { loadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+} from "../studio/routes/interviews/utils/human-interview-livekit";
+import { loadResumeDetail } from "../studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@arc/shared/referrals";
 import {
   handleHumanInterviewInvitationResponseError,
   isCurrentHumanInterviewInvitationToken,
   recordHumanInterviewInvitationException,
   respondHumanInterviewCandidateInvitation,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-candidate-response";
-import { aiInterviewInvitationsRouter } from "@app/server/server/routes/public/routes/ai-interview-invitations/route";
-import { humanInterviewCandidateMaterialsRouter } from "@app/server/server/routes/public/routes/human-interview-candidate-materials/route";
-import { validateResumeFile } from "@app/server/server/agents/resume-analysis-agent";
+} from "../studio/routes/interviews/dao/human-interview-candidate-response";
+import { aiInterviewInvitationsRouter } from "./routes/ai-interview-invitations/route";
+import { humanInterviewCandidateMaterialsRouter } from "./routes/human-interview-candidate-materials/route";
+import { validateResumeFile } from "../../agents/resume-analysis-agent";
 import {
   cancelBatch,
   insertBatchWithItems,
   loadBatchDetail,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
+} from "../studio/routes/resume-upload-batches/dao/batches";
 import {
   resolveReferralLink,
   toPublicReferralPreview,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao/referral-links";
+} from "../studio/routes/job-descriptions/dao/referral-links";
 
 async function getResumeParseQueueApi() {
   return await import("@arc/resume-parse-queue/resume-parse");

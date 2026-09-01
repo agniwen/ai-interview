@@ -3,18 +3,16 @@ import type { ParsedMail } from "mailparser";
 import { z } from "zod";
 import type {
   claimMailIngestMessageForProcessing,
+  fetchPublishedJobDescriptionsByCodes,
   finishMailIngestAccountRun,
+  insertBatchWithItems,
   listEnabledMailIngestAccounts,
+  loadBatchDetail,
   markMailIngestMessageSkipped,
   updateMailIngestMessageResult,
   WorkerMailIngestAccount,
-} from "@app/server/server/routes/studio/routes/mail-ingest/dao";
-import type { fetchPublishedJobDescriptionsByCodes } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import type {
-  insertBatchWithItems,
-  loadBatchDetail,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/server/lib/server/s3";
+} from "@app/server/worker/mail-ingest";
+import type { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
 import type { enqueueResumeParseJobs } from "@arc/resume-parse-queue/resume-parse";
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";

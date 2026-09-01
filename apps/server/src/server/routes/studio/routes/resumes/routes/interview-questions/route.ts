@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db as defaultDb } from "@app/server/lib/server/db";
+import { db as defaultDb } from "../../../../../../../lib/server/db/index";
 import { studioInterview } from "@arc/db-schema/schema";
 import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
-import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission as defaultRequirePermission } from "@app/server/server/middlewares/permission";
-import { loadResumeDetail as defaultLoadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "../../../../../../cache-tags";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission as defaultRequirePermission } from "../../../../../../middlewares/permission";
+import { loadResumeDetail as defaultLoadResumeDetail } from "../../dao/resumes";
 
 const interviewQuestionsUpdateSchema = z.object({
   interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),

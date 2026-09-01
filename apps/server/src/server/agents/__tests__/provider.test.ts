@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { disableAlibabaThinking } from "@app/server/server/agents/provider";
+import { disableAlibabaThinking } from "../provider";
 
 describe("Alibaba model provider", () => {
   it("forces thinking off in every request body", () => {

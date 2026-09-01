@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  parseResumeBytesToProfile,
-  streamParseResumeProfile,
-} from "@app/server/server/agents/resume-analysis-agent";
-import type { ResumeParseDependencies } from "@app/server/server/agents/resume-analysis-agent";
+import { parseResumeBytesToProfile, streamParseResumeProfile } from "../resume-analysis-agent";
+import type { ResumeParseDependencies } from "../resume-analysis-agent";
 
 interface SseEvent {
   label?: string;

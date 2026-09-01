@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { testClient } from "hono/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import { member, organization, workspaceInviteLink } from "@arc/db-schema/schema";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../factory";
 import { joinRouter } from "../route";
 
 const app = factory.createApp().route("/join", joinRouter);

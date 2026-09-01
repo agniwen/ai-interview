@@ -6,8 +6,8 @@ import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-infor
 import {
   generateStructuredWithMastraAgent,
   interviewKeyInformationAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import type { MastraGeneratorLike } from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 
 const KEY_INFORMATION_PROMPT = `你是一位面试重点信息提取助手。请使用岗位上下文判断信息的重要性，但只能把候选人在本轮对话中明确表达的内容作为重点信息。
 

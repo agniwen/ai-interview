@@ -2,16 +2,16 @@ import type {
   abortMeetingRecordingMultipartUpload,
   deleteMeetingRecordingObject,
   headMeetingRecordingObject,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import type {
   claimMeetingPurge,
   completeMeetingPurgeStorageBatch,
   continueMeetingPurgeProviderBatch,
   finalizeMeetingPurge,
+  MeetingProviderArtifactInput,
   recordMeetingProviderPurgeOutcome,
   releaseMeetingPurgeClaim,
-} from "@app/server/server/routes/meetings/lifecycle-dao";
-import type { MeetingProviderArtifactInput } from "@app/server/server/routes/meetings/transcription/provider";
+} from "@app/server/worker/meeting-purge";
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
 
 export interface MeetingPurgeDependencies {

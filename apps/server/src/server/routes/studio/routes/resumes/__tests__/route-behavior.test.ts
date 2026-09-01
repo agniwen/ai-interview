@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { db as defaultDb } from "@app/server/lib/server/db";
-import { factory } from "@app/server/server/factory";
+import { db as defaultDb } from "../../../../../../lib/server/db/index";
+import { factory } from "../../../../../factory";
 import type { ResumeLibraryRouterDependencies } from "../route";
 import { createResumeLibraryRouter } from "../route";
 

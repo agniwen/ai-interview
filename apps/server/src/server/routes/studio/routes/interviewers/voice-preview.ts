@@ -2,9 +2,9 @@ import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
-import { getRequiredEnv } from "@app/server/lib/server/env";
-import { putObjectBytes } from "@app/server/lib/server/s3";
+import { db } from "../../../../../lib/server/db/index";
+import { getRequiredEnv } from "../../../../../lib/server/env";
+import { putObjectBytes } from "@app/object-storage";
 import { minimaxVoicePreview } from "@arc/db-schema/schema";
 
 export const MINIMAX_VOICE_PREVIEW_TEXT = "我是一名宇航员，我的故乡是地球。";

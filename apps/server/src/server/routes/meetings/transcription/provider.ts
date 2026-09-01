@@ -1,5 +1,5 @@
+import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
-import type { MeetingSourceTrack } from "@arc/shared/meeting-recording";
 
 export { MeetingProviderResponseError } from "./provider-response-error";
 
@@ -12,14 +12,7 @@ export class MeetingProviderQuotaError extends Error {
   }
 }
 
-export interface FinalTranscriptionAudioChunk {
-  contentType: string;
-  endMs: number;
-  filePath: string;
-  index: number;
-  startMs: number;
-  track: MeetingSourceTrack;
-}
+export type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 
 export interface FinalTranscriptionInput {
   chunks: FinalTranscriptionAudioChunk[];

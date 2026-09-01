@@ -7,7 +7,7 @@ import {
 import {
   generateInterviewQuestionsForProfile,
   parseResumeBytesToProfile,
-} from "@app/server/server/agents/resume-analysis-agent";
+} from "../../resume-analysis-agent";
 
 const resumeAnalysisInputSchema = z.object({
   bytesBase64: z.string().min(1),

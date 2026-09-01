@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createRequestWorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { getWorkspaceRequestContext } from "@app/server/server/context/workspace-request-context";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { createRequestWorkspaceAuthorizer } from "../../../../../../access/workspace-access-policy";
+import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
+import { factory, jsonValidatorError } from "../../../../../../factory";
 import { getMeetingRecruitingRecordCandidates } from "../../../../recruiting-context-service";
 
 export const meetingRecruitingContextCandidatesRouter = factory.createApp().get(

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getAuthRequestHeaders,
-  runWithAuthRequestHeaders,
-} from "@app/server/lib/server/auth-request-context";
+import { getAuthRequestHeaders, runWithAuthRequestHeaders } from "../auth-request-context";
 
 describe("auth request context", () => {
   it("returns undefined outside an auth request scope", () => {

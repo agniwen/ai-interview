@@ -12,7 +12,7 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+import type { PaginatedJobDescriptionResult } from "@app/server/web/studio";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { JobDescriptionChartsSkeleton } from "@/components/features/studio/job-descriptions/job-description-charts-skeleton";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";

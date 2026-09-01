@@ -2,11 +2,8 @@ import type { JsonValue } from "@arc/db-schema/json";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
-import type {
-  ChatAttachmentRow,
-  CreateAttachmentInput,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
-import type { ParsedResumeProfileResult } from "@app/server/server/agents/resume-analysis-agent";
+import type { ChatAttachmentRow, CreateAttachmentInput } from "../chat/dao/chat-attachments";
+import type { ParsedResumeProfileResult } from "../../agents/resume-analysis-agent";
 
 export interface ResumeUploadStorageDependencies {
   buildAttachmentKeyByHash: (contentHash: string, extension: string) => Promise<string>;

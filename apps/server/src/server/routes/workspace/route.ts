@@ -1,11 +1,11 @@
-import { factory } from "@app/server/server/factory";
-import { authMiddleware } from "@app/server/server/middlewares/auth";
-import { workspaceMiddleware } from "@app/server/server/middlewares/workspace";
-import { chatRouter } from "@app/server/server/routes/chat/route";
-import { interviewAnalysisRouter } from "@app/server/server/routes/interview/routes/analysis/route";
-import { meetingsRouter } from "@app/server/server/routes/meetings/route";
-import { resumeChatRouter } from "@app/server/server/routes/resume/routes/chat/route";
-import { studioRouter } from "@app/server/server/routes/studio/route";
+import { factory } from "../../factory";
+import { authMiddleware } from "../../middlewares/auth";
+import { workspaceMiddleware } from "../../middlewares/workspace";
+import { chatRouter } from "../chat/route";
+import { interviewAnalysisRouter } from "../interview/routes/analysis/route";
+import { meetingsRouter } from "../meetings/route";
+import { resumeChatRouter } from "../resume/routes/chat/route";
+import { studioRouter } from "../studio/route";
 
 // URL slug is the sole tenant selector for workspace business requests. The
 // resolved organization/member values live only in this Hono request context.

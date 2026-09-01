@@ -31,7 +31,7 @@ export interface ServerEntryDependencies {
 }
 
 async function createHonoApp(): Promise<HonoApp> {
-  const { createServerApp } = await import("@app/server/server/app");
+  const { createServerApp } = await import("@app/server/web/runtime");
   return createServerApp();
 }
 
@@ -173,7 +173,7 @@ const defaultDependencies: ServerEntryDependencies = {
     return getResumeParseQueueStats();
   },
   initializeFeishuBots: async () => {
-    const { initializeFeishuBots } = await import("@app/server/server/routes/feishu/utils/bot");
+    const { initializeFeishuBots } = await import("@app/server/web/runtime");
     await initializeFeishuBots();
   },
   isResumeParseQueueConfigured: async () => {
@@ -181,7 +181,7 @@ const defaultDependencies: ServerEntryDependencies = {
     return isResumeParseQueueConfigured();
   },
   pingDatabase: async () => {
-    const { pingDatabase } = await import("@app/server/lib/server/db");
+    const { pingDatabase } = await import("@app/server/web/runtime");
     await pingDatabase();
   },
   startFetch: async (request, options) => {

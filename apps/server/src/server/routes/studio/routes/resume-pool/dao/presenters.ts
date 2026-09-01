@@ -1,7 +1,7 @@
 import type { resumePoolItem } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
-import { buildResumeProfileSnapshotFromProfile } from "@app/server/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
+import { buildResumeProfileSnapshotFromProfile } from "../../resumes/dao/resume-profile-snapshot";
 import {
   formatResumeEducationItems,
   formatResumeEducationLines,

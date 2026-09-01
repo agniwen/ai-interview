@@ -2,34 +2,30 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
 } from "@arc/db-schema/schema";
 import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   listAllInterviewQuestionTemplates,
   loadInterviewQuestionTemplateById,
   queryPaginatedInterviewQuestionTemplates,
-} from "@app/server/server/routes/studio/routes/interview-questions/dao/queries";
-import { loadInterviewQuestionTemplateVersionById } from "@app/server/server/routes/studio/routes/interview-questions/dao/versions";
-import { managedJobDescriptionIdsExist } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import {
-  cacheTags,
-  invalidateStudioInterviewCaches,
-  safeUpdateTag,
-} from "@app/server/server/cache-tags";
+} from "./dao/queries";
+import { loadInterviewQuestionTemplateVersionById } from "./dao/versions";
+import { managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import {
   resolveAiGenerateContext,
   resolveInterviewRecordIds,
-} from "@app/server/server/routes/studio/routes/forms/utils/resolve-ai-generate-context";
-import { generateInterviewQuestionTemplateFromPrompt } from "@app/server/server/routes/studio/routes/interview-questions/utils/ai-interview-questions-generate";
-import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "@app/server/server/routes/studio/routes/interview-questions/dao/refresh-eligible";
+} from "../forms/utils/resolve-ai-generate-context";
+import { generateInterviewQuestionTemplateFromPrompt } from "./utils/ai-interview-questions-generate";
+import { refreshEligibleCandidatesForInterviewQuestionTemplate } from "./dao/refresh-eligible";
 
 const generateTemplateQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),

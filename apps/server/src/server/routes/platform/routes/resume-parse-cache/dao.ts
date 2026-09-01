@@ -1,7 +1,7 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { chatAttachment, organization, user } from "@arc/db-schema/schema";
 import type { ResumeParseCacheQuery } from "./schema";

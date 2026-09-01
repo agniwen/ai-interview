@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
-import type { WorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import type { PermissionMiddlewareDependencies } from "@app/server/server/middlewares/permission";
+import { factory } from "../../factory";
+import type { WorkspaceAuthorizer } from "../../access/workspace-access-policy";
+import { requirePermission } from "../permission";
+import type { PermissionMiddlewareDependencies } from "../permission";
 
 const mocks = {
   authorize: vi.fn<WorkspaceAuthorizer>(),

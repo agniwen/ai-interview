@@ -12,7 +12,7 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
-import type { PaginatedInterviewQuestionTemplateResult } from "@app/server/server/routes/studio/routes/interview-questions/dao/queries";
+import type { PaginatedInterviewQuestionTemplateResult } from "@app/server/web/studio";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

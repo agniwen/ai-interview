@@ -2,13 +2,10 @@
 // Unit tests for the chat-attachment dedup query layer — covers contentHash
 // persistence and findAttachmentByContentHash (including failed-row exclusion).
 
-import {
-  createAttachment,
-  findAttachmentByContentHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
+import { createAttachment, findAttachmentByContentHash } from "../dao/chat-attachments";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import { chatAttachment, organization, user } from "@arc/db-schema/schema";
 
 const ORG_ID = "chat_dedup_test_org";

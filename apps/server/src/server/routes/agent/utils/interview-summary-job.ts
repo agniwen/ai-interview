@@ -1,27 +1,27 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
-import { captureBackendException } from "@app/server/lib/server/sentry";
+import { db } from "../../../../lib/server/db/index";
+import { captureBackendException } from "../../../../lib/server/sentry";
 import { interviewConversation } from "@arc/db-schema/schema";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { notifyInterviewSummaryReady } from "@app/server/server/routes/agent/utils/feishu-interview-notifications";
-import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
-import { runInterviewReportWorkflow } from "@app/server/server/agents/mastra/workflows/interview-report-workflow";
+import { notifyInterviewSummaryReady } from "./feishu-interview-notifications";
+import { cacheTags, safeUpdateTag } from "../../../cache-tags";
+import { runInterviewReportWorkflow } from "../../../agents/mastra/workflows/interview-report-workflow";
 import {
   applyInterviewReportAnswerFallback,
   formatCandidateFormSubmissions,
   interviewEvaluationSchema,
-} from "@app/server/server/routes/agent/utils/interview-report";
-import { createInterviewEvidenceSnapshot } from "@app/server/server/routes/agent/utils/evidence-snapshot";
+} from "./interview-report";
+import { createInterviewEvidenceSnapshot } from "./evidence-snapshot";
 import {
   isInterviewQuestionSetComplete,
   parseInterviewDataCollectionResults,
 } from "@arc/shared/interview/question-outcomes";
-import { enqueueAiReportReadyEvent } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
+import { enqueueAiReportReadyEvent } from "../../../interview-notifications/utils/events";
 import {
   isInterviewNotificationFlowEnabled,
   isInterviewNotificationWorkerEnabled,
-} from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+} from "../../../interview-notifications/utils/feature-flags";
 
 const LOG_PREFIX = "[interview-summary]";
 const jsonObjectSchema = z.record(z.string(), z.json());

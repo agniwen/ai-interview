@@ -2,7 +2,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/shared/job-descriptions";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { describe, expect, it, vi } from "vitest";
-import { resolveJobDescriptionMatchBestEffort } from "@app/server/server/routes/interview/match-job-description";
+import { resolveJobDescriptionMatchBestEffort } from "../match-job-description";
 
 const resumeProfile: ResumeProfile = {
   age: null,

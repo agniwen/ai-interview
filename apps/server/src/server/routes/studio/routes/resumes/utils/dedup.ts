@@ -1,6 +1,6 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { findSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
-import type { DedupMatchRecord } from "@app/server/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { findSemanticResumeDuplicates } from "../../../../../../lib/server/resume-semantic/dedup-service";
+import type { DedupMatchRecord } from "../../interviews/dao/studio-interviews";
 
 export type ResumeCreateDedupPolicy = "check" | "force";
 

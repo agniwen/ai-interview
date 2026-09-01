@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { searchCandidatesForFormAi } from "@app/server/server/routes/studio/routes/forms/dao/form-ai-context";
-import { generateFormQuestionsFromPrompt } from "@app/server/server/routes/studio/routes/forms/utils/ai-form-questions-generate";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { createInternalErrorResponse } from "../../../../../../error-handler";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { searchCandidatesForFormAi } from "../../dao/form-ai-context";
+import { generateFormQuestionsFromPrompt } from "../../utils/ai-form-questions-generate";
 import {
   resolveAiGenerateContext,
   resolveInterviewRecordIds,
-} from "@app/server/server/routes/studio/routes/forms/utils/resolve-ai-generate-context";
+} from "../../utils/resolve-ai-generate-context";
 
 const generateFormQuestionsBodySchema = z.object({
   interviewRecordId: z.string().trim().min(1).optional(),

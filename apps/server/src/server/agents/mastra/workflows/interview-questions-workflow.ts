@@ -5,9 +5,9 @@ import {
   generatedInterviewQuestionSchema,
   resumeProfileSchema,
 } from "@arc/db-schema/interview/types";
-import { generateInterviewQuestionsForProfile } from "@app/server/server/agents/resume-analysis-agent";
+import { generateInterviewQuestionsForProfile } from "../../resume-analysis-agent";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
-import { emitMastraWorkflowStreamEvents } from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 
 const interviewQuestionSchema = generatedInterviewQuestionSchema.extend({
   order: z.number().int().min(1),

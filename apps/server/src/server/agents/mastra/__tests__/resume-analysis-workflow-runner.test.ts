@@ -3,7 +3,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import {
   createResumeAnalysisWorkflow,
   runResumeAnalysisWorkflow,
-} from "@app/server/server/agents/mastra/workflows/resume-analysis-workflow";
+} from "../workflows/resume-analysis-workflow";
 
 const generateQuestions = vi.fn();
 const parseResume = vi.fn();

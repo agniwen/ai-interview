@@ -1,6 +1,6 @@
-import { getObjectBytes, getObjectStream } from "@app/server/lib/server/s3";
-import { factory } from "@app/server/server/factory";
-import { createPptxPreviewPdfResponse } from "@app/server/server/routes/studio/utils/pptx-preview";
+import { getObjectBytes, getObjectStream } from "@app/object-storage";
+import { factory } from "../../../../factory";
+import { createPptxPreviewPdfResponse } from "../../../studio/utils/pptx-preview";
 import {
   authorizeHumanInterviewCandidateMaterials,
   listHumanInterviewMeetingCandidates,

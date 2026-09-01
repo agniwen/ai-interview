@@ -1,6 +1,6 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { QualitativeRecommendationLevel } from "@arc/db-schema/qualitative-resume-evaluation";
-import { generateQualitativeResumeEvaluation } from "@app/server/server/agents/qualitative-resume-evaluation";
+import { generateQualitativeResumeEvaluation } from "../server/agents/qualitative-resume-evaluation";
 
 interface RegressionCase {
   allowedLevels: QualitativeRecommendationLevel[];

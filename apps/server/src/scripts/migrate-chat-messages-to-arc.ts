@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import type { ArcMessage } from "@arc/db-schema/ai-message";
 import type { JsonValue } from "@arc/db-schema/json";
 import { chatMessage } from "@arc/db-schema/schema";
-import type { Database } from "@app/server/lib/server/db";
-import { legacyUiMessageToArcMessage } from "@app/server/server/agents/mastra/adapters/arc-message-adapter";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import type { Database } from "../lib/server/db/index";
+import { legacyUiMessageToArcMessage } from "../server/agents/mastra/adapters/arc-message-adapter";
+import { loadStandaloneEnv } from "../standalone/env";
 
 interface ChatMessageMigrationLog {
   [key: string]: JsonValue | undefined;
@@ -36,7 +36,6 @@ function logEvent(entry: ChatMessageMigrationLog): void {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 function parseOptionalPositiveInteger(value: string | undefined, name: string): number | null {
@@ -114,7 +113,7 @@ export async function runChatMessageArcMigration(input: {
 
 export async function migrateChatMessagesToArc(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@app/server/lib/server/db");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const dryRun = !parseBooleanEnv(process.env.CHAT_MESSAGE_ARC_APPLY);
   const limit = parseOptionalPositiveInteger(
     process.env.CHAT_MESSAGE_ARC_LIMIT,

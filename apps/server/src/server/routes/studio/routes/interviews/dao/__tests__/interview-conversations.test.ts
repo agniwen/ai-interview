@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import type {
   InterviewContextSnapshotPayload,
@@ -19,7 +19,7 @@ import {
 import {
   queryInterviewConversationReportByRound,
   queryInterviewConversationReportsByRound,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-conversations";
+} from "../interview-conversations";
 
 const ORG_ID = "test_report_snapshot_metadata_org";
 const INTERVIEW_ID = "test_report_snapshot_metadata_interview";

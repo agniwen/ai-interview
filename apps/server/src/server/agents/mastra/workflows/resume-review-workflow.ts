@@ -6,16 +6,13 @@ import {
   composeResumeReviewResult,
   generateResumeQualitativeReview,
   generateResumeReviewScoring,
-} from "@app/server/server/agents/resume-analysis-agent";
-import {
-  resumeQualitativeSchema,
-  resumeScoringSchema,
-} from "@app/server/server/agents/resume-analysis-review";
+} from "../../resume-analysis-agent";
+import { resumeQualitativeSchema, resumeScoringSchema } from "../../resume-analysis-review";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
-import { emitMastraWorkflowStreamEvents } from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+import { emitMastraWorkflowStreamEvents } from "../adapters/ai-run-stream";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { resumeReviewSchema } from "@arc/shared/resume-review";
-import type { ResumeReviewGenerationResult } from "@app/server/server/agents/resume-analysis-agent";
+import type { ResumeReviewGenerationResult } from "../../resume-analysis-agent";
 
 const resumeReviewInputSchema = z.object({
   jobDescription: z.string().nullable().optional(),

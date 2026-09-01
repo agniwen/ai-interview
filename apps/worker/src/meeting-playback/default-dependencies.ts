@@ -4,7 +4,7 @@ import {
   downloadMeetingRecordingObjectToFile,
   headMeetingRecordingObject,
   putMeetingRecordingFile,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import {
   loadMeetingPlaybackSource,
   markMeetingPlaybackFailed,
@@ -12,7 +12,7 @@ import {
   publishMeetingPlaybackAsset,
   registerMeetingPlaybackCleanupKey,
   removeMeetingPlaybackCleanupKey,
-} from "@app/server/server/routes/meetings/dao";
+} from "./dao";
 import { createDefaultMeetingPlaybackDependencies } from "./processor";
 
 export const defaultMeetingPlaybackDependencies = createDefaultMeetingPlaybackDependencies({

@@ -9,20 +9,20 @@ import {
   studioInterviewSchedule,
   user,
 } from "@arc/db-schema/schema";
-import { db } from "@app/server/lib/server/db";
-import { buildSenderFromAddress, getResendClient } from "@app/server/lib/server/resend";
-import { getRequiredEnv } from "@app/server/lib/server/env";
-import { InterviewSummaryCard } from "@app/server/server/routes/feishu/utils/interview-summary-card";
-import type { InterviewSummaryQuestionScore } from "@app/server/server/routes/feishu/utils/interview-summary-card";
-import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
-import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
-import { ensureInterviewEvaluationDocument } from "@app/server/server/routes/agent/utils/feishu-interview-document";
+import { db } from "../../../../lib/server/db/index";
+import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/resend";
+import { getRequiredEnv } from "../../../../lib/server/env";
+import { InterviewSummaryCard } from "../../../integrations/feishu/interview-summary-card";
+import type { InterviewSummaryQuestionScore } from "../../../integrations/feishu/interview-summary-card";
+import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";
+import type { FeishuProviderId } from "../../../integrations/feishu/provider";
+import { ensureInterviewEvaluationDocument } from "./feishu-interview-document";
 import {
   formatInterviewNotificationDateTime,
   formatInterviewNotificationDuration,
-} from "@app/server/server/routes/agent/utils/interview-notification-format";
-import { getGlobalConfig } from "@app/server/server/routes/studio/routes/global-config/dao";
-import { renderInterviewSummaryEmail } from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
+} from "./interview-notification-format";
+import { getGlobalConfig } from "../../studio/routes/global-config/dao";
+import { renderInterviewSummaryEmail } from "../../studio/routes/interviews/routes/round-emails/utils/templates";
 import { isInterviewQuestionSetComplete } from "@arc/shared/interview/question-outcomes";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
@@ -488,7 +488,7 @@ export async function resendInterviewSummaryNotification(
       recipientOpenId: notification.recipientOpenId,
     });
     const { card } = buildNotificationCard(notificationInput, documentUrl);
-    const { postFeishuDirectCard } = await import("@app/server/server/routes/feishu/utils/bot");
+    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
     const sent = await postFeishuDirectCard(
       notification.providerId,
       notification.recipientOpenId,
@@ -615,7 +615,7 @@ export async function notifyInterviewSummaryReady(
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
 
   if (recipients.length > 0) {
-    const { postFeishuDirectCard } = await import("@app/server/server/routes/feishu/utils/bot");
+    const { postFeishuDirectCard } = await import("../../../integrations/feishu/bot");
 
     for (const recipient of recipients) {
       const notificationId = await claimNotification({

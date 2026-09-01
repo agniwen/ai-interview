@@ -13,8 +13,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { db } from "../../../../../lib/server/db/index";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
   interviewConversation,
   interviewConversationTurn,

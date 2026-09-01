@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
-import { createRecordingsRouter } from "@app/server/server/routes/studio/routes/interviews/routes/recordings/route";
+import { factory } from "../../../../../../../factory";
+import { createRecordingsRouter } from "../route";
 
 const mocks = {
   loadConversation: vi.fn(),

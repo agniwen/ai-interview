@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { presignRecordingGetObjectUrl } from "@app/server/lib/server/s3";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { factory } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { resolveCandidateIdForRound } from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { db } from "../../../../../../../lib/server/db/index";
+import { presignRecordingGetObjectUrl } from "@app/object-storage";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { factory } from "../../../../../../factory";
+import { createInternalErrorResponse } from "../../../../../../error-handler";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { resolveCandidateIdForRound } from "../../dao/interview-rounds";
 import { interviewConversation } from "@arc/db-schema/schema";
 
 interface RecordingRow {

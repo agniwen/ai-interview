@@ -1,15 +1,15 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import {
   jobDescriptionVersion,
   resumeEvaluationFailure,
   resumeEvaluationVersion,
 } from "@arc/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
 import type { ResumeEvaluationHistoryResponse } from "@arc/shared/studio-resumes";
-import { factory } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { loadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+import { factory } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { loadResumeDetail } from "../../dao/resumes";
 
 export const resumeEvaluationHistoryRouter = factory
   .createApp()

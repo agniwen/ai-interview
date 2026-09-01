@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { globalConfig } from "@arc/db-schema/schema";
 import { DEFAULT_JOB_CODE_PREFIX } from "@arc/shared/global-config";
 import type { GlobalConfigInput, GlobalConfigRecord } from "@arc/shared/global-config";

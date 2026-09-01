@@ -5,6 +5,7 @@ import {
   flushBackendSentry,
   initializeBackendSentry,
 } from "./lib/server/sentry";
+import { validateServerEnv } from "./lib/server/env";
 import { resolveStandaloneServerConfig } from "./standalone/config";
 import { loadStandaloneEnv } from "./standalone/env";
 import { RuntimeCloseStack } from "./standalone/runtime-lifecycle";
@@ -18,7 +19,7 @@ async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null>
   }
 
   const { initializeFeishuBots, shutdownFeishuBots } =
-    await import("./server/routes/feishu/utils/bot");
+    await import("./server/integrations/feishu/bot");
   await initializeFeishuBots();
   console.info("[backend] Feishu bot websocket connections initialized");
   return shutdownFeishuBots;
@@ -26,6 +27,7 @@ async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null>
 
 async function main() {
   loadStandaloneEnv();
+  validateServerEnv();
   initializeBackendSentry();
 
   const runtime = new RuntimeCloseStack();

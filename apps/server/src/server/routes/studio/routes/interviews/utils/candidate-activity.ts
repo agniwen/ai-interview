@@ -1,4 +1,4 @@
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import type { JsonObject } from "@arc/db-schema/json";
 import { interviewAuditLog } from "@arc/db-schema/schema";
 

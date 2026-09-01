@@ -2,7 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type {
   ScoreCoreInput,
   ScoreCoreResult,
-} from "@app/server/server/routes/studio/routes/job-descriptions/utils/recommendations";
+} from "../../server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { classifyPositive } from "./classify";
 import { computeMetrics } from "./metrics";
 import type { PositiveLabel, PositiveVerdict } from "./types";

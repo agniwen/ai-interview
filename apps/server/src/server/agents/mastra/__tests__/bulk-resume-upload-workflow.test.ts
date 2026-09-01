@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createBulkResumeUploadWorkflow,
   runBulkResumeUploadWorkflow,
-} from "@app/server/server/agents/mastra/workflows/bulk-resume-upload-workflow";
+} from "../workflows/bulk-resume-upload-workflow";
 
 describe("runBulkResumeUploadWorkflow", () => {
   it("processes one upload item through the workflow runner", async () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { streamParseResumeProfile } from "@app/server/server/agents/resume-analysis-agent";
-import type { ResumeParseDependencies } from "@app/server/server/agents/resume-analysis-agent";
+import { streamParseResumeProfile } from "../resume-analysis-agent";
+import type { ResumeParseDependencies } from "../resume-analysis-agent";
 
 const HASH = "a".repeat(64);
 

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   meetingAccessGrant,
   meetingNote,

@@ -3,13 +3,10 @@
 // storeInterviewResume 三个分支的单元测试：注册表命中 / 未命中两步成功 / 未命中 parse 失败 / 未命中 S3 失败。
 // Unit tests for the three branches of storeInterviewResume: registry hit / miss both succeed / miss parse fail / miss S3 fail.
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ResumeAnalysisError } from "@app/server/server/agents/resume-analysis-agent";
-import { toBadRequest } from "@app/server/server/routes/interview/utils";
-import {
-  createResumeUploadStorage,
-  resolveResumeUploadStorage,
-} from "@app/server/server/routes/interview/resume-upload-storage";
-import type { ResumeUploadStorageDependencies } from "@app/server/server/routes/interview/resume-upload-storage";
+import { ResumeAnalysisError } from "../../../agents/resume-analysis-agent";
+import { toBadRequest } from "../utils";
+import { createResumeUploadStorage, resolveResumeUploadStorage } from "../resume-upload-storage";
+import type { ResumeUploadStorageDependencies } from "../resume-upload-storage";
 
 const mocks = {
   buildAttachmentKeyByHash: vi.fn<ResumeUploadStorageDependencies["buildAttachmentKeyByHash"]>(),

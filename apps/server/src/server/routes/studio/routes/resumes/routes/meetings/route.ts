@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from "hono";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { getWorkspaceRequestContext } from "@app/server/server/context/workspace-request-context";
-import { factory } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { listSavedMeetings } from "@app/server/server/routes/meetings/service";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { getWorkspaceRequestContext } from "../../../../../../context/workspace-request-context";
+import { factory } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { listSavedMeetings } from "../../../../../meetings/service";
 import { loadResumeDetail } from "../../dao/resumes";
 
 export interface RecruitingRecordMeetingsDependencies {

@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { z } from "zod";
 import { getPostgresConnectionOptions } from "../lib/server/db/connection-options";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 const DEFAULT_RECRUITING_GROUP_NAME = "默认招聘组";
 
@@ -47,7 +47,6 @@ function printStats(stats: RepairStats): void {
 
 async function main(): Promise<void> {
   loadStandaloneEnv();
-  loadWebEnv();
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {

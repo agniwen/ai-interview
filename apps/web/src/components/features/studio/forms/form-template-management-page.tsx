@@ -12,7 +12,7 @@ import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
-import type { PaginatedCandidateFormTemplateResult } from "@app/server/server/routes/studio/routes/forms/dao/queries";
+import type { PaginatedCandidateFormTemplateResult } from "@app/server/web/studio";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

@@ -59,7 +59,7 @@ const REQUIRED_CHUNK_TYPES: ResumeSemanticChunkType[] = [
 async function loadSemanticIndexState(
   input: LoadSourceIndexStateInput,
 ): Promise<SourceIndexState | null> {
-  const { db } = await import("@app/server/lib/server/db");
+  const { db } = await import("../db/index");
   const [row] = await db
     .select({
       contentHash: resumeSemanticIndex.contentHash,

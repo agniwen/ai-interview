@@ -2,12 +2,9 @@
 
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { member, organization, studioInterview, studioOrgSkill, user } from "@arc/db-schema/schema";
-import {
-  listOrgSkillSuggestions,
-  syncResumeSkills,
-} from "@app/server/server/routes/studio/routes/resumes/dao/skills";
+import { listOrgSkillSuggestions, syncResumeSkills } from "../dao/skills";
 
 const ORG_A = "test_org_skills_dao_a";
 const ORG_B = "test_org_skills_dao_b";

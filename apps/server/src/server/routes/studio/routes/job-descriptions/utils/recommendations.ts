@@ -5,33 +5,30 @@ import type {
 } from "@arc/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription, studioInterview } from "@arc/db-schema/schema";
-import { db } from "@app/server/lib/server/db";
-import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
+import { db } from "../../../../../../lib/server/db/index";
+import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
   getResumeEmbeddingConfig,
   isResumeSemanticIndexEnabled,
-} from "@app/server/lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "@app/server/lib/server/resume-semantic/indexer";
+} from "../../../../../../lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "../../../../../../lib/server/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,
   mergeVectorScores,
   weightedScore,
-} from "@app/server/lib/server/resume-semantic/scoring";
-import type { VectorScores } from "@app/server/lib/server/resume-semantic/scoring";
-import { buildJobDescriptionSemanticTexts } from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/scoring";
+import type { VectorScores } from "../../../../../../lib/server/resume-semantic/scoring";
+import { buildJobDescriptionSemanticTexts } from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   JobDescriptionSemanticInput,
   ResumeSemanticTextChunk,
-} from "@app/server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
   ResumeVectorStore,
-} from "@app/server/lib/server/resume-semantic/vector-store";
-import {
-  buildMasteredSkills,
-  buildProfileHighlights,
-} from "@app/server/server/routes/studio/routes/resume-pool/dao";
+} from "../../../../../../lib/server/resume-semantic/vector-store";
+import { buildMasteredSkills, buildProfileHighlights } from "../../resume-pool/dao";
 
 export type RecommendJobDescription = JobDescriptionSemanticInput;
 

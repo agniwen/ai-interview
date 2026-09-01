@@ -1,11 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { globalConfigSchema } from "@arc/shared/global-config";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import {
-  getGlobalConfig,
-  upsertGlobalConfig,
-} from "@app/server/server/routes/studio/routes/global-config/dao";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
+import { getGlobalConfig, upsertGlobalConfig } from "./dao";
 
 export interface GlobalConfigRouterDependencies {
   getGlobalConfig: typeof getGlobalConfig;

@@ -7,11 +7,11 @@ import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { createRequestWorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { db } from "@app/server/lib/server/db";
+import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
+import { db } from "../../../../../lib/server/db/index";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
   candidateExpectationsMetaSchema,
@@ -20,22 +20,18 @@ import {
   pipelineStageSchema,
   studioInterviewQuestionClientSchema,
 } from "@arc/db-schema/studio-interviews";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { refreshInterviewContextSnapshot } from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
-import { findSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { refreshInterviewContextSnapshot } from "./dao/context-snapshots";
+import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
   summarizeInterviewRoundCounts,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { roundEmailsRouter } from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/route";
-import { notificationRecipientsRouter } from "@app/server/server/routes/studio/routes/interviews/routes/notification-recipients/route";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import {
-  cacheTags,
-  invalidateStudioInterviewCaches,
-  safeUpdateTag,
-} from "@app/server/server/cache-tags";
+} from "./dao/interview-rounds";
+import { roundEmailsRouter } from "./routes/round-emails/route";
+import { notificationRecipientsRouter } from "./routes/notification-recipients/route";
+import { requirePermission } from "../../../../middlewares/permission";
+import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import { transitionCandidateStage } from "./utils/candidate-stage-transition";
 import { buildResetAiInterviewInvitation } from "./dao/ai-interview-invitation-access";
 

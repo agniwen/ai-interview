@@ -6,7 +6,7 @@ import {
   invalidateStudioInterviewCaches,
   resetCacheInvalidatorForTests,
   safeUpdateTag,
-} from "@app/server/server/cache-tags";
+} from "../cache-tags";
 
 describe("cache tag invalidation", () => {
   afterEach(() => {

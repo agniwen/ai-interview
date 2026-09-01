@@ -1,9 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { safeUpdateTag } from "@app/server/server/cache-tags";
-import { enqueueJobDescriptionIndexJobBestEffort } from "@app/server/lib/server/jd-semantic/enqueue";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { safeUpdateTag } from "../../../../../../cache-tags";
+import { enqueueJobDescriptionIndexJobBestEffort } from "../../../../../../../lib/server/jd-semantic/enqueue";
 import { BlueprintCompilationError } from "../../utils/evaluation-blueprint-compiler";
 import { JobEvaluationLifecycleError } from "../../application/job-evaluation-lifecycle";
 import { jobEvaluationUpgradeApplication } from "./application/default-job-evaluation-upgrade";

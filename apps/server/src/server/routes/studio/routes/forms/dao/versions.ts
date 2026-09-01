@@ -3,7 +3,7 @@ import type {
   CandidateFormTemplateVersionRecord,
 } from "@arc/db-schema/candidate-forms";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
@@ -11,8 +11,8 @@ import {
   candidateFormTemplateVersion,
 } from "@arc/db-schema/schema";
 import { buildTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { hashTemplateSnapshot } from "@app/server/lib/server/candidate-forms-hash";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
+import { hashTemplateSnapshot } from "../../../../../../lib/server/candidate-forms-hash";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { mapQuestionRow } from "./queries";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

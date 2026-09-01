@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { reassignMeetingOwnerSchema } from "@arc/shared/meeting-recording";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../../../factory";
 import { reassignSavedMeetingOwner } from "../../../../collaboration-service";
 
 export const meetingShareOwnerRouter = factory

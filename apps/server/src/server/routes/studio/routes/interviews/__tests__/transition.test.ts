@@ -9,7 +9,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { member, organization, studioInterview, user } from "@arc/db-schema/schema";
 
 const ORG = "test_org_transition";

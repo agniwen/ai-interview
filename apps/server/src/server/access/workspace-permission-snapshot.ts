@@ -11,8 +11,8 @@ import {
   listRecruitingGroupRoles,
   RECRUITING_GROUP_RESOURCES,
   statementsFromRecruitingGroupRoles,
-} from "@app/server/server/access/recruiting-group-access";
-import { isNoAccessWorkspaceRole } from "@app/server/server/access/workspace-roles";
+} from "./recruiting-group-access";
+import { isNoAccessWorkspaceRole } from "./workspace-roles";
 
 export interface WorkspacePermissionSnapshot {
   role: string;
@@ -38,7 +38,7 @@ async function loadDynamicRolePermission({
   organizationId: string;
   role: string;
 }): Promise<string | null> {
-  const { db } = await import("@app/server/lib/server/db");
+  const { db } = await import("../../lib/server/db/index");
   const [row] = await db
     .select({ permission: organizationRole.permission })
     .from(organizationRole)

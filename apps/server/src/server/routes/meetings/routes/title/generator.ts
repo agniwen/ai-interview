@@ -1,8 +1,5 @@
-import { getMastraModelApiKey } from "@app/server/server/agents/mastra/models";
-import {
-  generateTextWithMastraAgent,
-  titleAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+import { getMastraModelApiKey } from "@app/ai-runtime/models";
+import { generateTextWithMastraAgent, titleAgent } from "@app/ai-runtime/simple-generators";
 
 const MAX_TITLE_LENGTH = 28;
 const TITLE_QUOTES_REGEX = /["'`“”‘’]/g;

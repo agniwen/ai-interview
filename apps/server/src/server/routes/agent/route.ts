@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { interviewDataCollectionResultsSchema } from "@arc/shared/interview/question-outcomes";
-import { questionCheckpointPayloadSchema } from "@app/server/server/routes/agent/utils/question-checkpoint";
+import { questionCheckpointPayloadSchema } from "./utils/question-checkpoint";
 
 const transcriptTurnSchema = z.object({
   message: z.string(),

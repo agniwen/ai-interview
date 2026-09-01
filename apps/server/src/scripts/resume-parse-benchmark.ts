@@ -2,7 +2,7 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import { runAliyunResumeExtraction } from "../lib/server/aliyun-docmining";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 interface TimedResult<T> {
   durationMs: number;
@@ -27,7 +27,6 @@ function arg(name: string, fallback?: string): string {
 
 function loadScriptEnv() {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 async function timed<T>(operation: () => Promise<T>): Promise<TimedResult<T>> {
@@ -56,8 +55,8 @@ async function main() {
     { extractResumeDocumentText, generateResumeStructured, RESUME_STRUCTURED_INSTRUCTIONS },
     { parseJsonOutput },
   ] = await Promise.all([
-    import("@app/server/lib/server/resume-parse-pipeline"),
-    import("@app/server/server/agents/json-output"),
+    import("../lib/server/resume-parse-pipeline"),
+    import("@app/ai-runtime/json-output"),
   ]);
   const filePath = path.resolve(arg("file"));
   const outputDirectory = path.resolve(arg("output", ".eval/resume-parse-benchmark"));

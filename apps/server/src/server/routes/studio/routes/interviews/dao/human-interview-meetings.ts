@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
@@ -35,8 +35,8 @@ import {
   applyHumanInterviewMeetingLifecycleEvent,
   forceEndHumanInterviewMeeting,
 } from "./human-interview-meeting-lifecycle";
-import { enqueueHumanMeetingEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 
 export {
   HumanInterviewMeetingError,

@@ -1,11 +1,11 @@
-import { factory } from "@app/server/server/factory";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory } from "../../../../../../factory";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { requirePermission } from "../../../../../../middlewares/permission";
 import {
   queryInterviewConversationReportByRound,
   queryInterviewConversationReportsByRound,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-conversations";
-import { resolveCandidateIdForRound } from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
+} from "../../dao/interview-conversations";
+import { resolveCandidateIdForRound } from "../../dao/interview-rounds";
 
 export interface ReportsRouterDependencies {
   queryReport: typeof queryInterviewConversationReportByRound;

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   generateStructuredWithMastraAgent,
   jobDescriptionDraftAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 const JOB_DESCRIPTION_PROMPT = `你是一名招聘岗位文案助手。请根据 HR 的原始岗位 JD 和上下文，优化成一份可直接编辑并发布到外部招聘平台的岗位 JD。
 

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../lib/server/db/index";
 import { organizationRole } from "@arc/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 

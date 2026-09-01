@@ -1,4 +1,4 @@
-import type { Env } from "@app/server/server/type";
+import type { Env } from "../type";
 
 type WorkspaceVariables = Env["Variables"];
 

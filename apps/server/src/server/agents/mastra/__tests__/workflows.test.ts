@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recruitmentWorkflows } from "@app/server/server/agents/mastra/workflows";
+import { recruitmentWorkflows } from "../workflows/index";
 
 function isWorkflowEntry(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

@@ -1,10 +1,10 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
-import { db as defaultDb } from "@app/server/lib/server/db";
+import { db as defaultDb } from "../../../../../lib/server/db/index";
 import {
   getObjectBytes as defaultGetObjectBytes,
   getObjectStream as defaultGetObjectStream,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription } from "@arc/db-schema/schema";
 import { and, eq } from "drizzle-orm";
@@ -12,31 +12,31 @@ import { z } from "zod";
 import {
   parseResumeFastToProfile as defaultParseResumeFastToProfile,
   validateResumeFile as defaultValidateResumeFile,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission as defaultRequirePermission } from "@app/server/server/middlewares/permission";
+} from "../../../../agents/resume-analysis-agent";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission as defaultRequirePermission } from "../../../../middlewares/permission";
 import {
   intersectRequestedCreatorIds as defaultIntersectRequestedCreatorIds,
   resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope,
-} from "@app/server/server/access/recruiting-visibility";
+} from "../../../../access/recruiting-visibility";
 import {
   normalizeResumeFile as defaultNormalizeResumeFile,
   storeInterviewResume as defaultStoreInterviewResume,
   toBadRequest as defaultToBadRequest,
-} from "@app/server/server/routes/interview/utils";
+} from "../../../interview/utils";
 import {
   loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { createPptxPreviewPdfResponse as defaultCreatePptxPreviewPdfResponse } from "@app/server/server/routes/studio/utils/pptx-preview";
+} from "../job-descriptions/dao";
+import { createPptxPreviewPdfResponse as defaultCreatePptxPreviewPdfResponse } from "../../utils/pptx-preview";
 import {
   enqueueResumePoolReviewGenerationBestEffort as defaultEnqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort as defaultEnqueueResumeReviewGenerationForRecordBestEffort,
-} from "@app/server/server/routes/studio/routes/resumes/utils/review-queue";
-import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "@app/server/server/routes/studio/routes/resumes/utils/candidate-question-generation";
-import { reassessResumeRecord as defaultReassessResumeRecord } from "@app/server/server/routes/studio/routes/resumes/utils/review-worker";
-import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
-import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "@app/server/lib/server/resume-semantic/duplicate-matches";
+} from "../resumes/utils/review-queue";
+import { enqueueCandidateQuestionGenerationForRecordBestEffort as defaultEnqueueCandidateQuestionGenerationForRecordBestEffort } from "../resumes/utils/candidate-question-generation";
+import { reassessResumeRecord as defaultReassessResumeRecord } from "../resumes/utils/review-worker";
+import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
+import { listDuplicateMatchesForSource as defaultListDuplicateMatchesForSource } from "../../../../../lib/server/resume-semantic/duplicate-matches";
 import { completeResumePoolReadinessWithDefaultAdapters as defaultCompleteResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
 import {
   bindResumePoolItemJobDescription as defaultBindResumePoolItemJobDescription,
@@ -50,8 +50,8 @@ import {
   queryResumePoolItems as defaultQueryResumePoolItems,
 } from "./dao";
 import { resumePoolRecommendationsRouter as defaultResumePoolRecommendationsRouter } from "./routes/recommendations/route";
-import { retryFailedResumeParse as defaultRetryFailedResumeParse } from "@app/server/server/routes/studio/routes/resume-upload-batches/utils/retry";
-import { launchAiInterviewRound as defaultLaunchAiInterviewRound } from "@app/server/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
+import { retryFailedResumeParse as defaultRetryFailedResumeParse } from "../resume-upload-batches/utils/retry";
+import { launchAiInterviewRound as defaultLaunchAiInterviewRound } from "../resumes/application/default-launch-ai-interview-round";
 import {
   resumePoolBindSchema,
   resumePoolCreateInputSchema,

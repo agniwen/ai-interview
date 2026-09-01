@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DedupMatchRecord } from "@app/server/server/routes/studio/routes/interviews/dao/studio-interviews";
+import type { DedupMatchRecord } from "../../../server/routes/studio/routes/interviews/dao/studio-interviews";
 import {
   aggregateDuplicateMatchSummaries,
   deleteDuplicateMatchesForSource,

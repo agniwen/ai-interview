@@ -1,5 +1,5 @@
 import { listTextFiltersSchema, parseListTextFilters } from "@arc/shared/list-text-filters";
-import { literalTextContains } from "@app/server/lib/server/db/list-text-filters";
+import { literalTextContains } from "../../../../../../lib/server/db/list-text-filters";
 import { and, sql } from "drizzle-orm";
 import type { SQL, SQLWrapper } from "drizzle-orm";
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getRequiredBooleanEnv, getRequiredEnv } from "../env";
+import { getBooleanEnv, getRequiredBooleanEnv, getRequiredEnv } from "../env";
 
 const ORIGINAL_ALIBABA_MODEL = process.env.ALIBABA_MODEL;
 const ORIGINAL_S3_FORCE_PATH_STYLE = process.env.S3_FORCE_PATH_STYLE;
@@ -39,6 +39,17 @@ describe("getRequiredEnv", () => {
     expect(() => getRequiredBooleanEnv("S3_FORCE_PATH_STYLE")).toThrow(
       "S3_FORCE_PATH_STYLE is not configured.",
     );
+  });
+
+  it("uses a boolean default only when the value is missing or blank", () => {
+    delete process.env.S3_FORCE_PATH_STYLE;
+    expect(getBooleanEnv("S3_FORCE_PATH_STYLE", false)).toBe(false);
+
+    process.env.S3_FORCE_PATH_STYLE = " ";
+    expect(getBooleanEnv("S3_FORCE_PATH_STYLE", false)).toBe(false);
+
+    process.env.S3_FORCE_PATH_STYLE = "true";
+    expect(getBooleanEnv("S3_FORCE_PATH_STYLE", false)).toBe(true);
   });
 
   it("rejects unknown keys at typecheck time", () => {

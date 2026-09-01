@@ -1,15 +1,15 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import { studioInterview } from "@arc/db-schema/schema";
 import { offerDraftInputSchema, offerResponseInputSchema } from "@arc/db-schema/studio-interviews";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
 import {
   getHumanInterviewOfferReadinessError,
   loadHumanInterviewRoundReadiness,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+} from "../../dao/human-interview-rounds";
 import {
   cancelOfferDraft,
   createOfferDraft,
@@ -19,9 +19,9 @@ import {
   OfferDraftError,
   respondOfferDraft,
   sendOfferDraft,
-} from "@app/server/server/routes/studio/routes/interviews/dao/offer-drafts";
-import { recordCandidateActivity } from "@app/server/server/routes/studio/routes/interviews/utils/candidate-activity";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
+} from "../../dao/offer-drafts";
+import { recordCandidateActivity } from "../../utils/candidate-activity";
+import { invalidateStudioInterviewCaches } from "../../../../../../cache-tags";
 
 async function loadOfferCandidate(
   recordId: string,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import {
   getWorkspaceRequestContext,
   WorkspaceContextInvariantError,
-} from "@app/server/server/context/workspace-request-context";
+} from "../workspace-request-context";
 
 // SAFETY: The test fixture is constructed with the asserted shape before this boundary.
 const organization = { id: "org_1" } as never;

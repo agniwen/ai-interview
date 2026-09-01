@@ -7,7 +7,7 @@ import {
   STRUCTURED_RESUME_DIMENSIONS,
 } from "@arc/shared/structured-resume-scoring";
 import type { StructuredResumeRuleJudgment } from "@arc/shared/structured-resume-scoring";
-import { computeJobEvaluationPayloadHash } from "@app/server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation-hash";
 import {
   bindStructuredResumeEvalCandidate,
   loadStructuredResumeEvalCorpus,

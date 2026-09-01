@@ -3,11 +3,8 @@ import type { DataGridQueryState } from "@/components/features/data-grid/query-c
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
-import { queryPaginatedResumeParseCache } from "@app/server/server/routes/platform/routes/resume-parse-cache/dao";
-import type {
-  ResumeParseCacheFilters,
-  ResumeParseCacheQuery,
-} from "@app/server/server/routes/platform/routes/resume-parse-cache/schema";
+import { queryPaginatedResumeParseCache } from "@app/server/web/platform";
+import type { ResumeParseCacheFilters, ResumeParseCacheQuery } from "@app/server/web/platform";
 import { z } from "zod";
 
 type ResumeParseCacheGridQuery = DataGridQueryState<ResumeParseCacheFilters>;

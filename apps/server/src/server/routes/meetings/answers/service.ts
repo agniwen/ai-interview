@@ -3,6 +3,7 @@ import {
   isMeetingAnswerQueueConfigured,
   MEETING_ANSWER_PROMPT_VERSION,
 } from "@arc/meeting-processing-queue/meeting-answer";
+import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type {
   MeetingQuestionExchange,
   MeetingQuestionThread,
@@ -17,7 +18,18 @@ import {
   listMeetingQuestionThreads,
   loadMeetingQuestionThread,
 } from "./dao";
-import { getMeetingAnswerGeneratorSnapshot } from "./generator";
+
+export interface MeetingAnswerGeneratorSnapshot {
+  model: string;
+  provider: string;
+}
+
+export function getMeetingAnswerGeneratorSnapshot(): MeetingAnswerGeneratorSnapshot {
+  return {
+    model: getMastraModelIdentifier(mastraModels.structuredModel),
+    provider: "mastra",
+  };
+}
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 

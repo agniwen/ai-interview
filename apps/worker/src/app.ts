@@ -35,13 +35,12 @@ export interface WorkerAppDependencies {
 }
 
 async function pingDatabase(): Promise<void> {
-  const { pingDatabase: pingBackendDatabase } = await import("@app/server/lib/server/db");
-  await pingBackendDatabase();
+  const { pingDatabase: pingWorkerDatabase } = await import("./db");
+  await pingWorkerDatabase();
 }
 
 async function getMeetingOperationsSnapshot() {
-  const { loadMeetingOperationsSnapshot } =
-    await import("@app/server/server/routes/meetings/operations-dao");
+  const { loadMeetingOperationsSnapshot } = await import("./meeting-operations/dao");
   return loadMeetingOperationsSnapshot();
 }
 

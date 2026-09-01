@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { createMeetingTranscriptCorrectionSchema } from "@arc/shared/meeting-transcription";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../../../factory";
 import { correctSavedMeetingTranscript } from "../../../../transcription/service";
 
 export const meetingTranscriptCorrectionsRouter = factory.createApp().post(

@@ -4,8 +4,8 @@ import {
   isMailIngestTriggerQueueConfigured,
 } from "@arc/resume-parse-queue/mail-ingest-trigger";
 import { isWorkspaceAdministratorRole } from "@arc/shared/permissions";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
 import {
   createMailIngestAccount,
   deleteMailIngestAccount,
@@ -31,7 +31,7 @@ import {
   mergeMailIngestLoginConfig,
   validateMailIngestAccountLogin,
 } from "./validation";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { requirePermission } from "../../../../middlewares/permission";
 
 type MailIngestPermissionAction = "create" | "delete" | "manage" | "read" | "update";
 type ResumeEmailIngestPermissionAction = "create" | "delete" | "read" | "update";

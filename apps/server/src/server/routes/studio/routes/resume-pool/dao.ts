@@ -18,7 +18,7 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { omit } from "lodash-es";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   jobDescription,
   mailIngestMessage,
@@ -38,7 +38,7 @@ import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@ar
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { JsonObject, JsonValue } from "@arc/db-schema/json";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
@@ -51,21 +51,18 @@ import type {
   ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
-import { findSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,
   listActiveDuplicateSummariesAgainstStudioInterviews,
   replaceDuplicateMatchesForSource,
-} from "@app/server/lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@app/server/lib/server/resume-semantic/enqueue";
-import { deleteResumeSemanticIndexBestEffort } from "@app/server/lib/server/resume-semantic/lifecycle";
-import { cloneResumeSemanticIndexFromPoolToInterview } from "@app/server/lib/server/resume-semantic/clone";
-import { createResumeRecordFromStorage } from "@app/server/server/routes/studio/routes/resumes/utils/create-from-storage";
-import { normalizeSkill } from "@app/server/server/routes/studio/routes/resumes/dao/skills";
-import {
-  buildResumeKeywordSearch,
-  buildResumeAtomicSearch,
-} from "@app/server/server/routes/studio/routes/resumes/dao/keyword-search";
+} from "../../../../../lib/server/resume-semantic/duplicate-matches";
+import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort } from "../../../../../lib/server/resume-semantic/lifecycle";
+import { cloneResumeSemanticIndexFromPoolToInterview } from "../../../../../lib/server/resume-semantic/clone";
+import { createResumeRecordFromStorage } from "../resumes/utils/create-from-storage";
+import { normalizeSkill } from "../resumes/dao/skills";
+import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "../resumes/dao/keyword-search";
 import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";

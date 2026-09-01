@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../../../../factory";
 import { createOfferDraftsRouter } from "../route";
 import type { OfferDraftsRouteDependencies } from "../route";
 

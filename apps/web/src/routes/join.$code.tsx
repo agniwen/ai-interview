@@ -1,10 +1,9 @@
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { auth } from "@app/server/lib/server/auth";
+import { auth } from "@app/server/web/runtime";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
-import { getJoinPreview } from "@app/server/server/routes/join/dao";
-import { codeParamsSchema } from "@app/server/server/routes/join/schema";
+import { codeParamsSchema, getJoinPreview } from "@app/server/web/join";
 import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
 import { JoinClient } from "@/components/features/join/join-client";
 import { formatDocumentTitle } from "@/lib/start/document-title";

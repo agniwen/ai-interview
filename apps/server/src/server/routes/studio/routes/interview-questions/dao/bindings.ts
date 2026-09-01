@@ -5,7 +5,7 @@ import type {
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
 import { and, asc, count, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,
@@ -15,7 +15,7 @@ import {
   jobDescription,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { loadJobDescriptionsByTemplate, mapQuestionRow } from "./queries";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
 

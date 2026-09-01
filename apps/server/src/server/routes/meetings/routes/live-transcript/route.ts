@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { createMeetingLiveTranscriptAuthorizationSchema } from "@arc/shared/meeting-transcription";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { LiveTranscriptAuthorizationRateLimitError } from "./authorization-gate";
 import {
   createWorkspaceMeetingLiveTranscriptAuthorization,

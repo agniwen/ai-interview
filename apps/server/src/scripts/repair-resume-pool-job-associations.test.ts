@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../lib/server/db/index";
 import {
   department,
   jobDescription,
@@ -10,7 +10,7 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import { loadResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/dao";
+import { loadResumePoolItem } from "../server/routes/studio/routes/resume-pool/dao";
 import { repairResumePoolJobAssociations } from "./repair-resume-pool-job-associations";
 
 const ORG_ID = "resume_pool_job_repair_org";

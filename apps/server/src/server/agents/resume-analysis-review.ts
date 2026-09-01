@@ -6,8 +6,8 @@ import {
   resumeReviewQualitativeAgent,
   resumeReviewScoringAgent,
   streamTextWithMastraAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import { createAiRunEventStream } from "@app/server/server/agents/mastra/adapters/ai-run-stream";
+} from "@app/ai-runtime/simple-generators";
+import { createAiRunEventStream } from "./mastra/adapters/ai-run-stream";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 import { constrainNextStepAction } from "@arc/shared/resume-evaluation-decision";
 import type { ResumeReview } from "@arc/shared/resume-review";
@@ -591,7 +591,7 @@ export function streamGenerateResumeReview(
   return createAiRunEventStream({
     run: async (emit) => {
       const { createResumeReviewWorkflow, streamResumeReviewWorkflow } =
-        await import("@app/server/server/agents/mastra/workflows/resume-review-workflow");
+        await import("./mastra/workflows/resume-review-workflow");
       return streamResumeReviewWorkflow(
         input,
         {
@@ -741,7 +741,7 @@ export async function generateResumeReview(
   dependencies = defaultResumeReviewGenerationDependencies,
 ): Promise<ResumeReviewGenerationResult> {
   const { createResumeReviewWorkflow, runResumeReviewWorkflow } =
-    await import("@app/server/server/agents/mastra/workflows/resume-review-workflow");
+    await import("./mastra/workflows/resume-review-workflow");
   return runResumeReviewWorkflow(
     input,
     createResumeReviewWorkflow({

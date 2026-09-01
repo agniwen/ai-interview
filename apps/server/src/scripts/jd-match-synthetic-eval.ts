@@ -1,7 +1,7 @@
 import "../standalone/preload";
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { matchJobDescriptionForResume } from "@app/server/server/agents/job-description-match-agent";
+import { matchJobDescriptionForResume } from "../server/agents/job-description-match-agent";
 import { SYNTHETIC_JD_MATCH_CASES } from "./jd-match-synthetic-eval/cases";
 import {
   computeJdMatchSyntheticMetrics,

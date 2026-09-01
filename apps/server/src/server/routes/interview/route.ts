@@ -1,8 +1,8 @@
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { eq, sql } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
-import { db } from "@app/server/lib/server/db";
-import { buildRecordingFileKey, isRecordingStorageConfigured } from "@app/server/lib/server/s3";
+import { db } from "../../../lib/server/db/index";
+import { buildRecordingFileKey, isRecordingStorageConfigured } from "@app/object-storage";
 import {
   candidateFormSubmission,
   interviewConversation,
@@ -12,15 +12,11 @@ import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms"
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { loadSubmittedTemplateIds } from "@app/server/server/routes/studio/routes/forms/dao/submissions";
-import { loadActiveInterviewContextSnapshot } from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
-import {
-  cacheTags,
-  lookupOrgIdByInterviewRecord,
-  safeUpdateTag,
-} from "@app/server/server/cache-tags";
+import { factory, jsonValidatorError } from "../../factory";
+import { createInternalErrorResponse } from "../../error-handler";
+import { loadSubmittedTemplateIds } from "../studio/routes/forms/dao/submissions";
+import { loadActiveInterviewContextSnapshot } from "../studio/routes/interviews/dao/context-snapshots";
+import { cacheTags, lookupOrgIdByInterviewRecord, safeUpdateTag } from "../../cache-tags";
 import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
 import { INTERVIEW_END_REASON } from "@arc/shared/interview/end-reason";
 import {
@@ -37,8 +33,8 @@ import { resolveAiInterviewAccess } from "./utils/ai-interview-access";
 import {
   enqueueAiInterviewCompletedEvent,
   enqueueAiInvitationResponseEvent,
-} from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+} from "../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../interview-notifications/utils/feature-flags";
 
 type InterviewTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

@@ -5,6 +5,7 @@ export const createWorkerSentryOptions = () =>
   createSentryOptions({
     dsn: resolveSentryDsn(process.env, "SENTRY_WORKER_DSN"),
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+    nodeEnvironment: process.env.NODE_ENV,
     release: process.env.SENTRY_RELEASE,
     runtime: "worker",
   });

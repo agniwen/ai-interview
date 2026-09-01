@@ -1,5 +1,5 @@
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { auth } from "@app/server/lib/server/auth";
+import { auth } from "@app/server/web/runtime";
 
 export type PlatformAdminState =
   | { status: "unauthenticated" }

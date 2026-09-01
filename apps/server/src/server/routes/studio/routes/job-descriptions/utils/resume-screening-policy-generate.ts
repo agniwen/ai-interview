@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   generateStructuredWithMastraAgent,
   resumeScreeningPolicyDraftAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 
 const MIN_EDUCATION_RULE_ID = "minimum-education";

@@ -20,6 +20,8 @@ Simplified Chinese.
   Google, ElevenLabs, Minimax, Silero VAD, and turn detector plugins.
 - **Shared packages** (`packages/`): `@arc/shared`, `@arc/db-schema`, and
   `@arc/resume-parse-queue`.
+- **Application runtime packages** (`packages/`): `@app/ai-runtime`,
+  `@app/meeting-media`, and `@app/object-storage`.
 
 Two package managers are used: **Bun 1.4.0** for TypeScript apps/packages and **uv**
 for the Python agent. Do not mix them.
@@ -78,8 +80,9 @@ Key requirements:
 - **LLM providers**: `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`,
   `ALIBABA_API_KEY`, `AI_GATEWAY_API_KEY`
 - **Voice providers**: `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`
-- **LiveKit Cloud**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
-  `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`
+- **LiveKit**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
+  `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`; private/self-hosted deployment is the
+  default, and LiveKit Cloud requires `INTERVIEW_SELF_HOSTED=0`
 - **Object storage**: `S3_*` for uploads and `RECORDING_R2_*` for recordings
 - **Optional integrations**: `FEISHU_*`, `RESEND_*`
 

@@ -1,5 +1,5 @@
-import { factory } from "@app/server/server/factory";
-import { authMiddleware } from "@app/server/server/middlewares/auth";
+import { factory } from "../../factory";
+import { authMiddleware } from "../../middlewares/auth";
 import { modelsRouter } from "./routes/models/route";
 import { titleRouter } from "./routes/title/route";
 

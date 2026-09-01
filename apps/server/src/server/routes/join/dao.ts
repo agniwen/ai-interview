@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
-import { db } from "@app/server/lib/server/db";
-import { addMemberToDefaultRecruitingGroup } from "@app/server/server/routes/studio/routes/workspace/dao";
-import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "@app/server/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
+import { db } from "../../../lib/server/db/index";
+import { addMemberToDefaultRecruitingGroup } from "../studio/routes/workspace/dao";
+import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../studio/routes/workspace/utils/workspace-member-joined-notification";
 import { member } from "@arc/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 

@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { factory, jsonValidatorError } from "../../../../factory";
 import {
   AiInterviewInvitationError,
   previewAiInterviewInvitation,
   recordAiInterviewInvitationException,
   respondAiInterviewInvitation,
-} from "@app/server/server/routes/studio/routes/interviews/dao/ai-interview-candidate-response";
-import type { AiInterviewInvitationErrorCode } from "@app/server/server/routes/studio/routes/interviews/dao/ai-interview-candidate-response";
+} from "../../../studio/routes/interviews/dao/ai-interview-candidate-response";
+import type { AiInterviewInvitationErrorCode } from "../../../studio/routes/interviews/dao/ai-interview-candidate-response";
 
 function invitationErrorTitle(code: AiInterviewInvitationErrorCode): string {
   if (code === "response_conflict") {

@@ -7,12 +7,12 @@ import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms"
 import {
   formQuestionAgent,
   generateStructuredWithMastraAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 import {
   formatCandidatesLabel,
   formatCandidatesResumeContext,
-} from "@app/server/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
-import type { AiCandidateContext } from "@app/server/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
+} from "./ai-candidate-context-format";
+import type { AiCandidateContext } from "./ai-candidate-context-format";
 
 const FORM_QUESTIONS_PROMPT = `你是一名 HR 面试表单设计助手。请根据 HR 的填写指令、候选人简历和岗位信息，设计一组候选人面试前填写的表单题目。
 

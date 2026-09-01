@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { enqueueHumanMeetingEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { db } from "../../../../../../lib/server/db/index";
+import { createInternalErrorResponse } from "../../../../../error-handler";
+import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,

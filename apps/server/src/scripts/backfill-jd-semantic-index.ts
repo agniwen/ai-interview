@@ -2,9 +2,9 @@ import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, notExists, sql } from "drizzle-orm";
 import { jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
-import type { Database } from "@app/server/lib/server/db";
-import type { JdSemanticIndexJob } from "@app/server/lib/server/jd-semantic/indexer";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import type { Database } from "../lib/server/db/index";
+import type { JdSemanticIndexJob } from "../lib/server/jd-semantic/indexer";
+import { loadStandaloneEnv } from "../standalone/env";
 
 type SemanticBackfillTarget = "all";
 type SemanticBackfillRecord = JdSemanticIndexJob;
@@ -190,7 +190,6 @@ async function countCurrentSemanticIndexRows(db: Database): Promise<number> {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 export async function backfillJdSemanticIndex({
@@ -198,8 +197,8 @@ export async function backfillJdSemanticIndex({
 }: JdSemanticBackfillCliOptions = {}): Promise<void> {
   loadScriptEnv();
   const [{ closeDatabase, db }, { runJdSemanticIndexJob }] = await Promise.all([
-    import("@app/server/lib/server/db"),
-    import("@app/server/lib/server/jd-semantic/indexer"),
+    import("../lib/server/db/index"),
+    import("../lib/server/jd-semantic/indexer"),
   ]);
   const target: SemanticBackfillTarget = defaultTarget;
   const concurrency = parseSemanticBackfillConcurrency(

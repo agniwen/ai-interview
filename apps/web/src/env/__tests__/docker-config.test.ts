@@ -38,14 +38,12 @@ describe("Docker env configuration", () => {
     expect(compose).not.toContain("fetch('http://127.0.0.1:3000/api/health')");
   });
 
-  it("accepts legacy local env files while preferring the renamed web path", () => {
+  it("keeps local env ownership within each application", () => {
     const compose = readRepoFile("docker-compose.local.yml");
-    const legacyPath = "path: apps/ai-recruitment-copilot/.env";
-    const currentPath = "path: apps/web/.env";
 
-    expect(compose).toContain(legacyPath);
-    expect(compose).toContain(currentPath);
-    expect(compose.indexOf(legacyPath)).toBeLessThan(compose.indexOf(currentPath));
+    expect(compose).toContain("path: apps/web/.env");
+    expect(compose).toContain("path: apps/worker/.env");
+    expect(compose).not.toContain("ai-recruitment-copilot/.env");
     expect(compose).not.toContain("required: true");
   });
 });

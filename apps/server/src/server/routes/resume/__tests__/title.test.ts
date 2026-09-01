@@ -1,7 +1,7 @@
 // sanitizeTitle — 三段正则 + 截断的纯函数测试 / Pure-function tests for sanitizeTitle.
 
 import { describe, expect, it } from "vitest";
-import { sanitizeTitle } from "@app/server/server/routes/resume/utils/title";
+import { sanitizeTitle } from "../utils/title";
 
 describe("sanitizeTitle", () => {
   it("returns short clean titles unchanged", () => {

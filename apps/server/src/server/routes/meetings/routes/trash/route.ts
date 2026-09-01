@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { trashedMeetingListQuerySchema } from "@arc/shared/meeting-recording";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { listTrashedSavedMeetings } from "../../lifecycle-service";
 
 export function createMeetingTrashRouter(

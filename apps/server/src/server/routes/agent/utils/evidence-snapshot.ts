@@ -1,14 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import type { InterviewEvidenceSnapshotPayload } from "@arc/db-schema/interview-snapshots";
-import { db } from "@app/server/lib/server/db";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
-import { jsonValueSchema } from "@app/server/lib/server/stable-stringify";
+import { db } from "../../../../lib/server/db/index";
+import { serializeDate } from "../../../../lib/server/db/serialize";
+import { jsonValueSchema } from "../../../../lib/server/stable-stringify";
 import { interviewConversation, interviewEvidenceSnapshot } from "@arc/db-schema/schema";
-import { loadSubmissionsByInterview } from "@app/server/server/routes/studio/routes/forms/dao/submissions";
+import { loadSubmissionsByInterview } from "../../studio/routes/forms/dao/submissions";
 import {
   hashSnapshotPayload,
   loadActiveInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+} from "../../studio/routes/interviews/dao/context-snapshots";
 import { createInterviewEvidenceSnapshotWithDependencies } from "./evidence-snapshot-core";
 import type { EvidenceSnapshotDependencies } from "./evidence-snapshot-core";
 

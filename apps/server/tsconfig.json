@@ -2,10 +2,6 @@
   "extends": "../../tsconfig.base.json",
 
   "compilerOptions": {
-    "paths": {
-      "@app/server/lib/server/*": ["./src/lib/server/*"],
-      "@app/server/server/*": ["./src/server/*"]
-    },
     "rootDir": "./src",
     "types": ["node"],
     "noEmit": true,

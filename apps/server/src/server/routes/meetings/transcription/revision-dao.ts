@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import {
   meetingAuditLog,
   meetingProcessingRun,

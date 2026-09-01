@@ -5,7 +5,7 @@ import {
   generateStructuredWithMastraAgent,
   generateTextWithMastraAgent,
   StructuredOutputValidationError,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 describe("simple Mastra generators", () => {
   it("generates text with model settings", async () => {

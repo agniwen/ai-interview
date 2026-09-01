@@ -1,10 +1,10 @@
 /* oxlint-disable complexity, max-lines -- collection router coordinates validation, persistence, and access policy. */
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
   humanInterviewMeetingInputSchema,
   humanInterviewMeetingScheduleUpdateSchema,
@@ -18,12 +18,12 @@ import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
   parseResumeFastToProfile,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
+} from "../../../../agents/resume-analysis-agent";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
 import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
-import { autoBindApplicableTemplates } from "@app/server/server/routes/studio/routes/interview-questions/dao/bindings";
-import { createInterviewContextSnapshot } from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+import { autoBindApplicableTemplates } from "../interview-questions/dao/bindings";
+import { createInterviewContextSnapshot } from "./dao/context-snapshots";
 import {
   createHumanInterviewMeeting,
   endHumanInterviewMeeting,
@@ -33,52 +33,52 @@ import {
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
-import { cancelHumanInterviewMeeting } from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meeting-cancellation";
-import { updateHumanInterviewMeetingSchedule } from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meeting-schedule";
+} from "./dao/human-interview-meetings";
+import { cancelHumanInterviewMeeting } from "./dao/human-interview-meeting-cancellation";
+import { updateHumanInterviewMeetingSchedule } from "./dao/human-interview-meeting-schedule";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
-} from "@app/server/server/routes/studio/routes/interviews/utils/human-interview-livekit";
-import { getFeishuTenantAccessToken } from "@app/server/lib/server/feishu-access-token";
+} from "./utils/human-interview-livekit";
+import { getFeishuTenantAccessToken } from "../../../../../lib/server/feishu-access-token";
 import {
   getFeishuAppCredentials,
   isFeishuHumanInterviewEnabled,
-} from "@app/server/server/routes/feishu/utils/provider";
+} from "../../../../integrations/feishu/provider";
 import {
   isFeishuSyncConflictError,
   recordFeishuHumanInterviewSyncFailure,
   resolveHumanInterviewFeishuProviderId,
   syncHumanInterviewMeetingToFeishu,
-} from "@app/server/server/routes/studio/routes/interviews/utils/feishu-human-interview-meeting";
-import { recordCandidateActivity } from "@app/server/server/routes/studio/routes/interviews/utils/candidate-activity";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@app/server/lib/server/resume-semantic/enqueue";
-import { recruitingJobDescriptionIdsExist } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { syncResumeSkills } from "@app/server/server/routes/studio/routes/resumes/dao/skills";
+} from "./utils/feishu-human-interview-meeting";
+import { recordCandidateActivity } from "./utils/candidate-activity";
+import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
+import { recruitingJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { syncResumeSkills } from "../resumes/dao/skills";
 import {
   loadInterviewRoundDetail,
   resolveCandidateIdForRound,
   resolveRoundIdFromRecordId,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
+} from "./dao/interview-rounds";
 import {
   buildTokenErrorResponse,
   buildScheduleRows,
   normalizeResumeFile,
   resolveResumeUploadStorage,
   toBadRequest,
-} from "@app/server/server/routes/interview/utils";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
+} from "../../../interview/utils";
+import { requirePermission } from "../../../../middlewares/permission";
+import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
 import {
   parseResumeCreateDedupPolicy,
   resolveResumeCreateDedupConflict,
-} from "@app/server/server/routes/studio/routes/resumes/utils/dedup";
-import { enqueueAiInterviewInvitedEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
-import { requireHumanMeetingUpdateAccess } from "@app/server/server/routes/studio/routes/interviews/utils/human-meeting-update-access";
-import { addAiInterviewInvitationToSchedule } from "@app/server/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
-import { loadHumanInterviewMeetingInterviewerIds } from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meeting-input";
+} from "../resumes/utils/dedup";
+import { enqueueAiInterviewInvitedEvents } from "../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../interview-notifications/utils/feature-flags";
+import { requireHumanMeetingUpdateAccess } from "./utils/human-meeting-update-access";
+import { addAiInterviewInvitationToSchedule } from "./dao/ai-interview-invitation-access";
+import { loadHumanInterviewMeetingInterviewerIds } from "./dao/human-interview-meeting-input";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}

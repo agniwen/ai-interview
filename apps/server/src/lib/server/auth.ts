@@ -8,20 +8,20 @@ import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { getAuthRequestHeaders } from "@app/server/lib/server/auth-request-context";
-import { getRequiredEnv } from "@app/server/lib/server/env";
-import { getFeishuTenantAccessToken } from "@app/server/lib/server/feishu-access-token";
-import { resolveSessionAuthProviderId } from "@app/server/lib/server/session-auth-provider";
+import { getAuthRequestHeaders } from "./auth-request-context";
+import { getRequiredEnv } from "./env";
+import { getFeishuTenantAccessToken } from "./feishu-access-token";
+import { resolveSessionAuthProviderId } from "./session-auth-provider";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
   isNoAccessWorkspaceRole,
-} from "@app/server/server/access/workspace-roles";
+} from "../../server/access/workspace-roles";
 import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
-} from "@app/server/server/routes/studio/routes/workspace/dao";
-import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "@app/server/server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
+} from "../../server/routes/studio/routes/workspace/dao";
+import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../../server/routes/studio/routes/workspace/utils/workspace-member-joined-notification";
 import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildMastraMemoryScope,
-  toMastraRequestContext,
-} from "@app/server/server/agents/mastra/request-context";
+import { buildMastraMemoryScope, toMastraRequestContext } from "../request-context";
 
 describe("Mastra request context", () => {
   it("keeps only present contextual identifiers", () => {

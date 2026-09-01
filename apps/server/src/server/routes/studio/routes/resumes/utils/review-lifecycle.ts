@@ -8,7 +8,7 @@ import type { ResumeReview } from "@arc/db-schema/resume-review";
 import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
 import type { QualitativeResumeEvaluation } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
-import { computeResumeEvaluationInputHash } from "@app/server/lib/server/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "../../../../../../lib/server/resume-evaluation-input-hash";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 
 export type GeneratedResumeAssessment =

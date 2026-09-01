@@ -4,12 +4,12 @@ import { zValidator } from "@hono/zod-validator";
 import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./read-route";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db as defaultDb } from "@app/server/lib/server/db";
+import { db as defaultDb } from "../../../../../lib/server/db/index";
 import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@arc/db-schema/schema";
 import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
-import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope as defaultResolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -18,58 +18,58 @@ import {
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "@arc/shared/studio-resumes";
-import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
-import { removeImportedInterviewFromConversations as defaultRemoveImportedInterviewFromConversations } from "@app/server/server/routes/chat/dao/chat";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { invalidateStudioInterviewCaches as defaultInvalidateStudioInterviewCaches } from "../../../../cache-tags";
+import { removeImportedInterviewFromConversations as defaultRemoveImportedInterviewFromConversations } from "../../../chat/dao/chat";
+import { factory, jsonValidatorError } from "../../../../factory";
 import {
   parseResumeFastToProfile as defaultParseResumeFastToProfile,
   validateResumeFile as defaultValidateResumeFile,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { requirePermission as defaultRequirePermission } from "@app/server/server/middlewares/permission";
-import { loadResumeDetail as defaultLoadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+} from "../../../../agents/resume-analysis-agent";
+import { requirePermission as defaultRequirePermission } from "../../../../middlewares/permission";
+import { loadResumeDetail as defaultLoadResumeDetail } from "./dao/resumes";
 import {
   resetResumeEvaluationForJobChange as defaultResetResumeEvaluationForJobChange,
   updateResumeEvaluationStatus as defaultUpdateResumeEvaluationStatus,
-} from "@app/server/server/routes/studio/routes/resumes/dao/evaluation";
+} from "./dao/evaluation";
 import { parseResumePayloadInput } from "@arc/db-schema/studio-interviews";
 import {
   normalizeResumeFile as defaultNormalizeResumeFile,
   resolveResumeUploadStorage as defaultResolveResumeUploadStorage,
   toBadRequest as defaultToBadRequest,
-} from "@app/server/server/routes/interview/utils";
-import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
+} from "../../../interview/utils";
+import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource as defaultDeleteDuplicateMatchesForSource,
   replaceDuplicateMatchesForSource as defaultReplaceDuplicateMatchesForSource,
-} from "@app/server/lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "@app/server/lib/server/resume-semantic/enqueue";
-import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "@app/server/lib/server/resume-semantic/lifecycle";
+} from "../../../../../lib/server/resume-semantic/duplicate-matches";
+import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "../../../../../lib/server/resume-semantic/lifecycle";
 import {
   loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
-} from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { createResumeRecordFromStorage as defaultCreateResumeRecordFromStorage } from "@app/server/server/routes/studio/routes/resumes/utils/create-from-storage";
-import { syncResumeProfileIdentity as defaultSyncResumeProfileIdentity } from "@app/server/server/routes/studio/routes/resumes/utils/profile-sync";
-import { generateResumeScreeningBestEffort as defaultGenerateResumeScreeningBestEffort } from "@app/server/server/routes/studio/routes/resumes/utils/review-generation";
+} from "../job-descriptions/dao";
+import { createResumeRecordFromStorage as defaultCreateResumeRecordFromStorage } from "./utils/create-from-storage";
+import { syncResumeProfileIdentity as defaultSyncResumeProfileIdentity } from "./utils/profile-sync";
+import { generateResumeScreeningBestEffort as defaultGenerateResumeScreeningBestEffort } from "./utils/review-generation";
 import {
   enqueueResumeReassessmentForRecord as defaultEnqueueResumeReassessmentForRecord,
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
-} from "@app/server/server/routes/studio/routes/resumes/utils/review-queue";
-import { reassessResumeRecord as defaultReassessResumeRecord } from "@app/server/server/routes/studio/routes/resumes/utils/review-worker";
-import { computeResumeEvaluationInputHash } from "@app/server/lib/server/resume-evaluation-input-hash";
+} from "./utils/review-queue";
+import { reassessResumeRecord as defaultReassessResumeRecord } from "./utils/review-worker";
+import { computeResumeEvaluationInputHash } from "../../../../../lib/server/resume-evaluation-input-hash";
 import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
-} from "@app/server/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
-import { buildPreQualitativeEvaluationArchive } from "@app/server/server/routes/studio/routes/resumes/utils/resume-evaluation-history";
-import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "@app/server/server/routes/studio/routes/resumes/routes/structured-evaluation/route";
-import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "@app/server/server/routes/studio/routes/resumes/routes/meetings/route";
-import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "@app/server/server/routes/studio/routes/resumes/routes/evaluation-history/route";
+} from "./utils/resume-assessment-invalidation";
+import { buildPreQualitativeEvaluationArchive } from "./utils/resume-evaluation-history";
+import { structuredResumeEvaluationRouter as defaultStructuredResumeEvaluationRouter } from "./routes/structured-evaluation/route";
+import { recruitingRecordMeetingsRouter as defaultRecruitingRecordMeetingsRouter } from "./routes/meetings/route";
+import { resumeEvaluationHistoryRouter as defaultResumeEvaluationHistoryRouter } from "./routes/evaluation-history/route";
 import {
   forceResumeReparse as defaultForceResumeReparse,
   retryFailedResumeParse as defaultRetryFailedResumeParse,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/utils/retry";
-import { interviewQuestionsRouter as defaultInterviewQuestionsRouter } from "@app/server/server/routes/studio/routes/resumes/routes/interview-questions/route";
+} from "../resume-upload-batches/utils/retry";
+import { interviewQuestionsRouter as defaultInterviewQuestionsRouter } from "./routes/interview-questions/route";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）

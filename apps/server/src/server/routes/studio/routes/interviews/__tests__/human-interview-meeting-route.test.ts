@@ -2,10 +2,10 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@app/server/lib/server/db";
-import { factory } from "@app/server/server/factory";
-import { publicRouter } from "@app/server/server/routes/public/route";
-import { issueHumanInterviewMeetingLinks } from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+import { db } from "../../../../../../lib/server/db/index";
+import { factory } from "../../../../../factory";
+import { publicRouter } from "../../../../public/route";
+import { issueHumanInterviewMeetingLinks } from "../dao/human-interview-meetings";
 import {
   account,
   interviewAuditLog,

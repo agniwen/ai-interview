@@ -1,9 +1,9 @@
-import type { Env } from "@app/server/server/type";
+import type { Env } from "./type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { auth, trustedOrigins } from "@app/server/lib/server/auth";
-import { runWithAuthRequestHeaders } from "@app/server/lib/server/auth-request-context";
+import { auth, trustedOrigins } from "../lib/server/auth";
+import { runWithAuthRequestHeaders } from "../lib/server/auth-request-context";
 import { handleServerError } from "./error-handler";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";

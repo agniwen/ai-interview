@@ -1,12 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
-import { getMastraModelApiKey } from "@app/server/server/agents/mastra/models";
-import {
-  generateTextWithMastraAgent,
-  titleAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import { factory } from "@app/server/server/factory";
-import { resumeTitleRequestSchema } from "@app/server/server/routes/resume/schema";
-import { sanitizeTitle } from "@app/server/server/routes/resume/utils/title";
+import { getMastraModelApiKey } from "@app/ai-runtime/models";
+import { generateTextWithMastraAgent, titleAgent } from "@app/ai-runtime/simple-generators";
+import { factory } from "../../../../factory";
+import { resumeTitleRequestSchema } from "../../schema";
+import { sanitizeTitle } from "../../utils/title";
 
 export const titleRouter = factory
   .createApp()

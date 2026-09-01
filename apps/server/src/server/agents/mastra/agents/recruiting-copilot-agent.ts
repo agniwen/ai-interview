@@ -1,7 +1,7 @@
 import { Agent } from "@mastra/core/agent";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { mastraModels, withThinkingDisabled } from "@app/server/server/agents/mastra/models";
-import { createRecruitingCopilotTools } from "@app/server/server/agents/mastra/tools/recruiting-copilot";
+import type { RecruitingVisibilityScope } from "../../../access/recruiting-visibility";
+import { mastraModels, withThinkingDisabled } from "@app/ai-runtime/models";
+import { createRecruitingCopilotTools } from "../tools/recruiting-copilot";
 import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { buildRecruitingCopilotInstructions } from "./recruiting-copilot-instructions";

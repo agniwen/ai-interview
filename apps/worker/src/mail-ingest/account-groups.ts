@@ -1,4 +1,4 @@
-import type { WorkerMailIngestAccount } from "@app/server/server/routes/studio/routes/mail-ingest/dao";
+import type { WorkerMailIngestAccount } from "@app/server/worker/mail-ingest";
 
 export interface MailIngestAccountGroup {
   accounts: WorkerMailIngestAccount[];

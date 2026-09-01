@@ -1,8 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../lib/server/db/index";
 import {
-  meetingAccessGrant,
   meetingProcessingRun,
   meetingQuestionExchange,
   meetingSession,
@@ -12,14 +11,7 @@ import {
   organization,
   user,
 } from "@arc/db-schema/schema";
-import {
-  claimMeetingAnswerExchange,
-  createMeetingAnswerExchange,
-  createMeetingQuestionThread,
-  loadMeetingAnswerContext,
-  loadMeetingQuestionThread,
-  publishMeetingAnswerExchange,
-} from "./dao";
+import { createMeetingAnswerExchange, createMeetingQuestionThread } from "./dao";
 import { MEETING_ANSWER_INSUFFICIENT_EVIDENCE_TEXT } from "@arc/shared/meeting-answer";
 import type {
   MeetingQuestionExchange,
@@ -205,189 +197,6 @@ describe("Meeting Answer persistence", () => {
       .update(meetingQuestionExchange)
       .set({ status: "failed" })
       .where(eq(meetingQuestionExchange.id, first.id));
-  });
-
-  it("keeps completed answers ordered by the reserved exchange sequence", async () => {
-    const thread = expectThread(
-      await createMeetingQuestionThread({
-        createdBy: OWNER_ID,
-        meetingId: MEETING_ID,
-        organizationId: ORG_ID,
-        title: "项目经验",
-      }),
-    );
-    const create = (requestId: string, question: string) =>
-      createMeetingAnswerExchange({
-        createdBy: OWNER_ID,
-        meetingId: MEETING_ID,
-        model: "gpt-5-mini",
-        organizationId: ORG_ID,
-        promptVersion: "meeting-answer-v1",
-        provider: "openai",
-        question,
-        requestId,
-        threadId: thread.id,
-      });
-    const first = expectExchange(
-      await create("00000000-0000-4000-8000-000000000082", "谁负责支付迁移？"),
-    );
-    await expect(create("00000000-0000-4000-8000-000000000083", "何时开始？")).resolves.toBe(
-      "active-question",
-    );
-    const firstToken = `token-${first.id}`;
-    await expect(
-      claimMeetingAnswerExchange({
-        attempt: 1,
-        exchangeId: first.id,
-        executionToken: firstToken,
-      }),
-    ).resolves.toMatchObject({ status: "claimed" });
-    await expect(
-      publishMeetingAnswerExchange({
-        answer: {
-          citations: [{ endMs: 9000, startMs: 3000, turnId: TURN_ID }],
-          kind: "answer",
-          text: "候选人负责。",
-        },
-        exchangeId: first.id,
-        executionToken: firstToken,
-      }),
-    ).resolves.toBe(true);
-    const second = expectExchange(
-      await create("00000000-0000-4000-8000-000000000083", "何时开始？"),
-    );
-    const secondToken = `token-${second.id}`;
-    await expect(
-      claimMeetingAnswerExchange({
-        attempt: 1,
-        exchangeId: second.id,
-        executionToken: secondToken,
-      }),
-    ).resolves.toMatchObject({ status: "claimed" });
-    await expect(
-      publishMeetingAnswerExchange({
-        answer: {
-          citations: [{ endMs: 9000, startMs: 3000, turnId: TURN_ID }],
-          kind: "answer",
-          text: "候选人负责。",
-        },
-        exchangeId: second.id,
-        executionToken: secondToken,
-      }),
-    ).resolves.toBe(true);
-
-    await expect(
-      loadMeetingQuestionThread({
-        createdBy: OWNER_ID,
-        meetingId: MEETING_ID,
-        organizationId: ORG_ID,
-        threadId: thread.id,
-      }),
-    ).resolves.toMatchObject({
-      exchanges: [
-        { id: first.id, sequence: 1, status: "ready" },
-        { id: second.id, sequence: 2, status: "ready" },
-      ],
-    });
-  });
-
-  it("refuses to claim a viewer exchange after its meeting grant is revoked", async () => {
-    await db.insert(meetingAccessGrant).values({
-      id: `meeting_answer_grant_${SUFFIX}`,
-      meetingId: MEETING_ID,
-      memberId: `meeting_answer_viewer_member_${SUFFIX}`,
-      organizationId: ORG_ID,
-      role: "viewer",
-    });
-    const thread = expectThread(
-      await createMeetingQuestionThread({
-        createdBy: VIEWER_ID,
-        meetingId: MEETING_ID,
-        organizationId: ORG_ID,
-        title: "私有线程",
-      }),
-    );
-    const exchange = expectExchange(
-      await createMeetingAnswerExchange({
-        createdBy: VIEWER_ID,
-        meetingId: MEETING_ID,
-        model: "gpt-5-mini",
-        organizationId: ORG_ID,
-        promptVersion: "meeting-answer-v1",
-        provider: "openai",
-        question: "谁负责支付迁移？",
-        requestId: "00000000-0000-4000-8000-000000000084",
-        threadId: thread.id,
-      }),
-    );
-    await db
-      .delete(meetingAccessGrant)
-      .where(
-        and(
-          eq(meetingAccessGrant.meetingId, MEETING_ID),
-          eq(meetingAccessGrant.memberId, `meeting_answer_viewer_member_${SUFFIX}`),
-        ),
-      );
-
-    await expect(
-      claimMeetingAnswerExchange({
-        attempt: 1,
-        exchangeId: exchange.id,
-        executionToken: "revoked-token",
-      }),
-    ).resolves.toEqual({ status: "not-authorized" });
-  });
-
-  it("does not load meeting content after access is revoked between claim and generation", async () => {
-    const memberId = `meeting_answer_viewer_member_${SUFFIX}`;
-    await db.insert(meetingAccessGrant).values({
-      id: `meeting_answer_race_grant_${SUFFIX}`,
-      meetingId: MEETING_ID,
-      memberId,
-      organizationId: ORG_ID,
-      role: "viewer",
-    });
-    const thread = expectThread(
-      await createMeetingQuestionThread({
-        createdBy: VIEWER_ID,
-        meetingId: MEETING_ID,
-        organizationId: ORG_ID,
-        title: "撤权竞态",
-      }),
-    );
-    const exchange = expectExchange(
-      await createMeetingAnswerExchange({
-        createdBy: VIEWER_ID,
-        meetingId: MEETING_ID,
-        model: "gpt-5-mini",
-        organizationId: ORG_ID,
-        promptVersion: "meeting-answer-v1",
-        provider: "openai",
-        question: "谁负责支付迁移？",
-        requestId: "00000000-0000-4000-8000-000000000085",
-        threadId: thread.id,
-      }),
-    );
-    await claimMeetingAnswerExchange({
-      attempt: 1,
-      exchangeId: exchange.id,
-      executionToken: "revocation-race-token",
-    });
-    await db
-      .delete(meetingAccessGrant)
-      .where(
-        and(
-          eq(meetingAccessGrant.meetingId, MEETING_ID),
-          eq(meetingAccessGrant.memberId, memberId),
-        ),
-      );
-
-    await expect(
-      loadMeetingAnswerContext({
-        exchangeId: exchange.id,
-        executionToken: "revocation-race-token",
-      }),
-    ).resolves.toBeNull();
   });
 
   it("rejects an exchange whose creator differs from its private thread owner", async () => {

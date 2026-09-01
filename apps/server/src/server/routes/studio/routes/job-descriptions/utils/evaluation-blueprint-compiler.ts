@@ -17,12 +17,12 @@ import { structuredResumeRuleIdSchema } from "@arc/db-schema/job-description-str
 import type { StructuredResumeDimension } from "@arc/shared/structured-resume-scoring";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
 import { z } from "zod";
-import { computeJobEvaluationPayloadHash } from "@app/server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../../../../../../lib/server/job-evaluation-hash";
 import {
   generateStructuredWithMastraAgent,
   jobEvaluationBlueprintAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
-import type { MastraGeneratorLike } from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 
 const jobEvaluationBlueprintJsonAgent: MastraGeneratorLike = {
   generate(messages, options) {

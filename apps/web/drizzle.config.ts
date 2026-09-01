@@ -4,7 +4,7 @@ import { loadWebProcessEnv } from "./src/env/load";
 // Keep database commands on the same mode-aware current/legacy lookup used by
 // the web runtime. drizzle-kit can preload a lower-priority `.env`, so merge the
 // complete file chain before applying the mode-specific values over that preload.
-loadWebProcessEnv("development", { replacePreloaded: true });
+loadWebProcessEnv("development");
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

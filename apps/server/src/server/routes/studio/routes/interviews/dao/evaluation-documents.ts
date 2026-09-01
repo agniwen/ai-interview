@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { uniq } from "lodash-es";
 
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { interviewConversation } from "@arc/db-schema/schema";
 import { loadLatestFeishuDocumentUrls } from "./feishu-document-urls";
 import { resolveEvaluationDocument } from "./evaluation-document-status";

@@ -1,16 +1,16 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@app/server/lib/server/resume-semantic/enqueue";
+import { db } from "../../../../../../lib/server/db/index";
+import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../../lib/server/resume-semantic/enqueue";
 import {
   defaultCandidateQuestionGenerationDependencies,
   generateCandidateInterviewQuestions,
-} from "@app/server/server/routes/studio/routes/resumes/utils/candidate-question-generation";
-import type { CandidateQuestionGenerationDependencies } from "@app/server/server/routes/studio/routes/resumes/utils/candidate-question-generation";
+} from "../../resumes/utils/candidate-question-generation";
+import type { CandidateQuestionGenerationDependencies } from "../../resumes/utils/candidate-question-generation";
 import {
   enqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort,
-} from "@app/server/server/routes/studio/routes/resumes/utils/review-queue";
-import { reassessResumeRecord } from "@app/server/server/routes/studio/routes/resumes/utils/review-worker";
+} from "../../resumes/utils/review-queue";
+import { reassessResumeRecord } from "../../resumes/utils/review-worker";
 import { studioInterview } from "@arc/db-schema/schema";
 
 export interface ParsedResumeEnrichmentDependencies extends CandidateQuestionGenerationDependencies {

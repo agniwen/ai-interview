@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,

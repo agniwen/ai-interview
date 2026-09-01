@@ -6,7 +6,7 @@ import {
   reportEvidenceGroundingScorer,
   resumeProfileCompletenessScorer,
   resumeReviewStructureScorer,
-} from "@app/server/server/agents/mastra/scorers/recruitment-scorers";
+} from "../scorers/recruitment-scorers";
 
 const COMPLETE_PROFILE = {
   age: 29,

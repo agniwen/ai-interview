@@ -2,16 +2,16 @@ import { EgressStatus } from "@livekit/protocol";
 import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
 import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../lib/server/db/index";
 import { interviewConversation } from "@arc/db-schema/schema";
-import { factory } from "@app/server/server/factory";
-import { cacheTags, safeUpdateTag } from "@app/server/server/cache-tags";
+import { factory } from "../../factory";
+import { cacheTags, safeUpdateTag } from "../../cache-tags";
 import {
   endHumanInterviewMeetingByRoomName,
   markHumanInterviewMeetingInProgressByRoomName,
   markHumanInterviewParticipantJoined,
   markHumanInterviewParticipantLeft,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+} from "../studio/routes/interviews/dao/human-interview-meetings";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {

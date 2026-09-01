@@ -59,6 +59,11 @@ ENV RECORDING_R2_REGION=auto
 ENV RECORDING_R2_FORCE_PATH_STYLE=true
 ENV RECORDING_R2_KEY_PREFIX=recordings
 
+# Match the web image's upload-storage defaults. Runtime values override these.
+ENV S3_REGION=auto
+ENV S3_FORCE_PATH_STYLE=false
+ENV S3_KEY_PREFIX=uploads
+
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     fontconfig \

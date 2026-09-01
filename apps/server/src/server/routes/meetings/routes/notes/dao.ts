@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { meetingAuditLog, meetingNote, meetingSession } from "@arc/db-schema/schema";
 import type { CreateMeetingNoteInput, UpdateMeetingNoteInput } from "@arc/shared/meeting-recording";
 import {

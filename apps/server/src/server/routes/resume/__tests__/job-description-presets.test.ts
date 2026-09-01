@@ -4,7 +4,7 @@
 // verified by inspecting the produced string.
 
 import { describe, expect, it } from "vitest";
-import { buildAutoJobDescription } from "@app/server/server/routes/resume/utils/job-description-presets";
+import { buildAutoJobDescription } from "../utils/job-description-presets";
 
 describe("buildAutoJobDescription — output shape", () => {
   it("always contains the four section headers", () => {

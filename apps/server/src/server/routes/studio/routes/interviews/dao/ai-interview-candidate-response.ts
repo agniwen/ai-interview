@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { db } from "../../../../../../lib/server/db/index";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {
   enqueueAiInvitationExceptionEvent,
   enqueueAiInvitationResponseEvent,
   resolveInterviewNotificationCompanyName,
-} from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
+} from "../../../../../interview-notifications/utils/events";
 import {
   globalConfig,
   organization,

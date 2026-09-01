@@ -7,7 +7,7 @@ import {
   getMastraModelApiKey,
   usesTextJsonStructuredOutput,
   withThinkingDisabled,
-} from "@app/server/server/agents/mastra/models";
+} from "@app/ai-runtime/models";
 
 describe("Mastra model configuration", () => {
   afterEach(() => {

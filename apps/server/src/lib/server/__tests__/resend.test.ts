@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  buildSenderFromAddress,
-  getResendClient,
-  getResendFrom,
-} from "@app/server/lib/server/resend";
+import { buildSenderFromAddress, getResendClient, getResendFrom } from "../resend";
 
 describe("resend client", () => {
   const ORIGINAL_KEY = process.env.RESEND_API_KEY;

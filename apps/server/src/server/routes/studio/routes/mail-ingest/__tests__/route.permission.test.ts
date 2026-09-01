@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { factory } from "@app/server/server/factory";
-import { createRequestWorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory } from "../../../../../factory";
+import { createRequestWorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
+import { requirePermission } from "../../../../../middlewares/permission";
 import { createMailIngestRouter } from "../route";
 
 const mocks = {

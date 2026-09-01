@@ -1,4 +1,4 @@
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { studioInterview } from "@arc/db-schema/schema";
 import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
@@ -10,7 +10,7 @@ import type {
   ResumeScreeningStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
-import type { ReusableResumePoolEvaluation } from "@app/server/server/routes/studio/routes/resume-pool/utils/evaluation-reuse";
+import type { ReusableResumePoolEvaluation } from "../../resume-pool/utils/evaluation-reuse";
 import { syncResumeSkills } from "../dao/skills";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

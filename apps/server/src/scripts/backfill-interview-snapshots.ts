@@ -7,8 +7,8 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
-import type { Database } from "@app/server/lib/server/db";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import type { Database } from "../lib/server/db/index";
+import { loadStandaloneEnv } from "../standalone/env";
 
 export type InterviewSnapshotBackfillTarget = "all" | "context" | "evidence";
 
@@ -186,7 +186,6 @@ export async function runInterviewSnapshotBackfillRecords({
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 async function loadFirstScheduleEntryId(
@@ -294,11 +293,11 @@ async function loadInterviewSnapshotBackfillRecords(
 
 export async function backfillInterviewSnapshots(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@app/server/lib/server/db");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const { createInterviewEvidenceSnapshot } =
-    await import("@app/server/server/routes/agent/utils/evidence-snapshot");
+    await import("../server/routes/agent/utils/evidence-snapshot");
   const { createInterviewContextSnapshot } =
-    await import("@app/server/server/routes/studio/routes/interviews/dao/context-snapshots");
+    await import("../server/routes/studio/routes/interviews/dao/context-snapshots");
   const target = parseInterviewSnapshotBackfillTarget(
     process.env.BACKFILL_INTERVIEW_SNAPSHOTS_TARGET,
   );

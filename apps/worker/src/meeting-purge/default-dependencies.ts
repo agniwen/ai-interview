@@ -2,7 +2,7 @@ import {
   abortMeetingRecordingMultipartUpload,
   deleteMeetingRecordingObject,
   headMeetingRecordingObject,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import {
   claimMeetingPurge,
   completeMeetingPurgeStorageBatch,
@@ -10,8 +10,8 @@ import {
   finalizeMeetingPurge,
   recordMeetingProviderPurgeOutcome,
   releaseMeetingPurgeClaim,
-} from "@app/server/server/routes/meetings/lifecycle-dao";
-import type { MeetingProviderArtifactInput } from "@app/server/server/routes/meetings/transcription/provider";
+} from "@app/server/worker/meeting-purge";
+import type { MeetingProviderArtifactInput } from "@app/server/worker/meeting-purge";
 import type { MeetingPurgeDependencies } from "./processor";
 
 function deleteProviderArtifact(

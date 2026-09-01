@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const agentSources = [
-  readFileSync(new URL("../agents/simple-generators.ts", import.meta.url), "utf-8"),
+  readFileSync(
+    new URL("../../../../../../../packages/ai-runtime/src/simple-generators.ts", import.meta.url),
+    "utf-8",
+  ),
   readFileSync(new URL("../agents/recruiting-copilot-agent.ts", import.meta.url), "utf-8"),
 ];
 

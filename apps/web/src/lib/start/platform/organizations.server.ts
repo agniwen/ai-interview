@@ -4,7 +4,7 @@ import type { DataGridQueryState } from "@/components/features/data-grid/query-c
 import { buildDataGridQueryKey } from "@/components/features/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
-import { db } from "@app/server/lib/server/db";
+import { db } from "@app/server/web/runtime";
 import { member, organization } from "@arc/db-schema/schema";
 import { z } from "zod";
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildQwenOcrRequest } from "@app/server/lib/server/qwen-ocr";
+import { buildQwenOcrRequest } from "../qwen-ocr";
 
 describe("Qwen OCR request", () => {
   const originalModel = process.env.QWEN_OCR_MODEL;

@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import { studioInterview } from "@arc/db-schema/schema";
 import {
   structuredResumeEvaluationV1Schema,
@@ -11,10 +11,10 @@ import {
   applyGateCorrection,
   deriveStructuredResumeSummaries,
 } from "@arc/shared/structured-resume-scoring";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
+import { resolveRecruitingVisibilityScope } from "../../../../../../access/recruiting-visibility";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { invalidateStudioInterviewCaches } from "../../../../../../cache-tags";
 
 const correctionInputSchema = z
   .object({

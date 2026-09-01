@@ -1,7 +1,7 @@
 import {
   generateStructuredWithMastraAgent,
   resumeStructuredAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import { extractPdfTextPages, processPdfPagesWithMeta } from "./pdf-rasterize";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";

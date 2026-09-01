@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
-import { computeJobEvaluationPayloadHash } from "@app/server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../../../../lib/server/job-evaluation-hash";
 import type { StructuredResumeEvalCase, StructuredRuleStatus } from "../../types";
 
 const statuses: StructuredRuleStatus[] = [

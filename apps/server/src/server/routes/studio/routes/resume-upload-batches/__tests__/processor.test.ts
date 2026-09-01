@@ -3,7 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   member,
   department,
@@ -15,15 +15,9 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import {
-  cancelBatch,
-  insertBatchWithItems,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import {
-  getClaimMissRetryError,
-  createResumeUploadBatchProcessor,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/utils/processor";
-import type { ResumeUploadBatchProcessorDependencies } from "@app/server/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import { cancelBatch, insertBatchWithItems } from "../dao/batches";
+import { getClaimMissRetryError, createResumeUploadBatchProcessor } from "../utils/processor";
+import type { ResumeUploadBatchProcessorDependencies } from "../utils/processor";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // Real DB round-trips routinely exceed the default 5s under parallel suite load.

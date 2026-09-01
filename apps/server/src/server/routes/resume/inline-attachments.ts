@@ -1,7 +1,7 @@
 import type { FileUIPart, UIMessage } from "ai";
-import type { ChatAttachmentRow } from "@app/server/server/routes/chat/dao/chat-attachments";
-import { getObjectBytes } from "@app/server/lib/server/s3";
-import { getUserAttachments } from "@app/server/server/routes/chat/dao/chat-attachments";
+import type { ChatAttachmentRow } from "../chat/dao/chat-attachments";
+import { getObjectBytes } from "@app/object-storage";
+import { getUserAttachments } from "../chat/dao/chat-attachments";
 
 // 多租户改造后 URL 形如 /api/w/<slug>/chat/attachments/<id>；旧消息仍持有
 // /api/chat/attachments/<id>。为了让历史会话回放也能 inline，两种前缀都接。

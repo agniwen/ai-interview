@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { testClient } from "hono/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
   interviewer,
@@ -19,9 +19,9 @@ import {
   organization,
   user,
 } from "@arc/db-schema/schema";
-import { factory } from "@app/server/server/factory";
-import { requirePermission as defaultRequirePermission } from "@app/server/server/middlewares/permission";
-import { generateStructuredJobBlueprintPreview } from "../application/job-evaluation-lifecycle";
+import { factory } from "../../../../../factory";
+import { requirePermission as defaultRequirePermission } from "../../../../../middlewares/permission";
+import { generateStructuredJobBlueprintPreview } from "../application/default-job-evaluation-lifecycle";
 import { createJobEvaluationPreviewStreamRouter } from "../routes/evaluation-blueprint-preview/route";
 
 import { createJobDescriptionsRouter } from "../route";

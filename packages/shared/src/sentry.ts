@@ -18,6 +18,7 @@ export interface SentryEvent {
 interface CreateSentryOptionsInput {
   dsn: string | undefined;
   environment?: string;
+  nodeEnvironment?: string;
   release?: string;
   runtime: string;
 }
@@ -95,9 +96,14 @@ export const sanitizeSentryEvent = <Event extends object>(event: Event): Event =
 export const createSentryOptions = ({
   dsn,
   environment,
+  nodeEnvironment,
   release,
   runtime,
 }: CreateSentryOptionsInput) => {
+  if (trimmedOrUndefined(nodeEnvironment)?.toLowerCase() === "development") {
+    return null;
+  }
+
   const normalizedDsn = trimmedOrUndefined(dsn);
   if (!normalizedDsn) {
     return null;

@@ -45,10 +45,10 @@ import {
   enqueueMeetingTranscriptionJobs,
   isMeetingTranscriptionQueueConfigured,
 } from "@arc/meeting-processing-queue/meeting-transcription";
-import { listMeetingTranscriptionProviderCandidates } from "@app/server/server/routes/meetings/transcription/provider-registry";
+import { listMeetingTranscriptionProviderCandidates } from "@app/server/worker/meeting-transcription";
 import { createWorkerApp } from "./app";
 import { isWorkerBackgroundProcessingEnabled, resolveWorkerServerConfig } from "./config";
-import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
+import { getWorkerConnectionSummary, validateWorkerEnv } from "./env";
 import { getResumeParseConfigSummary } from "./parse-config";
 import { startMailIngestScheduler } from "./mail-ingest/scheduler";
 import type { MailIngestScheduler } from "./mail-ingest/scheduler";
@@ -60,7 +60,7 @@ import {
   reportQueueFailure,
 } from "./sentry";
 
-loadWorkerEnv();
+validateWorkerEnv();
 initializeWorkerSentry();
 
 function isResumeSemanticIndexEnabled(): boolean {
@@ -69,8 +69,7 @@ function isResumeSemanticIndexEnabled(): boolean {
 }
 
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
-  const { recoverIncompleteBatchItems } =
-    await import("@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches");
+  const { recoverIncompleteBatchItems } = await import("@app/server/worker/resumes");
   const { enqueueResumeParseJobs } = await import("@arc/resume-parse-queue/resume-parse");
   const jobs = await recoverIncompleteBatchItems();
   if (jobs.length === 0) {
@@ -84,8 +83,7 @@ async function recoverIncompleteResumeParseJobs(): Promise<void> {
 }
 
 async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
-  const { listRecoverableResumeSemanticIndexJobs } =
-    await import("@app/server/lib/server/resume-semantic/indexer");
+  const { listRecoverableResumeSemanticIndexJobs } = await import("@app/server/worker/resumes");
   const jobs = await listRecoverableResumeSemanticIndexJobs();
   if (jobs.length === 0) {
     console.info("[resume-semantic-index-worker] startup recovery found no pending sources");
@@ -98,8 +96,7 @@ async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
 }
 
 async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
-  const { listRecoverableMeetingPlaybackJobs } =
-    await import("@app/server/server/routes/meetings/dao");
+  const { listRecoverableMeetingPlaybackJobs } = await import("./meeting-playback/dao");
   const jobs = await listRecoverableMeetingPlaybackJobs();
   if (jobs.length === 0) {
     console.info("[meeting-playback-worker] startup recovery found no pending meetings");
@@ -112,8 +109,7 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
 }
 
 async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
-  const { listRecoverableMeetingPurgeJobs } =
-    await import("@app/server/server/routes/meetings/lifecycle-dao");
+  const { listRecoverableMeetingPurgeJobs } = await import("@app/server/worker/meeting-purge");
   const jobs = await listRecoverableMeetingPurgeJobs();
   if (jobs.length === 0) {
     console.info("[meeting-purge-worker] recovery found no due meetings");
@@ -124,8 +120,7 @@ async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
 }
 
 async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
-  const { listRecoverableMeetingAnswerJobs } =
-    await import("@app/server/server/routes/meetings/answers/dao");
+  const { listRecoverableMeetingAnswerJobs } = await import("./meeting-answer/dao");
   const jobs = await listRecoverableMeetingAnswerJobs();
   if (jobs.length === 0) {
     console.info("[meeting-answer-worker] recovery found no pending exchanges");
@@ -137,9 +132,9 @@ async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
 
 async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
   const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
-    await import("@app/server/server/routes/meetings/intelligence/dao");
+    await import("@app/server/worker/meeting-intelligence");
   const { requestAutomaticMeetingIntelligence } =
-    await import("@app/server/server/routes/meetings/intelligence/service");
+    await import("@app/server/worker/meeting-intelligence");
   const missing = await listMeetingsNeedingAutomaticIntelligence();
   for (const meeting of missing) {
     try {
@@ -164,7 +159,7 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
 
 async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
   const { listRecoverableMeetingTranscriptionJobs } =
-    await import("@app/server/server/routes/meetings/transcription/dao");
+    await import("@app/server/worker/meeting-transcription");
   const jobs = await listRecoverableMeetingTranscriptionJobs();
   if (jobs.length === 0) {
     console.info("[meeting-transcription-worker] recovery found no pending meetings");
@@ -419,8 +414,7 @@ async function main() {
   if (backgroundProcessingEnabled && isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ bypassCache, itemId }, context) => {
-      const { runBulkResumeUploadWorkflow } =
-        await import("@app/server/server/agents/mastra/workflows/bulk-resume-upload-workflow");
+      const { runBulkResumeUploadWorkflow } = await import("@app/server/worker/resumes");
       await runBulkResumeUploadWorkflow({
         bypassCache,
         itemId,
@@ -432,8 +426,7 @@ async function main() {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
         if (payload.sourceType === "job_description") {
-          const { runJdSemanticIndexJob } =
-            await import("@app/server/lib/server/jd-semantic/indexer");
+          const { runJdSemanticIndexJob } = await import("@app/server/worker/resumes");
           await runJdSemanticIndexJob({
             organizationId: payload.organizationId,
             sourceId: payload.sourceId,
@@ -441,15 +434,13 @@ async function main() {
           });
           return;
         }
-        const { runResumeSemanticEnrichmentJob } =
-          await import("@app/server/lib/server/resume-semantic/enrichment");
+        const { runResumeSemanticEnrichmentJob } = await import("@app/server/worker/resumes");
         await runResumeSemanticEnrichmentJob(payload);
       });
       semanticIndexWorker.on("failed", reportQueueFailure("resume-semantic-index"));
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload, context) => {
-      const { processResumeReviewGenerationJob } =
-        await import("@app/server/server/routes/studio/routes/resumes/utils/review-worker");
+      const { processResumeReviewGenerationJob } = await import("@app/server/worker/resumes");
       await processResumeReviewGenerationJob(payload, undefined, context);
     });
     reviewGenerationWorker.on("failed", reportQueueFailure("resume-review-generation"));
@@ -513,7 +504,7 @@ async function main() {
         await closeResumeSemanticIndexQueue();
         await closeResumeReviewGenerationQueue();
         if (process.env.DATABASE_URL) {
-          const { closeDatabase } = await import("@app/server/lib/server/db");
+          const { closeDatabase } = await import("./db");
           await closeDatabase();
         }
         process.exit(0);

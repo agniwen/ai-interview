@@ -15,8 +15,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { buildOrderBy } from "@app/server/lib/server/db/pagination";
-import { db } from "@app/server/lib/server/db";
+import { buildOrderBy } from "../../../lib/server/db/pagination";
+import { db } from "../../../lib/server/db/index";
 import {
   meetingAuditLog,
   meetingIntelligenceRevision,

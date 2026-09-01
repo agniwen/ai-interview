@@ -19,7 +19,7 @@ import {
   structuredResumeGateAgent,
   structuredResumeNarrativeAgent,
   titleAgent,
-} from "./agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 import { recruitmentScorers } from "./scorers";
 import { storage } from "./storage";
 import { recruitmentWorkflows } from "./workflows";

@@ -5,8 +5,8 @@ import {
   generatedCandidateInterviewQuestionsSchema,
   generateInterviewQuestionsForProfile,
   streamGenerateInterviewQuestions,
-} from "@app/server/server/agents/resume-analysis-agent";
-import type { InterviewQuestionGenerationDependencies } from "@app/server/server/agents/resume-analysis-agent";
+} from "../resume-analysis-agent";
+import type { InterviewQuestionGenerationDependencies } from "../resume-analysis-agent";
 
 const mocks = {
   generateStructuredWithMastraAgent: vi.fn(),

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createInterviewReportWorkflow,
   runInterviewReportWorkflow,
-} from "@app/server/server/agents/mastra/workflows/interview-report-workflow";
+} from "../workflows/interview-report-workflow";
 
 describe("runInterviewReportWorkflow", () => {
   it("generates an interview report through the workflow runner", async () => {

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import { candidateFormTemplate, organization, studioInterview } from "@arc/db-schema/schema";
 import { loadApplicableCandidateFormTemplates } from "../queries";
 

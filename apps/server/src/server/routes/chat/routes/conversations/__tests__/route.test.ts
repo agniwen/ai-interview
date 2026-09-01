@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import { factory } from "@app/server/server/factory";
-import { createConversationsRouter } from "@app/server/server/routes/chat/routes/conversations/route";
-import type { ConversationsRouteDependencies } from "@app/server/server/routes/chat/routes/conversations/route";
+import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
+import { factory } from "../../../../../factory";
+import { createConversationsRouter } from "../route";
+import type { ConversationsRouteDependencies } from "../route";
 
 const authorize = vi.fn<WorkspaceAuthorizer>();
 const mocks = {

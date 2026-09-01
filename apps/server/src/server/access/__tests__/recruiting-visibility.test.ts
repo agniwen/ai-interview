@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../lib/server/db/index";
 import {
   member,
   organization,
@@ -11,7 +11,7 @@ import {
 import {
   intersectRequestedCreatorIds,
   resolveRecruitingVisibilityScope,
-} from "@app/server/server/access/recruiting-visibility";
+} from "../recruiting-visibility";
 
 const ORG = "test_org_recruiting_visibility";
 const OTHER_ORG = "test_org_recruiting_visibility_other";

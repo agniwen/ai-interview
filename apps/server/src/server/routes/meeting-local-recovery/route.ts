@@ -2,12 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import type { MiddlewareHandler } from "hono";
 import { z } from "zod";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { authMiddleware } from "@app/server/server/middlewares/auth";
+import { factory, jsonValidatorError } from "../../factory";
+import { authMiddleware } from "../../middlewares/auth";
 import {
   loadMeetingLocalRecoveryDirective,
   recordMeetingLocalRecoveryCleanup,
-} from "@app/server/server/routes/meetings/lifecycle-dao";
+} from "../meetings/lifecycle-dao";
 
 const manifestSha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 const localRecoveryCheckSchema = z.object({ manifestSha256: manifestSha256Schema });

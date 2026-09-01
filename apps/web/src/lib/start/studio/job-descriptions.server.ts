@@ -1,6 +1,8 @@
-import { listAllDepartments } from "@app/server/server/routes/studio/routes/departments/dao";
-import { listAllInterviewers } from "@app/server/server/routes/studio/routes/interviewers/dao";
-import { loadJobDescriptionMetrics } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
+import {
+  listAllDepartments,
+  listAllInterviewers,
+  loadJobDescriptionMetrics,
+} from "@app/server/web/studio";
 
 export async function loadStudioJobDescriptionsData({ workspaceId }: { workspaceId: string }) {
   const [departments, interviewers, metrics] = await Promise.all([

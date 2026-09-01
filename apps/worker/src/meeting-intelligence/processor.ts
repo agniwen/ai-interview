@@ -1,15 +1,13 @@
 import type {
   claimMeetingIntelligenceRun,
   heartbeatMeetingIntelligenceRun,
+  generateMeetingIntelligence,
+  getMeetingIntelligenceGeneratorSnapshot,
   markMeetingIntelligenceFailed,
   publishMeetingIntelligence,
   saveMeetingIntelligenceCheckpoint,
   saveMeetingIntelligenceProgress,
-} from "@app/server/server/routes/meetings/intelligence/dao";
-import type {
-  generateMeetingIntelligence,
-  getMeetingIntelligenceGeneratorSnapshot,
-} from "@app/server/server/routes/meetings/intelligence/generator";
+} from "@app/server/worker/meeting-intelligence";
 import type { MeetingIntelligenceJobData } from "@arc/meeting-processing-queue/meeting-intelligence";
 import { MEETING_INTELLIGENCE_PROMPT_VERSION } from "@arc/meeting-processing-queue/meeting-intelligence";
 import {

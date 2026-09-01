@@ -1,4 +1,4 @@
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { departmentsRouter } from "./routes/departments/route";
 import { studioCalendarRouter } from "./routes/calendar/route";
 import { candidateFormsRouter } from "./routes/forms/route";

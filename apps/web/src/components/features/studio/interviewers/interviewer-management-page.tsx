@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
-import type { PaginatedInterviewerResult } from "@app/server/server/routes/studio/routes/interviewers/dao";
+import type { PaginatedInterviewerResult } from "@app/server/web/studio";
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";

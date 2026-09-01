@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResumeParseWorkflowDeps } from "@app/server/server/agents/mastra/workflows/resume-parse-workflow";
+import type { ResumeParseWorkflowDeps } from "../workflows/resume-parse-workflow";
 import {
   runResumeParseWorkflow,
   streamResumeParseWorkflow,
-} from "@app/server/server/agents/mastra/workflows/resume-parse-workflow";
+} from "../workflows/resume-parse-workflow";
 
 const mocks = {
   generateResumeStructured: vi.fn(),

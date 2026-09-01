@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { generateInterviewQuestionsForProfile } from "@app/server/server/agents/resume-analysis-agent";
+import { db } from "../../../../../../lib/server/db/index";
+import { generateInterviewQuestionsForProfile } from "../../../../../agents/resume-analysis-agent";
 import { jobDescription, studioInterview } from "@arc/db-schema/schema";
 import {
   enqueueResumeReviewGenerationJobs,

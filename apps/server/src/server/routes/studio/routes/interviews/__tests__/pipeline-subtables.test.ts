@@ -7,7 +7,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   member,
   organization,
@@ -26,14 +26,14 @@ import {
   EditRoundError,
   listHumanInterviewRounds,
   maybeAdvanceToHumanInterview,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+} from "../dao/human-interview-rounds";
 import {
   createHumanInterviewMeeting,
   endHumanInterviewMeetingsByRound,
   HumanInterviewMeetingError,
   isHumanInterviewMeetingAfterValidUntil,
   listHumanInterviewMeetings,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+} from "../dao/human-interview-meetings";
 import {
   cancelOfferDraft,
   createOfferDraft,
@@ -43,7 +43,7 @@ import {
   OfferDraftError,
   respondOfferDraft,
   sendOfferDraft,
-} from "@app/server/server/routes/studio/routes/interviews/dao/offer-drafts";
+} from "../dao/offer-drafts";
 
 const ORG = "test_org_pipeline_subtables";
 const HR_USER = "test_user_pipeline_hr";

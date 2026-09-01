@@ -6,20 +6,20 @@ import type {
 } from "@arc/db-schema/qualitative-resume-evaluation";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { account, interviewNotification, studioInterview } from "@arc/db-schema/schema";
-import { generateFeishuHrEvaluationWithPromptForInterview } from "@app/server/server/routes/agent/utils/feishu-hr-evaluation";
+import { generateFeishuHrEvaluationWithPromptForInterview } from "../../../agent/utils/feishu-hr-evaluation";
 import {
   buildHrInterviewEvaluationBlock,
   buildInterviewEvaluationStructureSections,
-} from "@app/server/server/routes/feishu/utils/interview-evaluation-doc";
-import type { HrInterviewEvaluationPreview } from "@app/server/server/routes/feishu/utils/interview-evaluation-doc";
+} from "../../../../integrations/feishu/interview-evaluation-doc";
+import type { HrInterviewEvaluationPreview } from "../../../../integrations/feishu/interview-evaluation-doc";
 import {
   grantFeishuInterviewEvaluationDocxAccess,
   resolveFeishuDocxDocumentId,
   updateFeishuInterviewEvaluationDocxStructure,
-} from "@app/server/server/routes/feishu/utils/feishu-docx";
-import type { InterviewEvaluationStructureSection } from "@app/server/server/routes/feishu/utils/feishu-docx";
-import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
-import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
+} from "../../../../integrations/feishu/feishu-docx";
+import type { InterviewEvaluationStructureSection } from "../../../../integrations/feishu/feishu-docx";
+import type { FeishuProviderId } from "../../../../integrations/feishu/provider";
+import { FEISHU_PROVIDER_IDS } from "../../../../integrations/feishu/provider";
 
 const feishuProviderIdSchema = z.enum(FEISHU_PROVIDER_IDS);
 
@@ -64,7 +64,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
   generateHrEvaluation: generateFeishuHrEvaluationWithPromptForInterview,
   grantDocumentAccess: grantFeishuInterviewEvaluationDocxAccess,
   loadCurrentUserAccount: async (userId, providerId) => {
-    const { db } = await import("@app/server/lib/server/db");
+    const { db } = await import("../../../../../lib/server/db/index");
     const [currentUserAccount] = await db
       .select({ accountId: account.accountId })
       .from(account)
@@ -74,7 +74,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
     return currentUserAccount?.accountId ?? null;
   },
   loadDocument: async (notificationId) => {
-    const { db } = await import("@app/server/lib/server/db");
+    const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
         documentId: interviewNotification.feishuDocumentId,
@@ -88,7 +88,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
     return notification ?? null;
   },
   loadPreview: async (notificationId) => {
-    const { db } = await import("@app/server/lib/server/db");
+    const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
         candidateName: studioInterview.candidateName,
@@ -106,7 +106,7 @@ const defaultDependencies: PlatformNotificationDependencies = {
 
 const defaultStructureDependencies: PlatformNotificationStructureDependencies = {
   loadStructure: async (notificationId) => {
-    const { db } = await import("@app/server/lib/server/db");
+    const { db } = await import("../../../../../lib/server/db/index");
     const [notification] = await db
       .select({
         documentId: interviewNotification.feishuDocumentId,

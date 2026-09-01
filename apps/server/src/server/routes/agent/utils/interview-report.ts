@@ -10,7 +10,7 @@ import {
   generateTextWithMastraAgent,
   interviewReportEvaluationAgent,
   interviewReportSummaryAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 
 const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，使用面试对话的主要语言撰写一段篇幅相当于中文 200-300 字的面试摘要。
 摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足，面试对话记录中，如果用户跳过了某个问题，则该问题视为0分。

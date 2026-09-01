@@ -70,6 +70,10 @@ COPY --from=build --chown=appuser:appuser /app /app
 
 WORKDIR /app
 
+# Private/self-hosted LiveKit is the deployment default. Set to 0 explicitly
+# only when deploying this image against LiveKit Cloud.
+ENV INTERVIEW_SELF_HOSTED=1
+
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root
 USER appuser

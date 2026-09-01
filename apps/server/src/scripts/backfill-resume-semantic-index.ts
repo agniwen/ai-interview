@@ -2,9 +2,9 @@ import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
-import type { Database } from "@app/server/lib/server/db";
+import type { Database } from "../lib/server/db/index";
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 
 type SemanticBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
 type SemanticBackfillRecord = ResumeSemanticIndexJobData;
@@ -283,7 +283,6 @@ async function countCurrentSemanticIndexRows(db: Database): Promise<number> {
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 export async function backfillResumeSemanticIndex({
@@ -291,8 +290,8 @@ export async function backfillResumeSemanticIndex({
 }: ResumeSemanticBackfillCliOptions = {}): Promise<void> {
   loadScriptEnv();
   const [{ closeDatabase, db }, { runResumeSemanticIndexJob }] = await Promise.all([
-    import("@app/server/lib/server/db"),
-    import("@app/server/lib/server/resume-semantic/indexer"),
+    import("../lib/server/db/index"),
+    import("../lib/server/resume-semantic/indexer"),
   ]);
   const target = resolveSemanticBackfillTarget({
     defaultTarget,

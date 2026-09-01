@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
-import { createPlatformRouter } from "@app/server/server/routes/platform/route";
-import type { PlatformMailIngestDependencies } from "@app/server/server/routes/platform/route";
+import { factory } from "../../../../../factory";
+import { createPlatformRouter } from "../../../../platform/route";
+import type { PlatformMailIngestDependencies } from "../../../../platform/route";
 import type { MailIngestAccountDto, WorkspaceMailIngestAccountRow } from "../dao";
 import type { MailMessageLogRecord } from "../dao/messages";
 import { MailIngestValidationError } from "../validation";

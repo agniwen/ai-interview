@@ -3,16 +3,16 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
-import { listActiveStudioDuplicateMatchSummaries } from "@app/server/lib/server/resume-semantic/duplicate-matches";
+import { db } from "../../../../../../lib/server/db/index";
+import { listActiveStudioDuplicateMatchSummaries } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "@app/server/lib/server/db/pagination";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
-import { intersectRequestedCreatorIds } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+} from "../../../../../../lib/server/db/pagination";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
+import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import { department, jobDescription, studioInterview, user } from "@arc/db-schema/schema";
 import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { JsonValue } from "@arc/db-schema/json";
@@ -35,7 +35,7 @@ import {
 import { normalizeSkill } from "./skills";
 import { buildResumeKeywordSearch, buildResumeAtomicSearch } from "./keyword-search";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
-import { loadLatestFeishuDocumentUrls } from "@app/server/server/routes/studio/routes/interviews/dao/feishu-document-urls";
+import { loadLatestFeishuDocumentUrls } from "../../interviews/dao/feishu-document-urls";
 
 function parseResumeReviewBaseScore(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value.trim() === "") {

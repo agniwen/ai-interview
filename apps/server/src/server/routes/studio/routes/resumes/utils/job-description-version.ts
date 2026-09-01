@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import type { db } from "@app/server/lib/server/db";
+import type { db } from "../../../../../../lib/server/db/index";
 import { jobDescription, jobDescriptionVersion } from "@arc/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

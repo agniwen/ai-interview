@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { syncResumeProfileIdentity } from "@app/server/server/routes/studio/routes/resumes/utils/profile-sync";
+import { syncResumeProfileIdentity } from "../utils/profile-sync";
 
 const baseProfile: ResumeProfile = {
   age: null,

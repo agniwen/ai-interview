@@ -1,4 +1,4 @@
-import { compileJobEvaluationDraft } from "../../../application/job-evaluation-lifecycle";
+import { compileDefaultJobEvaluationDraft } from "../../../application/default-job-evaluation-lifecycle";
 import {
   createUpgradeDraft,
   discardUpgradeDraft,
@@ -11,7 +11,7 @@ import {
 import { createJobEvaluationUpgradeApplication } from "./job-evaluation-upgrade";
 
 export const jobEvaluationUpgradeApplication = createJobEvaluationUpgradeApplication({
-  compile: compileJobEvaluationDraft,
+  compile: compileDefaultJobEvaluationDraft,
   createDraft: createUpgradeDraft,
   discardDraft: discardUpgradeDraft,
   getDraft: getUpgradeDraft,

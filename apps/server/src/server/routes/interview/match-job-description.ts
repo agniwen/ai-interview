@@ -1,7 +1,7 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import type { JobDescriptionMatchResult } from "@app/server/server/agents/job-description-match-agent";
-import { matchJobDescriptionForResume } from "@app/server/server/agents/job-description-match-agent";
+import type { JobDescriptionMatchResult } from "../../agents/job-description-match-agent";
+import { matchJobDescriptionForResume } from "../../agents/job-description-match-agent";
 
 interface ResolveJobDescriptionMatchBestEffortInput {
   jobDescriptions: JobDescriptionListRecord[];

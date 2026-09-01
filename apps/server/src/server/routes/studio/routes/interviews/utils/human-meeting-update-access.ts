@@ -1,8 +1,8 @@
 import {
   getWorkspaceRequestContext,
   WorkspaceContextInvariantError,
-} from "@app/server/server/context/workspace-request-context";
-import { factory } from "@app/server/server/factory";
+} from "../../../../../context/workspace-request-context";
+import { factory } from "../../../../../factory";
 
 interface ResolveAccessInput {
   headers: Headers;
@@ -19,7 +19,7 @@ export interface HumanMeetingUpdateAccessDependencies {
 const defaultDependencies: HumanMeetingUpdateAccessDependencies = {
   canUpdateHumanInterviews: async (input) => {
     const { createRequestWorkspaceAuthorizer } =
-      await import("@app/server/server/access/workspace-access-policy");
+      await import("../../../../../access/workspace-access-policy");
     const authorize = createRequestWorkspaceAuthorizer({
       headers: input.headers,
       memberRole: input.memberRole,

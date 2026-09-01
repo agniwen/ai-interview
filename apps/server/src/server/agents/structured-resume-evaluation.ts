@@ -33,9 +33,9 @@ import {
   structuredResumeDimensionAgent,
   structuredResumeGateAgent,
   structuredResumeNarrativeAgent,
-} from "./mastra/agents/simple-generators";
-import { getMastraModelIdentifier, mastraModels } from "./mastra/models";
-import { computeJobEvaluationPayloadHash } from "@app/server/lib/server/job-evaluation-hash";
+} from "@app/ai-runtime/simple-generators";
+import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
+import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation-hash";
 
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 

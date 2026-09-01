@@ -1,21 +1,21 @@
-import { getObjectBytes, getObjectStream } from "@app/server/lib/server/s3";
+import { getObjectBytes, getObjectStream } from "@app/object-storage";
 import {
   generateResumeStructured,
   parseResumeFast,
-} from "@app/server/lib/server/resume-parse-pipeline";
-import { isResumeParseCacheSourceCompatible } from "@app/server/lib/server/resume-parse-provider";
+} from "../../../../../lib/server/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "../../../../../lib/server/resume-parse-provider";
 import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
-import { projectAttachmentToResumeProfile } from "@app/server/server/agents/resume-parser-agent";
+import { projectAttachmentToResumeProfile } from "../../../../agents/resume-parser-agent";
 import {
   getUserAttachment,
   updateParseResultByHash,
   updateStructuredByHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
-import { factory } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { resolveJobDescriptionMatchBestEffort } from "@app/server/server/routes/interview/match-job-description";
-import { listRecruitingJobDescriptions } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { createPptxPreviewPdfResponse } from "@app/server/server/routes/studio/utils/pptx-preview";
+} from "../../dao/chat-attachments";
+import { factory } from "../../../../factory";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { resolveJobDescriptionMatchBestEffort } from "../../../interview/match-job-description";
+import { listRecruitingJobDescriptions } from "../../../studio/routes/job-descriptions/dao";
+import { createPptxPreviewPdfResponse } from "../../../studio/utils/pptx-preview";
 
 const PREVIEW_SUFFIX = "-preview.pdf";
 

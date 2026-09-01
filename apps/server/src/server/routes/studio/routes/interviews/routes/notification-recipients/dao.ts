@@ -1,5 +1,5 @@
-import { db } from "@app/server/lib/server/db";
-import { FEISHU_PROVIDER_IDS } from "@app/server/server/routes/feishu/utils/provider";
+import { db } from "../../../../../../../lib/server/db/index";
+import { FEISHU_PROVIDER_IDS } from "../../../../../../integrations/feishu/provider";
 import {
   account,
   interviewAuditLog,

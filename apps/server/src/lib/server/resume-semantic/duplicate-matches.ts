@@ -1,14 +1,14 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@app/server/lib/server/db";
-import { serializeDate } from "@app/server/lib/server/db/serialize";
+import { db } from "../db/index";
+import { serializeDate } from "../db/serialize";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import {
   EMPTY_STAGE_PROGRESS,
   loadResumeStageProgress,
-} from "@app/server/server/routes/studio/routes/resumes/dao/resume-derived-fields";
-import type { DedupMatchRecord } from "@app/server/server/routes/studio/routes/interviews/dao/studio-interviews";
-import { buildResumeProfileSnapshotFromProfile } from "@app/server/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
+} from "../../../server/routes/studio/routes/resumes/dao/resume-derived-fields";
+import type { DedupMatchRecord } from "../../../server/routes/studio/routes/interviews/dao/studio-interviews";
+import { buildResumeProfileSnapshotFromProfile } from "../../../server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeSemanticDuplicateLevel, ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";

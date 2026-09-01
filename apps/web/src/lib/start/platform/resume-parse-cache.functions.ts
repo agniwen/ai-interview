@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getPlatformAdminStateFromRequest } from "@/lib/start/platform-admin.server";
 import { platformDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resumeParseCacheFilterSchema } from "@app/server/server/routes/platform/routes/resume-parse-cache/schema";
+import { resumeParseCacheFilterSchema } from "@app/server/web/platform";
 import { loadPlatformResumeParseCacheHydrationState } from "./resume-parse-cache.server";
 
 export type PlatformResumeParseCacheState =

@@ -7,22 +7,22 @@ import { interviewNotification } from "@arc/db-schema/schema";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
-import { db } from "@app/server/lib/server/db";
-import { getRequiredEnv } from "@app/server/lib/server/env";
-import { captureBackendException } from "@app/server/lib/server/sentry";
-import { generateFeishuHrEvaluationForInterview } from "@app/server/server/routes/agent/utils/feishu-hr-evaluation";
-import { interviewEvaluationSchema } from "@app/server/server/routes/agent/utils/interview-report";
-import { loadResumePdfAttachment } from "@app/server/server/routes/agent/utils/feishu-resume-attachment";
+import { db } from "../../../../lib/server/db/index";
+import { getRequiredEnv } from "../../../../lib/server/env";
+import { captureBackendException } from "../../../../lib/server/sentry";
+import { generateFeishuHrEvaluationForInterview } from "./feishu-hr-evaluation";
+import { interviewEvaluationSchema } from "./interview-report";
+import { loadResumePdfAttachment } from "./feishu-resume-attachment";
 import {
   createFeishuInterviewEvaluationDocx,
   moveFeishuInterviewEvaluationDocx,
   resolveFeishuDocxDocumentId,
-} from "@app/server/server/routes/feishu/utils/feishu-docx";
+} from "../../../integrations/feishu/feishu-docx";
 import {
   buildInterviewEvaluationDocument,
   buildInterviewEvaluationStructureSections,
-} from "@app/server/server/routes/feishu/utils/interview-evaluation-doc";
-import type { FeishuProviderId } from "@app/server/server/routes/feishu/utils/provider";
+} from "../../../integrations/feishu/interview-evaluation-doc";
+import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 
 type HrEvaluation = ReturnType<typeof interviewEvaluationSchema.parse>["hrEvaluation"];
 

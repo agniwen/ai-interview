@@ -1,4 +1,4 @@
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { attachmentsRouter } from "./routes/attachments/route";
 import { conversationsRouter } from "./routes/conversations/route";
 import { uploadsRouter } from "./routes/uploads/route";

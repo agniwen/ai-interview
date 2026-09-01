@@ -1,1 +1,1 @@
-export { isResumeParseCacheEnabled } from "@app/server/lib/server/resume-parse-cache-policy";
+export { isResumeParseCacheEnabled } from "../../../../../../lib/server/resume-parse-cache-policy";

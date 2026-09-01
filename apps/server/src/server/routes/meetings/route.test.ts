@@ -1,7 +1,7 @@
 import { testClient } from "hono/testing";
 /* oxlint-disable max-lines -- Meeting route authorization scenarios share one typed Hono client fixture. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../factory";
 import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcript/authorization-gate";
 import { createMeetingsRouter } from "./route";
 

@@ -7,9 +7,9 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { member, organization, studioInterview, user } from "@arc/db-schema/schema";
-import { loadResumeDetail } from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
+import { loadResumeDetail } from "../dao/resumes";
 
 const ORG = "test_org_resume_payload";
 const USER_ID = "test_user_resume_payload";

@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 import { asc, eq } from "drizzle-orm";
 import { jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
 import type { JsonValue } from "@arc/db-schema/json";
-import { loadStandaloneEnv, loadWebEnv } from "../standalone/env";
+import { loadStandaloneEnv } from "../standalone/env";
 import { runJdSemanticBackfillRecords } from "./backfill-jd-semantic-index";
 
 const CONFIRMATION_VALUE = "1";
@@ -10,7 +10,6 @@ const DEFAULT_CONCURRENCY = 6;
 
 function loadScriptEnv(): void {
   loadStandaloneEnv();
-  loadWebEnv();
 }
 
 function log(event: string, fields: Record<string, JsonValue | undefined> = {}): void {
@@ -29,9 +28,9 @@ export async function rebuildJdSemanticIndex(): Promise<void> {
     { prepareJdSemanticIndexJob, runJdSemanticIndexJob },
   ] = await Promise.all([
     import("@qdrant/js-client-rest"),
-    import("@app/server/lib/server/db"),
-    import("@app/server/lib/server/resume-semantic/indexer"),
-    import("@app/server/lib/server/jd-semantic/indexer"),
+    import("../lib/server/db/index"),
+    import("../lib/server/resume-semantic/indexer"),
+    import("../lib/server/jd-semantic/indexer"),
   ]);
   const config = getResumeSemanticIndexConfig();
   if (!config.qdrantUrl) {

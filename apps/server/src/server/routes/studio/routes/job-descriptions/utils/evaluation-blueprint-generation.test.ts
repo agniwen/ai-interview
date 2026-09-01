@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import type { MastraGeneratorLike } from "@app/server/server/agents/mastra/agents/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 import {
   generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,

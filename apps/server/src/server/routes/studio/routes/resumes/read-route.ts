@@ -8,46 +8,46 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { db } from "@app/server/lib/server/db";
-import { getObjectBytes, getObjectStream } from "@app/server/lib/server/s3";
+import { db } from "../../../../../lib/server/db/index";
+import { getObjectBytes, getObjectStream } from "@app/object-storage";
 import { studioInterview } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
-import { resolveRecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
+import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import { resumeEvaluationStatusSubmitSchema } from "@arc/shared/studio-resumes";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
-import { getWorkspaceRequestContext } from "@app/server/server/context/workspace-request-context";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
+import { getWorkspaceRequestContext } from "../../../../context/workspace-request-context";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
   queryPaginatedResumeRecords,
   ResumeStructuredScoreQueryError,
-} from "@app/server/server/routes/studio/routes/resumes/dao/resumes";
-import { submitResumeEvaluationOnce } from "@app/server/server/routes/studio/routes/resumes/dao/evaluation";
-import { loadCandidateTimeline } from "@app/server/server/routes/studio/routes/resumes/dao/timeline";
-import { listOrgSkillSuggestions } from "@app/server/server/routes/studio/routes/resumes/dao/skills";
+} from "./dao/resumes";
+import { submitResumeEvaluationOnce } from "./dao/evaluation";
+import { loadCandidateTimeline } from "./dao/timeline";
+import { listOrgSkillSuggestions } from "./dao/skills";
 import {
   structuredResumeGateStatusSchema,
   structuredResumeGradeSchema,
 } from "@arc/db-schema/structured-resume-evaluation";
-import { toBadRequest } from "@app/server/server/routes/interview/utils";
+import { toBadRequest } from "../../../interview/utils";
 import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
-} from "@app/server/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { findSemanticResumeDuplicates } from "@app/server/lib/server/resume-semantic/dedup-service";
-import { listDuplicateMatchesForSource } from "@app/server/lib/server/resume-semantic/duplicate-matches";
+} from "../interviews/dao/interview-rounds";
+import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
+import { listDuplicateMatchesForSource } from "../../../../../lib/server/resume-semantic/duplicate-matches";
 import {
   enqueueResumeReassessmentForRecord,
   ResumeReassessmentEnqueueError,
-} from "@app/server/server/routes/studio/routes/resumes/utils/review-queue";
-import { reassessResumeRecord } from "@app/server/server/routes/studio/routes/resumes/utils/review-worker";
-import { createPptxPreviewPdfResponse } from "@app/server/server/routes/studio/utils/pptx-preview";
-import { launchAiInterviewRound } from "@app/server/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
-import { LaunchAiInterviewMutationError } from "@app/server/server/routes/studio/routes/resumes/application/launch-ai-interview-round";
-import { loadResumeLibraryMetrics } from "@app/server/server/routes/studio/routes/resumes/dao/metrics";
+} from "./utils/review-queue";
+import { reassessResumeRecord } from "./utils/review-worker";
+import { createPptxPreviewPdfResponse } from "../../utils/pptx-preview";
+import { launchAiInterviewRound } from "./application/default-launch-ai-interview-round";
+import { LaunchAiInterviewMutationError } from "./application/launch-ai-interview-round";
+import { loadResumeLibraryMetrics } from "./dao/metrics";
 import { aiInterviewLinkValiditySchema } from "@arc/shared/interview/ai-interview-invitation";
 
 const dedupCheckInputSchema = z.object({

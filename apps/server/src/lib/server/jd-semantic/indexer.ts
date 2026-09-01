@@ -1,17 +1,14 @@
 import { and, eq, notInArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { QdrantResumeVectorStore } from "@app/server/lib/server/qdrant/resume-vector-store";
-import { embedResumeSemanticTexts } from "@app/server/lib/server/resume-semantic/embedding";
+import { db } from "../db/index";
+import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
+import { embedResumeSemanticTexts } from "../resume-semantic/embedding";
 import {
   getResumeSemanticIndexConfig,
   upsertResumeSemanticIndexState,
-} from "@app/server/lib/server/resume-semantic/indexer";
-import { buildJobDescriptionSemanticTexts } from "@app/server/lib/server/resume-semantic/text-builders";
-import type { JobDescriptionSemanticInput } from "@app/server/lib/server/resume-semantic/text-builders";
-import type {
-  ResumeEmbeddingChunk,
-  ResumeVectorStore,
-} from "@app/server/lib/server/resume-semantic/vector-store";
+} from "../resume-semantic/indexer";
+import { buildJobDescriptionSemanticTexts } from "../resume-semantic/text-builders";
+import type { JobDescriptionSemanticInput } from "../resume-semantic/text-builders";
+import type { ResumeEmbeddingChunk, ResumeVectorStore } from "../resume-semantic/vector-store";
 import { department, jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
 import { hashJobDescriptionForSemanticIndex } from "./hash";
 

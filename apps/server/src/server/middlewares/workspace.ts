@@ -1,6 +1,6 @@
-import { db } from "@app/server/lib/server/db";
-import { isNoAccessWorkspaceRole } from "@app/server/server/access/workspace-roles";
-import { factory } from "@app/server/server/factory";
+import { db } from "../../lib/server/db/index";
+import { isNoAccessWorkspaceRole } from "../access/workspace-roles";
+import { factory } from "../factory";
 
 const ACTIVE_ORG_COLUMNS = {
   createdAt: true,

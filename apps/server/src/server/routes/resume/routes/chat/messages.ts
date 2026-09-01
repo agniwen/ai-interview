@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { safeValidateUIMessages } from "ai";
-import type { ResumeChatMessagesInput } from "@app/server/server/routes/resume/schema";
+import type { ResumeChatMessagesInput } from "../../schema";
 
 const BINDING_NEGATION_PATTERN =
   /(?:不(?:要|需要)?|暂不|先不|无需|别)[^。！？?]{0,12}(?:绑定|关联)|(?:绑定|关联)[^。！？?]{0,12}(?:不(?:要|需要)?|暂不|先不|无需|取消)/;

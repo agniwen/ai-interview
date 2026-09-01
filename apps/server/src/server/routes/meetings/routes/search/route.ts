@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { meetingLibrarySearchQuerySchema } from "@arc/shared/meeting-search";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { searchSavedMeetings } from "./service";
 
 export const meetingSearchRouter = factory

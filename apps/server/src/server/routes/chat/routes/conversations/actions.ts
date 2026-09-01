@@ -1,17 +1,17 @@
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
-import { db } from "@app/server/lib/server/db";
-import type { RecruitingVisibilityScope } from "@app/server/server/access/recruiting-visibility";
-import type { WorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
+import { db } from "../../../../../lib/server/db/index";
+import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
+import type { WorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
 import {
   generateInterviewQuestionsForProfile,
   ResumeAnalysisError,
-} from "@app/server/server/agents/resume-analysis-agent";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
-import { transitionCandidateStage } from "@app/server/server/routes/studio/routes/interviews/utils/candidate-stage-transition";
-import { loadRecruitingJobDescriptionById } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import { loadResumePoolItem } from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import { normalizeResumePoolItemId } from "@app/server/server/agents/mastra/tools/resume-pool-id";
+} from "../../../../agents/resume-analysis-agent";
+import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
+import { transitionCandidateStage } from "../../../studio/routes/interviews/utils/candidate-stage-transition";
+import { loadRecruitingJobDescriptionById } from "../../../studio/routes/job-descriptions/dao";
+import { loadResumePoolItem } from "../../../studio/routes/resume-pool/dao";
+import { normalizeResumePoolItemId } from "../../../../agents/mastra/tools/resume-pool-id";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
 import {
   patchRecruitingActionConfirmationInConversation,

@@ -1,9 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { organization, recruitingGroup } from "@arc/db-schema/schema";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   addRecruitingGroupMember,
   ensureDefaultRecruitingGroupForWorkspace,

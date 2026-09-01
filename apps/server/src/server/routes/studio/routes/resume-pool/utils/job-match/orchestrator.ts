@@ -8,7 +8,7 @@ import type {
   ResumeJobMatchRunStatus,
   ResumeJobMatchSelectionMethod,
 } from "@arc/db-schema/schema";
-import type { JobDescriptionRankingResult } from "@app/server/server/agents/job-description-match-agent";
+import type { JobDescriptionRankingResult } from "../../../../../../agents/job-description-match-agent";
 import {
   matchPublishedJobFromResumeFileName,
   matchPublishedJobsFromResumeFileNameCore,

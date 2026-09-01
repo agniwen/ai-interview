@@ -1,6 +1,6 @@
 import { eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../../lib/server/db/index";
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import type { InterviewQuestionTemplateSnapshot } from "@arc/db-schema/interview-question-templates";
 import {
@@ -25,7 +25,7 @@ import {
   hashSnapshotPayload,
   loadActiveInterviewContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
+} from "../context-snapshots";
 
 const formSnapshot: CandidateFormTemplateSnapshot = {
   description: "Collect basic candidate expectations",

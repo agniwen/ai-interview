@@ -3,7 +3,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import {
   createResumeReviewWorkflow,
   runResumeReviewWorkflow,
-} from "@app/server/server/agents/mastra/workflows/resume-review-workflow";
+} from "../workflows/resume-review-workflow";
 
 const mocks = {
   composeReview: vi.fn(),

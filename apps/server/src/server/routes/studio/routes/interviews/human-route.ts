@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import { studioInterview } from "@arc/db-schema/schema";
 import {
   humanInterviewRoundInputSchema,
   nullableInstantDateTimeInputSchema,
   humanInterviewRoundOutcomeSchema,
 } from "@arc/db-schema/studio-interviews";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import {
   cancelHumanInterviewRoundWithMeetings,
   completeHumanInterviewRound,
@@ -17,16 +17,16 @@ import {
   EditRoundError,
   listHumanInterviewRounds,
   maybeAdvanceToHumanInterview,
-} from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-rounds";
-import { endHumanInterviewMeetingsByRound } from "@app/server/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+} from "./dao/human-interview-rounds";
+import { endHumanInterviewMeetingsByRound } from "./dao/human-interview-meetings";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
-} from "@app/server/server/routes/studio/routes/interviews/utils/human-interview-livekit";
-import { offerDraftsRouter } from "@app/server/server/routes/studio/routes/interviews/routes/offer-drafts/route";
-import { recordCandidateActivity } from "@app/server/server/routes/studio/routes/interviews/utils/candidate-activity";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
+} from "./utils/human-interview-livekit";
+import { offerDraftsRouter } from "./routes/offer-drafts/route";
+import { recordCandidateActivity } from "./utils/candidate-activity";
+import { requirePermission } from "../../../../middlewares/permission";
+import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
 import { humanInterviewFeedbackSchema } from "./utils/human-interview-readiness";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：

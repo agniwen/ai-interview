@@ -1,8 +1,8 @@
 import { and, eq, ne } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import { studioHumanInterviewMeeting } from "@arc/db-schema/schema";
-import { enqueueHumanMeetingEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
+import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import { HumanInterviewMeetingError } from "./human-interview-meeting-access";
 
 export function cancelHumanInterviewMeeting({

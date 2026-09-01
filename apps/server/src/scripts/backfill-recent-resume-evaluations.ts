@@ -5,9 +5,9 @@ import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-eva
 import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
-import { computeResumeEvaluationInputHash } from "@app/server/lib/server/resume-evaluation-input-hash";
+import { computeResumeEvaluationInputHash } from "../lib/server/resume-evaluation-input-hash";
 import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
-import { getMastraModelIdentifier, mastraModels } from "../server/agents/mastra/models";
+import { getMastraModelIdentifier, mastraModels } from "@app/ai-runtime/models";
 import type { GeneratedResumeAssessment } from "../server/routes/studio/routes/resumes/utils/review-lifecycle";
 
 export const TARGET_WORKSPACE_ID = "org_default";

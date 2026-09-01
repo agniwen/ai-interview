@@ -13,7 +13,7 @@
 
 import { eq, like, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../lib/server/db/index";
 import { resumePoolItem } from "@arc/db-schema/schema";
 
 export interface ResumePoolFixtureOwners {

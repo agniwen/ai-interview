@@ -1,24 +1,21 @@
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeDocument } from "@app/server/lib/server/resume-parse-pipeline";
-import type { ParsedResumeDocument } from "@app/server/lib/server/resume-parse-pipeline";
-import { isResumeParseCacheSourceCompatible } from "@app/server/lib/server/resume-parse-provider";
+import { parseResumeDocument } from "../../../../../lib/server/resume-parse-pipeline";
+import type { ParsedResumeDocument } from "../../../../../lib/server/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "../../../../../lib/server/resume-parse-provider";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
 } from "@arc/shared/resume-documents";
-import { buildAttachmentKeyByHash, putObjectBytes } from "@app/server/lib/server/s3";
-import { isResumeParseCacheEnabled } from "@app/server/lib/server/resume-parse-cache-policy";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
+import { isResumeParseCacheEnabled } from "../../../../../lib/server/resume-parse-cache-policy";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import {
-  createAttachment,
-  findAttachmentByContentHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
-import type { ChatAttachmentRow } from "@app/server/server/routes/chat/dao/chat-attachments";
-import { MAX_ATTACHMENT_SIZE, uploadPreflightSchema } from "@app/server/server/routes/chat/schema";
-import { factory } from "@app/server/server/factory";
+import { createAttachment, findAttachmentByContentHash } from "../../dao/chat-attachments";
+import type { ChatAttachmentRow } from "../../dao/chat-attachments";
+import { MAX_ATTACHMENT_SIZE, uploadPreflightSchema } from "../../schema";
+import { factory } from "../../../../factory";
 
 export interface UploadsRouterDependencies {
   buildAttachmentKey: typeof buildAttachmentKeyByHash;

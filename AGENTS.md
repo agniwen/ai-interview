@@ -195,7 +195,7 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 - **Web app** (`apps/web/`): TanStack Start + React 19, TanStack Router, TanStack Query, Vite/Nitro, shadcn/ui + Tailwind CSS v4. It mounts the Hono backend at `/api` for integrated web runs.
 - **Backend app** (`apps/server/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by the web app at `/api` or started as a standalone Bun app.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: Bun workspace + Turborepo at the root; applications use the `@app/*` scope, while shared packages in `packages/` use `@arc/*` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types).
+- **Monorepo**: Bun workspace + Turborepo at the root. App-owned runtimes and tools use the `@app/*` scope, including packages extracted for reuse by the server and Worker. Stable cross-application contracts use `@arc/*` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types).
 
 Two separate package managers: **Bun 1.4.0** for TypeScript apps, **uv** for Python agent. Do not mix them.
 
@@ -250,16 +250,113 @@ Route modules should import feature components and remain the routing boundary r
 
 ## Server Route Layout (`apps/server/src/server/routes/`)
 
-Every route folder is a self-contained unit:
+### Intent
 
-- **Required**: `route.ts` exporting a Hono router. Middleware must be declared **inside** the router via `.use(...)` at the closest common-ancestor route (the GCD of paths it applies to). Do **not** add per-feature `.use(...)` calls in `app.ts` — `app.ts` is mount-only.
-- **Optional**: `schema.ts` (Zod schemas), `dao.ts` or `dao/` (database queries), `utils.ts` or `utils/` (feature-internal helpers, services, AI processing).
-- **Nested children**: when a route needs to split into multiple sub-routers (e.g. `/studio` → `interviews`, `departments`, …), put each child under a `routes/` subfolder (`routes/studio/routes/interviews/`). The same convention applies recursively.
-- **Path-based split rule**: split by URL path depth when the child path represents a real sub-resource or sub-module. Keep collection/item CRUD such as `/interviews` and `/interviews/:id` in `interviews/route.ts`; move child resources such as `/interviews/:id/reports` or `/interviews/:id/recordings/:conversationId` to `interviews/routes/reports/route.ts` or `interviews/routes/recordings/route.ts`, then mount them from the parent with `.route("/:id/reports", reportsRouter)`. Do not create dynamic-segment folders like `routes/:id/route.ts` for Hono routes.
+Organize backend code as route-owned vertical slices, while keeping Hono as the transport boundary and complete business actions reusable outside HTTP. The structure should make a capability easy to find from its URL without coupling business behavior to `Hono.Context`.
 
-Do **not** create top-level `apps/server/src/server/queries/` or `apps/server/src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
+Apply these boundaries incrementally to the behavior being added or changed. Preserve external APIs, database behavior, and business semantics; do not perform repository-wide directory moves merely for symmetry. A coherent, reversible extraction of one complete application verb is preferred over a rigid global module migration.
 
-Exceptions: `apps/server/src/server/agents/` (shared by frontend + multiple routes) and `apps/server/src/server/middlewares/` (shared middleware library) intentionally remain at server root.
+### Composition and middleware
+
+- `apps/server/src/server/app.ts` is the single composition root. It may own global infrastructure concerns such as logging, CORS, Better Auth integration, error handling, and mounting, but it must not contain feature handlers or feature-specific middleware.
+- Keep `.route("/api", apiRoutes)`. Do not replace it with `.basePath("/api")`; the `/api` segment must remain present in both the real URL and the inferred `hc<AppType>` client shape (`rpc.api.*`).
+- Aggregator routers such as `/w/:slug` and `/studio` only apply middleware shared by all descendants and mount child routers.
+- Declare middleware with `.use(...)` at the closest common ancestor of every path it protects. Workspace authentication/scope belongs at `/w/:slug`; a feature permission shared by only that feature belongs in that feature router.
+- Register routers through chained `.route(...)` calls so Hono preserves the complete RPC type. Export the final chained router type through `createServerApp()` / `AppType`.
+
+### Route-owned vertical slice
+
+Every routable capability has a folder whose public transport entry is `route.ts`:
+
+```text
+<capability>/
+├── route.ts                         # required public Hono router/composition entry
+├── schema.ts                        # optional HTTP request/response Zod contracts
+├── collection-route.ts              # optional same-resource transport fragment
+├── detail-route.ts                  # optional same-resource transport fragment
+├── application/
+│   ├── <verb>.ts                    # framework-independent command/query behavior
+│   └── default-<verb>.ts            # optional production dependency composition
+├── dao.ts or dao/                   # persistence primitives and projections
+├── adapters/                        # optional queue/storage/email/AI implementations
+├── utils.ts or utils/               # focused capability-internal helpers
+├── routes/                          # real nested URL resources
+│   └── <child>/route.ts
+└── __tests__/                       # route/application/DAO behavior tests
+```
+
+- **`route.ts`** is always the public router for the folder. It owns route declarations, validators, request-scoped context extraction, application invocation, domain-to-HTTP error mapping, explicit status codes, and child-router mounting.
+- **`*-route.ts` transport fragments** may split collection, item, or workflow handlers when one resource router becomes hard to navigate. They remain implementation details composed by `route.ts`; they do not create a fake URL hierarchy or become alternate app entrypoints.
+- **`schema.ts`** owns transport validation. Use `zValidator("json" | "query", schema, jsonValidatorError("..."))` and explicit `c.json(body, status)` responses so Hono RPC retains precise input/output/status inference.
+- **`application/`** owns a complete business verb when the behavior has meaningful invariants, spans multiple persistence/side-effect steps, requires a transaction, is reused by HTTP/Worker/script entrypoints, or benefits from direct behavior testing. Name files after verbs such as `launch-ai-interview-round.ts`, not generic `service.ts` or `manager.ts`.
+- **Application core files** receive explicit command/query input and dependencies and return domain results or throw stable application errors. They must not accept `Hono.Context`, construct HTTP responses, read TanStack request primitives, or import browser/web-app modules. Prefer declaring dependency ports beside the verb and wiring real implementations in `default-<verb>.ts` or the owning route's composition boundary.
+- **`dao.ts` / `dao/`** owns database reads, writes, row locking, persistence projections, and transaction-aware primitives for this capability. DAO functions must not receive `Hono.Context` or decide HTTP status codes.
+- **`adapters/`** implements external ports such as queues, object storage, email, AI providers, or third-party APIs when separating those implementations makes the application verb transport-independent. Do not create an adapter layer for a single trivial call with no boundary value.
+- **`utils.ts` / `utils/`** contains focused, named helpers internal to the capability. It is not a dumping ground for orchestration or a disguised global service layer.
+- Keep tests beside the layer they prove. Application tests verify business outcomes and failure reasons; route tests verify validation, middleware, HTTP mapping, and RPC contracts; DAO/integration tests verify transactions, scope, locking, and persistence behavior.
+
+### How to choose the split
+
+Use this order before creating or moving files:
+
+1. **Find the URL owner.** Place the change under the nearest existing business capability that owns the route and data behavior.
+2. **Identify a real child resource.** If the URL adds a sub-resource or sub-module, create `routes/<child>/route.ts` and mount it from the parent. For example, mount `interviews/routes/reports/route.ts` with `.route("/:id/reports", reportsRouter)`.
+3. **Keep ordinary collection/item CRUD together.** Paths such as `/interviews` and `/interviews/:id` normally remain in the same capability. When that transport surface grows, use descriptive `collection-route.ts`, `detail-route.ts`, or similarly scoped fragments rather than inventing `routes/:id/` folders.
+4. **Extract behavior, not line count.** Introduce an application verb when there is a complete business action with its own invariants or reuse boundary. Splitting a large handler into arbitrary helper files without changing dependency direction is not an application boundary.
+5. **Keep persistence and integrations behind the verb.** Move DB primitives to the owning DAO and external implementations to focused adapters/dependencies only when the verb needs that seam.
+
+Never create dynamic-segment directories such as `routes/:id/route.ts`; URL parameters stay in the parent's `.route(...)`, `.get(...)`, `.post(...)`, and similar path declarations.
+
+### Handler and application responsibilities
+
+A Hono handler should normally perform only the transport sequence:
+
+1. validate path/query/body input;
+2. read the authenticated actor, workspace, permission, and request-scoped values;
+3. convert them into the application's explicit input;
+4. call a route-owned DAO directly for a simple HTTP-only read/trivial CRUD operation, or call an application verb for non-trivial behavior;
+5. map the result or stable application error to an explicit HTTP response.
+
+Do not pass `c`, `c.var`, `Request`, or `Response` into application or DAO code. Extract the minimum values first. Request middleware establishes transport access and scope; the application verb still owns business invariants, state-transition checks, transaction boundaries, and side-effect ordering.
+
+For a mutation that changes related records, emits queue/events, invalidates caches, or writes audit history, keep the entire behavior coherent as one verb. The verb should make workspace/actor scope explicit, perform the state transition atomically where required, and coordinate post-commit side effects deliberately. Add idempotency, optimistic concurrency, audit, or replay protection when the business contract requires them, not as generic ceremony.
+
+### Dependency direction and reuse
+
+Preferred dependency direction:
+
+```text
+Hono route / Worker / script
+            ↓
+     application verb
+       ↓           ↓
+ route-owned DAO   declared ports
+                       ↑
+              default adapters/composition
+```
+
+- Non-HTTP entrypoints call the same application verb; they do not import a Hono router or simulate an HTTP request.
+- New cross-capability mutations call the owning capability's application API instead of reaching into its DAO. Shared read projections may be exported deliberately by the owner when that is the smallest useful boundary.
+- Existing cross-route DAO imports may remain until the affected behavior is intentionally extracted. Do not turn a local change into a repository-wide dependency rewrite.
+- This convention does not impose one-table-one-module ownership. When a business verb legitimately spans several tables or existing capabilities, preserve that complete verb and its transaction rather than splitting it to satisfy directory ownership.
+- Do not create top-level `apps/server/src/server/queries/`, `services/`, `controllers/`, or `repositories/` directories. They flatten business ownership into technical layers. Keep code with the capability that owns the behavior.
+- `apps/server/src/server/agents/` and `apps/server/src/server/middlewares/` are intentional root-level shared libraries. Provider integrations shared across routes and runtime adapters live under `apps/server/src/server/integrations/`; the interview-notification workflow shared by the API and Worker lives under `apps/server/src/server/interview-notifications/`. Other root-level sharing requires evidence that it serves multiple capabilities without owning one capability's business workflow.
+
+### Runtime and compatibility guardrails
+
+- Backend route/application/DAO code must remain loadable by the standalone server and must not import app-local `@/` modules, TanStack Start server-function helpers, or browser-only code.
+- Web-runtime-only behavior is supplied through a small port from the adapter boundary. Backend routes do not read TanStack Start request primitives directly.
+- Preserve route paths, methods, status codes, response payloads, Hono RPC inference, authentication behavior, and database semantics during an organization refactor unless the task explicitly changes that contract.
+- Keep inline Hono route declarations where they help RPC inference. If handler construction must be shared, use Hono's typed factory patterns rather than Rails-style controllers detached from their route definitions.
+- Prefer explicit dependency objects and small factory functions over a global DI container. Production defaults are composed once; tests pass focused fakes.
+
+### Incremental migration and verification
+
+- Migrate one complete application verb at a time. A good candidate is behavior currently triggered by both HTTP and a Worker/script, or a mutation whose transaction/invariants are obscured by a large route.
+- Do not move an entire route tree, rename every DAO, or assign rigid global data ownership as a prerequisite for one extraction.
+- Before changing an existing route, inspect its current mount path, middleware ancestry, RPC callers, non-HTTP callers, DAO transaction boundary, and focused tests.
+- Verification is complete when the affected application behavior and HTTP mapping have focused tests, the server package typechecks, relevant server tests pass, and the standalone `createServerApp()` boundary still imports. If `AppType` changes, also typecheck the web client that consumes `rpc.api.*`.
+- When changing Hono APIs or RPC composition, consult current official Hono documentation rather than relying on remembered signatures.
 
 ## Backend / Web Runtime Boundary
 
@@ -273,6 +370,12 @@ When a backend route needs a web-runtime-only capability, introduce a small port
 - Route/page SSR data belongs in TanStack Start route loaders or `createServerFn` handlers under `apps/web/src/`, not in backend DAOs.
 
 Backend runtime helpers live under `@app/server/lib/server/*`. TanStack Start server-function helpers live under `apps/web/src/lib/start/*`; they may use `@tanstack/react-start/server` request primitives and should import backend primitives from `@app/server/*` rather than duplicating backend logic.
+
+## Server Package Interface
+
+Treat `apps/server/src/server/` and `apps/server/src/lib/server/` as package-private implementation. External workspace consumers use only the intent-based entrypoints declared in `apps/server/package.json`: `@app/server/rpc-client`, `@app/server/env`, `@app/server/web/*`, and `@app/server/worker/*`. Web and Worker code must not import `@app/server/server/*` or `@app/server/lib/server/*`; Server-internal code uses relative imports rather than `#server/*` or `#lib/server/*` aliases.
+
+Add a consumer-facing capability to the closest existing entrypoint under `apps/server/src/exports/` rather than exporting its source directory. Keep `package.json` exports explicit; never add wildcard exports or expose a route/DAO path to make an import compile. If an entrypoint becomes broad or is consumed independently by multiple applications, extract a focused `@arc/*` package instead of widening `@app/server`.
 
 ## Frontend HTTP Calls
 
@@ -319,6 +422,7 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 - **`@/lib/server/*`** — Small web server helpers that belong to the TanStack Start app but are not shared with the standalone Hono runtime.
 - **`@/lib/client/*`** — Browser helpers. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, and the `api/` wrapper layer.
 - **`@arc/shared/*`** — Workspace package for pure types, Zod schemas, and isomorphic utilities (no web runtime, no server secrets, no Node-only APIs unless the API is also available in supported browsers/Node runtimes). Examples: `@arc/shared/interview/agent-instructions`, `@arc/shared/utils`, `@arc/shared/data-url`, `@arc/shared/file-hash`, `@arc/shared/departments`, `@arc/shared/studio-resumes`. Do not recreate `src/lib/shared/` inside the app.
+- **`@app/ai-runtime`**, **`@app/meeting-media`**, and **`@app/object-storage`** — App-owned server/Worker runtime tools extracted into workspace packages. New runtime or infrastructure tool packages follow the `@app/*` scope; reserve `@arc/*` for stable shared contracts.
 
 **Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@app/server/lib/server/db` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`.
 
@@ -364,7 +468,11 @@ When modifying instructions, tool descriptions, or task / workflow / handoff def
 
 ## Environment Setup
 
-Copy `apps/web/.env.example` to `apps/web/.env` for the TanStack Start web app, and `apps/server/.env.example` to `apps/server/.env` for standalone backend runs. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
+Each deployable owns its environment: copy `apps/web/.env.example` to `apps/web/.env`, `apps/server/.env.example` to `apps/server/.env`, and `apps/worker/.env.example` to `apps/worker/.env`. Never load another app's `.env` or fall back to legacy application directories. Bun loads the current app's `.env*` files; Vite config uses its official `loadEnv` for `apps/web`.
+
+Environment contracts use T3 Env. Server variables are defined once in `@app/server/env` and reused by Web build validation; Worker variables are validated in `apps/worker/src/env.ts`; public Web variables live in `apps/web/src/env/client.schema.ts`. Add a variable to the owning `.env.example` and schema together. Runtime dependency availability still belongs to health/readiness checks when a capability is optional.
+
+The voice agent has its own `apps/livekit-agent/.env.example`. See those `.env.example` files for the full list. Key requirements:
 
 - LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)

@@ -1,13 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
-import { invalidateStudioInterviewCaches } from "@app/server/server/cache-tags";
-import { buildScheduleRows } from "@app/server/server/routes/interview/utils";
-import { autoBindApplicableTemplates } from "@app/server/server/routes/studio/routes/interview-questions/dao/bindings";
+import { db } from "../../../../../../lib/server/db/index";
+import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
+import { buildScheduleRows } from "../../../../interview/utils";
+import { autoBindApplicableTemplates } from "../../interview-questions/dao/bindings";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   refreshInterviewContextSnapshot,
-} from "@app/server/server/routes/studio/routes/interviews/dao/context-snapshots";
-import { setResumeEvaluationStatusWithAuditTx } from "@app/server/server/routes/studio/routes/resumes/dao/evaluation";
+} from "../../interviews/dao/context-snapshots";
+import { setResumeEvaluationStatusWithAuditTx } from "../dao/evaluation";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
@@ -17,9 +17,9 @@ import {
   isStructuredEvaluationConfirmationValid,
 } from "./launch-ai-interview-round";
 import type { PersistLaunchInput } from "./launch-ai-interview-round";
-import { enqueueAiInterviewInvitedEvents } from "@app/server/server/routes/studio/routes/interview-notifications/utils/events";
-import { isInterviewNotificationFlowEnabled } from "@app/server/server/routes/studio/routes/interview-notifications/utils/feature-flags";
-import { applyAiInterviewInvitationValidityToSchedule } from "@app/server/server/routes/studio/routes/interviews/dao/ai-interview-invitation-access";
+import { enqueueAiInterviewInvitedEvents } from "../../../../../interview-notifications/utils/events";
+import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
+import { applyAiInterviewInvitationValidityToSchedule } from "../../interviews/dao/ai-interview-invitation-access";
 
 export function persistLaunchAiInterviewRound(
   input: PersistLaunchInput<typeof studioInterviewSchedule.$inferInsert>,

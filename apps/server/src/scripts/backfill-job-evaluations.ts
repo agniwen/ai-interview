@@ -211,7 +211,7 @@ JD`;
 
 async function analyzeJobDescription(jobDescription: string): Promise<JobEvaluationConfigAnalysis> {
   const { generateStructuredWithMastraAgent, jobEvaluationBlueprintAgent } =
-    await import("../server/agents/mastra/agents/simple-generators");
+    await import("@app/ai-runtime/simple-generators");
   return generateStructuredWithMastraAgent({
     agent: jobEvaluationBlueprintAgent,
     fallbackToTextGeneration: true,
@@ -293,7 +293,7 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     { db },
     { jobDescription, jobDescriptionEvaluationUpgradeAudit, studioInterview },
     { and, eq, inArray, sql },
-    { compileJobEvaluationDraft },
+    { compileDefaultJobEvaluationDraft },
     { computeJobEvaluationPayloadHash },
     { JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION },
     { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION },
@@ -301,14 +301,14 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     import("../lib/server/db"),
     import("@arc/db-schema/schema"),
     import("drizzle-orm"),
-    import("../server/routes/studio/routes/job-descriptions/application/job-evaluation-lifecycle"),
+    import("../server/routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
     import("../lib/server/job-evaluation-hash"),
     import("@arc/db-schema/job-description-evaluation"),
     import("@arc/shared/structured-resume-scoring"),
   ]);
   const analysis = await analyzeJobDescription(job.prompt);
   const structuredConfig = mergeAnalyzedConfig(parseBaseConfig(job.structuredConfig), analysis);
-  const blueprint = await compileJobEvaluationDraft({
+  const blueprint = await compileDefaultJobEvaluationDraft({
     description: null,
     id: job.id,
     prompt: job.prompt,

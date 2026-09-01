@@ -1,4 +1,4 @@
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../factory";
 import { restoreSavedMeeting } from "../../lifecycle-service";
 
 export function createMeetingRestoreRouter(

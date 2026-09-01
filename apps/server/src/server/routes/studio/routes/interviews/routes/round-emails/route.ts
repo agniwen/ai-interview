@@ -5,16 +5,13 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "@app/server/lib/server/db";
-import { buildSenderFromAddress, getResendClient } from "@app/server/lib/server/resend";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import { getGlobalConfig } from "@app/server/server/routes/studio/routes/global-config/dao";
-import {
-  insertRoundEmailLog,
-  summarizeRoundEmailLogs,
-} from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/dao";
-import { renderRoundInviteEmail } from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
+import { db } from "../../../../../../../lib/server/db/index";
+import { buildSenderFromAddress, getResendClient } from "../../../../../../../lib/server/resend";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { getGlobalConfig } from "../../../global-config/dao";
+import { insertRoundEmailLog, summarizeRoundEmailLogs } from "./dao";
+import { renderRoundInviteEmail } from "./utils/templates";
 import type { SendRoundEmailResponse } from "@arc/db-schema/round-email-log";
 import { summaryQuerySchema } from "@arc/db-schema/round-email-log";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";

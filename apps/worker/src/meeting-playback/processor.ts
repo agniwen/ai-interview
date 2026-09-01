@@ -5,20 +5,20 @@ import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { normalizeMeetingRecordingSegments } from "@app/server/server/routes/meetings/transcription/audio-pipeline";
+import { normalizeMeetingRecordingSegments } from "@app/meeting-media";
 import type {
   buildMeetingPlaybackAssetKey,
   deleteMeetingRecordingObject,
   downloadMeetingRecordingObjectToFile,
   putMeetingRecordingFile,
-} from "@app/server/lib/server/s3";
+} from "@app/object-storage";
 import type {
   markMeetingPlaybackFailed,
   markMeetingPlaybackProcessing,
   publishMeetingPlaybackAsset,
   registerMeetingPlaybackCleanupKey,
   removeMeetingPlaybackCleanupKey,
-} from "@app/server/server/routes/meetings/dao";
+} from "./dao";
 import type { MeetingPlaybackJobData } from "@arc/meeting-processing-queue/meeting-playback";
 
 interface PlaybackSourceAsset {
@@ -174,7 +174,7 @@ export function createDefaultMeetingPlaybackDependencies(
     enqueueTranscription: async (input) => {
       const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
         await Promise.all([
-          import("@app/server/server/routes/meetings/transcription/dao"),
+          import("@app/server/worker/meeting-transcription"),
           import("@arc/meeting-processing-queue/meeting-transcription"),
         ]);
       const job = await getMeetingTranscriptionJobForMeeting(input);

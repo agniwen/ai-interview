@@ -1,11 +1,9 @@
 import { streamSSE } from "hono/streaming";
-import { safeUpdateTag } from "@app/server/server/cache-tags";
-import { factory } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
-import {
-  generateStructuredJobBlueprintPreview,
-  JobEvaluationLifecycleError,
-} from "../../application/job-evaluation-lifecycle";
+import { safeUpdateTag } from "../../../../../../cache-tags";
+import { factory } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
+import { generateStructuredJobBlueprintPreview } from "../../application/default-job-evaluation-lifecycle";
+import { JobEvaluationLifecycleError } from "../../application/job-evaluation-lifecycle";
 import { BlueprintCompilationError } from "../../utils/evaluation-blueprint-compiler";
 
 function previewFailure(error: Error) {

@@ -7,7 +7,7 @@ import {
   generateInterviewEvaluation,
   generateInterviewSummary,
   interviewEvaluationSchema,
-} from "@app/server/server/routes/agent/utils/interview-report";
+} from "../../../routes/agent/utils/interview-report";
 
 const interviewTranscriptTurnSchema = z.object({
   message: z.string().min(1),

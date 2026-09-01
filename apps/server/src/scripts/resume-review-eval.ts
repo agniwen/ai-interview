@@ -81,7 +81,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (process.env.DATABASE_URL) {
-    const { closeDatabase } = await import("@app/server/lib/server/db");
+    const { closeDatabase } = await import("../lib/server/db/index");
     await closeDatabase();
   }
 }

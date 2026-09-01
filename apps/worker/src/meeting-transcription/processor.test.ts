@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   MeetingProviderQuotaError,
   MeetingProviderResponseError,
-} from "@app/server/server/routes/meetings/transcription/provider";
+} from "@app/server/worker/meeting-transcription";
 import type { MeetingTranscriptionDependencies } from "./processor";
 
 import {

@@ -1,4 +1,4 @@
-import { listAllDepartments } from "@app/server/server/routes/studio/routes/departments/dao";
+import { listAllDepartments } from "@app/server/web/studio";
 
 export async function loadStudioInterviewersData({ workspaceId }: { workspaceId: string }) {
   return {

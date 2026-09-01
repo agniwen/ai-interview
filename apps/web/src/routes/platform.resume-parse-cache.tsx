@@ -7,7 +7,7 @@ import { coerceSearchParams } from "@/lib/client/data-grid-search";
 import { parseDehydratedState } from "@/lib/client/query-hydration";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformResumeParseCacheState } from "@/lib/start/platform/resume-parse-cache.functions";
-import type { ResumeParseCacheFilters } from "@app/server/server/routes/platform/routes/resume-parse-cache/schema";
+import type { ResumeParseCacheFilters } from "@app/server/web/platform";
 
 const INITIAL_PAGE_SIZE = 10;
 

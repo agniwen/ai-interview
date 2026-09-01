@@ -10,7 +10,7 @@ import type {
 import {
   computeJobEvaluationDraftInputHash,
   computeJobEvaluationPayloadHash,
-} from "@app/server/lib/server/job-evaluation-hash";
+} from "../../../../../../../../lib/server/job-evaluation-hash";
 import { applyManualRuleDraft } from "../../../application/job-evaluation-lifecycle";
 
 export interface JobEvaluationUpgradeDraft {

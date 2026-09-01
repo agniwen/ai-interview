@@ -9,8 +9,8 @@ import {
   deleteMeetingRecordingObject,
   presignRecordingGetObjectUrl,
   putMeetingRecordingFile,
-} from "@app/server/lib/server/s3";
-import type { FinalTranscriptionAudioChunk } from "@app/server/server/routes/meetings/transcription/provider";
+} from "@app/object-storage";
+import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 
 const execFileAsync = promisify(execFile);
 

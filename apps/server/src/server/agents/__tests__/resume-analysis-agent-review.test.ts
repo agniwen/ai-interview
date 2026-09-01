@@ -7,8 +7,8 @@ import {
   generateResumeReview,
   streamGenerateResumeReviewMarkdownFirst,
   streamGenerateResumeReview,
-} from "@app/server/server/agents/resume-analysis-agent";
-import type { ResumeReviewGenerationDependencies } from "@app/server/server/agents/resume-analysis-review";
+} from "../resume-analysis-agent";
+import type { ResumeReviewGenerationDependencies } from "../resume-analysis-review";
 
 const mocks = {
   generateStructuredWithMastraAgent: vi.fn(),

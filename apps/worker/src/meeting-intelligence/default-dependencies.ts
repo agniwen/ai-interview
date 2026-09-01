@@ -7,11 +7,9 @@ import {
   publishMeetingIntelligence,
   saveMeetingIntelligenceCheckpoint,
   saveMeetingIntelligenceProgress,
-} from "@app/server/server/routes/meetings/intelligence/dao";
-import {
   generateMeetingIntelligence,
   getMeetingIntelligenceGeneratorSnapshot,
-} from "@app/server/server/routes/meetings/intelligence/generator";
+} from "@app/server/worker/meeting-intelligence";
 import type { MeetingIntelligenceDependencies } from "./processor";
 
 export const defaultMeetingIntelligenceDependencies: MeetingIntelligenceDependencies = {

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   resumePoolItem,
   resumeUploadBatch,
@@ -7,30 +7,27 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
-import { getObjectStream } from "@app/server/lib/server/s3";
-import { parseResumeBytesToProfile } from "@app/server/server/agents/resume-analysis-agent";
-import { isResumeParseCacheEnabled } from "@app/server/lib/server/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "@app/server/lib/server/resume-parse-provider";
+import { getObjectStream } from "@app/object-storage";
+import { parseResumeBytesToProfile } from "../../../../../agents/resume-analysis-agent";
+import { isResumeParseCacheEnabled } from "../../../../../../lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "../../../../../../lib/server/resume-parse-provider";
 import { isResumeStructuredSourceFileNameCompatible } from "@arc/db-schema/resume-parser-schema";
-import type { toItemDto } from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import type { toItemDto } from "../dao/batches";
 import {
   claimNextPendingItem,
   claimPendingItemById,
   loadBatchDetail,
   reconcileBatchProgress,
   toBatchDto,
-} from "@app/server/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import { projectAttachmentToResumeProfile } from "@app/server/server/agents/resume-parser-agent";
+} from "../dao/batches";
+import { projectAttachmentToResumeProfile } from "../../../../../agents/resume-parser-agent";
 import {
   findAttachmentByStorageKey,
   updateParseResultByHash,
-} from "@app/server/server/routes/chat/dao/chat-attachments";
-import {
-  createResumePoolItem,
-  markResumePoolItemParsed,
-} from "@app/server/server/routes/studio/routes/resume-pool/dao";
-import { createResumeRecordFromStorage } from "@app/server/server/routes/studio/routes/resumes/utils/create-from-storage";
-import { syncResumeSkills } from "@app/server/server/routes/studio/routes/resumes/dao/skills";
+} from "../../../../chat/dao/chat-attachments";
+import { createResumePoolItem, markResumePoolItemParsed } from "../../resume-pool/dao";
+import { createResumeRecordFromStorage } from "../../resumes/utils/create-from-storage";
+import { syncResumeSkills } from "../../resumes/dao/skills";
 import {
   completeParsedResumeEnrichment,
   defaultParsedResumeEnrichmentDependencies,

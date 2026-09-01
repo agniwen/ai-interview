@@ -4,9 +4,9 @@ import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { loadServerEnv, loadWebEnv } from "../standalone/env";
+import { loadServerEnv } from "../standalone/env";
 import type { StructuredResumeGenerator } from "../server/agents/structured-resume-evaluation";
-import type { MastraGeneratorLike } from "../server/agents/mastra/agents/simple-generators";
+import type { MastraGeneratorLike } from "@app/ai-runtime/simple-generators";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const DEFAULT_INPUT = resolve(
@@ -256,7 +256,6 @@ function projectionDifferences(left: ResultProjection, right: ResultProjection):
 }
 
 async function main(): Promise<void> {
-  loadWebEnv();
   loadServerEnv();
   forceExperimentModels(process.env);
 
@@ -274,8 +273,8 @@ async function main(): Promise<void> {
   ] = await Promise.all([
     import("../server/agents/structured-resume-evaluation"),
     import("../server/agents/mastra/workflows/structured-resume-review-workflow"),
-    import("../server/agents/mastra/agents/simple-generators"),
-    import("../server/agents/mastra/models"),
+    import("@app/ai-runtime/simple-generators"),
+    import("@app/ai-runtime/models"),
     import("./diagnose-structured-resume-audit"),
     import("@mastra/core/agent"),
     import("@arc/db-schema/structured-resume-evaluation"),

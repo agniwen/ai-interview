@@ -1,12 +1,12 @@
-import { buildListTextFilterWhere } from "@app/server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../lib/server/db/list-text-filters";
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 import { eq, sql, and, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { adminMiddleware } from "@app/server/server/middlewares/admin";
-import { db } from "@app/server/lib/server/db";
+import { factory, jsonValidatorError } from "../../factory";
+import { createInternalErrorResponse } from "../../error-handler";
+import { adminMiddleware } from "../../middlewares/admin";
+import { db } from "../../../lib/server/db/index";
 import { organization, member, session, user } from "@arc/db-schema/schema";
 import { resumeParseStatusValues } from "@arc/db-schema/studio-interviews";
 import {
@@ -27,16 +27,16 @@ import {
   isWorkspaceMember,
   queryPaginatedPlatformMailIngestAccounts,
   updateWorkspaceMailIngestAccount,
-} from "@app/server/server/routes/studio/routes/mail-ingest/dao";
+} from "../studio/routes/mail-ingest/dao";
 import {
   createMailIngestAccountSchema,
   updateMailIngestAccountSchema,
-} from "@app/server/server/routes/studio/routes/mail-ingest/schema";
+} from "../studio/routes/mail-ingest/schema";
 import {
   MailIngestValidationError,
   mergeMailIngestLoginConfig,
   validateMailIngestAccountLogin,
-} from "@app/server/server/routes/studio/routes/mail-ingest/validation";
+} from "../studio/routes/mail-ingest/validation";
 import {
   enrichResumeParseQueueJobs,
   filterEnrichedResumeParseQueueJobRecords,

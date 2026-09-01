@@ -3,7 +3,7 @@ import {
   arcMessageToMastraInput,
   legacyUiMessageToArcMessage,
   mastraStreamToArcMessageParts,
-} from "@app/server/server/agents/mastra/adapters/arc-message-adapter";
+} from "../adapters/arc-message-adapter";
 
 describe("Arc message adapter", () => {
   it("builds a compact Mastra message input from ArcMessage parts", () => {

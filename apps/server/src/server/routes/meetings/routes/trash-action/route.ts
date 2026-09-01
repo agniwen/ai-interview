@@ -1,4 +1,4 @@
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../factory";
 import { trashSavedMeeting } from "../../lifecycle-service";
 
 export interface MeetingTrashActionDependencies {

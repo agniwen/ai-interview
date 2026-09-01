@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   resumePoolEvent,
   resumePoolItem,
@@ -21,7 +21,7 @@ import type {
   BulkResumeBatchItemDto,
 } from "@arc/shared/bulk-resume-upload";
 import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
-import { deleteDuplicateMatchesForSource } from "@app/server/lib/server/resume-semantic/duplicate-matches";
+import { deleteDuplicateMatchesForSource } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
 
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ItemRow = typeof resumeUploadBatchItem.$inferSelect;

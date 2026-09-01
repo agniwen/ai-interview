@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@app/server/lib/server/db";
-import { encryptMailIngestSecret } from "@app/server/lib/server/mail-ingest-crypto";
+import { db } from "../../../../../../lib/server/db/index";
+import { encryptMailIngestSecret } from "../../../../../../lib/server/mail-ingest-crypto";
 import {
   mailIngestAccount,
   mailIngestMessage,

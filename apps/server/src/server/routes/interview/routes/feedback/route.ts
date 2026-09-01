@@ -1,6 +1,6 @@
 import { candidateInterviewFeedbackInputSchema } from "@arc/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
+import { factory, jsonValidatorError } from "../../../../factory";
 import { loadCandidateInterviewRecord } from "../../utils";
 import { submitCandidateInterviewFeedback } from "./dao";
 

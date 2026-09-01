@@ -1,0 +1,23 @@
+{
+  "name": "@app/ai-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared server-side model configuration and structured generation runtime",
+  "type": "module",
+  "exports": {
+    "./json-output": "./src/json-output.ts",
+    "./models": "./src/models.ts",
+    "./simple-generators": "./src/simple-generators.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.50.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:"
+  }
+}

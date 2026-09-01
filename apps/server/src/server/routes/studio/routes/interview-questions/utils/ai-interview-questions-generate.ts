@@ -5,12 +5,12 @@ import type { GeneratedInterviewQuestion, InterviewQuestion } from "@arc/db-sche
 import {
   generateStructuredWithMastraAgent,
   interviewQuestionAgent,
-} from "@app/server/server/agents/mastra/agents/simple-generators";
+} from "@app/ai-runtime/simple-generators";
 import {
   formatCandidatesLabel,
   formatCandidatesResumeContext,
-} from "@app/server/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
-import type { AiCandidateContext } from "@app/server/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
+} from "../../forms/utils/ai-candidate-context-format";
+import type { AiCandidateContext } from "../../forms/utils/ai-candidate-context-format";
 
 const INTERVIEW_QUESTIONS_PROMPT = `你是一名技术面试出题助手。请根据 HR 的填写指令、候选人简历和岗位信息，生成一组面试题。
 

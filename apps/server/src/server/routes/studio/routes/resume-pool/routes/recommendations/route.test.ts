@@ -1,6 +1,6 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { factory } from "@app/server/server/factory";
+import { factory } from "../../../../../../factory";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { createResumePoolRecommendationsRouter } from "./route";
 import type { ResumePoolRecommendationsDependencies } from "./route";

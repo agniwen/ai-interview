@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { canAssignWorkspaceRole } from "@app/server/server/access/workspace-roles";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { canAssignWorkspaceRole } from "../../../../../../access/workspace-roles";
+import { factory, jsonValidatorError } from "../../../../../../factory";
+import { requirePermission } from "../../../../../../middlewares/permission";
 import {
   createInviteLink,
   disableInviteLink,

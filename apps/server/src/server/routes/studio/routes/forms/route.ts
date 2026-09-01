@@ -2,30 +2,26 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@app/server/lib/server/db";
+import { db } from "../../../../../lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
 } from "@arc/db-schema/schema";
 import { candidateFormTemplateSchema } from "@arc/db-schema/candidate-forms";
-import { factory, jsonValidatorError } from "@app/server/server/factory";
-import { requirePermission } from "@app/server/server/middlewares/permission";
+import { factory, jsonValidatorError } from "../../../../factory";
+import { requirePermission } from "../../../../middlewares/permission";
 import {
   listAllCandidateFormTemplates,
   loadCandidateFormTemplateById,
   queryPaginatedCandidateFormTemplates,
-} from "@app/server/server/routes/studio/routes/forms/dao/queries";
-import { loadSubmissionsByTemplate } from "@app/server/server/routes/studio/routes/forms/dao/submissions";
-import { loadCandidateFormTemplateVersionById } from "@app/server/server/routes/studio/routes/forms/dao/versions";
-import { managedJobDescriptionIdsExist } from "@app/server/server/routes/studio/routes/job-descriptions/dao";
-import {
-  cacheTags,
-  invalidateStudioInterviewCaches,
-  safeUpdateTag,
-} from "@app/server/server/cache-tags";
-import { createInternalErrorResponse } from "@app/server/server/error-handler";
-import { refreshEligibleCandidatesForFormTemplate } from "@app/server/server/routes/studio/routes/forms/dao/refresh-eligible";
+} from "./dao/queries";
+import { loadSubmissionsByTemplate } from "./dao/submissions";
+import { loadCandidateFormTemplateVersionById } from "./dao/versions";
+import { managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
+import { createInternalErrorResponse } from "../../../../error-handler";
+import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";
 import { candidateFormAiRouter } from "./routes/form-ai/route";
 
 function normalizeQuestions(

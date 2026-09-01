@@ -5,9 +5,9 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@app/server/lib/server/db";
-import { createRoundEmailsRouter } from "@app/server/server/routes/studio/routes/interviews/routes/round-emails/route";
-import type { Env } from "@app/server/server/type";
+import { db } from "../../../../../../../../lib/server/db/index";
+import { createRoundEmailsRouter } from "../route";
+import type { Env } from "../../../../../../../type";
 import {
   organization,
   studioInterview,

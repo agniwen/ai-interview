@@ -1,4 +1,4 @@
-import { downloadMeetingRecordingObjectToFile } from "@app/server/lib/server/s3";
+import { downloadMeetingRecordingObjectToFile } from "@app/object-storage";
 import {
   claimMeetingTranscriptionChunk,
   claimMeetingTranscriptionRun,
@@ -7,8 +7,8 @@ import {
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
   saveMeetingTranscriptionChunkCheckpoint,
-} from "@app/server/server/routes/meetings/transcription/dao";
-import { requestAutomaticMeetingIntelligence } from "@app/server/server/routes/meetings/intelligence/service";
+} from "@app/server/worker/meeting-transcription";
+import { requestAutomaticMeetingIntelligence } from "@app/server/worker/meeting-intelligence";
 import { createDefaultMeetingTranscriptionDependencies } from "./processor";
 
 export const defaultMeetingTranscriptionDependencies =

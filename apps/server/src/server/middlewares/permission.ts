@@ -3,16 +3,13 @@
 // 资源-动作粒度的权限校验。工作区必须来自本次 URL 解析结果，不能回退到
 // 可被其他标签页修改的全局 session 状态。
 
-import { factory } from "@app/server/server/factory";
+import { factory } from "../factory";
 import {
   getWorkspaceRequestContext,
   WorkspaceContextInvariantError,
-} from "@app/server/server/context/workspace-request-context";
-import { createRequestWorkspaceAuthorizer } from "@app/server/server/access/workspace-access-policy";
-import type {
-  WorkspaceAction,
-  WorkspaceResource,
-} from "@app/server/server/access/workspace-access-policy";
+} from "../context/workspace-request-context";
+import { createRequestWorkspaceAuthorizer } from "../access/workspace-access-policy";
+import type { WorkspaceAction, WorkspaceResource } from "../access/workspace-access-policy";
 
 export interface PermissionMiddlewareDependencies {
   createRequestWorkspaceAuthorizer: typeof createRequestWorkspaceAuthorizer;

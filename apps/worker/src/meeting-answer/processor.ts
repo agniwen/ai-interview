@@ -3,11 +3,8 @@ import type {
   loadMeetingAnswerContext,
   markMeetingAnswerFailed,
   publishMeetingAnswerExchange,
-} from "@app/server/server/routes/meetings/answers/dao";
-import type {
-  generateMeetingAnswer,
-  getMeetingAnswerGeneratorSnapshot,
-} from "@app/server/server/routes/meetings/answers/generator";
+} from "./dao";
+import type { generateMeetingAnswer, getMeetingAnswerGeneratorSnapshot } from "./generator";
 import type { MeetingAnswerJobData } from "@arc/meeting-processing-queue/meeting-answer";
 import { MEETING_ANSWER_PROMPT_VERSION } from "@arc/meeting-processing-queue/meeting-answer";
 import {
