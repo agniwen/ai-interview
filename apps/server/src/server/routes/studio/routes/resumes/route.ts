@@ -172,6 +172,8 @@ const defaultResumeLibraryRouterDependencies = {
 
 export type ResumeLibraryRouterDependencies = typeof defaultResumeLibraryRouterDependencies;
 
+// Owns resume-library mutations and permission checks; read, meeting, evaluation-history, and structured-evaluation subroutes remain mounted as typed child routers.
+// 负责简历库写操作与权限校验；读取、会议、评价历史及结构化评价继续以类型化子路由挂载。
 export function createResumeLibraryRouter(
   overrides: Partial<ResumeLibraryRouterDependencies> = {},
 ) {

@@ -39,6 +39,8 @@ import {
   hashAiInterviewInvitationToken,
 } from "../../routes/studio/routes/interviews/dao/ai-interview-invitation-access";
 
+// Candidate reminders are scheduled at 24 hours and 1 hour, but past offsets are discarded at event creation.
+// 候选人提醒固定在 24 小时和 1 小时前；创建事件时会丢弃已经过期的时间点。
 const REMINDER_OFFSETS_MINUTES = [24 * 60, 60] as const;
 
 export const AI_INTERVIEW_COMPLETION_NOTICES = {
@@ -605,6 +607,8 @@ export async function cancelPendingHumanMeetingReminders(
     );
 }
 
+// Freezes meeting, round, recipient, and progression context into versioned event snapshots; terminal changes also cancel stale reminders.
+// 将会议、轮次、收件人及轮次进度固化为版本化事件快照；终态变更同时取消过期提醒。
 // oxlint-disable-next-line complexity -- event snapshots intentionally cover versioning, cancellation, and reminder scheduling together.
 export async function enqueueHumanMeetingEvents(
   tx: Transaction,
@@ -814,6 +818,8 @@ export async function enqueueHumanMeetingEvents(
   }
 }
 
+// Resolves the report's schedule context before enqueueing so delivery never depends on mutable interview rows later.
+// 入队前解析报告对应的场次上下文，避免后续投递依赖可变的面试记录。
 export async function enqueueAiReportReadyEvent(
   tx: Transaction,
   input: { conversationId: string; interviewRecordId: string },

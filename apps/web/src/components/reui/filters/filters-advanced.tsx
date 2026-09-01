@@ -136,6 +136,7 @@ const FilterDragContext = React.createContext<ReturnType<typeof useFilterRowDrag
  * outside the shipped panel gets "nothing is wrong" instead of a throw. */
 const FilterIssueContext = React.createContext<ReadonlyMap<string, FilterIssue>>(new Map());
 
+/** 为筛选构建器单元格设置数据标记，并维持单一 roving tab stop。 / Marks filter-builder cells and maintains a single roving tab stop. */
 function cellProps(column: FilterColumn, active: FilterColumn | null) {
   return {
     "data-filter-cell": column,

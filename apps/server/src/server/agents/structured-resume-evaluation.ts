@@ -39,6 +39,8 @@ import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation
 
 export type StructuredResumeGenerator = typeof generateStructuredWithMastraAgent;
 
+// Persisted with evaluation results and regression manifests so consumers can distinguish engine and prompt contracts.
+// 随评价结果与回归清单持久化，供消费方区分引擎及提示词契约版本。
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
 export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v5";
 const STRUCTURED_RESUME_AGENT_TIMEOUT_MS = 240_000;
@@ -142,6 +144,8 @@ type GeneratedReason = z.infer<typeof generatedReasonSchema>;
 const looseRecordSchema = z.record(z.string(), z.unknown());
 const nonEmptyGeneratedStringSchema = z.string().trim().min(1);
 
+// Accepts the model's three historical reason shapes and collapses them into one audit string.
+// 兼容模型历史上的三种原因格式，并合并为单一审计文本。
 function normalizeGeneratedReason(value: GeneratedReason): string {
   const scalar = z.string().safeParse(value);
   if (scalar.success) {
@@ -156,6 +160,8 @@ function normalizeGeneratedReason(value: GeneratedReason): string {
     .join("；");
 }
 
+// Keeps every semantic-rule result explainable even when the model omits its rationale.
+// 即使模型漏填原因，也确保每条语义规则结果都有可解释文本。
 function fallbackSemanticRuleReason(
   status: z.infer<typeof structuredResumeRuleStatusSchema>,
 ): string {
@@ -267,6 +273,8 @@ const timelineEpisodeBaseSchema = z
 
 const rawTimelineRelevanceSchema = z.union([z.boolean(), z.string(), z.null(), z.undefined()]);
 
+// Normalizes boolean and legacy textual model outputs into the current three-state contract.
+// 将布尔值及旧版文本输出归一为当前三态契约。
 function normalizeTimelineRelevance(
   value: z.infer<typeof rawTimelineRelevanceSchema>,
 ): "insufficient_evidence" | "not_relevant" | "relevant" {

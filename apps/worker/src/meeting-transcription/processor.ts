@@ -36,10 +36,15 @@ export {
   assertMeetingTranscriptionFfmpegVersion,
 } from "@app/meeting-media";
 
+// 超过 8 小时的任一音轨在下载前拒绝，避免超出最终转写资源预算。 / Rejects any track over eight hours before download to protect the final-transcription resource budget.
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
+// 单轨超过 2 GiB 在下载前拒绝，限制临时磁盘与 ffmpeg 输入规模。 / Rejects a track over 2 GiB before download to bound temp disk and ffmpeg input size.
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
+// 双轨合计也不得超过 2 GiB，避免两条合法单轨叠加突破作业预算。 / Also caps both tracks at 2 GiB combined so individually valid inputs cannot exceed the job budget together.
 const MAX_TOTAL_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
+// 除预留媒体空间外额外保留 512 MiB，避免并发作业耗尽宿主磁盘。 / Keeps 512 MiB beyond reserved media space so concurrent jobs do not exhaust the host disk.
 const MIN_DISK_HEADROOM_BYTES = 512 * 1024 * 1024;
+// 启动恢复可删除 24 小时前遗留目录，同时避免触碰仍可能运行的近期作业。 / Recovery may delete temp directories older than 24 hours while leaving potentially active recent jobs untouched.
 const STALE_DIRECTORY_AGE_MS = 24 * 60 * 60 * 1000;
 
 interface SourceAsset {
@@ -103,6 +108,7 @@ function positiveEnvInteger(name: string, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+// 将媒体作业限制在固定并发内，并把当前所有作业的预留字节传给磁盘准入检查。 / Limits media jobs to fixed concurrency and passes total reserved bytes to disk admission checks.
 function createMediaPermitPool(concurrency: number) {
   let reservedBytes = 0;
   const limit = pLimit(concurrency);
@@ -120,10 +126,12 @@ function createMediaPermitPool(concurrency: number) {
     });
 }
 
+// 所有最终转写共享同一许可池，默认并发 2，可由环境变量调整。 / All final transcriptions share one permit pool, defaulting to concurrency two with an environment override.
 const withMediaPermit = createMediaPermitPool(
   positiveEnvInteger("MEETING_TRANSCRIPTION_MEDIA_CONCURRENCY", 2),
 );
 
+// 校验任务区域端点并为每个任务创建独立 R2 staging token，避免跨任务复用临时 URL。 / Validates the job's regional endpoint and creates a per-job R2 staging token so temporary URLs are never shared across jobs.
 export function createMeetingTranscriptionProviderForJob(
   job: MeetingTranscriptionJobData,
   env: NodeJS.ProcessEnv = process.env,
@@ -164,6 +172,7 @@ type MeetingTranscriptionRuntimeAdapters = Pick<
   | "saveChunkCheckpoint"
 >;
 
+// 在持久化适配器外补齐临时目录、磁盘准入、ffmpeg 分片、供应商选择和媒体许可池。 / Adds temp directories, disk admission, ffmpeg chunking, provider selection, and media permits around persistence adapters.
 export function createDefaultMeetingTranscriptionDependencies(
   adapters: MeetingTranscriptionRuntimeAdapters,
 ): MeetingTranscriptionDependencies {
@@ -198,12 +207,14 @@ export function createDefaultMeetingTranscriptionDependencies(
   };
 }
 
+// Worker 启动时读取并校验 ffmpeg 版本，缺失二进制时在消费任务前快速失败。 / Reads and validates ffmpeg at Worker startup so a missing binary fails before jobs are consumed.
 export async function validateMeetingTranscriptionRuntime(): Promise<void> {
   const versionLine = await readMeetingTranscriptionFfmpegVersion(process.env.FFMPEG_BIN);
   assertMeetingTranscriptionFfmpegAvailable(versionLine);
   console.info("[meeting-transcription-worker] ffmpeg runtime", { version: versionLine });
 }
 
+// 仅清理匹配专用前缀且超过阈值的目录，避免广泛删除系统临时文件。 / Removes only directories with the dedicated prefix and stale age, avoiding broad deletion in the system temp root.
 export async function reapStaleMeetingTranscriptionDirectories(
   rootDirectory = tmpdir(),
   now = Date.now(),
@@ -224,6 +235,7 @@ export async function reapStaleMeetingTranscriptionDirectories(
   );
 }
 
+// 分片级租约支持跳过已完成结果；供应商失败先释放分片，成功则持久化 checkpoint 供重试复用。 / A chunk lease reuses completed results; provider failures release the chunk, while success persists a checkpoint for retries.
 async function transcribeChunk(input: {
   chunk: FinalTranscriptionAudioChunk;
   dependencies: MeetingTranscriptionDependencies;
@@ -275,6 +287,7 @@ async function transcribeChunk(input: {
   );
 }
 
+// 转录已发布后触发智能分析，但隔离入队失败，避免把已完成转录回滚为失败。 / Requests intelligence after publication while isolating enqueue failures so a completed transcript is not reclassified as failed.
 async function requestAutomaticIntelligenceBestEffort(input: {
   dependencies: MeetingTranscriptionDependencies;
   meetingId: string;
@@ -293,6 +306,7 @@ async function requestAutomaticIntelligenceBestEffort(input: {
   }
 }
 
+// 固定源清单后执行资源准入、双轨下载、可恢复分片转写与 CAS 发布，并按供应商错误决定重试终止性。 / Pins the source manifest, performs resource admission, dual-track download, resumable chunk transcription, and CAS publication, then classifies provider errors for retry terminality.
 // oxlint-disable-next-line complexity -- source admission, checkpoint recovery, and failure persistence form one job boundary.
 export async function runMeetingTranscriptionProcessing(
   input: MeetingTranscriptionJobData,

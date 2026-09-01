@@ -7,6 +7,7 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type InterviewNotificationEventRecord = typeof interviewNotificationEvent.$inferSelect;
 export type InterviewNotificationDeliveryRecord = typeof interviewNotification.$inferSelect;
 
+// 在事务中以 SKIP LOCKED 认领到期事件，允许多个 Worker 无阻塞分片消费。 / Claims due events with SKIP LOCKED so multiple workers can partition consumption without blocking.
 export async function claimPendingInterviewNotificationEvents(
   tx: Transaction,
   input: {
@@ -80,6 +81,7 @@ export async function claimPendingInterviewNotificationEvents(
   });
 }
 
+// 按创建时间返回全部收件人投递，供事件终态聚合使用。 / Returns all recipient deliveries in creation order for event-state aggregation.
 export function listInterviewNotificationDeliveries(
   database: Database,
   eventId: string,
@@ -92,6 +94,7 @@ export function listInterviewNotificationDeliveries(
     .execute();
 }
 
+// 通过条件更新认领到期投递，并接管租约已过期的 sending 记录。 / Claims a due delivery with a conditional update and takes over expired sending leases.
 export async function claimInterviewNotificationDelivery(
   database: Database,
   input: {
@@ -139,6 +142,7 @@ export async function claimInterviewNotificationDelivery(
   return claimed ?? null;
 }
 
+// 仅租约持有者可提交发送结果，提交时清除租约并保存供应商消息 ID。 / Only the lease owner may commit success; the commit clears the lease and stores the provider message ID.
 export async function markInterviewNotificationDeliverySent(
   database: Database,
   input: {
@@ -173,6 +177,7 @@ export async function markInterviewNotificationDeliverySent(
   return Boolean(updated);
 }
 
+// 仅租约持有者可写入失败分类；同时释放租约并持久化下次重试时间或未知结果标记。 / Only the lease owner may persist failure classification while releasing the lease and storing retry time or unknown-result state.
 export async function markInterviewNotificationDeliveryFailed(
   database: Database,
   input: {
@@ -208,6 +213,7 @@ export async function markInterviewNotificationDeliveryFailed(
   return Boolean(updated);
 }
 
+// 以事件租约作 CAS 防护收敛终态，避免过期 Worker 覆盖新的处理结果。 / Uses the event lease as a CAS guard so a stale worker cannot overwrite newer processing results.
 export async function updateInterviewNotificationEventState(
   database: Database,
   input: {

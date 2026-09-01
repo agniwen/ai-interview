@@ -184,6 +184,7 @@ function findCell(surface: Surface, x: number, y: number): DayCellRect | undefin
   );
 }
 
+/** 结合列时间边界和拖动后的滚动偏移，将指针纵坐标换算为分钟。 / Converts pointer Y to minutes using column bounds and drag-time scroll offset. */
 function pointerMinutes(surface: Surface, col: TimeColumnRect, clientY: number): number {
   const scrollDelta = surface.scrollTop - surface.viewportStartScrollTop;
   const boundsMinutes = col.boundsEndMin - col.boundsStartMin;

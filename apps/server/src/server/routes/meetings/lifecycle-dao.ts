@@ -50,6 +50,8 @@ const TRASHABLE_STATUSES = [
   "processing-failed",
   "ready",
 ] as const;
+// Purge leases and batch sizes keep provider/storage cleanup resumable without monopolizing a worker run.
+// 清理租约与批次上限保证供应商及存储清理可续跑，同时避免单次 Worker 长时间占用。
 const PURGE_LEASE_MS = 30 * 60 * 1000;
 const PROVIDER_PURGE_BATCH_SIZE = 20;
 const PURGE_STORAGE_BATCH_SIZE = 100;
@@ -90,6 +92,8 @@ async function loadCurrentMember(
   return currentMember;
 }
 
+// Locks the meeting before authorization, removes it from recruiting/search projections, and records the retention deadline for later purge.
+// 授权判断前锁定会议，将其移出招聘与搜索投影，并记录后续清理的保留期限。
 export async function trashMeetingSession(input: {
   actorId: string;
   meetingId: string;
@@ -169,6 +173,8 @@ const TRASH_SORT_COLUMNS = {
   trashedAt: meetingSession.trashedAt,
 } as const;
 
+// Owners and admins see the workspace trash; other members only see meetings they own or custodize.
+// 所有者与管理员可查看工作区回收站，其他成员仅能查看自己拥有或托管的会议。
 export async function listTrashedMeetingSessions(
   input: {
     actorId: string;
@@ -300,6 +306,8 @@ export async function restoreMeetingSession(input: {
   });
 }
 
+// Moves a meeting into the purge graph but delays object deletion until outstanding upload authorizations have expired.
+// 将会议转入清理流程，但会等待未过期的上传授权失效后再删除对象。
 export async function requestMeetingPurge(input: {
   actorId: string;
   localRecoveryCleanup?: "deleted" | "failed" | "not-reported";
@@ -379,6 +387,8 @@ export async function requestMeetingPurge(input: {
   });
 }
 
+// Tells a recording device to delete local recovery data once either the live row or its tombstone proves purge intent.
+// 当活动记录或 tombstone 已确认清理意图时，通知录制设备删除本地恢复数据。
 export async function loadMeetingLocalRecoveryDirective(input: {
   actorId: string;
   manifestSha256: string;

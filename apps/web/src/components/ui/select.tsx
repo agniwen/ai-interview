@@ -73,6 +73,7 @@ function collectSelectItems(
   });
 }
 
+/** 未显式传入 items 时，递归收集子项的 value 与可见标签。 / Recursively derives item values and visible labels when items are not supplied. */
 function inferSelectItems(children: React.ReactNode): SelectRootItems | undefined {
   const records: { label: React.ReactNode; value: unknown }[] = [];
   collectSelectItems(children, records);

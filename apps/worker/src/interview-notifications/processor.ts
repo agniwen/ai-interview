@@ -58,8 +58,10 @@ export interface InterviewNotificationProcessorDependencies {
   }): Promise<boolean>;
 }
 
+// 发送超过一分钟未提交时允许其他 Worker 接管，降低崩溃后的阻塞时间。 / Allows another worker to reclaim a send not committed within one minute after a crash.
 const DELIVERY_LEASE_DURATION_MS = 60_000;
 
+// 用最早投递重试时间驱动父事件再次可用；没有计划时间时立即重试。 / Drives parent-event availability from the earliest delivery retry, falling back to immediate retry.
 function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now: Date): Date {
   const timestamps = deliveries.flatMap((delivery) =>
     delivery.nextAttemptAt ? [delivery.nextAttemptAt.getTime()] : [],
@@ -67,6 +69,7 @@ function earliestRetryAt(deliveries: InterviewNotificationDeliveryRecord[], now:
   return timestamps.length > 0 ? new Date(Math.min(...timestamps)) : now;
 }
 
+// 聚合所有收件人结果：有待处理则重试、有未知/死信则转人工，否则完成事件。 / Aggregates recipients: retry while pending, require manual action for unknown/dead, otherwise complete the event.
 async function finalizeEvent(
   eventId: string,
   leaseOwner: string,
@@ -120,6 +123,7 @@ async function finalizeEvent(
   });
 }
 
+// 逐条以租约保护发送和结果提交，失败先分类为重试/死信/未知，再收敛父事件。 / Sends and commits each delivery under a lease, classifies failures as retry/dead/unknown, then finalizes the parent event.
 export async function processInterviewNotificationEvent(
   event: InterviewNotificationEventRecord,
   input: { leaseOwner: string; now?: Date },

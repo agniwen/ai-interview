@@ -123,6 +123,7 @@ export async function parseResumeFile(
   return result;
 }
 
+/** 请求工作区为简历匹配 JD；非成功响应返回 `null` 供调用方降级。 / Requests a resume-to-JD match and returns `null` on non-success for caller fallback. */
 export async function matchJobDescriptionForResume(
   workspaceSlug: string,
   resumeProfile: ResumeProfile,
@@ -145,6 +146,7 @@ export async function matchJobDescriptionForResume(
   };
 }
 
+/** 请求聊天附件的 JD 匹配；非成功响应返回 `null` 供调用方降级。 / Requests a chat-attachment JD match and returns `null` on non-success for caller fallback. */
 export async function matchJobDescriptionForChatAttachment(
   workspaceSlug: string,
   attachmentId: string,

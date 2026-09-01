@@ -29,9 +29,12 @@ export interface MeetingPurgeDependencies {
   release: typeof releaseMeetingPurgeClaim;
 }
 
+// 每批最多并发 8 个对象删除/校验，限制 R2 压力与 Promise 数量。 / Runs at most eight object deletes or checks per batch to bound R2 pressure and promise count.
 const STORAGE_OPERATION_CONCURRENCY = 8;
+// 外部供应商删除 30 秒未完成即进入失败/重试记录，避免长期占用清理租约。 / Treats provider deletion over 30 seconds as failed/retryable so it cannot hold the purge lease indefinitely.
 const PROVIDER_DELETE_TIMEOUT_MS = 30_000;
 
+// 保留 meeting-* 领域失败码，其余异常统一收敛，避免把任意错误文本写入状态字段。 / Preserves meeting-* domain codes and collapses other errors so arbitrary messages do not enter the status field.
 function purgeFailureCode(error: Error): string {
   if (error.message.startsWith("meeting-")) {
     return error.message;
@@ -39,6 +42,7 @@ function purgeFailureCode(error: Error): string {
   return "meeting-purge-failed";
 }
 
+// 分批执行并在任一批失败后停止后续存储操作，使调用方按阶段记录统一失败码。 / Executes in batches and stops after any rejected batch so the caller can persist one stage-specific failure code.
 async function runBounded<T>(items: T[], operation: (item: T) => Promise<void>): Promise<void> {
   for (let offset = 0; offset < items.length; offset += STORAGE_OPERATION_CONCURRENCY) {
     const results = await Promise.allSettled(
@@ -50,6 +54,7 @@ async function runBounded<T>(items: T[], operation: (item: T) => Promise<void>):
   }
 }
 
+// 按租约顺序清理 multipart、对象与供应商产物，最终轮会反查对象；任何失败都先释放认领再抛出。 / Under a lease, clears multipart uploads, objects, and provider artifacts in order, verifies objects on the final sweep, and releases the claim before rethrowing failures.
 export async function runMeetingPurgeProcessing(
   input: MeetingPurgeJobData,
   dependencies: MeetingPurgeDependencies,

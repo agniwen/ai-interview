@@ -51,6 +51,7 @@ function execFileStream(error: ExecFileFailure, key: ExecFileOutputKey): string 
   return value === undefined ? "" : Buffer.from(value).toString().trim();
 }
 
+// 合并 ffmpeg stderr/stdout 并截断到数据库字段上限，使媒体失败仍保留可诊断信息。 / Combines ffmpeg stderr/stdout and truncates to the database limit so media failures remain diagnosable.
 export function describeMeetingPlaybackError(cause: unknown): string {
   if (!(cause instanceof Error)) {
     return "Meeting playback processing failed";
@@ -93,6 +94,7 @@ export interface MeetingPlaybackDependencies {
   }) => Promise<boolean>;
 }
 
+// 流式哈希混音文件，返回上传完整性校验与发布记录共用的元数据。 / Streams the mixed file hash and returns metadata shared by upload verification and publication.
 async function inspectFile(filePath: string): Promise<{ sha256: string; sizeBytes: number }> {
   const hash = createHash("sha256");
   const stream = createReadStream(filePath);
@@ -103,6 +105,7 @@ async function inspectFile(filePath: string): Promise<{ sha256: string; sizeByte
   return { sha256: hash.digest("hex"), sizeBytes: details.size };
 }
 
+// 先按分片清单规范化两条轨道，再以最长轨为准混成 Opus WebM，保留完整会议时长。 / Normalizes both tracks from segment manifests, then mixes to Opus WebM using the longest track duration.
 async function runFfmpeg(input: {
   microphonePath: string;
   microphoneSegments?: PlaybackSourceAsset["segments"];
@@ -164,6 +167,7 @@ type MeetingPlaybackRuntimeAdapters = Pick<
   | "verifyPlayback"
 >;
 
+// 在 DAO/存储适配器之外补齐临时目录、ffmpeg、哈希与下游转写入队等进程级能力。 / Adds process-level temp-directory, ffmpeg, hashing, and downstream transcription enqueue behavior around DAO/storage adapters.
 export function createDefaultMeetingPlaybackDependencies(
   adapters: MeetingPlaybackRuntimeAdapters,
 ): MeetingPlaybackDependencies {
@@ -188,6 +192,7 @@ export function createDefaultMeetingPlaybackDependencies(
   };
 }
 
+// 认领后下载双轨、混音、登记清理键、上传校验并 CAS 发布；未发布对象在 finally 回收。 / After claiming, downloads both tracks, mixes, registers cleanup, verifies upload, and CAS-publishes; unpublished objects are reclaimed in finally.
 // oxlint-disable-next-line complexity -- claim, external upload, CAS publish, and loser cleanup form one job boundary.
 export async function runMeetingPlaybackProcessing(
   input: MeetingPlaybackJobData,

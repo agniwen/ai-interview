@@ -43,6 +43,7 @@ function isVectorListType(t: string, v: number[] | number): v is number[] {
 function isVectorType(t: string, v: number[] | number): v is Vector4 {
   return !t.includes("v") && Array.isArray(v) && v.length > Number.parseInt(t.charAt(0));
 }
+/** 按标量、向量或矩阵类型把 uniform 值写入对应的 WebGL API。 / Dispatches scalar, vector, and matrix uniform values to the matching WebGL API. */
 function processUniform<T extends UniformType>(
   gl: WebGLRenderingContext,
   location: WebGLUniformLocation,
@@ -381,8 +382,10 @@ class Texture {
   };
 }
 
+/** 为着色器错误文本添加固定命名空间，便于定位日志来源。 / Prefixes shader errors with a stable namespace for easier tracing. */
 const log = (text: string) => `react-shaders: ${text}`;
 
+/** 将鼠标和触摸事件统一为最新的客户端坐标。 / Normalizes mouse and touch events to the latest client coordinates. */
 function latestPointerClientCoords(e: MouseEvent | TouchEvent) {
   if ("changedTouches" in e) {
     const t = e.changedTouches[0];
@@ -391,6 +394,7 @@ function latestPointerClientCoords(e: MouseEvent | TouchEvent) {
   return [e.clientX, e.clientY];
 }
 
+/** 在两个 uniform 数值之间执行线性插值。 / Linearly interpolates between two uniform values. */
 const lerpVal = (v0: number, v1: number, t: number) => v0 * (1 - t) + v1 * t;
 function insertStringAtIndex(currentString: string, string: string, index: number) {
   return index > 0

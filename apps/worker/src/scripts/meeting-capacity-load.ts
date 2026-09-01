@@ -10,15 +10,24 @@ import {
 } from "@arc/meeting-processing-queue/meeting-transcription";
 import { z } from "zod";
 
+// 选择 live-lease、direct-upload 或 final-transcription 三种独立准入路径。 / Selects one independent admission path: live-lease, direct-upload, or final-transcription.
 const MODE = process.env.MEETING_LOAD_MODE?.trim();
+// 去除尾部斜杠，保证所有压测请求拼接到同一 API 根地址。 / Strips the trailing slash so every load request joins the same API root consistently.
 const BASE_URL = process.env.MEETING_LOAD_BASE_URL?.replace(/\/$/, "");
+// live/direct 模式将该 slug 编码进工作区范围 API，避免跨租户请求。 / Encoded into workspace-scoped APIs in live/direct modes to keep requests tenant-bound.
 const WORKSPACE_SLUG = process.env.MEETING_LOAD_WORKSPACE_SLUG?.trim();
+// direct/final 模式复用此会话；live 模式改用 100 个独立用户 Cookie。 / Reused by direct/final modes, while live mode uses 100 distinct user cookies.
 const COOKIE = process.env.MEETING_LOAD_COOKIE?.trim();
+// live-lease 默认持续 120 秒并定时 heartbeat，用于证明租约容量可持续而非瞬时峰值。 / Keeps live leases heartbeating for 120 seconds by default to prove sustained rather than burst capacity.
 const DEFAULT_DURATION_SECONDS = 120;
+// 100 毫秒采样队列状态，降低漏掉 20 并发 active 峰值的概率。 / Samples queue state every 100 ms to reduce the chance of missing the 20-active concurrency peak.
 const FINAL_LOAD_POLL_MS = 100;
+// 最终转写全批最多等待一小时，超时视为容量验收失败。 / Allows one hour for the final-transcription batch; timeout fails capacity acceptance.
 const FINAL_LOAD_TIMEOUT_MS = 60 * 60 * 1000;
 
+// 恰好 100 个独立会话对应 100 条并发 live transcript 租约。 / Exactly 100 independent sessions map to 100 concurrent live-transcript leases.
 const liveSessionCookiesSchema = z.array(z.string().min(1)).length(100);
+// 仅提取服务端签发的双轨上传计划，后续 PUT 不信任未校验响应。 / Validates the server-issued two-track upload plan before performing any returned PUT.
 const directUploadPlanSchema = z.object({
   uploads: z.array(
     z.object({
@@ -28,6 +37,7 @@ const directUploadPlanSchema = z.object({
     }),
   ),
 });
+// 压测结束后仅解析验收所需容量字段，避免脚本耦合完整诊断响应。 / Parses only capacity fields needed for acceptance so the script is not coupled to the full diagnostics payload.
 const operationsSnapshotSchema = z.object({
   queues: z
     .object({
@@ -53,6 +63,7 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+// 为多用户 live 测试注入对应会话，并将任何非 2xx 立即转为压测失败。 / Injects each user's session for live testing and turns any non-2xx response into an immediate load-test failure.
 async function apiFetchWithCookie(
   path: string,
   init: RequestInit,
@@ -72,10 +83,12 @@ async function apiFetchWithCookie(
   return response;
 }
 
+// direct/final 模式的单会话包装，统一复用严格的 HTTP 状态检查。 / Single-session wrapper for direct/final modes that reuses strict HTTP status checking.
 function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   return apiFetchWithCookie(path, init, COOKIE);
 }
 
+// 从文件读取并校验 100 个会话，避免用同一用户绕过按成员计算的租约容量。 / Reads and validates 100 sessions from disk so one user cannot bypass member-scoped lease capacity.
 async function loadLiveSessionCookies(): Promise<string[]> {
   const file = required(
     process.env.MEETING_LOAD_LIVE_COOKIES_FILE,
@@ -88,6 +101,7 @@ async function loadLiveSessionCookies(): Promise<string[]> {
   return parsed.data;
 }
 
+// 并发建立 100 条租约、持续 heartbeat，再显式释放，验证准入与续租路径。 / Opens 100 leases concurrently, sustains heartbeats, then releases them to verify admission and renewal paths.
 async function runLiveLeaseLoad(): Promise<void> {
   const slug = encodeURIComponent(required(WORKSPACE_SLUG, "MEETING_LOAD_WORKSPACE_SLUG"));
   const cookies = await loadLiveSessionCookies();
@@ -134,6 +148,7 @@ async function runLiveLeaseLoad(): Promise<void> {
   console.info("meeting live lease load completed", { captures: captures.length, durationSeconds });
 }
 
+// 并发创建 100 个会议、直传双轨并 complete，覆盖签名上传与完成准入。 / Creates 100 meetings concurrently, uploads both tracks, and completes them to exercise signed upload and completion admission.
 async function runDirectUploadLoad(): Promise<void> {
   const slug = encodeURIComponent(required(WORKSPACE_SLUG, "MEETING_LOAD_WORKSPACE_SLUG"));
   const microphone = await readFile(
@@ -201,6 +216,7 @@ async function runDirectUploadLoad(): Promise<void> {
   console.info("meeting direct upload load completed", { meetings: 100 });
 }
 
+// 入队 20 个唯一作业并高频采样，要求全部终态且观测到 20 个同时 active，再核对运营容量。 / Enqueues 20 unique jobs, samples rapidly, requires all terminal plus 20 simultaneously active, then checks reported capacity.
 async function runFinalTranscriptionLoad(): Promise<void> {
   const jobsFile = required(
     process.env.MEETING_LOAD_FINAL_JOBS_FILE,

@@ -13,6 +13,7 @@ export interface MailIngestScheduler {
   runNow: (scope: MailIngestRunScope) => Promise<RunResult>;
 }
 
+// 自动与手动触发共享同一个 activeRun，避免同一进程并发扫描邮箱；手动运行会重置下次轮询。 / Automatic and manual triggers share one activeRun to prevent concurrent mailbox scans; manual runs reset the next poll.
 export function createMailIngestScheduler(
   config: MailIngestConfig,
   runMailIngestOnce: RunMailIngestOnce,
@@ -85,6 +86,7 @@ export function createMailIngestScheduler(
   };
 }
 
+// 仅在功能开关开启且 Redis 队列可用时启动，依赖在首次执行时延迟加载。 / Starts only when the feature flag and Redis queue are ready, lazily loading processing dependencies on first execution.
 export function startMailIngestScheduler(): MailIngestScheduler | null {
   const config = resolveMailIngestConfig();
   if (!config.enabled) {

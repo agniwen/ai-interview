@@ -167,6 +167,7 @@ function useControllable<V>(
 /*                              Shallow stability                             */
 /* -------------------------------------------------------------------------- */
 
+/** 比较双方自有键数量，并用 `Object.is` 检查每个字段。 / Compares own-key counts and checks each field with `Object.is`. */
 function shallowEqualRecords(a: object, b: object): boolean {
   const left = a as Record<string, unknown>;
   const right = b as Record<string, unknown>;
@@ -178,6 +179,7 @@ function shallowEqualRecords(a: object, b: object): boolean {
   return true;
 }
 
+/** 按索引接受同一引用或字段浅相等的项目，避免无意义状态更新。 / Accepts identical or shallow-equal items by index to avoid redundant state updates. */
 function shallowEqualItemLists(a: readonly object[], b: readonly object[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {

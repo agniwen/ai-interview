@@ -13,11 +13,14 @@ import type { MeetingAnswerPayload } from "@arc/shared/meeting-answer";
 import { meetingIntelligencePayloadSchema } from "@arc/shared/meeting-intelligence";
 import { db } from "../db";
 
+// 生成五分钟未提交时允许恢复任务重新认领，避免 processing 永久悬挂。 / Allows recovery to reclaim generation not committed within five minutes, preventing permanent processing state.
 const ANSWER_LEASE_MS = 5 * 60 * 1000;
+// 限制最近笔记查询，防止单个会议无限放大模型检索前的内存与排序成本。 / Caps recent-note retrieval so one meeting cannot grow pre-model memory and sorting cost without bound.
 const MAX_RETRIEVAL_NOTES = 200;
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// 在共享锁下同时校验会议状态、组织成员身份与授权，返回值也固定本次生成使用的活动 revision。 / Checks meeting state, membership, and grants under shared locks while pinning the active revisions used by this generation.
 async function hasMeetingAccess(
   tx: Transaction,
   input: {
@@ -91,6 +94,7 @@ export type MeetingAnswerClaim =
       threadId: string;
     };
 
+// 锁定 exchange 后重验访问权与活动转录，再写入 execution token、输入 revision 和租约。 / Locks the exchange, revalidates access and active transcript, then stores the execution token, input revisions, and lease.
 export async function claimMeetingAnswerExchange(input: {
   attempt: number;
   exchangeId: string;
@@ -170,6 +174,7 @@ export async function claimMeetingAnswerExchange(input: {
   });
 }
 
+// 仅为当前 execution token 加载固定 revision 的转录，并附带最近笔记、智能结果和线程历史。 / Loads the pinned transcript revision only for the current execution token, plus recent notes, intelligence, and thread history.
 export async function loadMeetingAnswerContext(input: {
   exchangeId: string;
   executionToken: string;
@@ -248,6 +253,7 @@ export async function loadMeetingAnswerContext(input: {
   });
 }
 
+// 在事务中确认活动转录未变化且所有 citation 均属于固定 revision，再提交答案并更新时间线。 / Commits the answer only if the active transcript is unchanged and every citation belongs to the pinned revision, then updates the thread timeline.
 export async function publishMeetingAnswerExchange(input: {
   answer: MeetingAnswerPayload;
   exchangeId: string;
@@ -317,6 +323,7 @@ export async function publishMeetingAnswerExchange(input: {
   });
 }
 
+// 仅匹配 execution token 的处理者可释放租约；可重试失败回到 pending，终止失败进入 failed。 / Only the matching execution token may release the lease; retryable failures return to pending and terminal ones become failed.
 export async function markMeetingAnswerFailed(input: {
   exchangeId: string;
   executionToken: string;
@@ -341,6 +348,7 @@ export async function markMeetingAnswerFailed(input: {
   return Boolean(updated);
 }
 
+// 按创建顺序扫描 pending 与租约过期记录，作为恢复队列的数据源。 / Scans pending and lease-expired records in creation order as the recovery queue source.
 export async function listRecoverableMeetingAnswerJobs(): Promise<MeetingAnswerJobData[]> {
   return await db
     .select({ exchangeId: meetingQuestionExchange.id })

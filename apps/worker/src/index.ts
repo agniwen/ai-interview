@@ -63,11 +63,13 @@ import {
 validateWorkerEnv();
 initializeWorkerSentry();
 
+// 仅接受 1/true/yes，避免未识别的环境值意外启动语义索引消费。 / Accepts only 1/true/yes so unknown environment values cannot start semantic-index consumption.
 function isResumeSemanticIndexEnabled(): boolean {
   const value = process.env.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
 }
 
+// 启动时从数据库恢复未完成批次项，再补入可能因进程退出而丢失的解析队列。 / Restores incomplete batch items from the database at startup and replenishes jobs lost on process exit.
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } = await import("@app/server/worker/resumes");
   const { enqueueResumeParseJobs } = await import("@arc/resume-parse-queue/resume-parse");
@@ -82,6 +84,7 @@ async function recoverIncompleteResumeParseJobs(): Promise<void> {
   });
 }
 
+// 以持久化索引状态为准补发语义索引任务，空结果不会触碰队列。 / Re-enqueues semantic-index work from persisted state and leaves the queue untouched when none is due.
 async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
   const { listRecoverableResumeSemanticIndexJobs } = await import("@app/server/worker/resumes");
   const jobs = await listRecoverableResumeSemanticIndexJobs();
@@ -95,6 +98,7 @@ async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
   });
 }
 
+// 从持久化会议状态补发进程中断前未完成的回放混音任务。 / Re-enqueues playback mixing interrupted before completion using persisted meeting state.
 async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   const { listRecoverableMeetingPlaybackJobs } = await import("./meeting-playback/dao");
   const jobs = await listRecoverableMeetingPlaybackJobs();
@@ -108,6 +112,7 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   });
 }
 
+// 按数据库中的到期时间补发清理任务，使失败或遗漏的删除最终继续执行。 / Re-enqueues purges due in the database so failed or missed deletion eventually resumes.
 async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
   const { listRecoverableMeetingPurgeJobs } = await import("@app/server/worker/meeting-purge");
   const jobs = await listRecoverableMeetingPurgeJobs();
@@ -119,6 +124,7 @@ async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
   console.info("[meeting-purge-worker] recovery enqueued meetings", { count: jobs.length });
 }
 
+// 补发 pending 或租约已过期的会议问答，避免生成请求永久停留。 / Re-enqueues pending or lease-expired meeting answers so generation requests cannot remain stranded.
 async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
   const { listRecoverableMeetingAnswerJobs } = await import("./meeting-answer/dao");
   const jobs = await listRecoverableMeetingAnswerJobs();
@@ -130,6 +136,7 @@ async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
   console.info("[meeting-answer-worker] recovery enqueued exchanges", { count: jobs.length });
 }
 
+// 先补建缺失的自动智能请求，再从持久化运行状态恢复可重试任务。 / Backfills missing automatic-intelligence requests before recovering retryable persisted runs.
 async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
   const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
     await import("@app/server/worker/meeting-intelligence");
@@ -157,6 +164,7 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
   console.info("[meeting-intelligence-worker] recovery enqueued runs", { count: jobs.length });
 }
 
+// 从数据库补发待处理或中断的最终转写，恢复队列与会议状态的一致性。 / Re-enqueues pending or interrupted final transcriptions to reconcile queue and meeting state.
 async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
   const { listRecoverableMeetingTranscriptionJobs } =
     await import("@app/server/worker/meeting-transcription");
@@ -171,12 +179,14 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
   });
 }
 
+// 防止定时器重叠时同一恢复查询并发入队。 / Prevents overlapping timers from enqueueing the same recovery class concurrently.
 let meetingPlaybackRecoveryRunning = false;
 let meetingPurgeRecoveryRunning = false;
 let meetingAnswerRecoveryRunning = false;
 let meetingIntelligenceRecoveryRunning = false;
 let meetingTranscriptionRecoveryRunning = false;
 
+// 为会议智能恢复增加单飞保护；失败仅记录，留给下一轮继续。 / Adds single-flight protection to intelligence recovery; failures are logged for the next cycle.
 async function reconcileMeetingIntelligenceJobs(): Promise<void> {
   if (meetingIntelligenceRecoveryRunning) {
     return;
@@ -194,6 +204,7 @@ async function reconcileMeetingIntelligenceJobs(): Promise<void> {
   }
 }
 
+// 为会议问答恢复增加单飞保护；失败不会终止 Worker。 / Runs answer recovery single-flight without terminating the Worker on failure.
 async function reconcileMeetingAnswerJobs(): Promise<void> {
   if (meetingAnswerRecoveryRunning) {
     return;
@@ -211,6 +222,7 @@ async function reconcileMeetingAnswerJobs(): Promise<void> {
   }
 }
 
+// 为回放恢复增加单飞保护；失败留给后续定时轮询重试。 / Runs playback recovery single-flight and defers failures to a later poll.
 async function reconcileMeetingPlaybackJobs(): Promise<void> {
   if (meetingPlaybackRecoveryRunning) {
     return;
@@ -228,6 +240,7 @@ async function reconcileMeetingPlaybackJobs(): Promise<void> {
   }
 }
 
+// 为清理恢复增加单飞保护，避免同一批到期删除被并发补发。 / Runs purge recovery single-flight to avoid concurrently re-enqueueing the same due deletions.
 async function reconcileMeetingPurgeJobs(): Promise<void> {
   if (meetingPurgeRecoveryRunning) {
     return;
@@ -245,6 +258,7 @@ async function reconcileMeetingPurgeJobs(): Promise<void> {
   }
 }
 
+// 为最终转写恢复增加单飞保护，并将异常隔离到当前轮次。 / Runs final-transcription recovery single-flight and confines errors to the current cycle.
 async function reconcileMeetingTranscriptionJobs(): Promise<void> {
   if (meetingTranscriptionRecoveryRunning) {
     return;
@@ -262,6 +276,7 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
   }
 }
 
+// 统一组装 HTTP、队列消费者、恢复定时器与优雅关闭流程。 / Composes HTTP, queue consumers, recovery timers, and graceful shutdown in one process boundary.
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const backgroundProcessingEnabled = isWorkerBackgroundProcessingEnabled();

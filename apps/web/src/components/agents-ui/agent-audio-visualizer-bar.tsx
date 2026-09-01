@@ -11,6 +11,7 @@ import { Children, cloneElement, isValidElement, useMemo } from "react";
 import { useAgentAudioVisualizerBarAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-bar";
 import { cn } from "@arc/shared/utils";
 
+/** 克隆唯一 React 子元素，并把条形可视化器属性合并到该元素。 / Clones the sole React child and merges bar-visualizer props into it. */
 function cloneSingleChild(
   children: ReactNode | ReactNode[],
   props?: Record<string, unknown>,

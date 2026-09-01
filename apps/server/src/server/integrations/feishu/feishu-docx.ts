@@ -8,6 +8,8 @@ import { getFeishuAppCredentials, getFeishuEvaluationFolderToken } from "./provi
 import type { FeishuDocumentBlock } from "./interview-evaluation-doc";
 
 const FEISHU_API_ROOT = "https://open.feishu.cn/open-apis";
+// Provider limits: pace document edits, cap each block batch, and bound transient/stale-block retries.
+// 飞书侧限制：控制文档编辑节奏、单批块数量，并约束瞬时错误与陈旧块重试次数。
 const EDIT_THROTTLE_MS = 350;
 const MAX_BLOCKS_PER_REQUEST = 50;
 const MAX_ATTEMPTS = 3;
@@ -182,6 +184,8 @@ export function resolveFeishuDocxDocumentId(
   }
 }
 
+// Validates both Feishu's envelope and endpoint payload, retrying only rate-limit responses with exponential backoff.
+// 同时校验飞书响应外层与端点载荷，仅对限流响应执行指数退避重试。
 async function requestFeishu<T extends z.ZodType>(
   path: string,
   accessToken: string,
@@ -224,6 +228,8 @@ async function requestFeishu<T extends z.ZodType>(
   throw new Error("Feishu API request failed after retries");
 }
 
+// Splits edits at Feishu's 50-block limit; optional per-chunk client tokens make retried appends idempotent.
+// 按飞书 50 个块的上限拆分编辑；可选的分块 client token 保证追加重试幂等。
 async function appendBlocks(
   documentId: string,
   parentBlockId: string,
@@ -264,6 +270,8 @@ async function appendBlocks(
   return created;
 }
 
+// Drains Feishu's paginated block API and rejects an incomplete pagination cursor instead of returning a partial document.
+// 拉取飞书块列表的全部分页；若分页游标缺失则报错，避免返回不完整文档。
 async function listDocumentBlocks(
   documentId: string,
   accessToken: string,

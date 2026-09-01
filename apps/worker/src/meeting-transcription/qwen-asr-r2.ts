@@ -14,6 +14,7 @@ import type { FinalTranscriptionAudioChunk } from "@app/meeting-media";
 
 const execFileAsync = promisify(execFile);
 
+// staging 上传十分钟未完成即终止，确保临时对象不会无限占用转写作业。 / Aborts staging uploads after ten minutes so temporary objects cannot hold a transcription job indefinitely.
 const STAGING_UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 
 export interface QwenAsrAudioUrlDependencies {

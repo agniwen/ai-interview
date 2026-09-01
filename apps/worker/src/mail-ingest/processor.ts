@@ -86,6 +86,7 @@ function normalizeSubject(value: string | false | null | undefined): string | nu
   return z.string().safeParse(value).data ?? null;
 }
 
+// 以内容哈希生成存储键，实现附件去重，并返回批次持久化所需元数据。 / Uses a content-derived storage key for deduplication and returns metadata needed by batch persistence.
 async function storeResumeAttachment(
   attachment: {
     content: Buffer;
@@ -116,6 +117,7 @@ async function storeResumeAttachment(
   };
 }
 
+// 先落对象存储和批次记录，再返回可直接投递解析队列的 item 列表。 / Persists objects and the batch before returning items ready for the resume-parse queue.
 async function createBatchForMail(
   account: WorkerMailIngestAccount,
   mail: ParsedMail,
@@ -174,6 +176,7 @@ interface MailJobBindingResult {
   };
 }
 
+// 仅当主题职位码唯一命中时覆盖账号默认 JD；歧义或未命中保留默认绑定并记录观测状态。 / Overrides the account default JD only for one unique subject-code match; ambiguity or no match keeps the default and records observability.
 async function resolveMailJobBinding(
   account: WorkerMailIngestAccount,
   subject: string | null,
@@ -229,6 +232,7 @@ function zeroMailAccountTally(): MailAccountTally {
   return { failed: 0, noAttachment: 0, queued: 0, received: 0, subjectSkipped: 0 };
 }
 
+// 对单封邮件执行主题/时间/幂等认领，再持久化批次后入队；失败写回消息记录。 / Applies subject, time, and idempotency gates before persisting and enqueueing; failures are written back to the message record.
 async function processMailForAccount(
   account: WorkerMailIngestAccount,
   mail: ParsedMail,
@@ -297,6 +301,7 @@ async function processMailForAccount(
   return tally;
 }
 
+// 同凭据账号共享一次 IMAP 锁与消息扫描，再分别应用账号规则并累计结果。 / Shares one IMAP lock and scan across same-credential accounts, then applies account rules and tallies separately.
 async function processAccountGroup(
   accounts: WorkerMailIngestAccount[],
   config: MailIngestConfig,
@@ -381,6 +386,7 @@ async function processAccountGroup(
   }
 }
 
+// 将每个已认领账号的统计或组级错误写回，未成功认领的账号不会被结束。 / Persists per-account tallies or the group error; accounts without a successful claim are not finalized.
 async function finishAccounts(
   accounts: WorkerMailIngestAccount[],
   tallies: Map<string, MailAccountTally>,
@@ -414,6 +420,7 @@ async function finishAccounts(
   );
 }
 
+// 认领启用账号、按连接分组处理，并把组级失败隔离到当前连接。 / Claims enabled accounts, processes connection groups, and confines group failures to their connection.
 async function runMailIngestOnceWithDependencies(
   config: MailIngestConfig,
   dependencies: MailIngestDependencies,
@@ -464,6 +471,7 @@ async function runMailIngestOnceWithDependencies(
   return result;
 }
 
+// 将 IO 端口一次性绑定到处理器，保持轮询编排可在测试中替换。 / Binds IO ports once so polling orchestration remains replaceable in tests.
 export function createMailIngestProcessor(dependencies: MailIngestDependencies) {
   return {
     runMailIngestOnce: (config: MailIngestConfig, scope?: MailIngestRunScope) =>

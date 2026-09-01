@@ -30,10 +30,14 @@ export interface MeetingAnswerGenerationInput {
   turns: AnswerTranscriptTurn[];
 }
 
+// 最多保留 24 个相关轮次，为相邻证据留空间并约束模型上下文。 / Keeps at most 24 relevant turns, leaving room for neighboring evidence while bounding model context.
 const MAX_CONTEXT_TURNS = 24;
+// 在调用供应商前拒绝超过 8 万字符的提示词，避免不可控的模型请求。 / Rejects prompts over 80k characters before provider invocation to bound model requests.
 const MAX_PROMPT_CHARS = 80_000;
+// 单轮最多 1500 字符，防止异常长 turn 挤占全部检索窗口。 / Caps each turn at 1,500 characters so an anomalous turn cannot consume the retrieval window.
 const MAX_TURN_TEXT_CHARS = 1500;
 
+// 英文保留连续词，中文额外生成双字词，以同一轻量检索支持中英文问题。 / Keeps English word runs and adds Chinese bigrams for one lightweight bilingual retrieval path.
 function tokens(value: string): Set<string> {
   const normalized = value.toLocaleLowerCase().normalize("NFKC");
   const result = new Set(normalized.match(/[a-z0-9][a-z0-9._+-]{1,}|[\p{Script=Han}]{1,2}/gu));
@@ -44,6 +48,7 @@ function tokens(value: string): Set<string> {
   return result;
 }
 
+// 以词元交集打分，多字符命中权重更高，供转录、笔记与智能证据统一排序。 / Scores token overlap with extra weight for multi-character matches across transcript, notes, and intelligence evidence.
 function relevance(queryTokens: ReadonlySet<string>, value: string): number {
   const valueTokens = tokens(value);
   let score = 0;
@@ -60,6 +65,7 @@ interface IntelligenceEvidenceEntry {
   text: string;
 }
 
+// 将 general/interview 两种结果投影成统一的文本+turn IDs，供检索逻辑复用。 / Projects general and interview outputs into common text-plus-turn-ID entries for shared retrieval.
 function intelligenceEvidenceEntries(
   value: MeetingIntelligencePayload | null,
 ): IntelligenceEvidenceEntry[] {
@@ -106,6 +112,7 @@ function intelligenceEvidenceEntries(
   ];
 }
 
+// 合并当前问题与上一轮问答，保留追问中的指代上下文。 / Combines the current question with the latest exchange to retain references in follow-up questions.
 function queryTokensFor(input: MeetingAnswerGenerationInput): Set<string> {
   const previous = input.previous.at(-1);
   return tokens(
@@ -113,6 +120,7 @@ function queryTokensFor(input: MeetingAnswerGenerationInput): Set<string> {
   );
 }
 
+// 无词元命中时覆盖式均匀采样，而不是只偏向会议开头或结尾。 / Uses even coverage when no tokens match instead of biasing the meeting start or end.
 function sampleTranscriptTurns(turns: AnswerTranscriptTurn[]): AnswerTranscriptTurn[] {
   if (turns.length <= MAX_CONTEXT_TURNS) {
     return turns;
@@ -124,10 +132,12 @@ function sampleTranscriptTurns(turns: AnswerTranscriptTurn[]): AnswerTranscriptT
   ).filter(Boolean);
 }
 
+// 在不改变时间与引用 ID 的前提下截断文本，确保 citation 仍可验证。 / Truncates text without changing timing or turn IDs so citations remain verifiable.
 function boundTranscriptTurns(turns: AnswerTranscriptTurn[]): AnswerTranscriptTurn[] {
   return turns.map((turn) => ({ ...turn, text: turn.text.slice(0, MAX_TURN_TEXT_CHARS) }));
 }
 
+// 汇总原文、临近笔记和智能 evidenceTurnIds 的分数，并带上命中轮次前后各一轮。 / Combines transcript, nearby-note, and intelligence evidenceTurnId scores, adding one neighboring turn on each side.
 export function selectMeetingAnswerTranscriptContext(
   input: MeetingAnswerGenerationInput,
 ): AnswerTranscriptTurn[] {
@@ -187,6 +197,7 @@ export function selectMeetingAnswerTranscriptContext(
   return boundTranscriptTurns(selectedTurns);
 }
 
+// 只序列化相关笔记/智能条目和固定转录窗口，并明确 citation 必须落到转录 turn ID。 / Serializes only relevant notes, intelligence entries, and pinned transcript turns while requiring citations to transcript turn IDs.
 function buildPrompt(input: MeetingAnswerGenerationInput, turns: AnswerTranscriptTurn[]): string {
   const queryTokens = queryTokensFor(input);
   const notes = input.notes
@@ -230,6 +241,7 @@ ${JSON.stringify(turns)}`;
   return prompt;
 }
 
+// 将结构化输出错误转为终止错误，并在返回前用所选 turn 集合二次验证引用。 / Converts structured-output failures to terminal errors and revalidates citations against selected turns before returning.
 export async function generateMeetingAnswer(
   input: MeetingAnswerGenerationInput,
   agent: MastraGeneratorLike = meetingAnswerAgent,
@@ -264,6 +276,7 @@ export interface MeetingAnswerGeneratorSnapshot {
   provider: string;
 }
 
+// 暴露实际结构化模型标识，供认领快照与运行时配置一致性检查。 / Exposes the actual structured-model identifier for claim/runtime configuration consistency checks.
 export function getMeetingAnswerGeneratorSnapshot(): MeetingAnswerGeneratorSnapshot {
   return {
     model: getMastraModelIdentifier(mastraModels.structuredModel),

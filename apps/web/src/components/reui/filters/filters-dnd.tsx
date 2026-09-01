@@ -48,6 +48,7 @@ export interface FilterDropResolution<T extends FilterDropBox> {
   edge: "before" | "after" | null;
 }
 
+/** 对拖放矩形做命中测试，并可向上下扩展接收区域。 / Hit-tests a drag rectangle with optional vertical expansion. */
 function contains(box: FilterDropBox, x: number, y: number, grow = 0): boolean {
   return x >= box.left && x <= box.right && y >= box.top - grow && y <= box.bottom + grow;
 }
@@ -199,6 +200,7 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/** 统计元素到拖放根节点之间的筛选行祖先数量。 / Counts filter-row ancestors between an element and the drag root. */
 function rowDepth(el: HTMLElement, root: HTMLElement): number {
   let depth = 0;
   let node = el.parentElement;

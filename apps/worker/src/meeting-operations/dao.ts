@@ -22,22 +22,29 @@ import {
   meetingTranscriptRevision,
 } from "@arc/db-schema/schema";
 
+// 容量配置只接受正整数，空值、零或非法输入均使用已审定默认值。 / Capacity settings accept positive integers only; missing, zero, or invalid values use the reviewed default.
 function resolvePositiveInteger(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(raw ?? String(fallback), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+// 运营快照中的直传容量必须与服务端同名环境阈值一致，默认 100。 / Keeps the operations snapshot aligned with the server's direct-upload environment limit, defaulting to 100.
 function resolveMeetingDirectUploadConcurrency(): number {
   return resolvePositiveInteger(process.env.MEETING_DIRECT_UPLOAD_CONCURRENCY, 100);
 }
 
+// 运营快照中的实时转写容量必须与租约准入阈值一致，默认 100。 / Keeps reported live-transcription capacity aligned with lease admission, defaulting to 100.
 function resolveMeetingLiveTranscriptConcurrency(): number {
   return resolvePositiveInteger(process.env.MEETING_LIVE_TRANSCRIPT_CONCURRENCY, 100);
 }
 
+// 延迟、失败与清理结果仅统计最近 24 小时，避免历史数据淹没当前健康度。 / Limits latency, failures, and purge outcomes to 24 hours so history does not mask current health.
 const METRICS_WINDOW_MS = 24 * 60 * 60 * 1000;
+// 上传、媒体处理或转写超过 30 分钟无进展时进入运营告警。 / Raises an operations alert when upload, media processing, or transcription makes no progress for 30 minutes.
 const STUCK_AFTER_MS = 30 * 60 * 1000;
+// 每种延迟最多读取 1000 条，限制诊断端点的数据库与内存成本。 / Caps each latency query at 1,000 rows to bound diagnostics database and memory cost.
 const SAMPLE_LIMIT = 1000;
+// 每类卡住/失败告警最多返回 20 条，保持诊断响应可控。 / Returns at most 20 stuck or failed alerts per category to bound the diagnostics response.
 const ALERT_LIMIT = 20;
 
 interface LatencySummary {
@@ -57,6 +64,7 @@ function summarizeLatency(values: number[]): LatencySummary {
   };
 }
 
+// 并行查询容量占用、阶段延迟、供应商失败、重试和卡住记录，生成单次一致的运营视图。 / Queries capacity, stage latency, provider failures, retries, and stuck records in parallel for one operations view.
 export async function loadMeetingOperationsSnapshot() {
   const now = new Date();
   const windowStart = new Date(now.getTime() - METRICS_WINDOW_MS);

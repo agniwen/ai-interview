@@ -223,6 +223,8 @@ const defaultDependencies: JobDescriptionsRouterDependencies = {
   requirePermission,
 };
 
+// Keeps JD CRUD, AI generation, evaluation lifecycle, and referral-link endpoints behind the matching JD permission boundary.
+// 将岗位 CRUD、AI 生成、评价生命周期及内推链接端点置于对应的岗位权限边界之后。
 export function createJobDescriptionsRouter(
   dependencies: JobDescriptionsRouterDependencies = defaultDependencies,
 ) {

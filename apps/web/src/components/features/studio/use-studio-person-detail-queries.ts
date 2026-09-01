@@ -68,6 +68,7 @@ function toUnifiedResumeRecord(resumeRecord: ResumeLibraryDetail): UnifiedRecord
   };
 }
 
+/** 返回必填标识符；缺失时抛出带字段名的本地化错误。 / Returns a required identifier or throws a localized field error when absent. */
 function requireIdentifier(value: string | null | undefined, label: string): string {
   if (!value) {
     throw new Error(`${label}不能为空`);

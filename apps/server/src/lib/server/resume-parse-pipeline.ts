@@ -33,6 +33,8 @@ import { RESUME_STRUCTURED_INSTRUCTIONS } from "./resume-structured-instructions
 
 export type { ResumeParsePipelineDependencies } from "./resume-parse-pipeline-dependencies";
 
+// These budgets bound model context, office-document memory, and PDF raster work independently.
+// 这些预算分别限制模型上下文、Office 文档内存占用与 PDF 光栅化工作量。
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 const DEFAULT_OCR_ATTEMPTS = 3;
@@ -100,6 +102,8 @@ export type ResumeParseProgressEvent =
       type: "ocr.completed";
     };
 
+// When the supplement must be clipped, preserves dated lines and nearby context before less critical text.
+// 补充文本需要截断时，优先保留日期行及其上下文，再保留其余内容。
 function prioritizePdfTextSupplement(supplement: string): string {
   const [heading = PDF_TEXT_SUPPLEMENT_HEADING, ...bodyLines] = supplement.split("\n");
   const dateIndexes = bodyLines.flatMap((line, index) =>
@@ -178,6 +182,8 @@ function isLikelyDecorativePdfText(line: string): boolean {
   );
 }
 
+// Restores text-layer lines missed by OCR, while filtering decorative artifacts and retaining context around dates.
+// 补回 OCR 遗漏的文本层内容，同时过滤装饰性乱码并保留日期上下文。
 function buildPdfTextSupplement(ocrPages: string[], textPages: string[]): string | null {
   const pageBlocks: string[] = [];
   for (const [pageIndex, pageText] of textPages.entries()) {
@@ -212,6 +218,8 @@ function buildPdfTextSupplement(ocrPages: string[], textPages: string[]): string
     : null;
 }
 
+// Rejects coordinate dumps that look non-empty but are unusable as resume text.
+// 拒绝“非空但不可读”的坐标转储，避免其被误当作有效简历文本。
 function validateOcrTextQuality(text: string): void {
   const lines = text
     .split("\n")
@@ -798,6 +806,8 @@ export async function parseResumeOcrOnly(
   return { pageCount, text, textSource: "qwen-ocr" };
 }
 
+// Dispatches each supported format to its native extractor; only PDFs and images cross the OCR boundary.
+// 按文件格式分派到原生提取器，仅 PDF 与图片进入 OCR 边界。
 export function extractResumeDocumentText(
   input: ResumeDocumentInput,
   dependencies: ResumeParsePipelineDependencies = defaultResumeParsePipelineDependencies,

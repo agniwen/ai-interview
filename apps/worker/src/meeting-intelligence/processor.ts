@@ -47,6 +47,7 @@ export interface MeetingIntelligenceDependencies {
   saveProgress: typeof saveMeetingIntelligenceProgress;
 }
 
+// 以 execution token/租约保护生成，复用 durable checkpoint，并仅在模型快照匹配时发布。 / Protects generation with an execution token and lease, resumes durable checkpoints, and publishes only when the model snapshot matches.
 export async function runMeetingIntelligenceProcessing(
   input: MeetingIntelligenceJobData,
   context: { attempt: number; maxAttempts: number },

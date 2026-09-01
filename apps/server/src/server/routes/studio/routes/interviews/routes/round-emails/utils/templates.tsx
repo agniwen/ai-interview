@@ -86,6 +86,8 @@ const INTERVIEW_TIPS = [
 
 const DEFAULT_HERO_ALT = "柔和云海插画";
 
+// Omits the entire hero region when no configured image exists, avoiding a broken placeholder in email clients.
+// 未配置图片时完全省略头图区域，避免邮件客户端显示损坏占位图。
 function EmailHero({ heroImageUrl }: { heroImageUrl?: string }) {
   if (!heroImageUrl) {
     return null;
@@ -136,6 +138,8 @@ function EmailFooter({ companyName }: { companyName?: string }) {
   );
 }
 
+// Produces email-safe markup for a candidate invitation, including the optional schedule and browser preparation guidance.
+// 生成候选人邀约的邮件安全标记，包含可选场次时间与浏览器准备指引。
 function RoundInviteEmail({
   candidateName,
   companyName,
@@ -418,6 +422,8 @@ function buildSummarySubject(companyName: string | undefined, candidateName: str
   return `${prefix} | ${candidateName} 的 AI 面试报告已生成`;
 }
 
+// Presents the report link and qualitative summary in email markup; the detailed report remains in the authenticated app.
+// 以邮件标记展示报告入口与定性摘要，完整详情仍保留在需鉴权的应用内。
 function InterviewSummaryEmail({
   assessment,
   candidateName,

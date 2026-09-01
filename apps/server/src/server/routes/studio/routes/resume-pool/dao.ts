@@ -807,6 +807,8 @@ const defaultPublishPrivatePoolItemDependencies: PublishPrivatePoolItemDependenc
   enqueueSemanticIndex: enqueueResumeSemanticIndexJobBestEffort,
 };
 
+// Publishes by copying the private record and writing both audit events atomically; semantic indexing starts only after commit.
+// 通过复制私有记录完成发布，并在同一事务写入两端审计事件；提交后才启动语义索引。
 export async function publishPrivatePoolItem(
   input: PublishPrivatePoolItemInput,
   dependencies = defaultPublishPrivatePoolItemDependencies,
@@ -900,6 +902,8 @@ function resolveImportedRecordPipelineStage(
   return initialRecruitmentStage === "human_interview" ? "human_interview" : "screening";
 }
 
+// Serializes imports per organization and pool item with a PostgreSQL advisory lock, reuses an existing admission when possible, and records provenance with the new resume.
+// 通过 PostgreSQL advisory lock 串行化同组织同简历池条目的导入；可复用既有准入记录，并随新简历保存来源链路。
 export async function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
   dependencies = defaultImportPoolItemDependencies,

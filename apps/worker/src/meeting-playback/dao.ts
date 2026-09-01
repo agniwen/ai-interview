@@ -6,6 +6,7 @@ import {
 } from "@arc/db-schema/schema";
 import { db } from "../db";
 
+// 只允许媒体库可见生命周期进入回放查询，排除 trashed/purging 等删除状态。 / Limits playback source queries to library lifecycle states, excluding deletion states such as trashed and purging.
 const LIBRARY_MEETING_STATUSES = [
   "workspace-verified",
   "processing",
@@ -13,6 +14,7 @@ const LIBRARY_MEETING_STATUSES = [
   "ready",
 ] as const;
 
+// 在组织范围内加载会议及全部音轨，并应用媒体库状态白名单。 / Loads the meeting and all tracks within organization scope while enforcing the library-state allowlist.
 export function loadMeetingPlaybackSource(input: { meetingId: string; organizationId: string }) {
   return db.query.meetingSession.findFirst({
     where: {
@@ -24,6 +26,7 @@ export function loadMeetingPlaybackSource(input: { meetingId: string; organizati
   });
 }
 
+// 以持久化状态找出未开始或中断的混音，供启动/定时恢复重新入队。 / Finds not-started or interrupted mixes from persisted state for startup and periodic recovery.
 export async function listRecoverableMeetingPlaybackJobs(): Promise<
   { meetingId: string; organizationId: string }[]
 > {
@@ -36,6 +39,7 @@ export async function listRecoverableMeetingPlaybackJobs(): Promise<
   return jobs;
 }
 
+// 通过允许状态的条件更新写入 processingRunId，作为后续发布/失败提交的 CAS 令牌。 / Conditionally writes processingRunId from allowed states, using it as the CAS token for publish or failure commits.
 export async function markMeetingPlaybackProcessing(input: {
   meetingId: string;
   organizationId: string;
@@ -59,6 +63,7 @@ export async function markMeetingPlaybackProcessing(input: {
   return updated.length > 0;
 }
 
+// 上传前登记对象键与 12 分钟写入租约，确保失败、竞争失败或清理流程能回收孤儿对象。 / Registers the object key and a 12-minute writer lease before upload so failures, lost races, or purge can reclaim orphaned data.
 export async function registerMeetingPlaybackCleanupKey(input: {
   meetingId: string;
   organizationId: string;
@@ -103,6 +108,7 @@ export async function registerMeetingPlaybackCleanupKey(input: {
   });
 }
 
+// 对象已发布或物理删除后移除对应清理责任，且同时校验会议与组织范围。 / Retires cleanup responsibility only after publish or physical deletion, scoped to meeting and organization.
 export async function removeMeetingPlaybackCleanupKey(input: {
   meetingId: string;
   organizationId: string;
@@ -119,6 +125,7 @@ export async function removeMeetingPlaybackCleanupKey(input: {
     );
 }
 
+// 仅当前 processingRunId 可提交失败并清空令牌；返回值决定调用方是否清理其上传对象。 / Only the current processingRunId may commit failure and clear the token; the result tells the caller whether to delete its upload.
 export async function markMeetingPlaybackFailed(input: {
   errorMessage: string;
   meetingId: string;
@@ -144,6 +151,7 @@ export async function markMeetingPlaybackFailed(input: {
   return updated.length > 0;
 }
 
+// 先以 processingRunId 赢得发布权，再在同一事务 upsert playback 资源，失败的竞争者不能覆盖当前结果。 / Wins publication by processingRunId before upserting the playback asset in one transaction, preventing losing writers from overwriting current output.
 export async function publishMeetingPlaybackAsset(input: {
   contentType: string;
   durationMs: number;

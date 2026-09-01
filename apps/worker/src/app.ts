@@ -34,16 +34,19 @@ export interface WorkerAppDependencies {
   pingDatabase: () => Promise<void>;
 }
 
+// 仅在 readiness 请求到达时加载数据库，避免 HTTP 进程启动阶段提前建立连接。 / Loads the database only for readiness checks, avoiding an eager connection during HTTP startup.
 async function pingDatabase(): Promise<void> {
   const { pingDatabase: pingWorkerDatabase } = await import("./db");
   await pingWorkerDatabase();
 }
 
+// 仅在受保护的运营端点被调用时加载重量级统计查询。 / Loads the heavier operations query only when its protected endpoint is called.
 async function getMeetingOperationsSnapshot() {
   const { loadMeetingOperationsSnapshot } = await import("./meeting-operations/dao");
   return loadMeetingOperationsSnapshot();
 }
 
+// 默认映射真实队列与数据库实现，测试可替换该对象而无需启动外部依赖。 / Maps real queue and database implementations while allowing tests to replace external dependencies.
 const defaultDependencies: WorkerAppDependencies = {
   getInterviewNotificationSchedulerSnapshot,
   getMeetingIntelligenceQueueStats,
@@ -57,6 +60,7 @@ const defaultDependencies: WorkerAppDependencies = {
   pingDatabase,
 };
 
+// 暴露公开存活/就绪检查，并以 Bearer 密钥保护队列和会议运营诊断。 / Exposes public liveness/readiness checks and Bearer-protected queue and meeting diagnostics.
 export function createWorkerApp(dependencies: WorkerAppDependencies = defaultDependencies) {
   const app = new Hono();
 
