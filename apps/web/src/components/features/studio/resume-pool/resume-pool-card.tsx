@@ -375,10 +375,12 @@ export function ResumePoolCard({
   const title = getCandidateTitle(record);
   const skills = record.masteredSkills.slice(0, RESUME_POOL_CARD_SKILL_LIMIT);
   const summary =
+    record.qualitativeResumeSummary?.trim() ||
     record.profileHighlights.personalStrengths
       .map((strength) => strength.trim().replace(/[;；。]+$/u, ""))
       .filter(Boolean)
-      .join("；") || "暂无主要亮点。";
+      .join("；") ||
+    "暂无主要亮点。";
   const targetRole = record.targetRole?.trim() || "未填写目标岗位";
   const boundJobName = record.jobDescriptionName?.trim();
   const boundJob = boundJobName || "未绑定岗位";
@@ -468,7 +470,7 @@ export function ResumePoolCard({
                 </div>
 
                 <p
-                  className="mt-3 line-clamp-2 text-[13px] text-muted-foreground leading-[19px]"
+                  className="mt-3 line-clamp-3 text-[13px] text-muted-foreground leading-[19px]"
                   title={summary}
                 >
                   {summary}
