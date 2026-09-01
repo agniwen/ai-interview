@@ -1,0 +1,1487 @@
+{
+  "schemaVersion": 1,
+  "shard": { "part": 4, "count": 4 },
+  "contracts": [
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/invite-links/:id/disable",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/invite-links/:id/disable",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 129,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [{ "expression": "inviteLinkIdParamsSchema", "location": "param" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/invite-links/:id/enable",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/invite-links/:id/enable",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 156,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [{ "expression": "inviteLinkIdParamsSchema", "location": "param" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/invite-links/:id/members",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/invite-links/:id/members",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 182,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [{ "expression": "inviteLinkIdParamsSchema", "location": "param" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/members/options",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/members/options",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/members/route.ts",
+        "line": 37,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/members",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/members",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/members/route.ts",
+        "line": 51,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "workspaceMemberListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/my-activity",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/my-activity",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 53,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/member-last-actives",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/member-last-actives",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 64,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/groups",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/groups",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 72,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/workspace/groups",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/workspace/groups",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 89,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [{ "expression": "recruitingGroupInputSchema", "location": "json" }],
+      "statuses": [200, 401, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/groups/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/groups/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 137,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [{ "expression": "recruitingGroupInputSchema", "location": "json" }],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/workspace/groups/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/workspace/groups/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 191,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/workspace/groups/:id/members",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/workspace/groups/:id/members",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 211,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [{ "expression": "recruitingGroupMemberInputSchema", "location": "json" }],
+      "statuses": [201, 401, 404, 409],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/groups/:id/members/:userId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/groups/:id/members/:userId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 237,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [{ "expression": "recruitingGroupMemberRoleInputSchema", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/workspace/groups/:id/members/:userId",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/workspace/groups/:id/members/:userId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 262,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/members/:userId/group",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/members/:userId/group",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 277,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"member\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/route.ts",
+        "line": 285,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"organization\", \"update\""] },
+      "schemas": [{ "expression": "workspaceUpdateSchema", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/chat/conversations",
+      "method": "GET",
+      "path": "/api/w/:slug/chat/conversations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 62,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/conversations",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/conversations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 85,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "upsertConversationSchema", "location": "json" }],
+      "statuses": [200, 401, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/chat/conversations/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/chat/conversations/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 117,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/chat/conversations/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/chat/conversations/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 150,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "patchConversationSchema", "location": "json" }],
+      "statuses": [200, 401, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/chat/conversations/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/chat/conversations/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 182,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/conversations/:id/actions/confirm",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/conversations/:id/actions/confirm",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 199,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "confirmRecruitingActionSchema", "location": "json" }],
+      "statuses": [200, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/conversations/:id/messages",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/conversations/:id/messages",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/conversations/route.ts",
+        "line": 271,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "upsertChatMessageSchema", "location": "json" }],
+      "statuses": [200, 401, 403, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/uploads/preflight",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/uploads/preflight",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/uploads/route.ts",
+        "line": 123,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "uploadPreflightSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/uploads",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/uploads",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/uploads/route.ts",
+        "line": 176,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 413, 415, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/chat/attachments/:id/match-job-description",
+      "method": "POST",
+      "path": "/api/w/:slug/chat/attachments/:id/match-job-description",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/attachments/route.ts",
+        "line": 53,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 422],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/chat/attachments/:previewId",
+      "method": "GET",
+      "path": "/api/w/:slug/chat/attachments/:previewId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/attachments/route.ts",
+        "line": 134,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/chat/attachments/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/chat/attachments/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/chat/routes/attachments/route.ts",
+        "line": 166,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/interview/parse-resume",
+      "method": "POST",
+      "path": "/api/w/:slug/interview/parse-resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/analysis/route.ts",
+        "line": 51,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json", "stream"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 400, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/interview/match-job-description",
+      "method": "POST",
+      "path": "/api/w/:slug/interview/match-job-description",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/analysis/route.ts",
+        "line": 87,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "z.object({", "location": "json" }],
+      "statuses": [200, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/interview/generate-questions",
+      "method": "POST",
+      "path": "/api/w/:slug/interview/generate-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/analysis/route.ts",
+        "line": 140,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json", "stream"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "questionInputSchema", "location": "json" }],
+      "statuses": [200, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/interview/generate-review",
+      "method": "POST",
+      "path": "/api/w/:slug/interview/generate-review",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/analysis/route.ts",
+        "line": 157,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json", "stream"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "reviewInputSchema", "location": "json" }],
+      "statuses": [200, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/interview/generate-review-markdown-stream",
+      "method": "POST",
+      "path": "/api/w/:slug/interview/generate-review-markdown-stream",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/analysis/route.ts",
+        "line": 172,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json", "stream"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "reviewInputSchema", "location": "json" }],
+      "statuses": [200, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/live-transcript",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/live-transcript",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/live-transcript/route.ts",
+        "line": 16,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [
+        { "expression": "createMeetingLiveTranscriptAuthorizationSchema", "location": "json" }
+      ],
+      "statuses": [201, 401, 429, 502, 503],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/live-transcript/:captureId/heartbeat",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/live-transcript/:captureId/heartbeat",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/live-transcript/route.ts",
+        "line": 69,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["empty", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "liveTranscriptLeaseParamSchema", "location": "param" }],
+      "statuses": [204, 401, 409],
+      "successStatuses": [204],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/meetings/live-transcript/:captureId",
+      "method": "DELETE",
+      "path": "/api/w/:slug/meetings/live-transcript/:captureId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/live-transcript/route.ts",
+        "line": 88,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["empty", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "liveTranscriptLeaseParamSchema", "location": "param" }],
+      "statuses": [204, 401],
+      "successStatuses": [204],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/transcription-policy",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/transcription-policy",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcription-policy/route.ts",
+        "line": 11,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/meetings/transcription-policy",
+      "method": "PUT",
+      "path": "/api/w/:slug/meetings/transcription-policy",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcription-policy/route.ts",
+        "line": 22,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMeetingTranscriptionPolicySchema", "location": "json" }],
+      "statuses": [200, 400, 401, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/search",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/search",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/search/route.ts",
+        "line": 8,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "meetingLibrarySearchQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/trash",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/trash",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/trash/route.ts",
+        "line": 11,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "trashedMeetingListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/title",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/title",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/title/route.ts",
+        "line": 12,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "recordingTitleRequestSchema", "location": "json" }],
+      "statuses": [200, 401, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 102,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 114,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createSmallSavedMeetingSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/multipart",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/multipart",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 144,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMultipartSavedMeetingSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/upload-heartbeat",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/upload-heartbeat",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 174,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["empty", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [204, 401, 409],
+      "successStatuses": [204],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/complete",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/complete",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 189,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "completeSmallSavedMeetingSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/playback",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/playback",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/playback/route.ts",
+        "line": 6,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/playback/retry",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/playback/retry",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/playback/route.ts",
+        "line": 26,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/exports/:format",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/exports/:format",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/exports/route.ts",
+        "line": 24,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json", "redirect"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [
+        { "expression": "exportParamSchema", "location": "param" },
+        { "expression": "exportQuerySchema", "location": "query" }
+      ],
+      "statuses": [200, 401, 403, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/questions",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/questions/route.ts",
+        "line": 46,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/questions",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/questions",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/routes/questions/route.ts",
+        "line": 63,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMeetingQuestionThreadSchema", "location": "json" }],
+      "statuses": [201, 401, 404, 409, 413],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/questions/:threadId/messages",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/questions/:threadId/messages",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/questions/routes/messages/route.ts",
+        "line": 30,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMeetingQuestionSchema", "location": "json" }],
+      "statuses": [202, 401, 404, 409, 413, 429, 503],
+      "successStatuses": [202],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/questions/:threadId",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/questions/:threadId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/questions/route.ts",
+        "line": 97,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/intelligence",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/intelligence",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/intelligence/route.ts",
+        "line": 11,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/intelligence",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/intelligence",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/intelligence/route.ts",
+        "line": 28,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "requestMeetingIntelligenceSchema", "location": "json" }],
+      "statuses": [202, 401, 403, 404, 409, 503],
+      "successStatuses": [202],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/recruiting-context/candidates",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/recruiting-context/candidates",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/recruiting-context/routes/candidates/route.ts",
+        "line": 8,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/recruiting-context",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/recruiting-context",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/routes/recruiting-context/route.ts",
+        "line": 34,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/meetings/:id/recruiting-context",
+      "method": "PUT",
+      "path": "/api/w/:slug/meetings/:id/recruiting-context",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/recruiting-context/route.ts",
+        "line": 50,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMeetingRecruitingContextSchema", "location": "json" }],
+      "statuses": [200, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/notes",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/notes",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/notes/route.ts",
+        "line": 13,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/notes",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/notes",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/notes/route.ts",
+        "line": 30,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMeetingNoteSchema", "location": "json" }],
+      "statuses": [201, 400, 401, 403, 404, 409],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/meetings/:id/notes/:noteId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/meetings/:id/notes/:noteId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/notes/route.ts",
+        "line": 65,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMeetingNoteSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/meetings/:id/notes/:noteId",
+      "method": "DELETE",
+      "path": "/api/w/:slug/meetings/:id/notes/:noteId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/notes/route.ts",
+        "line": 100,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["empty", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [204, 401, 403, 404],
+      "successStatuses": [204],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/share",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/share",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/share/route.ts",
+        "line": 9,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/meetings/:id/share",
+      "method": "PUT",
+      "path": "/api/w/:slug/meetings/:id/share",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/share/route.ts",
+        "line": 31,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMeetingShareSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/share/owner",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/share/owner",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/share/routes/owner/route.ts",
+        "line": 8,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "reassignMeetingOwnerSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/transcript/corrections",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/transcript/corrections",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcript/routes/corrections/route.ts",
+        "line": 7,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMeetingTranscriptCorrectionSchema", "location": "json" }],
+      "statuses": [201, 400, 401, 403, 404, 409, 413],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/transcript/revisions",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/transcript/revisions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcript/routes/revisions/route.ts",
+        "line": 9,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/transcript/revisions/:revisionId",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/transcript/revisions/:revisionId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcript/routes/revisions/route.ts",
+        "line": 26,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id/transcript",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id/transcript",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/routes/transcript/route.ts",
+        "line": 13,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/transcript/retry",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/transcript/retry",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/transcript/route.ts",
+        "line": 30,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/trash",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/trash",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/meetings/routes/trash-action/route.ts",
+        "line": 13,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/meetings/:id/restore",
+      "method": "POST",
+      "path": "/api/w/:slug/meetings/:id/restore",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/routes/restore/route.ts",
+        "line": 7,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404, 409, 429],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/meetings/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/meetings/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 226,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMeetingMetadataSchema", "location": "json" }],
+      "statuses": [200, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/meetings/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/meetings/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 250,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["empty", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "purgeMeetingQuerySchema", "location": "query" }],
+      "statuses": [202, 401, 403],
+      "successStatuses": [202],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/meetings/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/meetings/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meetings/route.ts",
+        "line": 270,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/resume/chat",
+      "method": "POST",
+      "path": "/api/w/:slug/resume/chat",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/resume/routes/chat/route.ts",
+        "line": 98,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"chat\", \"create\""] },
+      "schemas": [{ "expression": "resumeChatRequestSchema", "location": "json" }],
+      "statuses": [200, 400, 403, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /healthz",
+      "method": "GET",
+      "path": "/healthz",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 64,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "health"
+    },
+    {
+      "id": "GET /readyz",
+      "method": "GET",
+      "path": "/readyz",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 66,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "readiness"
+    },
+    {
+      "id": "GET /queues/resume-parse/stats",
+      "method": "GET",
+      "path": "/queues/resume-parse/stats",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 105,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "worker-diagnostics-bearer", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "queue-diagnostics"
+    },
+    {
+      "id": "GET /queues/resume-review-generation/stats",
+      "method": "GET",
+      "path": "/queues/resume-review-generation/stats",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 110,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "worker-diagnostics-bearer", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "queue-diagnostics"
+    },
+    {
+      "id": "GET /operations/meetings",
+      "method": "GET",
+      "path": "/operations/meetings",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 115,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "worker-diagnostics-bearer", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "operations-diagnostics"
+    },
+    {
+      "id": "GET /operations/interview-notifications",
+      "method": "GET",
+      "path": "/operations/interview-notifications",
+      "source": {
+        "confidence": "exact",
+        "file": "apps/worker/src/app.ts",
+        "line": 131,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "worker-diagnostics-bearer", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": "operations-diagnostics"
+    }
+  ]
+}

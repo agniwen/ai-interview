@@ -1,0 +1,3 @@
+# Pass request authorization context explicitly to services
+
+Nest guards will attach typed authentication and URL-resolved workspace context to the current Express request, and controller decorators will expose the current user, session, workspace, and member. Controllers pass the required actor and workspace context explicitly into application services and DAOs; services do not depend on request-scoped providers, ambient AsyncLocalStorage, or the session's mutable active organization, which also lets background jobs call the same application services with explicit system or workspace context.

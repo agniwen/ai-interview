@@ -1,0 +1,3 @@
+# Integrate Better Auth directly with Nest
+
+`apps/backend` will preserve Better Auth as the only authentication and session authority and integrate it through Better Auth's official Express and Node APIs instead of a community Nest adapter or Passport. The Better Auth catch-all handler is mounted before body parsing and retains Better Auth's native success and error protocol, while project-owned Nest guards and decorators provide anonymous, optional, required, platform-administrator, workspace-role, fine-grained permission, and current-session access. The integration must cover the existing OAuth, cookie, CORS, organization, authorization, error, and testing behavior rather than acting as a minimal login wrapper.

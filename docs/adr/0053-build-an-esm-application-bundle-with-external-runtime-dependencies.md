@@ -1,0 +1,3 @@
+# Build an ESM application bundle with external runtime dependencies
+
+`apps/backend` will use the Nest 12 Rspack builder to produce an ESM application entry that bundles backend and referenced workspace TypeScript code while leaving third-party runtime dependencies external. Native, WASM-backed, and dynamically loaded packages such as Sharp, MuPDF, database drivers, and provider SDKs remain installed production dependencies; FFmpeg and LibreOffice remain system executables. Non-TypeScript templates and runtime assets are copied by the explicit `nest-cli.json` asset rule. The same `dist` output must pass startup and critical-feature smoke tests under Bun 1.4 and Node 24.

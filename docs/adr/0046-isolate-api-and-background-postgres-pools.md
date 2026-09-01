@@ -1,0 +1,3 @@
+# Isolate API and background Postgres pools
+
+The single `apps/backend` process will maintain separate `postgres.js` and Drizzle connection pools for request-serving work and background work, both using `@arc/db-schema`. Controllers, Better Auth, and HTTP application services use the API pool; BullMQ consumers, mail ingestion, schedulers, and media processing use the background pool. DAOs receive the database dependency explicitly, readiness checks both pools, shutdown closes both, and independent pool limits prevent background concurrency from exhausting connections needed by authentication and HTTP traffic.

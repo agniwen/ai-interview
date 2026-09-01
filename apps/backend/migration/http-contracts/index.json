@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "methodAndPath": "assembled Hono runtime route tables, deduplicated by method + path",
+    "metadata": "static TypeScript source inspection plus twelve reviewed source overrides",
+    "generatedBy": "apps/backend/migration/generate-http-contract-inventory.ts"
+  },
+  "scope": {
+    "included": ["apps/server standalone HTTP", "apps/worker diagnostics HTTP"],
+    "excluded": [
+      "Hono RPC type surface",
+      "test-only routes",
+      "background queue workloads without HTTP"
+    ]
+  },
+  "shards": ["part-1.json", "part-2.json", "part-3.json", "part-4.json"],
+  "summary": {
+    "total": 334,
+    "server": 328,
+    "worker": 6,
+    "byMethod": {
+      "DELETE": 20,
+      "GET": 153,
+      "PATCH": 30,
+      "POST": 121,
+      "PUT": 10
+    },
+    "byAuthLevel": {
+      "agent-shared-secret": 4,
+      "better-auth-native": 2,
+      "candidate-capability": 7,
+      "livekit-webhook-signature": 1,
+      "platform-admin": 22,
+      "public": 2,
+      "public-capability": 28,
+      "public-optional-session": 1,
+      "session": 5,
+      "worker-diagnostics-bearer": 4,
+      "workspace-member": 88,
+      "workspace-permission": 170
+    },
+    "bySpecialTransport": {
+      "binaryResponse": 11,
+      "multipartRequest": 8,
+      "redirectResponse": 3,
+      "streamResponse": 5
+    },
+    "withDiscoveredZodSchema": 149,
+    "sourceCoverage": {
+      "exact": 6,
+      "exactOverride": 12,
+      "exactSpecial": 2,
+      "high": 314,
+      "ambiguous": 0,
+      "missing": 0
+    }
+  },
+  "specialEntrypoints": [
+    "POST /api/auth/*",
+    "GET /api/auth/*",
+    "GET /healthz",
+    "GET /readyz",
+    "GET /queues/resume-parse/stats",
+    "GET /queues/resume-review-generation/stats",
+    "GET /operations/meetings",
+    "GET /operations/interview-notifications"
+  ],
+  "requiredNestAdditions": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "reason": "ADR 0051 Nest liveness alias; no current apps/server equivalent"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ready",
+      "reason": "ADR 0051 capability-aware Nest readiness alias; no current apps/server equivalent"
+    }
+  ]
+}

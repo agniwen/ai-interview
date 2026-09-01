@@ -1,0 +1,3 @@
+# Keep Sentry as the production observability backend
+
+`apps/backend` will replace the Hono-specific Sentry integration with `@sentry/nestjs` while retaining Sentry as the production error and trace destination. Nest 12 structured JSON logging and stable request/correlation IDs will connect HTTP requests, BullMQ jobs, scheduled work, subprocess failures, and shutdown errors; the global exception boundary and background processors must report failures and flush telemetry during graceful shutdown. Telemetry remains disabled in development and tests unless explicitly configured. We will not add `@nestjs/observe` during the parity migration because doing so would introduce a second telemetry vendor, account, and operating cost without closing a current compatibility gap.

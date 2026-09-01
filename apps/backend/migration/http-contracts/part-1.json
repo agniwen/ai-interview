@@ -1,0 +1,1535 @@
+{
+  "schemaVersion": 1,
+  "shard": { "part": 1, "count": 4 },
+  "contracts": [
+    {
+      "id": "POST /api/auth/*",
+      "method": "POST",
+      "path": "/api/auth/*",
+      "source": {
+        "confidence": "exact-special",
+        "file": "apps/server/src/server/app.ts",
+        "line": 67,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json", "redirect"] },
+      "auth": { "level": "better-auth-native", "permissions": [] },
+      "schemas": [],
+      "statuses": [],
+      "successStatuses": [],
+      "statusEvidence": "opaque-handler",
+      "special": "better-auth-handler"
+    },
+    {
+      "id": "GET /api/auth/*",
+      "method": "GET",
+      "path": "/api/auth/*",
+      "source": {
+        "confidence": "exact-special",
+        "file": "apps/server/src/server/app.ts",
+        "line": 67,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json", "redirect"] },
+      "auth": { "level": "better-auth-native", "permissions": [] },
+      "schemas": [],
+      "statuses": [],
+      "successStatuses": [],
+      "statusEvidence": "opaque-handler",
+      "special": "better-auth-handler"
+    },
+    {
+      "id": "POST /api/agent/checkpoint",
+      "method": "POST",
+      "path": "/api/agent/checkpoint",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/agent/route.ts",
+        "line": 106,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "agent-shared-secret", "permissions": [] },
+      "schemas": [{ "expression": "questionCheckpointPayloadSchema", "location": "json" }],
+      "statuses": [201, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/agent/report",
+      "method": "POST",
+      "path": "/api/agent/report",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/agent/route.ts",
+        "line": 129,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "agent-shared-secret", "permissions": [] },
+      "schemas": [{ "expression": "reportPayloadSchema", "location": "json" }],
+      "statuses": [201, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/agent/retry-summaries",
+      "method": "POST",
+      "path": "/api/agent/retry-summaries",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/agent/route.ts",
+        "line": 208,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "agent-shared-secret", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/agent/retry-notifications",
+      "method": "POST",
+      "path": "/api/agent/retry-notifications",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/agent/route.ts",
+        "line": 259,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "agent-shared-secret", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/livekit/webhook",
+      "method": "POST",
+      "path": "/api/livekit/webhook",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/livekit/route.ts",
+        "line": 84,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "livekit-webhook-signature", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/meeting-local-recovery/:id",
+      "method": "POST",
+      "path": "/api/meeting-local-recovery/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meeting-local-recovery/route.ts",
+        "line": 37,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "session", "permissions": [] },
+      "schemas": [{ "expression": "localRecoveryCheckSchema", "location": "json" }],
+      "statuses": [200, 401, 413],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/meeting-local-recovery/:id",
+      "method": "PUT",
+      "path": "/api/meeting-local-recovery/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/meeting-local-recovery/route.ts",
+        "line": 57,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["empty", "json"] },
+      "auth": { "level": "session", "permissions": [] },
+      "schemas": [{ "expression": "localRecoveryCleanupSchema", "location": "json" }],
+      "statuses": [204, 401, 413],
+      "successStatuses": [204],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/resume/models",
+      "method": "GET",
+      "path": "/api/resume/models",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/resume/routes/models/route.ts",
+        "line": 16,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "session", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/resume/title",
+      "method": "POST",
+      "path": "/api/resume/title",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/resume/routes/title/route.ts",
+        "line": 13,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "session", "permissions": [] },
+      "schemas": [{ "expression": "resumeTitleRequestSchema", "location": "json" }],
+      "statuses": [200, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/interview/:id/:roundId/feedback",
+      "method": "POST",
+      "path": "/api/interview/:id/:roundId/feedback",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/routes/feedback/route.ts",
+        "line": 22,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [{ "expression": "candidateInterviewFeedbackInputSchema", "location": "json" }],
+      "statuses": [200, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/interview/:id/:roundId/livekit-token",
+      "method": "POST",
+      "path": "/api/interview/:id/:roundId/livekit-token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 148,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 403, 404, 409, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/interview/:id/resolve",
+      "method": "GET",
+      "path": "/api/interview/:id/resolve",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 421,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/interview/:id/:roundId",
+      "method": "GET",
+      "path": "/api/interview/:id/:roundId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 431,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/interview/:id/:roundId/forms",
+      "method": "GET",
+      "path": "/api/interview/:id/:roundId/forms",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 446,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/interview/:id/:roundId/forms/:templateId/submit",
+      "method": "POST",
+      "path": "/api/interview/:id/:roundId/forms/:templateId/submit",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 480,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [
+        {
+          "expression": "// 中文：answers 形状由 templateVersion 动态决定，这里只做粗校验。",
+          "location": "json"
+        }
+      ],
+      "statuses": [200, 400, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/interview/:id/:roundId/complete",
+      "method": "POST",
+      "path": "/api/interview/:id/:roundId/complete",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/interview/route.ts",
+        "line": 544,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "candidate-capability", "permissions": [] },
+      "schemas": [{ "expression": "z.object({ mode: z.enum([\"interrupt\"", "location": "query" }],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/livekit/overview",
+      "method": "GET",
+      "path": "/api/platform/livekit/overview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/livekit/route.ts",
+        "line": 87,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/livekit/rooms",
+      "method": "GET",
+      "path": "/api/platform/livekit/rooms",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/livekit/route.ts",
+        "line": 120,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [
+        {
+          "expression": "listQuerySchema.extend({ textFilters: listTextFiltersSchema(\"rooms\"",
+          "location": "query"
+        }
+      ],
+      "statuses": [200, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/livekit/rooms/:roomName",
+      "method": "GET",
+      "path": "/api/platform/livekit/rooms/:roomName",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/livekit/route.ts",
+        "line": 157,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/livekit/metrics",
+      "method": "GET",
+      "path": "/api/platform/livekit/metrics",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/livekit/route.ts",
+        "line": 191,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [
+        {
+          "expression": "listQuerySchema.extend({ textFilters: listTextFiltersSchema(\"metrics\"",
+          "location": "query"
+        }
+      ],
+      "statuses": [200, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/queues",
+      "method": "GET",
+      "path": "/api/platform/queues",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 636,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/queues/:queueName/jobs",
+      "method": "GET",
+      "path": "/api/platform/queues/:queueName/jobs",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 643,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "queueJobsQuerySchema", "location": "query" }],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/mail-ingest-accounts",
+      "method": "GET",
+      "path": "/api/platform/mail-ingest-accounts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 452,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "mailIngestAccountsQuerySchema", "location": "query" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/platform/mail-ingest-accounts",
+      "method": "POST",
+      "path": "/api/platform/mail-ingest-accounts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 464,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "createPlatformMailIngestAccountSchema", "location": "json" }],
+      "statuses": [201, 400, 404],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/platform/mail-ingest-accounts/:id",
+      "method": "PATCH",
+      "path": "/api/platform/mail-ingest-accounts/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 501,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "updatePlatformMailIngestAccountSchema", "location": "json" }],
+      "statuses": [200, 400, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/notifications",
+      "method": "GET",
+      "path": "/api/platform/notifications",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/notifications/route.ts",
+        "line": 69,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "querySchema", "location": "query" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/platform/notifications/:id/resend",
+      "method": "POST",
+      "path": "/api/platform/notifications/:id/resend",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/notifications/route.ts",
+        "line": 72,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/platform/notifications/:id/update-document-structure",
+      "method": "POST",
+      "path": "/api/platform/notifications/:id/update-document-structure",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/notifications/route.ts",
+        "line": 80,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/platform/notifications/:id/debug-preview",
+      "method": "POST",
+      "path": "/api/platform/notifications/:id/debug-preview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/notifications/route.ts",
+        "line": 98,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/platform/notifications/:id/document-access",
+      "method": "POST",
+      "path": "/api/platform/notifications/:id/document-access",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/notifications/route.ts",
+        "line": 110,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/resume-parse-cache",
+      "method": "GET",
+      "path": "/api/platform/resume-parse-cache",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/resume-parse-cache/route.ts",
+        "line": 28,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "resumeParseCacheQuerySchema", "location": "query" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/resume-parse-cache/:hash",
+      "method": "GET",
+      "path": "/api/platform/resume-parse-cache/:hash",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/resume-parse-cache/route.ts",
+        "line": 33,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/platform/resume-parse-cache/:hash",
+      "method": "DELETE",
+      "path": "/api/platform/resume-parse-cache/:hash",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/routes/resume-parse-cache/route.ts",
+        "line": 37,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/organizations",
+      "method": "GET",
+      "path": "/api/platform/organizations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 75,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "orgQuerySchema", "location": "query" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/organizations/:orgId",
+      "method": "GET",
+      "path": "/api/platform/organizations/:orgId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 147,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "orgMembersQuerySchema", "location": "query" }],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/users",
+      "method": "GET",
+      "path": "/api/platform/users",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 268,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "userQuerySchema", "location": "query" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/platform/users/:userId/remark",
+      "method": "PATCH",
+      "path": "/api/platform/users/:userId/remark",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 330,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [{ "expression": "updateUserRemarkSchema", "location": "json" }],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/platform/users/:userId/workspaces",
+      "method": "GET",
+      "path": "/api/platform/users/:userId/workspaces",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/platform/route.ts",
+        "line": 364,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "platform-admin", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 54,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 66,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId/ai-evaluation",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId/ai-evaluation",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 83,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId/hr-initial-information",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId/hr-initial-information",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 97,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId/interview-questions",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId/interview-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 111,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId/resume",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 125,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-candidate-materials/:inviteToken/:candidateId/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/public/human-interview-candidate-materials/:inviteToken/:candidateId/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/human-interview-candidate-materials/route.ts",
+        "line": 156,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/referrals/:token",
+      "method": "GET",
+      "path": "/api/public/referrals/:token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 106,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/referrals/:token/resumes",
+      "method": "POST",
+      "path": "/api/public/referrals/:token/resumes",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 113,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [201, 400, 404, 500, 503],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/minimax-voice-previews/:id",
+      "method": "GET",
+      "path": "/api/public/minimax-voice-previews/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 193,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/ai-interview-invitations/:token",
+      "method": "GET",
+      "path": "/api/public/ai-interview-invitations/:token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/ai-interview-invitations/route.ts",
+        "line": 25,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/ai-interview-invitations/:token/respond",
+      "method": "POST",
+      "path": "/api/public/ai-interview-invitations/:token/respond",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/routes/ai-interview-invitations/route.ts",
+        "line": 32,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [{ "expression": "z.object({", "location": "json" }],
+      "statuses": [200, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-meetings/interviewer/:inviteToken",
+      "method": "GET",
+      "path": "/api/public/human-interview-meetings/interviewer/:inviteToken",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 217,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/human-interview-meetings/interviewer/:inviteToken/livekit-token",
+      "method": "POST",
+      "path": "/api/public/human-interview-meetings/interviewer/:inviteToken/livekit-token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 239,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/human-interview-meetings/interviewer/:inviteToken/end",
+      "method": "POST",
+      "path": "/api/public/human-interview-meetings/interviewer/:inviteToken/end",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 292,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/human-interview-meetings/:inviteToken",
+      "method": "GET",
+      "path": "/api/public/human-interview-meetings/:inviteToken",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 309,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/human-interview-meetings/:inviteToken/respond",
+      "method": "POST",
+      "path": "/api/public/human-interview-meetings/:inviteToken/respond",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 342,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [{ "expression": "z.object({", "location": "json" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/public/human-interview-meetings/:inviteToken/livekit-token",
+      "method": "POST",
+      "path": "/api/public/human-interview-meetings/:inviteToken/livekit-token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 366,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/resolve",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/resolve",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 421,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [{ "expression": "z.object({ id: z.string(", "location": "query" }],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 437,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/reports",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/reports",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 449,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/reports/:conversationId",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/reports/:conversationId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 458,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/form-submissions",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/form-submissions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 471,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/recordings/:conversationId",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/recordings/:conversationId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 480,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/resume",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 534,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/interview-rounds/:id/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/public/interview-rounds/:id/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 574,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/resumes/:id",
+      "method": "GET",
+      "path": "/api/public/resumes/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 607,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/public/resumes/:id/rounds",
+      "method": "GET",
+      "path": "/api/public/resumes/:id/rounds",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/public/route.ts",
+        "line": 619,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-capability", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/join/:code/preview",
+      "method": "GET",
+      "path": "/api/join/:code/preview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/join/route.ts",
+        "line": 8,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "public-optional-session", "permissions": [] },
+      "schemas": [{ "expression": "codeParamsSchema", "location": "param" }],
+      "statuses": [200],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/join/:code/accept",
+      "method": "POST",
+      "path": "/api/join/:code/accept",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/join/route.ts",
+        "line": 18,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "session", "permissions": [] },
+      "schemas": [{ "expression": "codeParamsSchema", "location": "param" }],
+      "statuses": [200, 401, 410],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/calendar/ai-events/:roundId/preview",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/calendar/ai-events/:roundId/preview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/calendar/route.ts",
+        "line": 27,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [{ "expression": "studioAiCalendarPreviewQuerySchema", "location": "query" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/calendar",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/calendar",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/calendar/route.ts",
+        "line": 55,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [{ "expression": "studioCalendarQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/summary",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/summary",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 153,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/dedup-check",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/dedup-check",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 166,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [{ "expression": "dedupCheckInputSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 198,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 121,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [201, 400, 401, 409],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/resolve",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/resolve",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 302,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "z.object({ id: z.string(", "location": "query" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/human-interview-meetings",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 338,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/human-interview-meetings",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 361,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "humanInterviewMeetingInputSchema", "location": "json" }],
+      "statuses": [200, 401, 409, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 443,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [
+        { "expression": "humanInterviewMeetingScheduleUpdateSchema", "location": "json" }
+      ],
+      "statuses": [200, 401, 409, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/feishu-sync",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/feishu-sync",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 530,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404, 409, 502],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/links",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/links",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 604,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/livekit-token",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/livekit-token",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 626,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "humanMeetingTokenInputSchema", "location": "json" }],
+      "statuses": [200, 401, 403, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/end",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId/end",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 703,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    }
+  ]
+}

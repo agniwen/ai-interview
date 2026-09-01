@@ -1,0 +1,1555 @@
+{
+  "schemaVersion": 1,
+  "shard": { "part": 2, "count": 4 },
+  "contracts": [
+    {
+      "id": "DELETE /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/collection-route.ts",
+        "line": 733,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/human-interview-meetings/:meetingId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 111,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"humanInterview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/evaluation-document",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/evaluation-document",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 126,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409, 422],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 191,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/resume",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 213,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 259,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/agent-instructions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/agent-instructions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 296,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/reports",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/reports",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/reports/route.ts",
+        "line": 30,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/reports/:conversationId",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/reports/:conversationId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/reports/route.ts",
+        "line": 64,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/recordings/:conversationId",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/recordings/:conversationId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/recordings/route.ts",
+        "line": 54,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/form-submissions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/form-submissions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 369,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/interviews/:id/form-submissions/:submissionId",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/interviews/:id/form-submissions/:submissionId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 390,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviews/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviews/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 467,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [{ "expression": "z.object({", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/question-template-bindings",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/question-template-bindings",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 576,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/context-snapshot/refresh",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/context-snapshot/refresh",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 600,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/interviews/:id/question-template-bindings",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/interviews/:id/question-template-bindings",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/detail-route.ts",
+        "line": 648,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [
+        { "expression": "z.object({ enabledTemplateIds: z.array(z.string(", "location": "json" }
+      ],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:interviewRecordId/notification-recipients",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:interviewRecordId/notification-recipients",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/notification-recipients/route.ts",
+        "line": 13,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/interviews/:interviewRecordId/notification-recipients",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/interviews/:interviewRecordId/notification-recipients",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/notification-recipients/route.ts",
+        "line": 35,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [
+        { "expression": "replaceInterviewNotificationRecipientsSchema", "location": "json" }
+      ],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/reset",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/reset",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 245,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/transition",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/transition",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 363,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [{ "expression": "transitionInputSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviews/:id/candidate-expectations",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviews/:id/candidate-expectations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 407,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [{ "expression": "candidateExpectationsMetaSchema.partial(", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/human-interview-rounds",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/human-interview-rounds",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/human-route.ts",
+        "line": 55,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"humanInterview\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/human-interview-rounds",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/human-interview-rounds",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/human-route.ts",
+        "line": 64,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"humanInterview\", \"create\""]
+      },
+      "schemas": [{ "expression": "humanInterviewRoundInputSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/human-route.ts",
+        "line": 134,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"humanInterview\", \"update\""]
+      },
+      "schemas": [{ "expression": "humanInterviewRoundInputSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId/complete",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId/complete",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/human-route.ts",
+        "line": 178,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"humanInterview\", \"update\""]
+      },
+      "schemas": [{ "expression": "completeHumanRoundSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId/cancel",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/human-interview-rounds/:roundId/cancel",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/human-route.ts",
+        "line": 235,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"humanInterview\", \"delete\""]
+      },
+      "schemas": [{ "expression": "cancelHumanRoundSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/:id/offer-drafts",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 81,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/offer-drafts",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 93,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [{ "expression": "offerDraftInputSchema.extend({", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviews/:id/offer-drafts/:draftId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts/:draftId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 158,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [{ "expression": "offerDraftInputSchema.partial(", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/send",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/send",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 196,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/respond",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/respond",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 224,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [{ "expression": "offerResponseInputSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/cancel",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/:id/offer-drafts/:draftId/cancel",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/offer-drafts/route.ts",
+        "line": 259,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"offer\", action"] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/interviews/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/interviews/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 463,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/bulk-delete",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/bulk-delete",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/route.ts",
+        "line": 536,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"delete\""] },
+      "schemas": [{ "expression": "z.object({ ids: z.array(z.string(", "location": "json" }],
+      "statuses": [200, 401, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviews/round-emails/:roundId/send",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviews/round-emails/:roundId/send",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/round-emails/route.ts",
+        "line": 54,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"update\""] },
+      "schemas": [{ "expression": "sendParamsSchema", "location": "param" }],
+      "statuses": [200, 400, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviews/round-emails/summary",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviews/round-emails/summary",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviews/routes/round-emails/route.ts",
+        "line": 198,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interview\", \"read\""] },
+      "schemas": [{ "expression": "summaryQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 217,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [{ "expression": "resumePoolListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/uploaders",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/uploaders",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 263,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 279,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/duplicate-matches",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/duplicate-matches",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 299,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/review",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/review",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 331,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/review/resume",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/review/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 346,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/review/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/review/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 375,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool/:id/retry-parse",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool/:id/retry-parse",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 399,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumePool\", \"read\"", "\"resumeUploadBatch\", \"process\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/resume",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 446,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 480,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/resume-pool/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/resume-pool/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 509,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 526,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"create\""] },
+      "schemas": [],
+      "statuses": [201, 400, 401, 500],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool/:id/publish",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool/:id/publish",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 615,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"publish\""] },
+      "schemas": [],
+      "statuses": [201, 400, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool/:id/import",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool/:id/import",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 631,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeLibrary\", \"create\"", "\"resumePool\", \"import\""]
+      },
+      "schemas": [{ "expression": "resumePoolImportInputSchema", "location": "json" }],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool/:id/bind",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool/:id/bind",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 710,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"jd\", \"read\"", "\"resumePool\", \"import\""]
+      },
+      "schemas": [{ "expression": "resumePoolBindSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-pool/:id/job-match",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-pool/:id/job-match",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/route.ts",
+        "line": 770,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumePool\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-pool/:id/recommendations",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-pool/:id/recommendations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-pool/routes/recommendations/route.ts",
+        "line": 38,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "jdRecommendationBodySchema", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 90,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [{ "expression": "resumeLibraryListQuerySchema", "location": "query" }],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/skill-suggestions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/skill-suggestions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 140,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/metrics",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/metrics",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 164,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"page\", \"resumes\"", "\"resumeLibrary\", \"read\""]
+      },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/dedup-check",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/dedup-check",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 187,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [{ "expression": "dedupCheckInputSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 219,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/duplicate-matches",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/duplicate-matches",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 236,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/timeline",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/timeline",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 254,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/review",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/review",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 271,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/:id/reassess",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/:id/reassess",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 283,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [],
+      "statuses": [202, 401, 404, 409, 500],
+      "successStatuses": [202],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/review/timeline",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/review/timeline",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 347,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/review/rounds",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/review/rounds",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 359,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/review/resume",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/review/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 372,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/review/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/review/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 416,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/:id/review/evaluation",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/:id/review/evaluation",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 455,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "resumeEvaluationStatusSubmitSchema", "location": "json" }],
+      "statuses": [200, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/rounds",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/rounds",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 489,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/:id/launch-interview",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/:id/launch-interview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 510,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "launchInterviewSchema", "location": "json" }],
+      "statuses": [201, 400, 404, 409, 500],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/resume",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 596,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["binary", "json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/resume-preview.pdf",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/resume-preview.pdf",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/read-route.ts",
+        "line": 645,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/evaluation-history",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/evaluation-history",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/routes/evaluation-history/route.ts",
+        "line": 17,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resumes/:id/meetings",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resumes/:id/meetings",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/routes/meetings/route.ts",
+        "line": 28,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/resumes/:id/structured-evaluation/gates/:requirementId",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/resumes/:id/structured-evaluation/gates/:requirementId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/routes/structured-evaluation/route.ts",
+        "line": 28,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "correctionInputSchema", "location": "json" }],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/resumes/:id/interview-questions",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/resumes/:id/interview-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/routes/interview-questions/route.ts",
+        "line": 34,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "interviewQuestionsUpdateSchema", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/:id/retry-parse",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/:id/retry-parse",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 257,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeLibrary\", \"update\"", "\"resumeUploadBatch\", \"process\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/:id/force-reparse",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/:id/force-reparse",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 301,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeLibrary\", \"update\"", "\"resumeUploadBatch\", \"process\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 403, 404, 409, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 351,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"create\""] },
+      "schemas": [],
+      "statuses": [201, 400, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/resumes/:id/evaluation",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/resumes/:id/evaluation",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 514,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "resumeEvaluationUpdateSchema", "location": "json" }],
+      "statuses": [200, 401, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/resumes/:id/identity",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/resumes/:id/identity",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 553,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [{ "expression": "resumeIdentityUpdateSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/resumes/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/resumes/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 721,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/resumes/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/resumes/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 903,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resumes/bulk-delete",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resumes/bulk-delete",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resumes/route.ts",
+        "line": 945,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"resumeLibrary\", \"delete\""] },
+      "schemas": [{ "expression": "z.object({ ids: z.array(z.string(", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-upload-batches/inbox",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-upload-batches/inbox",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/routes/inbox/route.ts",
+        "line": 9,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"read\""]
+      },
+      "schemas": [{ "expression": "uploadTaskInboxQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    }
+  ]
+}

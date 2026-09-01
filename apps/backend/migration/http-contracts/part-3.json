@@ -1,0 +1,1581 @@
+{
+  "schemaVersion": 1,
+  "shard": { "part": 3, "count": 4 },
+  "contracts": [
+    {
+      "id": "POST /api/w/:slug/studio/resume-upload-batches/uploads",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-upload-batches/uploads",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 59,
+        "alternatives": []
+      },
+      "transport": { "request": "multipart", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"create\""]
+      },
+      "schemas": [],
+      "statuses": [201, 400, 401, 500],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-upload-batches",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-upload-batches",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 111,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"create\""]
+      },
+      "schemas": [{ "expression": "createBatchInputSchema", "location": "json" }],
+      "statuses": [201, 400, 401, 500, 503],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-upload-batches",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-upload-batches",
+      "source": {
+        "confidence": "exact-override",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 200,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-upload-batches/active",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-upload-batches/active",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 208,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/resume-upload-batches/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/resume-upload-batches/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 216,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-upload-batches/:id/process-next",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-upload-batches/:id/process-next",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 227,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"process\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-upload-batches/:id/resume",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-upload-batches/:id/resume",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 238,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"process\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/resume-upload-batches/:id/cancel",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/resume-upload-batches/:id/cancel",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 266,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"cancel\""]
+      },
+      "schemas": [],
+      "statuses": [200, 400, 401, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/resume-upload-batches/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/resume-upload-batches/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/resume-upload-batches/route.ts",
+        "line": 282,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"resumeUploadBatch\", \"delete\""]
+      },
+      "schemas": [],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/departments",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/departments",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 30,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"read\""] },
+      "schemas": [{ "expression": "departmentListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/departments/all",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/departments/all",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 52,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/departments",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/departments",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 60,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"create\""] },
+      "schemas": [{ "expression": "departmentFormSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/departments/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/departments/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 87,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/departments/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/departments/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 99,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"update\""] },
+      "schemas": [{ "expression": "departmentUpdateSchema", "location": "json" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/departments/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/departments/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/departments/route.ts",
+        "line": 130,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"department\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/global-config",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/global-config",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/global-config/route.ts",
+        "line": 27,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"globalConfig\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/global-config",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/global-config",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/global-config/route.ts",
+        "line": 35,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"globalConfig\", \"update\""] },
+      "schemas": [{ "expression": "globalConfigSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviewers",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviewers",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 49,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"read\""] },
+      "schemas": [{ "expression": "interviewerListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviewers/all",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviewers/all",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 76,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviewers",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviewers",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 84,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"create\""] },
+      "schemas": [{ "expression": "interviewerFormSchema", "location": "json" }],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interviewers/voice-previews",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interviewers/voice-previews",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 119,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"read\""] },
+      "schemas": [{ "expression": "voicePreviewSchema", "location": "json" }],
+      "statuses": [200, 401, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interviewers/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interviewers/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 138,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interviewers/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interviewers/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 150,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"update\""] },
+      "schemas": [{ "expression": "interviewerUpdateSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/interviewers/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/interviewers/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interviewers/route.ts",
+        "line": 191,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"interviewer\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/ai-generate",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/ai-generate",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 231,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "generateJobDescriptionBodySchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/job-descriptions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/job-descriptions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 262,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [{ "expression": "jobDescriptionListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/job-descriptions/all",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/job-descriptions/all",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 290,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/job-descriptions/recruiting",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/job-descriptions/recruiting",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 298,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/generate-code",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/generate-code",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 306,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/generate-screening-policy",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/generate-screening-policy",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 335,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "generateResumeScreeningPolicyBodySchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 369,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"create\""] },
+      "schemas": [{ "expression": "jobDescriptionSaveSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/evaluation-blueprint-preview",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/evaluation-blueprint-preview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 483,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/job-descriptions/:id/evaluation-rule-draft",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/evaluation-rule-draft",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 512,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "saveEvaluationRuleDraftBodySchema", "location": "json" }],
+      "statuses": [200, 401, 422],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/publish",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/publish",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 545,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "structuredJobDescriptionPublishSchema", "location": "json" }],
+      "statuses": [200, 401, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/job-descriptions/:id/operational",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/operational",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 585,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "publishedJobOperationalUpdateSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/referral-link",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/referral-link",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 644,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/job-descriptions/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/job-descriptions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 664,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/recommendations",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/recommendations",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 676,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"jd\", \"read\"", "\"resumeLibrary\", \"read\""]
+      },
+      "schemas": [{ "expression": "recommendationBodySchema", "location": "json" }],
+      "statuses": [200, 401, 404, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/job-descriptions/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/job-descriptions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 715,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "jobDescriptionSaveSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404, 409, 500],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/job-descriptions/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/job-descriptions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/route.ts",
+        "line": 832,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404, 409],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 39,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 59,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 77,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "updateUpgradeDraftSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/upgrade/evaluation-blueprint-preview",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade/evaluation-blueprint-preview",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 103,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "upgradePreviewSchema", "location": "json" }],
+      "statuses": [200, 401, 422, 503],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PUT /api/w/:slug/studio/job-descriptions/:id/upgrade/evaluation-rule-draft",
+      "method": "PUT",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade/evaluation-rule-draft",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 134,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "upgradeRuleDraftSchema", "location": "json" }],
+      "statuses": [200, 401, 422],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 162,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "discardUpgradeDraftSchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/upgrade/publish",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/upgrade/publish",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/upgrade/route.ts",
+        "line": 188,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [{ "expression": "publishUpgradeDraftSchema", "location": "json" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/job-descriptions/:id/evaluation-blueprint-preview-stream",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/job-descriptions/:id/evaluation-blueprint-preview-stream",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/job-descriptions/routes/evaluation-blueprint-preview/route.ts",
+        "line": 35,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json", "stream"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"jd\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/mail-ingest-accounts/managed",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 85,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "managedMailIngestAccountListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/mail-ingest-accounts/managed/poll-now",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed/poll-now",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 115,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [202, 401, 403, 503],
+      "successStatuses": [202],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/mail-ingest-accounts/managed",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 143,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createManagedMailIngestAccountSchema", "location": "json" }],
+      "statuses": [201, 400, 401, 404],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/mail-ingest-accounts/managed/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 188,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMailIngestAccountSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/mail-ingest-accounts/managed/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 235,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/mail-ingest-accounts/managed/:id/messages",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/managed/:id/messages",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 246,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "listMailMessagesQuerySchema", "location": "query" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/mail-ingest-accounts",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 272,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/mail-ingest-accounts",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 280,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "createMailIngestAccountSchema", "location": "json" }],
+      "statuses": [201, 400, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/mail-ingest-accounts/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 313,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "updateMailIngestAccountSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/mail-ingest-accounts/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 362,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/mail-ingest-accounts/:id/messages",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/mail-ingest-accounts/:id/messages",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/mail-ingest/route.ts",
+        "line": 377,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-member", "permissions": [] },
+      "schemas": [{ "expression": "listMailMessagesQuerySchema", "location": "query" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms/candidates/search",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms/candidates/search",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/routes/form-ai/route.ts",
+        "line": 25,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/forms/ai-generate-questions",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/forms/ai-generate-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/routes/form-ai/route.ts",
+        "line": 51,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"update\""] },
+      "schemas": [{ "expression": "generateFormQuestionsBodySchema", "location": "json" }],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 84,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [{ "expression": "candidateFormListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms/all",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms/all",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 113,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/forms",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/forms",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 121,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"create\""] },
+      "schemas": [{ "expression": "candidateFormTemplateSchema", "location": "json" }],
+      "statuses": [201, 400, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 171,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/forms/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/forms/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 183,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"update\""] },
+      "schemas": [{ "expression": "candidateFormTemplateSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/forms/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/forms/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 254,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"delete\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/forms/:id/unarchive",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/forms/:id/unarchive",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 274,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/forms/:id/refresh-eligible-candidates",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/forms/:id/refresh-eligible-candidates",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 296,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"update\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms/:id/submissions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms/:id/submissions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 337,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [{ "expression": "z.object({", "location": "query" }],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/forms/:id/versions/:versionId",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/forms/:id/versions/:versionId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/forms/route.ts",
+        "line": 368,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"candidateForm\", \"read\""] },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interview-questions/ai-generate-questions",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interview-questions/ai-generate-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 92,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"update\""]
+      },
+      "schemas": [{ "expression": "generateTemplateQuestionsBodySchema", "location": "json" }],
+      "statuses": [200, 400, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interview-questions",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interview-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 139,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"read\""]
+      },
+      "schemas": [{ "expression": "interviewQuestionListQuerySchema", "location": "query" }],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interview-questions/all",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interview-questions/all",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 168,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interview-questions",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interview-questions",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 176,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"create\""]
+      },
+      "schemas": [{ "expression": "interviewQuestionTemplateSchema", "location": "json" }],
+      "statuses": [201, 400, 401],
+      "successStatuses": [201],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interview-questions/:id",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interview-questions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 226,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/interview-questions/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/interview-questions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 238,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"update\""]
+      },
+      "schemas": [{ "expression": "interviewQuestionTemplateSchema", "location": "json" }],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "DELETE /api/w/:slug/studio/interview-questions/:id",
+      "method": "DELETE",
+      "path": "/api/w/:slug/studio/interview-questions/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 309,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"delete\""]
+      },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interview-questions/:id/unarchive",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interview-questions/:id/unarchive",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 329,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"update\""]
+      },
+      "schemas": [],
+      "statuses": [200, 400, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/interview-questions/:id/refresh-eligible-candidates",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/interview-questions/:id/refresh-eligible-candidates",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 351,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"update\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/interview-questions/:id/versions/:versionId",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/interview-questions/:id/versions/:versionId",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/interview-questions/route.ts",
+        "line": 392,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": {
+        "level": "workspace-permission",
+        "permissions": ["\"questionTemplate\", \"read\""]
+      },
+      "schemas": [],
+      "statuses": [200, 401, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit",
+      "special": null
+    },
+    {
+      "id": "GET /api/w/:slug/studio/workspace/invite-links",
+      "method": "GET",
+      "path": "/api/w/:slug/studio/workspace/invite-links",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 23,
+        "alternatives": []
+      },
+      "transport": { "request": "none", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [],
+      "statuses": [200, 401],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "POST /api/w/:slug/studio/workspace/invite-links",
+      "method": "POST",
+      "path": "/api/w/:slug/studio/workspace/invite-links",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 40,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [{ "expression": "inviteLinkCreateInputSchema", "location": "json" }],
+      "statuses": [200, 401, 403],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    },
+    {
+      "id": "PATCH /api/w/:slug/studio/workspace/invite-links/:id",
+      "method": "PATCH",
+      "path": "/api/w/:slug/studio/workspace/invite-links/:id",
+      "source": {
+        "confidence": "high",
+        "file": "apps/server/src/server/routes/studio/routes/workspace/routes/invite-links/route.ts",
+        "line": 92,
+        "alternatives": []
+      },
+      "transport": { "request": "json", "response": ["json"] },
+      "auth": { "level": "workspace-permission", "permissions": ["\"invitation\", \"create\""] },
+      "schemas": [
+        { "expression": "inviteLinkIdParamsSchema", "location": "param" },
+        { "expression": "inviteLinkInitialRoleInputSchema", "location": "json" }
+      ],
+      "statuses": [200, 401, 403, 404],
+      "successStatuses": [200],
+      "statusEvidence": "explicit-plus-inferred-default",
+      "special": null
+    }
+  ]
+}

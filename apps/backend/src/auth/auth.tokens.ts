@@ -1,0 +1,2 @@
+export const BACKEND_AUTH = Symbol("BACKEND_AUTH");
+export const AUTH_MEMBER_JOINED_NOTIFIER = Symbol("AUTH_MEMBER_JOINED_NOTIFIER");

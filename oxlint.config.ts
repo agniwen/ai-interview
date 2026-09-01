@@ -30,6 +30,32 @@ export default defineConfig({
   ],
   overrides: [
     {
+      // Nest uses constructor parameter properties as its canonical dependency
+      // injection syntax and empty decorated module classes as metadata hosts.
+      files: ["apps/backend/**/*.ts"],
+      rules: {
+        "typescript/no-extraneous-class": ["error", { allowWithDecorator: true }],
+        "typescript/parameter-properties": "off",
+      },
+    },
+    {
+      // Contract-test doubles deliberately implement Promise-returning Nest
+      // ports even when their fixture value is available synchronously.
+      files: ["apps/backend/**/*.test.ts", "apps/backend/test/**/*.ts"],
+      rules: {
+        "require-await": "off",
+      },
+    },
+    {
+      // Nest resolves controller/service methods through class instances and
+      // decorators; converting stateless handlers to static methods breaks that
+      // framework contract without improving their call sites.
+      files: ["apps/backend/**/*.controller.ts", "apps/backend/**/*.service.ts"],
+      rules: {
+        "class-methods-use-this": "off",
+      },
+    },
+    {
       files: ["packages/db-schema/src/schema.ts"],
       rules: {
         "max-lines": "off",

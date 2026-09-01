@@ -10,6 +10,10 @@ node_modules
 .env.*.local
 **/.env.local
 **/.env.*.local
+# The standalone backend reads runtime configuration; never bake its local
+# secrets into the build context or an intermediate Docker layer.
+apps/backend/.env
+apps/backend/.env.*
 .opencode
 *.md
 apps/livekit-agent

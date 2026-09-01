@@ -1,0 +1,3 @@
+# Validate backend configuration by feature
+
+`apps/backend` will use Nest 12 `ConfigModule` with Zod Standard Schema, validating core runtime, database, authentication, and base-URL settings at bootstrap while validating Redis, mail, Feishu, LiveKit, storage, recording, and AI-provider configuration only when the owning feature is enabled. Existing environment names, defaults, and feature-switch semantics remain compatible; enabled features fail fast on incomplete configuration, providers consume typed configuration rather than scattered `process.env` reads, and the backend ships its own complete environment example.
