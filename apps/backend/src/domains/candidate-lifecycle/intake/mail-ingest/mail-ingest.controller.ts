@@ -50,7 +50,7 @@ type MessagesQuery = z.infer<typeof mailMessagesQuerySchema>;
 
 @ApiTags("workspace-mail-ingest")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/mail-ingest-accounts")
+@Controller("workspaces/:workspaceSlug/candidates/intake/mail-ingest-accounts")
 export class MailIngestController {
   constructor(@Inject(MailIngestService) private readonly mail: MailIngestService) {}
 

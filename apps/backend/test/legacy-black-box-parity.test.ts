@@ -170,12 +170,16 @@ describe("representative legacy-to-Nest black-box parity", () => {
 
   it("preserves public health and successful readiness responses", async () => {
     const legacyHealth = await legacyWorker.request("/healthz");
-    const nestHealth = await supertest(nestApplication.getHttpServer()).get("/healthz");
+    const nestHealth = await supertest(nestApplication.getHttpServer()).get(
+      "/system/health/background/live",
+    );
     expect(nestHealth.status).toBe(legacyHealth.status);
     expect(nestHealth.body).toEqual(await legacyHealth.json());
 
     const legacyReadiness = await legacyWorker.request("/readyz");
-    const nestReadiness = await supertest(nestApplication.getHttpServer()).get("/readyz");
+    const nestReadiness = await supertest(nestApplication.getHttpServer()).get(
+      "/system/health/background/ready",
+    );
     expect(nestReadiness.status).toBe(legacyReadiness.status);
     expect(nestReadiness.body).toEqual(await legacyReadiness.json());
   });
@@ -183,7 +187,7 @@ describe("representative legacy-to-Nest black-box parity", () => {
   it("preserves worker diagnostic authentication and successful payloads", async () => {
     const legacyUnauthorized = await legacyWorker.request("/queues/resume-parse/stats");
     const nestUnauthorized = await supertest(nestApplication.getHttpServer()).get(
-      "/queues/resume-parse/stats",
+      "/system/background/queues/resume-parse/stats",
     );
     expect(nestUnauthorized.status).toBe(legacyUnauthorized.status);
     expect(nestUnauthorized.body).toMatchObject({ error: "Unauthorized", statusCode: 401 });
@@ -191,7 +195,7 @@ describe("representative legacy-to-Nest black-box parity", () => {
     const headers = { Authorization: "Bearer parity-secret" };
     const legacyAuthorized = await legacyWorker.request("/queues/resume-parse/stats", { headers });
     const nestAuthorized = await supertest(nestApplication.getHttpServer())
-      .get("/queues/resume-parse/stats")
+      .get("/system/background/queues/resume-parse/stats")
       .set(headers);
     expect(nestAuthorized.status).toBe(legacyAuthorized.status);
     expect(nestAuthorized.body).toEqual(await legacyAuthorized.json());
@@ -200,7 +204,7 @@ describe("representative legacy-to-Nest black-box parity", () => {
   it("preserves Hono request rejection while using the intentional Nest error envelope", async () => {
     const legacyResponse = await joinRouter.request("http://localhost/not-valid/preview");
     const nestResponse = await supertest(nestApplication.getHttpServer()).get(
-      "/api/join/not-valid/preview",
+      "/public/workspace-invites/not-valid/preview",
     );
 
     expect(nestResponse.status).toBe(legacyResponse.status);

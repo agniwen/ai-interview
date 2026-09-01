@@ -118,22 +118,30 @@ describe("workspace resume pool public HTTP seam", () => {
   it("exposes list/detail/write routes with validated input", async () => {
     const instance = await app();
     expect(
-      (await supertest(instance.getHttpServer()).get("/api/w/test/studio/resume-pool")).status,
+      (
+        await supertest(instance.getHttpServer()).get(
+          "/workspaces/test/candidates/intake/resume-pool",
+        )
+      ).status,
     ).toBe(200);
     expect(
-      (await supertest(instance.getHttpServer()).get("/api/w/test/studio/resume-pool/p1")).status,
+      (
+        await supertest(instance.getHttpServer()).get(
+          "/workspaces/test/candidates/intake/resume-pool/p1",
+        )
+      ).status,
     ).toBe(200);
     expect(
       (
         await supertest(instance.getHttpServer())
-          .post("/api/w/test/studio/resume-pool/p1/bind")
+          .post("/workspaces/test/candidates/intake/resume-pool/p1/bind")
           .send({})
       ).status,
     ).toBe(400);
     expect(
       (
         await supertest(instance.getHttpServer())
-          .post("/api/w/test/studio/resume-pool/p1/bind")
+          .post("/workspaces/test/candidates/intake/resume-pool/p1/bind")
           .send({ jobDescriptionId: "j1" })
       ).status,
     ).toBe(200);
@@ -146,7 +154,7 @@ describe("workspace resume pool public HTTP seam", () => {
       status: "disabled",
     });
     const response = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/resume-pool/p1/recommendations")
+      .post("/workspaces/test/candidates/intake/resume-pool/p1/recommendations")
       .send({ topN: 5 });
     expect(response.status).toBe(200);
     expect(access.authorize).toHaveBeenCalledTimes(2);

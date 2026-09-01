@@ -45,7 +45,7 @@ describe("workspace meeting processing public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .put("/api/w/test/meetings/transcription-policy")
+      .put("/workspaces/test/meetings/transcription-policy")
       .send({
         allowedProviders: ["qwen"],
         fallbackProvider: "openai",
@@ -63,13 +63,13 @@ describe("workspace meeting processing public HTTP seam", () => {
     close = () => app.close();
 
     const invalid = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/meeting-1/transcript/corrections")
+      .post("/workspaces/test/meetings/meeting-1/transcript/corrections")
       .send({ language: null, sourceRevisionId: "not-a-uuid", turns: [] });
     expect(invalid.status).toBe(400);
     expect(service.correctTranscript).not.toHaveBeenCalled();
 
     const retry = await supertest(app.getHttpServer()).post(
-      "/api/w/test/meetings/meeting-1/transcript/retry",
+      "/workspaces/test/meetings/meeting-1/transcript/retry",
     );
     expect(retry.status).toBe(202);
     expect(service.retryTranscript).toHaveBeenCalledWith("org-1", "user-1", "admin", "meeting-1");

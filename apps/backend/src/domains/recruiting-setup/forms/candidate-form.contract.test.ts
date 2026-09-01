@@ -65,13 +65,15 @@ describe("workspace candidate forms public HTTP seam", () => {
     await app.init();
     close = () => app.close();
 
-    const response = await supertest(app.getHttpServer()).post("/api/w/test/studio/forms").send({
-      description: "",
-      jobDescriptionIds: [],
-      questions: [],
-      scope: "global",
-      title: "表单",
-    });
+    const response = await supertest(app.getHttpServer())
+      .post("/workspaces/test/setup/candidate-forms")
+      .send({
+        description: "",
+        jobDescriptionIds: [],
+        questions: [],
+        scope: "global",
+        title: "表单",
+      });
 
     expect(response.status).toBe(400);
     expect(service.create).not.toHaveBeenCalled();
@@ -83,7 +85,7 @@ describe("workspace candidate forms public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer()).get(
-      "/api/w/test/studio/forms/form-1/submissions?limit=1000",
+      "/workspaces/test/setup/candidate-forms/form-1/submissions?limit=1000",
     );
     expect(response.status).toBe(400);
     expect(service.submissions).not.toHaveBeenCalled();
@@ -97,7 +99,7 @@ describe("workspace candidate forms public HTTP seam", () => {
     close = () => app.close();
 
     const generated = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/forms/ai-generate-questions")
+      .post("/workspaces/test/setup/candidate-forms/ai-generate-questions")
       .send({ prompt: "根据岗位生成三道表单题" });
     expect(generated.status).toBe(200);
     expect(service.aiGenerateQuestions).toHaveBeenCalledWith("org-1", {
@@ -105,7 +107,7 @@ describe("workspace candidate forms public HTTP seam", () => {
     });
 
     const refreshed = await supertest(app.getHttpServer()).post(
-      "/api/w/test/studio/forms/form-1/refresh-eligible-candidates",
+      "/workspaces/test/setup/candidate-forms/form-1/refresh-eligible-candidates",
     );
     expect(refreshed.status).toBe(200);
     expect(refreshed.body).toEqual({ refreshedCount: 2, scannedCount: 3, success: true });

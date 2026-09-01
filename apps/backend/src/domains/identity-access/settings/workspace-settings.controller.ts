@@ -50,7 +50,7 @@ type WorkspaceUpdate = z.infer<typeof workspaceUpdateSchema>;
 
 @ApiTags("workspace-settings")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/workspace")
+@Controller("workspaces/:workspaceSlug/access")
 export class WorkspaceSettingsController {
   constructor(
     @Inject(WorkspaceSettingsService) private readonly settings: WorkspaceSettingsService,

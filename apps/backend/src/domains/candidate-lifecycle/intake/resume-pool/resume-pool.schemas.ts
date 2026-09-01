@@ -1,7 +1,9 @@
 import { resumePoolCreateSchema, resumePoolImportSchema } from "@arc/shared/resume-pool";
 import { z } from "zod";
 
-export const resumePoolWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const resumePoolWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const resumePoolPathSchema = resumePoolWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

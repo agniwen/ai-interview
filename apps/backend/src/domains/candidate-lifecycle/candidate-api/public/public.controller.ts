@@ -16,7 +16,7 @@ import { ApiConsumes, ApiOperation, ApiProduces, ApiResponse, ApiTags } from "@n
 import type { Request, Response } from "express";
 import type { z } from "zod";
 import { ApiMultipartBody } from "../../../../openapi/api-multipart-body.js";
-import { sendHttpBinaryResponse } from "../binary-response.js";
+import { sendHttpBinaryResponse } from "../../../../infrastructure/http/binary-response.js";
 import { identifierSchema, okResponseSchema } from "../shared.schemas.js";
 import { PUBLIC_RECRUITING_PORT } from "./public.port.js";
 import type { PublicRecruitingPort } from "./public.port.js";
@@ -45,11 +45,6 @@ import {
 } from "./public.schemas.js";
 
 const binarySchema = { format: "binary", type: "string" } as const;
-const audioResponseContent = {
-  "application/octet-stream": { schema: binarySchema },
-  "audio/mpeg": { schema: binarySchema },
-  "audio/wav": { schema: binarySchema },
-};
 const resumeResponseContent = {
   "application/octet-stream": { schema: binarySchema },
   "application/pdf": { schema: binarySchema },
@@ -57,7 +52,7 @@ const resumeResponseContent = {
 const pdfResponseContent = { "application/pdf": { schema: binarySchema } };
 
 @ApiTags("public")
-@Controller("api/public")
+@Controller("public")
 export class PublicController {
   constructor(
     @Inject(PUBLIC_RECRUITING_PORT)
@@ -83,17 +78,6 @@ export class PublicController {
     @Req() request: Request,
   ) {
     return this.publicApi.uploadReferralResume({ request, token });
-  }
-
-  @Get("minimax-voice-previews/:id")
-  @ApiProduces("audio/mpeg", "audio/wav", "application/octet-stream")
-  @ApiOperation({ operationId: "getPublicMinimaxVoicePreview" })
-  @ApiResponse({ content: audioResponseContent, status: 200 })
-  async voicePreview(
-    @Param("id", { schema: identifierSchema }) id: string,
-    @Res() response: Response,
-  ) {
-    sendHttpBinaryResponse(response, await this.publicApi.getVoicePreview(id));
   }
 
   @Get("ai-interview-invitations/:token")
@@ -272,7 +256,7 @@ export class PublicController {
 }
 
 @ApiTags("public-human-interview-materials")
-@Controller("api/public/human-interview-candidate-materials")
+@Controller("public/human-interviews/candidate-materials")
 export class PublicHumanInterviewCandidateMaterialsController {
   constructor(
     @Inject(PUBLIC_RECRUITING_PORT)

@@ -113,19 +113,19 @@ describe("workspace interview workflows HTTP seam", () => {
   it("keeps collection and fixed-prefix routes ahead of dynamic round routes", async () => {
     const instance = await app();
     const collectionResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/interviews",
+      "/workspaces/test/candidates/recruiting-records",
     );
     expect(collectionResponse.status).toBe(200);
     const resolveResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/interviews/resolve?id=round-1",
+      "/workspaces/test/candidates/recruiting-records/resolve?id=round-1",
     );
     expect(resolveResponse.status).toBe(200);
     const meetingsResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/interviews/human-interview-meetings",
+      "/workspaces/test/candidates/recruiting-records/human-interview-meetings",
     );
     expect(meetingsResponse.status).toBe(200);
     const summaryResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/interviews/round-emails/summary",
+      "/workspaces/test/candidates/recruiting-records/round-emails/summary",
     );
     expect(summaryResponse.status).toBe(200);
     expect(workflows.detail).not.toHaveBeenCalled();
@@ -134,15 +134,15 @@ describe("workspace interview workflows HTTP seam", () => {
   it("validates state-machine mutations before invoking services", async () => {
     const instance = await app();
     const transitionResponse = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/interviews/candidate-1/transition")
+      .post("/workspaces/test/candidates/recruiting-records/candidate-1/transition")
       .send({ outcome: "in_pipeline", pipelineStage: "closed" });
     expect(transitionResponse.status).toBe(400);
     const humanRoundResponse = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/interviews/candidate-1/human-interview-rounds")
+      .post("/workspaces/test/candidates/recruiting-records/candidate-1/human-interview-rounds")
       .send({ format: "online", interviewerIds: [], label: "" });
     expect(humanRoundResponse.status).toBe(400);
     const offerResponse = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/interviews/candidate-1/offer-drafts")
+      .post("/workspaces/test/candidates/recruiting-records/candidate-1/offer-drafts")
       .send({ baseSalary: -1, position: "工程师" });
     expect(offerResponse.status).toBe(400);
     expect(workflows.transition).not.toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe("workspace interview workflows HTTP seam", () => {
   it("replaces notification recipients through the candidate-scoped route", async () => {
     const instance = await app();
     const response = await supertest(instance.getHttpServer())
-      .put("/api/w/test/studio/interviews/candidate-1/notification-recipients")
+      .put("/workspaces/test/candidates/recruiting-records/candidate-1/notification-recipients")
       .send({ userIds: ["u1"] });
     expect(response.status).toBe(200);
     expect(workflows.replaceNotificationRecipients).toHaveBeenCalledWith(

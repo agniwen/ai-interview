@@ -28,7 +28,7 @@ import {
 const resolveResponseSchema = z.object({ interviewId: z.string(), roundId: z.string() });
 
 @ApiTags("interview")
-@Controller("api/interview")
+@Controller("public/ai-interviews")
 export class InterviewController {
   constructor(
     @Inject(CANDIDATE_INTERVIEW_PORT)

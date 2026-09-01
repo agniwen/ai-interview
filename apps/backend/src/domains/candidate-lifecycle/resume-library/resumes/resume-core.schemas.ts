@@ -36,8 +36,9 @@ export const skillSuggestionsResponseSchema = z.object({
 });
 export const resumeReviewFilePathSchema = z.object({
   id: z.string().min(1),
-  slug: z.string().min(1),
+  workspaceSlug: z.string().min(1),
 });
+export const resumeWorkspacePathSchema = resumeReviewFilePathSchema.pick({ workspaceSlug: true });
 export const interviewQuestionsUpdateSchema = z.object({
   interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),
 });

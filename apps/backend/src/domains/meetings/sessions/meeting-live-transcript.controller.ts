@@ -48,7 +48,7 @@ type AuthorizationInput = z.infer<typeof createMeetingLiveTranscriptAuthorizatio
 
 @ApiTags("workspace-meeting-live-transcript")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/live-transcript")
+@Controller("workspaces/:workspaceSlug/meetings/live-transcript")
 export class MeetingLiveTranscriptController {
   constructor(private readonly liveTranscript: MeetingLiveTranscriptService) {}
 

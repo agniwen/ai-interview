@@ -47,7 +47,7 @@ type AiGenerateInput = z.infer<typeof questionTemplateAiGenerateInputSchema>;
 
 @ApiTags("workspace-question-templates")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interview-questions")
+@Controller("workspaces/:workspaceSlug/setup/question-templates")
 export class QuestionTemplateController {
   constructor(
     @Inject(QuestionTemplateService) private readonly templates: QuestionTemplateService,

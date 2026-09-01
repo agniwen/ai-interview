@@ -71,7 +71,7 @@ describe("workspace recruiting copilot chat HTTP seam", () => {
     });
     const application = await app();
     const response = await supertest(application.getHttpServer()).get(
-      "/api/w/test/chat/conversations",
+      "/workspaces/test/copilot/conversations",
     );
     expect(response.status).toBe(200);
     expect(response.body.conversations[0].createdAt).toBe("2026-09-01T00:00:00.000Z");
@@ -80,7 +80,7 @@ describe("workspace recruiting copilot chat HTTP seam", () => {
   it("rejects an invalid upload preflight before storage access", async () => {
     const application = await app();
     const response = await supertest(application.getHttpServer())
-      .post("/api/w/test/chat/uploads/preflight")
+      .post("/workspaces/test/copilot/uploads/preflight")
       .send({
         filename: "resume.exe",
         hash: "bad",
@@ -105,10 +105,10 @@ describe("workspace recruiting copilot chat HTTP seam", () => {
       });
     const application = await app();
     const preview = await supertest(application.getHttpServer()).get(
-      "/api/w/test/chat/attachments/attachment-1-preview.pdf",
+      "/workspaces/test/copilot/attachments/attachment-1-preview.pdf",
     );
     const original = await supertest(application.getHttpServer()).get(
-      "/api/w/test/chat/attachments/attachment-1",
+      "/workspaces/test/copilot/attachments/attachment-1",
     );
     expect([preview.status, original.status]).toEqual([200, 200]);
     expect(service.getAttachment.mock.calls.map((call) => call[3])).toEqual([true, false]);

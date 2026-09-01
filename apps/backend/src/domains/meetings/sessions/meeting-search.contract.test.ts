@@ -42,12 +42,12 @@ describe("workspace meeting search HTTP seam", () => {
     await app.init();
     close = () => app.close();
     expect(
-      (await supertest(app.getHttpServer()).get("/api/w/test/meetings/search?q=x")).status,
+      (await supertest(app.getHttpServer()).get("/workspaces/test/meetings/search?q=x")).status,
     ).toBe(400);
     expect(
       (
         await supertest(app.getHttpServer()).get(
-          "/api/w/test/meetings/search?q=valid&timeZone=Mars/Base",
+          "/workspaces/test/meetings/search?q=valid&timeZone=Mars/Base",
         )
       ).status,
     ).toBe(400);

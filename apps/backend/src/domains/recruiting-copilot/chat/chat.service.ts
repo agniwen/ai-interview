@@ -806,7 +806,7 @@ export class ChatService {
     const response = {
       id: input.id,
       parseStatus: input.parsedStatus,
-      url: `/api/w/${slug}/chat/attachments/${input.id}`,
+      url: `/workspaces/${slug}/copilot/attachments/${input.id}`,
     };
     return parsed ? { ...response, parsed } : response;
   }

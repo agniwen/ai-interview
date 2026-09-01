@@ -34,7 +34,7 @@ type PreviewQuery = z.infer<typeof calendarPreviewQuerySchema>;
 @ApiTags("workspace-calendar")
 @UseGuards(WorkspaceAccessGuard)
 @RequireWorkspacePermission("interview", "read")
-@Controller("api/w/:slug/studio/calendar")
+@Controller("workspaces/:workspaceSlug/candidates/ai-interviews/calendar")
 export class CalendarController {
   constructor(@Inject(CalendarService) private readonly calendar: CalendarService) {}
 

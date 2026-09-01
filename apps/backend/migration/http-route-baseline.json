@@ -1,0 +1,2005 @@
+{
+  "generatedFrom": "apps/backend/openapi.json before removal of /api",
+  "sourceCommit": "4c990b7f51d4d05f5915f2dccd23ab87ae39e00e",
+  "operationCount": 333,
+  "operations": [
+    {
+      "method": "POST",
+      "operationId": "acceptWorkspaceInviteLink",
+      "oldPath": "/api/join/{code}/accept",
+      "oldTag": "join"
+    },
+    {
+      "method": "POST",
+      "operationId": "addWorkspaceRecruitingGroupMember",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups/{id}/members",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "archiveWorkspaceCandidateForm",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "archiveWorkspaceQuestionTemplate",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "POST",
+      "operationId": "askWorkspaceMeetingQuestion",
+      "oldPath": "/api/w/{slug}/meetings/{id}/questions/{threadId}/messages",
+      "oldTag": "workspace-meeting-questions"
+    },
+    {
+      "method": "POST",
+      "operationId": "authorizeWorkspaceMeetingLiveTranscript",
+      "oldPath": "/api/w/{slug}/meetings/live-transcript",
+      "oldTag": "workspace-meeting-live-transcript"
+    },
+    {
+      "method": "POST",
+      "operationId": "bindWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/bind",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "POST",
+      "operationId": "bulkDeleteWorkspaceInterviews",
+      "oldPath": "/api/w/{slug}/studio/interviews/bulk-delete",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "bulkDeleteWorkspaceResumes",
+      "oldPath": "/api/w/{slug}/studio/resumes/bulk-delete",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "cancelWorkspaceHumanInterviewMeeting",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "cancelWorkspaceHumanInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/human-interview-rounds/{roundId}/cancel",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "cancelWorkspaceInterviewOfferDraft",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts/{draftId}/cancel",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "cancelWorkspaceResumeUploadBatch",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/{id}/cancel",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "checkMeetingLocalRecovery",
+      "oldPath": "/api/meeting-local-recovery/{id}",
+      "oldTag": "meeting-local-recovery"
+    },
+    {
+      "method": "POST",
+      "operationId": "completeCandidateInterviewRound",
+      "oldPath": "/api/interview/{id}/{roundId}/complete",
+      "oldTag": "interview"
+    },
+    {
+      "method": "POST",
+      "operationId": "completeWorkspaceHumanInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/human-interview-rounds/{roundId}/complete",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "completeWorkspaceMeetingUpload",
+      "oldPath": "/api/w/{slug}/meetings/{id}/complete",
+      "oldTag": "workspace-meeting-upload"
+    },
+    {
+      "method": "POST",
+      "operationId": "confirmWorkspaceRecruitingCopilotAction",
+      "oldPath": "/api/w/{slug}/chat/conversations/{id}/actions/confirm",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "correctWorkspaceMeetingTranscript",
+      "oldPath": "/api/w/{slug}/meetings/{id}/transcript/corrections",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "correctWorkspaceResumeStructuredGate",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/structured-evaluation/gates/{requirementId}",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "createCandidateInterviewLiveKitToken",
+      "oldPath": "/api/interview/{id}/{roundId}/livekit-token",
+      "oldTag": "interview"
+    },
+    {
+      "method": "POST",
+      "operationId": "createManagedWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "POST",
+      "operationId": "createOwnWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "POST",
+      "operationId": "createPlatformMailIngestAccount",
+      "oldPath": "/api/platform/mail-ingest-accounts",
+      "oldTag": "platform"
+    },
+    {
+      "method": "POST",
+      "operationId": "createPublicCandidateMeetingLiveKitToken",
+      "oldPath": "/api/public/human-interview-meetings/{inviteToken}/livekit-token",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "createPublicInterviewerMeetingLiveKitToken",
+      "oldPath": "/api/public/human-interview-meetings/interviewer/{inviteToken}/livekit-token",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceCandidateForm",
+      "oldPath": "/api/w/{slug}/studio/forms",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceDepartment",
+      "oldPath": "/api/w/{slug}/studio/departments",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceHumanInterviewMeeting",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceHumanInterviewMeetingLiveKitToken",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}/livekit-token",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceHumanInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/human-interview-rounds",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInterview",
+      "oldPath": "/api/w/{slug}/studio/interviews",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInterviewer",
+      "oldPath": "/api/w/{slug}/studio/interviewers",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInterviewerVoicePreview",
+      "oldPath": "/api/w/{slug}/studio/interviewers/voice-previews",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInterviewEvaluationDocument",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/evaluation-document",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInterviewOfferDraft",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceInviteLink",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceJobDescription",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceJobDescriptionReferralLink",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/referral-link",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceJobEvaluationUpgrade",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceMeetingMultipartUpload",
+      "oldPath": "/api/w/{slug}/meetings/multipart",
+      "oldTag": "workspace-meeting-upload"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceMeetingNote",
+      "oldPath": "/api/w/{slug}/meetings/{id}/notes",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceMeetingQuestionThread",
+      "oldPath": "/api/w/{slug}/meetings/{id}/questions",
+      "oldTag": "workspace-meeting-questions"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceMeetingUpload",
+      "oldPath": "/api/w/{slug}/meetings",
+      "oldTag": "workspace-meeting-upload"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceQuestionTemplate",
+      "oldPath": "/api/w/{slug}/studio/interview-questions",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceRecruitingGroup",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceResume",
+      "oldPath": "/api/w/{slug}/studio/resumes",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "POST",
+      "operationId": "createWorkspaceResumeUploadBatch",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteOwnWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/{id}",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deletePlatformResumeParseCache",
+      "oldPath": "/api/platform/resume-parse-cache/{hash}",
+      "oldTag": "platform"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceChatConversation",
+      "oldPath": "/api/w/{slug}/chat/conversations/{id}",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceDepartment",
+      "oldPath": "/api/w/{slug}/studio/departments/{id}",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceInterviewer",
+      "oldPath": "/api/w/{slug}/studio/interviewers/{id}",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceInterviewFormSubmission",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/form-submissions/{submissionId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceJobDescription",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceMeetingNote",
+      "oldPath": "/api/w/{slug}/meetings/{id}/notes/{noteId}",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceRecruitingGroup",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups/{id}",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceRecruitingGroupMember",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups/{id}/members/{userId}",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceResume",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "deleteWorkspaceResumeUploadBatch",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/{id}",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "disableWorkspaceInviteLink",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links/{id}/disable",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "discardWorkspaceJobEvaluationUpgrade",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "enableWorkspaceInviteLink",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links/{id}/enable",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "POST",
+      "operationId": "endPublicInterviewerMeeting",
+      "oldPath": "/api/public/human-interview-meetings/interviewer/{inviteToken}/end",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "endWorkspaceHumanInterviewMeeting",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}/end",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "exportWorkspaceMeeting",
+      "oldPath": "/api/w/{slug}/meetings/{id}/exports/{format}",
+      "oldTag": "workspace-meeting-exports"
+    },
+    {
+      "method": "POST",
+      "operationId": "findWorkspaceInterviewResumeDuplicates",
+      "oldPath": "/api/w/{slug}/studio/interviews/dedup-check",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "findWorkspaceResumeDuplicates",
+      "oldPath": "/api/w/{slug}/studio/resumes/dedup-check",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "forceWorkspaceResumeReparse",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/force-reparse",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateResumeConversationTitle",
+      "oldPath": "/api/resume/title",
+      "oldTag": "resume"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceCandidateFormQuestions",
+      "oldPath": "/api/w/{slug}/studio/forms/ai-generate-questions",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceInterviewQuestions",
+      "oldPath": "/api/w/{slug}/interview/generate-questions",
+      "oldTag": "workspace-interview-tools"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceInterviewResumeReview",
+      "oldPath": "/api/w/{slug}/interview/generate-review",
+      "oldTag": "workspace-interview-tools"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceInterviewResumeReviewMarkdown",
+      "oldPath": "/api/w/{slug}/interview/generate-review-markdown-stream",
+      "oldTag": "workspace-interview-tools"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceJobDescriptionCode",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/generate-code",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceJobDescriptionDraft",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/ai-generate",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceJobDescriptionScreeningPolicy",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/generate-screening-policy",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceJobEvaluationBlueprintPreview",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/evaluation-blueprint-preview",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceJobEvaluationUpgradePreview",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade/evaluation-blueprint-preview",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceMeetingTitle",
+      "oldPath": "/api/w/{slug}/meetings/title",
+      "oldTag": "workspace-meeting-title"
+    },
+    {
+      "method": "POST",
+      "operationId": "generateWorkspaceQuestionTemplateQuestions",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/ai-generate-questions",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "GET",
+      "operationId": "getApiHealth",
+      "oldPath": "/api/health",
+      "oldTag": "health"
+    },
+    {
+      "method": "GET",
+      "operationId": "getApiReadiness",
+      "oldPath": "/api/ready",
+      "oldTag": "health"
+    },
+    {
+      "method": "GET",
+      "operationId": "getCandidateInterview",
+      "oldPath": "/api/interview/{id}/{roundId}",
+      "oldTag": "interview"
+    },
+    {
+      "method": "GET",
+      "operationId": "getInterviewNotificationWorkerOperations",
+      "oldPath": "/operations/interview-notifications",
+      "oldTag": "worker-diagnostics"
+    },
+    {
+      "method": "GET",
+      "operationId": "getManagedWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed/{id}",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "GET",
+      "operationId": "getMeetingWorkerOperations",
+      "oldPath": "/operations/meetings",
+      "oldTag": "worker-diagnostics"
+    },
+    {
+      "method": "GET",
+      "operationId": "getMyWorkspaceResumeActivity",
+      "oldPath": "/api/w/{slug}/studio/workspace/my-activity",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPlatformLiveKitOverview",
+      "oldPath": "/api/platform/livekit/overview",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPlatformLiveKitRoom",
+      "oldPath": "/api/platform/livekit/rooms/{roomName}",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPlatformOrganization",
+      "oldPath": "/api/platform/organizations/{orgId}",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPlatformResumeParseCache",
+      "oldPath": "/api/platform/resume-parse-cache/{hash}",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicAiInterviewInvitation",
+      "oldPath": "/api/public/ai-interview-invitations/{token}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicCandidateMeeting",
+      "oldPath": "/api/public/human-interview-meetings/{inviteToken}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateAiEvaluation",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}/ai-evaluation",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateHrInformation",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}/hr-initial-information",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateMaterial",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateQuestions",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}/interview-questions",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateResume",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}/resume",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicHumanInterviewCandidateResumePreview",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}/{candidateId}/resume-preview.pdf",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewerMeeting",
+      "oldPath": "/api/public/human-interview-meetings/interviewer/{inviteToken}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewRound",
+      "oldPath": "/api/public/interview-rounds/{id}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewRoundRecording",
+      "oldPath": "/api/public/interview-rounds/{id}/recordings/{conversationId}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewRoundReport",
+      "oldPath": "/api/public/interview-rounds/{id}/reports/{conversationId}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewRoundResume",
+      "oldPath": "/api/public/interview-rounds/{id}/resume",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicInterviewRoundResumePreview",
+      "oldPath": "/api/public/interview-rounds/{id}/resume-preview.pdf",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicMinimaxVoicePreview",
+      "oldPath": "/api/public/minimax-voice-previews/{id}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicReferral",
+      "oldPath": "/api/public/referrals/{token}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getPublicResume",
+      "oldPath": "/api/public/resumes/{id}",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "getResumeParseQueueStats",
+      "oldPath": "/queues/resume-parse/stats",
+      "oldTag": "worker-diagnostics"
+    },
+    {
+      "method": "GET",
+      "operationId": "getResumeReviewGenerationQueueStats",
+      "oldPath": "/queues/resume-review-generation/stats",
+      "oldTag": "worker-diagnostics"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkerHealth",
+      "oldPath": "/healthz",
+      "oldTag": "health"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkerReadiness",
+      "oldPath": "/readyz",
+      "oldTag": "health"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceAiCalendarPreview",
+      "oldPath": "/api/w/{slug}/studio/calendar/ai-events/{roundId}/preview",
+      "oldTag": "workspace-calendar"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceCandidateForm",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceCandidateFormVersion",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}/versions/{versionId}",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceChatAttachment",
+      "oldPath": "/api/w/{slug}/chat/attachments/{id}",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceChatConversation",
+      "oldPath": "/api/w/{slug}/chat/conversations/{id}",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceDepartment",
+      "oldPath": "/api/w/{slug}/studio/departments/{id}",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceGlobalConfig",
+      "oldPath": "/api/w/{slug}/studio/global-config",
+      "oldTag": "workspace-global-config"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceHumanInterviewMeeting",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterview",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewAgentInstructions",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/agent-instructions",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewer",
+      "oldPath": "/api/w/{slug}/studio/interviewers/{id}",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewRecording",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/recordings/{conversationId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewReport",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/reports/{conversationId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewResumeFile",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/resume",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewResumePdfPreview",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/resume-preview.pdf",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewRoundEmailSummary",
+      "oldPath": "/api/w/{slug}/studio/interviews/round-emails/summary",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceInterviewSummary",
+      "oldPath": "/api/w/{slug}/studio/interviews/summary",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceJobDescription",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceJobEvaluationUpgrade",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeeting",
+      "oldPath": "/api/w/{slug}/meetings/{id}",
+      "oldTag": "workspace-meetings"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingIntelligence",
+      "oldPath": "/api/w/{slug}/meetings/{id}/intelligence",
+      "oldTag": "workspace-meeting-intelligence"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingPlayback",
+      "oldPath": "/api/w/{slug}/meetings/{id}/playback",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingQuestionThread",
+      "oldPath": "/api/w/{slug}/meetings/{id}/questions/{threadId}",
+      "oldTag": "workspace-meeting-questions"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingRecruitingContext",
+      "oldPath": "/api/w/{slug}/meetings/{id}/recruiting-context",
+      "oldTag": "workspace-meeting-recruiting-context"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingShare",
+      "oldPath": "/api/w/{slug}/meetings/{id}/share",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingTranscript",
+      "oldPath": "/api/w/{slug}/meetings/{id}/transcript",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingTranscriptionPolicy",
+      "oldPath": "/api/w/{slug}/meetings/transcription-policy",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceMeetingTranscriptRevision",
+      "oldPath": "/api/w/{slug}/meetings/{id}/transcript/revisions/{revisionId}",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceQuestionTemplate",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceQuestionTemplateVersion",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}/versions/{versionId}",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResume",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeEvaluationHistory",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/evaluation-history",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeFile",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/resume",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeMetrics",
+      "oldPath": "/api/w/{slug}/studio/resumes/metrics",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePdfPreview",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/resume-preview.pdf",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolFile",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/resume",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolJobMatch",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/job-match",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolPdfPreview",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/resume-preview.pdf",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolReview",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/review",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolReviewFile",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/review/resume",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumePoolReviewPdfPreview",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/review/resume-preview.pdf",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeReview",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeReviewFile",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review/resume",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeReviewPdfPreview",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review/resume-preview.pdf",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeReviewTimeline",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review/timeline",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeTimeline",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/timeline",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "getWorkspaceResumeUploadBatch",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/{id}",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "grantPlatformNotificationDocumentAccess",
+      "oldPath": "/api/platform/notifications/{id}/document-access",
+      "oldTag": "platform"
+    },
+    {
+      "method": "POST",
+      "operationId": "heartbeatWorkspaceMeetingLiveTranscript",
+      "oldPath": "/api/w/{slug}/meetings/live-transcript/{captureId}/heartbeat",
+      "oldTag": "workspace-meeting-live-transcript"
+    },
+    {
+      "method": "POST",
+      "operationId": "heartbeatWorkspaceMeetingUpload",
+      "oldPath": "/api/w/{slug}/meetings/{id}/upload-heartbeat",
+      "oldTag": "workspace-meeting-upload"
+    },
+    {
+      "method": "POST",
+      "operationId": "importWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/import",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "POST",
+      "operationId": "issueWorkspaceHumanInterviewMeetingLinks",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}/links",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "launchWorkspaceResumeInterview",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/launch-interview",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listActiveWorkspaceResumeUploadBatches",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/active",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "GET",
+      "operationId": "listAllWorkspaceCandidateForms",
+      "oldPath": "/api/w/{slug}/studio/forms/all",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "listAllWorkspaceDepartments",
+      "oldPath": "/api/w/{slug}/studio/departments/all",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "GET",
+      "operationId": "listAllWorkspaceInterviewers",
+      "oldPath": "/api/w/{slug}/studio/interviewers/all",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "GET",
+      "operationId": "listAllWorkspaceJobDescriptions",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/all",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "listAllWorkspaceQuestionTemplates",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/all",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "GET",
+      "operationId": "listCandidateInterviewForms",
+      "oldPath": "/api/interview/{id}/{roundId}/forms",
+      "oldTag": "interview"
+    },
+    {
+      "method": "GET",
+      "operationId": "listManagedWorkspaceMailIngestAccounts",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "GET",
+      "operationId": "listManagedWorkspaceMailIngestMessages",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed/{id}/messages",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "GET",
+      "operationId": "listOwnWorkspaceMailIngestAccounts",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "GET",
+      "operationId": "listOwnWorkspaceMailIngestMessages",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/{id}/messages",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformLiveKitMetrics",
+      "oldPath": "/api/platform/livekit/metrics",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformLiveKitRooms",
+      "oldPath": "/api/platform/livekit/rooms",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformMailIngestAccounts",
+      "oldPath": "/api/platform/mail-ingest-accounts",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformNotifications",
+      "oldPath": "/api/platform/notifications",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformOrganizations",
+      "oldPath": "/api/platform/organizations",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformQueueJobs",
+      "oldPath": "/api/platform/queues/{queueName}/jobs",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformQueues",
+      "oldPath": "/api/platform/queues",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformResumeParseCache",
+      "oldPath": "/api/platform/resume-parse-cache",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformUsers",
+      "oldPath": "/api/platform/users",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPlatformUserWorkspaces",
+      "oldPath": "/api/platform/users/{userId}/workspaces",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPublicHumanInterviewCandidateMaterials",
+      "oldPath": "/api/public/human-interview-candidate-materials/{inviteToken}",
+      "oldTag": "public-human-interview-materials"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPublicInterviewRoundFormSubmissions",
+      "oldPath": "/api/public/interview-rounds/{id}/form-submissions",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPublicInterviewRoundReports",
+      "oldPath": "/api/public/interview-rounds/{id}/reports",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "listPublicResumeRounds",
+      "oldPath": "/api/public/resumes/{id}/rounds",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "listRecruitingWorkspaceJobDescriptions",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/recruiting",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "listResumeChatModels",
+      "oldPath": "/api/resume/models",
+      "oldTag": "resume"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceCalendarEvents",
+      "oldPath": "/api/w/{slug}/studio/calendar",
+      "oldTag": "workspace-calendar"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceCandidateForms",
+      "oldPath": "/api/w/{slug}/studio/forms",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceCandidateFormSubmissions",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}/submissions",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceChatConversations",
+      "oldPath": "/api/w/{slug}/chat/conversations",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceDepartments",
+      "oldPath": "/api/w/{slug}/studio/departments",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceHumanInterviewMeetings",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceHumanInterviewRounds",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/human-interview-rounds",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewers",
+      "oldPath": "/api/w/{slug}/studio/interviewers",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewFormSubmissions",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/form-submissions",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewNotificationRecipients",
+      "oldPath": "/api/w/{slug}/studio/interviews/{interviewRecordId}/notification-recipients",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewOfferDrafts",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewQuestionTemplateBindings",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/question-template-bindings",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviewReports",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/reports",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInterviews",
+      "oldPath": "/api/w/{slug}/studio/interviews",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInviteLinkMembers",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links/{id}/members",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceInviteLinks",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceJobDescriptions",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetingNotes",
+      "oldPath": "/api/w/{slug}/meetings/{id}/notes",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetingQuestionThreads",
+      "oldPath": "/api/w/{slug}/meetings/{id}/questions",
+      "oldTag": "workspace-meeting-questions"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetingRecruitingCandidates",
+      "oldPath": "/api/w/{slug}/meetings/{id}/recruiting-context/candidates",
+      "oldTag": "workspace-meeting-recruiting-context"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetings",
+      "oldPath": "/api/w/{slug}/meetings",
+      "oldTag": "workspace-meetings"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetingTranscriptRevisions",
+      "oldPath": "/api/w/{slug}/meetings/{id}/transcript/revisions",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMeetingTrash",
+      "oldPath": "/api/w/{slug}/meetings/trash",
+      "oldTag": "workspace-meeting-lifecycle"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMemberLastActives",
+      "oldPath": "/api/w/{slug}/studio/workspace/member-last-actives",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMemberOptions",
+      "oldPath": "/api/w/{slug}/studio/workspace/members/options",
+      "oldTag": "workspace-members"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceMembers",
+      "oldPath": "/api/w/{slug}/studio/workspace/members",
+      "oldTag": "workspace-members"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceQuestionTemplates",
+      "oldPath": "/api/w/{slug}/studio/interview-questions",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceRecruitingGroups",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeDuplicateMatches",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/duplicate-matches",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeMeetings",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/meetings",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumePool",
+      "oldPath": "/api/w/{slug}/studio/resume-pool",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumePoolDuplicateMatches",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/duplicate-matches",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumePoolUploaders",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/uploaders",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeReviewRounds",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review/rounds",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeRounds",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/rounds",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumes",
+      "oldPath": "/api/w/{slug}/studio/resumes",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeSkillSuggestions",
+      "oldPath": "/api/w/{slug}/studio/resumes/skill-suggestions",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeUploadBatches",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "GET",
+      "operationId": "listWorkspaceResumeUploadTaskInbox",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/inbox",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "matchWorkspaceChatAttachmentJobDescription",
+      "oldPath": "/api/w/{slug}/chat/attachments/{id}/match-job-description",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "matchWorkspaceInterviewJobDescription",
+      "oldPath": "/api/w/{slug}/interview/match-job-description",
+      "oldTag": "workspace-interview-tools"
+    },
+    {
+      "method": "POST",
+      "operationId": "parseWorkspaceInterviewResume",
+      "oldPath": "/api/w/{slug}/interview/parse-resume",
+      "oldTag": "workspace-interview-tools"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "patchWorkspaceChatConversation",
+      "oldPath": "/api/w/{slug}/chat/conversations/{id}",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "persistWorkspaceRecruitingCopilotMessage",
+      "oldPath": "/api/w/{slug}/chat/conversations/{id}/messages",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "pollWorkspaceMailIngestNow",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed/poll-now",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "POST",
+      "operationId": "preflightWorkspaceChatAttachmentUpload",
+      "oldPath": "/api/w/{slug}/chat/uploads/preflight",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "previewPlatformNotification",
+      "oldPath": "/api/platform/notifications/{id}/debug-preview",
+      "oldTag": "platform"
+    },
+    {
+      "method": "GET",
+      "operationId": "previewWorkspaceInviteLink",
+      "oldPath": "/api/join/{code}/preview",
+      "oldTag": "join"
+    },
+    {
+      "method": "POST",
+      "operationId": "processNextWorkspaceResumeUploadBatchItem",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/{id}/process-next",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "publishWorkspaceJobEvaluationUpgrade",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade/publish",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "publishWorkspaceResumePoolItem",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/publish",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "POST",
+      "operationId": "publishWorkspaceStructuredJob",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/publish",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "purgeWorkspaceMeeting",
+      "oldPath": "/api/w/{slug}/meetings/{id}",
+      "oldTag": "workspace-meeting-lifecycle"
+    },
+    {
+      "method": "POST",
+      "operationId": "reassessWorkspaceResume",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/reassess",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "reassignWorkspaceMeetingOwner",
+      "oldPath": "/api/w/{slug}/meetings/{id}/share/owner",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "POST",
+      "operationId": "receiveLiveKitWebhook",
+      "oldPath": "/api/livekit/webhook",
+      "oldTag": "livekit"
+    },
+    {
+      "method": "POST",
+      "operationId": "recommendWorkspaceJobDescriptionCandidates",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/recommendations",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "recommendWorkspaceResumePoolJobs",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/recommendations",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "POST",
+      "operationId": "recordAgentInterviewReport",
+      "oldPath": "/api/agent/report",
+      "oldTag": "agent"
+    },
+    {
+      "method": "POST",
+      "operationId": "recordAgentQuestionCheckpoint",
+      "oldPath": "/api/agent/checkpoint",
+      "oldTag": "agent"
+    },
+    {
+      "method": "PUT",
+      "operationId": "recordMeetingLocalRecoveryCleanup",
+      "oldPath": "/api/meeting-local-recovery/{id}",
+      "oldTag": "meeting-local-recovery"
+    },
+    {
+      "method": "POST",
+      "operationId": "refreshWorkspaceCandidateFormEligibleCandidates",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}/refresh-eligible-candidates",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "POST",
+      "operationId": "refreshWorkspaceInterviewContextSnapshot",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/context-snapshot/refresh",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "refreshWorkspaceQuestionTemplateEligibleCandidates",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}/refresh-eligible-candidates",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "POST",
+      "operationId": "regenerateWorkspaceMeetingIntelligence",
+      "oldPath": "/api/w/{slug}/meetings/{id}/intelligence",
+      "oldTag": "workspace-meeting-intelligence"
+    },
+    {
+      "method": "DELETE",
+      "operationId": "releaseWorkspaceMeetingLiveTranscript",
+      "oldPath": "/api/w/{slug}/meetings/live-transcript/{captureId}",
+      "oldTag": "workspace-meeting-live-transcript"
+    },
+    {
+      "method": "PUT",
+      "operationId": "replaceWorkspaceInterviewNotificationRecipients",
+      "oldPath": "/api/w/{slug}/studio/interviews/{interviewRecordId}/notification-recipients",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PUT",
+      "operationId": "replaceWorkspaceInterviewQuestionTemplateBindings",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/question-template-bindings",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "resendPlatformNotification",
+      "oldPath": "/api/platform/notifications/{id}/resend",
+      "oldTag": "platform"
+    },
+    {
+      "method": "POST",
+      "operationId": "resetWorkspaceInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/reset",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "GET",
+      "operationId": "resolveCandidateInterviewRound",
+      "oldPath": "/api/interview/{id}/resolve",
+      "oldTag": "interview"
+    },
+    {
+      "method": "GET",
+      "operationId": "resolvePublicInterviewRound",
+      "oldPath": "/api/public/interview-rounds/resolve",
+      "oldTag": "public"
+    },
+    {
+      "method": "GET",
+      "operationId": "resolveWorkspaceInterview",
+      "oldPath": "/api/w/{slug}/studio/interviews/resolve",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "respondPublicAiInterviewInvitation",
+      "oldPath": "/api/public/ai-interview-invitations/{token}/respond",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "respondPublicCandidateMeetingInvitation",
+      "oldPath": "/api/public/human-interview-meetings/{inviteToken}/respond",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "respondWorkspaceInterviewOfferDraft",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts/{draftId}/respond",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "restoreWorkspaceMeeting",
+      "oldPath": "/api/w/{slug}/meetings/{id}/restore",
+      "oldTag": "workspace-meeting-lifecycle"
+    },
+    {
+      "method": "POST",
+      "operationId": "resumeWorkspaceResumeUploadBatch",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/{id}/resume",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryAgentInterviewNotifications",
+      "oldPath": "/api/agent/retry-notifications",
+      "oldTag": "agent"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryAgentInterviewSummaries",
+      "oldPath": "/api/agent/retry-summaries",
+      "oldTag": "agent"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryWorkspaceMeetingPlayback",
+      "oldPath": "/api/w/{slug}/meetings/{id}/playback/retry",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryWorkspaceMeetingTranscript",
+      "oldPath": "/api/w/{slug}/meetings/{id}/transcript/retry",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryWorkspaceResumeParse",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/retry-parse",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "retryWorkspaceResumePoolParse",
+      "oldPath": "/api/w/{slug}/studio/resume-pool/{id}/retry-parse",
+      "oldTag": "workspace-resume-pool"
+    },
+    {
+      "method": "PUT",
+      "operationId": "saveWorkspaceJobEvaluationRuleDraft",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/evaluation-rule-draft",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "PUT",
+      "operationId": "saveWorkspaceJobEvaluationUpgradeRuleDraft",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade/evaluation-rule-draft",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "GET",
+      "operationId": "searchWorkspaceCandidateFormCandidates",
+      "oldPath": "/api/w/{slug}/studio/forms/candidates/search",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "GET",
+      "operationId": "searchWorkspaceMeetings",
+      "oldPath": "/api/w/{slug}/meetings/search",
+      "oldTag": "workspace-meeting-search"
+    },
+    {
+      "method": "POST",
+      "operationId": "sendWorkspaceInterviewOfferDraft",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts/{draftId}/send",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "sendWorkspaceInterviewRoundEmail",
+      "oldPath": "/api/w/{slug}/studio/interviews/round-emails/{roundId}/send",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "streamWorkspaceJobEvaluationBlueprintPreview",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/evaluation-blueprint-preview-stream",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "POST",
+      "operationId": "streamWorkspaceResumeChat",
+      "oldPath": "/api/w/{slug}/resume/chat",
+      "oldTag": "workspace-resume-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "submitCandidateInterviewFeedback",
+      "oldPath": "/api/interview/{id}/{roundId}/feedback",
+      "oldTag": "interview"
+    },
+    {
+      "method": "POST",
+      "operationId": "submitCandidateInterviewForm",
+      "oldPath": "/api/interview/{id}/{roundId}/forms/{templateId}/submit",
+      "oldTag": "interview"
+    },
+    {
+      "method": "POST",
+      "operationId": "submitWorkspaceResumeReviewEvaluation",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/review/evaluation",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "POST",
+      "operationId": "syncWorkspaceHumanInterviewMeetingToFeishu",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}/feishu-sync",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "transitionWorkspaceInterviewCandidate",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/transition",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "POST",
+      "operationId": "trashWorkspaceMeeting",
+      "oldPath": "/api/w/{slug}/meetings/{id}/trash",
+      "oldTag": "workspace-meeting-lifecycle"
+    },
+    {
+      "method": "POST",
+      "operationId": "unarchiveWorkspaceCandidateForm",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}/unarchive",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "POST",
+      "operationId": "unarchiveWorkspaceQuestionTemplate",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}/unarchive",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateLegacyWorkspaceMemberGroup",
+      "oldPath": "/api/w/{slug}/studio/workspace/members/{userId}/group",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateManagedWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/managed/{id}",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateOwnWorkspaceMailIngestAccount",
+      "oldPath": "/api/w/{slug}/studio/mail-ingest-accounts/{id}",
+      "oldTag": "workspace-mail-ingest"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updatePlatformMailIngestAccount",
+      "oldPath": "/api/platform/mail-ingest-accounts/{id}",
+      "oldTag": "platform"
+    },
+    {
+      "method": "POST",
+      "operationId": "updatePlatformNotificationDocumentStructure",
+      "oldPath": "/api/platform/notifications/{id}/update-document-structure",
+      "oldTag": "platform"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updatePlatformUserRemark",
+      "oldPath": "/api/platform/users/{userId}/remark",
+      "oldTag": "platform"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceCandidateForm",
+      "oldPath": "/api/w/{slug}/studio/forms/{id}",
+      "oldTag": "workspace-candidate-forms"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceDepartment",
+      "oldPath": "/api/w/{slug}/studio/departments/{id}",
+      "oldTag": "workspace-departments"
+    },
+    {
+      "method": "PUT",
+      "operationId": "updateWorkspaceGlobalConfig",
+      "oldPath": "/api/w/{slug}/studio/global-config",
+      "oldTag": "workspace-global-config"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceHumanInterviewMeeting",
+      "oldPath": "/api/w/{slug}/studio/interviews/human-interview-meetings/{meetingId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceHumanInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/human-interview-rounds/{roundId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceInterviewCandidateExpectations",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/candidate-expectations",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceInterviewer",
+      "oldPath": "/api/w/{slug}/studio/interviewers/{id}",
+      "oldTag": "workspace-interviewers"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceInterviewOfferDraft",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}/offer-drafts/{draftId}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceInterviewRound",
+      "oldPath": "/api/w/{slug}/studio/interviews/{id}",
+      "oldTag": "workspace-interviews"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceInviteLinkRole",
+      "oldPath": "/api/w/{slug}/studio/workspace/invite-links/{id}",
+      "oldTag": "workspace-invite-links"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceJobDescription",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceJobDescriptionOperationalAssignment",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/operational",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "PUT",
+      "operationId": "updateWorkspaceJobEvaluationUpgrade",
+      "oldPath": "/api/w/{slug}/studio/job-descriptions/{id}/upgrade",
+      "oldTag": "workspace-job-descriptions"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceMeetingMetadata",
+      "oldPath": "/api/w/{slug}/meetings/{id}",
+      "oldTag": "workspace-meetings"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceMeetingNote",
+      "oldPath": "/api/w/{slug}/meetings/{id}/notes/{noteId}",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "PUT",
+      "operationId": "updateWorkspaceMeetingRecruitingContext",
+      "oldPath": "/api/w/{slug}/meetings/{id}/recruiting-context",
+      "oldTag": "workspace-meeting-recruiting-context"
+    },
+    {
+      "method": "PUT",
+      "operationId": "updateWorkspaceMeetingShare",
+      "oldPath": "/api/w/{slug}/meetings/{id}/share",
+      "oldTag": "workspace-meeting-collaboration"
+    },
+    {
+      "method": "PUT",
+      "operationId": "updateWorkspaceMeetingTranscriptionPolicy",
+      "oldPath": "/api/w/{slug}/meetings/transcription-policy",
+      "oldTag": "workspace-meeting-processing"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceQuestionTemplate",
+      "oldPath": "/api/w/{slug}/studio/interview-questions/{id}",
+      "oldTag": "workspace-question-templates"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceRecruitingGroup",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups/{id}",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceRecruitingGroupMemberRole",
+      "oldPath": "/api/w/{slug}/studio/workspace/groups/{id}/members/{userId}",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceResume",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceResumeEvaluation",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/evaluation",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceResumeIdentity",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/identity",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceResumeInterviewQuestions",
+      "oldPath": "/api/w/{slug}/studio/resumes/{id}/interview-questions",
+      "oldTag": "workspace-resumes"
+    },
+    {
+      "method": "PATCH",
+      "operationId": "updateWorkspaceSettings",
+      "oldPath": "/api/w/{slug}/studio/workspace",
+      "oldTag": "workspace-settings"
+    },
+    {
+      "method": "POST",
+      "operationId": "uploadPublicReferralResume",
+      "oldPath": "/api/public/referrals/{token}/resumes",
+      "oldTag": "public"
+    },
+    {
+      "method": "POST",
+      "operationId": "uploadWorkspaceChatAttachment",
+      "oldPath": "/api/w/{slug}/chat/uploads",
+      "oldTag": "workspace-chat"
+    },
+    {
+      "method": "POST",
+      "operationId": "uploadWorkspaceResumeBatchFile",
+      "oldPath": "/api/w/{slug}/studio/resume-upload-batches/uploads",
+      "oldTag": "workspace-resume-upload-batches"
+    },
+    {
+      "method": "POST",
+      "operationId": "upsertWorkspaceChatConversation",
+      "oldPath": "/api/w/{slug}/chat/conversations",
+      "oldTag": "workspace-chat"
+    }
+  ]
+}

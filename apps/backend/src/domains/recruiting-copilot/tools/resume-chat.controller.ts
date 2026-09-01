@@ -53,7 +53,7 @@ function streamableResponse(response: Response) {
 
 @ApiTags("workspace-resume-chat")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/resume/chat")
+@Controller("workspaces/:workspaceSlug/copilot/resume-chat")
 export class ResumeChatController {
   constructor(@Inject(ResumeChatService) private readonly resumeChat: ResumeChatService) {}
 

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ReferenceObject, ResponseObject, SchemaObject } from "@nestjs/swagger";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { findHttpContractParityIssues } from "../../migration/http-contract-parity.js";
+import { z } from "zod";
 import { findOperationIdIssues } from "../../migration/openapi-operation-ids.js";
 import { routeSpecificityCases } from "../../migration/route-specificity-cases.js";
 import type { BackendTestHarness } from "./backend-test-harness.js";
@@ -35,9 +35,10 @@ function hasMeaningfulTopLevelStructure(
   if ("$ref" in schema) {
     return true;
   }
-  const { anyOf, type } = schema;
-  if (anyOf) {
-    return anyOf.length > 0 && anyOf.every(hasMeaningfulTopLevelStructure);
+  const { anyOf, oneOf, type } = schema;
+  const variants = anyOf ?? oneOf;
+  if (variants) {
+    return variants.length > 0 && variants.every(hasMeaningfulTopLevelStructure);
   }
   if (type === "object") {
     return Object.keys(schema.properties ?? {}).length > 0;
@@ -70,17 +71,32 @@ function isBinaryFileProperty(property: ReferenceObject | SchemaObject | undefin
 }
 
 const MULTIPART_FILE_FIELDS = new Map([
-  ["POST /api/public/referrals/{token}/resumes", { fileField: "resume", formField: null }],
-  ["POST /api/w/{slug}/studio/interviews", { fileField: "resume", formField: "candidateName" }],
-  ["POST /api/w/{slug}/studio/resume-pool", { fileField: "resume", formField: "scope" }],
-  ["POST /api/w/{slug}/studio/resumes", { fileField: "resume", formField: "candidateName" }],
-  ["PATCH /api/w/{slug}/studio/resumes/{id}", { fileField: null, formField: "candidateName" }],
+  ["POST /public/referrals/{token}/resumes", { fileField: "resume", formField: null }],
   [
-    "POST /api/w/{slug}/studio/resume-upload-batches/uploads",
+    "POST /workspaces/{workspaceSlug}/candidates/recruiting-records",
+    { fileField: "resume", formField: "candidateName" },
+  ],
+  [
+    "POST /workspaces/{workspaceSlug}/candidates/intake/resume-pool",
+    { fileField: "resume", formField: "scope" },
+  ],
+  [
+    "POST /workspaces/{workspaceSlug}/candidates/resumes",
+    { fileField: "resume", formField: "candidateName" },
+  ],
+  [
+    "PATCH /workspaces/{workspaceSlug}/candidates/resumes/{id}",
+    { fileField: null, formField: "candidateName" },
+  ],
+  [
+    "POST /workspaces/{workspaceSlug}/candidates/intake/upload-batches/uploads",
     { fileField: "file", formField: null },
   ],
-  ["POST /api/w/{slug}/chat/uploads", { fileField: "file", formField: null }],
-  ["POST /api/w/{slug}/interview/parse-resume", { fileField: "resume", formField: null }],
+  ["POST /workspaces/{workspaceSlug}/copilot/uploads", { fileField: "file", formField: null }],
+  [
+    "POST /workspaces/{workspaceSlug}/copilot/interview-tools/parse-resume",
+    { fileField: "resume", formField: null },
+  ],
 ] as const);
 
 beforeAll(async () => {
@@ -129,8 +145,7 @@ describe("OpenAPI operation IDs", () => {
   it("publishes useful structured schemas for top-level JSON responses", async () => {
     const { createBackendOpenApiDocument } = await import("../../src/bootstrap.js");
     const document = createBackendOpenApiDocument(backend.app);
-    const topLevelPath =
-      /^\/api\/(agent|interview|join|livekit|meeting-local-recovery|platform|public|resume)(?:\/|$)/u;
+    const topLevelPath = /^\/(?:public|system|workspaces)(?:\/|$)/u;
     const unstructured: string[] = [];
 
     for (const [path, pathItem] of Object.entries(document.paths)) {
@@ -250,33 +265,86 @@ describe("OpenAPI operation IDs", () => {
   });
 });
 
-describe("route inventory guards", () => {
-  it("matches the frozen legacy HTTP inventory exactly", async () => {
-    const shards = await Promise.all(
-      [1, 2, 3, 4].map(async (shard) => {
-        // SAFETY: checked-in inventory shards have the documented contracts array shape.
-        const value = JSON.parse(
-          await readFile(
-            resolve(process.cwd(), `migration/http-contracts/part-${shard}.json`),
-            "utf-8",
-          ),
-        ) as { contracts: { id: string; special?: string }[] };
-        return value.contracts;
-      }),
+describe("route migration guards", () => {
+  it("preserves every pre-migration operation ID and HTTP method", async () => {
+    const baselineSchema = z.object({
+      operationCount: z.number().int().nonnegative(),
+      operations: z.array(z.object({ method: z.string(), operationId: z.string() })),
+    });
+    const baseline = baselineSchema.parse(
+      JSON.parse(
+        await readFile(resolve(process.cwd(), "migration/http-route-baseline.json"), "utf-8"),
+      ),
     );
-    const entries = shards.flat();
     const { createBackendOpenApiDocument } = await import("../../src/bootstrap.js");
     const document = createBackendOpenApiDocument(backend.app);
+    const current = Object.values(document.paths)
+      .flatMap((pathItem) =>
+        Object.entries(pathItem ?? {}).flatMap(([method, operation]) =>
+          operation && "operationId" in operation && operation.operationId
+            ? [{ method: method.toUpperCase(), operationId: operation.operationId }]
+            : [],
+        ),
+      )
+      .toSorted((left, right) => left.operationId.localeCompare(right.operationId));
+    const expected = baseline.operations.toSorted((left, right) =>
+      left.operationId.localeCompare(right.operationId),
+    );
 
-    expect(
-      findHttpContractParityIssues(entries, document, ["GET /api/health", "GET /api/ready"]),
-    ).toEqual({ extra: [], missing: [] });
+    expect(current).toHaveLength(baseline.operationCount);
+    expect(current).toEqual(expected);
+    expect(Object.keys(document.paths).some((path) => /^\/(?:api|w)(?:\/|$)/u.test(path))).toBe(
+      false,
+    );
+    expect(Object.keys(document.paths).some((path) => path.includes("/studio/"))).toBe(false);
+  });
+
+  it("declares exactly the required parameters present in every path template", async () => {
+    const { createBackendOpenApiDocument } = await import("../../src/bootstrap.js");
+    const document = createBackendOpenApiDocument(backend.app);
+    const methods = new Set(["delete", "get", "head", "options", "patch", "post", "put"]);
+    const issues: string[] = [];
+
+    for (const [path, pathItem] of Object.entries(document.paths)) {
+      if (!pathItem) {
+        continue;
+      }
+      const expected = [...path.matchAll(/\{([^}]+)\}/gu)].map((match) => match[1]).toSorted();
+      for (const [method, operation] of Object.entries(pathItem)) {
+        if (!(methods.has(method) && operation && "responses" in operation)) {
+          continue;
+        }
+        const parameters = [...(pathItem.parameters ?? []), ...(operation.parameters ?? [])];
+        const unresolvedReferences = parameters.filter((parameter) => "$ref" in parameter);
+        const pathParameters = parameters.filter(
+          (parameter) => !("$ref" in parameter) && parameter.in === "path",
+        );
+        const actual = pathParameters
+          .map((parameter) => ("$ref" in parameter ? "" : parameter.name))
+          .toSorted();
+        const optional = pathParameters.flatMap((parameter) =>
+          "$ref" in parameter || parameter.required ? [] : [parameter.name],
+        );
+
+        if (
+          unresolvedReferences.length > 0 ||
+          JSON.stringify(actual) !== JSON.stringify(expected) ||
+          optional.length > 0
+        ) {
+          issues.push(
+            `${method.toUpperCase()} ${path}: expected [${expected.join(", ")}], declared [${actual.join(", ")}], optional [${optional.join(", ")}]`,
+          );
+        }
+      }
+    }
+
+    expect(issues).toEqual([]);
   });
 
   it("tracks a real static/parameterized production pair for the HTTP specificity test", () => {
     expect(routeSpecificityCases).toContainEqual({
-      parameterizedPath: "/api/w/:slug/studio/departments/:id",
-      staticPath: "/api/w/:slug/studio/departments/all",
+      parameterizedPath: "/workspaces/:workspaceSlug/setup/departments/:id",
+      staticPath: "/workspaces/:workspaceSlug/setup/departments/all",
     });
   });
 
@@ -285,7 +353,7 @@ describe("route inventory guards", () => {
     try {
       const { createBackendOpenApiDocument } = await import("../../src/bootstrap.js");
       const document = createBackendOpenApiDocument(isolatedBackend.app);
-      expect(document.paths["/api/health"]?.get?.responses["200"]).toMatchObject({
+      expect(document.paths["/system/health/backend/live"]?.get?.responses["200"]).toMatchObject({
         content: {
           "application/json": {
             schema: {
@@ -296,7 +364,7 @@ describe("route inventory guards", () => {
           },
         },
       });
-      expect(document.paths["/api/health"]?.get?.responses.default).toMatchObject({
+      expect(document.paths["/system/health/backend/live"]?.get?.responses.default).toMatchObject({
         content: {
           "application/json": {
             schema: {

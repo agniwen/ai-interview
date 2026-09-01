@@ -45,7 +45,7 @@ describe("workspace meeting title HTTP seam", () => {
     expect(
       (
         await supertest(app.getHttpServer())
-          .post("/api/w/test/meetings/title")
+          .post("/workspaces/test/meetings/title")
           .send({ transcript: "too short" })
       ).status,
     ).toBe(400);

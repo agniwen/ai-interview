@@ -77,7 +77,9 @@ describe("legacy-to-Nest protocol parity", () => {
       headers,
       method: "OPTIONS",
     });
-    const nestResponse = await backend.http.options("/api/join/not-valid/preview").set(headers);
+    const nestResponse = await backend.http
+      .options("/public/workspace-invites/not-valid/preview")
+      .set(headers);
 
     expect(nestResponse.status).toBe(legacyResponse.status);
     expect(nestResponse.headers["access-control-allow-origin"]).toBe(
@@ -99,7 +101,7 @@ describe("legacy-to-Nest protocol parity", () => {
       { headers: untrustedHeaders, method: "OPTIONS" },
     );
     const nestUntrustedResponse = await backend.http
-      .options("/api/join/not-valid/preview")
+      .options("/public/workspace-invites/not-valid/preview")
       .set(untrustedHeaders);
 
     expect(nestUntrustedResponse.headers["access-control-allow-origin"] ?? null).toBe(
@@ -108,10 +110,11 @@ describe("legacy-to-Nest protocol parity", () => {
   });
 
   it("preserves Better Auth callback redirect and cookie protocol without following it", async () => {
-    const path = "/api/auth/callback/google?error=access_denied&error_description=denied";
+    const legacyPath = "/api/auth/callback/google?error=access_denied&error_description=denied";
+    const nestPath = "/public/auth/callback/google?error=access_denied&error_description=denied";
     const headers = { Origin: "http://localhost:3000" };
-    const legacyResponse = await legacy.request(`http://localhost${path}`, { headers });
-    const nestResponse = await backend.http.get(path).set(headers).redirects(0);
+    const legacyResponse = await legacy.request(`http://localhost${legacyPath}`, { headers });
+    const nestResponse = await backend.http.get(nestPath).set(headers).redirects(0);
 
     expect(nestResponse.status).toBe(legacyResponse.status);
     expect(nestResponse.headers.location ?? null).toBe(legacyResponse.headers.get("location"));

@@ -44,13 +44,13 @@ describe("workspace meeting intelligence HTTP seam", () => {
     close = () => app.close();
 
     const invalid = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/meeting-1/intelligence")
+      .post("/workspaces/test/meetings/meeting-1/intelligence")
       .send({ template: "custom" });
     expect(invalid.status).toBe(400);
     expect(service.regenerate).not.toHaveBeenCalled();
 
     const accepted = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/meeting-1/intelligence")
+      .post("/workspaces/test/meetings/meeting-1/intelligence")
       .send({ template: "general" });
     expect(accepted.status).toBe(202);
     expect(service.regenerate).toHaveBeenCalledWith(

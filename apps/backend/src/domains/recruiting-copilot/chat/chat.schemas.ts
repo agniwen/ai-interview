@@ -7,7 +7,7 @@ import {
 } from "@arc/db-schema/studio-interviews";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
-export const chatWorkspacePathSchema = z.object({ slug: z.string().min(1) });
+export const chatWorkspacePathSchema = z.object({ workspaceSlug: z.string().min(1) });
 export const chatConversationPathSchema = chatWorkspacePathSchema.extend({
   id: z.string().min(1),
 });

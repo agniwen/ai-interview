@@ -67,7 +67,7 @@ export async function createBackendApplication(
   const requestCorrelation = new RequestCorrelationMiddleware();
   expressApp.use(requestCorrelation.use.bind(requestCorrelation));
   expressApp.use(
-    "/api",
+    ["/workspaces", "/public", "/system"],
     cors({
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
@@ -78,7 +78,7 @@ export async function createBackendApplication(
       origin: (origin, callback) => callback(null, !origin || trustedOrigins.has(origin)),
     }),
   );
-  expressApp.all("/api/auth/*splat", toNodeHandler(app.get<BackendAuth>(BACKEND_AUTH)));
+  expressApp.all("/public/auth/*splat", toNodeHandler(app.get<BackendAuth>(BACKEND_AUTH)));
   expressApp.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "10mb" }));
   expressApp.use(express.urlencoded({ extended: true }));
 
@@ -96,7 +96,7 @@ export async function listenBackendApplication(): Promise<INestApplication> {
   const port = Number.parseInt(process.env.PORT?.trim() || "8787", 10);
 
   if (process.env.NODE_ENV !== "production") {
-    SwaggerModule.setup("api/docs", app, createBackendOpenApiDocument(app));
+    SwaggerModule.setup("system/docs", app, createBackendOpenApiDocument(app));
   }
 
   await app.listen(port, host);

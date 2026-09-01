@@ -88,7 +88,7 @@ async function waitForHealthy(port, child, output) {
       throw new Error(`Backend exited with ${child.exitCode}.\n${output()}`);
     }
     try {
-      for (const path of ["/api/health", "/healthz"]) {
+      for (const path of ["/system/health/backend/live", "/system/health/background/live"]) {
         const response = await fetch(`http://127.0.0.1:${port}${path}`);
         const body = await response.json();
         if (response.status !== 200 || body.ok !== true) {
@@ -96,14 +96,20 @@ async function waitForHealthy(port, child, output) {
         }
       }
       if (externalDependencies) {
-        const readiness = await fetch(`http://127.0.0.1:${port}/readyz`);
+        const readinessPath = "/system/health/background/ready";
+        const readiness = await fetch(`http://127.0.0.1:${port}${readinessPath}`);
         const readinessBody = await readiness.json();
         if (readiness.status !== 200 || readinessBody.ok !== true) {
-          throw new Error(`/readyz returned ${readiness.status}: ${JSON.stringify(readinessBody)}`);
+          throw new Error(
+            `${readinessPath} returned ${readiness.status}: ${JSON.stringify(readinessBody)}`,
+          );
         }
-        const diagnostics = await fetch(`http://127.0.0.1:${port}/queues/resume-parse/stats`, {
-          headers: { Authorization: `Bearer ${process.env.WORKER_DIAGNOSTICS_SECRET}` },
-        });
+        const diagnostics = await fetch(
+          `http://127.0.0.1:${port}/system/background/queues/resume-parse/stats`,
+          {
+            headers: { Authorization: `Bearer ${process.env.WORKER_DIAGNOSTICS_SECRET}` },
+          },
+        );
         if (diagnostics.status !== 200) {
           throw new Error(`Queue diagnostics returned ${diagnostics.status}.`);
         }

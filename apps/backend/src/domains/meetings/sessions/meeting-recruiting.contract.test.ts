@@ -44,13 +44,13 @@ describe("workspace meeting recruiting context HTTP seam", () => {
     close = () => app.close();
 
     const candidates = await supertest(app.getHttpServer()).get(
-      "/api/w/test/meetings/meeting-1/recruiting-context/candidates?limit=51",
+      "/workspaces/test/meetings/meeting-1/recruiting-context/candidates?limit=51",
     );
     expect(candidates.status).toBe(400);
     expect(service.candidates).not.toHaveBeenCalled();
 
     const update = await supertest(app.getHttpServer())
-      .put("/api/w/test/meetings/meeting-1/recruiting-context")
+      .put("/workspaces/test/meetings/meeting-1/recruiting-context")
       .send({ recruitingRecordId: "" });
     expect(update.status).toBe(400);
     expect(service.update).not.toHaveBeenCalled();

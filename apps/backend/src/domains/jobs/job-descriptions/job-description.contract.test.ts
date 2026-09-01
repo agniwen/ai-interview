@@ -81,15 +81,13 @@ describe("workspace job descriptions public HTTP seam", () => {
 
   it("rejects a create request without an interviewer", async () => {
     const instance = await app();
-    const response = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/job-descriptions")
-      .send({
-        allowCrossDepartmentInterviewers: false,
-        departmentId: "department-1",
-        interviewerIds: [],
-        name: "后端工程师",
-        prompt: "负责服务端系统设计与交付",
-      });
+    const response = await supertest(instance.getHttpServer()).post("/workspaces/test/jobs").send({
+      allowCrossDepartmentInterviewers: false,
+      departmentId: "department-1",
+      interviewerIds: [],
+      name: "后端工程师",
+      prompt: "负责服务端系统设计与交付",
+    });
     expect(response.status).toBe(400);
     expect(service.create).not.toHaveBeenCalled();
   });
@@ -97,7 +95,7 @@ describe("workspace job descriptions public HTTP seam", () => {
   it("exposes the generated code through the read permission boundary", async () => {
     const instance = await app();
     const response = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/job-descriptions/generate-code")
+      .post("/workspaces/test/jobs/generate-code")
       .send();
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ code: "AUR0001" });
@@ -107,13 +105,13 @@ describe("workspace job descriptions public HTTP seam", () => {
   it("exposes AI drafting and screening policy generation through the update permission boundary", async () => {
     const instance = await app();
     const drafted = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/job-descriptions/ai-generate")
+      .post("/workspaces/test/jobs/ai-generate")
       .send({ prompt: "负责后端系统开发" });
     expect(drafted.status).toBe(200);
     expect(service.aiGenerate).toHaveBeenCalledWith({ prompt: "负责后端系统开发" });
 
     const screening = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/job-descriptions/generate-screening-policy")
+      .post("/workspaces/test/jobs/generate-screening-policy")
       .send({ prompt: "本科，三年以上 TypeScript 经验" });
     expect(screening.status).toBe(200);
     expect(service.generateScreeningPolicy).toHaveBeenCalledWith({
@@ -124,7 +122,7 @@ describe("workspace job descriptions public HTTP seam", () => {
   it("uses both JD and resume-library read permissions for candidate recommendations", async () => {
     const instance = await app();
     const response = await supertest(instance.getHttpServer())
-      .post("/api/w/test/studio/job-descriptions/job-1/recommendations")
+      .post("/workspaces/test/jobs/job-1/recommendations")
       .send({ excludeAlreadyLinked: false, limit: 5 });
     expect(response.status).toBe(200);
     expect(service.recommendations).toHaveBeenCalledWith("org-1", "job-1", {

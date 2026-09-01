@@ -9,7 +9,9 @@ import { z } from "zod";
 
 export { candidateFormTemplateSchema };
 
-export const candidateFormWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const candidateFormWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const candidateFormPathSchema = candidateFormWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

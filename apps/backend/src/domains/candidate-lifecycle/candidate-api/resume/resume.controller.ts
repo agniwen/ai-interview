@@ -55,7 +55,7 @@ function sanitizeTitle(title: string): string {
 }
 
 @ApiTags("resume")
-@Controller("api/resume")
+@Controller("public/resume-tools")
 export class ResumeController {
   constructor(
     @Inject(RESUME_UTILITY_PORT)

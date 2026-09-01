@@ -51,7 +51,7 @@ describe("workspace resume upload batches public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/resume-upload-batches")
+      .post("/workspaces/test/candidates/intake/upload-batches")
       .send({ dedupPolicy: "skip", files: [], jdMode: "none", target: "resume_library" });
     expect(response.status).toBe(400);
     expect(service.create).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("workspace resume upload batches public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer()).post(
-      "/api/w/test/studio/resume-upload-batches/batch-1/process-next",
+      "/workspaces/test/candidates/intake/upload-batches/batch-1/process-next",
     );
     expect(response.status).toBe(200);
     expect(service.processNext).toHaveBeenCalledWith("org-1", "user-1", "batch-1");

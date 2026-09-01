@@ -40,13 +40,16 @@ describe("meeting export HTTP seam", () => {
     await app.init();
     close = () => app.close();
     expect(
-      (await supertest(app.getHttpServer()).get("/api/w/test/meetings/m/exports/provider-json"))
-        .status,
+      (
+        await supertest(app.getHttpServer()).get(
+          "/workspaces/test/meetings/m/exports/provider-json",
+        )
+      ).status,
     ).toBe(400);
     expect(
       (
         await supertest(app.getHttpServer()).get(
-          "/api/w/test/meetings/m/exports/audio?track=internal",
+          "/workspaces/test/meetings/m/exports/audio?track=internal",
         )
       ).status,
     ).toBe(400);

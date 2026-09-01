@@ -36,7 +36,7 @@ type PurgeQuery = z.infer<typeof purgeMeetingQuerySchema>;
 
 @ApiTags("workspace-meeting-lifecycle")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings")
+@Controller("workspaces/:workspaceSlug/meetings")
 export class MeetingLifecycleController {
   constructor(private readonly lifecycle: MeetingLifecycleService) {}
 

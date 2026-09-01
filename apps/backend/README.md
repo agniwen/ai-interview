@@ -27,7 +27,7 @@ The production bundle is ESM and runs on Bun 1.4.0. The same artifact can be
 started with Node 24 through `start:node`. `Dockerfile` defaults to the Bun
 runtime; build target `node-runtime` provides the fallback image. The runtime
 smoke command builds once, then boots that exact artifact under both runtimes
-and verifies `/api/health` plus the legacy-compatible `/healthz` endpoint.
+and verifies `/system/health/backend/live` plus `/system/health/background/live`.
 The external variant additionally requires the configured PostgreSQL and Redis
 services, starts background consumers, enqueues a uniquely named meeting-answer
 job on a per-runtime isolated queue prefix whose missing exchange makes
@@ -38,10 +38,12 @@ needing SIGKILL is reported as a failed smoke run.
 The backend uses TypeScript 6 for type checking, the static architecture tests,
 and the Nest/Rspack production build.
 
-`openapi.json` is deterministic input for a future HeyAPI client generation
-step. Regenerate it whenever public route schemas change. The parity command
-compares it with the frozen migration inventory and exits non-zero for a missing
-or unexpected operation.
+`openapi.json` is deterministic input for Hey API client generation. Regenerate
+it whenever a public route or schema changes. The parity command compares all
+333 operation IDs and HTTP methods with the pre-route-migration baseline and
+exits non-zero for a missing, renamed, or unexpected operation. It also updates
+the complete old-to-new route table in
+[`migration/http-route-migration.md`](./migration/http-route-migration.md).
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the Nest module boundaries and the
 recommended mapping from current OpenAPI tags to future frontend API domains.

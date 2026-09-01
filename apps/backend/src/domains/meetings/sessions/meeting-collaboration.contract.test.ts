@@ -43,7 +43,7 @@ describe("workspace meeting collaboration public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/meeting-1/notes")
+      .post("/workspaces/test/meetings/meeting-1/notes")
       .send({ body: "", meetingTimeMs: 0 });
     expect(response.status).toBe(400);
     expect(service.createNote).not.toHaveBeenCalled();

@@ -54,7 +54,7 @@ describe("workspace interview AI tools HTTP seam", () => {
   it("validates resume profile before starting a generation stream", async () => {
     const application = await app();
     const response = await supertest(application.getHttpServer())
-      .post("/api/w/test/interview/generate-questions")
+      .post("/workspaces/test/copilot/interview-tools/generate-questions")
       .send({ resumeProfile: { name: "候选人" } });
     expect(response.status).toBe(400);
     expect(service.generateQuestions).not.toHaveBeenCalled();
@@ -64,7 +64,7 @@ describe("workspace interview AI tools HTTP seam", () => {
     service.matchJobDescription.mockResolvedValueOnce({ matchedId: "job-1", reason: "技能匹配" });
     const application = await app();
     const response = await supertest(application.getHttpServer())
-      .post("/api/w/test/interview/match-job-description")
+      .post("/workspaces/test/copilot/interview-tools/match-job-description")
       .send({
         resumeProfile: {
           age: null,

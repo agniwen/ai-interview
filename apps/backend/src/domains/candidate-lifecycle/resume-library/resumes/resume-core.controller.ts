@@ -47,7 +47,7 @@ type InterviewQuestionsInput = z.infer<typeof interviewQuestionsUpdateSchema>;
 
 @ApiTags("workspace-resumes")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/resumes")
+@Controller("workspaces/:workspaceSlug/candidates/resumes")
 export class ResumeCoreController {
   constructor(
     private readonly interviews: InterviewCoreService,

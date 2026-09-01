@@ -19,7 +19,7 @@ type SearchQuery = z.infer<typeof meetingLibrarySearchQuerySchema>;
 
 @ApiTags("workspace-meeting-search")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/search")
+@Controller("workspaces/:workspaceSlug/meetings/search")
 export class MeetingSearchController {
   constructor(private readonly searchService: MeetingSearchService) {}
   @Get()

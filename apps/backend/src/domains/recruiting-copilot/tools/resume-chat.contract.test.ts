@@ -53,7 +53,7 @@ describe("workspace resume chat HTTP seam", () => {
     );
     const application = await app();
     const response = await supertest(application.getHttpServer())
-      .post("/api/w/test/resume/chat")
+      .post("/workspaces/test/copilot/resume-chat")
       .send({
         messages: [{ id: "user-1", parts: [{ text: "你好", type: "text" }], role: "user" }],
       });
@@ -70,7 +70,7 @@ describe("workspace resume chat HTTP seam", () => {
   it("rejects a focus that does not use the legacy id contract", async () => {
     const application = await app();
     const response = await supertest(application.getHttpServer())
-      .post("/api/w/test/resume/chat")
+      .post("/workspaces/test/copilot/resume-chat")
       .send({
         focus: { kind: "resume_record", resumeRecordId: "resume-1" },
         messages: [{ id: "user-1", parts: [{ text: "评价候选人", type: "text" }], role: "user" }],

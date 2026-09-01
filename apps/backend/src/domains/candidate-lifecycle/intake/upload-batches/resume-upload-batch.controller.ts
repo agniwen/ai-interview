@@ -47,7 +47,7 @@ type InboxQuery = z.infer<typeof resumeUploadBatchInboxQuerySchema>;
 
 @ApiTags("workspace-resume-upload-batches")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/resume-upload-batches")
+@Controller("workspaces/:workspaceSlug/candidates/intake/upload-batches")
 export class ResumeUploadBatchController {
   constructor(
     @Inject(ResumeUploadBatchService) private readonly batches: ResumeUploadBatchService,

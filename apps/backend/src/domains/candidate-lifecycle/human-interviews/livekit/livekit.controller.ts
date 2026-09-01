@@ -12,7 +12,7 @@ const liveKitWebhookResponseSchema = z.union([
 ]);
 
 @ApiTags("livekit")
-@Controller("api/livekit")
+@Controller("system/integrations/livekit")
 export class LiveKitController {
   constructor(
     @Inject(LIVEKIT_WEBHOOK_PORT)

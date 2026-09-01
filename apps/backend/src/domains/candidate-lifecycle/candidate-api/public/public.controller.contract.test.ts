@@ -46,7 +46,7 @@ describe("public HTTP contract", () => {
 
   it("validates and forwards an AI interview invitation response", async () => {
     await supertest(app?.getHttpServer())
-      .post("/api/public/ai-interview-invitations/invite-token/respond")
+      .post("/public/ai-interview-invitations/invite-token/respond")
       .send({ action: "accept" })
       .expect(200, { action: "accept", status: "accepted" });
 
@@ -58,7 +58,7 @@ describe("public HTTP contract", () => {
 
   it("rejects an unsupported invitation action before the provider runs", async () => {
     await supertest(app?.getHttpServer())
-      .post("/api/public/ai-interview-invitations/invite-token/respond")
+      .post("/public/ai-interview-invitations/invite-token/respond")
       .send({ action: "maybe" })
       .expect(400);
 

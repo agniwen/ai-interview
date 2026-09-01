@@ -56,7 +56,7 @@ describe("workspace question templates public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/interview-questions")
+      .post("/workspaces/test/setup/question-templates")
       .send({
         description: "",
         jobDescriptionIds: [],
@@ -73,14 +73,14 @@ describe("workspace question templates public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const generated = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/interview-questions/ai-generate-questions")
+      .post("/workspaces/test/setup/question-templates/ai-generate-questions")
       .send({ prompt: "根据候选人经历出题" });
     expect(generated.status).toBe(200);
     expect(service.aiGenerateQuestions).toHaveBeenCalledWith("org-1", {
       prompt: "根据候选人经历出题",
     });
     const refreshed = await supertest(app.getHttpServer()).post(
-      "/api/w/test/studio/interview-questions/template-1/refresh-eligible-candidates",
+      "/workspaces/test/setup/question-templates/template-1/refresh-eligible-candidates",
     );
     expect(refreshed.status).toBe(200);
     expect(service.refreshEligibleCandidates).toHaveBeenCalledWith("org-1", "user-1", "template-1");

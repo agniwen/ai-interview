@@ -1,24 +1,13 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion, unicorn/no-await-expression-member -- The parity test reflects trusted Nest decorator metadata and normalizes its framework-owned route argument shapes before comparison. */
 import "reflect-metadata";
 
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { RequestMethod } from "@nestjs/common";
+import { MetadataScanner } from "@nestjs/core/metadata-scanner";
 import { describe, expect, it } from "vitest";
 import { API_ROOT_CONTROLLERS } from "./api-root.controllers.js";
 
-interface InventoryContract {
-  method: string;
-  path: string;
-}
-
-interface InventoryShard {
-  contracts: InventoryContract[];
-}
-
-const API_ROOT_ROUTE_PATTERN =
-  /^\/api\/(agent|livekit|meeting-local-recovery|resume|interview|platform|public|join)(\/|$)/u;
+const NON_WORKSPACE_ROUTE_PATTERN = /^\/(?:public|system)\//u;
+const metadataScanner = new MetadataScanner();
 
 function normalizePath(...segments: string[]): string {
   return `/${segments
@@ -30,15 +19,14 @@ function normalizePath(...segments: string[]): string {
 function discoverNestRoutes(): string[] {
   const routes: string[] = [];
   for (const controller of API_ROOT_CONTROLLERS) {
-    const basePath = Reflect.getMetadata(PATH_METADATA, controller) as string;
-    const prototype = controller.prototype as unknown as Record<string, unknown>;
-    for (const methodName of Object.getOwnPropertyNames(prototype)) {
-      const handler = prototype[methodName];
-      if (typeof handler !== "function") {
+    const basePath = Reflect.getMetadata(PATH_METADATA, controller);
+    for (const methodName of metadataScanner.getAllMethodNames(controller.prototype)) {
+      const handler = Object.getOwnPropertyDescriptor(controller.prototype, methodName)?.value;
+      if (!handler) {
         continue;
       }
-      const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
-      const path = Reflect.getMetadata(PATH_METADATA, handler) as string | undefined;
+      const method = Reflect.getMetadata(METHOD_METADATA, handler);
+      const path = Reflect.getMetadata(PATH_METADATA, handler);
       if (method === undefined || path === undefined) {
         continue;
       }
@@ -53,7 +41,7 @@ const BODYLESS_OR_BINARY_HANDLERS = new Set([
   "MeetingLocalRecoveryController.cleanup",
   "PublicController.roundResume",
   "PublicController.roundResumePreview",
-  "PublicController.voicePreview",
+  "PublicInterviewerVoicePreviewController.get",
   "PublicHumanInterviewCandidateMaterialsController.resume",
   "PublicHumanInterviewCandidateMaterialsController.resumePreview",
 ]);
@@ -61,13 +49,12 @@ const BODYLESS_OR_BINARY_HANDLERS = new Set([
 function discoverJsonHandlersWithoutSchemas() {
   const missing: string[] = [];
   for (const controller of API_ROOT_CONTROLLERS) {
-    const prototype = controller.prototype as unknown as Record<string, unknown>;
-    for (const methodName of Object.getOwnPropertyNames(prototype)) {
-      const handler = prototype[methodName];
-      if (
-        typeof handler !== "function" ||
-        Reflect.getMetadata(METHOD_METADATA, handler) === undefined
-      ) {
+    for (const methodName of metadataScanner.getAllMethodNames(controller.prototype)) {
+      const handler = Object.getOwnPropertyDescriptor(controller.prototype, methodName)?.value;
+      if (!handler) {
+        continue;
+      }
+      if (Reflect.getMetadata(METHOD_METADATA, handler) === undefined) {
         continue;
       }
       const key = `${controller.name}.${methodName}`;
@@ -82,32 +69,16 @@ function discoverJsonHandlersWithoutSchemas() {
   return missing;
 }
 
-async function loadInventoryRoutes(): Promise<string[]> {
-  const inventoryDirectory = join(import.meta.dirname, "../../../migration/http-contracts");
-  const shardFiles = (await readdir(inventoryDirectory))
-    .filter((name) => /^part-\d+\.json$/u.test(name))
-    .toSorted();
-  const routes: string[] = [];
-  for (const name of shardFiles) {
-    const shard = JSON.parse(
-      await readFile(join(inventoryDirectory, name), "utf-8"),
-    ) as InventoryShard;
-    for (const contract of shard.contracts) {
-      if (API_ROOT_ROUTE_PATTERN.test(contract.path)) {
-        routes.push(`${contract.method} ${contract.path}`);
-      }
-    }
-  }
-  return routes.toSorted();
-}
-
-describe("API root HTTP route coverage", () => {
-  it("registers every top-level route in the migration contract inventory", async () => {
-    const inventoryRoutes = await loadInventoryRoutes();
+describe("non-workspace HTTP route coverage", () => {
+  it("registers every public and system adapter under an explicit route family", () => {
     const nestRoutes = discoverNestRoutes();
 
-    expect(inventoryRoutes).toHaveLength(68);
-    expect(nestRoutes).toEqual(inventoryRoutes);
+    expect(nestRoutes).toHaveLength(68);
+    expect(
+      nestRoutes.every((route) =>
+        NON_WORKSPACE_ROUTE_PATTERN.test(route.slice(route.indexOf(" ") + 1)),
+      ),
+    ).toBe(true);
   });
 
   it("declares a method-level Standard Schema for every JSON response", () => {

@@ -71,7 +71,7 @@ describe("join HTTP contract", () => {
 
   it("returns the workspace preview for a valid invite code", async () => {
     const response = await supertest(app.getHttpServer())
-      .get("/api/join/ABCD1234EFGH5678/preview")
+      .get("/public/workspace-invites/ABCD1234EFGH5678/preview")
       .set("x-test-user-id", "usr_1")
       .expect(200);
 
@@ -94,7 +94,7 @@ describe("join HTTP contract", () => {
 
   it("rejects an invite code outside the public contract", async () => {
     const response = await supertest(app.getHttpServer())
-      .get("/api/join/not-valid/preview")
+      .get("/public/workspace-invites/not-valid/preview")
       .expect(400);
 
     expect(response.body).toMatchObject({

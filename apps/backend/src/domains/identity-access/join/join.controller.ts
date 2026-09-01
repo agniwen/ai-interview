@@ -21,7 +21,7 @@ import {
 } from "./join.schemas.js";
 
 @ApiTags("join")
-@Controller("api/join")
+@Controller("public/workspace-invites")
 export class JoinController {
   constructor(
     @Inject(JOIN_PORT)

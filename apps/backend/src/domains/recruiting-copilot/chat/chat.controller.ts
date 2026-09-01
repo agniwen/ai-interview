@@ -66,7 +66,7 @@ const binaryResponse = {
 
 @ApiTags("workspace-chat")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/chat")
+@Controller("workspaces/:workspaceSlug/copilot")
 export class ChatController {
   constructor(@Inject(ChatService) private readonly chat: ChatService) {}
 

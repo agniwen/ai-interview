@@ -28,7 +28,7 @@ type MemberListQuery = z.infer<typeof workspaceMemberListQuerySchema>;
 
 @ApiTags("workspace-members")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/workspace/members")
+@Controller("workspaces/:workspaceSlug/access/members")
 export class WorkspaceMembersController {
   constructor(@Inject(WorkspaceMembersService) private readonly members: WorkspaceMembersService) {}
 

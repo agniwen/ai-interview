@@ -27,7 +27,7 @@ const recoveryCleanupSchema = z.object({
 const recoveryResponseSchema = z.object({ deleteRequired: z.boolean() });
 
 @ApiTags("meeting-local-recovery")
-@Controller("api/meeting-local-recovery")
+@Controller("system/recovery/meetings")
 export class MeetingLocalRecoveryController {
   constructor(
     @Inject(MEETING_LOCAL_RECOVERY_PORT)

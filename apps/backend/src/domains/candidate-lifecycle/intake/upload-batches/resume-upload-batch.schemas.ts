@@ -1,7 +1,9 @@
 import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
 import { z } from "zod";
 
-export const resumeUploadBatchWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const resumeUploadBatchWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const resumeUploadBatchPathSchema = resumeUploadBatchWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

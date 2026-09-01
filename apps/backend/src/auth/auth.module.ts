@@ -63,10 +63,13 @@ export class AuthModule implements NestModule {
     consumer
       .apply(AuthSessionMiddleware)
       .exclude(
-        { method: RequestMethod.ALL, path: "api/auth/*splat" },
-        { method: RequestMethod.ALL, path: "api/health" },
-        { method: RequestMethod.ALL, path: "api/ready" },
+        { method: RequestMethod.ALL, path: "public/auth/*splat" },
+        { method: RequestMethod.ALL, path: "system/health/*splat" },
       )
-      .forRoutes({ method: RequestMethod.ALL, path: "api/*splat" });
+      .forRoutes(
+        { method: RequestMethod.ALL, path: "workspaces/*splat" },
+        { method: RequestMethod.ALL, path: "public/*splat" },
+        { method: RequestMethod.ALL, path: "system/*splat" },
+      );
   }
 }

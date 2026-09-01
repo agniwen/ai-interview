@@ -9,6 +9,7 @@ import {
   PublicHumanInterviewCandidateMaterialsController,
 } from "../../domains/candidate-lifecycle/candidate-api/public/public.controller.js";
 import { ResumeController } from "../../domains/candidate-lifecycle/candidate-api/resume/resume.controller.js";
+import { PublicInterviewerVoicePreviewController } from "../../domains/recruiting-setup/interviewers/public-interviewer-voice-preview.controller.js";
 
 /** Stable transport inventory used by route-contract tests; provider wiring lives in owner domain modules. */
 export const API_ROOT_CONTROLLERS = [
@@ -20,5 +21,6 @@ export const API_ROOT_CONTROLLERS = [
   PlatformController,
   PublicController,
   PublicHumanInterviewCandidateMaterialsController,
+  PublicInterviewerVoicePreviewController,
   ResumeController,
 ] as const;

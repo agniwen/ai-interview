@@ -7,7 +7,9 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 
 export { interviewQuestionTemplateSchema };
-export const questionTemplateWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const questionTemplateWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const questionTemplatePathSchema = questionTemplateWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

@@ -65,7 +65,7 @@ function streamResponse(stream: ReadableStream<Uint8Array>) {
 
 @ApiTags("workspace-interview-tools")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/interview")
+@Controller("workspaces/:workspaceSlug/copilot/interview-tools")
 export class InterviewToolsController {
   constructor(@Inject(InterviewToolsService) private readonly tools: InterviewToolsService) {}
 

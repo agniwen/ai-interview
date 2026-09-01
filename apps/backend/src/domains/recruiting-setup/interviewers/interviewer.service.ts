@@ -1,8 +1,9 @@
 import { rawBackendEnvironment } from "../../../config/raw-backend-environment.js";
 import type { BackendEnvironmentKey } from "../../../config/backend-environment.schema.js";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createHash } from "node:crypto";
+import { Readable } from "node:stream";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import {
   department,
@@ -15,6 +16,7 @@ import { parseListTextFilters } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 import { WORKSPACE_DATABASE_PORT } from "../../../infrastructure/workspace/workspace.ports.js";
 import type { WorkspaceDatabasePort } from "../../../infrastructure/workspace/workspace.ports.js";
+import type { HttpBinaryResponse } from "../../../infrastructure/http/http.ports.js";
 import type {
   interviewerFormSchema,
   interviewerListQuerySchema,
@@ -70,6 +72,67 @@ function serialize(
 export class InterviewerService {
   private storage?: { bucket: string; client: S3Client };
   constructor(@Inject(WORKSPACE_DATABASE_PORT) private readonly database: WorkspaceDatabasePort) {}
+
+  private getStorage() {
+    this.storage ??= {
+      bucket: requiredStorageEnvironment("S3_BUCKET_NAME"),
+      client: new S3Client({
+        credentials: {
+          accessKeyId: requiredStorageEnvironment("S3_ACCESS_KEY_ID"),
+          secretAccessKey: requiredStorageEnvironment("S3_SECRET_ACCESS_KEY"),
+        },
+        endpoint: new URL(requiredStorageEnvironment("S3_ENDPOINT")).origin,
+        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
+        region: requiredStorageEnvironment("S3_REGION"),
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
+      }),
+    };
+    return this.storage;
+  }
+
+  async publicVoicePreview(id: string): Promise<HttpBinaryResponse> {
+    const [row] = await this.database
+      .select({
+        contentType: minimaxVoicePreview.contentType,
+        storageKey: minimaxVoicePreview.storageKey,
+      })
+      .from(minimaxVoicePreview)
+      .where(eq(minimaxVoicePreview.id, id))
+      .limit(1);
+    if (!row) {
+      throw new NotFoundException("Voice preview not found", {
+        errorCode: "VOICE_PREVIEW_NOT_FOUND",
+      });
+    }
+    const storage = this.getStorage();
+    try {
+      const object = await storage.client.send(
+        new GetObjectCommand({ Bucket: storage.bucket, Key: row.storageKey }),
+      );
+      if (!object.Body || !(object.Body instanceof Readable)) {
+        throw new Error("S3 returned no stream");
+      }
+      const headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": row.contentType,
+      };
+      return {
+        body: object.Body,
+        headers:
+          object.ContentLength === undefined
+            ? headers
+            : { ...headers, "Content-Length": String(object.ContentLength) },
+      };
+    } catch (error) {
+      if (error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)) {
+        throw new NotFoundException("Stored file is unavailable", {
+          errorCode: "PUBLIC_FILE_NOT_FOUND",
+        });
+      }
+      throw error;
+    }
+  }
 
   async voicePreview(voice: z.infer<typeof minimaxVoiceSchema>) {
     const previewText = "我是一名宇航员，我的故乡是地球。";
@@ -132,31 +195,18 @@ export class InterviewerService {
         .replaceAll(/^_+|_+$/g, "")
         .slice(0, 160) || "voice";
     const storageKey = `voice-previews/minimax/${model}/${previewTextHash}/${safeVoice}.${format}`;
-    this.storage ??= {
-      bucket: requiredStorageEnvironment("S3_BUCKET_NAME"),
-      client: new S3Client({
-        credentials: {
-          accessKeyId: requiredStorageEnvironment("S3_ACCESS_KEY_ID"),
-          secretAccessKey: requiredStorageEnvironment("S3_SECRET_ACCESS_KEY"),
-        },
-        endpoint: new URL(requiredStorageEnvironment("S3_ENDPOINT")).origin,
-        forcePathStyle: rawBackendEnvironment.S3_FORCE_PATH_STYLE === "true",
-        region: requiredStorageEnvironment("S3_REGION"),
-        requestChecksumCalculation: "WHEN_REQUIRED",
-        responseChecksumValidation: "WHEN_REQUIRED",
-      }),
-    };
-    await this.storage.client.send(
+    const storage = this.getStorage();
+    await storage.client.send(
       new PutObjectCommand({
         Body: audio,
-        Bucket: this.storage.bucket,
+        Bucket: storage.bucket,
         ContentLength: audio.byteLength,
         ContentType: "audio/mpeg",
         Key: storageKey,
       }),
     );
     const id = crypto.randomUUID();
-    const publicUrl = `/api/public/minimax-voice-previews/${encodeURIComponent(id)}`;
+    const publicUrl = `/public/minimax-voice-previews/${encodeURIComponent(id)}`;
     const now = new Date();
     const inserted = await this.database
       .insert(minimaxVoicePreview)

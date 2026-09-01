@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import type { HttpBinaryResponse } from "../../../infrastructure/http/http.ports.js";
+import type { HttpBinaryResponse } from "./http.ports.js";
 
 function isReadableStream(body: HttpBinaryResponse["body"]): body is NodeJS.ReadableStream {
   // SAFETY: The union member is a Node readable precisely when it exposes the stream pipe method.

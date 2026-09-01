@@ -30,7 +30,7 @@ type IntelligenceRequest = z.infer<typeof requestMeetingIntelligenceSchema>;
 
 @ApiTags("workspace-meeting-intelligence")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/:id/intelligence")
+@Controller("workspaces/:workspaceSlug/meetings/:id/intelligence")
 export class MeetingIntelligenceController {
   constructor(private readonly intelligence: MeetingIntelligenceService) {}
 

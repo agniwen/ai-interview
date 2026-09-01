@@ -33,7 +33,9 @@ jobs:
         run: |
           bun run --filter @app/backend openapi
           bun run --filter @app/backend openapi:parity
-          git diff --exit-code -- apps/backend/openapi.json
+          git diff --exit-code -- \
+            apps/backend/openapi.json \
+            apps/backend/migration/http-route-migration.md
       - run: bun run --filter @app/backend smoke:runtimes
         env:
           NODE24_BINARY: node

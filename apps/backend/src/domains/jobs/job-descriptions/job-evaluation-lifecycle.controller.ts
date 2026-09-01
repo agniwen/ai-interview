@@ -49,7 +49,7 @@ type PublishUpgrade = z.infer<typeof publishUpgradeDraftSchema>;
 
 @ApiTags("workspace-job-descriptions")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/job-descriptions")
+@Controller("workspaces/:workspaceSlug/jobs")
 export class JobEvaluationLifecycleController {
   constructor(private readonly lifecycle: JobEvaluationLifecycleService) {}
   @Post(":id/evaluation-blueprint-preview")

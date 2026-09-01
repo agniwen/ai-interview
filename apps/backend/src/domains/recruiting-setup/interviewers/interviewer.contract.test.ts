@@ -12,6 +12,7 @@ import {
 } from "../../../infrastructure/http/workspace-access/index.js";
 import { InterviewerController } from "./interviewer.controller.js";
 import { InterviewerService } from "./interviewer.service.js";
+import { PublicInterviewerVoicePreviewController } from "./public-interviewer-voice-preview.controller.js";
 
 const interviewer = {
   createdAt: "2026-09-01T00:00:00.000Z",
@@ -30,6 +31,10 @@ const interviewerService = {
   get: vi.fn(async () => interviewer),
   list: vi.fn(),
   listAll: vi.fn(),
+  publicVoicePreview: vi.fn(async () => ({
+    body: new Uint8Array([1, 2, 3]),
+    headers: { "Content-Type": "audio/mpeg" },
+  })),
   remove: vi.fn(),
   update: vi.fn(),
   voicePreview: vi.fn(),
@@ -56,7 +61,7 @@ const workspaceAccess = {
 };
 
 @Module({
-  controllers: [InterviewerController],
+  controllers: [InterviewerController, PublicInterviewerVoicePreviewController],
   providers: [
     WorkspaceAccessGuard,
     { provide: InterviewerService, useValue: interviewerService },
@@ -74,6 +79,21 @@ describe("workspace interviewers public HTTP seam", () => {
     vi.clearAllMocks();
   });
 
+  it("serves public voice previews from the recruiting setup boundary", async () => {
+    const app = await NestFactory.create(InterviewerContractTestModule, { logger: false });
+    app.useGlobalPipes(new StandardSchemaValidationPipe());
+    await app.init();
+    close = () => app.close();
+
+    const response = await supertest(app.getHttpServer()).get(
+      "/public/minimax-voice-previews/vp-1",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("audio/mpeg");
+    expect(interviewerService.publicVoicePreview).toHaveBeenCalledWith("vp-1");
+  });
+
   it("validates create input before calling the service", async () => {
     const app = await NestFactory.create(InterviewerContractTestModule, { logger: false });
     app.useGlobalPipes(new StandardSchemaValidationPipe());
@@ -82,7 +102,7 @@ describe("workspace interviewers public HTTP seam", () => {
     close = () => app.close();
 
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/interviewers")
+      .post("/workspaces/test/setup/interviewers")
       .send({ departmentId: "", name: "", prompt: "", voice: "bad" });
 
     expect(response.status).toBe(400);
@@ -97,7 +117,7 @@ describe("workspace interviewers public HTTP seam", () => {
     close = () => app.close();
 
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/interviewers")
+      .post("/workspaces/test/setup/interviewers")
       .send({
         departmentId: "department-1",
         name: "技术面试官",

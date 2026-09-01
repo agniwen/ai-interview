@@ -35,7 +35,6 @@ import {
   interviewConversationTurn,
   interviewNotification,
   jobDescription,
-  minimaxVoicePreview,
   organization,
   referralLink,
   resumeDuplicateMatch,
@@ -370,26 +369,6 @@ export class PublicService implements PublicRecruitingPort {
       });
     }
     return { batchId, poolItemId: null, status: "queued" as const };
-  }
-
-  async getVoicePreview(id: string): Promise<HttpBinaryResponse> {
-    const [row] = await this.database
-      .select({
-        contentType: minimaxVoicePreview.contentType,
-        storageKey: minimaxVoicePreview.storageKey,
-      })
-      .from(minimaxVoicePreview)
-      .where(eq(minimaxVoicePreview.id, id))
-      .limit(1);
-    if (!row) {
-      throw new NotFoundException("Voice preview not found", {
-        errorCode: "VOICE_PREVIEW_NOT_FOUND",
-      });
-    }
-    return this.getObjectResponse(row.storageKey, {
-      cacheControl: "public, max-age=31536000, immutable",
-      contentType: row.contentType,
-    });
   }
 
   async getAiInterviewInvitation(token: string) {

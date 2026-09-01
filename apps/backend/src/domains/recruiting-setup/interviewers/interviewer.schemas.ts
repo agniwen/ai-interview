@@ -2,6 +2,8 @@ import { MINIMAX_VOICE_IDS } from "@arc/db-schema/minimax-voices";
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 
+export const interviewerPublicVoicePreviewPathSchema = z.object({ id: z.string().min(1) });
+
 const minimaxVoiceSchema = z.enum(MINIMAX_VOICE_IDS);
 const interviewerBaseSchema = z.object({
   departmentId: z.string().trim().min(1, "请选择所属部门"),
@@ -14,7 +16,9 @@ const interviewerBaseSchema = z.object({
 export const interviewerFormSchema = interviewerBaseSchema;
 export const interviewerUpdateSchema = interviewerBaseSchema;
 
-export const interviewerWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const interviewerWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const interviewerPathSchema = interviewerWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

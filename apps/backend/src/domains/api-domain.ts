@@ -24,6 +24,7 @@ export const API_DOMAIN_BY_TAG = {
   platform: "platform-operations",
   public: "candidate-intake",
   "public-human-interview-materials": "interviews",
+  "public-interviewer-voice-previews": "recruiting-setup",
   resume: "candidate-intake",
   "worker-diagnostics": "platform-operations",
   "workspace-calendar": "interviews",

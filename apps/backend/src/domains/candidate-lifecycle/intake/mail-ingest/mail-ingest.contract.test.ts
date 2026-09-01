@@ -48,7 +48,7 @@ describe("workspace mail ingest public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer()).get(
-      "/api/w/test/studio/mail-ingest-accounts/managed?pageSize=1000",
+      "/workspaces/test/candidates/intake/mail-ingest-accounts/managed?pageSize=1000",
     );
     expect(response.status).toBe(400);
     expect(service.listManaged).not.toHaveBeenCalled();

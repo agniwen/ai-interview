@@ -45,12 +45,12 @@ describe("workspace meeting lifecycle HTTP seam", () => {
     close = () => app.close();
 
     expect(
-      (await supertest(app.getHttpServer()).get("/api/w/test/meetings/trash?page=0")).status,
+      (await supertest(app.getHttpServer()).get("/workspaces/test/meetings/trash?page=0")).status,
     ).toBe(400);
     expect(
       (
         await supertest(app.getHttpServer()).delete(
-          "/api/w/test/meetings/m-1?localRecoveryCleanup=unknown",
+          "/workspaces/test/meetings/m-1?localRecoveryCleanup=unknown",
         )
       ).status,
     ).toBe(400);

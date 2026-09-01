@@ -21,7 +21,7 @@ type QueryInput = z.infer<typeof exportQuerySchema>;
 
 @ApiTags("workspace-meeting-exports")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/:id/exports")
+@Controller("workspaces/:workspaceSlug/meetings/:id/exports")
 export class MeetingExportController {
   constructor(private readonly exportsService: MeetingExportService) {}
   @Get(":format")

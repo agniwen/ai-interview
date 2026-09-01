@@ -32,7 +32,7 @@ export class WorkspaceAccessGuard implements CanActivate {
 
   async canActivate(executionContext: ExecutionContext): Promise<boolean> {
     const request = executionContext.switchToHttp().getRequest<Request>();
-    const slugValue = request.params.slug;
+    const slugValue = request.params.workspaceSlug;
     const slug = Array.isArray(slugValue) ? slugValue[0] : slugValue;
     const context = await this.access.resolve(request, slug);
     request.workspaceContext = context;

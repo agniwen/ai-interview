@@ -79,12 +79,12 @@ describe("workspace interview and resume public HTTP seam", () => {
   it("validates and serializes the interview dedup endpoint", async () => {
     const http = await start();
     const invalid = await http
-      .post("/api/w/test/studio/interviews/dedup-check")
+      .post("/workspaces/test/candidates/recruiting-records/dedup-check")
       .send({ phone: "x".repeat(41) });
     expect(invalid.status).toBe(400);
 
     const response = await http
-      .post("/api/w/test/studio/interviews/dedup-check")
+      .post("/workspaces/test/candidates/recruiting-records/dedup-check")
       .send({ name: "候选人" });
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ matches: [{ id: "candidate-2", score: 0.92 }] });
@@ -92,7 +92,9 @@ describe("workspace interview and resume public HTTP seam", () => {
 
   it("preserves binary response headers and bytes", async () => {
     const http = await start();
-    const response = await http.get("/api/w/test/studio/resumes/candidate-1/review/resume");
+    const response = await http.get(
+      "/workspaces/test/candidates/resumes/candidate-1/review/resume",
+    );
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toContain("application/pdf");
     expect(response.headers["content-disposition"]).toContain("candidate.pdf");

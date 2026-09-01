@@ -21,7 +21,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiMultipartBody } from "../../../../openapi/api-multipart-body.js";
-import { ApiConsumes, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiConsumes, ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { z } from "zod";
 import type { UploadedResumeFile } from "../../intake/upload-batches/resume-upload-batch.service.js";
@@ -99,6 +99,11 @@ type RecordPath = z.infer<typeof recordPathSchema>;
 type RoundEmailPath = z.infer<typeof roundEmailPathSchema>;
 type ListQuery = z.infer<typeof interviewListQuerySchema>;
 type CreateInput = z.infer<typeof interviewCreateMultipartSchema>;
+type ResolveQuery = z.infer<typeof resolveInterviewQuerySchema>;
+type HumanMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
+type HumanRoundInput = z.infer<typeof humanInterviewRoundInputSchema>;
+type HumanMeetingTokenInput = z.infer<typeof humanMeetingTokenInputSchema>;
+type RoundEmailSummaryQuery = z.infer<typeof roundEmailSummaryQuerySchema>;
 
 @Injectable()
 abstract class InterviewControllerBase {
@@ -120,9 +125,10 @@ abstract class InterviewControllerBase {
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews")
+@Controller("workspaces/:workspaceSlug/candidates/recruiting-records")
 export class InterviewCollectionController extends InterviewControllerBase {
   @Get()
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @ApiOperation({ operationId: "listWorkspaceInterviews" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: paginatedInterviewsSchema })
@@ -136,6 +142,7 @@ export class InterviewCollectionController extends InterviewControllerBase {
   }
 
   @Post()
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @UseInterceptors(FileInterceptor("resume"))
   @ApiConsumes("multipart/form-data")
   @ApiMultipartBody({ fileField: "resume", schema: interviewCreateMultipartSchema })
@@ -153,21 +160,21 @@ export class InterviewCollectionController extends InterviewControllerBase {
   }
 
   @Get("resolve")
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @ApiOperation({ operationId: "resolveWorkspaceInterview" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: interviewResolveResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   async resolve(
     @Req() request: Request,
-    @Query({ schema: resolveInterviewQuerySchema }) query: z.infer<
-      typeof resolveInterviewQuerySchema
-    >,
+    @Query({ schema: resolveInterviewQuerySchema }) query: ResolveQuery,
   ) {
     const { context, visible } = await this.requestContext(request);
     return this.workflows.resolve(context.workspace.id, query.id, visible);
   }
 
   @Post("bulk-delete")
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @HttpCode(200)
   @ApiOperation({ operationId: "bulkDeleteWorkspaceInterviews" })
   @ApiResponse({ status: 200 })
@@ -194,7 +201,7 @@ export class InterviewCollectionController extends InterviewControllerBase {
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews/:id")
+@Controller("workspaces/:workspaceSlug/candidates/recruiting-records/:id")
 export class InterviewDetailController extends InterviewControllerBase {
   constructor(
     core: InterviewCoreService,
@@ -433,9 +440,7 @@ export class InterviewDetailController extends InterviewControllerBase {
   createHumanRound(
     @Req() request: Request,
     @Param({ schema: interviewIdPathSchema }) path: IdPath,
-    @Body({ schema: humanInterviewRoundInputSchema }) body: z.infer<
-      typeof humanInterviewRoundInputSchema
-    >,
+    @Body({ schema: humanInterviewRoundInputSchema }) body: HumanRoundInput,
   ) {
     const context = getWorkspaceContext(request);
     return this.workflows.createHumanRound(context.workspace.id, context.actor.id, path.id, body);
@@ -601,7 +606,9 @@ export class InterviewDetailController extends InterviewControllerBase {
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews/:interviewRecordId/notification-recipients")
+@Controller(
+  "workspaces/:workspaceSlug/candidates/recruiting-records/:interviewRecordId/notification-recipients",
+)
 export class InterviewNotificationRecipientsController extends InterviewControllerBase {
   @Get()
   @ApiOperation({ operationId: "listWorkspaceInterviewNotificationRecipients" })
@@ -614,7 +621,6 @@ export class InterviewNotificationRecipientsController extends InterviewControll
       path.interviewRecordId,
     );
   }
-
   @Put()
   @ApiOperation({ operationId: "replaceWorkspaceInterviewNotificationRecipients" })
   @ApiResponse({ status: 200 })
@@ -637,9 +643,10 @@ export class InterviewNotificationRecipientsController extends InterviewControll
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews/human-interview-meetings")
+@Controller("workspaces/:workspaceSlug/candidates/recruiting-records/human-interview-meetings")
 export class HumanInterviewMeetingController extends InterviewControllerBase {
   @Get()
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @ApiOperation({ operationId: "listWorkspaceHumanInterviewMeetings" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: humanMeetingsResponseSchema })
@@ -652,6 +659,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   }
 
   @Post()
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @HttpCode(200)
   @ApiOperation({ operationId: "createWorkspaceHumanInterviewMeeting" })
   @ApiResponse({ status: 200 })
@@ -659,9 +667,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   @RequireWorkspacePermission("humanInterview", "create")
   create(
     @Req() request: Request,
-    @Body({ schema: humanInterviewMeetingInputSchema }) body: z.infer<
-      typeof humanInterviewMeetingInputSchema
-    >,
+    @Body({ schema: humanInterviewMeetingInputSchema }) body: HumanMeetingInput,
   ) {
     const context = getWorkspaceContext(request);
     return this.workflows.createMeeting(context.workspace.id, context.actor.id, body);
@@ -731,9 +737,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
   token(
     @Req() request: Request,
     @Param({ schema: meetingPathSchema }) path: MeetingPath,
-    @Body({ schema: humanMeetingTokenInputSchema }) body: z.infer<
-      typeof humanMeetingTokenInputSchema
-    >,
+    @Body({ schema: humanMeetingTokenInputSchema }) body: HumanMeetingTokenInput,
   ) {
     const context = getWorkspaceContext(request);
     return this.workflows.meetingLiveKitToken(
@@ -767,7 +771,7 @@ export class HumanInterviewMeetingController extends InterviewControllerBase {
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews/round-emails")
+@Controller("workspaces/:workspaceSlug/candidates/recruiting-records/round-emails")
 export class InterviewRoundEmailController extends InterviewControllerBase {
   @Post(":roundId/send")
   @HttpCode(200)
@@ -781,19 +785,16 @@ export class InterviewRoundEmailController extends InterviewControllerBase {
   }
 
   @Get("summary")
+  @ApiParam({ name: "workspaceSlug", required: true, type: String })
   @ApiOperation({ operationId: "getWorkspaceInterviewRoundEmailSummary" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: roundEmailSummaryResponseSchema })
   @RequireWorkspacePermission("interview", "read")
   summary(
     @Req() request: Request,
-    @Query({ schema: roundEmailSummaryQuerySchema }) query: z.infer<
-      typeof roundEmailSummaryQuerySchema
-    >,
+    @Query({ schema: roundEmailSummaryQuerySchema }) query: RoundEmailSummaryQuery,
   ) {
-    return this.workflows.roundEmailSummary(
-      getWorkspaceContext(request).workspace.id,
-      query.roundIds,
-    );
+    const context = getWorkspaceContext(request);
+    return this.workflows.roundEmailSummary(context.workspace.id, query.roundIds);
   }
 }

@@ -1,7 +1,7 @@
 import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 import { z } from "zod";
 
-export const mailWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const mailWorkspacePathSchema = z.object({ workspaceSlug: z.string().trim().min(1) });
 export const mailAccountPathSchema = mailWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

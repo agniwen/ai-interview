@@ -46,7 +46,7 @@ describe("workspace meeting upload HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings")
+      .post("/workspaces/test/meetings")
       .send({
         assets: [],
         id: crypto.randomUUID(),

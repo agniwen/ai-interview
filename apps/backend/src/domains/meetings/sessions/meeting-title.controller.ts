@@ -16,7 +16,7 @@ type BodyInput = z.infer<typeof recordingTitleRequestSchema>;
 
 @ApiTags("workspace-meeting-title")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/title")
+@Controller("workspaces/:workspaceSlug/meetings/title")
 export class MeetingTitleController {
   constructor(private readonly titleService: MeetingTitleService) {}
   @Post()

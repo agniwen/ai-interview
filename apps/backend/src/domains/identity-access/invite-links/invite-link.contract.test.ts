@@ -50,7 +50,7 @@ describe("workspace invite links public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .patch("/api/w/test/studio/workspace/invite-links/link-1")
+      .patch("/workspaces/test/access/invite-links/link-1")
       .send({ initialRole: "" });
     expect(response.status).toBe(400);
     expect(service.updateRole).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("workspace invite links public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/workspace/invite-links")
+      .post("/workspaces/test/access/invite-links")
       .send({ email: "not-an-email", initialRole: "member" });
     expect(response.status).toBe(400);
     expect(service.create).not.toHaveBeenCalled();

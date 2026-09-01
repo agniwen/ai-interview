@@ -77,22 +77,22 @@ describe("workspace resume workflows HTTP seam", () => {
   it("lists and reads resume records", async () => {
     const instance = await app();
     const collectionResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/resumes",
+      "/workspaces/test/candidates/resumes",
     );
     expect(collectionResponse.status).toBe(200);
     const detailResponse = await supertest(instance.getHttpServer()).get(
-      "/api/w/test/studio/resumes/r1",
+      "/workspaces/test/candidates/resumes/r1",
     );
     expect(detailResponse.status).toBe(200);
   });
   it("validates evaluation and structured gate mutations", async () => {
     const instance = await app();
     const evaluationResponse = await supertest(instance.getHttpServer())
-      .patch("/api/w/test/studio/resumes/r1/evaluation")
+      .patch("/workspaces/test/candidates/resumes/r1/evaluation")
       .send({ status: "invalid" });
     expect(evaluationResponse.status).toBe(400);
     const gateResponse = await supertest(instance.getHttpServer())
-      .patch("/api/w/test/studio/resumes/r1/structured-evaluation/gates/g1")
+      .patch("/workspaces/test/candidates/resumes/r1/structured-evaluation/gates/g1")
       .send({ correctedStatus: "passed" });
     expect(gateResponse.status).toBe(400);
   });

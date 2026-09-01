@@ -78,7 +78,7 @@ describe("workspace departments public HTTP seam", () => {
     close = () => app.close();
 
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/departments")
+      .post("/workspaces/test/setup/departments")
       .send({ name: "" });
 
     expect(response.status).toBe(400);
@@ -94,7 +94,7 @@ describe("workspace departments public HTTP seam", () => {
     close = () => app.close();
 
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/studio/departments")
+      .post("/workspaces/test/setup/departments")
       .send({ name: " 研发部 " });
 
     expect(response.status).toBe(201);
@@ -116,7 +116,9 @@ describe("workspace departments public HTTP seam", () => {
     await app.init();
     close = () => app.close();
 
-    const response = await supertest(app.getHttpServer()).get("/api/w/test/studio/departments/all");
+    const response = await supertest(app.getHttpServer()).get(
+      "/workspaces/test/setup/departments/all",
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ records: [created] });

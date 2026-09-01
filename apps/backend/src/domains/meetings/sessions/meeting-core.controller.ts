@@ -32,7 +32,7 @@ type UpdateMeetingMetadata = z.infer<typeof updateMeetingMetadataSchema>;
 
 @ApiTags("workspace-meetings")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings")
+@Controller("workspaces/:workspaceSlug/meetings")
 export class MeetingCoreController {
   constructor(private readonly meetings: MeetingCoreService) {}
 

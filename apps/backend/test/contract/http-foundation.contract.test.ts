@@ -14,28 +14,28 @@ afterAll(async () => {
 
 describe("public health contracts", () => {
   it("reports the API process as live", async () => {
-    const response = await backend.http.get("/api/health");
+    const response = await backend.http.get("/system/health/backend/live");
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
   });
 
   it("keeps an HTTP-only replica ready when background workers are disabled", async () => {
-    const response = await backend.http.get("/api/ready");
+    const response = await backend.http.get("/system/health/backend/ready");
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
   });
 
   it("preserves the worker liveness response", async () => {
-    const response = await backend.http.get("/healthz");
+    const response = await backend.http.get("/system/health/background/live");
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
   });
 
   it("makes a disabled background workload explicit on the worker readiness endpoint", async () => {
-    const response = await backend.http.get("/readyz");
+    const response = await backend.http.get("/system/health/background/ready");
 
     expect(response.status).toBe(503);
     expect(response.body).toMatchObject({
@@ -48,11 +48,23 @@ describe("public health contracts", () => {
 });
 
 describe("HTTP error protocol boundaries", () => {
+  it("does not retain legacy /api route aliases", async () => {
+    const [healthResponse, authResponse] = await Promise.all([
+      backend.http.get("/api/health"),
+      backend.http.get("/api/auth/get-session"),
+    ]);
+
+    expect(healthResponse.status).toBe(404);
+    expect(authResponse.status).toBe(404);
+  });
+
   it("echoes the request correlation header on Nest and Better Auth responses", async () => {
     const correlationId = "contract-request-correlation";
     const [nestResponse, authResponse] = await Promise.all([
-      backend.http.get("/api/health").set("x-request-id", correlationId),
-      backend.http.get("/api/auth/__contract_missing_route__").set("x-request-id", correlationId),
+      backend.http.get("/system/health/backend/live").set("x-request-id", correlationId),
+      backend.http
+        .get("/public/auth/__contract_missing_route__")
+        .set("x-request-id", correlationId),
     ]);
 
     expect(nestResponse.headers["x-request-id"]).toBe(correlationId);
@@ -60,7 +72,7 @@ describe("HTTP error protocol boundaries", () => {
   });
 
   it("uses the Nest standard exception envelope for Nest-owned routes", async () => {
-    const response = await backend.http.get("/api/__contract_missing_route__");
+    const response = await backend.http.get("/public/__contract_missing_route__");
 
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
@@ -71,7 +83,7 @@ describe("HTTP error protocol boundaries", () => {
   });
 
   it("leaves Better Auth errors in the vendor protocol", async () => {
-    const response = await backend.http.get("/api/auth/__contract_missing_route__");
+    const response = await backend.http.get("/public/auth/__contract_missing_route__");
 
     expect(response.status).toBe(404);
     expect(response.body).not.toHaveProperty("statusCode");

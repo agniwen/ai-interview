@@ -51,9 +51,11 @@ import {
   resumeReviewFilePathSchema,
   resumeRoundsSchema,
   resumeTimelineSchema,
+  resumeWorkspacePathSchema,
 } from "./resume-core.schemas.js";
 
 type Path = z.infer<typeof resumeReviewFilePathSchema>;
+type WorkspacePath = z.infer<typeof resumeWorkspacePathSchema>;
 type GatePath = z.infer<typeof resumeGatePathSchema>;
 type ListQuery = z.infer<typeof resumeListQuerySchema>;
 type CreateInput = z.infer<typeof resumeCreateSchema>;
@@ -67,7 +69,7 @@ type BulkInput = z.infer<typeof resumeBulkDeleteSchema>;
 
 @ApiTags("workspace-resumes")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/resumes")
+@Controller("workspaces/:workspaceSlug/candidates/resumes")
 export class ResumeWorkflowController {
   constructor(
     private readonly interviews: InterviewCoreService,
@@ -88,7 +90,11 @@ export class ResumeWorkflowController {
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: resumeListSchema })
   @RequireWorkspacePermission("resumeLibrary", "read")
-  async list(@Req() request: Request, @Query({ schema: resumeListQuerySchema }) query: ListQuery) {
+  async list(
+    @Req() request: Request,
+    @Param({ schema: resumeWorkspacePathSchema }) _path: WorkspacePath,
+    @Query({ schema: resumeListQuerySchema }) query: ListQuery,
+  ) {
     const { context, visible } = await this.context(request);
     return this.workflows.list(context.workspace.id, visible, query);
   }
@@ -260,6 +266,7 @@ export class ResumeWorkflowController {
   @RequireWorkspacePermission("resumeLibrary", "create")
   create(
     @Req() request: Request,
+    @Param({ schema: resumeWorkspacePathSchema }) _path: WorkspacePath,
     @Body({ schema: resumeCreateSchema }) body: CreateInput,
     @UploadedFile() file?: UploadedResumeFile,
   ) {
@@ -331,6 +338,7 @@ export class ResumeWorkflowController {
   @RequireWorkspacePermission("resumeLibrary", "delete")
   async bulkDelete(
     @Req() request: Request,
+    @Param({ schema: resumeWorkspacePathSchema }) _path: WorkspacePath,
     @Body({ schema: resumeBulkDeleteSchema }) body: BulkInput,
   ) {
     const { context, visible } = await this.context(request);

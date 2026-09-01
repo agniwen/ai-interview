@@ -11,6 +11,7 @@ import { GlobalConfigController } from "./global-config/global-config.controller
 import { GlobalConfigService } from "./global-config/global-config.service.js";
 import { InterviewerController } from "./interviewers/interviewer.controller.js";
 import { InterviewerService } from "./interviewers/interviewer.service.js";
+import { PublicInterviewerVoicePreviewController } from "./interviewers/public-interviewer-voice-preview.controller.js";
 import { QuestionTemplateController } from "./question-templates/question-template.controller.js";
 import { QuestionTemplateService } from "./question-templates/question-template.service.js";
 
@@ -20,6 +21,7 @@ import { QuestionTemplateService } from "./question-templates/question-template.
     GlobalConfigController,
     CandidateFormController,
     InterviewerController,
+    PublicInterviewerVoicePreviewController,
     QuestionTemplateController,
   ],
   imports: [

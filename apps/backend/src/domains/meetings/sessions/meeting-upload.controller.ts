@@ -37,7 +37,7 @@ type CompleteInput = z.infer<typeof completeSmallSavedMeetingSchema>;
 
 @ApiTags("workspace-meeting-upload")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings")
+@Controller("workspaces/:workspaceSlug/meetings")
 export class MeetingUploadController {
   constructor(private readonly upload: MeetingUploadService) {}
   @Post()

@@ -23,7 +23,7 @@ import {
 import { MeetingCollaborationService } from "./meeting-collaboration.service.js";
 import {
   createMeetingNoteSchema,
-  meetingNestedPathSchema,
+  meetingNotePathSchema,
   meetingNoteSchema,
   meetingNotesResponseSchema,
   meetingPathSchema,
@@ -35,7 +35,7 @@ import {
 } from "./meeting.schemas.js";
 
 type MeetingPath = z.infer<typeof meetingPathSchema>;
-type NestedPath = z.infer<typeof meetingNestedPathSchema>;
+type NotePath = z.infer<typeof meetingNotePathSchema>;
 type CreateNote = z.infer<typeof createMeetingNoteSchema>;
 type UpdateNote = z.infer<typeof updateMeetingNoteSchema>;
 type UpdateShare = z.infer<typeof updateMeetingShareSchema>;
@@ -43,7 +43,7 @@ type ReassignOwner = z.infer<typeof reassignMeetingOwnerSchema>;
 
 @ApiTags("workspace-meeting-collaboration")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/:id")
+@Controller("workspaces/:workspaceSlug/meetings/:id")
 export class MeetingCollaborationController {
   constructor(private readonly collaboration: MeetingCollaborationService) {}
 
@@ -92,7 +92,7 @@ export class MeetingCollaborationController {
   @SerializeOptions({ schema: meetingNoteSchema })
   updateNote(
     @Req() request: Request,
-    @Param({ schema: meetingNestedPathSchema }) path: NestedPath,
+    @Param({ schema: meetingNotePathSchema }) path: NotePath,
     @Body({ schema: updateMeetingNoteSchema }) body: UpdateNote,
   ) {
     const context = getWorkspaceContext(request);
@@ -101,7 +101,7 @@ export class MeetingCollaborationController {
       context.actor.id,
       context.member.role,
       path.id,
-      path.noteId ?? "",
+      path.noteId,
       body,
     );
   }
@@ -112,7 +112,7 @@ export class MeetingCollaborationController {
   @ApiResponse({ status: 204 })
   async deleteNote(
     @Req() request: Request,
-    @Param({ schema: meetingNestedPathSchema }) path: NestedPath,
+    @Param({ schema: meetingNotePathSchema }) path: NotePath,
   ): Promise<void> {
     const context = getWorkspaceContext(request);
     await this.collaboration.deleteNote(
@@ -120,7 +120,7 @@ export class MeetingCollaborationController {
       context.actor.id,
       context.member.role,
       path.id,
-      path.noteId ?? "",
+      path.noteId,
     );
   }
 

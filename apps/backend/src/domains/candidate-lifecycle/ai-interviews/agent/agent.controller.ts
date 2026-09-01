@@ -21,7 +21,7 @@ const retryNotificationsResponseSchema = z.object({
 });
 
 @ApiTags("agent")
-@Controller("api/agent")
+@Controller("system/agents/ai-interviews")
 export class AgentController {
   constructor(
     @Inject(AGENT_PORT)

@@ -39,7 +39,7 @@ type CreateInput = z.infer<typeof inviteLinkCreateSchema>;
 @ApiTags("workspace-invite-links")
 @UseGuards(WorkspaceAccessGuard)
 @RequireWorkspacePermission("invitation", "create")
-@Controller("api/w/:slug/studio/workspace/invite-links")
+@Controller("workspaces/:workspaceSlug/access/invite-links")
 export class InviteLinkController {
   constructor(@Inject(InviteLinkService) private readonly links: InviteLinkService) {}
 

@@ -63,11 +63,11 @@ describe("job evaluation lifecycle HTTP seam", () => {
   it("validates optimistic upgrade mutations", async () => {
     const instance = await app();
     const updateResponse = await supertest(instance.getHttpServer())
-      .put("/api/w/test/studio/job-descriptions/j1/upgrade")
+      .put("/workspaces/test/jobs/j1/upgrade")
       .send({});
     expect(updateResponse.status).toBe(400);
     const deleteResponse = await supertest(instance.getHttpServer()).delete(
-      "/api/w/test/studio/job-descriptions/j1/upgrade",
+      "/workspaces/test/jobs/j1/upgrade",
     );
     expect(deleteResponse.status).toBe(400);
   });
@@ -88,7 +88,7 @@ describe("job evaluation lifecycle HTTP seam", () => {
       version: 1,
     });
     const response = await supertest(instance.getHttpServer()).post(
-      "/api/w/test/studio/job-descriptions/j1/upgrade",
+      "/workspaces/test/jobs/j1/upgrade",
     );
     expect(response.status).toBe(201);
     expect(lifecycle.createUpgrade).toHaveBeenCalledWith("o1", "u1", "j1");

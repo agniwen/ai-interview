@@ -83,7 +83,7 @@ export class WorkerDiagnosticsGuard implements CanActivate {
 
 @ApiBearerAuth()
 @ApiTags("worker-diagnostics")
-@Controller()
+@Controller("system/background")
 @UseGuards(WorkerDiagnosticsGuard)
 export class BackgroundDiagnosticsController {
   constructor(

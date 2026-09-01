@@ -54,7 +54,7 @@ describe("workspace meeting core public HTTP seam", () => {
     await app.init();
     close = () => app.close();
 
-    const response = await supertest(app.getHttpServer()).get("/api/w/test/meetings");
+    const response = await supertest(app.getHttpServer()).get("/workspaces/test/meetings");
 
     expect(response.status).toBe(200);
     expect(service.list).toHaveBeenCalledWith("org-1", "user-1", "member");
@@ -67,7 +67,7 @@ describe("workspace meeting core public HTTP seam", () => {
     close = () => app.close();
 
     const response = await supertest(app.getHttpServer())
-      .patch("/api/w/test/meetings/meeting-1")
+      .patch("/workspaces/test/meetings/meeting-1")
       .send({ title: "" });
 
     expect(response.status).toBe(400);

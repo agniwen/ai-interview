@@ -59,7 +59,7 @@ type RecommendationInput = z.infer<typeof resumePoolRecommendationsSchema>;
 
 @ApiTags("workspace-resume-pool")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/resume-pool")
+@Controller("workspaces/:workspaceSlug/candidates/intake/resume-pool")
 export class ResumePoolController {
   constructor(
     private readonly interviews: InterviewCoreService,
@@ -98,7 +98,10 @@ export class ResumePoolController {
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: resumePoolUploadersSchema })
   @RequireWorkspacePermission("resumePool", "read")
-  async uploaders(@Req() request: Request) {
+  async uploaders(
+    @Req() request: Request,
+    @Param({ schema: resumePoolWorkspacePathSchema }) _path: WorkspacePath,
+  ) {
     const context = getWorkspaceContext(request);
     return this.pool.uploaders(context.workspace.id, await this.visible(request));
   }

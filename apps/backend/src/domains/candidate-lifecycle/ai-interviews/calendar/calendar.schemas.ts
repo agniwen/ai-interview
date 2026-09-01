@@ -7,7 +7,9 @@ import { interviewSummaryStatusSchema } from "@arc/db-schema/db-enums";
 import { z } from "zod";
 
 const instantSchema = z.iso.datetime({ offset: true });
-export const calendarWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const calendarWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const calendarPreviewPathSchema = calendarWorkspacePathSchema.extend({
   roundId: z.string().trim().min(1),
 });

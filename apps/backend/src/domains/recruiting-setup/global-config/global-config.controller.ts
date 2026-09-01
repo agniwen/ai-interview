@@ -26,7 +26,7 @@ type WorkspacePath = z.infer<typeof workspaceSlugSchema>;
 
 @ApiTags("workspace-global-config")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/global-config")
+@Controller("workspaces/:workspaceSlug/setup/global-config")
 export class GlobalConfigController {
   constructor(@Inject(GlobalConfigService) private readonly config: GlobalConfigService) {}
 

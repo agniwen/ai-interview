@@ -36,7 +36,7 @@ type FilePath = z.infer<typeof resumeReviewFilePathSchema>;
 
 @ApiTags("workspace-interviews")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviews")
+@Controller("workspaces/:workspaceSlug/candidates/recruiting-records")
 export class InterviewCoreController {
   constructor(
     private readonly interviews: InterviewCoreService,

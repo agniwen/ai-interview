@@ -17,9 +17,15 @@ export const recruitingGroupMemberInputSchema = z.object({
   userId: z.string().trim().min(1),
 });
 export const recruitingGroupMemberRoleInputSchema = z.object({ role: recruitingGroupRoleSchema });
-export const groupPathSchema = z.object({ id: z.string().min(1), slug: z.string().min(1) });
+export const groupPathSchema = z.object({
+  id: z.string().min(1),
+  workspaceSlug: z.string().min(1),
+});
 export const groupMemberPathSchema = groupPathSchema.extend({ userId: z.string().min(1) });
-export const memberPathSchema = z.object({ slug: z.string().min(1), userId: z.string().min(1) });
+export const memberPathSchema = z.object({
+  userId: z.string().min(1),
+  workspaceSlug: z.string().min(1),
+});
 
 export const groupMemberSchema = z.object({
   email: z.string(),

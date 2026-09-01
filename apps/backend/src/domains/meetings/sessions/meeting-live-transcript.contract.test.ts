@@ -54,7 +54,7 @@ describe("meeting live transcript HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/live-transcript")
+      .post("/workspaces/test/meetings/live-transcript")
       .send({ captureId: "550e8400-e29b-41d4-a716-446655440000", track: "microphone" });
     expect(response.status).toBe(201);
     expect(response.headers["cache-control"]).toBe("no-store");
@@ -68,7 +68,7 @@ describe("meeting live transcript HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer()).post(
-      "/api/w/test/meetings/live-transcript/550e8400-e29b-41d4-a716-446655440000/heartbeat",
+      "/workspaces/test/meetings/live-transcript/550e8400-e29b-41d4-a716-446655440000/heartbeat",
     );
     expect(response.status).toBe(409);
   });

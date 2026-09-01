@@ -33,7 +33,7 @@ type UpdateInput = z.infer<typeof updateMeetingRecruitingContextSchema>;
 
 @ApiTags("workspace-meeting-recruiting-context")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/:id/recruiting-context")
+@Controller("workspaces/:workspaceSlug/meetings/:id/recruiting-context")
 export class MeetingRecruitingController {
   constructor(private readonly recruiting: MeetingRecruitingService) {}
 

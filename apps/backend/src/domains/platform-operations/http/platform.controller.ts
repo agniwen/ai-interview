@@ -57,7 +57,7 @@ import {
 } from "./platform.schemas.js";
 
 @ApiTags("platform")
-@Controller("api/platform")
+@Controller("system/platform")
 export class PlatformController {
   constructor(
     @Inject(PLATFORM_PORT)
@@ -70,7 +70,7 @@ export class PlatformController {
     return this.auth.requirePlatformAdministrator(request);
   }
 
-  @Get("organizations")
+  @Get("workspaces")
   @SerializeOptions({ schema: platformOrganizationsResponseSchema })
   @ApiOperation({ operationId: "listPlatformOrganizations" })
   @ApiResponse({ status: 200 })
@@ -83,18 +83,18 @@ export class PlatformController {
     return this.platform.listOrganizations(query);
   }
 
-  @Get("organizations/:orgId")
+  @Get("workspaces/:workspaceId")
   @SerializeOptions({ schema: platformOrganizationResponseSchema })
   @ApiOperation({ operationId: "getPlatformOrganization" })
   @ApiResponse({ status: 200 })
   organization(
-    @Param("orgId", { schema: platformIdentifierSchema }) organizationId: string,
+    @Param("workspaceId", { schema: platformIdentifierSchema }) workspaceId: string,
     @Query({ schema: platformOrganizationMembersQuerySchema })
     query: z.infer<typeof platformOrganizationMembersQuerySchema>,
     @Req() request: Request,
   ) {
     this.authorize(request);
-    return this.platform.getOrganization(organizationId, query);
+    return this.platform.getOrganization(workspaceId, query);
   }
 
   @Get("users")

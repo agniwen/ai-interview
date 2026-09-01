@@ -45,7 +45,7 @@ type VoicePreviewInput = z.infer<typeof interviewerVoicePreviewInputSchema>;
 
 @ApiTags("workspace-interviewers")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/interviewers")
+@Controller("workspaces/:workspaceSlug/setup/interviewers")
 export class InterviewerController {
   constructor(@Inject(InterviewerService) private readonly interviewers: InterviewerService) {}
 

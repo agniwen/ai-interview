@@ -11,7 +11,9 @@ import {
   jobDescriptionStructuredConfigSchema,
 } from "@arc/db-schema/job-description-structured-config";
 
-export const jobDescriptionWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const jobDescriptionWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const jobDescriptionPathSchema = jobDescriptionWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 
-export const interviewToolsWorkspacePathSchema = z.object({ slug: z.string().min(1) });
+export const interviewToolsWorkspacePathSchema = z.object({ workspaceSlug: z.string().min(1) });
 export const jobMatchInputSchema = z.object({
   interviewRecordId: z.string().optional(),
   resumeProfile: resumeProfileSchema,

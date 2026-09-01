@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const inviteLinkWorkspacePathSchema = z.object({ slug: z.string().trim().min(1) });
+export const inviteLinkWorkspacePathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 export const inviteLinkPathSchema = inviteLinkWorkspacePathSchema.extend({
   id: z.string().trim().min(1),
 });

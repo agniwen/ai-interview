@@ -94,6 +94,7 @@ export function createBackendAuth(
         ? { trustedProxyHeaders: true, useSecureCookies: true }
         : undefined,
     appName: "招聘 AI 协同工作台",
+    basePath: "/public/auth",
     baseURL: environment.BETTER_AUTH_URL,
     database: drizzleAdapter(database, { provider: "pg", schema }),
     databaseHooks: {

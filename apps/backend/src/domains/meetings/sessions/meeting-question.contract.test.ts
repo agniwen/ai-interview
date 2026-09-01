@@ -39,7 +39,7 @@ describe("meeting questions HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer())
-      .post("/api/w/test/meetings/m/questions/t/messages")
+      .post("/workspaces/test/meetings/m/questions/t/messages")
       .send({ question: "谁负责？", requestId: "bad" });
     expect(response.status).toBe(400);
     expect(service.ask).not.toHaveBeenCalled();

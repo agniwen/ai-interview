@@ -19,7 +19,7 @@ import { listTextFiltersSchema } from "@arc/shared/list-text-filters";
 
 export const interviewIdPathSchema = z.object({
   id: z.string().trim().min(1),
-  slug: z.string().trim().min(1),
+  workspaceSlug: z.string().trim().min(1),
 });
 export const interviewChildPathSchema = interviewIdPathSchema.extend({
   conversationId: z.string().trim().min(1),
@@ -35,15 +35,15 @@ export const offerDraftPathSchema = interviewIdPathSchema.extend({
 });
 export const meetingPathSchema = z.object({
   meetingId: z.string().trim().min(1),
-  slug: z.string().trim().min(1),
+  workspaceSlug: z.string().trim().min(1),
 });
 export const recordPathSchema = z.object({
   interviewRecordId: z.string().trim().min(1),
-  slug: z.string().trim().min(1),
+  workspaceSlug: z.string().trim().min(1),
 });
 export const roundEmailPathSchema = z.object({
   roundId: z.string().trim().min(1),
-  slug: z.string().trim().min(1),
+  workspaceSlug: z.string().trim().min(1),
 });
 
 export const interviewListQuerySchema = z.object({

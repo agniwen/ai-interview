@@ -54,7 +54,7 @@ type RecommendationsInput = z.infer<typeof jobDescriptionRecommendationsInputSch
 
 @ApiTags("workspace-job-descriptions")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/job-descriptions")
+@Controller("workspaces/:workspaceSlug/jobs")
 export class JobDescriptionController {
   constructor(private readonly jobs: JobDescriptionService) {}
 

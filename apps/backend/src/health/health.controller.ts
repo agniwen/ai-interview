@@ -16,7 +16,7 @@ import { RuntimeReadinessHealthIndicator } from "./runtime-readiness-health.indi
 
 const healthResponseSchema = z.object({ ok: z.literal(true) });
 @ApiTags("health")
-@Controller()
+@Controller("system/health")
 export class HealthController {
   private readonly healthyResponse = { ok: true } as const;
 
@@ -31,7 +31,7 @@ export class HealthController {
     private readonly backgroundHealth: BackgroundReadinessHealthIndicator,
   ) {}
 
-  @Get("api/health")
+  @Get("backend/live")
   @ApiOperation({ operationId: "getApiHealth" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: healthResponseSchema })
@@ -39,7 +39,7 @@ export class HealthController {
     return this.healthyResponse;
   }
 
-  @Get("healthz")
+  @Get("background/live")
   @ApiOperation({ operationId: "getWorkerHealth" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: healthResponseSchema })
@@ -47,7 +47,7 @@ export class HealthController {
     return this.healthyResponse;
   }
 
-  @Get("api/ready")
+  @Get("backend/ready")
   @ApiOperation({ operationId: "getApiReadiness" })
   @ApiResponse({ status: 200 })
   @ApiResponse({ status: 503 })
@@ -70,7 +70,7 @@ export class HealthController {
     return { ok: true } as const;
   }
 
-  @Get("readyz")
+  @Get("background/ready")
   @ApiOperation({ operationId: "getWorkerReadiness" })
   @ApiResponse({ status: 200 })
   @ApiResponse({ status: 503 })

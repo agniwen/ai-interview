@@ -53,7 +53,7 @@ type AiGenerateInput = z.infer<typeof candidateFormAiGenerateInputSchema>;
 
 @ApiTags("workspace-candidate-forms")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/forms")
+@Controller("workspaces/:workspaceSlug/setup/candidate-forms")
 export class CandidateFormController {
   constructor(@Inject(CandidateFormService) private readonly forms: CandidateFormService) {}
 

@@ -42,7 +42,7 @@ type WorkspacePath = z.infer<typeof workspaceSlugSchema>;
 
 @ApiTags("workspace-departments")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/studio/departments")
+@Controller("workspaces/:workspaceSlug/setup/departments")
 export class DepartmentController {
   constructor(@Inject(DepartmentService) private readonly departments: DepartmentService) {}
 

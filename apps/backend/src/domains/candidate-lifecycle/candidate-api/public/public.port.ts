@@ -45,7 +45,6 @@ export interface PublicRecruitingPort {
   getRoundReports(id: string): Promise<HttpResponse>;
   getRoundResume(id: string): Promise<HttpBinaryResponse>;
   getRoundResumePreview(id: string): Promise<HttpBinaryResponse>;
-  getVoicePreview(id: string): Promise<HttpBinaryResponse>;
   listCandidateMaterials(inviteToken: string): Promise<HttpResponse>;
   listResumeRounds(id: string): Promise<HttpResponse>;
   resolveRound(id: string): Promise<{ roundId: string }>;

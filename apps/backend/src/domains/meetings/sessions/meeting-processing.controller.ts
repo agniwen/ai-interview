@@ -23,26 +23,26 @@ import { MeetingProcessingService } from "./meeting-processing.service.js";
 import {
   finalMeetingTranscriptRevisionSchema,
   createMeetingTranscriptCorrectionSchema,
-  meetingNestedPathSchema,
   meetingPathSchema,
   meetingPlaybackResponseSchema,
   meetingProcessingResponseSchema,
   meetingTranscriptHistoryResponseSchema,
   meetingTranscriptResponseSchema,
   meetingTranscriptionPolicyResponseSchema,
+  meetingRevisionPathSchema,
   updateMeetingTranscriptionPolicySchema,
   workspaceMeetingPathSchema,
 } from "./meeting.schemas.js";
 
 type MeetingPath = z.infer<typeof meetingPathSchema>;
-type NestedPath = z.infer<typeof meetingNestedPathSchema>;
+type RevisionPath = z.infer<typeof meetingRevisionPathSchema>;
 type WorkspacePath = z.infer<typeof workspaceMeetingPathSchema>;
 type UpdatePolicy = z.infer<typeof updateMeetingTranscriptionPolicySchema>;
 type TranscriptCorrection = z.infer<typeof createMeetingTranscriptCorrectionSchema>;
 
 @ApiTags("workspace-meeting-processing")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings")
+@Controller("workspaces/:workspaceSlug/meetings")
 export class MeetingProcessingController {
   constructor(private readonly processing: MeetingProcessingService) {}
 
@@ -142,7 +142,7 @@ export class MeetingProcessingController {
   @SerializeOptions({ schema: finalMeetingTranscriptRevisionSchema })
   transcriptRevision(
     @Req() request: Request,
-    @Param({ schema: meetingNestedPathSchema }) path: NestedPath,
+    @Param({ schema: meetingRevisionPathSchema }) path: RevisionPath,
   ) {
     const context = getWorkspaceContext(request);
     return this.processing.transcriptRevision(
@@ -150,7 +150,7 @@ export class MeetingProcessingController {
       context.actor.id,
       context.member.role,
       path.id,
-      path.revisionId ?? "",
+      path.revisionId,
     );
   }
 

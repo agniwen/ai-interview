@@ -4,7 +4,7 @@
  */
 export const routeSpecificityCases = [
   {
-    parameterizedPath: "/api/w/:slug/studio/departments/:id",
-    staticPath: "/api/w/:slug/studio/departments/all",
+    parameterizedPath: "/workspaces/:workspaceSlug/setup/departments/:id",
+    staticPath: "/workspaces/:workspaceSlug/setup/departments/all",
   },
 ] as const;

@@ -41,7 +41,7 @@ describe("workspace calendar public HTTP seam", () => {
     await app.init();
     close = () => app.close();
     const response = await supertest(app.getHttpServer()).get(
-      "/api/w/test/studio/calendar?start=2026-09-02T00:00:00Z&end=2026-09-01T00:00:00Z",
+      "/workspaces/test/candidates/ai-interviews/calendar?start=2026-09-02T00:00:00Z&end=2026-09-01T00:00:00Z",
     );
     expect(response.status).toBe(400);
     expect(service.list).not.toHaveBeenCalled();

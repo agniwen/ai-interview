@@ -25,20 +25,20 @@ import { MeetingQuestionService } from "./meeting-question.service.js";
 import {
   createMeetingQuestionSchema,
   createMeetingQuestionThreadSchema,
-  meetingNestedPathSchema,
   meetingPathSchema,
+  meetingQuestionPathSchema,
   meetingQuestionExchangeSchema,
   meetingQuestionThreadSchema,
   meetingQuestionThreadSummarySchema,
   meetingQuestionThreadsResponseSchema,
 } from "./meeting.schemas.js";
 type Path = z.infer<typeof meetingPathSchema>;
-type Nested = z.infer<typeof meetingNestedPathSchema>;
+type QuestionPath = z.infer<typeof meetingQuestionPathSchema>;
 type ThreadInput = z.infer<typeof createMeetingQuestionThreadSchema>;
 type QuestionInput = z.infer<typeof createMeetingQuestionSchema>;
 @ApiTags("workspace-meeting-questions")
 @UseGuards(WorkspaceAccessGuard)
-@Controller("api/w/:slug/meetings/:id/questions")
+@Controller("workspaces/:workspaceSlug/meetings/:id/questions")
 export class MeetingQuestionController {
   constructor(private readonly questions: MeetingQuestionService) {}
   private context(request: Request) {
@@ -70,15 +70,9 @@ export class MeetingQuestionController {
   @ApiOperation({ operationId: "getWorkspaceMeetingQuestionThread" })
   @ApiResponse({ status: 200 })
   @SerializeOptions({ schema: meetingQuestionThreadSchema })
-  get(@Req() request: Request, @Param({ schema: meetingNestedPathSchema }) path: Nested) {
+  get(@Req() request: Request, @Param({ schema: meetingQuestionPathSchema }) path: QuestionPath) {
     const c = this.context(request);
-    return this.questions.get(
-      c.workspace.id,
-      c.actor.id,
-      c.member.role,
-      path.id,
-      path.threadId ?? "",
-    );
+    return this.questions.get(c.workspace.id, c.actor.id, c.member.role, path.id, path.threadId);
   }
   @Post(":threadId/messages")
   @HttpCode(202)
@@ -88,7 +82,7 @@ export class MeetingQuestionController {
   async ask(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-    @Param({ schema: meetingNestedPathSchema }) path: Nested,
+    @Param({ schema: meetingQuestionPathSchema }) path: QuestionPath,
     @Body({ schema: createMeetingQuestionSchema }) body: QuestionInput,
   ) {
     const c = this.context(request);
@@ -97,7 +91,7 @@ export class MeetingQuestionController {
       c.actor.id,
       c.member.role,
       path.id,
-      path.threadId ?? "",
+      path.threadId,
       body,
     );
     const parsedStatus = z.string().safeParse(result);

@@ -52,15 +52,17 @@ export {
 
 export const meetingPathSchema = z.object({
   id: z.string().min(1),
-  slug: z.string().trim().min(1),
+  workspaceSlug: z.string().trim().min(1),
 });
 
-export const workspaceMeetingPathSchema = z.object({ slug: z.string().trim().min(1) });
+export const workspaceMeetingPathSchema = z.object({
+  workspaceSlug: z.string().trim().min(1),
+});
 
-export const meetingNestedPathSchema = meetingPathSchema.extend({
-  noteId: z.string().min(1).optional(),
-  revisionId: z.string().min(1).optional(),
-  threadId: z.string().min(1).optional(),
+export const meetingNotePathSchema = meetingPathSchema.extend({ noteId: z.string().min(1) });
+export const meetingQuestionPathSchema = meetingPathSchema.extend({ threadId: z.string().min(1) });
+export const meetingRevisionPathSchema = meetingPathSchema.extend({
+  revisionId: z.string().min(1),
 });
 
 export const meetingAccessRoleSchema = z.enum(["administrator", "editor", "owner", "viewer"]);
