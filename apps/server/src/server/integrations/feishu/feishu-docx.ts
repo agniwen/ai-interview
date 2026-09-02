@@ -6,6 +6,8 @@ import type { FeishuProviderId } from "./provider";
 import { z } from "zod";
 import { getFeishuAppCredentials, getFeishuEvaluationFolderToken } from "./provider";
 import type { FeishuDocumentBlock } from "./interview-evaluation-doc";
+import { INTERVIEW_STAGE_PLACEHOLDER_FIELDS } from "./interview-evaluation-doc";
+import { parseBusinessInterviewNumber } from "@app/shared/human-interview-rounds";
 
 const FEISHU_API_ROOT = "https://open.feishu.cn/open-apis";
 // Provider limits: pace document edits, cap each block batch, and bound transient/stale-block retries.
@@ -1054,8 +1056,123 @@ interface HumanInterviewDocxUpdate {
   documentId: string;
   blockId: string | null;
   snapshotId: string;
+  roundLabel?: string;
+  ratingOnly?: boolean;
   block: FeishuDocumentBlock;
   onBlockCreated: (blockId: string) => Promise<void>;
+}
+
+interface HumanInterviewSectionPlacement {
+  blockId?: string;
+  index?: number;
+}
+
+function humanInterviewEvaluationPlacement(
+  blocks: ExistingDocumentBlock[],
+  documentId: string,
+  roundLabel: string,
+): HumanInterviewSectionPlacement {
+  const ceo = roundLabel === "CEO面试";
+  const roundNumber = parseBusinessInterviewNumber(roundLabel);
+  const byId = new Map(blocks.map((block) => [block.block_id, block]));
+  const root = byId.get(documentId);
+  if (!root?.children) {
+    throw new Error("飞书文档缺少区块顺序信息，请重试");
+  }
+  const sections = root.children.flatMap((id, index) => {
+    const block = byId.get(id);
+    if (block?.block_type !== 19) {
+      return [];
+    }
+    const title = plainText(byId.get(block.children?.[0] ?? ""));
+    const number = parseBusinessInterviewNumber(title.replace(/(?:评价| · 面试官评价)$/, ""));
+    return [{ block, index, number, title }];
+  });
+  const matching = sections.filter((section) =>
+    ceo ? section.title === "CEO面试评价" : section.number === roundNumber,
+  );
+  if (matching.length > 1) {
+    throw new Error("飞书存在多个同名面试区块，请人工核查");
+  }
+  const target = matching[0]?.block;
+  if (target) {
+    const body = (target.children ?? []).slice(1).map((id) => byId.get(id));
+    const untouched = ceo
+      ? body.length === 0
+      : body.length === INTERVIEW_STAGE_PLACEHOLDER_FIELDS.length &&
+        body.every(
+          (block, index) =>
+            block?.block_type === 2 &&
+            !block.children?.length &&
+            plainText(block) === INTERVIEW_STAGE_PLACEHOLDER_FIELDS[index],
+        );
+    if (!untouched) {
+      throw new Error("对应面试区块已有内容，未自动覆盖，请人工核查");
+    }
+    return { blockId: target.block_id };
+  }
+  if (ceo || !roundNumber) {
+    return {};
+  }
+  const next = sections.find((section) => section.number !== null && section.number > roundNumber);
+  const last = sections.findLast((section) => section.number !== null);
+  const executive = sections.find((section) => /^(?:HRD|CEO)面试评价$/.test(section.title));
+  return { index: next?.index ?? (last ? last.index + 1 : executive?.index) };
+}
+
+async function syncHumanInterviewRating(
+  input: HumanInterviewDocxUpdate,
+  existingCallout: ExistingDocumentBlock,
+  blocksById: Map<string, ExistingDocumentBlock>,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const ratings = (existingCallout.children ?? [])
+    .map((id) => blocksById.get(id))
+    .filter((child) => /^评级(?:[（(][^）)]*[）)])?[:：]/.test(plainText(child)));
+  const [rating] = ratings;
+  const desiredRating = input.block.children?.find((child) =>
+    desiredBlockText(child).startsWith("评级"),
+  );
+  if (ratings.length !== 1 || !rating || rating.block_type !== 2 || !desiredRating) {
+    throw new Error("飞书评价区块的评级字段缺失或不唯一，请人工核查");
+  }
+  await updateCalloutTitle(
+    input.documentId,
+    rating.block_id,
+    desiredRating,
+    input.accessToken,
+    dependencies,
+  );
+}
+
+async function ensureHumanInterviewInterviewer(
+  input: HumanInterviewDocxUpdate,
+  existingCallout: ExistingDocumentBlock,
+  blocksById: Map<string, ExistingDocumentBlock>,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const interviewer = input.block.children?.find((child) =>
+    desiredBlockText(child).startsWith("面试官："),
+  );
+  if (!interviewer) {
+    return;
+  }
+  const existing = (existingCallout.children ?? []).some((id) =>
+    plainText(blocksById.get(id)).startsWith("面试官："),
+  );
+  if (existing) {
+    return;
+  }
+  // Backfill the newly introduced field without replacing any existing evaluation text.
+  await appendBlocks(
+    input.documentId,
+    existingCallout.block_id,
+    [interviewer],
+    input.accessToken,
+    dependencies,
+    1,
+    `human-evaluation:${input.snapshotId}:interviewer`,
+  );
 }
 
 export async function updateFeishuDocxHumanInterviewEvaluation(
@@ -1065,16 +1182,28 @@ export async function updateFeishuDocxHumanInterviewEvaluation(
   await serializeDocumentStructureUpdate(input.documentId, async () => {
     let { blockId } = input;
     if (!blockId) {
-      const [created] = await appendBlocks(
-        input.documentId,
-        input.documentId,
-        [input.block],
-        input.accessToken,
-        dependencies,
-        undefined,
-        `human-evaluation:${input.snapshotId}:section`,
-      );
-      blockId = created?.block_id ?? null;
+      const roundNumber = input.roundLabel ? parseBusinessInterviewNumber(input.roundLabel) : null;
+      const placement =
+        input.roundLabel && (roundNumber || input.roundLabel === "CEO面试")
+          ? humanInterviewEvaluationPlacement(
+              await listDocumentBlocks(input.documentId, input.accessToken, dependencies),
+              input.documentId,
+              input.roundLabel,
+            )
+          : {};
+      blockId = placement.blockId ?? null;
+      if (!blockId) {
+        const [created] = await appendBlocks(
+          input.documentId,
+          input.documentId,
+          [input.block],
+          input.accessToken,
+          dependencies,
+          placement.index,
+          `human-evaluation:${input.snapshotId}:section`,
+        );
+        blockId = created?.block_id ?? null;
+      }
       if (!blockId) {
         throw new Error("飞书未返回评价区块 ID");
       }
@@ -1089,6 +1218,11 @@ export async function updateFeishuDocxHumanInterviewEvaluation(
     }
     if (!existingCallout.children?.[0]) {
       throw new Error("飞书评价区块缺少标题，请人工核查");
+    }
+    if (input.ratingOnly) {
+      await syncHumanInterviewRating(input, existingCallout, blocksById, dependencies);
+      await ensureHumanInterviewInterviewer(input, existingCallout, blocksById, dependencies);
+      return;
     }
     await syncCalloutContent(
       {

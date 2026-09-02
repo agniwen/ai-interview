@@ -30,6 +30,16 @@ function dependencies() {
 }
 
 describe("startEligibleHumanInterviewRecording", () => {
+  it("does not restart recording when a repeated join or track event cannot claim it", async () => {
+    const deps = dependencies();
+    await startEligibleHumanInterviewRecording(claim.roomName, {
+      ...deps,
+      claimStart: () => Promise.resolve(null),
+    });
+    expect(deps.startRecording).not.toHaveBeenCalled();
+    expect(deps.stopRecording).not.toHaveBeenCalled();
+  });
+
   it("stops orphaned egresses before replacing a stale starting claim", async () => {
     const deps = dependencies();
     deps.findActiveRecordings.mockResolvedValue(["egress-existing"]);

@@ -28,6 +28,7 @@ import type {
   HumanInterviewMeetingScheduleUpdate,
   HumanInterviewRoundInput,
   HumanInterviewRoundOutcome,
+  HumanInterviewFinalOutcome,
   OfferDraftInput,
   PipelineStage,
   ScheduleEntryStatus,
@@ -597,6 +598,23 @@ export function completeHumanInterviewRound(
       param: { id: candidateId, roundId, slug },
     }),
     "标记完成失败",
+  );
+}
+
+export function resolveHumanInterviewRoundOutcome(
+  slug: string,
+  candidateId: string,
+  roundId: string,
+  outcome: HumanInterviewFinalOutcome,
+): Promise<{ ok: boolean }> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][":roundId"].outcome.$post(
+      {
+        json: { outcome },
+        param: { id: candidateId, roundId, slug },
+      },
+    ),
+    "修改面试结论失败",
   );
 }
 

@@ -16,6 +16,8 @@ export function createHumanInterviewDocumentSyncProcessor(db: Database) {
           deadlineAt: job.deadlineAt,
           documentId: job.documentId,
           onBlockCreated: job.onBlockCreated,
+          ratingOnly: job.ratingOnly,
+          roundLabel: job.roundLabel,
           snapshotId: job.snapshotId,
         }),
     });

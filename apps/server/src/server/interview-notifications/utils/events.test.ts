@@ -118,14 +118,54 @@ describe("interview notification reminder schedule", () => {
 describe("human interview evaluation summary", () => {
   it("formats every completed human round selected by the event query", () => {
     const summary = buildHumanInterviewEvaluationSummary([
-      { interviewerNames: ["肥仔"], label: "业务一面", roundNumber: 2 },
-      { interviewerNames: ["肥仔", "李四"], label: "业务二面", roundNumber: 3 },
+      { evaluation: null, interviewerNames: ["肥仔"], label: "业务一面", outcome: "pass" },
+      { evaluation: null, interviewerNames: ["肥仔", "李四"], label: "业务二面", outcome: "fail" },
     ]);
-    expect(summary).toContain("第 1 轮 AI HR 初面评价");
-    expect(summary).toContain("第 2 轮 业务一面评价");
-    expect(summary).toContain("第 3 轮 业务二面评价");
+    expect(summary).not.toContain("AI HR 初面评价");
+    expect(summary).toContain("业务一面评价");
+    expect(summary).toContain("业务二面评价");
     expect(summary).toContain("面试官：肥仔、李四");
+    expect(summary).toContain("结论：通过");
+    expect(summary).toContain("结论：不通过");
     expect(summary).toContain("综合评级：未收集到");
+    expect(summary).not.toContain("面试官原始评语");
+  });
+
+  it("uses submitted human fields with fallback only for empty fields", () => {
+    const summary = buildHumanInterviewEvaluationSummary([
+      {
+        evaluation: {
+          detailedAnalysis: "不展开详细分析",
+          evidenceTurnIds: [],
+          overallEvaluation: "系统整体评价",
+          professionalSkill: "中",
+          rating: "C",
+          risks: "需要验证管理能力",
+          rolePosition: "执行员工",
+          salaryRecommendation: "  ",
+          seniorityPosition: "高级",
+          strengths: "排障清晰",
+        },
+        interviewerNames: ["张三"],
+        label: "业务一面",
+        outcome: "pass",
+      },
+    ]);
+    for (const text of [
+      "业务一面评价",
+      "综合评级：C",
+      "建议职级定位：高级",
+      "岗位角色适配定位：执行员工",
+      "专业技能评估：中",
+      "候选人优势特点：排障清晰",
+      "潜在劣势与风险点：需要验证管理能力",
+      "建议薪资区间：未收集到",
+    ]) {
+      expect(summary).toContain(text);
+    }
+    expect(summary).not.toContain("不展开详细分析");
+    expect(summary).not.toContain("系统整体评价");
+    expect(summary).not.toContain("面试官原始评语");
   });
 });
 

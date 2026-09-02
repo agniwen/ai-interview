@@ -19,6 +19,7 @@ import {
   stopActiveHumanInterviewRecordingByRoomName,
 } from "../studio/routes/interviews/utils/human-interview-recording-service";
 import { enqueueHumanInterviewRecordingJobs } from "@app/meeting-processing-queue/human-interview-recording";
+import { shouldStartHumanInterviewRecording } from "./utils";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {
@@ -74,6 +75,8 @@ async function handleHumanInterviewWebhook(
       identity: event.participant.identity,
       roomName,
     });
+  }
+  if (shouldStartHumanInterviewRecording(event)) {
     try {
       await startEligibleHumanInterviewRecordingWithRetry(roomName);
     } catch (error) {

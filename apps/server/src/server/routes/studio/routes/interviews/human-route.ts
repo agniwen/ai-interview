@@ -7,6 +7,7 @@ import {
   humanInterviewRoundInputSchema,
   nullableInstantDateTimeInputSchema,
   humanInterviewRoundOutcomeSchema,
+  humanInterviewFinalOutcomeSchema,
 } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import {
@@ -27,6 +28,11 @@ import { recordCandidateActivity } from "./utils/candidate-activity";
 import { requirePermission } from "../../../../middlewares/permission";
 import { invalidateStudioInterviewCaches } from "../../../../cache-tags";
 import { humanInterviewFeedbackSchema } from "./utils/human-interview-readiness";
+import {
+  resolveHumanInterviewOutcome,
+  ResolveHumanInterviewOutcomeError,
+} from "./application/resolve-human-interview-outcome";
+import { createResolveHumanInterviewOutcomeDao } from "./dao/resolve-human-interview-outcome";
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
 //   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
@@ -167,6 +173,40 @@ export const studioInterviewHumanRouter = factory
         return c.json(updated, 200);
       } catch (error) {
         if (error instanceof EditRoundError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/:id/human-interview-rounds/:roundId/outcome",
+    requirePermission("humanInterview", "update"),
+    zValidator(
+      "json",
+      z.object({ outcome: humanInterviewFinalOutcomeSchema }),
+      jsonValidatorError("请选择通过或不通过。"),
+    ),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      try {
+        await resolveHumanInterviewOutcome(
+          {
+            actorId: user.id,
+            interviewRecordId: c.req.param("id"),
+            organizationId: activeOrg.id,
+            outcome: c.req.valid("json").outcome,
+            roundId: c.req.param("roundId"),
+          },
+          { persist: createResolveHumanInterviewOutcomeDao(db) },
+        );
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json({ ok: true }, 200);
+      } catch (error) {
+        if (error instanceof ResolveHumanInterviewOutcomeError) {
           return c.json({ error: error.message }, error.status);
         }
         throw error;

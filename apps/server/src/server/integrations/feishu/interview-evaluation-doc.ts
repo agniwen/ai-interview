@@ -184,6 +184,16 @@ function todoBlock(content: string): FeishuDocumentBlock {
   };
 }
 
+export const INTERVIEW_STAGE_PLACEHOLDER_FIELDS = [
+  "评级（A,B,C,D）：",
+  "职级定位：业务负责人/小组主管/执行员工",
+  "角色定位：主导决策者/辅助执行者",
+  "专业技能：优/良/中/差",
+  "优势特点：",
+  "劣势风险：",
+  "薪资建议：月薪",
+] as const;
+
 function interviewStageCallout(
   emojiId: string,
   title: string,
@@ -192,13 +202,7 @@ function interviewStageCallout(
 ): FeishuDocumentBlock {
   return calloutBlock(backgroundColor, borderColor, emojiId, [
     textBlock(title, true),
-    textBlock("评级（A,B,C,D）："),
-    textBlock("职级定位：业务负责人/小组主管/执行员工"),
-    textBlock("角色定位：主导决策者/辅助执行者"),
-    textBlock("专业技能：优/良/中/差"),
-    textBlock("优势特点："),
-    textBlock("劣势风险："),
-    textBlock("薪资建议：月薪"),
+    ...INTERVIEW_STAGE_PLACEHOLDER_FIELDS.map((field) => textBlock(field)),
   ]);
 }
 

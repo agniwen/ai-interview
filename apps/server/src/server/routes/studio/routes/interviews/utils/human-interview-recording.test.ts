@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { EncodedFileType } from "livekit-server-sdk";
+import { EncodedFileType, TrackSource, TrackType } from "livekit-server-sdk";
 import type { EncodedFileOutput } from "livekit-server-sdk";
 import { startHumanInterviewRoomRecording } from "./human-interview-recording";
 
@@ -10,7 +10,9 @@ describe("startHumanInterviewRoomRecording", () => {
         Promise.resolve({ egressId: "egress-1" }),
     );
     const stopEgress = vi.fn((_egressId: string) => Promise.resolve({}));
-    const startParticipantEgress = vi.fn(() => Promise.resolve({ egressId: "egress-candidate" }));
+    const startTrackCompositeEgress = vi.fn(() =>
+      Promise.resolve({ egressId: "egress-candidate" }),
+    );
 
     await expect(
       startHumanInterviewRoomRecording(
@@ -23,10 +25,16 @@ describe("startHumanInterviewRoomRecording", () => {
         {
           createEgressClient: () => ({
             listEgress: () => Promise.resolve([]),
-            startParticipantEgress,
             startRoomCompositeEgress,
+            startTrackCompositeEgress,
             stopEgress,
           }),
+          getParticipant: () =>
+            Promise.resolve({
+              tracks: [
+                { sid: "candidate-mic", source: TrackSource.MICROPHONE, type: TrackType.AUDIO },
+              ],
+            }),
           loadUploadConfig: () =>
             Promise.resolve({
               accessKey: "access",
@@ -49,14 +57,12 @@ describe("startHumanInterviewRoomRecording", () => {
       filepath: "human-interviews/org/meeting/room-audio.ogg",
       output: { case: "s3" },
     });
-    expect(startParticipantEgress).toHaveBeenCalledWith(
+    expect(startTrackCompositeEgress).toHaveBeenCalledWith(
       "human_meeting",
-      "candidate_round-1",
       expect.objectContaining({
-        file: expect.objectContaining({
-          filepath: "human-interviews/org/meeting/candidate-audio.ogg",
-        }),
+        filepath: "human-interviews/org/meeting/candidate-audio.ogg",
       }),
+      { audioTrackId: "candidate-mic" },
     );
   });
 });

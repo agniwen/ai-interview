@@ -53,7 +53,7 @@ const EVALUATION_TEXT_FIELDS: { key: EvaluationTextFieldKey; label: string }[] =
 ];
 
 const OUTCOME_LABELS = {
-  fail: "未通过",
+  fail: "不通过",
   inconclusive: "待定",
   pass: "通过",
 } as const satisfies Record<HumanInterviewRoundOutcome, string>;
@@ -128,7 +128,7 @@ export function HumanMeetingReview({
   const basePath = `/api/public/human-interview-meetings/interviewer/${encodeURIComponent(inviteToken)}`;
   const [review, setReview] = useState<HumanInterviewReviewRecord | null>(null);
   const [evaluation, setEvaluation] = useState<HumanInterviewEvaluation>(EMPTY_EVALUATION);
-  const [outcome, setOutcome] = useState<HumanInterviewRoundOutcome>("inconclusive");
+  const [outcome, setOutcome] = useState<HumanInterviewRoundOutcome | "">("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const evaluationDirtyRef = useRef(false);
@@ -140,7 +140,11 @@ export function HumanMeetingReview({
     setReview(next);
     if (!evaluationDirtyRef.current) {
       setEvaluation(next.evaluation ?? EMPTY_EVALUATION);
-      setOutcome(next.outcome ?? "inconclusive");
+      setOutcome(
+        next.outcome === "inconclusive" && next.roundStatus !== "completed"
+          ? ""
+          : (next.outcome ?? ""),
+      );
     }
   }, [basePath]);
 
@@ -245,7 +249,7 @@ export function HumanMeetingReview({
             <Field label="评级">
               <select
                 className="h-9 w-full rounded-md border border-white/15 bg-zinc-900 px-3 text-sm"
-                disabled={isSubmitted}
+                disabled={isSubmitted || Boolean(busy)}
                 onChange={(event) => {
                   const rating = humanInterviewEvaluationRatingSchema.safeParse(event.target.value);
                   if (!rating.success) {
@@ -292,7 +296,7 @@ export function HumanMeetingReview({
             <Field label="本轮结论">
               <select
                 className="h-9 min-w-40 rounded-md border border-white/15 bg-zinc-900 px-3 text-sm"
-                disabled={isSubmitted}
+                disabled={isSubmitted || Boolean(busy)}
                 onChange={(event) => {
                   const parsed = humanInterviewRoundOutcomeSchema.safeParse(event.target.value);
                   if (parsed.success) {
@@ -302,9 +306,14 @@ export function HumanMeetingReview({
                 }}
                 value={outcome}
               >
+                <option disabled value="">
+                  请选择通过或不通过
+                </option>
                 <option value="pass">通过</option>
-                <option value="inconclusive">待定</option>
-                <option value="fail">未通过</option>
+                {isSubmitted && outcome === "inconclusive" ? (
+                  <option value="inconclusive">待定</option>
+                ) : null}
+                <option value="fail">不通过</option>
               </select>
             </Field>
             {isSubmitted ? (
@@ -349,6 +358,10 @@ export function HumanMeetingReview({
                   disabled={Boolean(busy) || !evaluation.overallEvaluation.trim()}
                   onClick={async () => {
                     const transcriptRevisionId = review.transcript?.id ?? null;
+                    if (outcome !== "pass" && outcome !== "fail") {
+                      toast.error("提交前请选择本轮结论：通过或不通过");
+                      return;
+                    }
                     await run("submit", async () => {
                       await requestJson<unknown>(`${basePath}/evaluation-submit`, {
                         body: JSON.stringify({
@@ -361,7 +374,7 @@ export function HumanMeetingReview({
                       });
                       evaluationDirtyRef.current = false;
                       toast.success("本轮评价已提交并同步到面试轮次");
-                      await load();
+                      onClose();
                     });
                   }}
                 >

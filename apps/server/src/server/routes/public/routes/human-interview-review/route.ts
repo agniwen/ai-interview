@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import {
   humanInterviewEvaluationSchema,
-  humanInterviewRoundOutcomeSchema,
+  humanInterviewFinalOutcomeSchema,
 } from "@app/db-schema/studio-interviews";
 import {
   createMeetingTranscriptCorrectionSchema,
@@ -374,7 +374,7 @@ export const humanInterviewReviewRouter: Hono<Env> = factory
       "json",
       z.object({
         evaluation: humanInterviewEvaluationSchema,
-        outcome: humanInterviewRoundOutcomeSchema,
+        outcome: humanInterviewFinalOutcomeSchema,
         transcriptRevisionId: z.uuid().nullable(),
       }),
       jsonValidatorError("真人复面评价提交参数无效。"),

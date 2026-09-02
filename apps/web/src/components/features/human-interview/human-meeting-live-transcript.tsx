@@ -383,8 +383,11 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
   }
 
   return (
-    <aside className="absolute top-3 right-3 bottom-3 z-40 flex w-[min(25rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border border-white/15 bg-zinc-950/95 shadow-2xl backdrop-blur-xl">
-      <header className="flex items-center justify-between border-white/10 border-b px-4 py-3">
+    <aside
+      aria-label="实时转录"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden border-t bg-background lg:border-t-0 lg:border-l"
+    >
+      <header className="flex shrink-0 items-center justify-between border-white/10 border-b px-4 py-3">
         <div>
           <div className="flex items-center gap-2 font-medium text-sm text-white">
             <IconSparkles className="size-4 text-sky-300" />
@@ -394,7 +397,7 @@ export function HumanMeetingLiveTranscript({ inviteToken, ref }: HumanMeetingLiv
         </div>
       </header>
 
-      <div className="flex items-center gap-2 border-white/10 border-b px-4 py-2.5 text-xs">
+      <div className="flex shrink-0 items-center gap-2 border-white/10 border-b px-4 py-2.5 text-xs">
         <span
           className={cn(
             "size-2 rounded-full bg-white/30",

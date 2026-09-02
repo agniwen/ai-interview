@@ -168,6 +168,10 @@ describe("HumanMeetingLiveTranscript", () => {
 
     expect(transcript.start).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("开始转录");
+    const panel = container.querySelector('aside[aria-label="实时转录"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.classList.contains("absolute")).toBe(false);
+    expect(panel?.classList.contains("min-h-0")).toBe(true);
 
     await act(() => vi.advanceTimersByTimeAsync(1600));
 

@@ -94,3 +94,9 @@ export async function deleteHumanInterviewLiveKitRoom(roomName: string | null): 
   const client = new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret);
   await client.deleteRoom(roomName);
 }
+
+export async function getHumanInterviewLiveKitParticipant(roomName: string, identity: string) {
+  const { apiKey, apiSecret, serverUrl } = getLiveKitServerConfig();
+  const client = new RoomServiceClient(toHttpLiveKitUrl(serverUrl), apiKey, apiSecret);
+  return await client.getParticipant(roomName, identity);
+}

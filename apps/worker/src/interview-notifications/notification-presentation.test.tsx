@@ -94,7 +94,7 @@ describe("worker interview notification presentation", () => {
     expect(cardText).toContain("技术复面");
   });
 
-  it("renders cumulative evaluation placeholders for the HR creator", () => {
+  it("renders the current round evaluation for the HR creator", () => {
     const card = toCardElement(
       InterviewNotificationCard({
         ...input,
@@ -102,18 +102,18 @@ describe("worker interview notification presentation", () => {
         payload: {
           ...input.payload,
           completedAt: "2026-08-25T10:05:00.000Z",
-          evaluationSummary:
-            "🗂️ HR 初面评价\n・求职动机：未收集到\n\n🗂️ 业务一面评价\n・面试官：肥仔\n・综合评级：未收集到",
+          evaluationSummary: "🗂️ 业务二面评价\n・面试官：肥仔\n・综合评级：C",
         },
-        renderedContent: "面试评价已汇总。",
+        renderedContent: "本轮面试评价已提交。",
         type: "human_interview_completed",
       }),
     );
     const cardText = JSON.stringify(card);
-    expect(card?.title).toBe("面试评价汇总通知");
-    expect(cardText).toContain("HR 初面评价");
+    expect(card?.title).toBe("面试评价通知");
+    expect(cardText).toContain("业务二面评价");
+    expect(cardText).not.toContain("HR 初面评价");
     expect(cardText).toContain("面试官：肥仔");
-    expect(cardText).toContain("未收集到");
+    expect(cardText).toContain("综合评级：C");
   });
 
   it("explains partial AI completion and links HR to manual generation", () => {

@@ -208,6 +208,9 @@ export type HumanInterviewerAssignmentStatus = z.infer<
 export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"] as const;
 export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
 export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
+// Drafts and historical records may be inconclusive; final decisions cannot be.
+export const humanInterviewFinalOutcomeSchema = z.enum(["pass", "fail"]);
+export type HumanInterviewFinalOutcome = z.infer<typeof humanInterviewFinalOutcomeSchema>;
 
 export const humanInterviewRoundOutcomeMeta = {
   fail: { label: "未通过", tone: "outline" },

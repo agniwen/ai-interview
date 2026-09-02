@@ -8,6 +8,34 @@ AGENT_SCRIPT := src/agent.py
 
 .DEFAULT_GOAL := help
 
+LIVEKIT_LOCAL_COMPOSE := docker compose --env-file infra/livekit-local/.env -f infra/livekit-local/compose.yml
+QUEUE_LOCAL_COMPOSE := docker compose -f infra/queue-local/compose.yml
+
+.PHONY: queue-local-up queue-local-down queue-local-status
+
+queue-local-up: ## 启动独立的本地应用任务 Redis
+	$(QUEUE_LOCAL_COMPOSE) up -d --wait
+
+queue-local-down: ## 停止本地应用任务 Redis，保留队列数据
+	$(QUEUE_LOCAL_COMPOSE) down
+
+queue-local-status: ## 查看本地应用任务 Redis 状态
+	$(QUEUE_LOCAL_COMPOSE) ps
+
+.PHONY: livekit-local-up livekit-local-down livekit-local-status livekit-local-logs
+
+livekit-local-up: ## 启动本地 LiveKit、双路录音服务和专用 Redis
+	$(LIVEKIT_LOCAL_COMPOSE) up -d
+
+livekit-local-down: ## 停止本地 LiveKit 基础设施，不删除业务数据
+	$(LIVEKIT_LOCAL_COMPOSE) down
+
+livekit-local-status: ## 查看本地 LiveKit 基础设施状态
+	$(LIVEKIT_LOCAL_COMPOSE) ps
+
+livekit-local-logs: ## 查看本地 LiveKit 和录音服务日志
+	$(LIVEKIT_LOCAL_COMPOSE) logs --tail=100 -f livekit egress
+
 .PHONY: help install web-install agent-install agent-download \
         dev web-dev web-dev-fresh worker-dev worker-start worker-typecheck \
         desktop-dev desktop-start desktop-typecheck desktop-build \

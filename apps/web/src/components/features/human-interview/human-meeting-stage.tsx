@@ -193,60 +193,78 @@ export function HumanMeetingStage({
       </header>
 
       <div
+        data-slot="meeting-workspace"
         className={cn(
-          "grid min-h-0 flex-1 gap-3 p-3",
-          "auto-rows-fr overflow-hidden",
-          viewMode !== "meeting" && "hidden",
-          tracks.length <= 1 && "grid-cols-1",
-          tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
-          tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+          "grid min-h-0 flex-1 overflow-hidden",
+          inviteToken &&
+            canUseLiveTranscript &&
+            "grid-rows-[minmax(0,1fr)_minmax(12rem,40%)] lg:grid-cols-[minmax(0,1fr)_clamp(18rem,28vw,25rem)] lg:grid-rows-1",
         )}
       >
-        <TrackLoop tracks={tracks}>
-          <HumanParticipantTile />
-        </TrackLoop>
-      </div>
-
-      {inviteToken ? (
         <div
-          className={cn(
-            "relative min-h-0 flex-1 overflow-hidden",
-            viewMode !== "materials" && "hidden",
-          )}
+          data-slot="meeting-main-panels"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         >
-          {hasRemoteScreenShare ? (
-            <button
-              className="absolute top-3 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-300/40 bg-sky-500 px-4 py-2 font-medium text-sm text-white shadow-lg transition hover:bg-sky-400"
-              onClick={() => onViewModeChange("meeting")}
-              type="button"
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 gap-3 p-3",
+              "auto-rows-fr overflow-hidden",
+              viewMode !== "meeting" && "hidden",
+              tracks.length <= 1 && "grid-cols-1",
+              tracks.length > 1 && tracks.length <= 4 && "grid-cols-1 md:grid-cols-2",
+              tracks.length > 4 && "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+            )}
+          >
+            <TrackLoop tracks={tracks}>
+              <HumanParticipantTile />
+            </TrackLoop>
+          </div>
+
+          {inviteToken ? (
+            <div
+              className={cn(
+                "relative min-h-0 flex-1 overflow-hidden",
+                viewMode !== "materials" && "hidden",
+              )}
             >
-              <IconDeviceDesktopUp className="size-4" />
-              正在共享屏幕 · 返回会议
-            </button>
+              {hasRemoteScreenShare ? (
+                <button
+                  className="absolute top-3 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-300/40 bg-sky-500 px-4 py-2 font-medium text-sm text-white shadow-lg transition hover:bg-sky-400"
+                  onClick={() => onViewModeChange("meeting")}
+                  type="button"
+                >
+                  <IconDeviceDesktopUp className="size-4" />
+                  正在共享屏幕 · 返回会议
+                </button>
+              ) : null}
+              <InterviewerCandidateMaterials
+                active={viewMode === "materials"}
+                inviteToken={inviteToken}
+                onStateChange={onCandidateMaterialsStateChange}
+                state={candidateMaterialsState}
+              />
+            </div>
           ) : null}
-          <InterviewerCandidateMaterials
-            active={viewMode === "materials"}
-            inviteToken={inviteToken}
-            onStateChange={onCandidateMaterialsStateChange}
-            state={candidateMaterialsState}
-          />
-        </div>
-      ) : null}
 
-      {inviteToken ? (
-        <div
-          className={cn(
-            "relative min-h-0 flex-1 overflow-hidden",
-            viewMode !== "review" && "hidden",
-          )}
-        >
-          <HumanMeetingReview
-            active={viewMode === "review"}
-            inviteToken={inviteToken}
-            onClose={() => onViewModeChange("meeting")}
-          />
+          {inviteToken ? (
+            <div
+              className={cn(
+                "relative min-h-0 flex-1 overflow-hidden",
+                viewMode !== "review" && "hidden",
+              )}
+            >
+              <HumanMeetingReview
+                active={viewMode === "review"}
+                inviteToken={inviteToken}
+                onClose={() => onViewModeChange("meeting")}
+              />
+            </div>
+          ) : null}
         </div>
-      ) : null}
+        {inviteToken && canUseLiveTranscript ? (
+          <HumanMeetingLiveTranscript inviteToken={inviteToken} ref={liveTranscriptRef} />
+        ) : null}
+      </div>
 
       <footer className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-white/10 border-t px-4 py-3">
         {canPublish ? (
@@ -331,9 +349,6 @@ export function HumanMeetingStage({
           离开
         </DisconnectButton>
       </footer>
-      {inviteToken && canUseLiveTranscript ? (
-        <HumanMeetingLiveTranscript inviteToken={inviteToken} ref={liveTranscriptRef} />
-      ) : null}
       <AlertDialog onOpenChange={setEndConfirmOpen} open={endConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, isNotNull, lte, ne, sql } from "drizzle-orm";
 import type { Database } from "@app/database";
+import type { HumanInterviewRoundOutcome } from "@app/db-schema/studio-interviews";
 import {
   humanInterviewDocumentSync,
   interviewNotification,
@@ -13,6 +14,20 @@ import { resolveFeishuDocxDocumentId } from "../../../../../integrations/feishu/
 
 const jobs = humanInterviewDocumentSync;
 const LEASE_MS = 10 * 60_000;
+
+function documentDecision(
+  context: {
+    outcome: HumanInterviewRoundOutcome | null;
+    submittedOutcome: HumanInterviewRoundOutcome | null;
+  },
+  blockId: string | null,
+) {
+  const outcome = context.outcome ?? context.submittedOutcome;
+  if (!outcome) {
+    throw new Error("同步任务缺少正式提交结论");
+  }
+  return { outcome, ratingOnly: Boolean(blockId) && outcome !== context.submittedOutcome };
+}
 
 export function createHumanInterviewDocumentSyncDao(db: Database) {
   const owned = (job: HumanInterviewDocumentSyncJob) =>
@@ -39,10 +54,11 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           .select({
             evaluation: studioHumanInterviewEvaluationSnapshot.evaluation,
             interviewRecordId: studioHumanInterviewRound.interviewRecordId,
-            outcome: studioHumanInterviewEvaluationSnapshot.outcome,
+            outcome: studioHumanInterviewRound.outcome,
             roundLabel: studioHumanInterviewRound.label,
             submittedAt: studioHumanInterviewEvaluationSnapshot.createdAt,
             submittedBy: user.name,
+            submittedOutcome: studioHumanInterviewEvaluationSnapshot.outcome,
           })
           .from(studioHumanInterviewEvaluationSnapshot)
           .innerJoin(studioHumanInterviewRound, eq(studioHumanInterviewRound.id, job.roundId))
@@ -54,9 +70,10 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
             ),
           )
           .limit(1);
-        if (!context?.outcome) {
+        if (!context) {
           throw new Error("同步任务缺少正式提交评价");
         }
+        const decision = documentDecision(context, job.blockId);
         let target = {
           documentId: job.documentId,
           documentUrl: job.documentUrl,
@@ -153,7 +170,7 @@ export function createHumanInterviewDocumentSyncDao(db: Database) {
           documentUrl: target.documentUrl,
           evaluation: context.evaluation,
           leaseOwner,
-          outcome: context.outcome,
+          ...decision,
           providerId,
           roundLabel: context.roundLabel,
           submittedAt: context.submittedAt.toISOString(),

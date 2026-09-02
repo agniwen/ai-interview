@@ -29,7 +29,11 @@ import {
   parseInterviewDataCollectionResults,
 } from "@app/shared/interview/question-outcomes";
 import type { InterviewDataCollectionResults } from "@app/shared/interview/question-outcomes";
-import { and, asc, desc, eq, inArray, lt, lte } from "drizzle-orm";
+import type {
+  HumanInterviewEvaluation,
+  HumanInterviewRoundOutcome,
+} from "@app/db-schema/studio-interviews";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 import {
   buildCandidateInviteToken,
   hashInviteToken,
@@ -101,34 +105,37 @@ function humanInterviewRecordUrl(
   );
 }
 
-const HR_INITIAL_EVALUATION_LINES = [
-  "・求职动机：未收集到",
-  "・最快到岗时间：未收集到",
-  "・出差接受情况：未收集到",
-  "・薪酬预期：未收集到",
-  "・现有薪资与加薪诉求：未收集到",
-  "・近期两段工作经历概况：未收集到",
-  "・核心亮点项目：未收集到",
-] as const;
-
-const HUMAN_EVALUATION_LINES = [
-  "・综合评级：未收集到",
-  "・建议职级定位：未收集到",
-  "・岗位角色适配定位：未收集到",
-  "・专业技能评估：未收集到",
-  "・候选人优势特点：未收集到",
-  "・潜在劣势与风险点：未收集到",
-  "・建议薪资区间：未收集到",
-  "・面试官原始评语：未收集到",
-] as const;
+function evaluationLine(label: string, value: string | null | undefined): string {
+  return `・${label}：${value?.trim() || "未收集到"}`;
+}
 
 export function buildHumanInterviewEvaluationSummary(
-  rounds: { interviewerNames: string[]; label: string; roundNumber: number }[],
+  rounds: {
+    interviewerNames: string[];
+    label: string;
+    evaluation: HumanInterviewEvaluation | null;
+    outcome: HumanInterviewRoundOutcome | null;
+  }[],
 ): string {
-  const sections = [`🗂️ 第 1 轮 AI HR 初面评价\n${HR_INITIAL_EVALUATION_LINES.join("\n")}`];
+  const sections: string[] = [];
   for (const round of rounds) {
+    const { evaluation } = round;
     sections.push(
-      `🗂️ 第 ${round.roundNumber} 轮 ${round.label}评价\n・面试官：${round.interviewerNames.join("、") || "未收集到"}\n${HUMAN_EVALUATION_LINES.join("\n")}`,
+      [
+        `🗂️ ${round.label}评价`,
+        evaluationLine("面试官", round.interviewerNames.join("、")),
+        evaluationLine(
+          "结论",
+          { fail: "不通过", inconclusive: "待定", pass: "通过" }[round.outcome ?? "inconclusive"],
+        ),
+        evaluationLine("综合评级", evaluation?.rating),
+        evaluationLine("建议职级定位", evaluation?.seniorityPosition),
+        evaluationLine("岗位角色适配定位", evaluation?.rolePosition),
+        evaluationLine("专业技能评估", evaluation?.professionalSkill),
+        evaluationLine("候选人优势特点", evaluation?.strengths),
+        evaluationLine("潜在劣势与风险点", evaluation?.risks),
+        evaluationLine("建议薪资区间", evaluation?.salaryRecommendation),
+      ].join("\n"),
     );
   }
   return sections.join("\n\n");
@@ -697,15 +704,19 @@ export async function enqueueHumanMeetingEvents(
     if (input.type === "human_interview_completed") {
       const completedRounds = await tx
         .select({
+          evaluation: studioHumanInterviewRound.evaluation,
+          evaluationStatus: studioHumanInterviewRound.evaluationStatus,
           id: studioHumanInterviewRound.id,
           label: studioHumanInterviewRound.label,
+          outcome: studioHumanInterviewRound.outcome,
         })
         .from(studioHumanInterviewRound)
         .where(
           and(
             eq(studioHumanInterviewRound.interviewRecordId, row.interviewRecordId),
+            eq(studioHumanInterviewRound.organizationId, row.organizationId),
             eq(studioHumanInterviewRound.status, "completed"),
-            lte(studioHumanInterviewRound.sortOrder, row.roundSortOrder),
+            eq(studioHumanInterviewRound.id, row.humanRoundId),
           ),
         )
         .orderBy(asc(studioHumanInterviewRound.sortOrder));
@@ -722,13 +733,14 @@ export async function enqueueHumanMeetingEvents(
               .innerJoin(user, eq(user.id, studioHumanInterviewRoundInterviewer.userId))
               .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds));
       evaluationSummary = buildHumanInterviewEvaluationSummary(
-        completedRounds.map((round, index) => ({
+        completedRounds.map((round) => ({
+          evaluation: round.evaluationStatus === "submitted" ? round.evaluation : null,
           interviewerNames: roundInterviewerRows
             .filter((item) => item.roundId === round.id)
             .map((item) => item.name)
             .filter((name): name is string => Boolean(name)),
           label: round.label,
-          roundNumber: index + 2,
+          outcome: round.outcome,
         })),
       );
     }

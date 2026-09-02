@@ -273,6 +273,50 @@ describe("RoundCard rescheduling", () => {
 });
 
 describe("RoundCard interviewer arrangement", () => {
+  it.each([
+    ["inconclusive", true, false, true],
+    ["inconclusive", false, false, false],
+    ["inconclusive", true, true, false],
+    ["pass", true, false, false],
+    ["fail", true, false, false],
+  ] as const)(
+    "shows 修改 only for editable historical pending decisions (%s, %s, %s)",
+    (outcome, canUpdate, disabled, visible) => {
+      const queryClient = new QueryClient();
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RoundCard
+              canCreate
+              canDelete
+              canUpdate={canUpdate}
+              disabled={disabled}
+              dependencies={dependencies}
+              meeting={meeting}
+              round={{ ...round, outcome, status: "completed" }}
+              roundNumber={2}
+              slug="light"
+              onCancel={vi.fn()}
+              onComplete={vi.fn()}
+              onCreateMeeting={vi.fn()}
+              onEndMeeting={vi.fn()}
+              onOpenLinks={vi.fn()}
+              onRescheduled={vi.fn()}
+              onReview={vi.fn()}
+            />
+          </QueryClientProvider>,
+        ),
+      );
+      expect(
+        [...host.querySelectorAll("button")].some((button) => button.textContent === "修改"),
+      ).toBe(visible);
+      act(() => root.unmount());
+      queryClient.clear();
+    },
+  );
   it("shows one complete unified evaluation with submission status", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const host = document.createElement("div");

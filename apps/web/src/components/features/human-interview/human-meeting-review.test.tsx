@@ -127,6 +127,14 @@ function button(container: HTMLElement, label: string) {
   return match;
 }
 
+function chooseOutcome(container: HTMLElement, value = "pass") {
+  const select = container.querySelector<HTMLSelectElement>("select:has(option[value=pass])");
+  if (!select) {
+    throw new Error("找不到结论选择器");
+  }
+  act(() => change(select, value));
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   currentReview = reviewRecord();
@@ -146,6 +154,21 @@ afterEach(() => {
 });
 
 describe("HumanMeetingReview", () => {
+  it("requires an explicit final outcome but still allows saving a draft", async () => {
+    const container = await renderReview();
+    act(() => button(container, "提交").click());
+    await flush();
+    expect(
+      fetchMock.mock.calls.some(([request]) => String(request).endsWith("/evaluation-submit")),
+    ).toBe(false);
+    expect(button(container, "保存").disabled).toBe(false);
+    const select = container.querySelector<HTMLSelectElement>("select:has(option[value=pass])");
+    if (!select) {
+      throw new Error("找不到结论选择器");
+    }
+    expect(select.value).toBe("");
+    expect([...select.options].some((option) => option.value === "inconclusive")).toBe(false);
+  });
   it("allows the interviewer to close the review and explains that AI evaluation can finish later", async () => {
     currentReview = reviewRecord({ evaluationStatus: "generating" });
     const onClose = vi.fn();
@@ -206,6 +229,7 @@ describe("HumanMeetingReview", () => {
 
   it("binds the final evaluation submission to the reviewed transcript revision", async () => {
     const container = await renderReview();
+    chooseOutcome(container);
 
     act(() => button(container, "提交").click());
     await flush();
@@ -259,6 +283,7 @@ describe("HumanMeetingReview", () => {
       transcriptRevisionId: null,
     });
 
+    chooseOutcome(container, "fail");
     act(() => button(container, "提交").click());
     await flush();
     const submitCall = fetchMock.mock.calls.find(([request]) =>
@@ -269,7 +294,7 @@ describe("HumanMeetingReview", () => {
     });
   });
 
-  it("shows a stable completed state after submitting the evaluation", async () => {
+  it("closes after submitting the evaluation without waiting for a refresh", async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST" && String(input).endsWith("/evaluation-submit")) {
         currentReview = reviewRecord({
@@ -281,7 +306,8 @@ describe("HumanMeetingReview", () => {
       }
       return jsonResponse(currentReview);
     });
-    const container = await renderReview();
+    const onClose = vi.fn();
+    const container = await renderReview(onClose);
     const outcome = [...container.querySelectorAll<HTMLSelectElement>("select")].find((select) =>
       [...select.options].some((option) => option.text === "通过"),
     );
@@ -293,13 +319,42 @@ describe("HumanMeetingReview", () => {
     act(() => button(container, "提交").click());
     await flush();
 
-    expect(container.textContent).toContain("本轮评价已保存 · 通过");
-    expect(
-      [...container.querySelectorAll<HTMLButtonElement>("button")].some(
-        (candidate) => candidate.textContent?.trim() === "提交",
-      ),
-    ).toBe(false);
-    expect(button(container, "关闭")).toBeTruthy();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the review and edits open while submitting and after a failure", async () => {
+    const onClose = vi.fn();
+    const container = await renderReview(onClose);
+    chooseOutcome(container);
+    const field = container.querySelector<HTMLTextAreaElement>("textarea");
+    if (!field) {
+      throw new Error("找不到评价输入框");
+    }
+    act(() => change(field, "面试官手动填写的内容"));
+    const submission = Promise.withResolvers<Response>();
+    fetchMock.mockImplementationOnce(() => submission.promise);
+
+    act(() => button(container, "提交").click());
+    await flush();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(button(container, "提交").disabled).toBe(true);
+
+    act(() => {
+      submission.resolve(Response.json({ error: "提交失败" }, { status: 500 }));
+    });
+    await flush();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(field.value).toBe("面试官手动填写的内容");
+    expect(button(container, "提交").disabled).toBe(false);
+  });
+
+  it("does not close after saving a draft", async () => {
+    const onClose = vi.fn();
+    const container = await renderReview(onClose);
+    act(() => button(container, "保存").click());
+    await flush();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("keeps an empty transcript revision hidden from the evaluation flow", async () => {

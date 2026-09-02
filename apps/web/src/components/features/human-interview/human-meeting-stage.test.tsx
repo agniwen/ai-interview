@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HumanMeetingStage } from "./human-meeting-stage";
+import type { HumanMeetingViewMode } from "./human-meeting-materials-model";
 
 // SAFETY: React's test-only act flag is intentionally attached to the global test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -55,29 +56,46 @@ describe("HumanMeetingStage realtime transcript", () => {
     const root = createRoot(container);
     roots.push(root);
 
-    act(() =>
-      root.render(
-        <HumanMeetingStage
-          canEndMeeting
-          canPublish
-          canUseLiveTranscript
-          canUseVoiceEffects={false}
-          candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
-          inviteToken="invite-1"
-          isEnding={false}
-          onCandidateMaterialsStateChange={() => {}}
-          onEndMeeting={() => {}}
-          onViewModeChange={() => {}}
-          participantName="面试官"
-          recordingStatus="active"
-          title="真人复面"
-          viewMode="meeting"
-        />,
-      ),
-    );
+    const renderStage = (viewMode: HumanMeetingViewMode) =>
+      act(() =>
+        root.render(
+          <HumanMeetingStage
+            canEndMeeting
+            canPublish
+            canUseLiveTranscript
+            canUseVoiceEffects={false}
+            candidateMaterialsState={{ candidateId: null, centerTab: "detail", leftTab: "ai" }}
+            inviteToken="invite-1"
+            isEnding={false}
+            onCandidateMaterialsStateChange={() => {}}
+            onEndMeeting={() => {}}
+            onViewModeChange={() => {}}
+            participantName="面试官"
+            recordingStatus="active"
+            title="真人复面"
+            viewMode={viewMode}
+          />,
+        ),
+      );
+    renderStage("meeting");
 
     expect(container.textContent).toContain("自动实时转录窗口");
     expect(container.textContent).not.toContain("试试实时转录");
     expect(container.textContent).not.toContain("关闭实时转录");
+    const workspace = container.querySelector('[data-slot="meeting-workspace"]');
+    const mainPanels = container.querySelector('[data-slot="meeting-main-panels"]');
+    expect(workspace).not.toBeNull();
+    expect(mainPanels).not.toBeNull();
+    const transcriptPanel = [...(workspace?.children ?? [])].find((element) =>
+      element.textContent?.includes("自动实时转录窗口"),
+    );
+    expect(transcriptPanel).toBeDefined();
+    expect(mainPanels?.contains(transcriptPanel ?? null)).toBe(false);
+    for (const viewMode of ["materials", "review", "meeting"] as const) {
+      renderStage(viewMode);
+      expect(transcriptPanel?.parentElement).toBe(workspace);
+      expect(transcriptPanel?.isConnected).toBe(true);
+      expect(mainPanels?.textContent).not.toContain("自动实时转录窗口");
+    }
   });
 });

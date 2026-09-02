@@ -757,6 +757,9 @@ export function createHumanInterviewEvaluationDao(
     roundId: string;
     transcriptRevisionId: string | null;
   }): Promise<boolean> {
+    if (input.outcome !== "pass" && input.outcome !== "fail") {
+      return false;
+    }
     const evaluation = humanInterviewEvaluationSchema.parse(input.evaluation);
     const now = new Date();
     return await db.transaction(async (tx) => {

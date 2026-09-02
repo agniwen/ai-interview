@@ -55,6 +55,7 @@ import {
   toDateTimeLocalInputValue,
 } from "./human-interview-stage-utils";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
+import { HumanInterviewOutcomeDialog } from "./human-interview-outcome-dialog";
 
 interface RoundDateTimePickerProps {
   className: string;
@@ -142,6 +143,7 @@ export function RoundCard({
   dependencies?: RoundCardDependencies;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
+  const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
   const canWrite = disabled !== true;
   const canCreateMeeting =
     canCreate &&
@@ -165,6 +167,15 @@ export function RoundCard({
                 第 {roundNumber} 轮 · {round.label}
               </span>
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
+              {canUpdate &&
+              canWrite &&
+              round.status === "completed" &&
+              round.outcome === "inconclusive" ? (
+                <Button size="sm" variant="outline" onClick={() => setOutcomeDialogOpen(true)}>
+                  <IconPencil className="size-3" />
+                  修改
+                </Button>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
               <RoundScheduledAtControl
@@ -228,6 +239,13 @@ export function RoundCard({
           slug={slug}
         />
       </CardContent>
+      {outcomeDialogOpen ? (
+        <HumanInterviewOutcomeDialog
+          round={round}
+          slug={slug}
+          onClose={() => setOutcomeDialogOpen(false)}
+        />
+      ) : null}
     </Card>
   );
 }

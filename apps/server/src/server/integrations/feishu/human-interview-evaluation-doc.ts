@@ -12,18 +12,15 @@ export interface HumanInterviewDocumentContent {
   submittedBy: string;
 }
 
-// Keep submitted wording intact; split long fields into bounded plain-text blocks.
+// Sync interviewer and template fields; keep full evaluation and submission time in the app.
 export function buildHumanInterviewEvaluationBlock(
   input: HumanInterviewDocumentContent,
 ): FeishuDocumentBlock {
-  const outcomeLabels = { fail: "未通过", inconclusive: "待定", pass: "通过" };
+  const suffix = { fail: "（不通过）", inconclusive: "", pass: "（通过）" }[input.outcome];
   const fields = [
-    `${input.roundLabel} · 面试官评价`,
-    `提交人：${input.submittedBy}　提交时间：${input.submittedAt}`,
-    `本轮结论：${outcomeLabels[input.outcome]}`,
-    `评级：${input.evaluation.rating}`,
-    `整体评价：${input.evaluation.overallEvaluation}`,
-    `详细分析：${input.evaluation.detailedAnalysis}`,
+    `${input.roundLabel}评价`,
+    `面试官：${input.submittedBy}`,
+    `评级（A,B,C,D）：${input.evaluation.rating}${suffix}`,
     `职级定位：${input.evaluation.seniorityPosition}`,
     `角色定位：${input.evaluation.rolePosition}`,
     `专业技能：${input.evaluation.professionalSkill}`,

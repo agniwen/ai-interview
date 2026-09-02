@@ -2,6 +2,7 @@
 
 /* oxlint-disable no-use-before-define -- helper components are kept below the container for readability */
 import { IconPlus, IconUsers } from "@tabler/icons-react";
+import { getNextBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useReducer } from "react";
@@ -133,7 +134,8 @@ export function HumanInterviewStagePanel({
     refetchIntervalInBackground: false,
   });
   const passedRoundCount = rounds.filter(
-    (round) => round.status === "completed" && round.outcome === "pass",
+    (round) =>
+      round.status === "completed" && round.outcome === "pass" && round.label !== "CEO面试",
   ).length;
   const businessRoundNumbers = getHumanInterviewBusinessRoundNumbers(rounds);
   const scheduleBlockReason = getHumanInterviewScheduleBlockReason(rounds);
@@ -300,6 +302,7 @@ export function HumanInterviewStagePanel({
       <ScheduleRoundDialog
         candidateId={candidateId}
         candidateName={candidateName}
+        defaultLabel={getNextBusinessInterviewLabel(rounds)}
         passedRoundCount={passedRoundCount}
         onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
         onScheduled={invalidateRounds}

@@ -1,9 +1,19 @@
-import { EgressClient, EncodedFileOutput, EncodedFileType, S3Upload } from "livekit-server-sdk";
+import {
+  EgressClient,
+  EncodedFileOutput,
+  EncodedFileType,
+  S3Upload,
+  TrackSource,
+  TrackType,
+} from "livekit-server-sdk";
 import {
   getHumanInterviewRecordingUploadConfig,
   isRecordingStorageConfigured,
 } from "@app/object-storage";
-import { HumanInterviewLiveKitConfigError } from "./human-interview-livekit";
+import {
+  getHumanInterviewLiveKitParticipant,
+  HumanInterviewLiveKitConfigError,
+} from "./human-interview-livekit";
 
 interface HumanInterviewRecordingEgressResult {
   egressId?: string;
@@ -19,10 +29,10 @@ interface HumanInterviewRecordingEgressPort {
     output: EncodedFileOutput,
     options: { audioOnly: true },
   ) => Promise<HumanInterviewRecordingEgressResult>;
-  startParticipantEgress: (
+  startTrackCompositeEgress: (
     roomName: string,
-    identity: string,
-    output: { file: EncodedFileOutput },
+    output: EncodedFileOutput,
+    options: { audioTrackId: string },
   ) => Promise<HumanInterviewRecordingEgressResult>;
   stopEgress: (egressId: string) => Promise<HumanInterviewRecordingEgressResult>;
 }
@@ -69,9 +79,26 @@ export async function startHumanInterviewRoomRecording(
   },
   dependencies: {
     createEgressClient?: () => HumanInterviewRecordingEgressPort;
+    getParticipant?: (
+      roomName: string,
+      identity: string,
+    ) => Promise<{
+      tracks: { sid: string; source: TrackSource; type: TrackType }[];
+    }>;
     loadUploadConfig?: typeof getHumanInterviewRecordingUploadConfig;
   } = {},
 ): Promise<{ candidateEgressId: string; egressId: string }> {
+  const participant = await (dependencies.getParticipant ?? getHumanInterviewLiveKitParticipant)(
+    input.roomName,
+    input.candidateIdentity,
+  );
+  const microphone = participant.tracks.find(
+    (track) =>
+      track.source === TrackSource.MICROPHONE && track.type === TrackType.AUDIO && track.sid,
+  );
+  if (!microphone) {
+    throw new Error("候选人麦克风音轨尚未发布");
+  }
   const uploadConfig = await (
     dependencies.loadUploadConfig ?? getHumanInterviewRecordingUploadConfig
   )();
@@ -97,11 +124,9 @@ export async function startHumanInterviewRoomRecording(
     throw new Error("LiveKit 未返回真人复面录音任务 ID");
   }
   try {
-    const candidateInfo = await client.startParticipantEgress(
-      input.roomName,
-      input.candidateIdentity,
-      { file: candidateOutput },
-    );
+    const candidateInfo = await client.startTrackCompositeEgress(input.roomName, candidateOutput, {
+      audioTrackId: microphone.sid,
+    });
     if (!candidateInfo.egressId) {
       throw new Error("LiveKit 未返回候选人录音任务 ID");
     }

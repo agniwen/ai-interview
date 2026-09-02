@@ -15,6 +15,7 @@ describe("canCompleteHumanInterviewRound", () => {
 describe("buildHumanInterviewMeetingTitle", () => {
   it("includes the candidate and round label", () => {
     expect(buildHumanInterviewMeetingTitle("张三", "技术复面")).toBe("张三 - 技术复面");
+    expect(buildHumanInterviewMeetingTitle("张三", "CEO面试")).toBe("张三 - CEO面试");
   });
 });
 

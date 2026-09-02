@@ -34,6 +34,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { InviteDialog } from "./members/invite-dialog";
@@ -41,6 +43,7 @@ import {
   addOneHourToDateTimeLocalInputValue,
   buildHumanInterviewMeetingTitle,
 } from "./human-interview-stage-utils";
+import { formatBusinessInterviewLabel } from "@app/shared/human-interview-rounds";
 
 type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
 
@@ -87,6 +90,7 @@ interface ScheduleDialogProps {
   candidateId: string;
   candidateName: string;
   passedRoundCount: number;
+  defaultLabel?: string;
   onScheduled: () => void;
 }
 
@@ -94,8 +98,7 @@ interface ScheduleDialogProps {
 // Preset labels advance only after a passed human round; cancelled attempts stay
 // on the same business round.
 function defaultRoundLabel(passedRoundCount: number): string {
-  const labels = ["技术复面", "HR 复面", "总监终面", "跨部门面"];
-  return labels[passedRoundCount] ?? `业务复面 ${passedRoundCount + 1}`;
+  return formatBusinessInterviewLabel(passedRoundCount + 1);
 }
 
 export interface ScheduleRoundDialogDependencies {
@@ -109,6 +112,7 @@ export function ScheduleRoundDialogView({
   candidateId,
   candidateName,
   passedRoundCount,
+  defaultLabel,
   onScheduled,
 }: ScheduleDialogProps & { dependencies: ScheduleRoundDialogDependencies }) {
   const { slug } = dependencies;
@@ -116,6 +120,10 @@ export function ScheduleRoundDialogView({
   const membersQuery = useWorkspaceMembers(slug);
   const { data: members } = membersQuery;
   const [label, setLabel] = useState("");
+  const [ceoOverride, setCeoOverride] = useState<boolean | null>(null);
+  const ceoEnabled = ceoOverride ?? defaultLabel === "CEO面试";
+  const businessLabel =
+    defaultLabel && defaultLabel !== "CEO面试" ? defaultLabel : defaultRoundLabel(passedRoundCount);
   const [scheduledAt, setScheduledAt] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [interviewerIds, setInterviewerIds] = useState<string[]>([]);
@@ -123,6 +131,7 @@ export function ScheduleRoundDialogView({
 
   function reset() {
     setLabel("");
+    setCeoOverride(null);
     setScheduledAt("");
     setValidUntil("");
     setInterviewerIds([]);
@@ -145,7 +154,7 @@ export function ScheduleRoundDialogView({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const roundLabel = label.trim() || defaultRoundLabel(passedRoundCount);
+      const roundLabel = ceoEnabled ? "CEO面试" : label.trim() || businessLabel;
       const scheduledAtIso = dateTimeLocalInputToISOString(scheduledAt);
       if (!scheduledAtIso) {
         throw new Error("请填写面试时间");
@@ -228,18 +237,25 @@ export function ScheduleRoundDialogView({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="round-label">
-              轮次标签
-            </Label>
-            <Input
-              id="round-label"
-              maxLength={50}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={defaultRoundLabel(passedRoundCount)}
-              value={label}
-            />
-          </div>
+          <FieldGroup>
+            <Field>
+              <div className="flex items-center gap-3">
+                <FieldLabel htmlFor="round-label">轮次标签</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <FieldLabel htmlFor="round-ceo">CEO</FieldLabel>
+                  <Switch id="round-ceo" checked={ceoEnabled} onCheckedChange={setCeoOverride} />
+                </div>
+              </div>
+              <Input
+                id="round-label"
+                maxLength={50}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={businessLabel}
+                readOnly={ceoEnabled}
+                value={ceoEnabled ? "CEO面试" : label}
+              />
+            </Field>
+          </FieldGroup>
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="scheduled-at">

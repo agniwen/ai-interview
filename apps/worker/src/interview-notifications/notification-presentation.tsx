@@ -92,7 +92,7 @@ function notificationTitle(input: NotificationPresentationInput): string {
     human_candidate_invitation_requested: "在线面试邀请",
     human_evaluation_summary_ready: "AI 评价待确认",
     human_interview_cancelled: "面试安排已取消",
-    human_interview_completed: "面试评价汇总通知",
+    human_interview_completed: "面试评价通知",
     human_interview_confirmed: "业务复试安排已确认",
     human_interview_reminder: "面试即将开始提醒",
     human_interview_rescheduled: "面试时间已调整",

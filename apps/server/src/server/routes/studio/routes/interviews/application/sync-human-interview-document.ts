@@ -12,6 +12,7 @@ export interface HumanInterviewDocumentSyncJob extends HumanInterviewDocumentCon
   providerId: FeishuProviderId;
   blockId: string | null;
   attemptCount: number;
+  ratingOnly?: boolean;
 }
 
 export interface HumanInterviewDocumentSyncDependencies {
