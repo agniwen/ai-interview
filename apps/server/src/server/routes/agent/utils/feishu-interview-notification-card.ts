@@ -44,7 +44,7 @@ export function extractNotificationCardSupplement(source: {
         .slice(0, 4) ?? [],
     resumeEvaluation:
       source.resumeEvaluationArtifactMode === "qualitative" && parsedEvaluation.success
-        ? parsedEvaluation.data.conciseOverall
+        ? parsedEvaluation.data.detailedOverall.judgment
         : null,
   };
 }

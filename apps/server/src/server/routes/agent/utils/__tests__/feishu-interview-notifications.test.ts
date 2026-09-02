@@ -5,7 +5,8 @@ import { extractNotificationCardSupplement } from "../feishu-interview-notificat
 const qualitativeResumeEvaluation = {
   conciseOverall: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
   detailedOverall: {
-    judgment: "候选人整体匹配。",
+    judgment:
+      "候选人具备多年企业软件交付经验，近期项目职责与岗位核心要求相符，并能提供较完整的技术决策与业务结果证据，整体建议进入下一轮。",
     matchingEvidence: "具备相关项目经验。",
     risks: "管理规模仍需确认。",
   },
@@ -118,7 +119,7 @@ describe("partial interview summary notifications", () => {
     });
   });
 
-  it("extracts an optional resume evaluation and the first three ordered candidate questions", () => {
+  it("extracts the detailed resume judgment and the first three ordered candidate questions", () => {
     expect(
       extractNotificationCardSupplement({
         dataCollectionResults: null,
@@ -134,7 +135,8 @@ describe("partial interview summary notifications", () => {
     ).toEqual({
       interviewQuestions: ["第一题", "第二题", "第三题"],
       questionAnswers: [],
-      resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
+      resumeEvaluation:
+        "候选人具备多年企业软件交付经验，近期项目职责与岗位核心要求相符，并能提供较完整的技术决策与业务结果证据，整体建议进入下一轮。",
     });
   });
 
@@ -162,7 +164,8 @@ describe("partial interview summary notifications", () => {
     ).toEqual({
       interviewQuestions: [],
       questionAnswers: [],
-      resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
+      resumeEvaluation:
+        "候选人具备多年企业软件交付经验，近期项目职责与岗位核心要求相符，并能提供较完整的技术决策与业务结果证据，整体建议进入下一轮。",
     });
   });
 });
