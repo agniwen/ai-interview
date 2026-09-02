@@ -10,16 +10,16 @@ WORKDIR /repo
 FROM base AS deps
 COPY .bun-version bun.lock bunfig.toml package.json ./
 COPY patches patches
-COPY apps/web/package.json apps/web/
-COPY apps/server/package.json apps/server/
-COPY apps/desktop/package.json apps/desktop/
 COPY apps/worker/package.json apps/worker/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
+COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
 COPY packages/meeting-media/package.json packages/meeting-media/
+COPY packages/meeting-processing/package.json packages/meeting-processing/
 COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/object-storage/package.json packages/object-storage/
 COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --filter @app/worker
 
@@ -27,26 +27,25 @@ RUN bun install --frozen-lockfile --filter @app/worker
 FROM deps AS builder
 COPY tsconfig.base.json ./
 COPY apps/worker apps/worker
-COPY apps/server apps/server
 COPY packages packages
 
 RUN bun run --filter @app/worker build
-RUN bun -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/apps/server'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/worker/dist/mupdf-wasm.wasm');"
+RUN bun -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/packages/resume-processing'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/worker/dist/mupdf-wasm.wasm');"
 
 # --- Production dependencies ---
 FROM base AS prod-deps
 COPY .bun-version bun.lock bunfig.toml package.json ./
 COPY patches patches
-COPY apps/web/package.json apps/web/
-COPY apps/server/package.json apps/server/
-COPY apps/desktop/package.json apps/desktop/
 COPY apps/worker/package.json apps/worker/
 COPY packages/ai-runtime/package.json packages/ai-runtime/
+COPY packages/database/package.json packages/database/
 COPY packages/db-schema/package.json packages/db-schema/
 COPY packages/meeting-media/package.json packages/meeting-media/
+COPY packages/meeting-processing/package.json packages/meeting-processing/
 COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/object-storage/package.json packages/object-storage/
 COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
+COPY packages/resume-processing/package.json packages/resume-processing/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --production --filter @app/worker
 
