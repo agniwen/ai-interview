@@ -18,6 +18,7 @@ import type { InterviewSummaryQuestionScore } from "../../../integrations/feishu
 import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 import { ensureInterviewEvaluationDocument } from "./feishu-interview-document";
+import { extractNotificationCardSupplement } from "./feishu-interview-notification-card";
 import {
   formatInterviewNotificationDateTime,
   formatInterviewNotificationDuration,
@@ -126,8 +127,10 @@ interface NotificationCardInput {
   candidateName: string;
   duration: string;
   evaluation: EvaluationSummary;
+  interviewQuestions: string[];
   interviewStartedAt: string;
   organizationSlug: string | null;
+  resumeEvaluation: string | null;
   roundId: string;
   summary: string | null;
   targetRole: string | null;
@@ -152,10 +155,12 @@ function buildNotificationCard(input: NotificationCardInput, detailUrl?: string)
     candidateName: input.candidateName,
     detailUrl: detailUrl ?? buildStudioUrl(input.roundId, input.organizationSlug),
     duration: input.duration,
+    interviewQuestions: input.interviewQuestions,
     interviewStartedAt: input.interviewStartedAt,
     overallScore,
     questionScores: extractQuestionScores(input.evaluation),
     recommendation,
+    resumeEvaluation: input.resumeEvaluation,
     summary: input.summary,
     targetRole: input.targetRole,
   });
@@ -466,6 +471,7 @@ export async function resendInterviewSummaryNotification(
     candidateName: context.candidateName,
     duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
     evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
+    ...extractNotificationCardSupplement(context),
     interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,
@@ -680,6 +686,7 @@ export async function notifyInterviewSummaryReady(
     candidateName: context.candidateName,
     duration: formatInterviewNotificationDuration(context.startedAt, context.endedAt),
     evaluation: evaluationSummarySchema.parse(context.evaluationCriteriaResults ?? {}),
+    ...extractNotificationCardSupplement(context),
     interviewStartedAt: formatInterviewNotificationDateTime(context.startedAt),
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,

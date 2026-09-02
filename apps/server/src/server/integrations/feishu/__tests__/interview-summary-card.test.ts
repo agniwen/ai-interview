@@ -11,6 +11,12 @@ describe("toLarkInteractiveCard", () => {
         candidateName: "张三",
         detailUrl: "https://example.com/studio/interviews?roundId=round-1",
         duration: "18 分钟",
+        interviewQuestions: [
+          "请说明你如何定位一次线上性能问题？",
+          "请介绍你主导的跨团队项目。",
+          "你会如何评估 AI 功能的业务价值？",
+          "这道题不应出现在通知中。",
+        ],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
         questionScores: [
@@ -18,6 +24,7 @@ describe("toLarkInteractiveCard", () => {
           { maxScore: 10, question: "React 性能优化", score: 9 },
         ],
         recommendation: "推荐进入下一轮",
+        resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
         summary: "候选人对项目经历说明完整。",
         targetRole: "前端工程师",
       }),
@@ -56,6 +63,14 @@ describe("toLarkInteractiveCard", () => {
     });
     expect(JSON.stringify(larkCard)).not.toContain("| 题目 | 得分 |");
     expect(JSON.stringify(larkCard)).toContain("系统设计追问");
+    expect(JSON.stringify(larkCard)).toContain("**简历 AI 评价**");
+    expect(JSON.stringify(larkCard)).toContain(
+      "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
+    );
+    expect(JSON.stringify(larkCard)).toContain("**候选人面试题（节选 3 道）**");
+    expect(JSON.stringify(larkCard)).toContain("1. 请说明你如何定位一次线上性能问题？");
+    expect(JSON.stringify(larkCard)).toContain("3. 你会如何评估 AI 功能的业务价值？");
+    expect(JSON.stringify(larkCard)).not.toContain("这道题不应出现在通知中");
     expect(JSON.stringify(larkCard)).toContain("整体匹配度较高。");
     expect(JSON.stringify(larkCard)).toContain('"tag":"button"');
     expect(JSON.stringify(larkCard)).toContain("查看飞书评价表");
@@ -78,10 +93,12 @@ describe("toLarkInteractiveCard", () => {
         candidateName: "张三",
         detailUrl: "https://example.com/studio/interviews?roundId=round-1",
         duration: "18 分钟",
+        interviewQuestions: [],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
         questionScores: [],
         recommendation,
+        resumeEvaluation: null,
         summary: null,
         targetRole: "前端工程师",
       }),
@@ -93,5 +110,7 @@ describe("toLarkInteractiveCard", () => {
     }
 
     expect(toLarkInteractiveCard(chatCard).header?.template).toBe(template);
+    expect(JSON.stringify(toLarkInteractiveCard(chatCard))).not.toContain("简历 AI 评价");
+    expect(JSON.stringify(toLarkInteractiveCard(chatCard))).not.toContain("候选人面试题");
   });
 });

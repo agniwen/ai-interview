@@ -13,10 +13,12 @@ export interface InterviewSummaryCardProps {
   candidateName: string;
   detailUrl: string;
   duration: string;
+  interviewQuestions: string[];
   interviewStartedAt: string;
   overallScore: string;
   questionScores: InterviewSummaryQuestionScore[];
   recommendation: string;
+  resumeEvaluation: string | null;
   summary: string | null;
   targetRole: string | null;
 }
@@ -26,13 +28,17 @@ export function InterviewSummaryCard({
   candidateName,
   detailUrl,
   duration,
+  interviewQuestions,
   interviewStartedAt,
   overallScore,
   questionScores,
   recommendation,
+  resumeEvaluation,
   summary,
   targetRole,
 }: InterviewSummaryCardProps) {
+  const displayedInterviewQuestions = interviewQuestions.slice(0, 3);
+
   return (
     <Card title="📋 AI 面试报告已生成">
       <Section>
@@ -45,6 +51,20 @@ export function InterviewSummaryCard({
           <Field label="面试耗时" value={duration} />
         </Fields>
       </Section>
+      {resumeEvaluation ? <Divider /> : null}
+      {resumeEvaluation ? (
+        <Section>
+          <CardText>{`**简历 AI 评价**\n${resumeEvaluation}`}</CardText>
+        </Section>
+      ) : null}
+      {displayedInterviewQuestions.length > 0 ? <Divider /> : null}
+      {displayedInterviewQuestions.length > 0 ? (
+        <Section>
+          <CardText>{`**候选人面试题（节选 ${displayedInterviewQuestions.length} 道）**\n${displayedInterviewQuestions
+            .map((question, index) => `${index + 1}. ${question}`)
+            .join("\n")}`}</CardText>
+        </Section>
+      ) : null}
       {questionScores.length > 0 ? <Divider /> : null}
       {questionScores.length > 0 ? (
         <Section>
