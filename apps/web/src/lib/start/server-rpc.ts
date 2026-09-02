@@ -6,6 +6,15 @@ interface ServerApiApp {
   fetch(request: Request): Response | Promise<Response>;
 }
 
+const FORWARDED_REQUEST_HEADERS = [
+  "authorization",
+  "baggage",
+  "cookie",
+  "origin",
+  "sentry-trace",
+  "x-request-id",
+] as const;
+
 export function createServerRpcFetch(
   currentRequest: Request,
   app: ServerApiApp,
@@ -21,7 +30,13 @@ export function createServerRpcFetch(
       inputUrl = String(input);
     }
     const target = new URL(inputUrl, currentRequest.url);
-    const headers = new Headers(currentRequest.headers);
+    const headers = new Headers();
+    for (const name of FORWARDED_REQUEST_HEADERS) {
+      const value = currentRequest.headers.get(name);
+      if (value !== null) {
+        headers.set(name, value);
+      }
+    }
     for (const [name, value] of inputRequest?.headers ?? []) {
       headers.set(name, value);
     }

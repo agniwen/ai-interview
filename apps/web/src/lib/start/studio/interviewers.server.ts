@@ -3,11 +3,8 @@ import { getServerRpc } from "@/lib/start/server-rpc";
 
 export async function loadStudioInterviewersData({ slug }: { slug: string }) {
   const rpc = getServerRpc();
-  const { records } = await rpcFetch(
-    rpc.api.w[":slug"].studio.departments.all.$get({ param: { slug } }),
-    "加载部门列表失败",
+  return await rpcFetch(
+    rpc.api.w[":slug"].studio.interviewers.bootstrap.$get({ param: { slug } }),
+    "加载面试官页数据失败",
   );
-  return {
-    departments: records,
-  };
 }

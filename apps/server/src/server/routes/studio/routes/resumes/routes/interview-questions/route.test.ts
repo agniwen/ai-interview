@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { db as defaultDb } from "@server/lib/server/db/index";
+import { db as defaultDb } from "../../../../../../../lib/server/db/index";
 import { factory } from "../../../../../../factory";
 import type { InterviewQuestionsRouterDependencies } from "./route";
 import { createInterviewQuestionsRouter } from "./route";

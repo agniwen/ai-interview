@@ -1,4 +1,4 @@
-import { decryptMailIngestSecret } from "@server/lib/server/mail-ingest-crypto";
+import { decryptMailIngestSecret } from "../../../../../../lib/server/mail-ingest-crypto";
 import type { mailIngestAccount } from "@app/db-schema/schema";
 import type { MailIngestLoginConfig } from "../validation";
 

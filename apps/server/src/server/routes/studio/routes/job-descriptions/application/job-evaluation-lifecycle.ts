@@ -13,7 +13,7 @@ import type {
 import {
   computeJobEvaluationDraftInputHash,
   computeJobEvaluationPayloadHash,
-} from "@server/lib/server/job-evaluation-hash";
+} from "../../../../../../lib/server/job-evaluation-hash";
 import {
   compileEvaluationBlueprint,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,

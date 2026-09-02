@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { WorkspaceAuthorizer } from "../../../../../access/workspace-access-policy";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
 import {
   getHumanInterviewOfferReadinessError,

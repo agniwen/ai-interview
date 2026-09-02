@@ -1,13 +1,14 @@
-import { db } from "@server/lib/server/db/index";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/ingest";
+import { db } from "../../../../lib/server/db/index";
+import { createBulkResumeUploadWorkflow, createResumeIngest } from "@app/resume-processing/ingest";
+import type { ResumeIngest } from "@app/resume-processing/ingest";
 
-configureResumeProcessingDatabase(db);
+const ingest = createResumeIngest(db);
 
-export {
-  bulkResumeUploadWorkflow,
-  createBulkResumeUploadWorkflow,
-  runBulkResumeUploadWorkflow,
-} from "@app/resume-processing/ingest";
+export const bulkResumeUploadWorkflow: ResumeIngest["bulkResumeUploadWorkflow"] =
+  ingest.bulkResumeUploadWorkflow;
+export const runBulkResumeUploadWorkflow: ResumeIngest["runBulkResumeUploadWorkflow"] =
+  ingest.runBulkResumeUploadWorkflow;
+export { createBulkResumeUploadWorkflow };
 export type {
   BulkResumeUploadWorkflowDeps,
   BulkResumeUploadWorkflowOutput,

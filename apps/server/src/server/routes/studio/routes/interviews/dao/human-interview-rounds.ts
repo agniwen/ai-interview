@@ -2,7 +2,7 @@
 
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {

@@ -8,7 +8,7 @@ import {
   studioInterview,
 } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
-import type { Database } from "@server/lib/server/db/index";
+import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
@@ -401,7 +401,7 @@ export async function runResumeTextBackfillRecords({
 
 async function backfillResumeText(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@server/lib/server/db/index");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const target = parseResumeTextBackfillTarget(process.env.BACKFILL_RESUME_TEXT_TARGET);
   const concurrency = parseResumeTextBackfillConcurrency(
     process.env.BACKFILL_RESUME_TEXT_CONCURRENCY,

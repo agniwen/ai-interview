@@ -1,13 +1,15 @@
-import { db } from "@server/lib/server/db/index";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/review";
+import { db } from "../../../../../../lib/server/db/index";
+import { createResumeReview } from "@app/resume-processing/review";
+import type { ResumeReview } from "@app/resume-processing/review";
 
-configureResumeProcessingDatabase(db);
+const review = createResumeReview(db);
 
-export {
-  generateResumePoolAssessment,
-  processResumeReviewGenerationJob,
-  reassessResumeRecord,
-} from "@app/resume-processing/review";
+export const generateResumePoolAssessment: ResumeReview["generateResumePoolAssessment"] =
+  review.generateResumePoolAssessment;
+export const processResumeReviewGenerationJob: ResumeReview["processResumeReviewGenerationJob"] =
+  review.processResumeReviewGenerationJob;
+export const reassessResumeRecord: ResumeReview["reassessResumeRecord"] =
+  review.reassessResumeRecord;
 export type {
   ResumePoolAssessmentGenerationDependencies,
   ResumeReviewWorkerDependencies,

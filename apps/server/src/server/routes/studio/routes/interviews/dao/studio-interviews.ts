@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@app/shared/studio-candidates";
 import type { ResumeLibraryProfileSnapshot } from "@app/shared/studio-resumes";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { jobDescription, studioInterview, user } from "@app/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@app/db-schema/schema";
 import type { PipelineStage } from "@app/db-schema/studio-interviews";

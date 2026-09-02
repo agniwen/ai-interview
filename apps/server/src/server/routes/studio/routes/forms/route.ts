@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
@@ -18,7 +18,7 @@ import {
 } from "./dao/queries";
 import { loadSubmissionsByTemplate } from "./dao/submissions";
 import { loadCandidateFormTemplateVersionById } from "./dao/versions";
-import { managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import { createInternalErrorResponse } from "../../../../error-handler";
 import { refreshEligibleCandidatesForFormTemplate } from "./dao/refresh-eligible";
@@ -113,6 +113,14 @@ export const candidateFormsRouter = factory
     }
     const records = await listAllCandidateFormTemplates(activeOrg.id);
     return c.json({ records }, 200);
+  })
+  .get("/bootstrap", requirePermission("page", "forms"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+    return c.json({ jobDescriptions }, 200);
   })
   .post(
     "/",

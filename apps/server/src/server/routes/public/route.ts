@@ -13,7 +13,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import { getObjectBytes, getObjectStream, presignRecordingGetObjectUrl } from "@app/object-storage";
 import { interviewConversation, minimaxVoicePreview, studioInterview } from "@app/db-schema/schema";
 import { factory, jsonValidatorError } from "../../factory";

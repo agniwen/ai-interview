@@ -1,13 +1,18 @@
 import { db } from "../db/index";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/semantic";
+import { createResumeSemanticProcessing } from "@app/resume-processing/semantic";
+import type { ResumeSemanticProcessing } from "@app/resume-processing/semantic";
 
-configureResumeProcessingDatabase(db);
+const semantic = createResumeSemanticProcessing(db);
 
-export {
-  createDefaultIndexerDeps,
-  getResumeSemanticIndexConfig,
-  listRecoverableResumeSemanticIndexJobs,
-  prepareResumeSemanticIndexJob,
-  runResumeSemanticIndexJob,
-  upsertResumeSemanticIndexState,
-} from "@app/resume-processing/semantic";
+export const createDefaultIndexerDeps: ResumeSemanticProcessing["createDefaultIndexerDeps"] =
+  semantic.createDefaultIndexerDeps;
+export const getResumeSemanticIndexConfig: ResumeSemanticProcessing["getResumeSemanticIndexConfig"] =
+  semantic.getResumeSemanticIndexConfig;
+export const listRecoverableResumeSemanticIndexJobs: ResumeSemanticProcessing["listRecoverableResumeSemanticIndexJobs"] =
+  semantic.listRecoverableResumeSemanticIndexJobs;
+export const prepareResumeSemanticIndexJob: ResumeSemanticProcessing["prepareResumeSemanticIndexJob"] =
+  semantic.prepareResumeSemanticIndexJob;
+export const runResumeSemanticIndexJob: ResumeSemanticProcessing["runResumeSemanticIndexJob"] =
+  semantic.runResumeSemanticIndexJob;
+export const upsertResumeSemanticIndexState: ResumeSemanticProcessing["upsertResumeSemanticIndexState"] =
+  semantic.upsertResumeSemanticIndexState;

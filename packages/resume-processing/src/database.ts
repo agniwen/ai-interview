@@ -1,19 +1,28 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { Database } from "@app/database";
 
-let configuredDatabase: Database | undefined;
+const databaseStorage = new AsyncLocalStorage<Database>();
 
-export function configureResumeProcessingDatabase(database: Database): void {
-  if (configuredDatabase && configuredDatabase !== database) {
-    throw new Error("Resume processing database is already configured.");
-  }
-  configuredDatabase = database;
+export function withResumeProcessingDatabase<Result>(
+  database: Database,
+  operation: () => Result,
+): Result {
+  return databaseStorage.run(database, operation);
 }
 
 function requireDatabase(): Database {
-  if (!configuredDatabase) {
-    throw new Error("Resume processing database has not been configured.");
+  const database = databaseStorage.getStore();
+  if (!database) {
+    throw new Error("Resume processing database scope is unavailable.");
   }
-  return configuredDatabase;
+  return database;
+}
+
+export function bindResumeProcessingDatabase<Arguments extends unknown[], Result>(
+  database: Database,
+  operation: (...args: Arguments) => Result,
+): (...args: Arguments) => Result {
+  return (...args) => withResumeProcessingDatabase(database, () => operation(...args));
 }
 
 // SAFETY: The proxy target is never read. Every property access is forwarded to the

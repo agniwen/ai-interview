@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../../lib/server/db/index";
 import { member, user, workspaceInviteLink } from "@app/db-schema/schema";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@app/shared/permissions";
 

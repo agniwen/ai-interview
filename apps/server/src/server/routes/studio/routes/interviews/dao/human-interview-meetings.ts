@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- meeting aggregate reads, writes, and signed-link resolution share persistence invariants. */
 import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   department,
   jobDescription,

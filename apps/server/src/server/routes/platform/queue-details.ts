@@ -181,7 +181,7 @@ export async function loadResumeQueueDetailsByItemIds(
     return [];
   }
 
-  const { db } = await import("@server/lib/server/db/index");
+  const { db } = await import("../../../lib/server/db/index");
   const rows = await db
     .select({
       attemptCount: resumeUploadBatchItem.attemptCount,

@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 import { and, asc, count, eq, isNotNull, notExists, sql } from "drizzle-orm";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@app/db-schema/schema";
 import type { JsonValue } from "@app/db-schema/json";
-import type { Database } from "@server/lib/server/db/index";
+import type { Database } from "../lib/server/db/index";
 import type { ResumeSemanticIndexJobData } from "@app/resume-parse-queue/resume-semantic-index";
 import { loadStandaloneEnv } from "../standalone/env";
 
@@ -290,8 +290,8 @@ export async function backfillResumeSemanticIndex({
 }: ResumeSemanticBackfillCliOptions = {}): Promise<void> {
   loadScriptEnv();
   const [{ closeDatabase, db }, { runResumeSemanticIndexJob }] = await Promise.all([
-    import("@server/lib/server/db/index"),
-    import("@server/lib/server/resume-semantic/indexer"),
+    import("../lib/server/db/index"),
+    import("../lib/server/resume-semantic/indexer"),
   ]);
   const target = resolveSemanticBackfillTarget({
     defaultTarget,

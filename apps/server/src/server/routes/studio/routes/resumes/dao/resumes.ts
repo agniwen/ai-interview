@@ -3,14 +3,14 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { and, arrayContains, asc, count, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
-import { listActiveStudioDuplicateMatchSummaries } from "@server/lib/server/resume-semantic/duplicate-matches";
+import { db } from "../../../../../../lib/server/db/index";
+import { listActiveStudioDuplicateMatchSummaries } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
 import {
   buildOrderBy,
   calcTotalPages,
   makePaginationSchema,
-} from "@server/lib/server/db/pagination";
-import { serializeDate } from "@server/lib/server/db/serialize";
+} from "../../../../../../lib/server/db/pagination";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { intersectRequestedCreatorIds } from "../../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../../access/recruiting-visibility";
 import { department, jobDescription, studioInterview, user } from "@app/db-schema/schema";

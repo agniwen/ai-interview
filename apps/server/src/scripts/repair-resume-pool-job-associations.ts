@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import type { Database } from "@server/lib/server/db/index";
+import type { Database } from "../lib/server/db/index";
 import {
   jobDescription,
   resumePoolEvent,
@@ -159,7 +159,7 @@ export async function runResumePoolJobAssociationRepairCli(
   args: string[] = process.argv.slice(2),
 ): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@server/lib/server/db/index");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   try {
     const apply = args.includes("--apply");
     const result = await repairResumePoolJobAssociations({ apply, db });

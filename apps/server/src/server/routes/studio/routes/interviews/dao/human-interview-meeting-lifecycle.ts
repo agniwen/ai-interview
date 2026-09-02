@@ -1,5 +1,5 @@
 import { and, eq, or } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingEvent,

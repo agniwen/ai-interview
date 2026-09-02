@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- lifecycle integration scenarios share one expensive database fixture. */
 import { and, eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import {
   meetingAccessGrant,
   meetingAuditLog,

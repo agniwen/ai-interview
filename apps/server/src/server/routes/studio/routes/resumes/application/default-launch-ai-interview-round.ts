@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { invalidateStudioInterviewCaches } from "../../../../../cache-tags";
 import { buildScheduleRows } from "../../../../interview/utils";
 import { autoBindApplicableTemplates } from "../../interview-questions/dao/bindings";

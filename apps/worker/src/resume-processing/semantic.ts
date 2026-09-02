@@ -1,10 +1,8 @@
 import { db } from "../db";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/semantic";
+import { createResumeSemanticProcessing } from "@app/resume-processing/semantic";
 
-configureResumeProcessingDatabase(db);
-
-export {
+export const {
   listRecoverableResumeSemanticIndexJobs,
   runJdSemanticIndexJob,
   runResumeSemanticEnrichmentJob,
-} from "@app/resume-processing/semantic";
+} = createResumeSemanticProcessing(db);

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { resolveHumanInterviewMeetingInterviewerInviteToken } from "../../../studio/routes/interviews/dao/human-interview-meetings";
 import { resumeProfileSchema } from "@app/db-schema/interview/types";
 import {

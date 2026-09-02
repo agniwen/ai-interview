@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { department, interviewer } from "@app/db-schema/schema";
 import { minimaxVoiceSchema } from "@app/db-schema/minimax-voices";
 import { interviewerFormSchema, interviewerUpdateSchema } from "@app/shared/interviewers";
@@ -17,6 +17,7 @@ import {
 } from "./dao";
 import { safeUpdateTag } from "../../../../cache-tags";
 import { requirePermission } from "../../../../middlewares/permission";
+import { listAllDepartments } from "../departments/dao";
 
 async function validateDepartmentExists(
   departmentId: string,
@@ -80,6 +81,14 @@ export const interviewersRouter = factory
     }
     const records = await listAllInterviewers(activeOrg.id);
     return c.json({ records }, 200);
+  })
+  .get("/bootstrap", requirePermission("page", "interviewers"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const departments = await listAllDepartments(activeOrg.id);
+    return c.json({ departments }, 200);
   })
   .post(
     "/",

@@ -1,6 +1,2 @@
-export function isResumeParseCacheEnabled(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  const raw = env.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase();
-  return !(raw === "1" || raw === "true" || raw === "yes");
-}
+// oxlint-disable-next-line no-barrel-file -- This route-local Server facade preserves existing imports while the reusable implementation has one package owner.
+export * from "@app/resume-processing/ingest/support/resume-parse-cache-policy";

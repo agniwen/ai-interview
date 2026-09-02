@@ -1,7 +1,7 @@
 import type { SessionStateDependencies } from "./session-state";
 import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
-import { auth } from "@server/lib/server/auth";
-import { db } from "@server/lib/server/db";
+import { auth } from "../../../../lib/server/auth";
+import { db } from "../../../../lib/server/db";
 import {
   member as memberTable,
   organization as organizationTable,

@@ -36,7 +36,7 @@ export async function listRecruitingGroupRoles({
   organizationId: string;
   userId: string;
 }): Promise<string[]> {
-  const { db } = await import("@server/lib/server/db/index");
+  const { db } = await import("../../lib/server/db/index");
   const rows = await db
     .select({ role: recruitingGroupMember.role })
     .from(recruitingGroupMember)

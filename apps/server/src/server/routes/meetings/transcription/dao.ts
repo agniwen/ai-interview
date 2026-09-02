@@ -1,5 +1,5 @@
 import { createMeetingTranscriptionDao } from "@app/meeting-processing/transcription";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../lib/server/db/index";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
 

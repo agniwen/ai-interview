@@ -17,7 +17,7 @@ import { structuredResumeRuleIdSchema } from "@app/db-schema/job-description-str
 import type { StructuredResumeDimension } from "@app/shared/structured-resume-scoring";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@app/shared/structured-resume-scoring";
 import { z } from "zod";
-import { computeJobEvaluationPayloadHash } from "@server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../../../../../../lib/server/job-evaluation-hash";
 import {
   generateStructuredWithMastraAgent,
   jobEvaluationBlueprintAgent,

@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { department } from "@app/db-schema/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@app/shared/departments";
 import { factory, jsonValidatorError } from "../../../../factory";

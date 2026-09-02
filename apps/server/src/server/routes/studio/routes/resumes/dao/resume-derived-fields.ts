@@ -1,7 +1,7 @@
 import { and, asc, inArray, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import type { ResumeStageProgress } from "@app/shared/studio-resumes";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewConversation,
   studioHumanInterviewRound,

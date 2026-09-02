@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { resumeLibraryReadRouter as defaultResumeLibraryReadRouter } from "./read-route";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db as defaultDb } from "@server/lib/server/db/index";
+import { db as defaultDb } from "../../../../../lib/server/db/index";
 import { interviewAuditLog, resumeEvaluationVersion, studioInterview } from "@app/db-schema/schema";
 import { resumeReviewSchema } from "@app/shared/resume-review";
 import type { ResumeReview } from "@app/shared/resume-review";
@@ -37,13 +37,13 @@ import {
   resolveResumeUploadStorage as defaultResolveResumeUploadStorage,
   toBadRequest as defaultToBadRequest,
 } from "../../../interview/utils";
-import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates as defaultFindSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource as defaultDeleteDuplicateMatchesForSource,
   replaceDuplicateMatchesForSource as defaultReplaceDuplicateMatchesForSource,
-} from "@server/lib/server/resume-semantic/duplicate-matches";
-import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "@server/lib/server/resume-semantic/enqueue";
-import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "@server/lib/server/resume-semantic/lifecycle";
+} from "../../../../../lib/server/resume-semantic/duplicate-matches";
+import { enqueueResumeSemanticIndexJobBestEffort as defaultEnqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort as defaultDeleteResumeSemanticIndexBestEffort } from "../../../../../lib/server/resume-semantic/lifecycle";
 import {
   loadRecruitingJobDescriptionById as defaultLoadRecruitingJobDescriptionById,
   recruitingJobDescriptionIdsExist as defaultRecruitingJobDescriptionIdsExist,
@@ -56,7 +56,8 @@ import {
   scheduleResumeEvaluationForRecord as defaultScheduleResumeEvaluationForRecord,
 } from "./utils/review-queue";
 import { reassessResumeRecord as defaultReassessResumeRecord } from "./utils/review-worker";
-import { computeResumeEvaluationInputHash } from "@server/lib/server/resume-evaluation-input-hash";
+import type { ResumeReview as ResumeProcessingReview } from "@app/resume-processing/review";
+import { computeResumeEvaluationInputHash } from "../../../../../lib/server/resume-evaluation-input-hash";
 import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
@@ -136,7 +137,46 @@ export function parseResumeReviewFormInput(
   return { error: "简历评价结构无效，请重新生成评价。", success: false };
 }
 
-const defaultResumeLibraryRouterDependencies = {
+const defaultReassessResumeRecordDependency: ResumeProcessingReview["reassessResumeRecord"] =
+  defaultReassessResumeRecord;
+
+export interface ResumeLibraryRouterDependencies {
+  createResumeRecordFromStorage: typeof defaultCreateResumeRecordFromStorage;
+  dashboardMetricsRouter: typeof defaultDashboardMetricsRouter;
+  db: typeof defaultDb;
+  deleteDuplicateMatchesForSource: typeof defaultDeleteDuplicateMatchesForSource;
+  deleteResumeSemanticIndexBestEffort: typeof defaultDeleteResumeSemanticIndexBestEffort;
+  enqueueResumeReassessmentForRecord: typeof defaultEnqueueResumeReassessmentForRecord;
+  enqueueResumeSemanticIndexJobBestEffort: typeof defaultEnqueueResumeSemanticIndexJobBestEffort;
+  findSemanticResumeDuplicates: typeof defaultFindSemanticResumeDuplicates;
+  forceResumeReparse: typeof defaultForceResumeReparse;
+  generateResumeScreeningBestEffort: typeof defaultGenerateResumeScreeningBestEffort;
+  interviewQuestionsRouter: typeof defaultInterviewQuestionsRouter;
+  invalidateStudioInterviewCaches: typeof defaultInvalidateStudioInterviewCaches;
+  loadRecruitingJobDescriptionById: typeof defaultLoadRecruitingJobDescriptionById;
+  loadResumeDetail: typeof defaultLoadResumeDetail;
+  normalizeResumeFile: typeof defaultNormalizeResumeFile;
+  parseResumeFastToProfile: typeof defaultParseResumeFastToProfile;
+  reassessResumeRecord: ResumeProcessingReview["reassessResumeRecord"];
+  recruitingJobDescriptionIdsExist: typeof defaultRecruitingJobDescriptionIdsExist;
+  recruitingRecordMeetingsRouter: typeof defaultRecruitingRecordMeetingsRouter;
+  removeImportedInterviewFromConversations: typeof defaultRemoveImportedInterviewFromConversations;
+  replaceDuplicateMatchesForSource: typeof defaultReplaceDuplicateMatchesForSource;
+  requirePermission: typeof defaultRequirePermission;
+  resetResumeEvaluationForJobChange: typeof defaultResetResumeEvaluationForJobChange;
+  resolveRecruitingVisibilityScope: typeof defaultResolveRecruitingVisibilityScope;
+  resolveResumeUploadStorage: typeof defaultResolveResumeUploadStorage;
+  resumeLibraryReadRouter: typeof defaultResumeLibraryReadRouter;
+  retryFailedResumeParse: typeof defaultRetryFailedResumeParse;
+  scheduleResumeEvaluationForRecord: typeof defaultScheduleResumeEvaluationForRecord;
+  structuredResumeEvaluationRouter: typeof defaultStructuredResumeEvaluationRouter;
+  syncResumeProfileIdentity: typeof defaultSyncResumeProfileIdentity;
+  toBadRequest: typeof defaultToBadRequest;
+  updateResumeEvaluationStatus: typeof defaultUpdateResumeEvaluationStatus;
+  validateResumeFile: typeof defaultValidateResumeFile;
+}
+
+const defaultResumeLibraryRouterDependencies: ResumeLibraryRouterDependencies = {
   createResumeRecordFromStorage: defaultCreateResumeRecordFromStorage,
   dashboardMetricsRouter: defaultDashboardMetricsRouter,
   db: defaultDb,
@@ -153,7 +193,7 @@ const defaultResumeLibraryRouterDependencies = {
   loadResumeDetail: defaultLoadResumeDetail,
   normalizeResumeFile: defaultNormalizeResumeFile,
   parseResumeFastToProfile: defaultParseResumeFastToProfile,
-  reassessResumeRecord: defaultReassessResumeRecord,
+  reassessResumeRecord: defaultReassessResumeRecordDependency,
   recruitingJobDescriptionIdsExist: defaultRecruitingJobDescriptionIdsExist,
   recruitingRecordMeetingsRouter: defaultRecruitingRecordMeetingsRouter,
   removeImportedInterviewFromConversations: defaultRemoveImportedInterviewFromConversations,
@@ -171,8 +211,6 @@ const defaultResumeLibraryRouterDependencies = {
   updateResumeEvaluationStatus: defaultUpdateResumeEvaluationStatus,
   validateResumeFile: defaultValidateResumeFile,
 };
-
-export type ResumeLibraryRouterDependencies = typeof defaultResumeLibraryRouterDependencies;
 
 // Owns resume-library mutations and permission checks; read, meeting, evaluation-history, and structured-evaluation subroutes remain mounted as typed child routers.
 // 负责简历库写操作与权限校验；读取、会议、评价历史及结构化评价继续以类型化子路由挂载。

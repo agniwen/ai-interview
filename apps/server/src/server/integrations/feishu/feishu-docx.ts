@@ -1,7 +1,7 @@
 /* oxlint-disable max-lines -- Feishu document transport, retry, and content-sync invariants stay in one adapter. */
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { getFeishuTenantAccessToken } from "@server/lib/server/feishu-access-token";
+import { getFeishuTenantAccessToken } from "../../../lib/server/feishu-access-token";
 import type { FeishuProviderId } from "./provider";
 import { z } from "zod";
 import { getFeishuAppCredentials, getFeishuEvaluationFolderToken } from "./provider";

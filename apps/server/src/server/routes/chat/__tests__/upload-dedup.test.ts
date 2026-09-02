@@ -5,7 +5,7 @@
 import { createAttachment, findAttachmentByContentHash } from "../dao/chat-attachments";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../lib/server/db/index";
 import { chatAttachment, organization, user } from "@app/db-schema/schema";
 
 const ORG_ID = "chat_dedup_test_org";

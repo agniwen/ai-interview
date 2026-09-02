@@ -1,118 +1,14 @@
-import { and, eq, sql } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
-import { generateInterviewQuestionsForProfile } from "../../../../../agents/resume-analysis-agent";
-import { jobDescription, studioInterview } from "@app/db-schema/schema";
-import {
-  enqueueResumeReviewGenerationJobs,
-  isResumeReviewGenerationQueueConfigured,
-} from "@app/resume-parse-queue/resume-review-generation";
-import { resolveCandidateQuestionGenerationEnabled } from "@app/shared/interview/candidate-question-generation-config";
+import { db } from "../../../../../../lib/server/db";
+import { bindResumeProcessingDatabase } from "@app/resume-processing/ingest/database-context";
+import * as implementation from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
 
-export interface CandidateQuestionGenerationDependencies {
-  generateInterviewQuestionsForProfile: typeof generateInterviewQuestionsForProfile;
-  resolveCandidateQuestionGenerationEnabled: typeof resolveCandidateQuestionGenerationEnabled;
-}
+// oxlint-disable-next-line no-barrel-file -- This route-local Server facade preserves existing imports while the reusable implementation has one package owner.
+export * from "@app/resume-processing/review/resumes/utils/candidate-question-generation";
 
-export const defaultCandidateQuestionGenerationDependencies: CandidateQuestionGenerationDependencies =
-  {
-    generateInterviewQuestionsForProfile,
-    resolveCandidateQuestionGenerationEnabled,
-  };
-
-export type CandidateQuestionGenerationResult =
-  | "already_generated"
-  | "disabled"
-  | "generated"
-  | "missing_profile";
-
-export async function generateCandidateInterviewQuestions(
-  input: {
-    organizationId: string;
-    resumeRecordId: string;
-  },
-  dependencies: CandidateQuestionGenerationDependencies = defaultCandidateQuestionGenerationDependencies,
-): Promise<CandidateQuestionGenerationResult> {
-  if (!dependencies.resolveCandidateQuestionGenerationEnabled(process.env)) {
-    return "disabled";
-  }
-
-  const [record] = await db
-    .select({
-      interviewQuestions: studioInterview.interviewQuestions,
-      jobName: jobDescription.name,
-      jobPrompt: jobDescription.prompt,
-      resumeProfile: studioInterview.resumeProfile,
-    })
-    .from(studioInterview)
-    .leftJoin(
-      jobDescription,
-      and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, input.organizationId),
-      ),
-    )
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!record?.resumeProfile) {
-    return "missing_profile";
-  }
-  if (record.interviewQuestions.length > 0) {
-    return "already_generated";
-  }
-
-  const interviewQuestions = await dependencies.generateInterviewQuestionsForProfile(
-    record.resumeProfile,
-    undefined,
-    {
-      job:
-        record.jobName && record.jobPrompt
-          ? { name: record.jobName, prompt: record.jobPrompt }
-          : null,
-    },
+export const enqueueCandidateQuestionGenerationForRecordBestEffort: typeof implementation.enqueueCandidateQuestionGenerationForRecordBestEffort =
+  bindResumeProcessingDatabase(
+    db,
+    implementation.enqueueCandidateQuestionGenerationForRecordBestEffort,
   );
-  const updated = await db
-    .update(studioInterview)
-    .set({ interviewQuestions, updatedAt: new Date() })
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-        sql`${studioInterview.interviewQuestions} = '[]'::jsonb`,
-      ),
-    )
-    .returning({ id: studioInterview.id });
-  return updated.length > 0 ? "generated" : "already_generated";
-}
-
-export async function enqueueCandidateQuestionGenerationForRecordBestEffort(input: {
-  organizationId: string;
-  resumeRecordId: string;
-}): Promise<boolean> {
-  if (!resolveCandidateQuestionGenerationEnabled(process.env)) {
-    return true;
-  }
-  if (!isResumeReviewGenerationQueueConfigured()) {
-    return false;
-  }
-  try {
-    await enqueueResumeReviewGenerationJobs([
-      {
-        organizationId: input.organizationId,
-        resumeRecordId: input.resumeRecordId,
-        source: "resume_pool_import_questions",
-      },
-    ]);
-    return true;
-  } catch (error) {
-    console.warn("[candidate-question-generation] enqueue failed", {
-      error,
-      resumeRecordId: input.resumeRecordId,
-    });
-    return false;
-  }
-}
+export const generateCandidateInterviewQuestions: typeof implementation.generateCandidateInterviewQuestions =
+  bindResumeProcessingDatabase(db, implementation.generateCandidateInterviewQuestions);

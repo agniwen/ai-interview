@@ -8,7 +8,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   meetingSession,
   meetingTranscriptRevision,

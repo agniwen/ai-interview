@@ -8,15 +8,21 @@ describe("server-side RPC transport", () => {
     const app = new Hono().get("/api/headers", (c) =>
       c.json({
         authorization: c.req.header("authorization"),
+        contentLength: c.req.header("content-length") ?? null,
         cookie: c.req.header("cookie"),
-        requestHeader: c.req.header("x-request-header"),
+        forwardedHost: c.req.header("x-forwarded-host") ?? null,
+        host: c.req.header("host") ?? null,
+        requestHeader: c.req.header("x-request-header") ?? null,
         rpcHeader: c.req.header("x-rpc-header"),
       }),
     );
     const request = new Request("https://arc.example/platform/users", {
       headers: {
         authorization: "Bearer request-token",
+        "content-length": "999",
         cookie: "session=abc",
+        host: "attacker.example",
+        "x-forwarded-host": "attacker.example",
         "x-request-header": "forwarded",
       },
     });
@@ -27,8 +33,11 @@ describe("server-side RPC transport", () => {
 
     await expect(response.json()).resolves.toEqual({
       authorization: "Bearer request-token",
+      contentLength: null,
       cookie: "session=abc",
-      requestHeader: "forwarded",
+      forwardedHost: null,
+      host: null,
+      requestHeader: null,
       rpcHeader: "rpc",
     });
   });

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../lib/server/db/index";
 import {
   meetingProcessingRun,
   meetingQuestionExchange,

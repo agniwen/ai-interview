@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, gte, inArray, max } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../lib/server/db/index";
 import {
   meetingAccessGrant,
   meetingQuestionExchange,

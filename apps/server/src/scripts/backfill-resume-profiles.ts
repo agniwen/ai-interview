@@ -10,7 +10,7 @@ import {
   resumePoolItem,
   studioInterview,
 } from "@app/db-schema/schema";
-import type { Database } from "@server/lib/server/db/index";
+import type { Database } from "../lib/server/db/index";
 import { INVALIDATED_AI_RESUME_ASSESSMENT } from "../server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { buildPreQualitativeEvaluationArchive } from "../server/routes/studio/routes/resumes/utils/resume-evaluation-history";
 import { loadStandaloneEnv } from "../standalone/env";
@@ -301,7 +301,7 @@ async function extractEducationForRecord(
   }
 
   const [{ extractResumeDocumentText }, { getObjectBytes }] = await Promise.all([
-    import("@server/lib/server/resume-parse-pipeline"),
+    import("../lib/server/resume-parse-pipeline"),
     import("@app/object-storage"),
   ]);
   const object = await getObjectBytes(record.storageKey);
@@ -428,7 +428,7 @@ async function writeBackfillResult(
 
 async function backfillResumeProfiles(): Promise<void> {
   loadScriptEnv();
-  const { closeDatabase, db } = await import("@server/lib/server/db/index");
+  const { closeDatabase, db } = await import("../lib/server/db/index");
   const target = parseBackfillTarget(process.env.BACKFILL_RESUME_PROFILE_TARGET);
   const concurrency = parseBackfillConcurrency(process.env.BACKFILL_RESUME_PROFILE_CONCURRENCY);
   const limit = parseOptionalPositiveInteger(

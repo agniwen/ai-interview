@@ -28,9 +28,9 @@ export async function rebuildJdSemanticIndex(): Promise<void> {
     { prepareJdSemanticIndexJob, runJdSemanticIndexJob },
   ] = await Promise.all([
     import("@qdrant/js-client-rest"),
-    import("@server/lib/server/db/index"),
-    import("@server/lib/server/resume-semantic/indexer"),
-    import("@server/lib/server/jd-semantic/indexer"),
+    import("../lib/server/db/index"),
+    import("../lib/server/resume-semantic/indexer"),
+    import("../lib/server/jd-semantic/indexer"),
   ]);
   const config = getResumeSemanticIndexConfig();
   if (!config.qdrantUrl) {

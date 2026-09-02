@@ -25,7 +25,7 @@ import type {
   StructuredResumeRuleId,
   StructuredResumeRuleJudgment,
 } from "@app/shared/structured-resume-scoring";
-import { computeJobEvaluationPayloadHash } from "@server/lib/server/job-evaluation-hash";
+import { computeJobEvaluationPayloadHash } from "../../lib/server/job-evaluation-hash";
 import type {
   StructuredResumeEvalCandidate,
   StructuredResumeEvalCase,

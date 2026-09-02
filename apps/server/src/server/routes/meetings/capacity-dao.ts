@@ -1,5 +1,5 @@
 import { and, eq, gt, ne, sql } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import { meetingRecordingAsset, meetingSession } from "@app/db-schema/schema";
 import type {
   CreateMultipartSavedMeetingInput,

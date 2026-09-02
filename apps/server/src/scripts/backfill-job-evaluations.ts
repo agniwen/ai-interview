@@ -236,7 +236,7 @@ function parseBaseConfig(value: JsonValue): JobDescriptionStructuredConfig {
 
 async function workspaceFingerprint(organizationId: string): Promise<string> {
   const [{ db }, { jobDescription }, { asc, ne }] = await Promise.all([
-    import("@server/lib/server/db"),
+    import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -298,11 +298,11 @@ async function repairStructuredJob(job: BackfillJobRow, actorId: string, refresh
     { JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION },
     { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION },
   ] = await Promise.all([
-    import("@server/lib/server/db"),
+    import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
     import("../server/routes/studio/routes/job-descriptions/application/default-job-evaluation-lifecycle"),
-    import("@server/lib/server/job-evaluation-hash"),
+    import("../lib/server/job-evaluation-hash"),
     import("@app/db-schema/job-description-evaluation"),
     import("@app/shared/structured-resume-scoring"),
   ]);
@@ -416,7 +416,7 @@ function memberRolePriority(role: string): number {
 
 async function loadScope() {
   const [{ db }, { jobDescription, member, organization }, { asc, eq }] = await Promise.all([
-    import("@server/lib/server/db"),
+    import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -458,7 +458,7 @@ async function loadScope() {
 
 async function loadJobById(id: string): Promise<BackfillJobRow> {
   const [{ db }, { jobDescription }, { and, eq }] = await Promise.all([
-    import("@server/lib/server/db"),
+    import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);
@@ -586,7 +586,7 @@ async function main(): Promise<void> {
     console.error(error);
     process.exitCode = 1;
   } finally {
-    const { closeDatabase } = await import("@server/lib/server/db");
+    const { closeDatabase } = await import("../lib/server/db");
     await closeDatabase();
   }
 }

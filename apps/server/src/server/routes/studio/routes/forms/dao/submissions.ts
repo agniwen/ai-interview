@@ -4,13 +4,13 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "@app/db-schema/candidate-forms";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   candidateFormSubmission,
   candidateFormTemplateVersion,
   studioInterview,
 } from "@app/db-schema/schema";
-import { serializeDate } from "@server/lib/server/db/serialize";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 
 // 默认 / 上限的页大小。Drawer 一次加载 20 条已经够；100 是 hard cap，给 API
 // 调用方留余地但不允许"一次性扫表"。

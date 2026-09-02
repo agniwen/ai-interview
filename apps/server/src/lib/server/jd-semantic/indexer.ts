@@ -1,11 +1,13 @@
 import { db } from "../db/index";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/semantic";
+import { createResumeSemanticProcessing } from "@app/resume-processing/semantic";
+import type { ResumeSemanticProcessing } from "@app/resume-processing/semantic";
 
-configureResumeProcessingDatabase(db);
+const semantic = createResumeSemanticProcessing(db);
 
-export {
-  createDefaultJdIndexerDeps,
-  prepareJdSemanticIndexJob,
-  runJdSemanticIndexJob,
-} from "@app/resume-processing/semantic";
+export const createDefaultJdIndexerDeps: ResumeSemanticProcessing["createDefaultJdIndexerDeps"] =
+  semantic.createDefaultJdIndexerDeps;
+export const prepareJdSemanticIndexJob: ResumeSemanticProcessing["prepareJdSemanticIndexJob"] =
+  semantic.prepareJdSemanticIndexJob;
+export const runJdSemanticIndexJob: ResumeSemanticProcessing["runJdSemanticIndexJob"] =
+  semantic.runJdSemanticIndexJob;
 export type { JdIndexerDeps, JdSemanticIndexJob } from "@app/resume-processing/semantic";

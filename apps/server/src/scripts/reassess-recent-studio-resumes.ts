@@ -182,12 +182,12 @@ async function main(): Promise<void> {
     { computeResumeEvaluationInputHash },
     modelModule,
   ] = await Promise.all([
-    import("@server/lib/server/db"),
+    import("../lib/server/db"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
     import("../server/routes/studio/routes/resumes/utils/review-queue"),
     import("../server/routes/studio/routes/resumes/utils/review-worker"),
-    import("@server/lib/server/resume-evaluation-input-hash"),
+    import("../lib/server/resume-evaluation-input-hash"),
     import("@app/ai-runtime/models"),
   ]);
 

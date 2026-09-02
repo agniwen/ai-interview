@@ -1,6 +1,8 @@
 import { db } from "../db/index";
-import { configureResumeProcessingDatabase } from "@app/resume-processing/semantic";
+import { createResumeSemanticProcessing } from "@app/resume-processing/semantic";
+import type { ResumeSemanticProcessing } from "@app/resume-processing/semantic";
 
-configureResumeProcessingDatabase(db);
+const semantic = createResumeSemanticProcessing(db);
 
-export { runResumeSemanticEnrichmentJob } from "@app/resume-processing/semantic";
+export const runResumeSemanticEnrichmentJob: ResumeSemanticProcessing["runResumeSemanticEnrichmentJob"] =
+  semantic.runResumeSemanticEnrichmentJob;

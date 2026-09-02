@@ -1,13 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeDocument } from "@server/lib/server/resume-parse-pipeline";
-import type { ParsedResumeDocument } from "@server/lib/server/resume-parse-pipeline";
-import { isResumeParseCacheSourceCompatible } from "@server/lib/server/resume-parse-provider";
+import { parseResumeDocument } from "../../../../../lib/server/resume-parse-pipeline";
+import type { ParsedResumeDocument } from "../../../../../lib/server/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "../../../../../lib/server/resume-parse-provider";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
 } from "@app/shared/resume-documents";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import { isResumeParseCacheEnabled } from "@server/lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheEnabled } from "../../../../../lib/server/resume-parse-cache-policy";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@app/db-schema/db-enums";
 import { isResumeStructuredSourceFileNameCompatible } from "@app/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@app/db-schema/resume-parser-schema";

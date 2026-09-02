@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import type { JsonObject } from "@app/db-schema/json";
 import {
   meetingAccessGrant,

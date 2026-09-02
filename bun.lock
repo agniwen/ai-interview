@@ -479,7 +479,6 @@
         "@app/shared": "workspace:*",
         "@mastra/core": "^1.50.1",
         "@qdrant/js-client-rest": "^1.18.0",
-        "@t3-oss/env-core": "^0.13.11",
         "drizzle-orm": "catalog:",
         "fast-xml-parser": "^5.8.0",
         "html-to-text": "9.0.5",

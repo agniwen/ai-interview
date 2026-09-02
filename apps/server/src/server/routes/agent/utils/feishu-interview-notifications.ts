@@ -9,9 +9,9 @@ import {
   studioInterviewSchedule,
   user,
 } from "@app/db-schema/schema";
-import { db } from "@server/lib/server/db/index";
-import { buildSenderFromAddress, getResendClient } from "@server/lib/server/resend";
-import { getRequiredEnv } from "@server/lib/server/env";
+import { db } from "../../../../lib/server/db/index";
+import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/resend";
+import { getRequiredEnv } from "../../../../lib/server/env";
 import { InterviewSummaryCard } from "../../../integrations/feishu/interview-summary-card";
 import type { InterviewSummaryQuestionScore } from "../../../integrations/feishu/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";

@@ -38,7 +38,7 @@ async function loadDynamicRolePermission({
   organizationId: string;
   role: string;
 }): Promise<string | null> {
-  const { db } = await import("@server/lib/server/db/index");
+  const { db } = await import("../../lib/server/db/index");
   const [row] = await db
     .select({ permission: organizationRole.permission })
     .from(organizationRole)

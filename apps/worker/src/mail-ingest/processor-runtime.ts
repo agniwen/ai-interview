@@ -2,18 +2,14 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { enqueueResumeParseJobs } from "@app/resume-parse-queue/resume-parse";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@app/object-storage";
-import {
-  configureResumeProcessingDatabase,
-  insertBatchWithItems,
-  loadBatchDetail,
-} from "@app/resume-processing/ingest";
+import { createResumeIngest } from "@app/resume-processing/ingest";
 import { createMailIngestDao } from "@app/resume-processing/mail-ingest";
 import { decryptMailIngestSecret } from "@app/resume-processing/mail-ingest-crypto";
 import { db } from "../db";
 import { createMailIngestProcessor } from "./processor";
 import type { ImapClient, MailIngestDependencies } from "./processor";
 
-configureResumeProcessingDatabase(db);
+const { insertBatchWithItems, loadBatchDetail } = createResumeIngest(db);
 const mailIngestDao = createMailIngestDao(db, { decryptSecret: decryptMailIngestSecret });
 
 const productionMailIngestDependencies = {

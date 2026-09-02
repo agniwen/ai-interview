@@ -1,8 +1,8 @@
-import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../../lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 
-import { db } from "@server/lib/server/db/index";
-import { listActiveDuplicateMatchCounts } from "@server/lib/server/resume-semantic/duplicate-matches";
+import { db } from "../../../../../../lib/server/db/index";
+import { listActiveDuplicateMatchCounts } from "../../../../../../lib/server/resume-semantic/duplicate-matches";
 import {
   jobDescription,
   mailIngestAccount,

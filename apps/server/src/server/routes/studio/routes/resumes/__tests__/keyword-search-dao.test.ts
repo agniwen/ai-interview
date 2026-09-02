@@ -1,6 +1,6 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { organization, studioInterview, user } from "@app/db-schema/schema";
 import { queryPaginatedResumeRecords } from "../dao/resumes";
 import { PROFILE_WITH_HIGHLIGHTS } from "../../resume-pool/__tests__/fixtures";

@@ -50,6 +50,25 @@ describe("@app/server package boundary", () => {
     expect(violations).toEqual([]);
   });
 
+  it("keeps resume processing exports explicit and free of server-shaped mirror paths", () => {
+    const packageRoot = path.join(repoRoot, "packages/resume-processing");
+    // SAFETY: This parses the repository-owned resume-processing manifest whose export shape is asserted below.
+    const packageJson = JSON.parse(
+      readFileSync(path.join(packageRoot, "package.json"), "utf-8"),
+    ) as ServerPackageJson;
+    const exportNames = Object.keys(packageJson.exports);
+    const mirroredSources = sourceFiles(path.join(packageRoot, "src")).flatMap((file) => {
+      const relative = path.relative(packageRoot, file).replaceAll("\\", "/");
+      return /(?:^|\/)runtime\/server\/(?:routes\/)?/.test(relative) ? [relative] : [];
+    });
+
+    expect(exportNames.some((name) => name.includes("*"))).toBe(false);
+    expect(
+      exportNames.some((name) => /(?:internal|runtime|compat|server\/routes)/.test(name)),
+    ).toBe(false);
+    expect(mirroredSources).toEqual([]);
+  });
+
   it("keeps the Worker independent from the server application package", () => {
     const workerRoot = path.join(repoRoot, "apps/worker");
     const workerPackageJson = readFileSync(path.join(workerRoot, "package.json"), "utf-8");
@@ -106,6 +125,37 @@ describe("@app/server package boundary", () => {
     expect(directStudioImports).toEqual([]);
   });
 
+  it("loads page bootstrap data through page-permission RPC endpoints", () => {
+    const cases = [
+      ["forms", "forms.bootstrap", 'requirePermission("page", "forms")'],
+      [
+        "interview-questions",
+        '["interview-questions"].bootstrap',
+        'requirePermission("page", "interviewQuestions")',
+      ],
+      ["interviewers", "interviewers.bootstrap", 'requirePermission("page", "interviewers")'],
+      [
+        "job-descriptions",
+        '["job-descriptions"].bootstrap',
+        'requirePermission("page", "jobDescriptions")',
+      ],
+    ] as const;
+
+    for (const [capability, rpcAccess, permission] of cases) {
+      const webSource = readFileSync(
+        path.join(repoRoot, `apps/web/src/lib/start/studio/${capability}.server.ts`),
+        "utf-8",
+      );
+      const routeSource = readFileSync(
+        path.join(serverRoot, `src/server/routes/studio/routes/${capability}/route.ts`),
+        "utf-8",
+      );
+
+      expect(webSource).toContain(rpcAccess);
+      expect(routeSource).toContain(permission);
+    }
+  });
+
   it("exposes only the web host runtime from the server package", () => {
     const packageJson = readServerPackageJson();
     const webExports = Object.keys(packageJson.exports).filter((key) => key.startsWith("./web/"));
@@ -118,10 +168,10 @@ describe("@app/server package boundary", () => {
     expect(runtimeSource).not.toMatch(/export\s*\{[^}]*\b(?:auth|db)\b/);
   });
 
-  it("avoids hash aliases and package self-imports inside server source", () => {
+  it("avoids source aliases and package self-imports inside server source", () => {
     const violations = sourceFiles(path.join(serverRoot, "src")).flatMap((file) => {
       const source = readFileSync(file, "utf-8");
-      return /#(?:server|lib\/server)\/|@app\/server\//.test(source)
+      return /#(?:server|lib\/server)\/|@server\/|@app\/server\//.test(source)
         ? [path.relative(repoRoot, file)]
         : [];
     });

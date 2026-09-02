@@ -1,7 +1,7 @@
 /* oxlint-disable complexity, max-lines -- collection router coordinates validation, persistence, and access policy. */
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
@@ -42,7 +42,7 @@ import {
   signHumanInterviewMeetingToken,
 } from "./utils/human-interview-livekit";
 import { stopActiveHumanInterviewRecordingByRoomName } from "./utils/human-interview-recording-service";
-import { getFeishuTenantAccessToken } from "@server/lib/server/feishu-access-token";
+import { getFeishuTenantAccessToken } from "../../../../../lib/server/feishu-access-token";
 import {
   getFeishuAppCredentials,
   isFeishuHumanInterviewEnabled,
@@ -54,7 +54,7 @@ import {
   syncHumanInterviewMeetingToFeishu,
 } from "./utils/feishu-human-interview-meeting";
 import { recordCandidateActivity } from "./utils/candidate-activity";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@server/lib/server/resume-semantic/enqueue";
+import { enqueueResumeSemanticIndexJobBestEffort } from "../../../../../lib/server/resume-semantic/enqueue";
 import { recruitingJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { syncResumeSkills } from "../resumes/dao/skills";
 import {

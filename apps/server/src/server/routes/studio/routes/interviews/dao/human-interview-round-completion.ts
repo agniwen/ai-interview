@@ -1,5 +1,5 @@
 import { and, desc, eq, ne } from "drizzle-orm";
-import type { db } from "@server/lib/server/db/index";
+import type { db } from "../../../../../../lib/server/db/index";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";
 import {

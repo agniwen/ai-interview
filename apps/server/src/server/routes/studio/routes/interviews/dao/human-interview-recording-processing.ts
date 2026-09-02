@@ -1,5 +1,5 @@
 import { createHumanInterviewRecordingDao } from "@app/meeting-processing/human-interview";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 
 export const {
   ingestHumanInterviewRecording,

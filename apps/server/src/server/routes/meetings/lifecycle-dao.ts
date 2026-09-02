@@ -1,8 +1,8 @@
 /* oxlint-disable max-lines -- lifecycle commands and the two-phase purge state machine share transactional invariants. */
 import { and, asc, count, desc, eq, ilike, isNotNull, sql } from "drizzle-orm";
 import { createMeetingPurgeDao } from "@app/meeting-processing/purge";
-import { buildOrderBy } from "@server/lib/server/db/pagination";
-import { db } from "@server/lib/server/db/index";
+import { buildOrderBy } from "../../../lib/server/db/pagination";
+import { db } from "../../../lib/server/db/index";
 import {
   meetingAuditLog,
   meetingRecruitingContext,

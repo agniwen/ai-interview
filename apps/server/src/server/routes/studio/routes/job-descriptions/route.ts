@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, max, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import {
   department,
   interviewer,
@@ -41,7 +41,7 @@ import { cacheTags, safeUpdateTag } from "../../../../cache-tags";
 import {
   deleteJobDescriptionSemanticIndexBestEffort,
   enqueueJobDescriptionIndexJobBestEffort,
-} from "@server/lib/server/jd-semantic/enqueue";
+} from "../../../../../lib/server/jd-semantic/enqueue";
 import { generateJobDescriptionFromPrompt } from "./utils/ai-job-description-generate";
 import { generateResumeScreeningPolicyFromJobDescription } from "./utils/resume-screening-policy-generate";
 import {
@@ -50,6 +50,8 @@ import {
 } from "./utils/job-description-code";
 import { recommendCandidatesForJobDescription } from "./utils/recommendations";
 import { getGlobalConfig } from "../global-config/dao";
+import { listAllDepartments } from "../departments/dao";
+import { listAllInterviewers } from "../interviewers/dao";
 import { createJobDescriptionReferralLink } from "./dao/referral-links";
 import {
   generateStructuredJobBlueprintPreview,
@@ -307,6 +309,18 @@ export function createJobDescriptionsRouter(
       }
       const metrics = await dependencies.loadJobDescriptionMetrics(activeOrg.id);
       return c.json(metrics, 200);
+    })
+    .get("/bootstrap", dependencies.requirePermission("page", "jobDescriptions"), async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const [departments, interviewers, metrics] = await Promise.all([
+        listAllDepartments(activeOrg.id),
+        listAllInterviewers(activeOrg.id),
+        dependencies.loadJobDescriptionMetrics(activeOrg.id),
+      ]);
+      return c.json({ departments, interviewers, metrics }, 200);
     })
     .get("/recruiting", dependencies.requirePermission("jd", "read"), async (c) => {
       const { activeOrg } = c.var;

@@ -1,4 +1,4 @@
-import { auth } from "@server/lib/server/auth";
+import { auth } from "../../lib/server/auth";
 import type { statement } from "@app/shared/permissions";
 
 type Resource = keyof typeof statement;

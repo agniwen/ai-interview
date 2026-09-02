@@ -5,29 +5,29 @@ import type {
 } from "@app/shared/job-descriptions";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { jobDescription, studioInterview } from "@app/db-schema/schema";
-import { db } from "@server/lib/server/db/index";
-import { QdrantResumeVectorStore } from "@server/lib/server/qdrant/resume-vector-store";
+import { db } from "../../../../../../lib/server/db/index";
+import { QdrantResumeVectorStore } from "../../../../../../lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
   getResumeEmbeddingConfig,
   isResumeSemanticIndexEnabled,
-} from "@server/lib/server/resume-semantic/embedding";
-import { getResumeSemanticIndexConfig } from "@server/lib/server/resume-semantic/indexer";
+} from "../../../../../../lib/server/resume-semantic/embedding";
+import { getResumeSemanticIndexConfig } from "../../../../../../lib/server/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,
   mergeVectorScores,
   weightedScore,
-} from "@server/lib/server/resume-semantic/scoring";
-import type { VectorScores } from "@server/lib/server/resume-semantic/scoring";
-import { buildJobDescriptionSemanticTexts } from "@server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/scoring";
+import type { VectorScores } from "../../../../../../lib/server/resume-semantic/scoring";
+import { buildJobDescriptionSemanticTexts } from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   JobDescriptionSemanticInput,
   ResumeSemanticTextChunk,
-} from "@server/lib/server/resume-semantic/text-builders";
+} from "../../../../../../lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
   ResumeVectorStore,
-} from "@server/lib/server/resume-semantic/vector-store";
+} from "../../../../../../lib/server/resume-semantic/vector-store";
 import { buildMasteredSkills, buildProfileHighlights } from "../../resume-pool/dao";
 
 export type RecommendJobDescription = JobDescriptionSemanticInput;

@@ -129,7 +129,7 @@ describe("server route organization boundary", () => {
 
   it("does not grow the legacy route-to-database debt", () => {
     const directDbImport =
-      /from\s+["'](?:@app\/server\/|@server\/|(?:\.\.\/)+)lib\/server\/db(?:\/index)?["']/;
+      /from\s+["'](?:@app\/server\/|(?:\.\.\/)+)lib\/server\/db(?:\/index)?["']/;
     const offenders = collectSourceFiles(routesRoot)
       .filter((filePath) => path.basename(filePath) === "route.ts")
       .filter((filePath) => directDbImport.test(readSource(filePath)))

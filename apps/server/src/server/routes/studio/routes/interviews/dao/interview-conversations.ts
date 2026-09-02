@@ -7,7 +7,7 @@ import { interviewKeyInformationSchema } from "@app/db-schema/interview-key-info
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { formatCandidateFormAnswer } from "@app/shared/candidate-form-answer";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewContextSnapshot,
   interviewConversation,

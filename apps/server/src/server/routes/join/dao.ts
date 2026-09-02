@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import { addMemberToDefaultRecruitingGroup } from "../studio/routes/workspace/dao";
 import { notifyWorkspaceInviteCreatorMemberJoinedSafely } from "../studio/routes/workspace/utils/workspace-member-joined-notification";
 import { member } from "@app/db-schema/schema";

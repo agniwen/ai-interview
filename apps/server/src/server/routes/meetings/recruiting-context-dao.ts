@@ -1,5 +1,5 @@
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../lib/server/db/index";
 import { resolveRecruitingVisibilityScopeFromRows } from "../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../access/recruiting-visibility";
 import {

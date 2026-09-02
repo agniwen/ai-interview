@@ -1,7 +1,7 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { Env } from "./type";
-import { captureBackendException } from "@server/lib/server/sentry";
+import { captureBackendException } from "../lib/server/sentry";
 
 interface InternalErrorResponseOptions {
   context?: object;

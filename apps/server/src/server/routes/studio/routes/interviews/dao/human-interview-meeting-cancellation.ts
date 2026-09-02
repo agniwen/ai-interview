@@ -1,5 +1,5 @@
 import { and, eq, ne } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { studioHumanInterviewMeeting } from "@app/db-schema/schema";
 import { enqueueHumanMeetingEvents } from "../../../../../interview-notifications/utils/events";
 import { isInterviewNotificationFlowEnabled } from "../../../../../interview-notifications/utils/feature-flags";

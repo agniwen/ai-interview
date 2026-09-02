@@ -8,7 +8,7 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import type { ResumeProfile } from "@app/db-schema/interview/types";
 import { createRequestWorkspaceAuthorizer } from "../../../../access/workspace-access-policy";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@app/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "../../../../access/recruiting-visibility";
@@ -22,7 +22,7 @@ import {
 } from "@app/db-schema/studio-interviews";
 import { factory, jsonValidatorError } from "../../../../factory";
 import { refreshInterviewContextSnapshot } from "./dao/context-snapshots";
-import { findSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates } from "../../../../../lib/server/resume-semantic/dedup-service";
 import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,

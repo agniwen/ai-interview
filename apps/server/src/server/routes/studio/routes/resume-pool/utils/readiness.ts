@@ -1,4 +1,4 @@
-import type { findSemanticResumeDuplicates } from "@server/lib/server/resume-semantic/dedup-service";
+import type { findSemanticResumeDuplicates } from "../../../../../../lib/server/resume-semantic/dedup-service";
 
 interface ResumePoolReadinessKey {
   organizationId: string;
@@ -44,9 +44,9 @@ export async function completeResumePoolReadinessWithDefaultAdapters(
   input: ResumePoolReadinessKey & { duplicateMatches: DuplicateMatches },
 ): Promise<void> {
   const [indexer, poolDao, duplicateMatches] = await Promise.all([
-    import("@server/lib/server/resume-semantic/indexer"),
+    import("../../../../../../lib/server/resume-semantic/indexer"),
     import("../dao"),
-    import("@server/lib/server/resume-semantic/duplicate-matches"),
+    import("../../../../../../lib/server/resume-semantic/duplicate-matches"),
   ]);
   await completeResumePoolReadiness(input, {
     indexSemanticSource: (key) =>

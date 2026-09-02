@@ -139,7 +139,7 @@ export async function loadResumeReviewEvalRows(
   organizationId: string,
 ): Promise<ResumeReviewEvalRow[]> {
   const [{ db }, { studioInterview }, { asc, eq }] = await Promise.all([
-    import("@server/lib/server/db/index"),
+    import("../../lib/server/db/index"),
     import("@app/db-schema/schema"),
     import("drizzle-orm"),
   ]);

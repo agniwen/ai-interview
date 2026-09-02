@@ -3,7 +3,7 @@ import type {
   InterviewQuestionTemplateVersionRecord,
 } from "@app/db-schema/interview-question-templates";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
@@ -11,8 +11,8 @@ import {
   interviewQuestionTemplateVersion,
 } from "@app/db-schema/schema";
 import { buildTemplateSnapshot } from "@app/db-schema/interview-question-templates";
-import { hashTemplateSnapshot } from "@server/lib/server/interview-question-templates-hash";
-import { serializeDate } from "@server/lib/server/db/serialize";
+import { hashTemplateSnapshot } from "../../../../../../lib/server/interview-question-templates-hash";
+import { serializeDate } from "../../../../../../lib/server/db/serialize";
 import { mapQuestionRow } from "./queries";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -2,7 +2,7 @@
 /** @jsxImportSource chat */
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section } from "chat";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { FEISHU_PROVIDER_IDS } from "../../../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../../../integrations/feishu/provider";
 import { account, organization, user } from "@app/db-schema/schema";

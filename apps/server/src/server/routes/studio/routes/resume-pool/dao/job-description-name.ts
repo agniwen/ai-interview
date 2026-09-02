@@ -1,28 +1,9 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
-import { jobDescription } from "@app/db-schema/schema";
+import { db } from "../../../../../../lib/server/db";
+import { bindResumeProcessingDatabase } from "@app/resume-processing/ingest/database-context";
+import * as implementation from "@app/resume-processing/review/support/resume-pool-dao-job-description-name";
 
-/**
- * 取简历绑定岗位的名称，按组织隔离：只有当岗位属于该组织时才返回名字，
- * 否则返回 null（未绑定或岗位不在本组织），与列表查询的 org-scoped join 保持一致。
- */
-export async function loadBoundJobDescriptionName(
-  jobDescriptionId: string | null,
-  organizationId: string,
-): Promise<string | null> {
-  if (!jobDescriptionId) {
-    return null;
-  }
-  const [row] = await db
-    .select({ name: jobDescription.name })
-    .from(jobDescription)
-    .where(
-      and(
-        eq(jobDescription.id, jobDescriptionId),
-        eq(jobDescription.organizationId, organizationId),
-        eq(jobDescription.lifecycleStatus, "published"),
-      ),
-    )
-    .limit(1);
-  return row?.name ?? null;
-}
+// oxlint-disable-next-line no-barrel-file -- This route-local Server facade preserves existing imports while the reusable implementation has one package owner.
+export * from "@app/resume-processing/review/support/resume-pool-dao-job-description-name";
+
+export const loadBoundJobDescriptionName: typeof implementation.loadBoundJobDescriptionName =
+  bindResumeProcessingDatabase(db, implementation.loadBoundJobDescriptionName);

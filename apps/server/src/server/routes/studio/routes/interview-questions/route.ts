@@ -2,7 +2,7 @@ import { listTextFiltersSchema } from "@app/shared/list-text-filters";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
@@ -18,7 +18,7 @@ import {
   queryPaginatedInterviewQuestionTemplates,
 } from "./dao/queries";
 import { loadInterviewQuestionTemplateVersionById } from "./dao/versions";
-import { managedJobDescriptionIdsExist } from "../job-descriptions/dao";
+import { listAllJobDescriptions, managedJobDescriptionIdsExist } from "../job-descriptions/dao";
 import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "../../../../cache-tags";
 import {
   resolveAiGenerateContext,
@@ -168,6 +168,14 @@ export const interviewQuestionTemplatesRouter = factory
     }
     const records = await listAllInterviewQuestionTemplates(activeOrg.id);
     return c.json({ records }, 200);
+  })
+  .get("/bootstrap", requirePermission("page", "interviewQuestions"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+    return c.json({ jobDescriptions }, 200);
   })
   .post(
     "/",

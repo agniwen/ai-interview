@@ -1,5 +1,5 @@
 import { createHumanInterviewEvaluationDao } from "@app/meeting-processing/human-interview";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { loadMeetingTranscriptRevision } from "../../../../meetings/transcription/revision-dao";
 import { enqueueHumanInterviewRoundCompletion } from "./human-interview-round-completion";
 

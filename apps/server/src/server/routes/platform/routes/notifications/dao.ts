@@ -1,7 +1,7 @@
-import { buildListTextFilterWhere } from "@server/lib/server/db/list-text-filters";
+import { buildListTextFilterWhere } from "../../../../../lib/server/db/list-text-filters";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import {
   interviewConversation,
   interviewNotification,

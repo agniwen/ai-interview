@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import { factory } from "../../../../../factory";
 import { publicRouter } from "../../../../public/route";
 import { issueHumanInterviewMeetingLinks } from "../dao/human-interview-meetings";

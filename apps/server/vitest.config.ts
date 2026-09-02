@@ -16,14 +16,6 @@ const verbose =
   process.env.VITEST_REPORTER === "verbose";
 
 export default defineConfig({
-  resolve: {
-    alias: [
-      {
-        find: /^@server\/(.*)$/,
-        replacement: path.resolve(__dirname, "src/$1"),
-      },
-    ],
-  },
   test: {
     coverage: {
       exclude: ["src/**/*.test.ts", "src/**/*.test.tsx"],

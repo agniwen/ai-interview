@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../lib/server/db/index";
 import { studioInterview } from "@app/db-schema/schema";
 import {
   humanInterviewRoundInputSchema,

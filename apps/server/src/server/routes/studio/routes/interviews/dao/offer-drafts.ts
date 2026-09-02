@@ -8,7 +8,7 @@
 // linear without manual cleanup.
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
-import { db } from "@server/lib/server/db/index";
+import { db } from "../../../../../../lib/server/db/index";
 import {
   studioHumanInterviewRound,
   studioInterview,
