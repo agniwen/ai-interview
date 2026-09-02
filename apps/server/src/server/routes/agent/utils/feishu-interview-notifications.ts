@@ -14,7 +14,7 @@ import { db } from "../../../../lib/server/db/index";
 import { buildSenderFromAddress, getResendClient } from "../../../../lib/server/resend";
 import { getRequiredEnv } from "../../../../lib/server/env";
 import { InterviewSummaryCard } from "../../../integrations/feishu/interview-summary-card";
-import type { InterviewSummaryQuestionScore } from "../../../integrations/feishu/interview-summary-card";
+import type { InterviewSummaryQuestionAnswer } from "../../../integrations/feishu/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "../../../integrations/feishu/provider";
 import type { FeishuProviderId } from "../../../integrations/feishu/provider";
 import { ensureInterviewEvaluationDocument } from "./feishu-interview-document";
@@ -97,32 +97,6 @@ function buildStudioUrl(roundId: string, organizationSlug: string | null): strin
   return `${root}${prefix}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
 }
 
-function truncateForCard(value: string, maxLength: number): string {
-  const trimmed = value.trim().replaceAll(/\s+/g, " ");
-  if (trimmed.length <= maxLength) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, maxLength - 1)}…`;
-}
-
-export function extractQuestionScores(
-  evaluation: EvaluationSummary,
-): InterviewSummaryQuestionScore[] {
-  const rows = (evaluation.questions ?? []).flatMap((item) =>
-    item.score === null
-      ? []
-      : [
-          {
-            maxScore: item.maxScore,
-            question: truncateForCard(item.question, 28),
-            score: item.score,
-          },
-        ],
-  );
-
-  return rows.toSorted((a, b) => a.score / a.maxScore - b.score / b.maxScore).slice(0, 4);
-}
-
 interface NotificationCardInput {
   candidateName: string;
   duration: string;
@@ -130,6 +104,7 @@ interface NotificationCardInput {
   interviewQuestions: string[];
   interviewStartedAt: string;
   organizationSlug: string | null;
+  questionAnswers: InterviewSummaryQuestionAnswer[];
   resumeEvaluation: string | null;
   roundId: string;
   summary: string | null;
@@ -158,7 +133,7 @@ function buildNotificationCard(input: NotificationCardInput, detailUrl?: string)
     interviewQuestions: input.interviewQuestions,
     interviewStartedAt: input.interviewStartedAt,
     overallScore,
-    questionScores: extractQuestionScores(input.evaluation),
+    questionAnswers: input.questionAnswers,
     recommendation,
     resumeEvaluation: input.resumeEvaluation,
     summary: input.summary,

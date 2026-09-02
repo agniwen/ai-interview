@@ -2,10 +2,9 @@
 /** @jsxImportSource chat */
 import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section, Table } from "chat";
 
-export interface InterviewSummaryQuestionScore {
-  maxScore: number;
+export interface InterviewSummaryQuestionAnswer {
+  answer: string;
   question: string;
-  score: number;
 }
 
 export interface InterviewSummaryCardProps {
@@ -16,7 +15,7 @@ export interface InterviewSummaryCardProps {
   interviewQuestions: string[];
   interviewStartedAt: string;
   overallScore: string;
-  questionScores: InterviewSummaryQuestionScore[];
+  questionAnswers: InterviewSummaryQuestionAnswer[];
   recommendation: string;
   resumeEvaluation: string | null;
   summary: string | null;
@@ -31,7 +30,7 @@ export function InterviewSummaryCard({
   interviewQuestions,
   interviewStartedAt,
   overallScore,
-  questionScores,
+  questionAnswers,
   recommendation,
   resumeEvaluation,
   summary,
@@ -65,13 +64,13 @@ export function InterviewSummaryCard({
             .join("\n")}`}</CardText>
         </Section>
       ) : null}
-      {questionScores.length > 0 ? <Divider /> : null}
-      {questionScores.length > 0 ? (
+      {questionAnswers.length > 0 ? <Divider /> : null}
+      {questionAnswers.length > 0 ? (
         <Section>
-          <CardText>**题目得分概览**</CardText>
+          <CardText>**题目回答概览**</CardText>
           <Table
-            headers={["题目", "得分"]}
-            rows={questionScores.map((item) => [item.question, `${item.score}/${item.maxScore}`])}
+            headers={["题目", "候选人回答"]}
+            rows={questionAnswers.map((item) => [item.question, item.answer])}
           />
         </Section>
       ) : null}

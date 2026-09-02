@@ -19,9 +19,9 @@ describe("toLarkInteractiveCard", () => {
         ],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
-        questionScores: [
-          { maxScore: 10, question: "系统设计追问", score: 5 },
-          { maxScore: 10, question: "React 性能优化", score: 9 },
+        questionAnswers: [
+          { answer: "我先根据监控缩小范围，再结合火焰图定位热点。", question: "系统设计追问" },
+          { answer: "我会从渲染次数和资源加载两个方向排查。", question: "React 性能优化" },
         ],
         recommendation: "推荐进入下一轮",
         resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
@@ -53,15 +53,20 @@ describe("toLarkInteractiveCard", () => {
     expect(tableElement).toMatchObject({
       columns: [
         { data_type: "text", display_name: "题目", name: "col_0" },
-        { data_type: "text", display_name: "得分", name: "col_1" },
+        { data_type: "text", display_name: "候选人回答", name: "col_1" },
       ],
       rows: [
-        { col_0: "系统设计追问", col_1: "5/10" },
-        { col_0: "React 性能优化", col_1: "9/10" },
+        {
+          col_0: "系统设计追问",
+          col_1: "我先根据监控缩小范围，再结合火焰图定位热点。",
+        },
+        { col_0: "React 性能优化", col_1: "我会从渲染次数和资源加载两个方向排查。" },
       ],
       tag: "table",
     });
     expect(JSON.stringify(larkCard)).not.toContain("| 题目 | 得分 |");
+    expect(JSON.stringify(larkCard)).not.toContain("题目得分概览");
+    expect(JSON.stringify(larkCard)).toContain("**题目回答概览**");
     expect(JSON.stringify(larkCard)).toContain("系统设计追问");
     expect(JSON.stringify(larkCard)).toContain("**简历 AI 评价**");
     expect(JSON.stringify(larkCard)).toContain(
@@ -96,7 +101,7 @@ describe("toLarkInteractiveCard", () => {
         interviewQuestions: [],
         interviewStartedAt: "2026/07/07 14:20",
         overallScore: "86/100",
-        questionScores: [],
+        questionAnswers: [],
         recommendation,
         resumeEvaluation: null,
         summary: null,

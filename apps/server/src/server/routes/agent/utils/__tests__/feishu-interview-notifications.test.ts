@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluationSummarySchema, extractQuestionScores } from "../feishu-interview-notifications";
+import { evaluationSummarySchema } from "../feishu-interview-notifications";
 import { extractNotificationCardSupplement } from "../feishu-interview-notification-card";
 
 const qualitativeResumeEvaluation = {
@@ -32,8 +32,25 @@ const qualitativeResumeEvaluation = {
   teamPositioning: null,
 };
 
+function answeredQuestion(index: number, answerSummary: string | null) {
+  return {
+    answerSummary,
+    difficulty: "medium",
+    endedAtSecs: index * 10,
+    evaluationFocus: null,
+    followUpCount: 0,
+    followUpDirections: null,
+    question: `回答题目 ${index}`,
+    questionId: `answer-question-${index}`,
+    reason: null,
+    revision: 1,
+    startedAtSecs: index * 10 - 5,
+    status: "answered",
+  };
+}
+
 describe("partial interview summary notifications", () => {
-  it("accepts unanswered questions and only includes numeric scores in the card", () => {
+  it("accepts evaluation results that contain unanswered questions", () => {
     const evaluation = evaluationSummarySchema.parse({
       overallAssessment: "候选人主动结束，本次仅完成部分问题。",
       overallScore: 72,
@@ -52,13 +69,7 @@ describe("partial interview summary notifications", () => {
       recommendation: "待定",
     });
 
-    expect(extractQuestionScores(evaluation)).toEqual([
-      {
-        maxScore: 10,
-        question: "请介绍最近负责的项目。",
-        score: 7,
-      },
-    ]);
+    expect(evaluation.questions).toHaveLength(2);
   });
 
   it("accepts a completed interview without any scorable answers", () => {
@@ -76,12 +87,41 @@ describe("partial interview summary notifications", () => {
     });
 
     expect(evaluation.overallScore).toBeNull();
-    expect(extractQuestionScores(evaluation)).toEqual([]);
+    expect(evaluation.questions?.[0]?.score).toBeNull();
+  });
+
+  it("extracts up to four candidate answers in interview order", () => {
+    expect(
+      extractNotificationCardSupplement({
+        dataCollectionResults: {
+          questions: [
+            answeredQuestion(1, "第一道题的候选人回答。"),
+            answeredQuestion(2, null),
+            answeredQuestion(3, "第三道题的候选人回答。"),
+            answeredQuestion(4, "第四道题的候选人回答。"),
+            answeredQuestion(5, "第五道题的候选人回答。"),
+            answeredQuestion(6, "超过卡片容量的回答。"),
+          ],
+          schemaVersion: 2,
+        },
+        interviewQuestions: [],
+        qualitativeResumeEvaluation: null,
+        resumeEvaluationArtifactMode: null,
+      }),
+    ).toMatchObject({
+      questionAnswers: [
+        { answer: "第一道题的候选人回答。", question: "回答题目 1" },
+        { answer: "第三道题的候选人回答。", question: "回答题目 3" },
+        { answer: "第四道题的候选人回答。", question: "回答题目 4" },
+        { answer: "第五道题的候选人回答。", question: "回答题目 5" },
+      ],
+    });
   });
 
   it("extracts an optional resume evaluation and the first three ordered candidate questions", () => {
     expect(
       extractNotificationCardSupplement({
+        dataCollectionResults: null,
         interviewQuestions: [
           { difficulty: "hard", order: 4, question: "第四题" },
           { difficulty: "medium", order: 2, question: "第二题" },
@@ -93,6 +133,7 @@ describe("partial interview summary notifications", () => {
       }),
     ).toEqual({
       interviewQuestions: ["第一题", "第二题", "第三题"],
+      questionAnswers: [],
       resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
     });
   });
@@ -100,20 +141,27 @@ describe("partial interview summary notifications", () => {
   it("keeps each optional card section independent when the other data is unavailable", () => {
     expect(
       extractNotificationCardSupplement({
+        dataCollectionResults: null,
         interviewQuestions: [{ difficulty: "medium", order: 1, question: "保留的面试题" }],
         qualitativeResumeEvaluation,
         resumeEvaluationArtifactMode: "structured",
       }),
-    ).toEqual({ interviewQuestions: ["保留的面试题"], resumeEvaluation: null });
+    ).toEqual({
+      interviewQuestions: ["保留的面试题"],
+      questionAnswers: [],
+      resumeEvaluation: null,
+    });
 
     expect(
       extractNotificationCardSupplement({
+        dataCollectionResults: null,
         interviewQuestions: null,
         qualitativeResumeEvaluation,
         resumeEvaluationArtifactMode: "qualitative",
       }),
     ).toEqual({
       interviewQuestions: [],
+      questionAnswers: [],
       resumeEvaluation: "候选人的企业软件经验与岗位核心要求相符，建议进入下一轮。",
     });
   });
